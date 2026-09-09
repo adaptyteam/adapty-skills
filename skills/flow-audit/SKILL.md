@@ -55,7 +55,7 @@ $ADAPTY flows list --app "$APP" --json
 
 Returns `{id, name, status, updated_at}` per flow — `status` alone is a finding source
 (a flow sitting in `publication_failed` is worth saying out loud even before any check
-runs). If the user named a flow ("audit my Havn onboarding flow"), match it by name and
+runs). If the user named a flow ("audit my onboarding flow"), match it by name and
 skip the prompt. If they did not, show name + status for each and ask which one.
 
 **Never audit a flow the user did not name or select.** A silent pick on the wrong flow
@@ -205,7 +205,7 @@ State these plainly when they apply; never guess an answer for them.
   audit cannot see the host app, so this is a `question`, not a blocker, unless no
   `closeFlow`/`navigateBack` is reachable from that screen at all.
 - **Why a flow is `publication_failed`.** Both gates can pass clean over the exact bytes
-  of a flow sitting in that status (measured, `df730155`) — no local check explains it.
+  of a flow sitting in that status (measured on a real one) — no local check explains it.
   `check_meta` turns `--status publication_failed` into its own numbered `question`
   finding — the dashboard reports the flow failed to publish, nothing local explains
   why, the Flow Builder will show the real reason — and, because it is a `question`, it
@@ -227,7 +227,7 @@ run's copy.
 the bare config plus the catalog JSON; `--report` prints the user-facing block, `--json`
 prints raw findings, no flag prints a plain list. Exit 0 no blockers, 1 at least one
 blocker, 2 usage/unreadable input. Every check is calibrated in both directions against
-`tests/fixtures/` and five real flows in `app_finance` — see the script's own docstrings
+`tests/fixtures/` and five real flows — see the script's own docstrings
 for the traps each one closes; most were wrong on first contact with real data.
 
 `references/checks.md` — per-check evidence for every completeness check: what it looks

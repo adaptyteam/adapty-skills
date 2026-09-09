@@ -273,3 +273,38 @@ is the only part of "add Portuguese" that can be wrong.
 **Report:** the language, the locale codes you added, which is the source and which is derived,
 and — if derived — that it is a transliteration, so the user knows a copy edit must be re-derived
 rather than re-translated.
+
+
+### 9. Renaming a screen id, because it breaks analytics continuity
+
+A screen id is the only analytics-visible id in a flow the Flow Builder cannot set. It reaches
+the app as `instanceId` on both `flow_screen_showed` and `flow_user_input`
+(`generate-handlers.ts:489,716,824`, unified-builder-transformer@dcf2df4), so a customer
+forwarding events to their own analytics reads `scr_oAPBHPa7 → scr_03lOfpai` and keeps an
+id→name mapping by hand. That is a good reason to rename, and it is why the transform is in
+scope. Two things make it a decision rather than an edit.
+
+**It splits every funnel that spans it.** Historical events stay under the old id — in Adapty's
+own flow metrics *and* in whatever external tool the customer forwards to — so a chart covering
+the change shows two half-populated screens rather than one. Nothing migrates them. That makes
+this a rename-at-creation feature far more than a rename-anytime one, and on a **published**
+flow the user has to weigh it themselves. Say it before the write, not after.
+
+**It is a three-site edit and the forgotten site is fatal.** `screens[].id`, every
+`navigate.payload.screen` (including ones nested in a `conditional`'s `cases`/`default`), and the
+`_meta.screens` key — which *is* the screen id. Leave that key behind and the flow will not
+publish: measured against production, `flows config validate` refuses it with
+`_meta.screens["<new-id>"].products is missing flowProductId`. Run
+`references/rename-screens.py`, which does all three and refuses a collision, an unknown source
+id or two screens renaming onto one target rather than half-applying. `verify-config.py` errors
+on an orphaned key as the backstop for an edit made by hand anyway.
+
+**Do not extend it to element ids.** `el_XXXX` map keys reach no analytics at all, and they
+compile into the generated runtime script, where a character outside `[A-Za-z0-9_]` is a black
+screen on device. The id a customer actually sees for an input or a quiz option is
+`props.customId`, which they can already set in the builder — see `flow-schema.md` trap 7b, which
+also owns the silent-drop hazard when one is blank or duplicated.
+
+**Report:** each old → new pair, the three sites and how many references moved in each, that
+analytics continuity breaks, and — for a published flow — that the split is not reversible by
+renaming back, because the events under the old id stay there either way.

@@ -4,8 +4,8 @@
 a flow config. It is the only asset path an agent has, and it closes the gap that used to make
 every image in an authored flow a user ask.
 
-Everything below was measured against **production** with `adapty` 0.8.0 on 2026-08-24, in
-`app_finance`. Where a claim rests on a render rather than on the endpoint, it says so.
+Everything below was measured against **production** with `adapty` 0.8.0 on 2026-08-24.
+Where a claim rests on a render rather than on the endpoint, it says so.
 
 ## The call
 
