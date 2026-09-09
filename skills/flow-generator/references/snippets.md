@@ -214,7 +214,7 @@ collide with the destination are re-minted and every internal reference is rewri
 
 **Media and font URLs travel unchanged across a cross-app graft — measured 2026-08-27,
 `adapty` 0.8.1.** A `flows media upload` CDN URL and a `_meta.fonts[].url` are not
-app-scoped: a probe image uploaded to `app_finance` loaded (`200 image/png`) and drew
+app-scoped: a probe image uploaded to one app loaded (`200 image/png`) and drew
 visibly inside a different app's flow with no re-upload, and a font entry lifted
 verbatim from one app's flow rendered in that face inside another app's flow preview.
 Neither needs a rewrite step. That preview result is not a device guarantee for the

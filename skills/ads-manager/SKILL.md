@@ -19,12 +19,13 @@ Open the reference a workflow names before running its commands:
 
 **Resolve `$ADAPTY` once, before your first `asa` call, and use it for every command you run.** A
 global `adapty` is frequently old. The `asa` topic ships in **0.4.0**, but `ad-groups create
---automated` and the five `--invoice-*` flags ship in **0.8.2**, so treat 0.8.2 as this skill's floor.
-An older install answers with `unknown command` or an unknown-flag error, which reads like the command
-does not exist rather than like a stale CLI:
+--automated` and the five `--invoice-*` flags ship in **0.8.2**, and the `metrics` scope flags and the
+`automations` action flags in **0.8.3**, so treat 0.8.3 as this skill's floor. An older install answers
+with `unknown command` or an unknown-flag error, which reads like the command does not exist rather
+than like a stale CLI:
 
 ```bash
-adapty --version                                   # >= 0.8.2 ?  ADAPTY="adapty", done
+adapty --version                                   # >= 0.8.3 ?  ADAPTY="adapty", done
 npm i -g adapty@latest >/dev/null 2>&1 \
   && ADAPTY="adapty" \
   || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
@@ -119,15 +120,24 @@ The server aggregates and the server ranks. Decide the single call that answers 
 running anything; the metrics budget is **5 calls per minute** (`references/asa-metrics.md`).
 
 - Totals: one `metrics overview` call.
-- Best or worst N: one `metrics --order-by <metric> --page-size N` call, `--order asc` for worst.
+- Best or worst N: one `metrics --metric <m> --order-by <metric> --page-size N` call, `--order asc`
+  for worst.
 - Trend or period comparison: one call — a per-period series already contains both periods.
 - Counting entities: no metrics call at all. Any list with `--page-size 1` returns
   `meta.pagination.count`.
-- `metrics` and `metrics overview` take no scope filters at all. You narrow by entity level and
-  window, then match the returned rows against the ids from a scoped list.
-- A window too wide for its bucket is cured by coarsening, never by splitting. Caps: **90 days** at
-  day grain or with no period grouping, **180** by week, **365** by month and coarser. A year of
+- **`--metric` is required on `metrics`**, and every metric named is computed over the whole entity
+  set. Name the columns you will read. (`metrics overview` still takes it optionally.)
+- **Scope a `metrics` call** with `--app`, `--campaign` or `--ad-group` — repeatable UUIDs, and the
+  one thing that makes a call cheap, since cost follows the entities aggregated and not the page
+  size. `subscribers`, `paid_subscribers`, `arppu` and `arpas` are **refused** unless `--campaign` or
+  `--ad-group` scopes the call. `metrics overview` takes no scope flag; there you narrow by entity
+  level and window, then match rows against ids from a scoped list.
+- A window too wide for its bucket is cured by coarsening, never by splitting — and the two commands
+  differ at day grain. `metrics`: **28 days** grouped by day, **90** with no period grouping, **180**
+  by week, **365** by month and coarser. `metrics overview`: **90** at day, then the same. A year of
   data is one call at `--group-by month` (or `--period-unit month`), not four 90-day calls.
+- A `metrics` page is capped at **5000 breakdown rows** (entities × countries × periods); over it the
+  call fails `422 cli_response_too_large`. Coarsen, narrow, or scope — never loop smaller pages.
 
 Never sum pages client-side, never call once per period, and never add a comparison the user did not
 ask for — propose that in the answer instead.
@@ -200,14 +210,16 @@ Prerequisite for everything below. → `references/asa-management.md`,
 `## Account and discovery`.
 
 **2. Report performance.** Totals and any trend take the first shape; best or worst N takes the
-second, with `--order asc` for worst. Dates are required on both — without them the command exits
-before it reaches Apple. Counting needs no metrics call: any list at `--page-size 1` carries
-`meta.pagination.count`. `--by-days` takes max **16 windows per call**, and `--order-by-day` may
+second, with `--order asc` for worst. Dates are required on both, and `--metric` on `metrics` —
+without them the command exits before it reaches Apple. Scope `metrics` with `--app`, `--campaign`
+or `--ad-group` whenever you can name the ids; `subscribers`, `paid_subscribers`, `arppu` and
+`arpas` are refused without `--campaign` or `--ad-group`. Counting needs no metrics call: any list
+at `--page-size 1` carries `meta.pagination.count`. `--by-days` takes max **16 windows per call**, and `--order-by-day` may
 only name one of those values. → `references/asa-metrics.md`, `## Cohort windows`.
 
 ```
 $ADAPTY asa metrics overview --entity <level> --date-from <YYYY-MM-DD> --date-to <YYYY-MM-DD> [--period-unit <bucket>]
-$ADAPTY asa metrics --entity <ad|ad-group|campaign|keyword> --date-from <YYYY-MM-DD> --date-to <YYYY-MM-DD> --order-by <metric> --page-size <n>
+$ADAPTY asa metrics --entity <ad|ad-group|campaign|keyword> --date-from <YYYY-MM-DD> --date-to <YYYY-MM-DD> --metric <metric> [--campaign <uuid>] --order-by <metric> --page-size <n>
 ```
 
 **3. Launch a campaign.** Read `orgs list` → `--org` and `apps list` → `--adam-id` first; then
@@ -239,10 +251,10 @@ promote converting terms with `keywords add --ad-group <id>` and block wasteful 
 `references/asa-metrics.md`, `## The analytics pool`, and `references/asa-management.md`.
 
 **5. Optimization pass.** Read `metrics --entity keyword --date-from <YYYY-MM-DD> --date-to
-<YYYY-MM-DD> --by-days 7 --by-days 90 --order-by gross_roas --order-by-day 90` — `--order asc` asks
-that same call for the losers instead of the winners — and `keywords list --ad-group <id> --status
-ACTIVE` for ids. Get the user's
-cutoff before any write. Then `keywords update <ids> --bid <amount>` on winners,
+<YYYY-MM-DD> --metric roas --metric spend --ad-group <id> --by-days 7 --by-days 90 --order-by
+gross_roas --order-by-day 90` — `--order asc` asks that same call for the losers instead of the
+winners — and `keywords list --ad-group <id> --status ACTIVE` for ids. Get the user's cutoff before
+any write. Then `keywords update <ids> --bid <amount>` on winners,
 `keywords update <ids> --status PAUSED` on losers, `campaigns update <id> --daily-budget <n>` to
 shift spend — each with its own `--idempotency-key`. Confirm the budget separately from the
 bids; separate decisions. → `references/asa-metrics.md`, `## Cohort windows`, and
@@ -271,7 +283,12 @@ scoped list first. → `references/asa-management.md`, `## Status`.
 **9. Rule automations.** `automations create --file rule.json --idempotency-key <key>` →
 `automations run <id> --dry-run` → `automations runs <id>` to read what it would have done →
 `automations update <id> --start`, only after the user has seen that outcome. Dry-run every rule
-touching a bid or a budget. → `references/asa-management.md`.
+touching a bid or a budget. For an `add-as-keyword-to` rule, pass the action flags rather than
+writing `actions[0].params` by hand — `--target-ad-group`, `--match-type` and `--cpt-bid-type` are
+all required and the API has no defaults, and a hand-written block with one key out of place is
+accepted with a `200` and then adds keywords to nothing. On `update`, an action flag re-reads the
+rule and writes the whole action back, so it overwrites a dashboard edit made in between: say so
+first. → `references/asa-management.md`, `### The add-as-keyword action flags`.
 
 **10. Competitor check.** `competitors summary --app-ids <adam-id>,<adam-id>` — **1–5** Apple
 App Store IDs. Last full month, every country; no period or country flags exist. Read-only, shares

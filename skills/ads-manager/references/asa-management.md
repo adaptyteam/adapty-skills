@@ -148,10 +148,61 @@ Read `payment_model` from `orgs list` before a launch; do not assume `PAYG`.
 |---|---|---|
 | `asa automations list` | pagination only, no scope filters | `status` in the response is `1` for active, `0` for stopped. |
 | `asa automations get <id>` | positional UUID | Same `status` convention as `list`. |
-| `asa automations create` | `--file rule.json` (or `--file -` for stdin) | `--run-now` queues the rule's first run immediately after creation. |
-| `asa automations update <id>` | one or more of `--stop`, `--start`, `--name`, `--file` | If you pass `--file`, that file must not carry `internal_id` — the CLI treats a JSON body with `internal_id` in it as an error, since that field is server-assigned. |
+| `asa automations create` | `--file rule.json` (or `--file -` for stdin); for an `add-as-keyword-to` rule also the action flags below | `--run-now` queues the rule's first run immediately after creation. The CLI checks that the file carries exactly one `actions` entry and exits `2` otherwise, on every create — the API stores one action and one condition per rule, and the one-condition half is enforced server-side, not here. |
+| `asa automations update <id>` | one or more of `--stop`, `--start`, `--name`, `--file`, or an action flag | If you pass `--file`, that file must not carry `internal_id` — the CLI treats a JSON body with `internal_id` in it as an error, since that field is server-assigned. An action flag makes this a read-modify-write; see below. |
 | `asa automations run <id>` | `--dry-run` optional | Queued; the command prints a run id. `--dry-run` evaluates the rule and logs what it would do without touching Apple. |
 | `asa automations runs <id>` | positional UUID | Past runs for this automation, dry runs included. |
+
+### The add-as-keyword action flags
+
+**Never hand-write an `add-as-keyword-to` action's `params`, and never copy one from another
+rule.** `params` is a union the API resolves by *shape*, with no discriminator: a key
+belonging to a different action makes it pick that action's variant, silently drop the rest,
+and still answer `200`. The classic result is a rule that reads "Add as keyword to 0 ad
+groups" — the ad group is right there in the JSON, under the wrong key, and the rule does
+nothing every time it runs. On this action the ad groups live in `targets.internal_ids`,
+never in `ids`.
+
+Pass these flags instead and let the CLI build the block. They fill in or override
+`actions[0].params`, and they exit `2` on the mistakes the API would have accepted: an
+action that is not `add-as-keyword-to`, a flag that does not belong to the rule's
+`operate_with`, and a params block left incomplete — no target ad groups, no match type, no
+bid source, or `set_to` with no bid. The error names the missing flag and why it is needed.
+
+| Flag | Lands in | Values |
+|---|---|---|
+| `--target-ad-group` | `targets.internal_ids` | repeatable UUID; **required** — a rule with none does nothing |
+| `--match-type` | `match_type` | `BROAD`, `EXACT`; **required**, the API has no default |
+| `--cpt-bid-type` | `cpt_bid.type` | `ad_group_default_bid`, `set_to`, `search_term_current_cpt`, `keyword_current_bid`; **required**, the API has no default |
+| `--cpt-bid` | `cpt_bid.value` | the bid itself with `set_to` (required there); a **percent markup** on the entity's own bid with `search_term_current_cpt` / `keyword_current_bid`; rejected outright with `ad_group_default_bid` |
+| `--negate` / `--no-negate` | `negate` | `--negate ad-group` or `--negate campaign` adds the term as a negative at that level; `--no-negate` leaves none. Mutually exclusive, `search-term` rules only |
+| `--skip-enable-duplicates` | `skip_enable_duplicate_keywords` | boolean, default off — `search-term` rules only; off means an existing keyword in the target ad group gets *enabled* |
+| `--pause-original` | `pause_in_original_ad_group` | boolean, default off — `targeting-keyword` rules only |
+
+Which flags apply is decided by the rule's own `operate_with`, and the wrong half is
+refused rather than ignored:
+
+| `operate_with` | Applicable |
+|---|---|
+| `search-term` | `--target-ad-group`, `--match-type`, `--cpt-bid-type`, `--cpt-bid`, `--negate`/`--no-negate`, `--skip-enable-duplicates` |
+| `targeting-keyword` | `--target-ad-group`, `--match-type`, `--cpt-bid-type`, `--cpt-bid`, `--pause-original` |
+
+Any other `operate_with` — `campaign`, `ad-group` — has no `add-as-keyword-to` action, so
+these flags exit `2` there too.
+
+**On `update`, an action flag turns the call into a read-modify-write.** The CLI fetches the
+rule, rebuilds `actions[0].params` from the flags and writes the whole `actions` list back,
+because the API replaces `actions` wholesale. Two things follow: an edit someone made in the
+dashboard between the read and the write is overwritten, so say so before running it; and
+this is also the way to *repair* a rule whose stored `params` carry the wrong shape, since
+the rebuild keeps only what fits and takes the rest from the flags.
+
+```sh
+$ADAPTY asa automations create --file rule.json \
+  --target-ad-group <ad-group-uuid> --match-type EXACT \
+  --cpt-bid-type search_term_current_cpt --negate ad-group \
+  --idempotency-key <key>
+```
 
 ## Scope filters
 

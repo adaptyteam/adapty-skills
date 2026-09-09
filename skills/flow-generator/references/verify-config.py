@@ -55,6 +55,13 @@ import json, re, sys, os
 # `single_choice`; there is no `tabs` group type. See flow-schema.md, Vocabulary.
 GROUP_TYPES = {'single_choice', 'multi_choice', 'product', 'toggle'}
 
+# The seven element types the transform service reports through `flow_user_input`, taken from
+# its own INPUT_TYPES map (`user-input-analytics.ts:42-50`, unified-builder-transformer@dcf2df4).
+# `password-input` is deliberately NOT here: the transformer omits it and the docs say a
+# password field sends no event.
+REPORTING_INPUT_TYPES = {'text-input', 'email-input', 'number-input', 'phone-input',
+                         'date-picker', 'time-picker', 'date-time-picker'}
+
 # Element types the published schema flags `"x-supported": false` AND that no real export uses.
 # The flag means the extractor found no per-element mapper handler in the transform service, so
 # the SDK payload may never carry the element even though the schema, `flows config validate`
@@ -890,6 +897,26 @@ def check(path, baseline_text=None):
             seen_groups.setdefault(gid, s['id'])
 
     ms = d.get('_meta', {}).get('screens', {})
+
+    # `_meta.screens` is keyed BY SCREEN ID, so a key naming no declared screen means the two
+    # halves have come apart -- almost always a screen renamed without moving its key, and
+    # occasionally a screen deleted without clearing it. Measured against the live transform
+    # service (adapty 0.8.2): renaming a paywall screen and leaving the key
+    # behind makes the flow UNPUBLISHABLE -- `flows config validate` refuses it with
+    # `_meta.screens["<new-id>"].products is missing flowProductId for product "<uuid>"` -- while
+    # this checker reported OK, because the products then read as merely bound-but-undeclared,
+    # which is the ordinary and legitimate state of a freshly authored flow. Two very different
+    # situations wearing one warning, so the orphaned key gets named directly.
+    if isinstance(ms, dict):
+        known = {s_.get('id') for s_ in d.get('screens') or []}
+        for sid in sorted(k for k in ms if k not in known):
+            bad.append(f"_meta.screens has a key {sid!r} that names no screen in this config — "
+                       f"screens are {', '.join(sorted(str(x) for x in known))}. If you renamed "
+                       f"a screen, the key must move with it (use rename-screens.py, which "
+                       f"rewrites all three sites); if you deleted one, drop the key. Left as "
+                       f"is, any product declared under it is lost and the flow will not "
+                       f"publish")
+
     for s, e in els():
         if e['type'] == 'product':
             pid = (e.get('props') or {}).get('product', {}).get('id')
@@ -1815,6 +1842,91 @@ def check(path, baseline_text=None):
             bad.append(f'{v} reads a group declared multi_choice — the transform service '
                        f'refuses this ("Generated scripts failed validation"); a multi-select '
                        f'has no single selected option. Declare the group single_choice')
+
+    # ---- the id a `flow_user_input` event carries is `props.customId`, NEVER the element's
+    # `el_XXXX` map key, and it is OPTIONAL in the schema. Read from source,
+    # `unified-builder-transformer@dcf2df4`: `generate-handlers.ts:717,825` emit
+    # `elementId: <trackedInput.customId>`, `generate-meta.ts:245` emits an option's
+    # `analyticsId: <el.optionCustomId>`. When it is missing the transformer declines to
+    # track, silently -- and for a selectable group the gate is GROUP-WIDE, so one blank or
+    # one duplicate takes every answer in the group with it
+    # (`collect-variables.ts:1246-1252`, whose `allUniqueNonEmpty` trims before testing):
+    #
+    #     if (groupType !== 'toggle' && (!allUniqueNonEmpty(...optionCustomId) || ...)) continue
+    #
+    # Nothing else sees it: `flows config validate` returns valid, the schema marks the field
+    # optional on all eleven input and selectable props types, and the preview draws a working
+    # quiz. The customer finds out when no answers arrive.
+    #
+    # SCOPE is calibrated, not mirrored from the transformer. Only groups that actually report
+    # user input are checked -- `single_choice`/`multi_choice` whose members are `selectable`.
+    # `product` groups (6 real corpus instances, 0 carrying a customId) and `tab-item` groups
+    # (2, same) are excluded because product selections and tab switches raise no event at all,
+    # so a check that mirrored the transformer would fire on every real paywall in the corpus.
+    # `toggle` the transformer exempts by name: it reports a boolean and has no option ids.
+    for s in d.get('screens', []):
+        emap = (s.get('elements') or {}).get('map', {})
+        for g in s.get('selectableGroups') or []:
+            if g.get('type') not in ('single_choice', 'multi_choice'):
+                continue
+            members = [(eid, e) for eid, e in emap.items()
+                       if (e.get('props') or {}).get('groupId') == g.get('id')]
+            if not members or any(e.get('type') != 'selectable' for _eid, e in members):
+                continue  # a tab bar or a product picker, neither of which reports
+            cids = [str((e.get('props') or {}).get('customId') or '').strip()
+                    for _eid, e in members]
+            blank = [eid for (eid, _e), c in zip(members, cids) if not c]
+            filled = [c for c in cids if c]
+            dupes = sorted({c for c in filled if filled.count(c) > 1})
+            # SEVERITY. Only a duplicate is an error. Two options claiming one id cannot be a
+            # half-finished edit -- it is wrong in every state the author could have meant --
+            # and no real export contains one. A BLANK is reported just as loudly but stays a
+            # warning, for two reasons: it is indistinguishable from an unfinished edit, and a
+            # genuine export in this repo's own corpus has exactly that shape
+            # (`onboarding-quiz-paywall.json`, `rock` and `hiphop` set, third option blank),
+            # so erroring would make the checker fire on real published builder output --
+            # which this repo treats as disqualifying. Every other ERROR here means the flow
+            # does not work or does not publish; this one means it publishes and loses data.
+            if dupes:
+                bad.append(
+                    f"screen {s['id']}: selectable group {g['id']} ({g['type']}) has options "
+                    f"sharing the customId {', '.join(dupes)} — the whole group then reports "
+                    f"nothing to your app, not just those options, because the transform "
+                    f"service requires every option's customId to be non-empty AND unique "
+                    f"before it enables analytics for the group. Nothing else catches this: "
+                    f"validate passes it, the schema makes customId optional, and the preview "
+                    f"draws a working quiz")
+            elif blank and len(blank) != len(cids):
+                warn.append(
+                    f"screen {s['id']}: selectable group {g['id']} ({g['type']}) — "
+                    f"{', '.join(sorted(blank))} has no customId while its siblings do, so the "
+                    f"WHOLE group reports nothing to your app, not just that option. The "
+                    f"transform service needs every option's customId non-empty and unique "
+                    f"before it enables analytics for the group. Nothing else catches this: "
+                    f"validate passes it, the schema makes customId optional, and the preview "
+                    f"draws a working quiz")
+            elif blank:
+                warn.append(
+                    f"screen {s['id']}: selectable group {g['id']} ({g['type']}) has "
+                    f"{len(blank)} option(s) and no option carries a customId, so it reports "
+                    f"nothing to your app. Fine if the group only drives branching — "
+                    f"`<groupId>.selectedOptionId` keys on the option id, not the customId — "
+                    f"but if anyone expects these answers in analytics, set one per option")
+
+    # An input reports under its own customId, so without one it is untracked; the same string
+    # is the producer for `<customId>.value`, so no condition can read it either. Scoped to the
+    # seven types the transformer's INPUT_TYPES map actually reports: `password-input` is
+    # deliberately absent there ("Password fields send no event"), so it is excluded here too
+    # rather than warned about on a claim that would be false.
+    for s in d.get('screens', []):
+        for eid, e in (s.get('elements') or {}).get('map', {}).items():
+            if e.get('type') not in REPORTING_INPUT_TYPES:
+                continue
+            if not str((e.get('props') or {}).get('customId') or '').strip():
+                warn.append(
+                    f"{s['id']}/{eid} is a `{e['type']}` and the input has no customId — the "
+                    f"transform service does not track it, so what the user types never "
+                    f"reaches your app, and no condition can read `<customId>.value` for it")
 
     # ---- element types the transform service has no mapper handler for. Every other gate
     # passes these: the schema declares them, `validate` accepts them, and the preview page

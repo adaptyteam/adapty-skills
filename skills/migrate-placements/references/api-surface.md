@@ -417,6 +417,10 @@ Stated as open rather than smoothed over, because the skill's phases rest on it.
 - **`flows update --name` is untested on the pod** — only its prod `Method "PUT" not allowed` was
   measured.
 - **Whether a `dirty` flow is attachable.** Only `published` is treated as safe.
-- **Housekeeping:** probe flow `776194c6-a0ff-4074-99cc-0eabe8ccb0ec` ("ZZ ADP-6502 publish
-  probe - delete me") was created in `app_finance` during this investigation. There is no
-  `flows delete`, so it has to be removed from https://app.adapty.io/flows.
+  Two CLI author comments point the same way and neither settles it: `flow-help.ts` calls its
+  marker *"the backend message when a placement tries to attach an **unpublished** flow"*, and
+  `PlacementFlowAudienceEntryDTO` says *"The flow must be `published` (not draft)"*. A comment is
+  weaker than a measurement, so the row stands.
+- **Housekeeping:** a probe flow named *"ZZ ADP-6502 publish probe - delete me"* was created during
+  this investigation. There is no `flows delete`, so it has to be removed from
+  https://app.adapty.io/flows.

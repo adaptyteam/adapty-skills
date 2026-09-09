@@ -85,6 +85,8 @@ python3 tests/test-product-fields.py                                     # the c
 python3 tests/test-crop.py                                               # cutting a graphic out of a reference
 python3 tests/test-icon-declarations.py                                  # icon name+weight, and the no-traceback guarantee
 python3 tests/test-id-hygiene.py                                         # id charset, cross-screen dupes, locale codes
+python3 tests/test-customid-analytics.py                                 # the customId an input/option reports under
+python3 tests/test-rename-screens.py                                     # screen rename: three sites, refusals, the oracle
 python3 tests/mobile-preview-check.py                                    # the device-preview link, over the corpus
 python3 tests/test-audiences.py                                          # audience normalization, both directions
 python3 tests/test-migrate-cli.py                                        # migrate.py's CLI, driven offline
