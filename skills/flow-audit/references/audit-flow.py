@@ -1798,8 +1798,9 @@ def check_meta(meta):
             'the dashboard reports this flow as publication_failed -- the last '
             'attempt to publish it did not go through. No check in this audit '
             'explains why; do not guess a cause here.',
-            'Open the flow in the Flow Builder -- it will show the real reason the '
-            'publish failed.'))
+            'Run `adapty flows config get --app <APP> <FLOW>` and read '
+            '`transform_error` -- that is the transform service\'s own reason for '
+            'the failure. The Flow Builder shows the same thing.'))
     return out
 
 

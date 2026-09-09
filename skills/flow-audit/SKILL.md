@@ -73,7 +73,10 @@ $ADAPTY products list --app "$APP" --json > catalog.json
 
 `flows config get` returns an **envelope** — `{config, remote_configs, updated_at,
 status}` — not a bare config. Every check in Phase 4 wants the bare config, so extract
-`config` before running anything. `products list --json` returns `{"data": [...]}`; the
+`config` before running anything. **Keep the envelope**, and not only for `updated_at`:
+when the last publish failed it also carries `publication_status`, `transform_error` and
+`publication_error`, which is the only place in this audit the *reason* for a
+`publication_failed` status appears. `products list --json` returns `{"data": [...]}`; the
 audit script accepts either that wrapper or a bare array.
 
 The catalog fetch happens **before** the checks run, in this same phase, because every
@@ -205,12 +208,18 @@ State these plainly when they apply; never guess an answer for them.
   audit cannot see the host app, so this is a `question`, not a blocker, unless no
   `closeFlow`/`navigateBack` is reachable from that screen at all.
 - **Why a flow is `publication_failed`.** Both gates can pass clean over the exact bytes
-  of a flow sitting in that status (measured on a real one) — no local check explains it.
-  `check_meta` turns `--status publication_failed` into its own numbered `question`
-  finding — the dashboard reports the flow failed to publish, nothing local explains
-  why, the Flow Builder will show the real reason — and, because it is a `question`, it
-  also blocks a bare `READY FOR PRODUCTION` verdict until the user has seen it. Do not
-  invent a cause.
+  of a flow sitting in that status (measured on a real one) — **no check in this audit
+  explains it**, and that has not changed. `check_meta` turns `--status
+  publication_failed` into its own numbered `question` finding, and because it is a
+  `question` it also blocks a bare `READY FOR PRODUCTION` verdict until the user has
+  seen it. Do not invent a cause.
+
+  What *has* changed is that a cause is often already on disk: the phase-3 envelope's
+  `transform_error` is the transform service's own objection to the failed attempt. When
+  it is present, **quote it verbatim** beside that finding — it is evidence you were
+  handed, not an analysis of yours, so it does not turn the `question` into an answer
+  and it does not move the verdict. When the field is absent the API did not send it,
+  and the finding stands exactly as written.
 
 ## Handoff
 

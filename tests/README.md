@@ -88,6 +88,10 @@ python3 tests/test-id-hygiene.py                                         # id ch
 python3 tests/test-customid-analytics.py                                 # the customId an input/option reports under
 python3 tests/test-rename-screens.py                                     # screen rename: three sites, refusals, the oracle
 python3 tests/mobile-preview-check.py                                    # the device-preview link, over the corpus
+python3 tests/test-audiences.py                                          # audience normalization, both directions
+python3 tests/test-migrate-cli.py                                        # migrate.py's CLI, driven offline
+python3 tests/test-existing-flows.py                                     # flows the account already has, and the name match
+python3 tests/test-stub-flow.py                                          # the shipped stub's publishable floor
 ```
 
 Exit codes match the repo's lint convention: `0` clean, `1` findings, `2` infrastructure
@@ -325,3 +329,31 @@ It carries `_meta.screens` per surviving screen id (and uploaded `_meta.fonts` i
 none), and reports what it carried, what was already authored, and what it dropped because the screen
 no longer exists — the last one being legitimate but worth seeing.
 
+
+## `test-existing-flows.py` — the flow the user already converted
+
+Adapty's dashboard converts a Paywall Builder paywall into a flow in one click
+(**Move to new builder**), leaving a **draft** flow that carries the real layout, copy and
+products. So `migrate-placements` must assume some paywalls already have a flow, or it creates a
+second, emptier one for them — permanently, since there is no `flows delete`.
+
+`inventory` reads `flows list` and `paywalls list` (the paywalls for their **titles**: an audience
+carries `paywall_id` and no name), and `plan` proposes candidates per paywall.
+
+**The match is on the name and nothing else, because nothing else exists** — no field on a flow
+records the paywall it came from, in either direction. So it is a proposal the user confirms, and
+the suite pins both failure directions: a coincidental match must be confirmable rather than
+adopted, and an empty candidate list is **not** evidence that nothing was converted, because a
+renamed flow matches nothing.
+
+Negative-tested per mechanism, each reddening only its own cases: substring instead of token
+matching (2), a `next_step` that ignores the flow's status (3), a single-page `flows list` (4), and
+a non-degrading read (65, in `test-migrate-cli.py`).
+
+**One of those mutations found a test that could not fail**, and it is the reusable part. The
+substring case was written with a two-token title — `Main Paywall` against `Domain expert
+onboarding` — and normalization has already put spaces between the words, so
+`'main paywall' in 'domain expert onboarding'` is false as a substring too and the mutation passed
+untouched. The hazard needs a **one-token** needle to bite: `'main' in 'domain expert'` is true.
+Same class as the vacuous assertions recorded above — a case that tests the mechanism has to be
+able to distinguish it from the thing it replaced.
