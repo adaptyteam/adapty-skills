@@ -175,7 +175,17 @@ These are the reason the phase-5 device-preview callout stays load-bearing. In p
   the flow**: say the status is stuck, that the document validated clean, and that this one is for
   Adapty support with the flow id. Rewriting a clean config to chase a stuck job destroys work and
   fixes nothing. A `publication_failed` status is the opposite case and *is* yours: it means the
-  transform ran and objected, so re-run `validate` over the bytes and read the objection.
+  transform ran and objected.
+
+- **Read the objection rather than re-deriving it.** `flows config get` carries
+  `publication_status`, `transform_error` and `publication_error` in the same envelope as the
+  config, and `transform_error` is the transform service's own words about the attempt that
+  failed. Reach for those first, because the bullet above measured a `publication_failed` flow
+  validating **clean** — so re-running `validate` on the same bytes is a proxy that can, and did,
+  come back green on exactly the case you are diagnosing. `transform_error` is a raw string (a
+  JSON issues payload or a summary) with no CLI helper to parse it: quote it. When the fields are
+  absent the API did not send them, which is not itself a finding — fall back to `validate` and
+  say that is what you did.
 
 Say what you checked, in those terms. The gap between "publishable" and "renders correctly" is
 [preview.md](preview.md), and neither closes it — only a device does.

@@ -101,18 +101,28 @@ check('plan preserves segment_ids and priority per audience',
           for p in plan.get('placements', []) for a in p['audiences']),
       str(plan.get('placements')))
 counts_only = {k: v for k, v in (plan.get('summary') or {}).items()
-               if k not in ('scope', 'exposure')}
+               if k not in ('scope', 'exposure', 'existing')}
 check('plan carries the summary block through from migratable_summary',
       counts_only == {'placements': 2, 'audiences': 3, 'paywalls': 2,
                       'already_flow': 1, 'empty': 0,
                       'unwritable_multi_segment': 0},
       str(plan.get('summary')))
-check('the five counts, the account-wide scope and the plan-row exposure are three '
-      'SEPARATE blocks -- none of them silently stands in for another',
+check('the five counts, the account-wide scope, the plan-row exposure and the '
+      'already-converted block are four SEPARATE blocks -- none of them silently '
+      'stands in for another',
       set(plan.get('summary') or {})
       == {'placements', 'audiences', 'paywalls', 'already_flow', 'empty',
-          'unwritable_multi_segment', 'scope', 'exposure'},
+          'unwritable_multi_segment', 'scope', 'exposure', 'existing'},
       str(sorted(plan.get('summary') or {})))
+# This shim serves no `flows list`, so the existing-flow read fails -- and the run
+# still produced an inventory and a plan. THAT IS THE ASSERTION: the enrichment
+# degrades, because the caller has already paid N GETs for the placements and an
+# environment that cannot serve two extra reads must not cost them that.
+check('a CLI that cannot serve `flows list` still yields an inventory and a plan, '
+      'with the failure recorded rather than raised',
+      ((plan.get('summary') or {}).get('existing') or {}).get('error', '')
+      .startswith(sys.executable),
+      str((plan.get('summary') or {}).get('existing')))
 
 check('plan without --flows emits no command key -- the flag is purely additive',
       all('command' not in p and 'missing_flows' not in p

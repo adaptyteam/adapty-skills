@@ -3,7 +3,8 @@
 Every fact here was measured **2026-09-03** and names the environment it came from. Two
 environments, and they disagree — which is the whole reason this file exists:
 
-- **prod** — `adapty` 0.8.3-beta.1 against the default API.
+- **prod** — `adapty` 0.8.3-beta.1 against the default API. Two later CLI commits landed after
+  that build and changed output an agent routes on; both are marked below.
 - **the pod** — the same CLI with `ADAPTY_API_URL` pointed at the MR !13221 environment
   (`dashboard-manual-mr-13221-production.manual.adpinfra.dev/api/v1/developer`, over https),
   which has the placement-audience union deployed. **The pod is backed by production data** —
@@ -24,12 +25,17 @@ Error strings are quoted exactly. An agent routes on them, so a paraphrase here 
 | `is_active` on a placement | **absent** | **absent** — declared in the source at `!13221 @ d0b878cb`, not yet released |
 
 **None of ADP-6502 is live in production.** So the skill probes rather than assumes, and it
-degrades on those exact error shapes. `audiences.0.paywall_id: Field required` in response to a
+degrades on those exact error shapes.
+
+**The CLI version is the other axis, and it does not move monotonically.** `flows publish` and
+`flows update` shipped in `0.8.3-beta.0`, were **absent from the `0.8.3` release**, and returned
+after it — so *"at least 0.8.3"* admits a build without the command, and a numeric floor is not a
+usable test. Phase 1 probes with `flows publish --help` for that reason. `audiences.0.paywall_id: Field required` in response to a
 flow audience is the API rejecting the *union* — the server still models an audience as
 paywall-only — and it is not a malformed request.
 
 **The publish gate, observed on the pod.** `placements create` naming a flow whose status is
-`draft`:
+`draft` — the backend's own wording, which is what 0.8.3-beta.1 printed:
 
 ```
 ApiError: Flow must be published before placing in a placement.
@@ -40,10 +46,48 @@ That is the ticket's `FlowNotPublishedError`, reached on the **create** path. On
 the type check fires first, so it is unreachable there. Hence the phase ordering: publish, poll
 until `published`, then create the placement.
 
-**`flows publish` is asynchronous.** Success logs `Publishing started — status: publishing.` — the
-status is `publishing`, never `published`. A run that reports the flow as live off that response is
-reporting a state nobody observed. On a 400 (`validation_error`) it exits **1** with remediation
-links, one of which is https://adapty.io/docs/flow-generator-skill.
+**The CLI now replaces that message, so do not route on the backend text.** `placements
+create|update` match the backend string themselves and print their own, exiting **2**:
+
+```
+Cannot attach a draft flow to a placement — publish it first.
+Publish:  adapty flows publish --app <APP> <FLOW>
+  • Builder UI: https://app.adapty.io/flows/<FLOW>/builder
+  • Adapty flows agent skill: https://adapty.io/docs/flow-generator-skill
+```
+
+The backend sentence is **not** in that output, so a check for *"Flow must be published before
+placing in a placement"* matches on the older build and nothing on the newer one. Route on
+**`Cannot attach a draft flow`** and treat the backend wording as the legacy form. Any other
+refusal is relayed unchanged — the mixed-audience and type-change errors below still read exactly
+as quoted.
+
+**`flows publish` is asynchronous.** The status is `publishing`, never `published`. A run that
+reports the flow as live off that response is reporting a state nobody observed. On a 400
+(`validation_error`) it exits **1** with remediation links, one of which is
+https://adapty.io/docs/flow-generator-skill.
+
+Its success output grew after 0.8.3-beta.1 and now hands you the next two commands:
+
+```
+Publishing started — status: publishing. This is asynchronous; the flow is NOT published yet.
+Check progress:  adapty flows get --app <APP> <FLOW>   (wait for status 'published' or 'publication_failed')
+If it fails:     adapty flows config get --app <APP> <FLOW>   (shows why)
+```
+
+Two things follow. The older single line — `Publishing started — status: publishing.` — is a
+**prefix** of the new one, so a prefix match survives both builds and an equality match does not.
+And all three lines are **suppressed under `--json`**: a `--json` publish returns the flow object
+alone, so the poll is on you either way.
+
+**A failed publication is readable from the CLI.** `flows config get`'s envelope carries
+`publication_status`, `publication_error` and `transform_error` beside the config, and
+`transform_error` is the transform service's own objection to the attempt. They are passthrough
+fields: where the API does not send them they are absent, which is not an error. `transform_error`
+is a raw string — a JSON issues payload or a summary — and there is **no CLI helper to parse it**
+(the type's own comment names a `parseFlowPublicationError` that does not exist in the CLI), so
+quote it rather than deriving a cause of your own. `flow-generator` owns this diagnosis; this skill
+only needs it when a phase-5 publish lands on `publication_failed`.
 
 ## Why every migration is a create
 
@@ -72,6 +116,50 @@ Two consequences worth stating separately:
   new flow placement cannot reuse the paywall placement's ID, and placement delete is out of
   scope — there is no undo for a created placement. Every proposed ID is pre-checked against
   `placements list` and approved before anything is created.
+
+## Finding a flow the user already has
+
+**The dashboard converts a Paywall Builder paywall into a flow in one click**, and this skill has to
+assume some of that has already happened. **Move to new builder**, on the paywall's own overview
+page, recreates the paywall as a **draft** flow carrying its layout, its copy in every locale, and
+its products with prices as variables ([Convert a paywall into a flow](https://adapty.io/docs/convert-paywall-to-flow.md)).
+Adapty's own migration guidance is to convert rather than rebuild
+([Migrate to flows](https://adapty.io/docs/migrate-to-flows.md)). Three facts from those pages line
+up exactly with what this file measured, and are worth having in one place:
+
+- the converted flow **does not take the paywall's placement**, and cannot take its ID either;
+- it starts as a **draft**, so it is refused at attach until published;
+- the paywall **stays live and unchanged**, which is what makes the whole migration additive.
+
+`inventory` therefore reads two more paged lists, on by default:
+
+| Read | Returns | Read for |
+|---|---|---|
+| `flows list` | `{id, name, status, updated_at}` | the flows that already exist, and their statuses |
+| `paywalls list` | `{id, title, product_ids}` | the **titles** — an audience carries `paywall_id` and no name |
+
+Both are `{data, meta.pagination}` behind the same `paginationFlags` as `placements list`, so both
+default to **20 rows a page** and both go through the same exhaustion loop. Two paged reads whatever
+the account size, against the one GET per placement already being spent.
+
+**THE MATCH IS ON THE NAME AND NOTHING ELSE, because nothing else exists.** No field on a flow
+records the paywall it was converted from, and no field on a paywall records the flow — there is no
+back reference in either direction. So `match_existing_flows` compares normalized titles, reports
+`exact` or `contains`, and never picks: the candidate goes to the user. Two failure directions, both
+real and neither detectable:
+
+- a name match can be a **coincidence** — hence proposal, never adoption;
+- a **renamed** converted flow matches nothing, so an empty candidate list is not evidence that
+  nothing was converted. Ask.
+
+Matching is on **tokens, not substrings**. `main` is inside `Domain expert` and is not a name match;
+a false candidate is worse than none, because the user is being asked to confirm the flow their
+paying customers get served.
+
+**Whether a paywall CAN be converted is not readable.** `PaywallDTO` is `{id, product_ids, title}` —
+nothing says which builder made it — and **Move to new builder** appears only on legacy Paywall
+Builder paywalls. So the skill describes the button and where to find it, and never asserts it is
+there.
 
 ## Pagination
 
@@ -166,6 +254,11 @@ accept both shapes rather than injecting unconditionally.
 The CLI validates the field itself, before any request. `audienceEntryProblem` (**exit 2**, no
 request sent): `content_type` is required and must be one of `{paywall, flow}`; a paywall entry
 requires `paywall_id`, a flow entry requires `flow_id`. Reported as `--audiences[<i>]: <problem>`.
+
+**Exit 2 no longer means "nothing was sent".** The draft-flow refusal above also exits 2, and that
+one is a *rejected* request rather than a withheld one. Both are safe to retry after fixing the
+cause, and neither created a placement — but read the message before you conclude which happened,
+because the two need different fixes (edit the argv, versus publish the flow and re-run).
 
 ## `is_active` — the scope filter
 

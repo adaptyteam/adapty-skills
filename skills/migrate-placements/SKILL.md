@@ -28,33 +28,46 @@ dashboard.** This skill produces new flow placements and a table of
 call change** — which is also the safety property worth saying out loud: the old placements keep
 serving until then, so shipping nothing is the rollback.
 
+**And some of the work may already be done, so look before you build.** A user part-way through
+migrating already has flows for some of their paywalls, and a run that does not look creates a
+second, emptier one — permanently, since there is no `flows delete`. Phase 2 reads them; phase 4
+decides what to do with each.
+
 Boundaries. This skill does not design or build flow content — that is `flow-generator`, which owns
-`flows config update`, the preview loop and publish. It does not implement the app-side call sites —
-that is `adapty-integration`. It does not delete or modify any existing placement, paywall or flow.
+`flows config update`, the preview loop and publish. It does not convert a paywall into a flow —
+that is the dashboard button above, the user's click, with no CLI equivalent; this skill's job is
+to find the flow it produced and put a placement on it. It does not implement the app-side call
+sites — that is `adapty-integration`. It does not delete or modify any existing placement, paywall
+or flow.
 
 ## Phase 1 — Resolve and probe
 
-`flows publish` ships in **0.8.3-beta.1** and is **absent from 0.8.2**, so a global `adapty` below
-that floor cannot run this migration. Resolve `$ADAPTY` once, the way the sibling skills do —
-compare the installed version and **keep the user's own binary**, falling back to `npx` rather than
-installing anything:
+This migration needs `flows publish`. Resolve `$ADAPTY` once, the way the sibling skills do —
+**install `latest` once and keep using it**, falling back to `npx` only when the global prefix is
+not writable — then check that the command is there:
 
 ```bash
-if [ "$(printf '%s\n' "$(adapty --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" "0.8.3" | sort -V | head -1)" = "0.8.3" ]; then
-  ADAPTY=adapty
-else
-  ADAPTY="npx --yes adapty@beta"
-fi
+npm i -g adapty@latest >/dev/null 2>&1 \
+  && ADAPTY="adapty" \
+  || ADAPTY="npx --yes adapty@latest"
+$ADAPTY --version
 $ADAPTY auth whoami
 ```
 
-**Never `npm i -g` here.** The floor is a *beta*, and installing it globally would replace whatever
-the user has pinned for every other skill on the machine. The `grep` drops the prerelease suffix, so
-`0.8.3-beta.1` compares as `0.8.3` and passes — deliberate, since that build is the only one
-carrying the command. `--yes` on the npx fallback is load-bearing: without it npx stops to ask
-permission to install, and a headless run has nobody to answer. In `zsh` (the macOS default) a
-multi-word `$ADAPTY` is not word-split, so run `setopt shwordsplit` once in the same shell;
-`command not found: npx --yes adapty@beta` is that shell problem, never a missing CLI. If
+**Do not gate this on a version number you read somewhere — check the command.** `$ADAPTY flows
+publish --help` either describes a command or it does not, and that is the only test that cannot go
+stale; a numeric floor has already been wrong here once, because `flows publish` shipped in
+`0.8.3-beta.0` and `0.8.3-beta.1`, was **absent from `0.8.3`**, and came back after it. If the
+command is missing after installing `latest`, try `npx --yes adapty@beta` once, and if it is missing
+there too the route is not released yet: say so and hand the user the dashboard steps
+([Migrate to flows](https://adapty.io/docs/migrate-to-flows.md)) rather than a version to chase.
+
+**Install once; do not wrap every call in `npx`.** The wrapper costs ~1 s *per call* against 0.07 s
+installed, and this skill makes one call per placement. On the `npx` fallback `--yes` is
+load-bearing: without it npx stops to ask permission to install, and a headless run has nobody to
+answer. In `zsh` (the macOS default) a multi-word `$ADAPTY` is not word-split, so run
+`setopt shwordsplit` once in the same shell; `command not found: npx --yes adapty@latest` is that
+shell problem, never a missing CLI. If
 `auth whoami` fails, `$ADAPTY auth login` opens a browser — that is the user's to complete. Then
 `$ADAPTY apps list --json` for the app UUID.
 
@@ -114,6 +127,13 @@ the script declining to guess, not a bug.
 `placements list` returns `{developer_id, id, title}` with **no audiences** — only `placements get`
 returns them, so classifying N placements costs N GETs and there is no bulk read
 ([api-surface.md](references/api-surface.md#summary-vs-detail)).
+
+**The same command also reads `flows list` and `paywalls list`** — the flows the account already
+has, and the paywall **titles** to match them against, since an audience carries `paywall_id` and
+no name ([api-surface.md](references/api-surface.md#finding-a-flow-the-user-already-has)). Two
+paged reads whatever the account size, against the N GETs already being spent. `--no-existing`
+skips them; reach for it only when they fail, and then say the question went unanswered rather
+than reporting a zero.
 
 **Pass `--scope active`. Today it will fall back, and that is the expected result, not a fault.**
 `is_active` is measured **absent in production and absent on the pod**
@@ -211,9 +231,21 @@ that describes what you did not.
 over the placements this plan would create. Do not print it here — phase 6 is where it is used, and
 that is the one place its number means anything.
 
+**`summary.existing` is the fourth, and this one you do report, because it changes what phase 4
+asks.** Every `flows_needed` row carries the paywall's `paywall_title` and, where a flow in the
+account has a matching name, `existing_flow_candidates` — each with its `status` and a `next_step`
+of `attach` (it is already `published`) or `publish_then_attach` (a converted flow is left
+`draft`). Say how many of the distinct paywalls already have a candidate, and name them.
+
+**Every candidate is a PROPOSAL and the user confirms each one.** The match is on the name alone —
+nothing in the API records which paywall a flow came from — so a match may be a coincidence, and
+**no match is not evidence that nothing was converted**, because a renamed flow leaves nothing to
+match on. Ask, with the flow list to hand — https://app.adapty.io/flows.
+
 ## Phase 4 — Two questions
 
-Ask both in one message, then stop.
+Ask both in one message, then stop. The second is per paywall, so put it as **one table with a
+recommended route per row** — not one message per paywall, and not one route for the account.
 
 **1. Scope.** A real three-way choice when `is_active` is present, not "enumerate everything and
 deselect":
@@ -244,16 +276,39 @@ widen costs is a second read, which is stated above rather than hidden.
 the original question instead: all of them, with the count shown, or a named subset. That is the
 phase-2 scale gate being answered, not a second ask about the same thing.
 
-**2. Where the flow content comes from**, one of three:
+**2. Where the flow content comes from**, per distinct paywall — and **ask it per paywall, not
+once for the account**, because phase 3 has just told you that some of them already have a flow and
+some do not. Four routes, in the order to offer them:
 
-- **Stub** — one minimal publishable flow per distinct paywall from `references/stub-flow.json`. The
-  fastest path, and it carries a disclosure the user must accept in phase 6.
-- **Build** — hand each distinct paywall to `flow-generator`, which reads the paywall and designs
-  the flow. Slower, and the only option that produces something sellable.
-- **Existing** — the user supplies the `paywall → flow` map themselves. Verify each named flow with
-  `flows get` and confirm its status is **`published`**; a draft is refused at attach.
+- **Reuse** — a flow already in the account, from `existing_flow_candidates` or named by the user.
+  **Offer this first wherever a candidate exists**, because it is the only route that costs nothing
+  and the flow it reuses is the user's own work. Confirm the flow with them, re-read `flows get`,
+  and act on its status: `published` attaches as-is; anything else is published first (phase 5's
+  publish half, without its `flows create` half).
+- **Convert** — the dashboard's **Move to new builder** on the paywall's own overview page, which
+  recreates it as a draft flow in one click: layout, copy in **every** locale, and products with
+  prices as variables ([docs](https://adapty.io/docs/convert-paywall-to-flow.md)). **This is the
+  right default for a paywall built in the legacy Paywall Builder** — Adapty's own guidance is to
+  convert rather than rebuild — and it is the user's click, not yours: there is no CLI command for
+  it. Point them at it, wait, then re-run `inventory` and take the Reuse route on what appears. The
+  builder opens an **Import review** panel listing whatever did not carry over, and working through
+  that panel is theirs too.
+- **Build** — hand the paywall to `flow-generator`, which reads it and designs the flow. The route
+  for a paywall the conversion cannot serve, or a screen the user wants redesigned rather than
+  reproduced.
+- **Stub** — one minimal publishable flow from `references/stub-flow.json`. **The last resort, not
+  the fast path.** It shows users a placeholder, which is why it carries a disclosure they must
+  accept in phase 6; offer it only once the three above are ruled out, or for a placement nobody
+  is served from.
 
-Never pick for them. The three differ in what users will see, which is not the agent's call.
+**Whether Convert is even available is not readable from the CLI.** `paywalls list`/`get` return
+`{id, title, product_ids}` and nothing about which builder made the paywall, and **Move to new
+builder** appears only on legacy Paywall Builder paywalls. So do not tell a user the button is
+there — say what it does and where to look for it, and let them report back.
+
+Never pick for them. The four differ in what users will see, which is not the agent's call. **What
+you may not do is create a flow for a paywall that already has one** without the user having
+declined to reuse it: that is a duplicate the account keeps, since there is no `flows delete`.
 
 ### A rehearsal order, when `is_active` is present
 
@@ -278,9 +333,18 @@ this entirely rather than guessing which placements are quiet.
 
 ## Phase 5 — Realize the flows
 
-Per distinct paywall, in this order. The ordering is forced by measurement: a placement naming a
-draft flow is refused with `Flow must be published before placing in a placement.`, and publication
-is **asynchronous**.
+**A paywall the user chose to Reuse skips most of this phase.** There is nothing to create and
+nothing to write: re-read `flows get`, and if the status is `published` record it in the ledger and
+move on; if it is not, run the publish and the poll below and nothing else. `flows create` and
+`config update` are for a paywall that has no flow yet — running them over a reused flow is how you
+get the duplicate this whole route exists to avoid, and there is no `flows delete` to undo it. A
+paywall waiting on the user's **Move to new builder** click is not ready for this phase at all:
+leave it out of the ledger, and pick it up on the next `inventory`.
+
+Per distinct paywall that needs a new flow, in this order. The ordering is forced by measurement: a
+placement naming a draft flow is refused — `Cannot attach a draft flow to a placement — publish it first.`, exit 2, or
+on an older CLI the backend's own `Flow must be published before placing in a placement.` — and
+publication is **asynchronous**.
 
 ```bash
 $ADAPTY flows create --app "$APP" --name "<paywall title> (flow)" --json      # row only; draft
@@ -298,11 +362,14 @@ only the flow to *exist*, so running it after `config update` checks bytes that 
 `create` still comes first, because validate resolves a flow id.
 
 `flows publish` reports `status: publishing`, **never** `published` — so **poll `flows get` until
-the status reads `published`** and do not report the flow as live off the publish response. `--yes`
-is passed here only because the user is choosing flow content in phase 4 and the placements are
-still gated in phase 6; without it a non-TTY run refuses with exit 2 rather than hanging.
-`flow-generator` owns the publish contract and the 400 path — delegate to it rather than
-re-deriving them.
+the status reads `published`** and do not report the flow as live off the publish response. The
+command prints that poll itself, and prints the diagnosis call beside it; on
+`publication_failed`, `flows config get` carries `publication_status`, `transform_error` and
+`publication_error`, and `transform_error` is the transform service's objection in its own words —
+quote it, do not invent a cause. `--yes` is passed here only because the user is choosing flow
+content in phase 4 and the placements are still gated in phase 6; without it a non-TTY run refuses
+with exit 2 rather than hanging. `flow-generator` owns the publish contract, the 400 path and the
+failure diagnosis — delegate to it rather than re-deriving them.
 
 **A `http_404` from `flows publish` stops the run here, and it is not a clean stop.** The route is
 not deployed to production, so every account gets it; but `flows create` has already run for this
@@ -335,6 +402,10 @@ the end:
 re-run creates a second flow per paywall and every duplicate is a permanent row somebody removes by
 hand. Write it after the `flows get` that confirmed `published`, so a line in the file means a flow
 that can actually be attached.
+
+**A reused or converted flow is an entry like any other.** The ledger records what phase 7 will
+attach, not what this phase created, so a flow the user already had goes in the same file once
+`flows get` reads `published` — and phase 7 then cannot tell the difference, which is the point.
 
 **On re-entry, read it first.** For each `paywall_id` already present, confirm with
 `flows get <FLOW> --app "$APP"` that the recorded flow still reads `published`, then skip that
@@ -451,8 +522,8 @@ is a config write, and a write to a published flow marks it **`dirty`** — whet
 be attached is explicitly unverified
 ([api-surface.md](references/api-surface.md#what-is-still-unverified)), so `published` is the only
 status treated as attachable. An offer that stops at "fill them in and say yes" therefore leads
-straight back to `Flow must be published before placing in a placement.`, the one error the phase
-ordering exists to avoid. On the return trip, re-read `flows get` and check the status the way phase
+straight back to `Cannot attach a draft flow to a placement`, the one error the phase ordering
+exists to avoid. On the return trip, re-read `flows get` and check the status the way phase
 5 does rather than assuming the edit left it alone.
 
 ## Phase 7 — Create
@@ -533,8 +604,16 @@ Created, skipped and failed with reasons, then the two things the user acts on:
 > | `<old developer_id>` | `<new developer_id>` |
 
 And the call change: the app fetches the new placement with `getFlow("<new developer_id>")` where it
-currently fetches the old one. Hand the implementation to `adapty-integration`, which owns the
-per-platform call sites and the render — do not write app code here.
+currently fetches the old one. **Flows render on Adapty SDK v4.0 or later**, so on an older SDK the
+call change is a version upgrade first; `getFlow` reads flow *and* paywall placements, so the app
+calls one method either way ([Migrate to flows](https://adapty.io/docs/migrate-to-flows.md)). Hand
+the implementation to `adapty-integration`, which owns the per-platform call sites and the render —
+do not write app code here.
+
+**Say that the old placement stays live, and why.** Users on already-shipped versions have the old
+placement ID compiled in and cannot reach the flow until they update, so retiring the paywall
+placement early takes the paywall away from everyone who has not updated. Both placements run side
+by side, each measured on its own metrics, until v4 adoption is high enough.
 
 **No rollback file is needed, and say why rather than leaving it unsaid:** nothing existing was
 modified, so **the untouched paywall placements are the rollback.** Until the app ships the call

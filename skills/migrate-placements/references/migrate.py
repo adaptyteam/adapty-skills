@@ -526,27 +526,59 @@ def cli_json(adapty, args):
     return body
 
 
-def fetch_placements(adapty, app_id, page_size=MAX_PAGE_SIZE):
-    """Every placement summary, all pages.
+def fetch_list(adapty, app_id, topic, noun, page_size=MAX_PAGE_SIZE):
+    """Every row of a paged `<topic> list`, all pages.
+
+    `placements list`, `flows list` and `paywalls list` are the same response
+    shape (`{data, meta.pagination}`) behind the same `paginationFlags`, so
+    they share one reader -- including the default page size of 20 that makes
+    reading page 1 alone under-report every one of them.
 
     Every read of the response goes through `_api_field`, which checks type as
     well as presence. The `or {}` / `or []` idiom this replaces guarded only
     falsiness, so `meta: [1]` or `data: {...}` passed straight through it.
     """
-    where = '`placements list` response'
+    where = f'`{topic} list` response'
 
     def fetch(page, size):
-        body = cli_json(adapty, ['placements', 'list', '--app', app_id,
+        body = cli_json(adapty, [topic, 'list', '--app', app_id,
                                  '--page', str(page), '--page-size', str(size)])
         rows = _api_field(body, 'data', list, [], where)
         for index, row in enumerate(rows):
             if not isinstance(row, dict):
                 raise CliError(f'{where}: data[{index}] is a '
-                               f'{type(row).__name__}, not a placement object')
+                               f'{type(row).__name__}, not a {noun} object')
         meta = _api_field(body, 'meta', dict, {}, where)
         pagination = _api_field(meta, 'pagination', dict, {}, f'{where} meta')
         return rows, pagination
     return paginate(fetch, page_size=page_size)
+
+
+def fetch_placements(adapty, app_id, page_size=MAX_PAGE_SIZE):
+    """Every placement summary, all pages."""
+    return fetch_list(adapty, app_id, 'placements', 'placement', page_size=page_size)
+
+
+def fetch_flows(adapty, app_id, page_size=MAX_PAGE_SIZE):
+    """Every flow row, all pages: `{id, name, status, updated_at}`.
+
+    This is what makes "you may already have a flow for this paywall"
+    answerable. The one-click **Move to new builder** conversion in the
+    dashboard leaves a DRAFT flow behind, so a user who has started migrating
+    already has rows here -- and a run that does not look creates a second,
+    emptier flow for the same paywall.
+    """
+    return fetch_list(adapty, app_id, 'flows', 'flow', page_size=page_size)
+
+
+def fetch_paywalls(adapty, app_id, page_size=MAX_PAGE_SIZE):
+    """Every paywall row, all pages: `{id, title, product_ids}`.
+
+    Read for the TITLES. A placement audience carries `paywall_id` and no
+    name, so without this there is nothing to match a flow's name against,
+    and nothing to call a paywall in a message to the user either.
+    """
+    return fetch_list(adapty, app_id, 'paywalls', 'paywall', page_size=page_size)
 
 
 def fetch_details(adapty, app_id, placements):
@@ -571,7 +603,124 @@ def fetch_details(adapty, app_id, placements):
     return out
 
 
-def build_plan(placements, suffix='-flow', flows=None, app_id=None, scope=None):
+ATTACHABLE_STATUS = 'published'
+
+
+def normalize_title(text):
+    """A title reduced to lowercase words, for comparing a paywall's title
+    against a flow's name.
+
+    Every non-alphanumeric run becomes one space, because the two names are
+    typed by hand months apart: `Main Paywall (US)` and `main paywall us`
+    are the same intent and differ in punctuation alone.
+    """
+    if not isinstance(text, str):
+        return ''
+    out = []
+    for ch in text:
+        out.append(ch.lower() if ch.isalnum() else ' ')
+    return ' '.join(''.join(out).split())
+
+
+def _tokens(text):
+    return normalize_title(text).split()
+
+
+def _contiguous(needle, haystack):
+    """Is `needle` a contiguous run of tokens inside `haystack`?
+
+    TOKENS, NOT SUBSTRINGS. `'main' in 'domain expert'` is true as a
+    substring and is not a name match -- and a false candidate is worse than
+    none here, because the user is being asked to confirm a flow that will be
+    served to their paying customers.
+    """
+    if not needle or len(needle) > len(haystack):
+        return False
+    return any(haystack[i:i + len(needle)] == needle
+               for i in range(len(haystack) - len(needle) + 1))
+
+
+def describe_existing(summary):
+    """The one line about already-converted paywalls, or None.
+
+    On STDERR from `plan` for the same reason `describe_scope` is: plan's
+    stdout is JSON and is routinely redirected, and a run that pipes the plan
+    away must still see that three of its flows do not need creating.
+    """
+    block = (summary or {}).get('existing')
+    if not isinstance(block, dict):
+        return ('existing flows: not read, so a paywall you have already '
+                'converted will look unconverted in this plan')
+    if block.get('error'):
+        return (f'existing flows: could not read them ({block["error"]}) -- '
+                'check https://app.adapty.io/flows before creating any')
+    with_c = block.get('paywalls_with_candidate') or 0
+    without = block.get('paywalls_without_candidate') or 0
+    line = (f'existing flows: {with_c} of {with_c + without} paywall(s) already '
+            f'have a flow whose name matches -- see existing_flow_candidates, '
+            f'confirm each with the user, and do not create a second flow for '
+            f'those')
+    if not with_c:
+        line = (f'existing flows: none of the {without} paywall(s) matched a flow '
+                f'by name, out of {block.get("flows_read") or 0} flow(s) in the '
+                f'account -- a name match is the only signal there is, so ask '
+                f'before assuming nothing was converted')
+    untitled = block.get('untitled_paywalls') or 0
+    if untitled:
+        line += (f'; {untitled} paywall(s) had no readable title and could not '
+                 f'be matched at all')
+    return line
+
+
+def match_existing_flows(title, flows):
+    """Flows whose name looks like it was made from `title`, best first.
+
+    A PROPOSAL AND NEVER A DECISION. Nothing in the API records that a flow
+    came from a given paywall -- the one-click conversion carries no back
+    reference this tool can read -- so this compares names, which is a guess
+    about what a human called something. It is offered to the user to
+    confirm, and this is why it reports `match` rather than picking one.
+
+    `exact` means the normalized names are equal; `contains` means one is a
+    contiguous run of words inside the other, which is what the natural
+    rename produces (`Main Paywall` -> `Main Paywall flow`).
+    """
+    tokens = _tokens(title)
+    if not tokens:
+        return []
+    out = []
+    for flow in flows or []:
+        if not isinstance(flow, dict):
+            continue
+        name = flow.get('name')
+        other = _tokens(name)
+        if not other:
+            continue
+        if other == tokens:
+            kind = 'exact'
+        elif _contiguous(tokens, other) or _contiguous(other, tokens):
+            kind = 'contains'
+        else:
+            continue
+        status = flow.get('status')
+        out.append({
+            'flow_id': flow.get('id'),
+            'name': name,
+            'status': status,
+            'match': kind,
+            # The status is the whole reason a candidate is useful rather than
+            # merely interesting: a converted flow is left `draft`, and a draft
+            # is refused at attach. So the row says which of the two things the
+            # user has to do, and neither of them is `flows create`.
+            'next_step': ('attach' if status == ATTACHABLE_STATUS
+                          else 'publish_then_attach'),
+        })
+    out.sort(key=lambda row: (row['match'] != 'exact', row['name'] or ''))
+    return out
+
+
+def build_plan(placements, suffix='-flow', flows=None, app_id=None, scope=None,
+               existing=None):
     """What to create, with every proposed id pre-checked for collisions.
 
     `flows` is the phase-5 ledger, `paywall_id -> flow_id`. When it is given,
@@ -598,6 +747,14 @@ def build_plan(placements, suffix='-flow', flows=None, app_id=None, scope=None):
     activity split over the placements this plan would actually create, which
     is what phase 6's stub warning has to quote. See the comment at its
     construction for why the two cannot be substituted for one another.
+
+    `existing` is the block `inventory` recorded from `flows list` and
+    `paywalls list` (`{'flows': [...], 'paywalls': [...]}`, or an `error`).
+    With it, every `flows_needed` row carries the paywall's title and any
+    flow already in the account whose name matches it. THAT IS THE POINT: a
+    user who has clicked **Move to new builder** on some paywalls already has
+    flows for them, and a run that does not look creates a second, emptier
+    flow for the same paywall and then serves it.
     """
     if flows is not None and not app_id:
         raise ValueError('build_plan needs app_id to emit a command; the '
@@ -687,10 +844,39 @@ def build_plan(placements, suffix='-flow', flows=None, app_id=None, scope=None):
         UNKNOWN: len(exposed[UNKNOWN]),
         'status_readable': bool(exposed[ACTIVE] or exposed[INACTIVE]),
     }
+    existing = existing if isinstance(existing, dict) else {}
+    known_flows = existing.get('flows') if isinstance(existing.get('flows'), list) else []
+    titles = {pw.get('id'): pw.get('title')
+              for pw in (existing.get('paywalls') or []) if isinstance(pw, dict)}
+    needed = []
+    for pw, refs in sorted(groups.items()):
+        row = {'paywall_id': pw, 'used_by': sorted({pid for pid, _ in refs})}
+        title = titles.get(pw)
+        if title:
+            row['paywall_title'] = title
+            candidates = match_existing_flows(title, known_flows)
+            if candidates:
+                row['existing_flow_candidates'] = candidates
+        needed.append(row)
+    if existing.get('error'):
+        summary['existing'] = {'error': existing['error']}
+    elif known_flows or titles:
+        summary['existing'] = {
+            'flows_read': len(known_flows),
+            'paywalls_read': len(titles),
+            # Counted over the paywalls this plan needs a flow for, not over
+            # the account: "3 of your 9 paywalls already have a flow" is the
+            # number that changes what phase 4 asks, and an account-wide count
+            # is not it.
+            'paywalls_with_candidate': sum(1 for r in needed
+                                           if r.get('existing_flow_candidates')),
+            'paywalls_without_candidate': sum(1 for r in needed
+                                              if not r.get('existing_flow_candidates')),
+            'untitled_paywalls': sum(1 for r in needed if not r.get('paywall_title')),
+        }
     return {
         'summary': summary,
-        'flows_needed': [{'paywall_id': pw, 'used_by': sorted({pid for pid, _ in refs})}
-                         for pw, refs in sorted(groups.items())],
+        'flows_needed': needed,
         'placements': rows,
     }
 
@@ -745,6 +931,20 @@ def _read_inventory(path):
             if problem:
                 return None, (f'{where} ({row["developer_id"]!r}) '
                               f'audiences[{spot}]: {problem}')
+    # Shallow on purpose, and the same rule as the rows above: check what the
+    # plan will subscript. A wrong TYPE here is a hand-edited file, so it is
+    # named at exit 2; a MISSING block is the `--no-existing` case and is
+    # legal, reported by `describe_existing` rather than refused.
+    if 'existing' in body and not isinstance(body['existing'], dict):
+        return None, (f'{path} has an \'existing\' that is a '
+                      f'{type(body["existing"]).__name__}, not an object; '
+                      're-run inventory to regenerate the file')
+    for key in ('flows', 'paywalls'):
+        block = body.get('existing') if isinstance(body.get('existing'), dict) else {}
+        if key in block and not isinstance(block[key], list):
+            return None, (f'{path}: existing.{key} is a '
+                          f'{type(block[key]).__name__}, not a list; re-run '
+                          'inventory to regenerate the file')
     return body, None
 
 
@@ -843,6 +1043,12 @@ def main(argv=None):
     inv.add_argument('--adapty', default='adapty', help='how to invoke the CLI')
     inv.add_argument('--page-size', type=int, default=MAX_PAGE_SIZE)
     inv.add_argument('--out', required=True)
+    inv.add_argument('--no-existing', action='store_true',
+                     help='skip the two extra paged reads (`flows list`, '
+                          '`paywalls list`) that find flows the account '
+                          'already has for a paywall. On by default because a '
+                          'run that does not look creates a duplicate flow for '
+                          'a paywall the user already converted.')
     inv.add_argument('--scope', choices=SCOPES, default=SCOPE_ALL,
                      help='which placements to spend a per-placement `get` on. '
                           '`active` keeps only is_active: true, which is the '
@@ -919,6 +1125,22 @@ def _run(args):
         selected, scope = select_scope(summaries, args.scope)
         details = fetch_details(args.adapty, args.app, selected)
         payload = {'app': args.app, 'scope': scope, 'placements': details}
+        if not args.no_existing:
+            # DEGRADES, never fails the run. The placements read is what this
+            # command exists for; the two reads below are an enrichment, so an
+            # environment that cannot serve them must not cost the caller the
+            # inventory it already paid N GETs for. The error is recorded
+            # rather than printed and forgotten, because `plan` reports it and
+            # phase 4 has to know the question went unanswered.
+            try:
+                payload['existing'] = {
+                    'flows': fetch_flows(args.adapty, args.app,
+                                         page_size=args.page_size),
+                    'paywalls': fetch_paywalls(args.adapty, args.app,
+                                               page_size=args.page_size),
+                }
+            except CliError as exc:
+                payload['existing'] = {'error': str(exc)}
         try:
             pathlib.Path(args.out).write_text(json.dumps(payload, indent=2))
         except OSError as exc:
@@ -926,6 +1148,17 @@ def _run(args):
             return 2
         print(f'{len(details)} placement(s) read -> {args.out}')
         print(describe_scope(scope))
+        ex = payload.get('existing') or {}
+        if args.no_existing:
+            print('existing flows: not read (--no-existing), so this plan cannot '
+                  'tell you which paywalls you have already converted')
+        elif ex.get('error'):
+            print(f'existing flows: could not read them ({ex["error"]}), so a '
+                  'paywall you have already converted will look unconverted '
+                  'here -- check https://app.adapty.io/flows before creating any')
+        else:
+            print(f'existing flows: {len(ex.get("flows") or [])} flow(s) and '
+                  f'{len(ex.get("paywalls") or [])} paywall(s) read for matching')
         return 0
 
     body, error = _read_inventory(args.inventory)
@@ -943,13 +1176,16 @@ def _run(args):
                   'cannot be built; re-run inventory to regenerate it', file=sys.stderr)
             return 2
     scope = body.get('scope') if isinstance(body.get('scope'), dict) else None
-    print(json.dumps(build_plan(body['placements'], suffix=args.suffix,
-                                flows=flows, app_id=body.get('app'),
-                                scope=scope), indent=2))
+    existing = body.get('existing') if isinstance(body.get('existing'), dict) else None
+    build = build_plan(body['placements'], suffix=args.suffix,
+                       flows=flows, app_id=body.get('app'),
+                       scope=scope, existing=existing)
+    print(json.dumps(build, indent=2))
     # On STDERR, because plan's stdout is JSON and is routinely redirected to a
     # file. A run that pipes the plan away must still see what was withheld.
     if scope:
         print(describe_scope(scope), file=sys.stderr)
+    print(describe_existing(build['summary']), file=sys.stderr)
     return 0
 
 

@@ -97,8 +97,8 @@ $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
     (--config-file <file|-> | --config <json-string>) \
     [--expected-updated-at <int>] [--remote-configs <json>]
 $ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID>   # PNG/JPEG/WEBP/GIF, < ~2.5 MB; no SVG
-$ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # 0.8.3-beta.1; --name required; 405 in prod, rename in the builder
-$ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # 0.8.3-beta.1; async; 404 in prod, see below
+$ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; 405 in prod, rename in the builder
+$ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404 in prod, see below
 ```
 
 **Resolve `$ADAPTY` once, here, and use it for every command.** A global `adapty` is frequently old
@@ -132,16 +132,34 @@ returns `http_500`**, and the ceiling is **~2.5 MB of file bytes** (a bare `http
 large). Call shape, the two config shapes it binds into, and the geometry:
 [media.md](references/media.md).
 
-**`flows publish --app <APP_UUID> <FLOW_ID>` exists — in `0.8.3-beta.1`, and not in `0.8.2`.** So a
-`$ADAPTY` resolved at `0.8.2` lacks it; per the rule above, try `npx --yes adapty@beta` before
-calling it absent. Its own flags are `--app` plus `--yes`/`-y`, and the CLI's global `--json` on
-top of them. Five measured facts shape how you call it: publication is **asynchronous**, so the
-response reads `status: publishing` and never `published` — report it that way rather than claiming
-the flow is live; the confirmation prompt goes to **stderr**, so `--json` stdout stays parseable;
-`--json` or a non-TTY **without** `--yes` refuses with **exit 2** (`Re-run with --yes`) instead of
-hanging, so a headless run passes `--yes` only once the user has said yes in the conversation; a
-declined prompt exits **1** (`Cancelled, nothing was sent.`); and a flow with no config exits **1**
+**`flows publish --app <APP_UUID> <FLOW_ID>` is not in every build.** Per the rule above, decide
+that by running `flows publish --help`, not from a version number: it shipped in `0.8.3-beta.0`,
+was **absent from `0.8.3`**, and came back after it, so a numeric floor is not a reliable test. Its
+own flags are `--app` plus `--yes`/`-y`, and the CLI's global `--json` on top of them. Five measured
+facts shape how you call it: publication is **asynchronous**, so the response reads
+`status: publishing` and never `published` — report it that way rather than claiming the flow is
+live; the confirmation prompt goes to **stderr**, so `--json` stdout stays parseable; `--json` or a
+non-TTY **without** `--yes` refuses with **exit 2** (`Re-run with --yes`) instead of hanging, so a
+headless run passes `--yes` only once the user has said yes in the conversation; a declined prompt
+exits **1** (`Cancelled, nothing was sent.`); and a flow with no config exits **1**
 with `Flow has no current version.`
+
+**A successful publish tells you what to run next, and you run it.** In human mode the command
+prints the poll and the diagnosis calls itself:
+
+```
+Publishing started — status: publishing. This is asynchronous; the flow is NOT published yet.
+Check progress:  adapty flows get --app <APP_UUID> <FLOW_ID>   (wait for status 'published' or 'publication_failed')
+If it fails:     adapty flows config get --app <APP_UUID> <FLOW_ID>   (shows why)
+```
+
+Those three lines are **suppressed under `--json`**, so a `--json` publish leaves you holding
+`status: publishing` and nothing else — poll anyway. **On `publication_failed`, `flows config get`
+is the answer to *why*:** its envelope carries `publication_status`, `transform_error` and
+`publication_error` alongside the config, and `transform_error` is the transform service's own
+objection. It is a raw string — a JSON issues payload or a summary — with no CLI helper to parse it,
+so read it and quote it rather than re-deriving a cause. Where the API does not send those fields
+they are simply absent; that is not an error, and it does not mean the publish succeeded.
 
 **Two things gate this, and neither of them is the account.** One is the **CLI version**, above. The
 other is the **API deployment, which has not happened** — so in production `flows publish` returns
@@ -156,7 +174,8 @@ deleted a flow. Never write a command name the CLI does not have, and never inve
 Four facts about the config commands that are not guessable:
 
 - **`config get` returns an envelope, not the config**: `{config, remote_configs, status,
-  updated_at}`. The document you transform is the `config` field, and both `update` and
+  updated_at}`, plus `publication_status`, `transform_error` and `publication_error` when the last
+  publish failed. The document you transform is the `config` field, and both `update` and
   `validate` take that field alone. Handing `validate` the envelope returns
   `Invalid flow input` — which reads exactly like a broken config and is not one. (`preview`
   is the odd one out: it accepts either.)
@@ -677,7 +696,7 @@ point:
 >    `<$ADAPTY> flows publish --app <APP_ID> <FLOW_ID>`
 >
 >    It asks for confirmation, then publishes asynchronously — the status reads `publishing`
->    before it reads `published`.
+>    before it reads `published`, and the command prints the poll to run next.
 >
 > `<one line, only if the phase-2 missing-assets list still has open items:>`
 > `<n>` assets are still placeholders — see the list above.
