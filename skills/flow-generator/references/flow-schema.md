@@ -417,6 +417,45 @@ custom variables `var_`.
 **Never rewrite an existing screen id.** `navigate` payloads point at them, and so does
 `_meta.screens`. A new screen takes the `scr_` form.
 
+### 7b. The id analytics sees is `customId`, and leaving it blank is silent
+
+An `el_XXXX` map key never leaves the config. What the SDK delivers to the app in a
+`flow_user_input` event is the **author-supplied** id, and the three sources disagree in a way
+worth stating explicitly (read from `unified-builder-transformer@dcf2df4`, not inferred):
+
+| Payload field | Comes from | Emitted at |
+|---|---|---|
+| `element_id`, an input | `props.customId` | `generate-handlers.ts:717,825` |
+| `element_id`, a selectable group | `selectableGroups[].id` | `generate-handlers.ts:849` |
+| `item_ids`, the chosen options | each option's `props.customId` | `generate-meta.ts:245` |
+| `instanceId` | the screen id | — |
+
+`customId` is **optional in the schema** — `required` is absent on all eleven input and
+selectable props types — and the transformer's response to a missing one is to stop tracking
+without saying so. For a group the gate is **group-wide, not per option**
+(`collect-variables.ts:1246-1252`, and its `allUniqueNonEmpty` trims first, so `"  "` is
+blank):
+
+```ts
+if (groupType !== 'toggle' &&
+    (!allUniqueNonEmpty(groupElements.map(e => e.optionCustomId)) || …)) continue
+```
+
+So **one blank or one duplicate option id takes every answer in that group with it**, and no
+gate reachable from here objects: `flows config validate` returns valid, the schema permits
+it, and the preview draws a working quiz. It is real — `tests/fixtures/onboarding-quiz-paywall.json`
+has `rock` and `hiphop` set and its third option blank, so that quiz reports nothing at all.
+
+`verify-config.py` reports all three shapes and **errors on only one of them**, the duplicate:
+two options claiming one id is wrong in every state the author could have meant. A blank stays
+a warning — it is indistinguishable from a half-finished edit, and a genuine export has that
+exact shape, so erroring would fire on real published builder output. A group where *no* option
+sets one is the weakest case and warns most softly, because a branching-only group never needed
+analytics: `<groupId>.selectedOptionId` keys on the option id, not the customId.
+
+Product groups and tab bars are exempt — product selections and tab switches raise no event —
+and so is `password-input`, which the transformer's `INPUT_TYPES` map omits by name.
+
 ### 8. Custom fonts do not ship with the flow
 
 Per [Save & publish](https://adapty.io/docs/builder-save-publish.md), a custom font file must

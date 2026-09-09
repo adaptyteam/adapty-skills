@@ -203,13 +203,22 @@ locales, products, the navigation graph. Before proposing anything; it grounds t
 catches a wrong flow immediately.
 
 **Confirm the transform.** In scope: add a locale, rewrite copy, add/remove/reorder screens,
-branching and conditions, and reusing a piece of another flow — its dependency resolution has a
-measured hard-422 class (`flow-schema.md` invariant 8), so it runs through
-`references/snippet.py`, never by hand ([snippets.md](references/snippets.md)). A request outside
-those is named as out of scope, not improvised.
+branching and conditions, renaming screen ids, and reusing a piece of another flow — its
+dependency resolution has a measured hard-422 class (`flow-schema.md` invariant 8), so it runs
+through `references/snippet.py`, never by hand ([snippets.md](references/snippets.md)). A request
+outside those is named as out of scope, not improvised.
 
 If the request is *"save this for reuse"* or *"add the thing I saved"*, run
 `references/snippet.py plan` before any `graft` — read [snippets.md](references/snippets.md) first.
+
+If it is *"give the screens readable ids"* — usually so a customer's own analytics stops reading
+`scr_oAPBHPa7` — run `references/rename-screens.py`, never a hand edit: a screen id lives in three
+places and the one that gets forgotten, `_meta.screens`, makes the flow unpublishable. Renaming
+breaks analytics continuity, so it goes in the phase-5 ask ([transforms.md](references/transforms.md)
+decision 9). Element `el_XXXX` ids are **not** part of this and must not be renamed to match: they
+reach no analytics, and they compile into the runtime script where a bad one is a black screen.
+What a customer sees for an input or a quiz option is `props.customId`, which they can already set
+in the builder (`flow-schema.md` trap 7b).
 
 **Were you given a design to follow?** Answer it out loud: it decides who is choosing. A reference
 image, a screen to copy, or a layout they spelled out means *they* chose it — follow it, and
