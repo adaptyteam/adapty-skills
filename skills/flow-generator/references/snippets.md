@@ -212,7 +212,7 @@ blocker or a renders-empty risk, `?` for something milder (a placeholder asset).
 collide with the destination are re-minted and every internal reference is rewritten with them —
 `WILL RENAME` lines show old → new.
 
-**Media and font URLs travel unchanged across a cross-app graft — measured 2026-08-27,
+**Media and font URLs travel unchanged across a cross-app graft — measured with
 `adapty` 0.8.1.** A `flows media upload` CDN URL and a `_meta.fonts[].url` are not
 app-scoped: a probe image uploaded to one app loaded (`200 image/png`) and drew
 visibly inside a different app's flow with no re-upload, and a font entry lifted

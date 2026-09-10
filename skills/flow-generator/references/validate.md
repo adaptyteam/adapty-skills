@@ -1,7 +1,7 @@
 # `flows config validate` — what it is, what it catches, what it lets through
 
 `flows config validate` is in stable `adapty` from **0.8.0**, and its endpoint is **live in
-production**. Everything below was measured against production on 2026-08-24 with `adapty@0.8.0`,
+production**. Everything below was measured against production with `adapty@0.8.0`,
 using real flows in a sandbox app.
 
 Read this file when `validate` says no and you need to know what the message means, or when you are
@@ -98,7 +98,7 @@ Each row measured by injecting the defect into a real, previously-clean config.
 That last row surprised a real build and is worth stating on its own: a **`spinner`** whose
 `props.icon` is `{"type": "custom", "name": "spinner1"}` — a name lifted straight out of
 `component-catalog.json`, i.e. one the builder ships — is still refused until `_meta.icons`
-carries an entry for it. Measured 2026-08-25: that was the only issue on an otherwise-clean
+carries an entry for it. Measured: that was the only issue on an otherwise-clean
 343-element config, and adding a `{"name": "spinner1", "weight": "regular", "raw": "<svg …>"}`
 entry cleared it. So the Verify rule "every icon used appears in `_meta.icons` with real `raw`
 SVG" has no builtin exemption, and `type: "custom"` does not mean "the runtime already has it".

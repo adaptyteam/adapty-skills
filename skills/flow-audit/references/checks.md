@@ -166,7 +166,7 @@ These already live in `skills/flow-generator/references/verify-config.py`. `flow
 
 The transformer-refusal rows below are why phase 4 runs the local gates *before*
 `flows config validate`: the service reports **one fatal per run**, so a document with several
-of these costs one network round trip each. Measured 2026-08-28 on a real flow with several
+of these costs one network round trip each. Measured on a real flow with several
 defects injected — `verify-config.py` named 19 in one local pass; `validate` returned 1.
 
 | Check | Owner |

@@ -73,7 +73,7 @@ def color(color_id):
 
 
 # A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
-# 2026-08-28: in `theme.colors[].light/dark`, a 3-digit (`#fff`), 8-digit (`#RRGGBBAA`),
+# In `theme.colors[].light/dark`, a 3-digit (`#fff`), 8-digit (`#RRGGBBAA`),
 # 7-digit, unprefixed (`FFFFFF`) or EMPTY hex is refused — and refused with the
 # location-free `Generated JSON failed schema validation`, because `IColorHex` is typed as
 # a bare string with no pattern, so neither the schema check nor `config preview` (which
@@ -649,7 +649,7 @@ def footer(children=(), *, fill_=None, padding=None, gap=16, direction='vertical
     A `footer` is lifted out of the layout flow and pinned to the bottom of the viewport while
     the content scrolls past it. **It requires the screen to be `scrollable`** -- device-confirmed,
     with the scroll off it does not render at all, and the preview cannot show you that
-    (`screen()` refuses the pair). Measured 2026-08-26, one variable at a time: the same props under
+    (`screen()` refuses the pair). Measured, one variable at a time: the same props under
     `type: "stack"` put the bar below the fold; the pinned band is identical whether the screen is
     `scrollable` or not, and whether the footer is declared first or last.
 
@@ -1365,7 +1365,7 @@ def conditional_action(cases, *, default=(), action_id='act_cond'):
 # --- timer -------------------------------------------------------------------------------
 # A countdown's digits are `token` nodes, and the token ids carry a `timer_` PREFIX:
 # `timer_days`, `timer_hours`, `timer_minutes`, `timer_seconds`. Builder- and device-confirmed
-# 2026-08-25 (the builder shows a recognised chip and renders live `23:59:59`). The bare names
+# (the builder shows a recognised chip and renders live `23:59:59`). The bare names
 # `days`/`hours`/`minutes`/`seconds` do NOT resolve: the Flow Builder paints them red `Unknown`
 # and the device/preview renders the literal `%hours%`. `config validate` accepts either, so the
 # wrong one is silent — which is exactly why this is a helper and not something you hand-author.
@@ -1406,8 +1406,8 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     """A countdown `timer` element. Pass `timer_digits(...)` as one of its `children` to show the
     running digits.
 
-    **A timer carrying a `timer-end` action MUST have at least one child.** Device-measured
-    2026-09-01, two writes differing in nothing else: the childless form **did not advance**, the
+    **A timer carrying a `timer-end` action MUST have at least one child.** Device-measured,
+    two writes differing in nothing else: the childless form **did not advance**, the
     same timer with one child text **did**, and an isolating probe with two exits to different
     destinations confirmed it on a third trip. So the "purely invisible delay" this docstring used
     to recommend does not fire at all — an element with nothing to lay out is one the renderer
@@ -1423,7 +1423,7 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     if actions and not list(children):
         raise ValueError(
             'a timer with a `timer-end` action and NO children does not fire on a device '
-            '(measured 2026-09-01) — the flow stops dead on that screen, and neither '
+            '— the flow stops dead on that screen, and neither '
             '`config preview` nor `flows config validate` can see it. Give it a child: '
             'timer_digits(...) if a visible countdown suits the screen, or the loader copy '
             'itself. See patterns.md -> the auto-advancing screen.')
@@ -1749,7 +1749,7 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                     trees.append(st['condition'])
             # A conditional-text `switch` (switch_rich) is COMPILED, not rendered, so an
             # unresolved id there is fatal exactly like a visibility condition -- measured
-            # 2026-09-01 against the live service: `valid: false`, "Generated scripts failed
+            # against the live service: `valid: false`, "Generated scripts failed
             # validation", with `code` and `path` both null, so the refusal names neither the
             # element nor the variable. This is the opposite severity from a `variable` SPAN in
             # rich text, which renders its literal token and publishes; the two shapes sit in

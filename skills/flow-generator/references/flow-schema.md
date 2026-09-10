@@ -350,7 +350,7 @@ exactly what to upload.
 NEVER a stack that looks like one.** `flows media upload` has no video path
 ([media.md](media.md)), so you cannot bind a source — but the element itself is yours to place. A
 `video` with no `customMediaID`/`video` renders a styled **"Upload Video"** placeholder in the
-builder and in `config preview` (measured 2026-08-26), and it **publishes clean** (`validate` →
+builder and in `config preview`, and it **publishes clean** (`validate` →
 `valid: true`) — exactly the empty-`image` case, one type over. Author it fully styled — `loop:
 true`, `objectFit`, `borderRadius`, a fixed height — so the box the user drops a clip into is
 already the right shape, and report it as an upload ask like any empty image. Do **not** stand a
@@ -573,12 +573,12 @@ the shape, it is the vocabulary:
 **`space-between` on a screen root spreads a SHORT screen's content away from its bottom bar** —
 give the root two children and the free space lands between them. It does **not** pin anything: a
 bar that has to stay at the bottom while content scrolls past it is the `footer` element, whose
-pinning is its own behaviour (measured 2026-08-26; the same props as a `stack` land below the
+pinning is its own behaviour (measured; the same props as a `stack` land below the
 fold — [patterns.md](patterns.md)). Knowing only the `gap` form is what makes an author reach for
 the workarounds instead, and both have failure modes this project shipped: a **docked** (`fixed`)
 bar needs the screen's `padding.bottom` to reserve its exact height, and getting that arithmetic
 wrong put a footnote underneath a CTA; leaving the bar **in flow** on a tall device leaves a dead
-void below it, which is what a user sees as "the layout is broken everywhere". Measured 2026-08-24
+void below it, which is what a user sees as "the layout is broken everywhere". Measured
 across four screens: replacing dock-plus-padding with one `space-between` root removed both
 defects and deleted the padding arithmetic entirely.
 
@@ -832,7 +832,7 @@ did not add is an unrequested edit — but there is no reason to write a new one
 ### A theme colour must be exactly `#RRGGBB` — and only a theme colour
 
 `theme.colors[].light.hex` / `.dark.hex` accept **six hex digits behind a `#`, either case, and
-nothing else**. Measured against the transform service on 2026-08-28, every one of these is
+nothing else**. Measured against the transform service, every one of these is
 refused there: `#fff`, `#FFFFFFD9`, `#FFFFFFF`, `FFFFFF`, and the empty string.
 
 It is refused with **`Generated JSON failed schema validation` and no path**, so the message
@@ -954,7 +954,7 @@ fire on real builder output.
 
 ### Which group types a conditional can read — and the one action that does not work
 
-Measured 2026-08-25 against `flows config validate` on a real flow, one predicate per run. A
+Measured against `flows config validate` on a real flow, one predicate per run. A
 conditional whose predicate names an unreadable variable fails the publish gate with
 **`Generated scripts failed validation`** — location-free, exactly like a malformed hex, because
 the transformer compiles predicates into JavaScript and an unresolvable name yields invalid script.
@@ -1124,7 +1124,7 @@ repo-only: it does not exist on an installed skill, so never write a check that 
   commented `JSONVariable` and one `JSONConstant`, both marked "shape intentionally opaque,
   validated by the transformer". Any value that matches one matches both, and `oneOf` demands
   exactly one, so **every `purchase` action fails the schema check** — that is, every paywall
-  with a plan picker. Verified 2026-08-25 both ways: the reported errors vanish when the
+  with a plan picker. Verified both ways: the reported errors vanish when the
   `purchase` action alone is swapped out of an otherwise-clean 343-element config, and
   `tests/fixtures/onboarding-quiz-paywall.json` — a real builder export that renders and sells —
   carries the identical `{"type": "var", "variableId": "<group>.selectedProduct"}` payload and
@@ -1210,7 +1210,7 @@ It may instead be a **`switch` expression** whose every branch yields its own bl
 
 **Emit it with [`flowkit.switch_rich()`](flowkit.py)**, which builds this shape and checks each
 predicate against the service's own walker. Two facts that make hand-authoring it a bad trade, both
-measured 2026-09-01 against the live service: the predicate is **compiled**, so an unresolved
+measured against the live service: the predicate is **compiled**, so an unresolved
 variable here is `valid: false` — *"Generated scripts failed validation"*, with `code` and `path`
 both `null`, naming neither the element nor the variable — while a `variable` **span** in the very
 same `props.content` merely renders its literal token and publishes. Same property, opposite

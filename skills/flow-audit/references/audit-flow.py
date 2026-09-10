@@ -1436,7 +1436,7 @@ def _has_content(value, locale):
 
     A CONDITIONAL-TEXT `switch` is the third trap of the same shape, and it was measured
     firing an `empty-translation` BLOCKER on three legitimate, service-approved fields in
-    a real onboarding flow (2026-09-01): the per-locale value there is not a block array
+    a real onboarding flow: the per-locale value there is not a block array
     at all but `{'type': 'switch', 'cases': [[cond, const], ...], 'default': const}`, so
     `flat_text`/`node_kinds` see nothing and call it empty. This is the copy a
     personalization payoff is made of -- the highest-value pattern `onboarding-teardown`
