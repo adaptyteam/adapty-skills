@@ -7,15 +7,17 @@ both of them before:
 1. PAGINATION. `--page-size` defaults to 20 and the response carries
    meta.pagination {count, page, pages}. Reading page 1 and reporting its
    length under-reports a 150-placement app by 130.
-2. content_type. A pre-!13221 read omits it and every write requires it
-   (CLI-side, exit 2, no request). So a read cannot be written back without
-   normalization. The pod already returns it, so this is a compatibility
-   shim that becomes a no-op -- it must accept both shapes.
+2. content_type. Every write requires it (CLI-side, exit 2, no request), and
+   a server without the placement-audience union omits it from a read. So a
+   read cannot be assumed writable back unchanged. Production returns it, so
+   the normalization here is a compatibility shim that is a no-op there --
+   which is exactly why it must accept both shapes rather than inject.
 
-3. is_active. Owner-confirmed as the placement's own enabled/disabled status,
-   on both `list` and `get` -- and measured ABSENT in production and on the
-   MR !13221 pod. So absence is the common case, absence means UNKNOWN, and
-   `select_scope` partitions three ways rather than two.
+3. is_active. The placement's own enabled/disabled status, on both `list` and
+   `get`. It is present in production, but one of this skill's own read paths
+   -- `paywalls placements` -- excludes it permanently by design, so absence
+   is a real third state, absence means UNKNOWN, and `select_scope`
+   partitions three ways rather than two.
 
 This module NEVER emits a `placements update` that changes content type: the
 backend refuses it with `Placement type can not be changed.`
@@ -94,7 +96,8 @@ def normalize_audience(entry):
     """Return a copy of `entry` with `content_type` filled in.
 
     Derives it from whichever id field is present, because that is the only
-    signal a pre-!13221 read gives. Refuses to guess when there is none.
+    signal a read without the field gives. Refuses to guess when there is
+    none.
     """
     if not isinstance(entry, dict):
         raise TypeError(f'an audience entry must be a dict, got {type(entry).__name__}')
@@ -235,17 +238,18 @@ def activity(placement):
     """Which of THREE states a placement's `is_active` reports.
 
     `is_active` is the placement's ACTIVATION STATE -- true=Live,
-    false=Inactive, the dashboard's own toggle -- read from the API source
-    (adapty-dashboard-api!13221 @ d0b878cb), which declares it on both the
-    summary and the detail DTO. It was measured 2026-09-03 to be ABSENT in
-    production and absent on the MR !13221 pod, because the code is written
-    and not yet released -- so on today's API this returns UNKNOWN for every
-    placement, and that is the case the caller must survive.
+    false=Inactive, the dashboard's own toggle -- read from the API source,
+    which declares it on both the summary and the detail DTO. It is present
+    in production on `list` and `get` alike.
 
-    ABSENT IS NOT FALSE. Reading absence as `False` filters an entire
-    present-day account out and reports an empty migration: a silent, total
-    failure that looks like a clean result. It is the same class of error as
-    reading a pre-!13221 audience with no `content_type` as having no type.
+    UNKNOWN is still a real state, not a rollout hedge: `paywalls placements`
+    excludes the field permanently by design, and a server without it omits
+    it everywhere. Both cases reach this function.
+
+    ABSENT IS NOT FALSE. Reading absence as `False` filters an entire account
+    out and reports an empty migration: a silent, total failure that looks
+    like a clean result. It is the same class of error as reading an audience
+    with no `content_type` as having no type.
 
     `is` rather than `==` is load-bearing: `1 == True` and `0 == False` in
     Python, so `==` would read a non-boolean value as a status the API never

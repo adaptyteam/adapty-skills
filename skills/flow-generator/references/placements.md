@@ -3,37 +3,36 @@
 Phase 6 holds the decisions and the two commands. This file holds what they were measured against,
 so the entry point does not carry a caveat an agent cannot act on at that step.
 
-**Every measurement here was taken on 2026-09-10 against the default production API** — no
-`ADAPTY_API_URL` override — with `adapty` 0.8.4, which was that day's `latest`. Error strings are
-quoted exactly, because an agent routes on them and a paraphrase is a bug.
+**Everything here was measured against the default production API** — no `ADAPTY_API_URL`
+override — by running the commands. Error strings are quoted exactly, because an agent routes on
+them and a paraphrase is a bug.
 
-## Why the flow audience is the normal path now
+## Why the flow audience is the normal path
 
 A placement audience entry is a union: either a paywall entry carrying `paywall_id`, or a flow
-entry carrying `flow_id`. That union shipped to the API late, and for a while the server modelled
-an audience as paywall-only and refused the flow form with
-`audiences.0.paywall_id: Field required` — a real state, recorded across this repo's skills through
-2026-09-03.
+entry carrying `flow_id`. That union shipped to the API late, and a server that predates it models
+an audience as paywall-only and refuses the flow form with
+`audiences.0.paywall_id: Field required`.
 
-**It has since deployed to production, and the read-only discriminator is `content_type`.** A
-server without the union omits `content_type` from every audience entry it returns; a server with it
-includes the field. Measured across 4 placements in 3 apps, every entry came back with it:
+**Production models the union, and the read-only discriminator is `content_type`.** A server
+without the union omits `content_type` from every audience entry it returns; a server with it
+includes the field. Every entry read back across several apps carries it:
 
 ```json
 {"segment_ids": [], "priority": 0,
  "content_type": "paywall", "paywall_id": "…"}
 ```
 
-`is_active` — declared in the same rollout and previously absent — is now present on both
-`placements list` and `placements get`, which is a second, independent confirmation.
+`is_active`, declared in the same rollout, is present on both `placements list` and `placements
+get` — a second, independent confirmation.
 
 So the flow form is the expectation and the refusal is the edge case. It can still be real on an
 older or self-hosted deployment, which is why phase 6 routes on it rather than assuming.
 
-**What this does not settle:** whether `flows publish`'s route is live in production. That needs a
-`POST`, and the cheapest safe probe — `flows create` a throwaway, then publish it — leaves a flow
-row that cannot be deleted. So the publish half stays behind phase 5's probe-and-degrade rule and
-is not claimed here either way.
+**What this does not settle:** whether `flows publish`'s route is live. That needs a `POST`, and
+the cheapest safe probe — `flows create` a throwaway, then publish it — leaves a flow row that
+cannot be deleted. So the publish half stays behind phase 5's probe-and-degrade rule and is not
+claimed here either way.
 
 ## The two write commands
 
@@ -82,9 +81,8 @@ From the server:
 
 ## The dashboard URLs
 
-Read from the dashboard's own route table — `apps/web/src/app/Routes.tsx` in
-`adapty/adapty-dashboard-interface` at `b238f44e0` (2026-09-09) — not from the address bar, so the
-params are named rather than guessed:
+Read from the dashboard's own route table (`apps/web/src/app/Routes.tsx`) rather than from the
+address bar, so the params are named rather than guessed:
 
 | Route | Page |
 | :--- | :--- |

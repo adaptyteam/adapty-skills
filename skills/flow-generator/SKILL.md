@@ -159,8 +159,7 @@ large). Call shape, the two config shapes it binds into, and the geometry:
 
 **`flows publish --app <APP_UUID> <FLOW_ID>` is not in every build.** Per the rule above, decide
 that by running `flows publish --help`, not from a version number — the command has left stable
-once already, so a numeric floor is not a reliable test (it is present in `0.8.4`, the `latest` of
-2026-09-10). Its own flags are `--app` plus `--yes`/`-y`, and the CLI's global `--json` on top of
+once already, so a numeric floor is not a reliable test. Its own flags are `--app` plus `--yes`/`-y`, and the CLI's global `--json` on top of
 them. Five measured facts shape how you call it: publication is **asynchronous**, so the response reads
 `status: publishing` and never `published` — report it that way rather than claiming the flow is
 live; the confirmation prompt goes to **stderr**, so `--json` stdout stays parseable; `--json` or a
@@ -181,13 +180,12 @@ so read it and quote it rather than re-deriving a cause. Where the API does not 
 they are simply absent; that is not an error, and it does not mean the publish succeeded.
 
 **Two things gate this, and neither of them is the account.** One is the **CLI version**, above. The
-other is the **API deployment**: when last measured against production (2026-09-03) `flows publish`
-answered `http_404` and `flows update --name` answered `Method "PUT" not allowed`. Neither error
-means you wrote the command wrong and neither is fixable by switching accounts — they are per
-deployment, every account on it alike — so say that and hand the user the editor's publish button
-or the builder's rename field. **Run the call before you believe it, though.** The
-placement-audience half of that same rollout has since gone live in production (measured
-2026-09-10), so treat a 404 as something you observed, never as something you expected.
+other is the **API deployment**: `flows publish` has been observed answering `http_404` and
+`flows update --name` answering `Method "PUT" not allowed`. Neither error means you wrote the
+command wrong and neither is fixable by switching accounts — they are per deployment, every account
+on it alike — so say that and hand the user the editor's publish button or the builder's rename
+field. **Run the call before you believe it, though.** Both routes are unverified rather than known
+absent, so treat a 404 as something you observed, never as something you expected.
 
 **There is still no `flows delete`.** Deleting is a dashboard action, so never claim to have
 deleted a flow. Never write a command name the CLI does not have, and never invent a flag —
@@ -833,9 +831,9 @@ $ADAPTY placements create --app "$APP" --title "<Title>" --developer-id "<id>" \
   --audiences '[{"content_type":"flow","flow_id":"'"$FLOW"'","segment_ids":[],"priority":0}]'
 ```
 
-The flow form of `--audiences` is the normal path — measured accepted against production on
-2026-09-10. Every refusal, which of them is yours to fix, the `update` variant and the dashboard
-fallback: [placements.md](references/placements.md).
+The flow form of `--audiences` is the normal path — accepted against production. Every refusal,
+which of them is yours to fix, the `update` variant and the dashboard fallback:
+[placements.md](references/placements.md).
 
 **Then hand the ID over and stop.** This skill does not touch app code:
 
