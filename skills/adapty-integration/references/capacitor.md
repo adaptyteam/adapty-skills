@@ -4,14 +4,14 @@ Platform: Capacitor · Language: TypeScript / JavaScript · Targets: iOS + Andro
 
 ## Prerequisites
 
-- `@adapty/capacitor` **4.1+** for Flow Builder. 4.1 is the first stable 4.x release; a project that cannot meet the requirements below must stay on 3.x, which has no Flow Builder
-- **Capacitor 8** for SDK 4.1+ and 3.16+. Capacitor 7 works only with SDK 3.15; Capacitor 6 and below are unsupported
+- `@adapty/capacitor` **4.1+**. 4.1 is the first stable 4.x release — there is no stable `4.0.x` here — so `4.1.0` is the floor, and `@adapty/capacitor@latest` resolves it. The requirements below are hard floors, not preferences: a project that cannot meet them cannot install this SDK, and there is no 3.x path in this reference to fall back to. Say which requirement is unmet, name the upgrade, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
+- **Capacitor 8.** Capacitor 7 and below cannot run SDK 4.x
 - iOS 15.0+ and Android minSdk 24
 - **Xcode 26 or later** to build for iOS on SDK 4.x — the native iOS SDK is built with Swift tools 6.2. This is a build-machine requirement, so check it before promising a v4 upgrade
 - Android with Google Play Billing Library up to 8.x
 - npm or yarn
 
-**On SDK 4.x the iOS install is Swift Package Manager only** — the `AdaptyCapacitor.podspec` is gone, there is no Podfile, and the app's iOS project must use Capacitor's SPM integration. Any guidance about editing `ios/App/Podfile` applies to 3.x alone.
+**The iOS install is Swift Package Manager only** — the `AdaptyCapacitor.podspec` is gone, there is no Podfile, and the app's iOS project must use Capacitor's SPM integration. Nothing on this path involves editing `ios/App/Podfile`; if you find yourself reaching for one, the iOS project is not on Capacitor's SPM integration.
 
 ---
 
@@ -46,7 +46,7 @@ npx cap run android
 **`npx cap sync` fails:**
 - "Package not found" or missing plugin errors → `npm install @adapty/capacitor` was not run, or `node_modules` is out of sync; run `npm install` then `npx cap sync` again
 - Gradle errors on Android → check `android/app/build.gradle` for conflicting dependency versions; Adapty requires Google Play Billing Library up to 8.x
-- iOS Podfile errors about minimum version → **SDK 3.x only.** Update `ios/App/Podfile` to `platform :ios, '15.0'`. On SDK 4.x there is no Podfile: set the deployment target to 15.0 in Xcode instead, and if the error is that the Adapty package cannot be resolved at all, the iOS project is not on Capacitor's SPM integration
+- iOS errors about the minimum version → set the deployment target to 15.0 in Xcode. There is no Podfile on this path, so if the error is that the Adapty package cannot be resolved at all, the iOS project is not on Capacitor's SPM integration
 - iOS build fails on Swift language/tools version → SDK 4.x needs **Xcode 26+**; an older Xcode cannot build the bundled native SDK
 
 **App launches but crashes immediately:**
@@ -245,7 +245,7 @@ npm install @adapty/capacitor@latest
 npx cap sync
 ```
 
-Confirm the installed major version before writing any Stage 2 code — the fetch API differs between 3.x and 4.x, and `package.json` may carry a caret range that resolved to either:
+Confirm the resolved version before writing any Stage 2 code — Stage 2 is written against the 4.x flow APIs, and an existing `package.json` may carry a caret range that resolved below the floor:
 
 ```bash
 npm ls @adapty/capacitor
@@ -257,7 +257,9 @@ npm ls @adapty/capacitor
 
 **Checkpoint:** `npx cap sync` completes without errors, and `npm ls @adapty/capacitor` reports the version you intended.
 
-**iOS on SDK 4.x:** the SDK installs through Swift Package Manager only, so there is no `Podfile` to edit — set the deployment target to **15.0** in Xcode, and make sure the iOS project uses Capacitor's SPM integration. Building requires **Xcode 26+**. (On SDK 3.x the CocoaPods path still applies: set `platform :ios, '15.0'` in `ios/App/Podfile`, then `npx cap sync ios` again.)
+**iOS:** the SDK installs through Swift Package Manager only, so there is no `Podfile` to edit — set the deployment target to **15.0** in Xcode, and make sure the iOS project uses Capacitor's SPM integration. Building requires **Xcode 26+**.
+
+If the project is already on `@adapty/capacitor` 3.x, this is a v4 upgrade rather than a fresh install, and the iOS install path changes from CocoaPods to SPM along with it: read [Migrate to v4.1.1](https://adapty.io/docs/migration-to-capacitor-sdk-v4.md).
 
 ### Step 2: Add activation code
 
@@ -611,7 +613,7 @@ npx cap run android --no-sync 2>&1 | tail -30
 
 **`npx cap sync` fails:**
 - Missing plugin → `npm install @adapty/capacitor` was not run; install and retry
-- iOS Podfile errors about minimum version → update `ios/App/Podfile` to `platform :ios, '15.0'` and retry
+- iOS errors about the minimum version → set the iOS deployment target to 15.0 in Xcode and retry; there is no Podfile on the SPM install path
 - Android manifest merger errors → follow the backup rules section in `sdk-installation-capacitor.md`
 
 **App crashes on launch:**

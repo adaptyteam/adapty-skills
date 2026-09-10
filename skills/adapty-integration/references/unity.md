@@ -5,7 +5,7 @@ Platform: Unity · Language: C# · Targets: iOS and Android from one project
 ## Prerequisites
 
 - Unity 2022.3 or later (the `com.adapty.unity-sdk` package declares this as its minimum)
-- Adapty Unity SDK **4.1+** for Flow Builder. 4.1 is the first stable release of the 4.x line; a project that cannot meet the requirements below must stay on 3.x, which has no Flow Builder
+- Adapty Unity SDK **4.1+**. 4.1 is the first stable release of the 4.x line — there is no stable `4.0.x` here — so `4.1.0` is the floor. The requirements below are hard floors, not preferences: a project that cannot meet them cannot install this SDK, and there is no 3.x path in this reference to fall back to. Say which requirement is unmet, name the upgrade, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
 - **iOS 15.0+ for the whole app** on SDK 4.x — not just for builder-rendered screens. An Editor build validator fails the iOS build when the deployment target is lower
 - External Dependency Manager for Unity (EDM4U / unity-jar-resolver) **1.2.188 or later** — this is the SDK's declared peer dependency, and earlier versions cannot resolve Swift Package Manager dependencies
 - Android with Google Play Billing Library support (SDK 4.x uses Billing Library v8)
@@ -227,12 +227,18 @@ Two install paths. **Prefer the Package Manager one** — it resolves `com.unity
 
 1. In Unity: **Window → Package Manager**.
 2. Click **+** (top-left) → **Add package from git URL...**.
-3. Enter the URL, pinned to a version tag, and click **Add**:
+3. **Resolve the current release tag first — do not write one from memory.** Use `/releases/latest`, which excludes prereleases; a plain tag listing can put a beta first:
+   ```bash
+   curl -s https://api.github.com/repos/adaptyteam/AdaptySDK-Unity/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4
    ```
-   https://github.com/adaptyteam/AdaptySDK-Unity.git?path=/Packages/com.adapty.unity-sdk#4.1.1
+   It must print `4.1.0` or higher. If it prints nothing — no network, a proxy, no `curl`, or a GitHub rate limit — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-Unity/releases) rather than guessing one.
+
+4. Enter the URL with that tag appended, and click **Add**:
    ```
-   Pin the tag rather than tracking the branch, so a later release cannot change the build under the user. Check the [releases page](https://github.com/adaptyteam/AdaptySDK-Unity/releases) for the current version and use that instead of `4.1.1` if it is newer.
-4. Verify: **Adapty Unity SDK** appears in the Package Manager list, and the `AdaptySDK` namespace resolves in C#.
+   https://github.com/adaptyteam/AdaptySDK-Unity.git?path=/Packages/com.adapty.unity-sdk#<tag-printed-by-the-command-above>
+   ```
+   Append a tag rather than omitting it: with no fragment the Package Manager tracks the default branch, which is the latest *commit* rather than the latest release, so the build can change under the user mid-development.
+5. Verify: **Adapty Unity SDK** appears in the Package Manager list, and the `AdaptySDK` namespace resolves in C#.
 
 **Unity package (alternative):** download `adapty-unity-plugin-*.unitypackage` from the [releases page](https://github.com/adaptyteam/AdaptySDK-Unity/releases) and import it with **Assets → Import Package → Custom Package...** → **Import All**. On this path Newtonsoft.Json is not pulled in automatically; the SDK ships an Editor validator that reports the problem if it is missing or unreadable.
 

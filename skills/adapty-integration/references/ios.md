@@ -143,9 +143,7 @@ Tell the user to do this in Xcode:
    ```
    https://github.com/adaptyteam/AdaptySDK-iOS.git
    ```
-3. Choose the version:
-   - **Flow Builder (`paywallApproach == "flow_builder"`):** Flow Builder requires Adapty iOS SDK **v4+**. Keep the default **Up to Next Major Version** rule and make sure the version is `4.0.0` or later.
-   - **Custom paywall or Observer mode:** select the latest stable version.
+3. Choose the version: keep the default **Up to Next Major Version** rule starting from `4.1.0`. That rule resolves the current 4.x release on its own, so there is no version to look up and nothing here to keep up to date. **The floor is not conditional on the paywall approach** — Stage 2 fetches with `getFlow` on every approach, and the flow APIs do not exist below v4, so a 3.x package produces code that does not compile.
 4. Click **Add Package**
 5. In the "Choose Package Products" dialog, select:
    - **Adapty** — always required
@@ -154,7 +152,9 @@ Tell the user to do this in Xcode:
 6. Click **Add Package**
 7. Verify: "Adapty" (and "AdaptyUI" if selected) should appear under **Package Dependencies** in the project navigator
 
-**If the project uses a `Package.swift` manifest instead of the Xcode UI:** add the matching version to the `dependencies` array — `.package(url: "https://github.com/adaptyteam/AdaptySDK-iOS.git", from: "4.0.0")` for Flow Builder, or `from: "<latest stable>"` for Custom paywall / Observer mode.
+**If the project uses a `Package.swift` manifest instead of the Xcode UI:** add `.package(url: "https://github.com/adaptyteam/AdaptySDK-iOS.git", from: "4.1.0")` to the `dependencies` array. `from:` is a floor with the same up-to-next-major semantics, so write `4.1.0` and let SwiftPM resolve the release — do not substitute a pinned version you remembered.
+
+If the project is already on a 3.x package, this is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-ios-sdk-v4.md) for the paywall-to-flow API rename, then [Migrate to v4.1](https://adapty.io/docs/migration-to-ios-sdk-41.md) for the attribution changes below.
 
 Use `AskUserQuestion` to confirm the package was added successfully before proceeding.
 
@@ -370,6 +370,10 @@ curl -s https://adapty.io/docs/<slug>.md
 ```bash
 curl -s https://adapty.io/docs/<slug>.md
 ```
+
+**Adapty Attribution is opt-in and the floor here is 4.1, so it is off unless you turn it on.** If the user wants Adapty's own install attribution, add `.with(adaptyAttributionEnabled: true)` to the configuration builder in Stage 1 — without it the SDK registers no installs and the installation-details delegate callbacks never fire, silently, with no compiler signal either way. Ask rather than leaving the default, because both outcomes look identical from the code.
+
+**On an upgrade run only:** 4.1 renamed the external-attribution APIs with no deprecated aliases, so a 4.0.x or 3.x call site stops compiling — `Adapty.updateAttribution(_:source:)` → `Adapty.updateExternalAttribution(_:provider:)`, `AdaptyAttributionSource` → `AdaptyExternalAttributionProvider` (with a new `.custom`), and `AdaptyProfile.appliedAttributionSources` → `AdaptyProfile.appliedExternalAttributionProviders`. The JSON-string overload is gone too — deserialize and pass a dictionary. Attribution was also automatic on 4.0 and below, so an upgrade that skips the opt-in above silently loses install registration it used to have. Details in [Migrate to v4.1](https://adapty.io/docs/migration-to-ios-sdk-41.md).
 
 ### Messaging / CRM integrations
 
