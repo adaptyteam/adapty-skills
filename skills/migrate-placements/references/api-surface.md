@@ -17,22 +17,39 @@ Error strings are quoted exactly. An agent routes on them, so a paraphrase here 
 
 | Operation | prod | pod (!13221) |
 |---|---|---|
-| `flows publish` | `http_404` | route works — `Flow has no current version.` on a config-less flow |
-| `flows update --name` | `Method "PUT" not allowed` (`method_not_allowed`) | not retested |
-| flow audience on `placements create` | `audiences.0.paywall_id: Field required` | accepted; a draft flow refused (below) |
-| flow audience on `placements update` | `audiences.0.paywall_id: Field required` | **`Placement type can not be changed.`** (`validation_error`) |
-| `placements get` audiences | **omits** `content_type` | **includes** `content_type` |
-| `is_active` on a placement | **absent** | **absent** — declared in the source at `!13221 @ d0b878cb`, not yet released |
+| `flows publish` | `http_404` **(2026-09-03; not retested — see below)** | route works — `Flow has no current version.` on a config-less flow |
+| `flows update --name` | `Method "PUT" not allowed` (`method_not_allowed`) **(2026-09-03; not retested)** | not retested |
+| flow audience on `placements create` | **accepted** — the union deployed (2026-09-10) | accepted; a draft flow refused (below) |
+| flow audience on `placements update` | **accepted**; a paywall placement still refused with **`Placement type can not be changed.`** | **`Placement type can not be changed.`** (`validation_error`) |
+| `placements get` audiences | **includes** `content_type` (2026-09-10) | **includes** `content_type` |
+| `is_active` on a placement | **present**, on `list` *and* `get` (2026-09-10) | absent when measured; declared in the source at `!13221 @ d0b878cb` |
 
-**None of ADP-6502 is live in production.** So the skill probes rather than assumes, and it
-degrades on those exact error shapes.
+> **CORRECTED 2026-09-10: ADP-6502 HAS SHIPPED TO PRODUCTION, and three rows above are the reverse
+> of what this file recorded on 2026-09-03.** Then: the flow audience was refused with
+> `audiences.0.paywall_id: Field required`, `placements get` **omitted** `content_type`, and
+> `is_active` was **absent in both environments** and *"not yet released"*. Measured today against
+> the default API — no `ADAPTY_API_URL` override — with `adapty` 0.8.4, across 4 placements in 3
+> apps: **every audience entry carries `content_type`**, which is this file's own discriminator for
+> the union being deployed, and `is_active` comes back on both `placements list` and `placements
+> get`. Two independent signals from the same rollout, so the flow-audience write path is live and
+> the refusal is now the edge case rather than the expectation.
+>
+> **What did NOT get retested, and must not be read as corrected: `flows publish` and `flows update
+> --name`.** Both need a write to settle, and the cheapest safe publish probe — `flows create` a
+> throwaway, then publish it — leaves a flow row that cannot be deleted. So phase 1 still probes and
+> phase 5 still degrades, and a `http_404` there is something you **observed**, never something you
+> expected.
+
+So the skill probes rather than assumes, and it degrades on those exact error shapes — which is
+what let this correction be a one-file fact change rather than a redesign.
 
 **The CLI version is the other axis, and it does not move monotonically.** `flows publish` and
 `flows update` shipped in `0.8.3-beta.0`, were **absent from the `0.8.3` release**, and returned
 after it — so *"at least 0.8.3"* admits a build without the command, and a numeric floor is not a
 usable test. Phase 1 probes with `flows publish --help` for that reason. `audiences.0.paywall_id: Field required` in response to a
-flow audience is the API rejecting the *union* — the server still models an audience as
-paywall-only — and it is not a malformed request.
+flow audience is the API rejecting the *union* — that server still models an audience as
+paywall-only — and it is not a malformed request. Production no longer answers this (2026-09-10),
+so it now means *this deployment is behind*, not *the capability does not exist*.
 
 **The publish gate, observed on the pod.** `placements create` naming a flow whose status is
 `draft` — the backend's own wording, which is what 0.8.3-beta.1 printed:
@@ -239,17 +256,19 @@ measurement notes carry. Same config either way; quote the one whose measurement
 
 | | |
 |---|---|
-| prod `placements get` | **omits** `content_type` from each audience |
+| prod `placements get`, from 2026-09-10 | **includes** `content_type` — the asymmetry is closed |
+| prod `placements get`, through 2026-09-03 | **omitted** it from each audience |
 | pod `placements get` | **includes** it |
 | every write (`create`, `update`) | **requires** it |
 
-So a read cannot be written back unchanged. `migrate.py`'s `normalize_audience()` derives it from
-whichever id field is present (`paywall_id` → `paywall`, `flow_id` → `flow`) and refuses to guess
-when there is neither.
+So a read could not always be written back unchanged. `migrate.py`'s `normalize_audience()` derives
+it from whichever id field is present (`paywall_id` → `paywall`, `flow_id` → `flow`) and refuses to
+guess when there is neither.
 
-**That normalization is a pre-!13221 compatibility shim, not a permanent transform.** The pod
-already returns the field, so it becomes a no-op after the merge — which is exactly why it must
-accept both shapes rather than injecting unconditionally.
+**That normalization is a compatibility shim, not a permanent transform — and it is a no-op on
+production today.** Keep it anyway: it is what makes the skill work against a deployment that is
+behind, and it must accept both shapes rather than injecting unconditionally. Its absence is now
+the thing that would be a bug, not its presence.
 
 The CLI validates the field itself, before any request. `audienceEntryProblem` (**exit 2**, no
 request sent): `content_type` is required and must be one of `{paywall, flow}`; a paywall entry
@@ -278,9 +297,12 @@ a real saving rather than a hope. This supersedes the earlier owner-stated entry
 now source-backed, and the guidance not to build finer edge behaviour than
 *true = Live, false = Inactive* stands because that is all the source defines.
 
-**Measured 2026-09-03, and still true: the field is absent in production and absent on the MR
-!13221 pod**, on every placement in both. Source-confirmed semantics and deployed availability are
-different facts — the code is written and not yet released — so nothing can be filtered on it today.
+**SHIPPED. Measured present in production on 2026-09-10** — `adapty` 0.8.4, default API — on
+`placements list` (`['developer_id', 'id', 'is_active', 'title']`) *and* `placements get`, so the
+pre-GET filter is a real saving rather than a hope and `--scope active` genuinely filters. This
+**supersedes** the 2026-09-03 measurement, which found the field absent in production and absent on
+the pod alike and concluded that nothing could be filtered on it. Source-confirmed semantics and
+deployed availability were different facts then; they now agree.
 
 **`paywalls placements` OMITS `is_active` PERMANENTLY, BY DESIGN.** The source excludes it
 explicitly, `model_dump(exclude={'is_active'})`, with the reason: *"these placements come from the

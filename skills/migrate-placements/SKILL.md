@@ -88,16 +88,19 @@ third is not the second:**
 - **`content_type` present** ⇒ the union is deployed. Proceed.
 - **`content_type` absent on an audience that exists** ⇒ confirmed absent. Stop. Say that a write
   would come back `audiences.0.paywall_id: Field required` and that the migration is a dashboard
-  action until the capability ships: https://app.adapty.io/placements. **Two things gate it and
-  neither is the account** — the **CLI version** above, and the **API deployment, which has not
-  happened**, so this is every account alike and switching accounts does not help.
+  action on this deployment: https://app.adapty.io/placements. **Two things gate it and neither is
+  the account** — the **CLI version** above, and the **API deployment**, so this is every account on
+  that deployment alike and switching accounts does not help. **This branch is no longer the
+  expected one:** the union shipped to production on 2026-09-10, so reaching here means the server
+  you are talking to is behind, not that the capability does not exist.
 - **No placement carries an audience at all** — a new app, or every one empty ⇒ **could not
   determine.** Do *not* stop: phase 2 is read-only and always safe to run. Run it, say the
   capability is unconfirmed, and let the first write be where it is settled. (If the app has **no
   placements**, there is nothing to migrate — end there for that reason, not this one.)
 
 That signal is a correlation, not a proof, so the same finding can arrive late — and **the late
-stops protect placements, not flows.** By the time `flows publish` returns `http_404` in phase 5,
+stops protect placements, not flows.** If `flows publish` returns `http_404` in phase 5 (last
+measured 2026-09-03 and not retested — run it rather than assuming it),
 `flows create` has already run once per distinct paywall, and there is **no `flows delete`**: those
 flow rows survive and have to be removed from the dashboard. A phase-7
 `audiences.0.paywall_id: Field required` lands later still, with those flows created *and*
@@ -135,10 +138,18 @@ paged reads whatever the account size, against the N GETs already being spent. `
 skips them; reach for it only when they fail, and then say the question went unanswered rather
 than reporting a zero.
 
-**Pass `--scope active`. Today it will fall back, and that is the expected result, not a fault.**
-`is_active` is measured **absent in production and absent on the pod**
-([api-surface.md](references/api-surface.md#is_active--the-scope-filter)), so **this is the line you
-will actually see** on every account until the field ships:
+**Pass `--scope active`, and read what comes back rather than predicting it.** `is_active` shipped
+to production — measured present on `placements list` and `placements get` on **2026-09-10**
+([api-surface.md](references/api-surface.md#is_active--the-scope-filter)) — so the filter now
+genuinely filters and this is the ordinary line:
+
+```
+30 placement(s) read -> inventory.json
+scope=active: 30 kept, 120 filtered out (30 active, 118 inactive, 2 unknown) -- 2 placement(s)
+carry no readable is_active and were withheld as unknown, not as inactive; offer --scope all
+```
+
+**A deployment that is behind still falls back, and the fallback is a result rather than a fault:**
 
 ```
 150 placement(s) read -> inventory.json
@@ -147,17 +158,12 @@ no placement carries is_active, so activity is unknown rather than inactive; --s
 ignored and every placement kept
 ```
 
-**An absent `is_active` is not `false`.** Say the account cannot be filtered, then use the scale
-gate below — it is the only thing there is to scope on. Do not report an empty migration; the tool
-will not hand you one, and neither should you.
-
-Once the field ships, the same command filters instead:
-
-```
-30 placement(s) read -> inventory.json
-scope=active: 30 kept, 120 filtered out (30 active, 118 inactive, 2 unknown) -- 2 placement(s)
-carry no readable is_active and were withheld as unknown, not as inactive; offer --scope all
-```
+**An absent `is_active` is not `false`.** On that line, say the account cannot be filtered and use
+the scale gate below — it is then the only thing there is to scope on. Do not report an empty
+migration; the tool will not hand you one, and neither should you. **Never report either line
+without having run the command**: through 2026-09-03 the field was absent everywhere and this
+skill told you so up front, which is exactly the shape of caveat that becomes an excuse not to
+look.
 
 **Report both halves of that line to the user.** A filter that hides work is worse than no filter:
 if `is_active` turns out narrower than the placement status it is documented to be, the withheld
