@@ -1,10 +1,14 @@
 # The placement and publish surface, as measured
 
-Every fact here was measured **2026-09-03** and names the environment it came from. Two
-environments, and they disagree — which is the whole reason this file exists:
+**Two measurement dates, and every fact names its environment. Read the date before you trust a
+row:** the bulk was measured **2026-09-03**, when prod and the pod disagreed and that disagreement
+was the whole reason this file exists; the placement-audience rows were **remeasured 2026-09-10**,
+by which point the union had shipped to prod and most of that disagreement was gone. What survives
+of it is the publish route, still unretested — see the last section.
 
-- **prod** — `adapty` 0.8.3-beta.1 against the default API. Two later CLI commits landed after
-  that build and changed output an agent routes on; both are marked below.
+- **prod** — `adapty` 0.8.3-beta.1 against the default API for the 2026-09-03 pass, `adapty` 0.8.4
+  for the 2026-09-10 remeasurement. Two later CLI commits landed after the 0.8.3-beta.1 build and
+  changed output an agent routes on; both are marked below.
 - **the pod** — the same CLI with `ADAPTY_API_URL` pointed at the MR !13221 environment
   (`dashboard-manual-mr-13221-production.manual.adpinfra.dev/api/v1/developer`, over https),
   which has the placement-audience union deployed. **The pod is backed by production data** —
@@ -433,11 +437,21 @@ Stated as open rather than smoothed over, because the skill's phases rest on it.
 
 - **A successful `placements create` with a published flow has not been run.** It is the one call
   the whole migration depends on. Testing it is a real production write that leaves a permanent,
-  undeletable placement, so it was deferred. Unknown until then: the success payload shape, whether
-  `content_type` comes back on the new placement, and whether a duplicate `developer_id` is refused
-  client-side or by the backend.
+  undeletable placement, so it was deferred. Unknown until then: the success payload shape, and
+  whether a duplicate `developer_id` is refused client-side or by the backend. **One of the
+  original unknowns here is now answered on the read side only** — `content_type` does come back
+  on every audience entry `placements get` returns (2026-09-10), but whether it comes back on the
+  *response to a create* is a different call and still untested.
+- **`flows publish`'s route in production is UNRETESTED, and it is the one open question the
+  2026-09-10 pass could not close.** Its `http_404` above dates from 2026-09-03, and the
+  placement-audience half of that same ADP-6502 rollout has since gone live — so the 404 is a
+  plausible casualty of the same deployment and must not be assumed either way. It cannot be settled
+  by a read: publishing is a `POST`, and the cheapest safe probe — `flows create` a throwaway, then
+  publish it — leaves a flow row that **cannot be deleted** (see Housekeeping below, which is that
+  exact cost already paid once). So phase 1 still probes and phase 5 still degrades, and a 404 there
+  is something you **observed**, never something you expected.
 - **`flows update --name` is untested on the pod** — only its prod `Method "PUT" not allowed` was
-  measured.
+  measured, also on 2026-09-03 and also not retested since.
 - **Whether a `dirty` flow is attachable.** Only `published` is treated as safe.
   Two CLI author comments point the same way and neither settles it: `flow-help.ts` calls its
   marker *"the backend message when a placement tries to attach an **unpublished** flow"*, and
