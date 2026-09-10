@@ -241,6 +241,59 @@ def main():
     except ValueError:
         check('an objectFit outside the two-value enum raises', True)
 
+    # video() — `flows media upload` REFUSES a clip (permitted formats are JPEG/JPEG2000/WEBP/
+    # PNG/SVG), so the only correct artifact is a styled element with NO source plus a spoken
+    # "open the builder and upload it". Before this helper there was no way to emit one from
+    # this module, so a video was hand-assembled or, worse, faked with a stack and a Play icon.
+    vid = fk.video(fixed_h=220, corner=fk.radius(16), margin=fk.pad(0, 0, 0, 16))
+    check('video emits the element type, not a stack lookalike', vid['type'] == 'video')
+    check('video carries NO source key at all',
+          not {'video', 'customMediaID'} & set(vid['props']))
+    check('video keeps the fixed height it was given',
+          vid['props']['height'] == {'type': 'fixed', 'value': 220})
+    check('video loops and covers by default',
+          vid['props']['loop'] is True and vid['props']['objectFit'] == 'cover')
+    check('video carries the design props through',
+          vid['props']['borderRadius'] == {'tl': 16, 'tr': 16, 'bl': 16, 'br': 16}
+          and vid['props']['margin']['bottom'] == 16)
+    # Measured: with height:hug an unset clip draws an arbitrary 256pt box (the renderer's
+    # default, the same one an empty image draws), so the previewed layout is not the shipped
+    # one. Unrepresentable beats detectable — `fixed_h` has no default.
+    def no_height_says_why():
+        try:
+            fk.video()
+            return False
+        except TypeError as e:
+            return 'fixed_h' in str(e)
+
+    check('a video with no height raises rather than defaulting to hug', no_height_says_why())
+    check('...and the raise names fixed_h, whichever guard catches it',
+          no_height_says_why())
+    check('fixed_h rejects a non-number', raises(lambda: fk.video(fixed_h='220'), TypeError))
+    check('fixed_h rejects a bool, which is an int in Python',
+          raises(lambda: fk.video(fixed_h=True), TypeError))
+    # These assert on the MESSAGE, not merely that something raised. `**kw` reaches `_node`,
+    # which rejects an unknown keyword on its own — so a bare `raises(...)` here passes with the
+    # guard deleted, and pins _node's signature rather than this rule. The diagnostic IS the
+    # deliverable: it has to tell an agent why no URL can exist and what to do instead.
+    def refuses_source(arg):
+        try:
+            fk.video(fixed_h=200, **{arg: 'https://cdn/x.mp4'})
+            return False
+        except TypeError as e:
+            return 'takes no source' in str(e) and 'upload the clip' in str(e)
+
+    for arg in ('url', 'video', 'media_id', 'customMediaID', 'videoUrl'):
+        check(f'video refuses a fabricated source by name, and says why ({arg})',
+              refuses_source(arg))
+    check('video enforces the same two-value objectFit enum',
+          raises(lambda: fk.video(fixed_h=200, fit='contain'), ValueError))
+    # `IVideoElementProps` has no `fill`, no `align` and no `layout` — placement is the parent's
+    # job — so a caller reaching for one should hit _node's own signature rather than have it
+    # silently land in props.
+    check('video takes no fill (the schema has none)',
+          raises(lambda: fk.video(fixed_h=200, fill_=fk.fill('bg')), TypeError))
+
     spread_stack = fk.stack([], distribution='space-evenly')
     check('stack passes distribution through',
           spread_stack['props']['layout']['distribution']

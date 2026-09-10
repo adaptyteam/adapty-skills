@@ -748,6 +748,61 @@ def check(path, baseline_text=None):
                     f"{', '.join(unstrung[:4])}{', …' if len(unstrung) > 4 else ''} — "
                     f"`flows media upload` prints a number, the schema wants a string")
 
+    # A `video` is the empty-image story one element type over, with one difference that makes
+    # it permanent rather than provisional: `flows media upload` REFUSES a clip outright
+    # (`validation_error`, permitted formats JPEG/JPEG2000/WEBP/PNG/SVG), so nobody can ever
+    # bind it from the CLI and the upload is always the user's, in the builder. Both publish-time
+    # gates are blind here exactly as they are for images -- measured 2026-09-10 against the real
+    # transform service: an unset `video` returns `valid: true, issues: []` in the styled, the
+    # empty-`values`-map and the bare forms alike -- so this warning is the only mechanical slot
+    # that puts the upload in the handover. `IVideoElement` is `x-supported: true`, so unlike
+    # `old-price` it does reach a device; the checkerboard is what real users would see.
+    unset_vids, hug_vids = [], []
+    for _s, el in els():
+        if el.get('type') != 'video':
+            continue
+        pr = el.get('props') or {}
+        src = pr.get('video')
+        bound = bool(isinstance(pr.get('customMediaID'), str) and pr['customMediaID'].strip())
+        if isinstance(src, dict):
+            if src.get('_localizable'):
+                bound = bound or bool(src.get('values'))
+            else:
+                bound = bound or bool(src.get('videoUrl'))
+        if not bound:
+            unset_vids.append(el.get('id'))
+        if (pr.get('height') or {}).get('type') == 'hug':
+            hug_vids.append(el.get('id'))
+    if unset_vids:
+        warn.append(f"{len(unset_vids)} video element(s) with NO source "
+                    f"({', '.join(str(i) for i in unset_vids[:4])}"
+                    f"{', …' if len(unset_vids) > 4 else ''}) — they publish as an 'Upload Video' "
+                    f"placeholder and no gate objects. This is the EXPECTED shape (there is no "
+                    f"CLI upload path for a clip), so it is not a defect: tell the user to open "
+                    f"the flow in the builder and upload each clip there, and name every one of "
+                    f"these elements when you do")
+    if hug_vids:
+        hug_unset = [i for i in hug_vids if i in unset_vids]
+        if hug_unset:
+            warn.append(f"video element(s) with height: hug AND no source "
+                        f"({', '.join(str(i) for i in hug_unset[:4])}"
+                        f"{', …' if len(hug_unset) > 4 else ''}) — measured: the placeholder draws "
+                        f"an arbitrary 256pt, the renderer's default and no function of the clip "
+                        f"nobody has uploaded yet, so the layout you previewed is not the one "
+                        f"that ships and everything below it moves when the file lands. If you "
+                        f"authored this element, give it a fixed height from the design")
+        hug_bound = [i for i in hug_vids if i not in unset_vids]
+        if hug_bound:
+            warn.append(f"video element(s) with height: hug and a bound clip "
+                        f"({', '.join(str(i) for i in hug_bound[:4])}"
+                        f"{', …' if len(hug_bound) > 4 else ''}) — the drawn height then comes "
+                        f"from the FILE rather than from the design, so replacing the clip with "
+                        f"one of a different aspect silently re-flows this screen. (What a bound "
+                        f"clip draws at hug is not measurable from here — there is no CLI upload "
+                        f"path for a video — so this is the sizing model, not a render "
+                        f"measurement.) If you FETCHED this config, report it rather than "
+                        f"rewriting someone else's height silently")
+
     # A value under a code that `locales[]` does not declare renders nowhere. It is usually half a
     # locale run — the values written, the declaration forgotten — and the parity check above
     # cannot see it, because that walks DECLARED locales only. Runs even for a single-locale flow,

@@ -3,12 +3,15 @@
 Fill this in **before dispatching agents**. Maintainer-facing and repo-only — nothing here ships.
 
 Why it exists, stated as a measurement rather than a worry. Across the arm-comparison rounds this
-repo has run, **seven returned a null result** (`merge-green` rounds 1 and 2, `helper-green` rounds
-1 and 2, `fake-slider-green`, `reference-assets-green` rounds 1 and 2) and **an eighth was inconclusive by
-construction** (the validate loop's round 1). Every one but the last was diagnosed *afterwards*, in
-CLAUDE.md, in its own words — and the diagnoses repeat: the sandbox account contained a working
-reference implementation **twice**, and the pre-registered prediction that the control arm would
-fail has now been **wrong five times**.
+repo has run, **eight returned a null result** (`merge-green` rounds 1 and 2, `helper-green` rounds
+1 and 2, `fake-slider-green`, `reference-assets-green` rounds 1 and 2, `video-green`), **a ninth was
+inconclusive by construction** (the validate loop's round 1), and **exactly one has separated**
+(`video-green2`, control 0/3 vs treatment 3/3 — see the note at the foot of this file for what made
+it different). `video-green3` is the first round whose null was **predicted before dispatch** from
+that note's rule, and reframed into a base-rate measurement rather than run as an arm comparison. Every one but the last two was
+diagnosed *afterwards*, in CLAUDE.md, in its own words — and the diagnoses repeat: the sandbox
+account contained a working reference implementation **twice**, and the pre-registered prediction
+that the control arm would fail has now been **wrong six times**.
 
 The lessons were all already paid for. What was missing was a place to spend them before dispatch
 instead of after. Each row below cites the round that bought it.
@@ -58,6 +61,14 @@ agent, given this wording, behave differently?** Three things masquerade as that
       done *after* the round, and passed by luck. **Run the check you are claiming** — `which`, a
       `list`, a `grep` — and paste what it printed: ______
 
+- [ ] **...and paste the PAGINATION, not just the row count.** *video-green2*: the scan said "20
+      flows, 0 videos" and was asserted as the whole account. `flows list` defaults to
+      `--page-size 20` and the response carries `meta.pagination {count: 58, page: 1, pages: 3}` —
+      **page 1 was read and reported as the account**, and an agent in the round caught it. The
+      claim happened to survive a full re-scan; that was luck. This repo already documents the
+      trap for `migrate-placements` and it still bit the methodology. Paste `count`/`pages`:
+      ______
+
 - [ ] **The prompt does not invite the behaviour.** *Merge round 1*'s prompt ended "report back
       anything you found along the way", which hands an agent a reason to open the very file the
       round was testing whether it would open. Read your prompt back and name any clause that
@@ -74,6 +85,13 @@ agent, given this wording, behave differently?** Three things masquerade as that
 
 - [ ] **The arms differ only in the thing that changes the decision.** Everything else byte-
       identical, and paired in time so machine contention cannot favour an arm.
+
+- [ ] **Overlay only what SHIPS.** *video-green*: the first arm build overlaid the whole working
+      tree, which put the change's own CLAUDE.md finding — every measurement, spelled out — into
+      the treatment arm, where **CLAUDE.md is auto-loaded as project instructions**. Maintainer
+      notes and `tests/` are not "the thing that changes the decision"; pin them at `origin/main`
+      in BOTH arms. Paste the arm diff and confirm every path in it is a file a customer install
+      would receive: ______
 
 ## 3. The rubric
 
@@ -98,7 +116,31 @@ Write it to disk **before** any agent runs, together with the scorer.
       *reference-assets-green*'s scorer matched the lockup as one string `black\s*friday`; the
       reference sets it on two lines and all six agents mirrored that with two elements, so the
       scorer passed its self-test while being wrong about every artifact. **Self-test against the
-      real input's shape, not against the shape the check expects.**
+      real input's shape, not against the shape the check expects.** Second instance,
+      *video-green*: the fake-detector row looked for a Play icon *inside* the stack's own JSON,
+      but `elements.map` is **flat** — children live in `hierarchy` — so it returned "no lookalike"
+      for the deliberate fake probe. Both bugs were caught only by self-testing against a REAL
+      artifact; a fixture written to match the check passes either one.
+
+- [ ] **Reusing a previous round's scorer means re-deriving its ROWS against this round's
+      rubric.** *video-green3* pre-registered "reuses round 1's scorer" — and round 1's R6 requires
+      a `borderRadius` on every video, which is right for a card-inset hero and **wrong for a
+      full-bleed one**. A real run shipped `width: fill` on an unpadded screen with no radius (the
+      correct design) and the inherited scorer failed it. The rows were right for the old scenario
+      and wrong for the new one. Re-implement, or re-justify every row line by line.
+
+- [ ] **A row about what an agent SAID must test proximity, not co-occurrence.** *video-green2*:
+      R1 asked whether the video's hug height reached the user, and scored "mentions the video"
+      AND "mentions hug" anywhere in the message. All three control runs discussed `height: hug`
+      **about a different element** (the heading's wrapping) and mentioned the video separately —
+      scoring as a false PASS on the only row that mattered. Fixed by requiring both in the same
+      block (blank line or list marker as the boundary). **The right words about the wrong element
+      is still a miss.**
+
+- [ ] **A "did it invoke X" check must not match a READ of X.** *video-green*: the upload row's
+      regex matched `media upload --help`, so the one run it fired for was scored as having
+      attempted the upload when it had done the opposite — looked the constraint up and complied.
+      A `--help`, a `--dry-run` and a `list` are reads. An attempt names its target; require that.
 
 - [ ] **Rows are scored against artifacts, hashed.** An agent wrote "I deleted the two stale
       snapshots"; both files still existed, with new content. **An agent's report is not an
@@ -116,9 +158,14 @@ Write it to disk **before** any agent runs, together with the scorer.
 ## 4. The prediction, and what happens after
 
 - [ ] **Write the prediction down, and do not let it shape the rubric.** Predicting control failure
-      has been wrong **five times** in this repo, and was right once — `reference-assets-green2`,
+      has been wrong **six times** in this repo, and was right once — `reference-assets-green2`,
       where the prediction made was that the control arm would **pass**. Predicting control
-      failure is 0 for 5; predicting competence is 1 for 1. It is worth recording — being wrong that
+      failure is 1 for 7; predicting competence is **2 for 2** (`reference-assets-green2`,
+      `video-green3`) — so **competence is the prior, and it is now the better-evidenced one**.
+      *video-green* is the sharpest instance of the misses:
+      the prediction named ONE row as the likely separation, on a stated mechanism (`image()`
+      defaults to `hug`, and control has no video helper to suggest otherwise), and not one run in
+      either arm exhibited it. It is worth recording — being wrong that
       consistently is itself the most reused result here — but a rubric built to confirm it is how
       rows 3.1 and 3.2 go wrong. Prediction: ______
 
@@ -153,3 +200,22 @@ surprise — which round 2 then did, and got its prediction right.
 and still produced the most-replicated defect report in this repo's record: 6 of 6 agents, both
 arms, colliding with a shipped ERROR-severity false positive that changed their output. Do not
 score a null round as wasted before reading what the agents hit on the way.
+
+**What made the one separating round different, since eight nulls is the base rate.** `video-green2`
+handed agents a defect **already present in a document they did not write**, and the treatment arm's
+only advantage was a checker line the control arm does not print. Every null round, by contrast,
+gave control the instruction in prose and withheld only a helper — and competent agents kept
+reaching the right answer without it. The generalisation for scenario design: **an arm comparison
+separates when the treatment arm supplies INFORMATION the control arm cannot derive, and tends to go
+null when it supplies only CONVENIENCE.** A missing helper is convenience; a warning about something
+latent in an inherited artifact is information.
+
+**The rule above was then used OUT OF SAMPLE and held.** `video-green3` was classified as
+convenience before dispatch — control already carried the full prohibition in two places plus a
+request-map row naming the element, and treatment added no detection — and was therefore predicted
+null and **reframed into a base-rate measurement** instead of being run as an arm comparison. It
+came back null, 6/6 both arms. That is one successful prospective use of the rule, and it is also
+the pattern to copy: when the classification says convenience, **do not cancel the round — change
+its question** to one a single pooled number can answer (here: do agents produce the bad shape at
+all?). A base rate of zero over twelve runs closed an open item that no amount of arm comparison
+could have.

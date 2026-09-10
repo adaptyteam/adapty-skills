@@ -353,7 +353,18 @@ NEVER a stack that looks like one.** `flows media upload` has no video path
 builder and in `config preview`, and it **publishes clean** (`validate` →
 `valid: true`) — exactly the empty-`image` case, one type over. Author it fully styled — `loop:
 true`, `objectFit`, `borderRadius`, a fixed height — so the box the user drops a clip into is
-already the right shape, and report it as an upload ask like any empty image. Do **not** stand a
+already the right shape, and report it as an upload ask like any empty image. Reach for
+[`flowkit.video()`](flowkit.py) or the catalog's `video-hero` / `video-card` rather than
+assembling one: all three refuse a source by name, since a URL here could only be invented.
+
+Two differences from the empty-`image` case are worth holding on to, both measured
+([media.md → The video placeholder](media.md#the-video-placeholder)). The upload is **never**
+yours — `flows media upload` refuses a clip outright — so the placeholder is what gets handed
+over rather than a provisional state you clear later in the run, and the handoff has to be
+*spoken*: open the flow in the builder and upload it there. And a **fixed height is required**,
+because an unset clip at `height: hug` draws an arbitrary 256pt box (the renderer's default, no
+function of the eventual file), so the previewed layout is not the shipped one and everything
+below the video moves when the clip lands. Do **not** stand a
 `stack` with a Play icon in for it: that is a lookalike of a *different element type* (the same
 mistake as the [fake footer](patterns.md#a-bar-that-stays-at-the-bottom-use-footer) and the fake
 spinner), it forces the user to delete-and-recreate instead of just binding a file, and no gate
@@ -1620,7 +1631,7 @@ style error: you will search for an element type that does not exist, or invent 
 | a price | Never literal text. A rich-text `variable` node — see invariant 5 for the two forms. |
 | a close button, "dismiss" | A tappable `stack` whose action is `{"type": "closeFlow"}` (no payload). |
 | an image, a background | An `image` element for content; `props.fill` with `{"type": "image"}` for a screen or element background. **Different shapes** — see trap 1. |
-| a video, a looping banner | A `video` element (`loop`, `objectFit`). No CLI upload for the source, so leave `customMediaID`/`video` unset — it renders a styled **"Upload Video"** placeholder and publishes clean; style it (`borderRadius`, fixed height) and hand the upload to the user. **Never** fake it with a `stack` + Play icon — trap 5. |
+| a video, a looping banner | A `video` element (`loop`, `objectFit`). No CLI upload for the source — the command refuses a clip — so leave `customMediaID`/`video` unset: it renders a styled **"Upload Video"** placeholder and publishes clean. Give it a **fixed** height (a `hug` one draws an arbitrary 256pt, measured) plus the radius and margins of the design around it, then tell the user in words to upload it in the builder. `flowkit.video()`, or the catalog's `video-hero` / `video-card`. **Never** fake it with a `stack` + Play icon — trap 5. |
 | a carousel, reviews/testimonials, a slider, swipeable cards, cards with dots | A `carousel` element, one child `stack` per slide. It is swipeable and **renders its own indicator dots** from `props.dots` (`{size, color, activeColor}`) — you never build the dots by hand. Fixed geometry only (`slideWidth`/`slideHeight`/`height`; `hug` is dropped on device). **Never** fake it with a static card plus decorative dot `stack`s — that ships one frozen slide and dots that do nothing, the same lookalike mistake as the fake footer/spinner/video (trap 5). If the seed flow has one, copy it; otherwise take `component-catalog.json`'s filled **`reviews-carousel`** template, never the single-card `ue-review` — [`patterns.md`](patterns.md). |
 
 Two rules that follow from the whole table: **the user's noun is rarely the element `type`**,
