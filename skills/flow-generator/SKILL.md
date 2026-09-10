@@ -55,7 +55,7 @@ offering both on every row recommends a path that ends in a refusal:
 > | 1 | `<what it is, in their words>` | `<where on the screen>` | `<w>`×`<h>` |
 >
 > Tell me which, per asset or for all of them:
-> - **Send me a path** — I'll upload and bind it.
+> - **Send me a path** — I'll upload and bind it. Images only.
 > - **Upload it yourself** at https://app.adapty.io/flows/`<FLOW_ID>`/builder — the placeholder is
 >   already styled, so it lands finished.
 > - **Design around it** — I'll replace that region with something the format can build, and say
@@ -63,6 +63,12 @@ offering both on every row recommends a path that ends in a refusal:
 >   to be yours.
 >
 > Until you answer, they ship as placeholders.
+>
+> `<only if a clip is missing:>` `<what>` is a **video**, and there is no upload path for a clip —
+> not one I can take either, so this one is yours whichever route you pick. The element is on the
+> screen already, sized `<w>`×`<h>` to match the design: open
+> https://app.adapty.io/flows/`<FLOW_ID>`/builder, click it and upload the file. Nothing else
+> about the screen changes.
 >
 > `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
 > using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
@@ -361,6 +367,11 @@ For every asset the screen needs, one of three states, decided before you write 
    (trap 5). If the reference itself contains the graphic on a *flat* backdrop, you may be able to
    cut it out instead — [`references/crop.py`](references/crop.py), which refuses rather than
    guessing when the backdrop is textured or the box is wrong.
+
+**A clip is in none of those three states**: the upload refuses a video, so emit a sourceless
+`video` element — `flowkit.video(fixed_h=…)` or the catalog's `video-hero` / `video-card` — and
+say in words that they upload it in the builder
+([media.md](references/media.md#the-video-placeholder)).
 
 **Upload before the preview loop, not after it, and upload each asset once.** A placeholder does
 not occupy the space the real asset will, so a screen previewed with placeholders is a screen whose

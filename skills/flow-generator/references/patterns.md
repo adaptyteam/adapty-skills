@@ -16,10 +16,10 @@ already has one, copy that instead — it is better than anything here.
    then `flows config get` the one that has the shape you need — no need to ask for an export.
    Same app means products and custom fonts still resolve; see the break list below for what
    does not.
-3. **`component-catalog.json`, which ships in this directory.** 36 official templates with named
+3. **`component-catalog.json`, which ships in this directory.** 39 official templates with named
    slots — `footer` (cta/terms/privacy), `quiz-icons`, `quiz-icon-grid`, `chk-radio-on`/`off`,
    `chk-toggle-on`/`off`, `list-timeline`, `list-comparison`, `list-icons`, `tabs-segmented`,
-   `ue-social-proof`, four timer variants and more. **Query it, never read it whole** (428KB):
+   `ue-social-proof`, `reviews-carousel`, `video-hero`/`video-card`, four timer variants and more. **Query it, never read it whole** (428KB):
 
    ```bash
    jq -r '.components[].id' references/component-catalog.json
@@ -415,6 +415,63 @@ heights fixed; the CTA may stay `Fill`. Swipe and autoplay survive. Two more fro
 threads: the slide's configured size and its hugged content are independent (a 200 slide over 148
 content is a 52px gap you did not author), and slides have no auto-height — fix the carousel height
 to the tallest slide or cut the copy.
+
+### A video — place the real element empty; the upload is always theirs
+
+`flows media upload` **refuses a clip** (permitted formats are JPEG/JPEG2000/WEBP/PNG/SVG), so
+this is the one asset you can never bind. That does not make the element unreachable, and it does
+not license a lookalike: a `stack` with a Play icon is the
+[fake-footer](#a-bar-that-stays-at-the-bottom-use-footer) /
+[fake-spinner](#a-loading-screen--fill-the-loader-spinner-label-template-never-fake-the-spinner)
+mistake wearing a video, and it forces the user to delete and recreate instead of clicking the box
+and picking a file.
+
+**Start from the catalog: `video-hero` and `video-card` are filled templates**, both
+`agent_allowed`, both carrying a `video` with no source. `video-card`'s slots are `title` and
+`description`. Or emit one directly — `flowkit.video(fixed_h=220, corner=fk.radius(16))`. All
+three refuse a source argument by name, because a URL here could only be invented.
+
+**`video-hero`'s 220pt is a STARTING POINT, not a safe default — and on a screen with a pinned
+`footer` the number to check is the gap between the last in-flow content and the footer band.**
+Measured both ways on the same composition shape (430×900, `scrollable: true`, hero → heading →
+three feature rows → two plan cards → `footer`): on a **lean** screen (22 elements) the cards
+clear the CTA by **214–304px** across hero heights 170/190/220/260, so 220 costs nothing there;
+on a **heavier** one (44 elements — a subhead, a line of outcome copy under each row, badges, a
+"cancel anytime" line) a build measured the plan cards falling **behind** the footer at 220 and
+cut the hero to 170 to recover them. Same template, opposite verdicts: **the fold tracks total
+content height, so the hero's number can only be judged against the rest of the screen.** Render
+it and measure that gap; do not carry 220 over from the template on the strength of it being the
+template's value.
+
+Two limits on that check, both worth knowing before you trust it. It answers **first paint** only
+— content passing behind a pinned footer at full scroll is what a `footer` does, by design (see
+the `footer` section). And the small-device case, which is where a tall hero actually bites, is
+**not locally checkable**: `--device` ids are not enumerable, and a guess (`iphone-se`) renders an
+*unknown-device page* rather than a small frame — caught here by `shoot.sh`'s flat-render guard,
+which is the guard doing its job. A short phone stays a device/handoff check.
+
+Three rules, each measured
+([media.md → The video placeholder](media.md#the-video-placeholder)):
+
+1. **A fixed height, never `hug`.** An unset clip at `height: hug` draws an arbitrary **256pt** —
+   the renderer's default, no function of the file nobody has uploaded — so the layout you
+   previewed and got approved is not the one that ships, and everything below the video moves when
+   the clip lands. `flowkit.video()` has no default for `fixed_h`, and `verify-config.py` warns.
+2. **Style it to the screen it sits in.** The radius, the size and the margins come from the
+   design around it, exactly as for an `image`. The user can restyle this element like any other
+   media element, and should not have to: a placeholder that reads as a default grey block is a
+   placeholder they have to fix twice. One measured wrinkle not to be misled by — the checkerboard
+   itself draws **square** whatever radius you set (an empty `image` at the same radius measured
+   identical, so it is the placeholder drawing unclipped, not the element). Author the radius
+   anyway; it is what the clip lands into.
+3. **Say the handoff out loud.** The element on the screen is not the handoff. Name it in the
+   missing-assets block and tell them to open the flow in the builder and upload the clip there —
+   that sentence is the only part of this the user can act on.
+
+It publishes clean and reaches a device: an unset `video` returns `valid: true, issues: []`, and
+`IVideoElement` is `x-supported: true`, so unlike `old-price` it is not preview-only. Note the
+evidence tier — **0 of the 12 real exports carry a `video`**, so this shape is authored from the
+schema plus the measurements above rather than read off builder output.
 
 ### Layout discipline the support channel keeps re-learning
 

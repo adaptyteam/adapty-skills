@@ -327,7 +327,48 @@ spacing bug rather than as an image, so prefer `cover` unless the whole asset mu
   and the user binds the clip in the builder. Style it (`loop`, `objectFit`,
   `borderRadius`, fixed height) and report it as an upload ask. **Never** substitute a `stack` with
   a Play icon — that ships a lookalike of a different element type (flow-schema.md trap 5).
+  Use [`flowkit.video()`](flowkit.py) or the catalog's `video-hero` / `video-card`; both emit the
+  element with no source and refuse to be handed one. See **The video placeholder** below for the
+  three measurements that shape it.
 - **Fonts.** Still a manual Flow Builder upload; a typeface the account lacks is a named ask, not a
   silent substitution.
 - **Deleting or listing uploaded media.** `flows media` has only `upload`, so an upload cannot be
   undone from the CLI — one more reason not to re-upload per iteration.
+
+## The video placeholder
+
+Everything here was measured on 2026-09-10 against the real transform service and the render
+(`app_finance`, `adapty` 0.8.2), because a video is the one asset whose upload is **never** the
+agent's — so the placeholder is not a provisional state to be cleared later in the same run, it
+is what gets handed over.
+
+**It is publishable, and it reaches a device.** An unset `video` returned `valid: true, issues:
+[]` in three forms — fully styled, with an empty `values` map, and bare with nothing but a
+`position`. `IVideoElement` is `x-supported: true` in the published schema, so unlike
+[`old-price`](flow-schema.md) it has a mapper handler and is not a preview-only element.
+
+**A fixed height is the one thing that matters, and `hug` is the trap.** With `height: fixed`
+the box is honoured to the point — `fixed_h: 200` drew exactly 200. With `height: hug` the
+placeholder draws an arbitrary **256pt**: the renderer's default, the same box an empty `image`
+draws, and no function of a clip nobody has uploaded yet. So a hug-height video means the
+layout that was previewed and approved is not the layout that ships, and everything below the
+video moves when the file lands. `flowkit.video()` therefore has no default for `fixed_h`, and
+`verify-config.py` warns on a hug height.
+
+**The checkerboard ignores `borderRadius` — author it anyway.** Corner profiles measured flat at
+`borderRadius: 16`, and an empty `image` at the same radius measured **identical**, so this is
+the placeholder drawing unclipped rather than anything video-specific. Do not "fix" the square
+corners you see in the preview by deleting the radius: it is what the clip lands into, and the
+radius is also what makes the box read as part of the design instead of a default block. The
+same goes for the size and the margins — take them from the surrounding design, the way you
+would for an `image`, because the user can restyle this element like any other media element and
+should not have to.
+
+**What the element has no room for.** `IVideoElementProps` carries `animation`, `border`,
+`borderRadius`, `customMediaID`, `effects`, `height`, `loop`, `margin`, `objectFit`, `opacity`,
+`position`, `rotation`, `video`, `visibility`, `width` — and **no `fill`, no `align`, no
+`layout`**. To place it, position the parent stack.
+
+**Not observed in any real export.** 0 `video` elements across the 12 tracked and raw configs,
+so this shape is authored from the schema plus the measurements above — evidence tier 3, not a
+read off builder output. Treat the device check as load-bearing rather than ceremonial.

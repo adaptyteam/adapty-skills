@@ -308,3 +308,40 @@ also owns the silent-drop hazard when one is blank or duplicated.
 **Report:** each old → new pair, the three sites and how many references moved in each, that
 analytics continuity breaks, and — for a published flow — that the split is not reversible by
 renaming back, because the events under the old id stay there either way.
+
+### 10. Terms and Privacy when you have no real URL
+
+**Trigger:** the screen needs legal links — both stores require them — and nobody gave you the
+URLs. Measured across twelve builds, agents split almost evenly on this and neither half explained
+the consequence, which is the part that decides it.
+
+**"Leave the action off" is not one of the options.** `openUrl` with an empty `payload.url` is
+refused by the transform service (`invalid_action_payload` at `.payload.url`), and
+`flowkit.open_url('')` raises rather than emitting it. So the choice is between a link that points
+somewhere fake and a row that is not a link at all.
+
+**The two shapes are NOT equivalent, and the difference is who catches the omission.** Measured
+against `flow-audit`'s own checker on the same screen:
+
+| what you author | `flows config validate` | `flow-audit` |
+| :--- | :--- | :--- |
+| `openUrl` → `example.com/terms` (any reserved placeholder) | `valid: true` | **no findings, exit 0** |
+| a styled row with no action | `valid: true` | **`dead-affordance`, BLOCKER, exit 1** |
+| a plain `text` reading "Terms", no action | `valid: true` | **`dead-affordance`, BLOCKER, exit 1** |
+
+So the placeholder URL is the shape that **passes every gate and still ships a wrong link to
+paying users**, while the inert row is the shape the auditor **stops**. That inverts the intuition
+the reserved-domain argument gives you — `example.com` and `.example` are reserved by RFC 2606 and
+can never resolve, so a placeholder cannot land on someone else's page, and it reads as obviously
+unfinished *to a human reading the config*. It does not read as unfinished to any check.
+
+**So: default to the inert row and ask for the URLs.** This is the standing preference for the
+failure that is *visible* over the one that renders clean — the same rule the retired
+plain-text-prices guidance was withdrawn under. A placeholder URL is still defensible when the
+user is mid-build and wants the wiring in place, but only with the asymmetry disclosed, because
+otherwise a clean `flow-audit` run is exactly the evidence that convinces someone to ship it.
+
+**Your report states** which shape you chose; that the URLs are outstanding and store review
+requires functioning links; and — if you used a placeholder — **that `flow-audit` will not flag
+it**, so a clean audit is not evidence the links are done. Never present a placeholder domain as
+though it were the user's own.

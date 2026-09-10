@@ -5622,6 +5622,237 @@
       }
     },
     {
+      "id": "video-hero",
+      "caption": "Video hero",
+      "keywords": [
+        "video",
+        "clip",
+        "hero",
+        "demo",
+        "trailer",
+        "preview",
+        "autoplay",
+        "loop",
+        "media"
+      ],
+      "agent_allowed": true,
+      "slots": {},
+      "template": {
+        "type": "stack",
+        "caption": "Video hero",
+        "props": {
+          "position": {
+            "type": "relative"
+          },
+          "width": {
+            "type": "fill"
+          },
+          "height": {
+            "type": "hug"
+          },
+          "layout": {
+            "direction": "vertical",
+            "alignH": "start",
+            "alignV": "start",
+            "distribution": {
+              "type": "gap",
+              "gap": 8
+            }
+          }
+        },
+        "children": [
+          {
+            "type": "video",
+            "props": {
+              "position": {
+                "type": "relative"
+              },
+              "width": {
+                "type": "fill"
+              },
+              "height": {
+                "type": "fixed",
+                "value": 220
+              },
+              "objectFit": "cover",
+              "loop": true,
+              "borderRadius": {
+                "tl": 16,
+                "tr": 16,
+                "bl": 16,
+                "br": 16
+              }
+            },
+            "caption": "hero clip — upload in the builder"
+          }
+        ]
+      }
+    },
+    {
+      "id": "video-card",
+      "caption": "Video card with caption",
+      "keywords": [
+        "video",
+        "clip",
+        "card",
+        "demo",
+        "walkthrough",
+        "how it works",
+        "tutorial",
+        "media"
+      ],
+      "agent_allowed": true,
+      "slots": {
+        "title": {
+          "kind": "text",
+          "path": [
+            "children",
+            1,
+            "props",
+            "content"
+          ]
+        },
+        "description": {
+          "kind": "text",
+          "path": [
+            "children",
+            2,
+            "props",
+            "content"
+          ]
+        }
+      },
+      "template": {
+        "type": "stack",
+        "caption": "Video card",
+        "props": {
+          "position": {
+            "type": "relative"
+          },
+          "width": {
+            "type": "fill"
+          },
+          "height": {
+            "type": "hug"
+          },
+          "layout": {
+            "direction": "vertical",
+            "alignH": "start",
+            "alignV": "start",
+            "distribution": {
+              "type": "gap",
+              "gap": 8
+            }
+          },
+          "padding": {
+            "top": 12,
+            "right": 12,
+            "bottom": 12,
+            "left": 12
+          },
+          "fill": [
+            {
+              "type": "color",
+              "color": {
+                "type": "color-style",
+                "colorId": "white"
+              }
+            }
+          ],
+          "border": {
+            "width": 1,
+            "color": {
+              "type": "color-style",
+              "colorId": "gray-200"
+            },
+            "style": "solid"
+          },
+          "borderRadius": {
+            "tl": 12,
+            "tr": 12,
+            "bl": 12,
+            "br": 12
+          }
+        },
+        "children": [
+          {
+            "type": "video",
+            "props": {
+              "position": {
+                "type": "relative"
+              },
+              "width": {
+                "type": "fill"
+              },
+              "height": {
+                "type": "fixed",
+                "value": 160
+              },
+              "objectFit": "cover",
+              "loop": true,
+              "borderRadius": {
+                "tl": 8,
+                "tr": 8,
+                "bl": 8,
+                "br": 8
+              }
+            },
+            "caption": "clip — upload in the builder"
+          },
+          {
+            "type": "text",
+            "props": {
+              "position": {
+                "type": "relative"
+              },
+              "width": {
+                "type": "fill"
+              },
+              "height": {
+                "type": "hug"
+              },
+              "align": "start",
+              "color": {
+                "type": "color-style",
+                "colorId": "gray-900"
+              },
+              "decoration": "none",
+              "layout": "auto-height",
+              "content": "See how it works",
+              "font": {
+                "preset": "h3"
+              }
+            }
+          },
+          {
+            "type": "text",
+            "props": {
+              "position": {
+                "type": "relative"
+              },
+              "width": {
+                "type": "fill"
+              },
+              "height": {
+                "type": "hug"
+              },
+              "align": "start",
+              "color": {
+                "type": "color-style",
+                "colorId": "gray-500"
+              },
+              "decoration": "none",
+              "layout": "auto-height",
+              "content": "A short caption under the clip.",
+              "font": {
+                "preset": "body"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "id": "timer-inline",
       "caption": "Countdown Inline",
       "keywords": [

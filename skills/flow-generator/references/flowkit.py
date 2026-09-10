@@ -874,6 +874,81 @@ def image(url, *, media_id=None, fit='cover', width='fill', height='hug',
     return _node('image', props, **kw)
 
 
+#: `video` takes no source argument ON PURPOSE, so these names raise instead of being accepted.
+#: `flows media upload` refuses a clip outright -- `validation_error: target_format: value is not
+#: a valid enumeration member; permitted: 'JPEG', 'JPEG2000', 'WEBP', 'PNG', 'SVG'` -- so any URL
+#: reaching this helper could only have been invented, which is worse than an empty box three
+#: ways (flow-schema.md trap 5): it looks resolved so nobody uploads anything, it fails at
+#: runtime instead of showing as unset in the builder, and it collides with the real asset
+#: namespace.
+_VIDEO_SOURCE_ARGS = ('url', 'video', 'src', 'source', 'media_id', 'customMediaID',
+                      'custom_media_id', 'video_url', 'videoUrl', 'preview_url', 'previewUrl')
+
+
+def video(*, fixed_h, width='fill', fit='cover', loop=True, corner=None, border=None,
+          margin=None, opacity=None, position=None, **kw):
+    """A `video` element with NO source, styled to the box the user's clip will land in.
+
+    There is no CLI upload path for a clip, so this helper cannot bind one and deliberately
+    refuses to be handed one. What it emits is the whole correct answer: a real `video` element
+    the user opens in the Flow Builder and drops a file into. Say that to them in words --
+    the element alone is not the handoff.
+
+    NEVER stand a `stack` with a Play icon in for this. That is a lookalike of a different
+    element type (the same mistake as the fake footer and the fake spinner), it forces the user
+    to delete-and-recreate instead of just binding a file, and no gate flags it.
+
+    Measured against the transform service and the render (`app_finance`, 2026-09-10):
+
+    * an unset `video` is PUBLISHABLE -- `valid: true, issues: []`, in the styled, the empty
+      `values`-map and the bare forms alike -- and `IVideoElement` is `x-supported: true`, so
+      unlike `old-price` it does reach a device.
+    * `fixed_h` is REQUIRED, and that is the one constraint worth enforcing. With `height: hug`
+      the placeholder draws an arbitrary **256pt** (the renderer's default, the same box an empty
+      `image` draws) with no relationship to the clip, so the layout you approve is not the
+      layout that ships -- everything below the video moves when the file lands. A fixed height
+      holds the box and the clip absorbs the mismatch, `cover` cropping it and `fit` leaving
+      bands. Measured: `fixed_h=200` drew exactly 200pt.
+    * the checkerboard IGNORES `borderRadius` in `config preview` -- corner profiles measured
+      flat -- and so does an empty `image`'s, byte for byte, so this is the placeholder drawing
+      unclipped rather than anything video-specific. Author the radius anyway: it is what the
+      clip lands into, and do not "fix" the square corners you see in the preview.
+
+    The props here are the element's whole design surface. `IVideoElementProps` has no `fill`,
+    no `align` and no `layout` -- to place it, position the PARENT stack.
+
+    NOT observed in any real export: 0 `video` elements across the 12-config corpus, so this
+    shape is authored from the schema plus the measurements above, not read off builder output.
+    """
+    hit = [k for k in kw if k in _VIDEO_SOURCE_ARGS]
+    if hit:
+        raise TypeError(
+            f'video() takes no source ({", ".join(hit)}): `flows media upload` refuses a clip '
+            "(permitted formats are JPEG/JPEG2000/WEBP/PNG/SVG), so a URL here could only be "
+            'invented — and an invented URL looks resolved, so nobody ever uploads the real '
+            'one. Emit the element empty, style it to the box you want, and tell the user to '
+            'open the flow in the builder and upload the clip there.')
+    if fit not in OBJECT_FIT:
+        raise ValueError(f'objectFit must be one of {OBJECT_FIT}, not {fit!r}')
+    if fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float)):
+        raise TypeError(
+            f'video(fixed_h=...) wants a height in points, not {fixed_h!r}. A hug-height '
+            'placeholder draws an arbitrary 256pt box (measured) that the real clip will not '
+            'match, so the layout you preview and approve is not the one that ships.')
+    props = {
+        'width': size(width),
+        'height': size('fixed', fixed_h),
+        'objectFit': fit,
+        'loop': loop,
+        'position': position or relative(),
+    }
+    if corner is not None:   props['borderRadius'] = corner
+    if border is not None:   props['border'] = border
+    if margin is not None:   props['margin'] = margin
+    if opacity is not None:  props['opacity'] = opacity
+    return _node('video', props, **kw)
+
+
 # --- the input family ---------------------------------------------------------------------
 # Eight element types, and flowkit had a helper for NONE of them, so every authored input was
 # hand-assembled from an export — including in all six runs of the 2026-08-28 GREEN round, one
