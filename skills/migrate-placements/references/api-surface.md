@@ -1,49 +1,31 @@
-# The placement and publish surface, as measured
+# The placement and publish surface
 
-Every fact here was measured **2026-09-03** and names the environment it came from. Two
-environments, and they disagree — which is the whole reason this file exists:
+What the `placements` and `flows` API actually does, established by running the commands against
+production rather than by reading prose about them. Where a claim rests on the CLI's source instead
+of on a call, it says so.
 
-- **prod** — `adapty` 0.8.3-beta.1 against the default API. Two later CLI commits landed after
-  that build and changed output an agent routes on; both are marked below.
-- **the pod** — the same CLI with `ADAPTY_API_URL` pointed at the MR !13221 environment
-  (`dashboard-manual-mr-13221-production.manual.adpinfra.dev/api/v1/developer`, over https),
-  which has the placement-audience union deployed. **The pod is backed by production data** —
-  same app UUIDs, same `public_live_` SDK keys — so a write through it is a real write. Every
-  test below is a read or a rejected write except the one probe flow noted at the end.
+**Error strings are quoted exactly. An agent routes on them, so a paraphrase here is a bug.**
 
-Error strings are quoted exactly. An agent routes on them, so a paraphrase here is a bug.
+Two things are still open and are named as open, not smoothed over — see
+[what is still unverified](#what-is-still-unverified).
 
-## Capability state by environment
+## Publishing, and the draft-attach gate
 
-| Operation | prod | pod (!13221) |
-|---|---|---|
-| `flows publish` | `http_404` | route works — `Flow has no current version.` on a config-less flow |
-| `flows update --name` | `Method "PUT" not allowed` (`method_not_allowed`) | not retested |
-| flow audience on `placements create` | `audiences.0.paywall_id: Field required` | accepted; a draft flow refused (below) |
-| flow audience on `placements update` | `audiences.0.paywall_id: Field required` | **`Placement type can not be changed.`** (`validation_error`) |
-| `placements get` audiences | **omits** `content_type` | **includes** `content_type` |
-| `is_active` on a placement | **absent** | **absent** — declared in the source at `!13221 @ d0b878cb`, not yet released |
-
-**None of ADP-6502 is live in production.** So the skill probes rather than assumes, and it
-degrades on those exact error shapes.
-
-**The CLI version is the other axis, and it does not move monotonically.** `flows publish` and
-`flows update` shipped in `0.8.3-beta.0`, were **absent from the `0.8.3` release**, and returned
+**A command's presence is not a version question, and it does not move monotonically.** `flows
+publish` and `flows update` shipped in `0.8.3-beta.0`, were **absent from the `0.8.3` release**, and returned
 after it — so *"at least 0.8.3"* admits a build without the command, and a numeric floor is not a
-usable test. Phase 1 probes with `flows publish --help` for that reason. `audiences.0.paywall_id: Field required` in response to a
-flow audience is the API rejecting the *union* — the server still models an audience as
-paywall-only — and it is not a malformed request.
+usable test. Phase 1 probes with `flows publish --help` for that reason.
 
-**The publish gate, observed on the pod.** `placements create` naming a flow whose status is
-`draft` — the backend's own wording, which is what 0.8.3-beta.1 printed:
+**A placement cannot be attached to a draft flow.** The backend's own wording, on a `placements
+create` naming a flow whose status is `draft`:
 
 ```
 ApiError: Flow must be published before placing in a placement.
 Code: validation_error
 ```
 
-That is the ticket's `FlowNotPublishedError`, reached on the **create** path. On the *update* path
-the type check fires first, so it is unreachable there. Hence the phase ordering: publish, poll
+That is reached on the **create** path. On the *update* path the type check fires first, so it is
+unreachable there. Hence the phase ordering: publish, poll
 until `published`, then create the placement.
 
 **The CLI now replaces that message, so do not route on the backend text.** `placements
@@ -67,7 +49,7 @@ reports the flow as live off that response is reporting a state nobody observed.
 (`validation_error`) it exits **1** with remediation links, one of which is
 https://adapty.io/docs/flow-generator-skill.
 
-Its success output grew after 0.8.3-beta.1 and now hands you the next two commands:
+Its success output grew in a later build and now hands you the next two commands:
 
 ```
 Publishing started — status: publishing. This is asynchronous; the flow is NOT published yet.
@@ -76,7 +58,7 @@ If it fails:     adapty flows config get --app <APP> <FLOW>   (shows why)
 ```
 
 Two things follow. The older single line — `Publishing started — status: publishing.` — is a
-**prefix** of the new one, so a prefix match survives both builds and an equality match does not.
+**prefix** of the longer one, so a prefix match survives both builds and an equality match does not.
 And all three lines are **suppressed under `--json`**: a `--json` publish returns the flow object
 alone, so the poll is on you either way.
 
@@ -91,7 +73,7 @@ only needs it when a phase-5 publish lands on `publication_failed`.
 
 ## Why every migration is a create
 
-**A placement's content type cannot be changed after creation.** On the pod, which accepts flow
+**A placement's content type cannot be changed after creation.** Against a server that accepts flow
 audiences on `create`:
 
 ```
@@ -101,15 +83,15 @@ ApiError: Placement type can not be changed.
 Code: validation_error
 ```
 
-**This is not a deployment gap.** The pod has the union deployed and still refuses. So in-place
-conversion is impossible at the backend, not merely unimplemented in the CLI, and every "migrate"
-operation is a `placements create`.
+**This is not a deployment gap.** A server with the placement-audience union fully deployed still
+refuses it. So in-place conversion is impossible at the backend, not merely unimplemented in the
+CLI, and every "migrate" operation is a `placements create`.
 
 Two consequences worth stating separately:
 
-- **ADP-6502's own QA case C7 cannot pass.** The ticket lists *"convert an existing placement to a
-  flow"* via `placements update` as an expected success. Report that to the CLI/API team; do not
-  design around it as though it works.
+- **Anything promising in-place conversion is wrong, including test plans.** `placements update`
+  into a different content type is refused by the backend; do not design around it as though a
+  future flag will land, and report it if you find it documented as working.
 - **A wrongly-created placement is permanent.** The docs, verbatim: *"Placement IDs are unique
   across every placement in the app, whatever the type, so the same ID can't serve a flow in one
   place and a paywall in another."* ([placements.md](https://adapty.io/docs/placements.md)) So a
@@ -188,8 +170,8 @@ There is no bulk read, so classifying N placements costs N GETs.
 called without pagination — and returns summaries only. It answers *which* placements use a
 paywall; it does not carry the `segment_ids`, `priority` or `title` a write needs.
 
-**And it is FILTERED, which limits it further than the missing fields do.** From the source
-(`adapty-dashboard-api!13221 @ d0b878cb`): *"Filtered to live (state=LIVE), paywall-typed
+**And it is FILTERED, which limits it further than the missing fields do.** From the API source,
+verbatim: *"Filtered to live (state=LIVE), paywall-typed
 (content_type=PAYWALL), non-deleted placements."* So the reverse index **cannot find an inactive
 placement at all** — a narrow "just these paywalls" run built on it silently sees only the live
 ones, which is the wrong shape for a migration that may deliberately start with the inactive
@@ -209,7 +191,7 @@ and a full sweep is the wrong shape.
 ## The publishable floor
 
 Measured with `flows config validate` (advisory, saves nothing) against the real transform service
-in **prod**, then with `flow-generator`'s `verify-config.py`:
+in production, then with `flow-generator`'s `verify-config.py`:
 
 | Config | `validate` | `verify-config.py` |
 |---|---|---|
@@ -237,19 +219,29 @@ measurement notes carry. Same config either way; quote the one whose measurement
 
 ## content_type is read-asymmetric
 
+**`content_type` on a read is the discriminator for the whole placement-audience capability.** A
+server that omits it from an audience entry does not model the paywall/flow union, and a flow
+audience written to that server comes back `audiences.0.paywall_id: Field required` — the API
+rejecting the union, not a malformed request. Production includes the field, so that refusal means
+*this deployment is behind*, never *the capability does not exist*. `is_active` shipped alongside it
+and is a second signal for the same thing. **So probe rather than assume, and degrade on those exact
+error shapes** — that is what makes the capability moving under this skill a fact change rather than
+a redesign.
+
 | | |
 |---|---|
-| prod `placements get` | **omits** `content_type` from each audience |
-| pod `placements get` | **includes** it |
+| `placements get` audiences, in production | **include** `content_type` |
+| a server without the placement-audience union | **omits** it from each audience |
 | every write (`create`, `update`) | **requires** it |
 
-So a read cannot be written back unchanged. `migrate.py`'s `normalize_audience()` derives it from
-whichever id field is present (`paywall_id` → `paywall`, `flow_id` → `flow`) and refuses to guess
-when there is neither.
+So a read cannot be assumed to be writable back unchanged — it depends on the server. `migrate.py`'s `normalize_audience()` derives
+it from whichever id field is present (`paywall_id` → `paywall`, `flow_id` → `flow`) and refuses to
+guess when there is neither.
 
-**That normalization is a pre-!13221 compatibility shim, not a permanent transform.** The pod
-already returns the field, so it becomes a no-op after the merge — which is exactly why it must
-accept both shapes rather than injecting unconditionally.
+**That normalization is a compatibility shim, not a permanent transform — and it is a no-op on
+production today.** Keep it anyway: it is what makes the skill work against a deployment that is
+behind, and it must accept both shapes rather than injecting unconditionally. Its absence is now
+the thing that would be a bug, not its presence.
 
 The CLI validates the field itself, before any request. `audienceEntryProblem` (**exit 2**, no
 request sent): `content_type` is required and must be one of `{paywall, flow}`; a paywall entry
@@ -262,9 +254,9 @@ because the two need different fixes (edit the argv, versus publish the flow and
 
 ## `is_active` — the scope filter
 
-**Read from the API source** — `adapty-dashboard-api!13221 @ d0b878cb` — and no longer
-owner-stated. The source comment, verbatim: *"`is_active` is the placement activation state
-(true=Live, false=Inactive), matching the dashboard."*
+**Read from the API source rather than owner-stated.** The source comment, verbatim:
+*"`is_active` is the placement activation state (true=Live, false=Inactive), matching the
+dashboard."*
 
 | | |
 |---|---|
@@ -273,14 +265,14 @@ owner-stated. The source comment, verbatim: *"`is_active` is the placement activ
 | meaning | the **placement's activation state** — Live / Inactive, the dashboard's own toggle |
 | explicitly not | traffic-derived, and not "has an audience configured" |
 
-So `placements list` **and** `placements get` both carry it, which is what makes the pre-GET filter
-a real saving rather than a hope. This supersedes the earlier owner-stated entry; the semantics are
-now source-backed, and the guidance not to build finer edge behaviour than
-*true = Live, false = Inactive* stands because that is all the source defines.
+**Do not build finer edge behaviour than *true = Live, false = Inactive*** — that is all the source
+defines.
 
-**Measured 2026-09-03, and still true: the field is absent in production and absent on the MR
-!13221 pod**, on every placement in both. Source-confirmed semantics and deployed availability are
-different facts — the code is written and not yet released — so nothing can be filtered on it today.
+**It is present in production, on `placements list` as well as `placements get`** — a `list` row
+comes back as `['developer_id', 'id', 'is_active', 'title']`. That is what makes the pre-GET filter
+a real saving rather than a hope, and it is why `--scope active` genuinely filters instead of
+falling back. A server that does not carry the field is behind, and the fallback below is what the
+skill does there.
 
 **`paywalls placements` OMITS `is_active` PERMANENTLY, BY DESIGN.** The source excludes it
 explicitly, `model_dump(exclude={'is_active'})`, with the reason: *"these placements come from the
@@ -288,19 +280,17 @@ paywall latest-placement query, which does not annotate the activation state, so
 carry the meaningless getattr default. It is exposed only on the placement list/retrieve reads,
 whose queryset annotates it."*
 
-**That retroactively justifies the `unknown` bucket, and upgrades it from defensive to required.**
-`unknown` was built for a rollout gap that will close; it turns out to be the permanent shape of an
-endpoint this skill uses. So the three-way partition is not a hedge against release timing that can
-be simplified away once the field ships — one of our own read paths will always return placements
-with no activation state, and collapsing `unknown` into `inactive` would mark every one of them
-disabled. Keep the third bucket.
+**That makes the `unknown` bucket required rather than defensive.** It is the permanent shape of an
+endpoint this skill uses, not a hedge against release timing that can be simplified away — one of
+our own read paths will always return placements with no activation state, and collapsing `unknown`
+into `inactive` would mark every one of them disabled. Keep the third bucket.
 
 **The consequence that shapes `migrate.py`: absence is a THIRD state.** `select_scope` partitions
-active / inactive / **unknown** and never collapses the third into the second, because on today's
-API every placement is unknown — so reading absence as `false` would filter an entire account out
-and report an empty migration, a silent and total failure that looks like a clean result. It is the
-same class of error as reading a pre-!13221 audience with no `content_type` as having no type. An
-all-unknown set under `--scope active` therefore **falls back to every row and records that it did**.
+active / inactive / **unknown** and never collapses the third into the second. Reading absence as
+`false` on a server that does not carry the field would filter an entire account out and report an
+empty migration — a silent, total failure that looks like a clean result, and the same class of
+error as reading an audience with no `content_type` as having no type. An all-unknown set under
+`--scope active` therefore **falls back to every row and records that it did**.
 
 **And the withheld count is reported every run, kept alongside the count kept.** If the field's real
 semantics turn out narrower than the status above, a filter would skip placements that needed
@@ -314,15 +304,15 @@ the GET loop turns a 150-placement app with 30 active from `2 + 150 = 152` calls
 Filtering after the loop yields a byte-identical inventory and saves nothing, which is why the scope
 is an argument to `inventory` rather than something applied to its output.
 
-**Verify on the pod the day it lands, in this order.** Is it on `list` as well as `get` — the call
-saving dies if it is `get`-only. Is it a bare boolean rather than a string or a nullable. And does
-`false` really mean the placement is disabled rather than untrafficked.
+**One thing about the field is asserted by the source and not measured: what `false` means.** The
+source says disabled, matching the dashboard's own toggle; nothing here establishes that a `false`
+placement is untrafficked rather than merely switched off. Do not infer traffic from it.
 
-### If it ships `get`-only
+### If a server carries it on `get` only
 
-**Keep the partition and the reporting; move the filter after the GET loop; delete the arithmetic
-above.** Only the *position* of the filter depends on the field being on `list`. Three of the four
-things it feeds need **activity**, not the pre-GET position:
+**Keep the partition and the reporting; move the filter after the GET loop; drop the call-saving
+claim.** Only the *position* of the filter depends on the field being on `list`, and three of the
+four things it feeds need **activity** rather than the pre-GET position:
 
 | Consumer | Needs | Survives `get`-only? |
 |---|---|---|
@@ -407,20 +397,26 @@ dashboard — it does not split or drop a segment, because that is a targeting d
 
 ## What is still unverified
 
-Stated as open rather than smoothed over, because the skill's phases rest on it.
+Stated as open rather than smoothed over, because the skill's phases rest on it. Each one needs a
+**write** to settle, which is why none of them has been.
 
-- **A successful `placements create` with a published flow has not been run.** It is the one call
-  the whole migration depends on. Testing it is a real production write that leaves a permanent,
-  undeletable placement, so it was deferred. Unknown until then: the success payload shape, whether
-  `content_type` comes back on the new placement, and whether a duplicate `developer_id` is refused
-  client-side or by the backend.
-- **`flows update --name` is untested on the pod** — only its prod `Method "PUT" not allowed` was
-  measured.
-- **Whether a `dirty` flow is attachable.** Only `published` is treated as safe.
-  Two CLI author comments point the same way and neither settles it: `flow-help.ts` calls its
-  marker *"the backend message when a placement tries to attach an **unpublished** flow"*, and
+- **A successful `placements create` with a published flow.** It is the one call the whole migration
+  depends on, and testing it is a real production write that leaves a permanent, undeletable
+  placement. Unknown until then: the success payload shape, whether `content_type` comes back on the
+  *response to a create* — it does come back on every audience entry a `placements get` returns, but
+  that is a different call — and whether a duplicate `developer_id` is refused client-side or by the
+  backend.
+- **Whether `flows publish`'s route is live.** It was last observed answering `http_404`, before the
+  placement-audience capability landed — and since that capability *has* landed, the 404 is a
+  plausible casualty of the same deployment. So it must not be assumed in either direction. It
+  cannot be settled by a read: publishing is a `POST`, and even the cheapest probe — `flows create`
+  a throwaway, then publish it — leaves a flow row that **cannot be deleted**. So phase 1 probes
+  with `--help` and phase 5 degrades, and a 404 there is something you **observed**, never something
+  you expected.
+- **Whether `flows update --name` works.** Last observed `Method "PUT" not allowed`
+  (`method_not_allowed`), and untested since. Renaming stays a builder action.
+- **Whether a `dirty` flow is attachable.** Only `published` is treated as safe. Two CLI author
+  comments point the same way and neither settles it: `flow-help.ts` calls its marker *"the backend
+  message when a placement tries to attach an **unpublished** flow"*, and
   `PlacementFlowAudienceEntryDTO` says *"The flow must be `published` (not draft)"*. A comment is
   weaker than a measurement, so the row stands.
-- **Housekeeping:** a probe flow named *"ZZ ADP-6502 publish probe - delete me"* was created during
-  this investigation. There is no `flows delete`, so it has to be removed from
-  https://app.adapty.io/flows.
