@@ -6,7 +6,8 @@ Platform: React Native · Language: TypeScript / JavaScript · Package manager: 
 
 - iOS 15.0+ (SDK v4 raises the minimum deployment target from 13.0)
 - Android with Google Play Billing Library (Adapty ships v7.0.0 by default; compatible up to 8.x)
-- React Native 0.75+ for SDK v4 (or Expo with Dev Client — Expo Go only supports mock mode); older React Native versions must stay on `react-native-adapty` 3.x (no Flow Builder)
+- `react-native-adapty` **4.0.0+**. A bare `npm install react-native-adapty` installs the latest release, so there is no version to pin — do not substitute an older major. The floor is `4.0.0` rather than `4.1.0` for one reason only: **no 4.1 has been published for React Native**, where iOS, Android, Kotlin Multiplatform, Unity and Capacitor all floor at `4.1.0`. When a 4.1 ships here, raise this floor and port the SDK 4.1 attribution changes those references already carry in Stage 3.5
+- React Native **0.75+** (or Expo with Dev Client — Expo Go only supports mock mode). This is a hard floor, not a preference: below it the iOS install cannot resolve, and there is no 3.x path in this reference to fall back to. If the project is below 0.75, say so, name the React Native upgrade as the prerequisite, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
 - Node.js with npm or yarn
 
 ---
@@ -253,7 +254,7 @@ npx expo prebuild
   npx expo prebuild --clean
   ```
 
-**Gotcha:** `pod install` fails with an `spm_dependency` error → React Native is older than 0.75. Upgrade React Native first, or stay on `react-native-adapty` 3.x (no Flow Builder).
+**Gotcha:** `pod install` fails with an `spm_dependency` error → React Native is older than 0.75. React Native has to be upgraded first; this is the prerequisite from the top of this file, and there is no older-Adapty workaround to offer.
 
 **Gotcha:** Build errors after switching to dynamic frameworks → another library doesn't support modular headers, or the project uses Flipper (incompatible). See [Migrate Adapty React Native SDK to v4](https://adapty.io/docs/migration-to-react-native-sdk-v4.md).
 

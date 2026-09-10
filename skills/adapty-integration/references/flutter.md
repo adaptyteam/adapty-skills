@@ -4,7 +4,8 @@ Platform: Flutter · Language: Dart · Targets: iOS and Android from one codebas
 
 ## Prerequisites
 
-- Flutter 3.32.0+ / Dart 3.8.0+ (stable channel) — required by SDK v4
+- `adapty_flutter` **4.0.0+** — the `^4.0.0` constraint in Stage 1 resolves the current 4.x release, so there is no version to look up. The floor is `4.0.0` rather than `4.1.0` for one reason only: **no 4.1 has been published for Flutter**, where iOS, Android, Kotlin Multiplatform, Unity and Capacitor all floor at `4.1.0`. When a 4.1 ships here, raise this to `^4.1.0` and port the SDK 4.1 attribution changes those references already carry in Stage 3.5
+- Flutter 3.32.0+ / Dart 3.8.0+ (stable channel) — required by SDK v4, and a hard floor: below it the iOS native SDK cannot be resolved and there is no 3.x path in this reference to fall back to. If the project is below 3.32, say so, name the Flutter upgrade as the prerequisite, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
 - iOS 15.0+ (SDK v4 raises the minimum deployment target from 13.0); building for iOS requires Xcode 26+
 - Android: Google Play Billing Library up to 8.x (Adapty defaults to 7.0.0)
 - Dart null safety enabled
@@ -233,7 +234,7 @@ Add Adapty to `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  adapty_flutter: ^4.0.0   # replace with latest version from pub.dev
+  adapty_flutter: ^4.0.0   # a floor — the caret resolves the current 4.x release, so leave it as written
 ```
 
 Then run:
@@ -242,7 +243,7 @@ Then run:
 flutter pub get
 ```
 
-Check pub.dev for the latest release: `https://pub.dev/packages/adapty_flutter`
+`flutter pub get` resolves the caret to the current 4.x release and writes it to `pubspec.lock` — read the resolved version there rather than looking one up and pinning it. Release notes, if the user asks: `https://pub.dev/packages/adapty_flutter`
 
 **iOS native SDK comes through Swift Package Manager (v4+):** starting with v4, the native iOS SDK is no longer distributed through CocoaPods — the plugin pulls it through SPM only. Flutter 3.44+ enables SPM support by default; on Flutter 3.32–3.43, enable it once:
 
@@ -250,7 +251,9 @@ Check pub.dev for the latest release: `https://pub.dev/packages/adapty_flutter`
 flutter config --enable-swift-package-manager
 ```
 
-**Gotcha:** iOS build fails to resolve the Adapty native SDK → Swift Package Manager support is off (Flutter 3.32–3.43); run the config command above and rebuild. Flutter older than 3.32 must stay on `adapty_flutter` 3.x (no Flow Builder).
+**Gotcha:** iOS build fails to resolve the Adapty native SDK → Swift Package Manager support is off (Flutter 3.32–3.43); run the config command above and rebuild. On Flutter older than 3.32 there is no config to enable — Flutter itself has to be upgraded, per the prerequisite at the top of this file.
+
+If the project is already on `adapty_flutter` 3.x, this is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-flutter-sdk-v4.md) for the paywall-to-flow API rename.
 
 ### Step 2: Import and activate the SDK
 

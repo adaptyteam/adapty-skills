@@ -8,7 +8,7 @@ Platform: Kotlin Multiplatform · Language: Kotlin · Targets: Android + iOS
 - Xcode 16.2+ (for iOS target); iOS deployment target 15.0+
 - Google Play Billing Library up to 8.x (Adapty defaults to 7.0.0)
 - `mavenCentral()` in your Gradle repositories
-- SDK v4 is currently a pre-release — pin the exact version (see Stage 1)
+- Adapty Kotlin Multiplatform SDK **4.1.0+**. There is no stable `4.0.x` on this platform — the line went `4.0.0-beta.1` → `4.0.1-beta.1` → `4.1.0` — so `4.1.0` is the floor here, not `4.0.0`
 
 ---
 
@@ -152,15 +152,24 @@ Then guide the user through each step explicitly.
 
 The dependency goes in the **shared module's** `build.gradle.kts` (or equivalent), under `commonMain` — NOT in the Android app module.
 
+**Resolve the version — do not write one from memory.** Run this and use exactly what it prints in both blocks below; `<release>` is the newest *stable* release, so it skips the 4.0 betas on its own:
+```bash
+curl -s https://repo1.maven.org/maven2/io/adapty/adapty-kmp/maven-metadata.xml | grep -o '<release>[^<]*' | cut -c10-
+```
+
+Sanity-check the result against the floor: it must be `4.1.0` or higher. If the command prints nothing — no network, a proxy, no `curl` — **stop and ask the user** for the current version from [Maven Central](https://central.sonatype.com/artifact/io.adapty/adapty-kmp/versions). An SDK version you remember is the one value on this page you cannot verify, and on this platform a remembered version is very likely a `4.0.0-beta` that is no longer the right answer.
+
+**Write a concrete version, never a dynamic range.** Gradle does accept ranges (`[4.1.0,5.0.0)`, `4.1.+`), but unlike SwiftPM's `from:` or Dart's `^` they are resolved fresh per build, so the same commit can produce different versions on two machines — and `latest.release` would cross into the next major and break the API set Stage 2 is written against. Resolve once, write the result, and refresh it deliberately.
+
 **Option A: module-level build.gradle.kts**
 ```kotlin
 kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("io.adapty:adapty-kmp:4.0.0-beta.1")
+                implementation("io.adapty:adapty-kmp:<version-printed-by-the-command-above>")
                 // Add adapty-kmp-ui only if using Flow Builder with Compose Multiplatform:
-                // implementation("io.adapty:adapty-kmp-ui:4.0.0-beta.1")
+                // implementation("io.adapty:adapty-kmp-ui:<version-printed-by-the-command-above>")
             }
         }
     }
@@ -170,7 +179,7 @@ kotlin {
 **Option B: version catalog (libs.versions.toml)**
 ```toml
 [versions]
-adapty-kmp = "4.0.0-beta.1"
+adapty-kmp = "<version-printed-by-the-command-above>"
 
 [libraries]
 adapty-kmp = { module = "io.adapty:adapty-kmp", version.ref = "adapty-kmp" }
@@ -191,7 +200,7 @@ kotlin {
 }
 ```
 
-**SDK v4 is a pre-release — pin the exact version.** Gradle does not resolve pre-release versions through dynamic ranges (`+`, `latest.release`), so a dynamic range silently falls back to 3.x. Check [Maven Central](https://search.maven.org/search?q=io.adapty:adapty-kmp) for the latest 4.x version and use it verbatim.
+If the project is already on 3.x or on a 4.0 beta, this is an upgrade rather than a fresh install — read [Migrate to v4.1](https://adapty.io/docs/migration-to-kmp-sdk-v4.md), which has a short section for exactly the beta-to-4.1 case.
 
 If you get a Maven-related error, make sure `mavenCentral()` is in your Gradle repositories:
 ```groovy
@@ -582,6 +591,10 @@ curl -s https://adapty.io/docs/<slug>.md
 ```bash
 curl -s https://adapty.io/docs/<slug>.md
 ```
+
+**Adapty Attribution is opt-in and the floor here is 4.1, so it is off unless you turn it on.** If the user wants Adapty's own install attribution, add `.withAdaptyAttributionEnabled(true)` to the configuration builder in Stage 1 — without it the SDK registers no installs, the installation-details listener never fires, and the installation status reports not-available, all silently and with no compiler signal either way. Ask rather than leaving the default, because both outcomes look identical from the code.
+
+**On an upgrade run only:** attribution was automatic below 4.1, so an upgrade that skips the opt-in above silently loses install registration it used to have. 4.1 also renamed the external-attribution APIs with no deprecated aliases, so a call site written against 3.x or the 4.0 beta stops compiling: `Adapty.updateAttribution(attribution, source)` → `Adapty.updateExternalAttribution(attribution, provider)`, the provider changes from a `String` to an `AdaptyExternalAttributionProvider`, and `AdaptyProfile.appliedAttributionSources` → `appliedExternalAttributionProviders`. Details in [Migrate to v4.1](https://adapty.io/docs/migration-to-kmp-sdk-v4.md).
 
 ### Messaging / CRM integrations
 

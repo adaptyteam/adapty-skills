@@ -154,19 +154,21 @@ Then guide the user through each step explicitly.
 
 The user needs to add dependencies to their **module-level** `build.gradle` (or `build.gradle.kts`). Ask which file format they use, then write the correct block.
 
-Get the latest SDK version badge from:
-```
-https://github.com/adaptyteam/AdaptySDK-Android/releases
+**The floor is `4.1.0` and it is not conditional on the paywall approach.** Stage 2 fetches with `getFlow` on every approach — Flow Builder, custom paywall and Observer mode alike — and the flow APIs do not exist below v4, so a 3.x BOM produces code that does not compile. The BOM resolves the matching `android-sdk` and `android-ui` versions for you.
+
+**Resolve the version — do not write one from memory.** Run this and use exactly what it prints; `<release>` is the newest *stable* release, so it skips betas on its own:
+```bash
+curl -s https://repo1.maven.org/maven2/io/adapty/adapty-bom/maven-metadata.xml | grep -o '<release>[^<]*' | cut -c10-
 ```
 
-**Choose the version:**
-- **Flow Builder (`paywallApproach == "flow_builder"`):** Flow Builder requires Adapty Android SDK **v4+** — set the `adapty-bom` to `4.0.0` or later. The BOM resolves the matching `android-sdk` and `android-ui` versions for you. See [Migrate Adapty Android SDK to v4](https://adapty.io/docs/migration-to-android-sdk-v4.md).
-- **Custom paywall or Observer mode:** use the latest stable version.
+Sanity-check the result against the floor: it must be `4.1.0` or higher. If the command prints nothing — no network, a proxy, no `curl` — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-Android/releases). An SDK version you remember is the one value on this page you cannot verify, and a wrong one either fails the build or silently installs an API set Stage 2 was not written against.
+
+If the project is already on a 3.x BOM, it is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-android-sdk-v4.md) for the paywall-to-flow API rename, then [Migrate to v4.1](https://adapty.io/docs/migration-to-android-sdk-41.md) for the attribution changes below.
 
 **Groovy DSL (`build.gradle`):**
 ```groovy
 dependencies {
-    implementation platform('io.adapty:adapty-bom:3.x.x')  // latest stable; for Flow Builder use 4.0.0 or later
+    implementation platform('io.adapty:adapty-bom:<version-printed-by-the-command-above>')
     implementation 'io.adapty:android-sdk'
 
     // Only add if using Flow Builder or Paywall Builder:
@@ -177,11 +179,31 @@ dependencies {
 **Kotlin DSL (`build.gradle.kts`):**
 ```kotlin
 dependencies {
-    implementation(platform("io.adapty:adapty-bom:3.x.x"))  // latest stable; for Flow Builder use 4.0.0 or later
+    implementation(platform("io.adapty:adapty-bom:<version-printed-by-the-command-above>"))
     implementation("io.adapty:android-sdk")
 
     // Only add if using Flow Builder or Paywall Builder:
     implementation("io.adapty:android-ui")
+}
+```
+
+**Version catalog (`libs.versions.toml`)** — use this when the project already has one:
+```toml
+[versions]
+adaptyBom = "<version-printed-by-the-command-above>"
+
+[libraries]
+adapty-bom = { module = "io.adapty:adapty-bom", version.ref = "adaptyBom" }
+adapty = { module = "io.adapty:android-sdk" }
+# Only add if using Flow Builder or Paywall Builder:
+adapty-ui = { module = "io.adapty:android-ui" }
+```
+Then in the module-level `build.gradle.kts`:
+```kotlin
+dependencies {
+    implementation(platform(libs.adapty.bom))
+    implementation(libs.adapty)
+    implementation(libs.adapty.ui)   // only with the builder
 }
 ```
 
@@ -431,6 +453,10 @@ curl -s https://adapty.io/docs/<slug>.md
 ```
 
 Note: Apple Search Ads is iOS-only and does not apply to Android.
+
+**Adapty Attribution is opt-in and the floor here is 4.1, so it is off unless you turn it on.** If the user wants Adapty's own install attribution, add `.withAdaptyAttributionEnabled(true)` to the configuration builder in Stage 1 — without it the SDK registers no installs, the `setOnInstallationDetailsListener` listener never fires, and `getCurrentInstallationStatus` reports not-available, all silently and with no compiler signal either way. Ask rather than leaving the default, because both outcomes look identical from the code.
+
+**On an upgrade run only:** attribution was automatic on 4.0 and below, so an upgrade that skips the opt-in above silently loses install registration it used to have. 4.1 also renamed the external-attribution APIs with no deprecated aliases, so a 4.0.x or 3.x call site stops compiling: `Adapty.updateAttribution(attribution, source)` → `Adapty.updateExternalAttribution(attribution, provider)`, `AdaptyAttributionSource` → `AdaptyExternalAttributionProvider` (predefined values keep their names, plus a new `CUSTOM`), and `AdaptyProfile.appliedAttributionSources` → `appliedExternalAttributionProviders`. Details in [Migrate to v4.1](https://adapty.io/docs/migration-to-android-sdk-41.md).
 
 ### Messaging / CRM integrations
 

@@ -99,7 +99,7 @@ Use `AskUserQuestion` for all three together in one call:
 
 1. **Paywall approach** — which do they want?
    - **Paywall Builder** (recommended): Adapty renders paywalls in a no-code visual editor; no paywall UI to build
-     - **Every platform** — iOS, Android, React Native, Flutter, Kotlin Multiplatform, Unity, and Capacitor: Present this option as **Flow Builder** instead. Flow Builder is the v4 successor to Paywall Builder and also supports onboarding flows. The `paywallApproach` state value for this choice is `flow_builder`. Note: Flow Builder requires the platform SDK **v4+**; see Stage 1 in `references/<platform>.md` for that platform's version floor and its build requirements, which on Unity and Capacitor changed in v4 (Swift Package Manager instead of CocoaPods on iOS).
+     - **Every platform** — iOS, Android, React Native, Flutter, Kotlin Multiplatform, Unity, and Capacitor: Present this option as **Flow Builder** instead. Flow Builder is the v4 successor to Paywall Builder and also supports onboarding flows. The `paywallApproach` state value for this choice is `flow_builder`. **Every platform installs SDK v4 and only v4 — the floor is not conditional on this answer**, because Stage 2 fetches with `getFlow` on all three approaches. See Stage 1 in `references/<platform>.md` for that platform's exact floor — `4.1.0` on iOS, Android, Kotlin Multiplatform, Unity and Capacitor, and `4.0.0` on Flutter and React Native only because no 4.1 has been published for those two yet — and for its build requirements, which on Unity and Capacitor changed in v4 (Swift Package Manager instead of CocoaPods on iOS).
    - **Custom paywall**: User builds their own paywall UI; Adapty fetches products and handles purchases
    - **Observer mode** *(not recommended for new projects)*: Keep existing StoreKit/Billing purchase infrastructure unchanged; Adapty only tracks events. Limitations: no paywall management, no A/B testing, manual transaction reporting required. Only suitable if replacing a purchase system is not feasible.
 
@@ -403,7 +403,7 @@ If the user says they'd rather do it manually, walk them through these five step
 | 1. Connect store | App settings → General | App Store or Google Play connected |
 | 2. Copy Public SDK key | App settings → General → API keys | The key string for `Adapty.activate()` |
 | 3. Create product(s) | Products page | At least one product created |
-| 4. Create paywall/flow + placement | Paywalls or Flows page, then Placements page | Placement ID for `getFlow()`. Every platform's v4 SDK fetches with `getFlow`, and the fetch call depends on the **platform SDK major version**, not on the paywall approach: a custom paywall on v4 still uses `getFlow`, and only a project pinned to a v3 SDK still uses `getPaywall`. `references/<platform>.md` Stage 2 is authoritative |
+| 4. Create paywall/flow + placement | Paywalls or Flows page, then Placements page | Placement ID for `getFlow()`. Every platform installs v4 and fetches with `getFlow`, on every paywall approach — a custom paywall still uses `getFlow`. `getPaywall` belongs to v3 and appears only when you are porting an existing v3 call site during a migration, never in a fresh install. `references/<platform>.md` Stage 2 is authoritative |
 | 5. Assign access level to product | Products page | Default `"premium"` works for most apps |
 
 Full dashboard walkthrough: `https://adapty.io/docs/quickstart.md`
