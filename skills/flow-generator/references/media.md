@@ -4,7 +4,7 @@
 a flow config. It is the only asset path an agent has, and it closes the gap that used to make
 every image in an authored flow a user ask.
 
-Everything below was measured against **production** with `adapty` 0.8.0 on 2026-08-24.
+Everything below was measured against **production** with `adapty` 0.8.0.
 Where a claim rests on a render rather than on the endpoint, it says so.
 
 ## The call
@@ -294,7 +294,7 @@ checked. Upload first.
 **Crop transparent margins off before you upload: the BOX is the asset, so padding baked into a
 PNG becomes layout.** An `image` box is filled by the whole canvas, alpha included, so a glyph
 centred in a generously-padded export draws smaller than its box and pushes its neighbours away by
-the difference. Measured 2026-08-25 across a six-asset set exported from a design file: the opaque
+the difference. Measured across a six-asset set exported from a design file: the opaque
 ink was **65–87%** of the canvas height (`ink/canvas` of 0.649, 0.706, 0.707, 0.724, 0.735, 0.870),
 so a 302 px box drew a 196 px illustration and spent **106 px on nothing**. Sizing the box to the
 *visible* artwork then requires dividing by that ratio per asset, which is guesswork; cropping to
@@ -323,8 +323,8 @@ spacing bug rather than as an image, so prefer `cover` unless the whole asset mu
 - **SVG upload** — `http_500` (above). Icons stay authored inline in `_meta.icons`.
 - **Video.** No CLI path for the *source* — but the element is not out of reach. Place a real
   `video` element with `customMediaID`/`video` unset: it renders a styled **"Upload Video"**
-  placeholder (like an empty `image`), publishes clean (`validate` → `valid: true`, measured
-  2026-08-26), and the user binds the clip in the builder. Style it (`loop`, `objectFit`,
+  placeholder (like an empty `image`), publishes clean (`validate` → `valid: true`, measured),
+  and the user binds the clip in the builder. Style it (`loop`, `objectFit`,
   `borderRadius`, fixed height) and report it as an upload ask. **Never** substitute a `stack` with
   a Play icon — that ships a lookalike of a different element type (flow-schema.md trap 5).
 - **Fonts.** Still a manual Flow Builder upload; a typeface the account lacks is a named ask, not a

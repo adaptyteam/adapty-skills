@@ -148,7 +148,7 @@ EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty
 # illegal as a condition — hence scoped here and not to expressions generally.
 COND_ILLEGAL_TYPES = {'assign'}
 # A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
-# 2026-08-28: in `theme.colors[].light/dark` a 3-digit, 8-digit, 7-digit, unprefixed or EMPTY
+# In `theme.colors[].light/dark` a 3-digit, 8-digit, 7-digit, unprefixed or EMPTY
 # hex is refused -- and refused with the location-free `Generated JSON failed schema
 # validation`, which names no field, because `IColorHex` is a bare string with no pattern.
 # The render cannot see it either: `config preview` draws light mode only.
@@ -723,7 +723,7 @@ def check(path, baseline_text=None):
     # valid:true on an empty values map, a numeric id and a missing id alike, and the schema
     # check passes them too, because `ILocalizable.values` is typed as an unconstrained
     # `additionalProperties`. So an empty hero publishes an "Upload Image" checkerboard to real
-    # users, and this warning is the only mechanical slot that sees it. Measured 2026-08-24.
+    # users, and this warning is the only mechanical slot that sees it. Measured.
     empty_imgs, unstrung = [], []
     for _s, el in els():
         if el.get('type') != 'image':
@@ -929,7 +929,7 @@ def check(path, baseline_text=None):
 
     # A `const` purchase action names a product with no element behind it, so the
     # declaration harvester — which walks `product` elements only — never sees it.
-    # Measured 2026-08-24 against adapty/0.8.0 in production: `flows config validate`
+    # Measured against adapty/0.8.0 in production: `flows config validate`
     # refuses such a config with the same `missing flowProductId` error, path ending
     # `.purchase.product`. The render says nothing, because the preview page does not
     # run the transform service. Warning, not error, for the same reason as above: an
@@ -1225,8 +1225,8 @@ def check(path, baseline_text=None):
 
     # A countdown's digits are rich-text `token` nodes, and the builder only resolves the
     # timer_-prefixed ids. The bare names save and `validate` clean, but the Flow Builder paints
-    # them red "Unknown" and the device/preview renders the literal "%hours%". Measured
-    # 2026-08-25 (builder- and device-confirmed: the prefixed ids render live `23:59:59`).
+    # them red "Unknown" and the device/preview renders the literal "%hours%". Measured,
+    # builder- and device-confirmed: the prefixed ids render live `23:59:59`.
     # `component-catalog.json` shipped the bare names until 2026-08-25, so a timer lifted from a
     # template is the usual source of this. Render-wrong-but-publishes, so a warning by the
     # severity rule — but it is the author's to fix if this run wrote it.
@@ -1251,7 +1251,7 @@ def check(path, baseline_text=None):
                     f"{sorted(valid_timer_tokens)}. If you lifted a timer from "
                     f"component-catalog.json, add the prefix; flowkit.timer_digits() emits it")
     # A `timer` carrying a `timer-end` action and NO children DOES NOT FIRE on a device.
-    # Device-measured 2026-09-01 across three trips: the childless form left a real onboarding
+    # Device-measured across three trips: the childless form left a real onboarding
     # stuck on its loading screen; the same timer with one child text advanced; an isolating
     # probe whose two exits led to different destinations then confirmed it directly (it
     # reported "YOU TAPPED", i.e. the manual route, never the timer's). An element with nothing
@@ -1287,17 +1287,17 @@ def check(path, baseline_text=None):
             if not _children_of(eid_):
                 bad.append(
                     f'screen {s["id"]}: timer {eid_} has a timer-end action and NO children, '
-                    f'so it does not fire on a device and the flow stops on this screen '
-                    f'(measured 2026-09-01). Neither validate nor preview can see this. Give '
+                    f'so it does not fire on a device and the flow stops on this screen. '
+                    f'Neither validate nor preview can see this. Give '
                     f'it a child -- the running digits, or the loading copy itself')
 
-    # `footer` is the pinned bottom bar, and all three of these were measured 2026-08-26 by
+    # `footer` is the pinned bottom bar, and all three of these were measured by
     # rendering one screen eight ways. The element is lifted out of the flow and pinned to the
     # viewport bottom; the same props under `type: "stack"` land below the fold.
     for s in d.get('screens', []):
         m = s['elements']['map']
         feet = [k for k, e in m.items() if e.get('type') == 'footer']
-        # DEVICE-CONFIRMED 2026-08-26: a footer on a non-scrollable screen does not render at
+        # DEVICE-CONFIRMED: a footer on a non-scrollable screen does not render at
         # all, and its children go with it — so a CTA inside it takes the screen's only
         # navigation. Invisible to every local gate (preview draws it in both modes, and both
         # the schema check and `flows config validate` pass it), which is exactly why it is
@@ -1819,7 +1819,7 @@ def check(path, baseline_text=None):
 
 
     # ---- `<groupId>.selectedOptionId` on a MULTI_CHOICE group. Measured against the transform
-    # service 2026-08-28: the same condition validates on a `single_choice` group and is refused
+    # service: the same condition validates on a `single_choice` group and is refused
     # on `multi_choice` with `Generated scripts failed validation` -- a multi-select exposes no
     # single selected option for the generated code to read. It matters because
     # `component-catalog.json`'s `quiz-rating` template declares its group `multi_choice`, is

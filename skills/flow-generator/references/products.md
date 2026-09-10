@@ -248,7 +248,7 @@ rendered and worked with **no `product` element on the screen and no
 action names the product directly, and no element has to stand behind it.
 
 **But it is not self-sufficient for publishing, and an earlier version of this page said it was.**
-Measured 2026-08-24 against `adapty/0.8.0` in production: `flows config validate` refuses that
+Measured against `adapty/0.8.0` in production: `flows config validate` refuses that
 exact fixture with `flow._meta.screens["scr_RvSel001"].products is missing flowProductId for
 product "<uuid>" (…elements.map[…].purchase.product)`. The transform service harvests declarations
 from `product` elements only, so a product reached *just* through a `const` purchase is invisible

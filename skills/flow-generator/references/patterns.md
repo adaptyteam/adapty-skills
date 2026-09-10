@@ -243,7 +243,7 @@ to the device check. `verify-config.py` cannot see this, so it is on you.
 
 The recipe above is written in the builder's vocabulary, and translating it to JSON left three
 gaps that together produced a screen that spun forever on a real device while `validate` returned
-`valid: true`. This is the shape that **worked on a real device** (2026-08-25) — the project's
+`valid: true`. This is the shape that **worked on a real device** — the project's
 first confirmed `timer-end`, since no export in the corpus carries one:
 
 ```json
@@ -324,7 +324,7 @@ with a child `text` whose rich text carries `token` nodes:
 this skill's references used to disagree.** The four ids are `timer_days`, `timer_hours`,
 `timer_minutes`, `timer_seconds`. The bare names (`hours`, `minutes`, `seconds`) **do not
 resolve**: `config validate` accepts them, but the Flow Builder paints them red `Unknown` and the
-device/preview renders the literal `%hours%:%minutes%:%seconds%`. Confirmed 2026-08-25 by pushing
+device/preview renders the literal `%hours%:%minutes%:%seconds%`. Confirmed by pushing
 both forms to a real flow and reloading the builder — the prefixed ids render a live `23:59:59`
 chip, the bare ones stay `Unknown`. **`component-catalog.json`'s four timer templates
 (`timer-badge`, `timer-inline`, `timer-blocks`, `timer-inline-units`) shipped the bare names until
@@ -373,7 +373,7 @@ one export, for reference:
 ```
 
 **`height` is the whole box, dots included, and the next element starts immediately after it**
-— measured 2026-08-28 by rendering one template at two heights and scanning the column through
+— measured by rendering one template at two heights and scanning the column through
 the dot row: at `height == slideHeight` the 6px dot band occupies y 324-329 with the following
 element at y 330, and at `slideHeight + 30` it sits at 354-359 with the next element at 360. The
 band is always the last few pixels of the box, so **the dots collide with whatever follows**
@@ -428,7 +428,7 @@ to the tallest slide or cut the copy.
 - **After restructuring a screen, hunt for orphaned fixed buttons**: two stacked CTAs render as
   one, and the SDK taps the topmost — a footer added late left an old Continue underneath it,
   team-diagnosed.
-- **`Scrollable = off` + `footer` = no footer on the device. CONFIRMED 2026-08-26, not a dated
+- **`Scrollable = off` + `footer` = no footer on the device. CONFIRMED, not a dated
   report** — it is a hard constraint and it is
   [rule 0](#a-bar-that-stays-at-the-bottom-use-footer). The channel reported it, a preview
   measurement appeared to contradict it, and the device settled it: the preview draws the footer
@@ -480,7 +480,7 @@ It is the only component in that catalog carrying an `insertion_policy` (`screen
 props are the plain container set — `position: relative`, `width: fill`, `height: hug`, padding,
 and **an opaque `fill`**. `flowkit.footer([...])` emits it.
 
-**Measured 2026-08-26** on one screen rendered eight ways, changing a single thing at a time
+**Measured** on one screen rendered eight ways, changing a single thing at a time
 (content 14x80pt against a 900px viewport, so an in-flow bar sits below the fold):
 
 | The bar | Where it drew |
@@ -514,7 +514,7 @@ to be opaque. A docked `fixed` bar contributes nothing, which is exactly why *th
 `padding.bottom` to equal the bar's height, and why getting the arithmetic wrong put a footnote
 under a CTA.
 
-**Device-confirmed 2026-08-26** (Adapty mobile app, Android): the footer pins to the bottom while
+**Device-confirmed** (Adapty mobile app, Android): the footer pins to the bottom while
 content scrolls **behind** it, the last row clears it at full scroll with no authored reservation,
 and on a short screen it sits flush to the physical bottom. What the device *changed* versus the
 preview is exactly one thing, and it is rule 0.
@@ -522,7 +522,7 @@ preview is exactly one thing, and it is rule 0.
 Five rules follow. The first is a hard requirement and the local render cannot see it:
 
 0. **A `footer` requires `scrollable: true`. Never pair one with `scrollable: false`.**
-   Device-confirmed 2026-08-26 (Adapty mobile app): with the scroll off the footer **does not
+   Device-confirmed (Adapty mobile app): with the scroll off the footer **does not
    render at all** — not misplaced, absent, and every child inside it goes with it, so a CTA
    living in the footer takes the screen's only navigation with it. The preview draws it
    identically in both modes, so this is invisible to `config preview`, to the schema check and
@@ -567,7 +567,7 @@ bar stack — and set:
 ```
 
 The free space lands between the two, with **no** `fixed` positioning, no `padding.bottom`
-reservation, and no arithmetic to get wrong. Measured across four screens (2026-08-24) this
+reservation, and no arithmetic to get wrong. Measured across four screens, this
 removed both of the failure modes the `fixed` alternatives carry: a footnote that had slid under a
 docked CTA, and the dead void an in-flow bar leaves on a tall device.
 `flowkit.screen(..., distribution='space-between', scrollable=False)`.
@@ -1002,7 +1002,7 @@ and **only acceptable because you can render it**: the format is visible in any 
 (`viewBox="0 0 256 256"`, `fill="currentColor"`, one filled path, `{name, raw, weight}` all
 required), so write it, render the screen, and *look at the glyph*. An ArrowLeft authored this way
 was confirmed correct by render before being kept. **Mirror a real entry's markup exactly, and use
-a phosphor-style name** — measured 2026-08-24: three authored icons with invented lowercase names
+a phosphor-style name** — measured: three authored icons with invented lowercase names
 (`mf-lock`) and no `width`/`height` attributes on the `<svg>` tag rendered as *blank* in
 `config preview` (empty chips, no error anywhere); the same paths drew once the entries copied a
 real export's shape — `width="20" height="20" fill="currentColor"` on the tag and phosphor-cased

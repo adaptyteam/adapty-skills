@@ -147,7 +147,7 @@ one it shows that is not there:
   styling), and so does a **`single_choice`** row — `propsByState.selected` fires, accent border
   and swapped tick included. A **`toggle`** is ignored entirely: flipping `default` between `true`
   and `false` on a toggle row produced byte-identical screenshots. A **`multi_choice`** is ignored
-  too: measured 2026-08-24 on a 7-row market picker whose first row carried `default: true`, the
+  too: measured on a 7-row market picker whose first row carried `default: true`, the
   render drew every row unselected while a `single_choice` screen in the same config drew its
   default row selected.
   **You can borrow the renderer to see a toggle's on-state.** Since `single_choice` selection
@@ -161,7 +161,7 @@ one it shows that is not there:
   the config and move on; "fixing" a correct config here is the trap. A switch, a checkbox and a
   pre-ticked consent row always draw in their off state, and neither their `propsByState` nor
   their default can be checked visually. Send the user to the Adapty app for those.
-- **A `spinner`, layout-dependently.** Measured 2026-08-26: the same `spinner` element drew in an
+- **A `spinner`, layout-dependently.** Measured: the same `spinner` element drew in an
   isolated probe and drew **nothing** inside a centred loading screen, while `validate` returned
   `valid: true` and the device drew the screen's other elements fine. Which layouts suppress it is
   **not isolated**, so a blank where a spinner should be is *unproven, not broken* — and the
@@ -191,7 +191,7 @@ one it shows that is not there:
   never resolves. Route coverage is an Adapty-app check, or a reading of the config.
 
   **A screen that advances itself is therefore 100% unverifiable here, and that changes how you
-  hand it over.** Measured 2026-08-25 on a timed loading screen: after 15 s of
+  hand it over.** Measured on a timed loading screen: after 15 s of
   `--virtual-time-budget` the dumped DOM was still the same screen. That result is *worthless as
   evidence* — the page never navigates for any reason, so a broken `timer-end` and a working one
   produce the identical observation. The consequence is a process one: when the only surface that
@@ -246,7 +246,7 @@ one it shows that is not there:
   ([flow-schema.md trap 10b](flow-schema.md)) — cannot be validated against a small phone from
   here. Reason about it structurally instead, and name it in the handoff. Note `--window-size` is
   **not** a substitute: the page draws its own device frame, so a smaller window crops the
-  screenshot rather than re-laying-out the screen (measured 2026-08-24 — a 375×667 window returned
+  screenshot rather than re-laying-out the screen (measured — a 375×667 window returned
   the same 390pt-wide screen with its right edge cut off, which reads exactly like an overflow bug
   that is not there).
 
