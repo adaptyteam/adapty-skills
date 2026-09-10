@@ -150,9 +150,9 @@ below fails with `command not found: npx --yes adapty@latest`. Run `setopt shwor
 same shell (verified), or call `npx --yes adapty@latest` in full. That error is a shell problem,
 never evidence the command or the CLI is missing.
 
-**`flows media upload` works in production** (measured 2026-08-24, `adapty` 0.8.0). It takes a
-local image file and prints a live CDN URL to bind into the config, so an image the user *handed
-you a file for* is yours to place, not a user ask. Two limits shape when you reach for it: **SVG
+**`flows media upload` works in production.** It takes a local image file and prints a live CDN URL
+to bind into the config, so an image the user *handed you a file for* is yours to place, not a user
+ask. Two limits shape when you reach for it: **SVG
 returns `http_500`**, and the ceiling is **~2.5 MB of file bytes** (a bare `http_400` means too
 large). Call shape, the two config shapes it binds into, and the geometry:
 [media.md](references/media.md).
