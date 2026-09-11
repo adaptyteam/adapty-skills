@@ -142,6 +142,15 @@ Write it to disk **before** any agent runs, together with the scorer.
       attempted the upload when it had done the opposite — looked the constraint up and complied.
       A `--help`, a `--dry-run` and a `list` are reads. An attempt names its target; require that.
 
+- [ ] **When the reference is a strip, a sheet or a contact sheet, verify what ONE PANEL IS before
+      counting them.** *split-navigation-round*: R6 required ">=15 screens" because the reference
+      strip has ~20 panels. Cropping two adjacent panels proved they were **one screen shown
+      unselected and selected** — the strip is 12 distinct screens plus state variants, and both
+      arms produced exactly 12. The row failed the correct answer, and it survived self-testing
+      because the scorer and the rubric shared the same wrong assumption. It was caught only
+      because both arms converged on the same "wrong" number. **A count over a reference is a
+      claim about the reference; crop it and look before you score against it.**
+
 - [ ] **Rows are scored against artifacts, hashed.** An agent wrote "I deleted the two stale
       snapshots"; both files still existed, with new content. **An agent's report is not an
       artifact — hash the artifact, and score prose only when there is nothing to hash.**
@@ -154,6 +163,16 @@ Write it to disk **before** any agent runs, together with the scorer.
 - [ ] **If no row can be written that a control could plausibly fail, stop.** Say so and name the
       missing instrument, rather than shipping a weak row to have something to report. A round with
       no discriminating row is an infrastructure gap, and naming it is the finding.
+
+- [ ] **Wall clock is not a metric on a shared machine, and say which clock you mean.**
+      *split-navigation-round* nearly concluded a speed win from two pairs. Three independent
+      contaminations: six-agent Chrome contention (an agent measured ~99 processes, screenshots
+      taking minutes against a documented ~18 s, one render dying at the tool timeout); leftover
+      background waiters inflating a harness duration from 22.7 to 32.8 minutes for the same work;
+      and discretionary verification swamping the effect (one agent rendered a second layout
+      variant purely to compare). Prefer **tool calls** and an **artifact-derived** duration
+      (output-file mtime minus a dispatch marker), and treat minutes as indicative only. If the
+      claim under test IS speed, run the arms alone, not inside a 6-agent round.
 
 ## 4. The prediction, and what happens after
 
