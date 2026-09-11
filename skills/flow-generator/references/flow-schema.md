@@ -136,37 +136,43 @@ All three appear in the real corpus. Do not "fix" any of them — report and mov
 
 ## Shape traps
 
-Each of these is a place where an edit produces a file that parses, validates against the
-invariants above, and is still wrong.
+A shape trap is a place where an edit produces a file that parses, validates against the
+invariants above, and is still wrong. This table is the index into them.
 
-### 1b. `_localizable` does NOT mean one value shape — a placeholder takes a plain string
+The numbers are this file's addressing scheme: other files, and two checker messages in
+`verify-config.py` and `render-check.py`, cite them as **trap N**. They are therefore stable — a
+trap is never renumbered, a new one takes the next free number (**23**), and a new trap with no
+row here is unreachable, because the number is the only address anyone cites.
 
-Two fields both marked `"_localizable": true`, two different value shapes:
-
-```json
-"content":     {"values": {"en": [{"type": "paragraph", "content": [ … ]}]}, "_localizable": true}
-"placeholder": {"values": {"en": "Age"}, "_localizable": true}
-```
-
-`text.props.content` holds an **array of paragraph blocks**. An input's `placeholder` —
-`text-input`, `number-input` and the rest of that family — holds a **bare string per locale**.
-The schema allows `anyOf: [string, rich-node array, ILocalizable]`, which reads as permissive
-and is not: handing paragraph blocks to a placeholder **kills the entire screen**, which renders
-as `Preview failed to render.` and takes every other element on it down.
-
-Measured by bisection, holding everything else constant:
-
-| `placeholder` | result |
+| trap | the thing that parses and is still wrong |
 | :--- | :--- |
-| `{"values": {"en": [{"type":"paragraph", …}]}}` | **whole screen fails to render** |
-| `{"values": {"en": "Age"}}` | renders |
-| `"Age"` | renders |
-
-Neither `verify-config.py` nor the official v10 schema catches it — both pass the broken config.
-Only the render does, which is trap 10's lesson with a louder failure: **one wrong value shape on
-one prop is a screen-level outage**, not a local defect. So a helper that builds rich text is the
-wrong tool for a placeholder, and reusing one across both families is how this project broke two
-screens at once.
+| 1 | `text.props.content` has two shapes, and there are three localizable families |
+| 1b | `_localizable` does not mean one value shape — a placeholder takes a plain string |
+| 2 | Rich text is two levels of node, and two of the three inline types carry no text |
+| 3 | `theme` is per-file, and a `font` override may carry no preset at all |
+| 4 | Built-in variables are referenced but never declared |
+| 5 | An asset you have no file for is an EMPTY `values` map, never a made-up URL |
+| 6 | Optional keys are inconsistently present and must not be normalized |
+| 7 | Both screen id forms are legal |
+| 7b | The id analytics sees is `customId`, and leaving it blank is silent |
+| 8 | Custom fonts do not ship with the flow |
+| 9 | Offsets must resolve against an axis something defines |
+| 10 | A config the API accepts can still be one the builder cannot open |
+| 10b | `layout.distribution` has four modes, and knowing only one deforms every screen |
+| 11 | `opacity` on a colour is a 0-100 percentage, not a 0-1 fraction |
+| 12 | A gradient that ends on the page colour shortens the element |
+| 13 | `height: {type: "fill"}` collapses inside a hug-height parent |
+| 14 | `visibility: hidden` collapses the space, it does not reserve it |
+| 14b | A condition is an expression tree, and `assign` is the one type it may not use |
+| 14c | Every action payload has a required field, and one code covers all of them |
+| 15 | Stale and degenerate sizing values persist, and the transformer believes them |
+| 16 | `purchase` hard-terminates the flow — nothing can be shown after it |
+| 17 | State overrides deep-merge manual values and replace referenced styles wholesale |
+| 18 | `props.verticalAlign` on text is emitted by the builder and ignored by the SDK |
+| 19 | A theme colour must be exactly `#RRGGBB` — and only a theme colour |
+| 20 | A screen background is bound to a token in every real export — never a literal hex |
+| 21 | `theme.colors` and `theme.typography` share ONE id namespace |
+| 22 | Which group types a conditional can read — and the one action that does not work |
 
 ### 1. `text.props.content` has two shapes, and there are three localizable families
 
@@ -198,6 +204,35 @@ Localizable fields are marked by `"_localizable": true`, and the marked key is n
 **non-localizable** key: a `fill` of `"type": "image"` carries a bare
 `"image": {"id": …, "url": …}` with no `values` and no `_localizable`. Same key name,
 different position, different shape.
+
+### 1b. `_localizable` does NOT mean one value shape — a placeholder takes a plain string
+
+Two fields both marked `"_localizable": true`, two different value shapes:
+
+```json
+"content":     {"values": {"en": [{"type": "paragraph", "content": [ … ]}]}, "_localizable": true}
+"placeholder": {"values": {"en": "Age"}, "_localizable": true}
+```
+
+`text.props.content` holds an **array of paragraph blocks**. An input's `placeholder` —
+`text-input`, `number-input` and the rest of that family — holds a **bare string per locale**.
+The schema allows `anyOf: [string, rich-node array, ILocalizable]`, which reads as permissive
+and is not: handing paragraph blocks to a placeholder **kills the entire screen**, which renders
+as `Preview failed to render.` and takes every other element on it down.
+
+Measured by bisection, holding everything else constant:
+
+| `placeholder` | result |
+| :--- | :--- |
+| `{"values": {"en": [{"type":"paragraph", …}]}}` | **whole screen fails to render** |
+| `{"values": {"en": "Age"}}` | renders |
+| `"Age"` | renders |
+
+Neither `verify-config.py` nor the official v10 schema catches it — both pass the broken config.
+Only the render does, which is trap 10's lesson with a louder failure: **one wrong value shape on
+one prop is a screen-level outage**, not a local defect. So a helper that builds rich text is the
+wrong tool for a placeholder, and reusing one across both families is how this project broke two
+screens at once.
 
 ### 2. Rich text is two levels of node, and two of the three inline types carry no text
 
@@ -694,33 +729,6 @@ a **fixed** height and hide the element rather than the wrapper.
 
 It round-trips through `config update` unchanged, including inside `propsByState`.
 
-## The transform service is the authoritative validator
-
-Publishing runs the config through a **transform service**, and that is the only checker in this
-system whose verdict is binding. It answers with a request id, a single fatal `error`, and an
-`issues` array:
-
-```json
-{"error": "Unsupported flow input: flow._meta.screens[\"scr_duoPay\"].products is missing
-           flowProductId for product \"68c96b3c-…\" (screens[\"scr_duoPay\"].elements.map
-           [\"el_Pay022S\"].props.product)",
- "issues": [{"severity": "warning",
-             "code": "unsupported_text_typography_setting",
-             "path": "screens[\"scr_duoWelcome\"].elements.map[\"el_Duo003T\"].props.verticalAlign",
-             "message": "Text verticalAlign is not supported by the SDK transformer and will be ignored"}]}
-```
-
-Three things to take from that, all observed on a real 422:
-
-- **It fails with HTTP 422 and names the exact element.** The `error` string carries both the
-  `_meta` path that is incomplete *and* the `props.product` path that demanded it. When a publish
-  is rejected, read the paths — they identify the element, not just the screen.
-- **`severity` separates fatal from advisory.** A `warning` publishes fine. Only the top-level
-  `error` blocks. Do not report warnings to the user as though they stopped anything.
-- **This is a different and stricter gate than anything local.** `config update` saved this exact
-  config happily; the transform service refused it. So "it saved" never means "it will publish",
-  which is the same lesson trap 10 teaches about rendering, one layer further out.
-
 ### 14b. A condition is an expression tree, and `assign` is the one type it may not use
 
 The `conditional` form above carries a JSON expression, and the transform service validates it
@@ -831,7 +839,7 @@ team-verified, reporter-confirmed). Rule: **in `propsByState`, prefer preset and
 over inline values**, and when an inline colour must be used, make sure the base state's colour is
 opaque, because its opacity is what leaks.
 
-### `props.verticalAlign` on text is emitted by the builder and ignored by the SDK
+### 18. `props.verticalAlign` on text is emitted by the builder and ignored by the SDK
 
 Real exports carry `"verticalAlign": "top"` on text elements, so copying it looks correct — and it
 is inert twice over: the transform service reports
@@ -840,7 +848,7 @@ produced a **byte-identical render**. Authoring it buys one warning per text ele
 else, so **do not add it to text you create**. Leave it where you found it — stripping a key you
 did not add is an unrequested edit — but there is no reason to write a new one.
 
-### A theme colour must be exactly `#RRGGBB` — and only a theme colour
+### 19. A theme colour must be exactly `#RRGGBB` — and only a theme colour
 
 `theme.colors[].light.hex` / `.dark.hex` accept **six hex digits behind a `#`, either case, and
 nothing else**. Measured against the transform service, every one of these is
@@ -862,7 +870,7 @@ validate clean, and `tests/fixtures/onboarding-quiz-paywall.json` (which holds b
 `flowkit.config()` raises on a bad theme hex and leaves element colours alone;
 `verify-config.py` errors on the same thing, calibrated silent on all 12 real configs.
 
-### A screen background is bound to a token in every real export — never a literal hex
+### 20. A screen background is bound to a token in every real export — never a literal hex
 
 Measured across the corpus: of the 11 genuine exports, **every screen fill is either a theme
 token or an image. Not one is a literal hex.** The single exception is
@@ -889,7 +897,7 @@ the dark half checkable at all — with the scope limit below.
 > **1.89** (amber stars on a light card) and the next one down is **1.08** (near-white on white),
 > so the threshold sits in an empty gap. Raising it to 3.0 fires on a real fixture — measured.
 
-### `theme.colors` and `theme.typography` share ONE id namespace
+### 21. `theme.colors` and `theme.typography` share ONE id namespace
 
 Reuse an id across the two and the **device SDK fails to decode the flow at all**:
 `DecodingError: dataCorrupted … Debug description: Duplicate Key`. The screen never opens — this
@@ -918,6 +926,74 @@ does (0 of 8) but which only collides if the consumer keys icons by name alone.
 
 Calibrated both directions: silent on all 8 corpus files (sanitized and raw), and each check
 fires on its own injected duplicate.
+
+### 22. Which group types a conditional can read — and the one action that does not work
+
+Measured against `flows config validate` on a real flow, one predicate per run. A
+conditional whose predicate names an unreadable variable fails the publish gate with
+**`Generated scripts failed validation`** — location-free, exactly like a malformed hex, because
+the transformer compiles predicates into JavaScript and an unresolvable name yields invalid script.
+
+| group `type` | predicate variable | `validate` |
+|---|---|---|
+| `product` | `<groupId>.selectedProduct` | **valid** |
+| `single_choice` | `<groupId>.selectedOptionId` | **valid** |
+| `multi_choice` | `<groupId>.selectedOptionId` | **fails** |
+| `toggle` | `.selectedOptionId`, `.selected`, `.value` — all three tried | **fails** |
+
+So **a `toggle` group exposes nothing a condition can read.** This corrects the support-channel
+workaround recorded for driving plan selection from a switch: it cannot be keyed on the toggle.
+
+**`selectProduct` is the one action the schema flags `"x-supported": false`** — every other action
+type is `true` — and its payload takes `{element: <element id>}`, not a product id. Bisected: a
+conditional containing only `nothing` actions failed too, so the gate was objecting to the
+predicate rather than to `selectProduct`; but the flag plus the unreadable toggle variable mean
+**a toggle cannot move a product group's selection**. Drive the visible difference with
+`propsByState` on the toggle's own element, and put the conditional where it reads a product
+group.
+
+**Conditional rich text validates, and the `switch` nests INSIDE the locale value**, with each
+branch a `const` holding that locale's paragraph array:
+
+```json
+"content": {"_localizable": true, "values": {"en": {
+  "type": "switch",
+  "cases": [[ {"type": "&&", "predicates": [
+                {"left": {"type": "var", "variableId": "plans.selectedProduct"},
+                 "type": "==", "right": {"type": "const", "value": "<product-uuid>"}}]},
+              {"type": "const", "value": [ …paragraph runs… ]} ]],
+  "default": {"type": "const", "value": [ …paragraph runs… ]}}}}
+```
+
+The render draws **one branch of one locale with no tell in the PNG**, so read it, do not look at
+it.
+
+## The transform service is the authoritative validator
+
+Publishing runs the config through a **transform service**, and that is the only checker in this
+system whose verdict is binding. It answers with a request id, a single fatal `error`, and an
+`issues` array:
+
+```json
+{"error": "Unsupported flow input: flow._meta.screens[\"scr_duoPay\"].products is missing
+           flowProductId for product \"68c96b3c-…\" (screens[\"scr_duoPay\"].elements.map
+           [\"el_Pay022S\"].props.product)",
+ "issues": [{"severity": "warning",
+             "code": "unsupported_text_typography_setting",
+             "path": "screens[\"scr_duoWelcome\"].elements.map[\"el_Duo003T\"].props.verticalAlign",
+             "message": "Text verticalAlign is not supported by the SDK transformer and will be ignored"}]}
+```
+
+Three things to take from that, all observed on a real 422:
+
+- **It fails with HTTP 422 and names the exact element.** The `error` string carries both the
+  `_meta` path that is incomplete *and* the `props.product` path that demanded it. When a publish
+  is rejected, read the paths — they identify the element, not just the screen.
+- **`severity` separates fatal from advisory.** A `warning` publishes fine. Only the top-level
+  `error` blocks. Do not report warnings to the user as though they stopped anything.
+- **This is a different and stricter gate than anything local.** `config update` saved this exact
+  config happily; the transform service refused it. So "it saved" never means "it will publish",
+  which is the same lesson trap 10 teaches about rendering, one layer further out.
 
 ### The schema tells you what the transformer handles: `x-supported`
 
@@ -962,47 +1038,6 @@ Everything else is `true`, actions included (`purchase`, `openUrl`, `restorePurc
 `verify-config.py` warns on the one type where the flag and the corpus agree *and* the failure is
 measured — `old-price`. It deliberately does not warn on the whole `false` set, because that would
 fire on real builder output.
-
-### Which group types a conditional can read — and the one action that does not work
-
-Measured against `flows config validate` on a real flow, one predicate per run. A
-conditional whose predicate names an unreadable variable fails the publish gate with
-**`Generated scripts failed validation`** — location-free, exactly like a malformed hex, because
-the transformer compiles predicates into JavaScript and an unresolvable name yields invalid script.
-
-| group `type` | predicate variable | `validate` |
-|---|---|---|
-| `product` | `<groupId>.selectedProduct` | **valid** |
-| `single_choice` | `<groupId>.selectedOptionId` | **valid** |
-| `multi_choice` | `<groupId>.selectedOptionId` | **fails** |
-| `toggle` | `.selectedOptionId`, `.selected`, `.value` — all three tried | **fails** |
-
-So **a `toggle` group exposes nothing a condition can read.** This corrects the support-channel
-workaround recorded for driving plan selection from a switch: it cannot be keyed on the toggle.
-
-**`selectProduct` is the one action the schema flags `"x-supported": false`** — every other action
-type is `true` — and its payload takes `{element: <element id>}`, not a product id. Bisected: a
-conditional containing only `nothing` actions failed too, so the gate was objecting to the
-predicate rather than to `selectProduct`; but the flag plus the unreadable toggle variable mean
-**a toggle cannot move a product group's selection**. Drive the visible difference with
-`propsByState` on the toggle's own element, and put the conditional where it reads a product
-group.
-
-**Conditional rich text validates, and the `switch` nests INSIDE the locale value**, with each
-branch a `const` holding that locale's paragraph array:
-
-```json
-"content": {"_localizable": true, "values": {"en": {
-  "type": "switch",
-  "cases": [[ {"type": "&&", "predicates": [
-                {"left": {"type": "var", "variableId": "plans.selectedProduct"},
-                 "type": "==", "right": {"type": "const", "value": "<product-uuid>"}}]},
-              {"type": "const", "value": [ …paragraph runs… ]} ]],
-  "default": {"type": "const", "value": [ …paragraph runs… ]}}}}
-```
-
-The render draws **one branch of one locale with no tell in the PNG**, so read it, do not look at
-it.
 
 ## The schema, the catalog, and the two different validators
 
@@ -1362,9 +1397,10 @@ new screen still takes the `scr_` form and a new element an `el_`-prefixed one.
 
 ### `verticalAlign`, precisely
 
-Schema-legal on text props (`enum: ["top","middle","bottom"]`) and emitted by the builder — yet
-reported `unsupported_text_typography_setting` by the transform service, and removing it from 93
-elements rendered byte-identically. Legal, inert, one warning per element. Do not author it.
+Schema-legal on text props (`enum: ["top","middle","bottom"]`) and emitted by the builder — so
+the schema cannot tell you not to write it. **[Trap 18](#18-propsverticalalign-on-text-is-emitted-by-the-builder-and-ignored-by-the-sdk)
+owns the measurement and the rule**; the short version is legal, inert, one warning per element,
+do not author it. This section exists because the *schema* is what sends you here.
 
 ## Making a field mandatory: show the button conditionally
 
@@ -1622,7 +1658,7 @@ style error: you will search for an element type that does not exist, or invent 
 | pick one / pick several | The same shape with group `type` `single_choice` or `multi_choice`. The element type does not change; the group type does. |
 | a plan picker, plan cards | `product` elements sharing a `groupId` whose group is `{"type": "product"}`, one with `default: true`. Prices come from variables — see [`products.md`](products.md). |
 | radio buttons, a selected state | Not an element. `states: [{"id": "selected", "type": "system"}]` plus a `propsByState.selected` block. Style the same element twice; do not add a second one to hide. |
-| tabs, a segmented control | A **five-element composite**: `tabs` → `tab-bar` → `tab-item`(s), and `tabs` → `tab-content-wrapper` → `tab-content`(s). Each `tab-item` carries `groupId` + `default`, group `type` `tabs`. |
+| tabs, a segmented control | A **five-element composite**: `tabs` → `tab-bar` → `tab-item`(s), and `tabs` → `tab-content-wrapper` → `tab-content`(s). Each `tab-item` carries `groupId` + `default`, and the group is `type` **`single_choice`** — there is no `tabs` group type, and authoring one yields a config the builder cannot open (trap 10). |
 | a countdown | A `timer` element with `duration`/`behavior`, plus rich-text `token` nodes (`timer_minutes`, `timer_seconds`) in a child `text`. |
 | a loading screen, a spinner | Fill the **`loader-spinner-label` catalog component** — it is the canonical source and its wiring is already correct. The primitives are `spinner` (a rotating icon; `props.icon.type` must be `"custom"`, or the publish gate 422s), `loader` (a determinate bar), and an invisible auto-advance `timer` that moves the flow on. The `spinner` is **preview-blind in some layouts** — never hand-roll it from a static `icon` to satisfy a screenshot; keep the real element and verify on device ([`patterns.md`](patterns.md)). |
 | a progress bar, step dots | A `components` entry (`progress-bar` → `progress-bar-segment` → `progress-bar-loader`), referenced from a screen's `hierarchy` as `{"id": "pb_…", "type": "global"}`, and switched on per screen via `props.progressBar: {enabled, segment}`. **Never** fake it with a static `stack` bar or a row of decorative step/segment `stack`s — a lookalike neither advances nor tracks the flow (trap 5), the same mistake as the fake carousel/footer. |

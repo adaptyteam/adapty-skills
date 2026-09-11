@@ -22,7 +22,7 @@ page and nearly reported it as the paywall. Use the bare form:
 
 **What this catches, precisely.** It catches the class no structural check can see: wrong
 spacing, a magic-number indent, a detached element, a state that is silently wrong. It does
-**not** subsume [Verify](#verify) — both defects in trap 10 were injected into a known-good
+**not** subsume [Verify](../SKILL.md#verify) — both defects in trap 10 were injected into a known-good
 config and measured, and both still rendered. They lost a selected-tab highlight and nothing
 else, which is visible to someone who knows what the screen should look like and invisible to
 any "did anything draw" test. The structural rows catch them for free; keep walking them.

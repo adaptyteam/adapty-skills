@@ -78,6 +78,13 @@ A fixture is weaker evidence than it looks. It proves only what its own test nee
 absent from one is not a prop the builder tolerates — that inference is what broke the tabs
 render. Where a skeleton here disagrees with a flow you have seen render, the render wins.
 
+## One caution about version skew
+
+These shapes come from fixtures whose `schemaVersion` is absent, `2`, `6` or `8.0`, while a
+current export carries `9`. The element and group vocabulary matches, which is why they are
+here — but do not import a fixture's envelope, and do not change the input's `schemaVersion`
+to match one. Carry the input's own value through untouched.
+
 ### A toggle
 
 There is no `toggle` *element* — the group type is what makes it one — but the member is a
@@ -512,13 +519,6 @@ There is no `button` element — see the request map in
 ```
 
 Actions nested inside a `conditional` case carry `"id": ""` instead of an `act_…` id.
-
-## One caution about version skew
-
-These shapes come from fixtures whose `schemaVersion` is absent, `2`, `6` or `8.0`, while a
-current export carries `9`. The element and group vocabulary matches, which is why they are
-here — but do not import a fixture's envelope, and do not change the input's `schemaVersion`
-to match one. Carry the input's own value through untouched.
 
 ### A bar that stays at the bottom: use `footer`
 

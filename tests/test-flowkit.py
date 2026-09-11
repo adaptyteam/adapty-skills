@@ -535,7 +535,10 @@ def main():
           fk.conditional_action([(fk.eq(fk.ref('a'), 1), [])])['payload']['default']['value']
           == [{'id': '', 'type': 'nothing'}])
 
+    SEL = {'fill': fk.fill('pillOn')}
+
     def _tabs(**kw):
+        kw.setdefault('item_selected', SEL)
         return fk.tabs([fk.tab([fk.text('M')], [fk.text('mp')]),
                         fk.tab([fk.text('A')], [fk.text('ap')])], **kw)
 
@@ -551,14 +554,49 @@ def main():
           == len([e for e in fk.flatten([_tabs(group_id='g')])[0].values()
                   if e.get('type') == 'tab-content']))
     check('tabs() refuses a single tab',
-          raises(lambda: fk.tabs([fk.tab([], [])], group_id='g')))
+          raises(lambda: fk.tabs([fk.tab([], [])], group_id='g', item_selected=SEL)))
     check('tabs() refuses an empty group id', raises(lambda: _tabs(group_id='')))
     check('tabs() refuses a plain stack as a tab (a stack is never a group member)',
-          raises(lambda: fk.tabs([fk.tab([], []), fk.stack([])], group_id='g'),
+          raises(lambda: fk.tabs([fk.tab([], []), fk.stack([])], group_id='g', item_selected=SEL),
                  (ValueError, TypeError)))
     check('tabs() refuses two default tabs',
           raises(lambda: fk.tabs([fk.tab([], [], default=True),
-                                  fk.tab([], [], default=True)], group_id='g')))
+                                  fk.tab([], [], default=True)],
+                                 group_id='g', item_selected=SEL)))
+    # --- the dead-pill defect: states declared, nothing overridden (finding 37) ---
+    check('tabs() refuses a missing item_selected, naming the defect',
+          raises(lambda: fk.tabs([fk.tab([], []), fk.tab([], [])], group_id='g'),
+                 (ValueError, TypeError)))
+    def _msg(fn):
+        try: fn()
+        except Exception as e: return str(e)
+        return ''
+    check('tabs() refuses an empty item_selected, and the message names the dead pill',
+          'NOTHING ON SCREEN CHANGES' in _msg(lambda: _tabs(group_id='g', item_selected={})))
+    check('every tab-item carries propsByState.selected — without it the pill never moves',
+          all(e.get('propsByState', {}).get('selected')
+              for e in fk.flatten([_tabs(group_id='g')])[0].values()
+              if e.get('type') == 'tab-item'))
+    check('the selected override is the props the caller passed, not a guess',
+          all(e.get('propsByState', {}).get('selected') == SEL
+              for e in fk.flatten([_tabs(group_id='g')])[0].values()
+              if e.get('type') == 'tab-item'))
+    check('every tab-item still declares the system selected state',
+          all(e.get('states') == [{'id': 'selected', 'type': 'system'}]
+              for e in fk.flatten([_tabs(group_id='g')])[0].values()
+              if e.get('type') == 'tab-item'))
+    check('tabs() sets layout.clipContent, which both sources set and panels need',
+          all(e['props']['layout'].get('clipContent') is True
+              for e in fk.flatten([_tabs(group_id='g')])[0].values()
+              if e.get('type') == 'tabs'))
+    check('heights default to hug — fill inside a hug parent collapses (trap 13)',
+          all(e['props']['height'] == {'type': 'hug'}
+              for e in fk.flatten([_tabs(group_id='g')])[0].values()
+              if e.get('type') in ('tabs', 'tab-content-wrapper', 'tab-content')))
+    check('content_height="fill" is still reachable for an all-fill chain',
+          all(e['props']['height'] == {'type': 'fill'}
+              for e in fk.flatten([_tabs(group_id='g', content_height='fill')])[0].values()
+              if e.get('type') in ('tab-content-wrapper', 'tab-content')))
     check('a tab group declared other than single_choice is refused by screen()',
           raises(lambda: fk.screen('s1', [_tabs(group_id='g')],
                                    selectable_groups=[{'id': 'g', 'type': 'multi_choice'}])))

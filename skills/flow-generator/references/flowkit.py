@@ -1213,8 +1213,9 @@ def tab(label, content, *, default=False, custom_id=None):
             'default': default, 'custom_id': custom_id}
 
 
-def tabs(tabs_, *, group_id, width='fill', height='fill', gap=16, bar_fill=None,
-         bar_gap=0, bar_padding=None, item_height=44, item_corner=None, node_id=None, **kw):
+def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
+         bar_fill=None, bar_gap=0, bar_padding=None, item_height=44, item_corner=None,
+         content_height='hug', node_id=None, **kw):
     """A tab bar and its panels, built as the FIVE element types a real export uses.
 
     The tree the builder emits, and the only one the SDK renders:
@@ -1233,6 +1234,32 @@ def tabs(tabs_, *, group_id, width='fill', height='fill', gap=16, bar_fill=None,
     The screen must declare `group_id` as **`single_choice`**; the service refuses any other
     type with `wrong_tab_selectable_group_type`, and there is no `tabs` group type however
     much the name suggests one. `screen()` checks that for you.
+
+    **`item_selected` is required, and that is finding 21 in this element.** Until 2026-09-11
+    this helper declared `states: [selected]` on each `tab-item` and emitted **no
+    `propsByState`** — so the state existed, the tap moved the selection, and nothing on screen
+    changed. A pill that never moves. Both sources of truth carry the override: the real export
+    `tests/fixtures/tabs-paywall.json` puts `fill` + `borderRadius` in
+    `propsByState.selected`, and the catalog's `tabs-segmented` puts `fill` there. Two agents
+    building a tab bar from this helper had to patch it in by hand before the bar worked. Pass
+    the props the selected pill should carry:
+
+        tabs([...], group_id='sections', item_selected={'fill': fill('pillOn'),
+                                                        'borderRadius': radius(12)})
+
+    Which look is design and belongs to you; that there IS one is mechanics and belongs here.
+
+    **Heights default to `hug`, and the two sources disagree, so read this before changing it.**
+    The real export uses `fill` on `tabs`, the wrapper and every panel — correct there, because
+    it sits on a non-scrollable screen whose chain is `fill` the whole way down. The builder's
+    own insertable `tabs-segmented` template uses `hug`, which is what survives being dropped
+    into an arbitrary screen: **`fill` inside a hug-height parent collapses to nothing**
+    (trap 13), which is the case an authored screen usually is. `hug` works in both directions,
+    so it is the default; pass `height='fill'` and `content_height='fill'` when the whole chain
+    above is `fill` and you want the panel to take the remaining space.
+
+    `layout.clipContent` is set on the `tabs` element because both sources set it — without it
+    a panel's content draws outside the switcher's box.
     """
     entries = [t for t in tabs_]
     if len(entries) < 2:
@@ -1248,6 +1275,12 @@ def tabs(tabs_, *, group_id, width='fill', height='fill', gap=16, bar_fill=None,
             f'and tapping it does nothing.')
     if sum(1 for t in entries if t['default']) > 1:
         raise ValueError('tabs() got more than one default tab')
+    if not (isinstance(item_selected, dict) and item_selected):
+        raise ValueError(
+            'tabs() needs item_selected — the props the pill carries while its tab is selected. '
+            'Without it the tab-item declares the state and overrides nothing, so tapping moves '
+            'the selection and NOTHING ON SCREEN CHANGES. Both the real export and the catalog '
+            "template put a fill there, e.g. item_selected={'fill': fill('pillOn')}.")
 
     items, panels = [], []
     for t in entries:
@@ -1258,21 +1291,22 @@ def tabs(tabs_, *, group_id, width='fill', height='fill', gap=16, bar_fill=None,
         it['props'].update({'groupId': group_id, 'default': t['default']})
         if t['custom_id'] is not None:
             it['props']['customId'] = t['custom_id']
-        it['states'] = [{'id': 'selected', 'type': 'system'}]
+        on_selected(it, **item_selected)      # declares states AND the override, together
         items.append(it)
-        panel = stack(t['content'], width='fill', height='fill', gap=gap)
+        panel = stack(t['content'], width='fill', height=content_height, gap=gap)
         panel['type'] = 'tab-content'
         panels.append(panel)
 
     bar = stack(items, width='fill', height='hug', direction='horizontal', gap=bar_gap,
                 align_h='center', align_v='center', fill_=bar_fill, padding=bar_padding)
     bar['type'] = 'tab-bar'
-    wrapper = stack(panels, width='fill', height='fill')
+    wrapper = stack(panels, width='fill', height=content_height)
     wrapper['type'] = 'tab-content-wrapper'
 
+    lay = layout('vertical', gap, 'start', 'start')
+    lay['clipContent'] = True                # both sources set it; without it panels bleed out
     props = {'width': size(width), 'height': size(height),
-             'layout': layout('vertical', gap, 'start', 'start'),
-             'position': relative()}
+             'layout': lay, 'position': relative()}
     return _node('tabs', props, children=[bar, wrapper], node_id=node_id, **kw)
 
 

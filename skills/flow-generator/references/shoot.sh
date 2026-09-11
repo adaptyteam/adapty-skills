@@ -5,7 +5,10 @@
 #   shoot.sh draft.json scr_a scr_b scr_c                # three screens, one strip
 #   OUT=/tmp/x shoot.sh draft.json scr_a                 # choose the output dir
 #
-# Prints the path of the strip to open. That is the only thing you need from it.
+# Prints the path of the strip to open. That is the only thing you need from it -- read the path
+# it prints rather than guessing the name: every output carries an 8-char signature of the
+# CONFIG'S CONTENT (shot-<sig>-<screen>.png), so re-rendering after an edit writes a new file
+# instead of overwriting the old one, and a render of superseded bytes is identifiable on sight.
 #
 # Why this exists: the loop was preview -> screenshot -> montage as separate commands, three
 # agent turns at ~30 s of round-trip each, per iteration. The screenshot itself is ~18 s of
@@ -24,6 +27,22 @@ BUDGET="${BUDGET:-8000}"
 WINDOW="${WINDOW:-430,900}"
 [ -f "$CFG" ] || { echo "shoot: no such file: $CFG" >&2; exit 2; }
 mkdir -p "$OUT"
+
+# Every output is named after a signature of the CONFIG'S CONTENT, not just the screen id. Two
+# measured failures, both from one GREEN round. (1) `shot-<screen>.png` collides: rendering a
+# second config of the same screen into the same directory silently destroyed the first render,
+# and the `rm -f` below is what destroyed it. (2) An orphaned Chrome from a killed run wrote a
+# screenshot of SUPERSEDED bytes into a directory that had already been cleared, so the agent had
+# to quarantine every shot it held and re-render. A content signature fixes both at once: two
+# configs cannot collide, and a render of old bytes carries the old signature, so it can never be
+# mistaken for the current one. `cksum` is the fallback so this never fails the run.
+if command -v shasum >/dev/null 2>&1; then
+  CFGSIG=$(shasum -a 256 "$CFG" | cut -c1-8)
+elif command -v sha256sum >/dev/null 2>&1; then
+  CFGSIG=$(sha256sum "$CFG" | cut -c1-8)
+else
+  CFGSIG=$(cksum "$CFG" | awk '{print $1}')
+fi
 
 CHROME="${CHROME:-}"
 if [ -z "$CHROME" ]; then
@@ -47,17 +66,26 @@ fi
 # succeed and reports "no file" for a config that is fine. Polling for the file is what makes a
 # generous timeout free: you only ever wait the full time when nothing lands at all.
 shoot_one() {  # $1 = url, $2 = out png, $3 = budget ms, $4 = watchdog s
+  # Chrome writes to a per-run temp name and the result is MOVED into place only once it is
+  # complete. A Chrome orphaned by a killed run keeps writing to ITS $$ temp, which nothing
+  # reads and which can never become $2 -- the measured failure this closes. It also means the
+  # real name never exists in a half-written state.
   rm -f "$2"
+  # The temp MUST still end in .png: Chrome's --screenshot writes NOTHING, silently, for a path
+  # with any other extension (measured -- `--screenshot=x.png.partial.999` produced no file while
+  # the identical run to `ok.png` wrote 1564 bytes). A first version of this named the temp
+  # "$2.partial.$$" and every render came back empty, which reads exactly like a broken config.
+  tmp="${2%.png}.partial.$$.png"; rm -f "$tmp"
   "$CHROME" --headless=new --disable-gpu --hide-scrollbars \
     --window-size="$WINDOW" --virtual-time-budget="$3" \
-    --screenshot="$2" "$1" >/dev/null 2>&1 &
+    --screenshot="$tmp" "$1" >/dev/null 2>&1 &
   c=$!
   ticks=$(( $4 * 2 )); waited=0; last=-1
   while [ "$waited" -lt "$ticks" ]; do
     kill -0 "$c" 2>/dev/null || break
-    # `wc -c <"$2"` would leak the shell's own redirect error while the file does not exist yet:
+    # `wc -c <"$tmp"` would leak the shell's own redirect error while the file does not exist yet:
     # 2>/dev/null covers wc's stderr, not the redirection failure. Test first instead.
-    if [ -f "$2" ]; then sz=$(wc -c <"$2" | tr -d ' '); else sz=0; fi
+    if [ -f "$tmp" ]; then sz=$(wc -c <"$tmp" | tr -d ' '); else sz=0; fi
     # Non-empty AND unchanged since the last poll: Chrome has finished writing. Breaking on merely
     # non-empty would hand the caller a half-written PNG, which measures as a corrupt image.
     [ "$sz" -gt 0 ] && [ "$sz" = "$last" ] && break
@@ -67,6 +95,7 @@ shoot_one() {  # $1 = url, $2 = out png, $3 = budget ms, $4 = watchdog s
   done
   kill -9 "$c" 2>/dev/null
   wait "$c" 2>/dev/null
+  if [ -s "$tmp" ]; then mv -f "$tmp" "$2"; else rm -f "$tmp"; fi
 }
 
 # Is the render host actually reachable? This is the ROOT CAUSE of the page the sanity guard
@@ -77,6 +106,7 @@ shoot_one() {  # $1 = url, $2 = out png, $3 = budget ms, $4 = watchdog s
 # the actual problem, and it costs ~0.3 s instead of an 18 s Chrome launch that was never going
 # to produce anything. Skipped silently if curl is unavailable; the pixel guard is the backstop.
 probed=0
+host_ok=0          # 1 only when curl actually RAN and the host answered -- not merely "probed"
 probe_host() {  # $1 = any URL on the host
   [ "$probed" = 1 ] && return 0
   probed=1
@@ -88,15 +118,16 @@ probe_host() {  # $1 = any URL on the host
     echo "       broken network gets reported as a broken config. Fix the network, then retry." >&2
     exit 1
   fi
+  host_ok=1
 }
 
 shots=""; n=0
 [ -n "$SCREENS" ] || SCREENS="__default__"
 for s in $SCREENS; do
   if [ "$s" = "__default__" ]; then
-    url="$($ADAPTY_BIN flows config preview "$CFG" 2>&1)"; png="$OUT/shot.png"
+    url="$($ADAPTY_BIN flows config preview "$CFG" 2>&1)"; png="$OUT/shot-$CFGSIG.png"
   else
-    url="$($ADAPTY_BIN flows config preview "$CFG" --screen "$s" 2>&1)"; png="$OUT/shot-$s.png"
+    url="$($ADAPTY_BIN flows config preview "$CFG" --screen "$s" 2>&1)"; png="$OUT/shot-$CFGSIG-$s.png"
   fi
   case "$url" in
     http*) ;;
@@ -127,6 +158,21 @@ for s in $SCREENS; do
     if python3 "$HERE/render-measure.py" --sanity "$png" >/dev/null 2>&1; then
       echo "   rendered $s -> $(basename "$png")"
       shots="$shots $png"; n=$((n+1))
+    elif [ "$host_ok" = 1 ]; then
+      # The host ANSWERED, so the reason this guard exists -- Chrome screenshotting its own
+      # DNS/connection error page -- has already been ruled out upstream by the probe, which is
+      # finding 20's own conclusion that testing the cause beats inferring it from pixels. What
+      # is left is either a sparse screen or a served error page, and those are NOT separable by
+      # pixels (a real text-only render measures below a real error page -- measured). So this
+      # keeps the file and says both things, because renaming it destroys a correct render:
+      # a minimal two-tab screen measured 97.7% one colour / 7% span / 7% run and is perfectly
+      # good output. Looking at the PNG is what settles it, and every GREEN round shows agents
+      # doing that reliably.
+      echo "   rendered $s -> $(basename "$png")  (FLAT — look closely)"
+      python3 "$HERE/render-measure.py" --sanity "$png" >&2
+      echo "           The host answered, so this is NOT the offline-Chrome error page. Either the" >&2
+      echo "           screen really is this sparse, or the page served an error. LOOK AT IT." >&2
+      shots="$shots $png"; n=$((n+1))
     else
       bad="$OUT/NOT-A-RENDER-$(basename "$png")"
       mv "$png" "$bad"
@@ -146,7 +192,7 @@ done
 if [ "$n" -eq 1 ]; then
   echo; echo "LOOK AT:$shots"
 else
-  strip="$OUT/strip.png"
+  strip="$OUT/strip-$CFGSIG.png"
   python3 "$HERE/montage.py" "$strip" $shots >/dev/null
   echo; echo "LOOK AT: $strip  ($n screens, left to right in the order given)"
 fi
