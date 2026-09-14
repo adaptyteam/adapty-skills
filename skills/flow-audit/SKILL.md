@@ -30,13 +30,18 @@ if [ "$(printf '%s\n' "$(adapty --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+
 else
   ADAPTY="npx --yes adapty@latest"
 fi
-$ADAPTY auth status
+$ADAPTY auth whoami
 ```
 
 `--yes` on the npx fallback is load-bearing: without it, npx asks permission to install
-an uncached package, and a headless run has nobody to answer. If `auth status` shows no
-session, stop and tell the user to run `adapty auth login` — this skill cannot
-authenticate for them.
+an uncached package, and a headless run has nobody to answer.
+
+**Gate on `auth whoami`, never on `auth status`.** `whoami` hits the server, so a clean
+answer proves the token works. `status` reads local state and verifies nothing — it has
+reported `Not authenticated`, at exit 0, for a session authenticated through
+`ADAPTY_TOKEN`, which stops a headless run that every command below it would have
+served. If `whoami` fails, stop and tell the user to run `adapty auth login` — this
+skill cannot authenticate for them.
 
 Resolve the app:
 
