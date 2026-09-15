@@ -84,6 +84,7 @@ python3 tests/test-price-literals.py                                     # place
 python3 tests/test-product-fields.py                                     # the closed product-variable field set
 python3 tests/test-crop.py                                               # cutting a graphic out of a reference
 python3 tests/test-icon-declarations.py                                  # icon name+weight, and the no-traceback guarantee
+python3 tests/test-icon-assets.py                                        # the vendored phosphor bundle
 python3 tests/test-id-hygiene.py                                         # id charset, cross-screen dupes, locale codes
 python3 tests/test-customid-analytics.py                                 # the customId an input/option reports under
 python3 tests/test-video-element.py                                      # the unset video + its fixed height, and the catalog contract
@@ -237,6 +238,34 @@ because it is confidently wrong at scale — so it does not ship without this.
 Then it puts the whole document through `schema-check.py`, and skips rather than fails if that
 gate is unavailable. Beyond this test, flowkit's output has been rendered through
 `flows config preview` and looked at — a schema pass is not proof that anything draws.
+
+## `test-icon-assets.py` — the bundle against real builder output
+
+Calibration for `references/icons.py` (the vendored Phosphor bundle) and the phosphor-name
+check in `verify-config.py`.
+
+**The decisive row is `pack markup matches the real export byte for byte`.** With the builder's
+two serialization quirks applied — `width="20" height="20"` on the `<svg>` tag, and `<path/>`
+expanded to `<path></path>` — the vendored pack equals the export's `raw` exactly for all 12
+distinct icons across the tracked and raw fixtures. That is what makes the bundle a *source* of
+`_meta.icons` entries rather than only a spellchecker: an emitted entry is indistinguishable from
+a saved one, so `diff-config.py` reports nothing on a round trip. If the row ever fails, stop
+emitting entries before checking anything else.
+
+`timeline-anchored.json` is excluded from that row, for the reason it is excluded from every
+census here: it is the corpus's one hybrid (real screen, borrowed theme, hand-authored icon
+markup) and its `raw` carries `width="24"` where every genuine export carries 20 — so including
+it would measure our own authoring rather than the builder's.
+
+Two rows guard the recommended path rather than the check: every phosphor icon in
+`component-catalog.json` resolves, and the only custom icon it names is one the Builder
+publishes. `patterns.md` tells an agent to fill a catalog template first, so a template naming an
+icon this check rejects would be the recommended-path-into-the-refusal class again.
+
+Negative-tested per mechanism, each reddening only its own rows: neutering `has_phosphor`
+reddens the 5 FIRES rows plus 2 resolver rows; dropping either normalization half reddens the
+byte-identical row; narrowing the walk to `icon` and skipping `leadingIcon` reddens exactly that
+one row.
 
 ## `test-snippet.py` — the guardrail on save/reuse
 

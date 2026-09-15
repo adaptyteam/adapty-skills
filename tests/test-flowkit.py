@@ -42,6 +42,20 @@ def raises(fn, exc=ValueError):
         return True
 
 
+def _message(fn, exc=ValueError):
+    """The text of the refusal, for the rows where the DIAGNOSTIC is the thing being tested.
+
+    A bare `raises(...)` on a helper that forwards `**kw` tests the downstream signature rather
+    than the guard — the trap this suite has already been caught by — and for a guard whose
+    whole value is telling an author WHY, the message is the behaviour.
+    """
+    try:
+        fn()
+    except exc as caught:
+        return str(caught)
+    return ''
+
+
 def sample():
     """A document exercising the pieces most likely to drift."""
     ids = fk.Ids('el_T')
@@ -864,6 +878,56 @@ def main():
           _doc([_scr('scr_1', 'el_ok')],
                locales=(('en', 'English'), ('pt-BR', 'Portuguese'),
                         ('zh-Hans', 'Chinese'), ('sr-Latn', 'Serbian'))) is not None)
+    # --- icons resolve from the bundle, and _meta.icons is DERIVED ---------------------------
+    # Used-here-declared-there is a two-place binding whose second place no gate can see, and the
+    # name itself is a third: a phosphor name the renderer's bundle lacks draws blank with an
+    # authored `raw` sitting right there.
+    print('\nicons:')
+
+    def _iconed(*nodes, **kw):
+        return fk.config(screens=[fk.screen('scr_i', list(nodes))],
+                         colors=[('ink', 'Ink', '#111114', '#F5F5F7')], **kw)
+
+    check('icon() raises on a name the bundle does not carry',
+          raises(lambda: fk.icon('CloseX')))
+    check("icon()'s refusal says the element draws blank, not merely that the name is unknown",
+          'BLANK' in _message(lambda: fk.icon('CloseX')))
+    check('icon() raises on a weight the Builder does not publish',
+          raises(lambda: fk.icon('Star', weight='thin')))
+    check('icon() accepts a real name at a real weight',
+          fk.icon('Star', weight='fill') is not None)
+
+    _cfg = _iconed(fk.icon('ArrowRight'), fk.icon('Star', weight='fill'),
+                   typography=[('body', 'Body', 16, 'regular')])
+    _declared = {(i['name'], i['weight']) for i in _cfg['_meta']['icons']}
+    check('config() declares every icon the tree uses',
+          _declared == {('ArrowRight', 'regular'), ('Star', 'fill')}, sorted(_declared))
+    check('a derived declaration carries the real markup',
+          all(i['raw'].startswith('<svg') and '<path' in i['raw']
+              for i in _cfg['_meta']['icons']))
+
+    _spun = _iconed(fk.spinner('spinner1'), typography=[('body', 'Body', 16, 'regular')])
+    check('config() declares a Builder custom icon used by spinner()',
+          [(i['name'], i['weight']) for i in _spun['_meta']['icons']] == [('spinner1', 'regular')],
+          _spun['_meta']['icons'])
+    # spinner() deliberately does NOT restrict the name: a custom icon renders from its own
+    # declared raw, so a house glyph is legal — but then the entry is the author's to supply,
+    # and config() is where that becomes knowable.
+    check('config() raises on a custom icon with no markup anywhere',
+          raises(lambda: _iconed(fk.spinner('houseGlyph'),
+                                 typography=[('body', 'Body', 16, 'regular')])))
+    check('config() accepts that same custom icon when the author declares it',
+          _iconed(fk.spinner('houseGlyph'), typography=[('body', 'Body', 16, 'regular')],
+                  icons=[{'name': 'houseGlyph', 'weight': 'regular',
+                          'raw': '<svg xmlns="http://www.w3.org/2000/svg"></svg>'}])
+          is not None)
+
+    _explicit = _iconed(fk.icon('ArrowRight'), typography=[('body', 'Body', 16, 'regular')],
+                        icons=[{'name': 'ArrowRight', 'weight': 'regular', 'raw': '<svg/>'}])
+    check("an author's own entry wins over the derived one",
+          [i['raw'] for i in _explicit['_meta']['icons']] == ['<svg/>'],
+          _explicit['_meta']['icons'])
+
 
     print()
     if FAILURES:

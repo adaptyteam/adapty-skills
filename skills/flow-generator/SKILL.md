@@ -23,12 +23,15 @@ cannot be synthesized:
   attached into the conversation — is not one you have: ask for a path. With no file there is
   nothing to upload, so it stays an empty values map, never a made-up URL (trap 5). **SVG uploads
   fail**, so a monochrome glyph is authored inline in `_meta.icons`; a graphic no element can
-  express, you draw and rasterize ([media.md](references/media.md)).
+  express, you draw and rasterize ([media.md](references/media.md)). An icon is **not** in this
+  list: `python3 references/icons.py --search <word>` resolves any phosphor glyph, and an
+  invented name draws blank however good your markup is (trap 23).
 - **Real store prices.** They come from the store, not from Adapty; `products create` has no price
   flag.
 
 Everything else is reachable: product UUIDs from `adapty products list` (or `products create`),
-`theme` colours sampled off a reference screenshot, and icon SVG authored and then render-verified.
+`theme` colours sampled off a reference screenshot, and icon markup resolved from the bundle
+`references/icons.py` ships.
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
@@ -107,7 +110,8 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
 | the **`adapty-integration`** skill | **Phase 6**, once a placement points at the flow. It owns the app side — the fetch, the render and the call sites — and this skill hands it one thing: the placement developer ID |
 
-Executable, all under `references/`: `flowkit.py` (authoring), `verify-config.py` (phase 3),
+Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph lookup,
+any phase), `verify-config.py` (phase 3),
 `validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py` and
 `render-measure.py` (phase 4), `preview-with-playwright.mjs` (when a render fails),
 `mobile-preview.mjs` (phase 5, the device-preview link).
@@ -904,7 +908,7 @@ The full statements — what each invariant is, what breaks it, what a violation
 | :--- | :--- |
 | `fill` keeps the form the input used — object or array, **never converted**, and **one layer** | the form is only wrong relative to the input you fetched |
 | an image URL is one **`flows media upload` printed in this session** | a plausible `public-media.adapty.io` path is indistinguishable from a real one |
-| `_meta.icons[].raw` is **real** SVG, not fabricated markup | presence is checkable, authenticity is not |
+| `_meta.icons[].raw` is **real** SVG — resolved through `icons.py`, not written by you | presence is checkable, authenticity is not |
 | **every price variable's field agrees with its product's period** | needs the catalog, not the config |
 
 That last one is a **hard stop, not a disclosure**: if the catalog has no product with the period

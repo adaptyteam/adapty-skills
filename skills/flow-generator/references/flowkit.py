@@ -29,8 +29,31 @@ Run `tests/test-flowkit.py` after touching it.
         typography=[("h1", "H1", 28, "bold"), ("body", "Body", 16, "regular")],
     )
 """
+import os
 import re
+import sys
 import uuid
+
+# `icons` sits beside this file and owns the one thing an author cannot invent: the Phosphor
+# bundle's markup. It is imported at module scope, because `icon()` must be unable to emit a name
+# the renderer resolves to nothing. The path fallback is for the ordinary
+# case of importing flowkit from somewhere else — a directory-copy install has no package to
+# import through, and `sys.path` is only touched when the plain import has already failed.
+#
+# Bytecode writing is suppressed across the import and then restored: a skill directory installs
+# by plain COPY, so a `__pycache__` written into `references/` here would ship inside the next
+# install — the defect `skill-validator` flagged once already. `.gitignore` hides it from git,
+# which is exactly why it has to be prevented rather than noticed.
+_bytecode = sys.dont_write_bytecode
+sys.dont_write_bytecode = True
+try:
+    try:
+        import icons
+    except ImportError:  # pragma: no cover - importing flowkit from another directory
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import icons
+finally:
+    sys.dont_write_bytecode = _bytecode
 
 SCHEMA_VERSION = 10          # authoring uses the current version; a FETCHED flow keeps its own
 
@@ -789,6 +812,19 @@ def text(content, *, preset='body', color_id=None, align='left', width='fill',
 
 
 def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None, **kw):
+    """A `phosphor` glyph. The name is resolved against the renderer's OWN bundle here, and an
+    unknown one raises with suggestions.
+
+    That guard is the whole point. A phosphor icon resolves by name from the bundle, so an
+    invented name draws NOTHING — measured: correct hand-authored markup under `name: "CloseX"`
+    rendered as empty space twice, `name: "X"` drew immediately. `validate` returns `valid:true`,
+    the schema types the name as a bare string, and a blank in a screenshot looks like a spacing
+    bug. `config()` then declares whatever you used in `_meta.icons`, so the used-but-undeclared
+    error is unreachable from here too.
+
+    `icons.py` is the search surface: `python3 icons.py --search arrow`.
+    """
+    icons.icon_meta(name, weight)          # raises on a name or weight the bundle lacks
     props = {'icon': {'name': name, 'size': size_pt, 'type': 'phosphor', 'weight': weight},
              'position': position or relative()}
     if color_id is not None:
@@ -815,6 +851,11 @@ def spinner(icon_name, *, size_pt=32, color_id=None, hexval=None, duration_ms=10
     """
     if not (isinstance(icon_name, str) and icon_name):
         raise ValueError('spinner() needs the name of a _meta.icons entry')
+    # Deliberately NOT restricted to the five spinners the Builder publishes. A `custom` icon
+    # renders from the `raw` in `_meta.icons`, so any name works as long as that entry exists —
+    # unlike a `phosphor` name, which the renderer resolves from its own bundle and where an
+    # authored `raw` is ignored. `config()` declares the five for you and raises on a name it
+    # cannot resolve that you did not pass in `icons=`.
     ic = {'name': icon_name, 'size': size_pt, 'type': 'custom'}
     if color_id is not None and hexval is not None:
         raise TypeError('spinner(): pass color_id or hexval, not both')
@@ -1713,6 +1754,12 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
            default_locale='en', variables=(), components=None, meta_screens=None):
     """The document.
 
+    `_meta.icons` is DERIVED, not authored: every icon the tree uses is declared here from the
+    trusted markup in `icons.py`. Used-here-declared-there is a two-place binding whose second
+    place is invisible to every gate this skill can run, which is exactly what this module exists
+    to make unrepresentable. Pass `icons=` only for an entry that cannot be derived — a custom
+    icon of your own; an explicit entry wins over a derived one.
+
     `_meta.screens` defaults to EMPTY, which is correct when rewriting a flow -- it is
     builder-owned bookkeeping and you should merge the live value in rather than inventing one.
     For a NEW flow, pass `meta_screens=predeclare(screen_id, [product_ids])` so it previews on a
@@ -1884,6 +1931,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             f'element with that customId, a selectableGroup with that id, a bound product — or '
             f'declare it in variables=(...).')
 
+    meta_icons = _resolve_icons(screens, components, icons)
+
     return {
         'schemaVersion': SCHEMA_VERSION,
         'locales': [{'id': c, 'code': c, 'name': n} for c, n in locales],
@@ -1897,7 +1946,66 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                        for i, n, lt, dk in colors],
             'typography': [_typo(t) for t in typography],
         },
-        '_meta': {'icons': list(icons), 'fonts': [],
+        '_meta': {'icons': meta_icons, 'fonts': [],
                   'screens': dict(meta_screens) if meta_screens else {}},
         'screens': list(screens),
     }
+
+
+def _used_icons(screens, components):
+    """Every `(name, weight, type)` the tree actually draws, in first-seen order.
+
+    Walks whole documents rather than element props alone: an icon rides on a `text` element's
+    `leadingIcon` and inside a `component` global just as legitimately as on an `icon` element,
+    and a declaration that covers only the obvious site is the two-place binding failing quietly.
+    """
+    seen, out = set(), []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for key in ('icon', 'leadingIcon'):
+                ic = node.get(key)
+                if isinstance(ic, dict) and isinstance(ic.get('name'), str) and ic['name']:
+                    key3 = (ic['name'], ic.get('weight', 'regular'), ic.get('type', 'phosphor'))
+                    if key3 not in seen:
+                        seen.add(key3)
+                        out.append(key3)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(list(screens))
+    walk(components if components is not None else {})
+    return out
+
+
+def _resolve_icons(screens, components, declared):
+    """`_meta.icons` for what the tree uses, with the author's own entries taking precedence."""
+    entries, by_key = [], {}
+    for entry in declared:
+        if isinstance(entry, str):
+            entry = icons.icon_meta(entry)
+        elif isinstance(entry, tuple):
+            entry = icons.icon_meta(*entry)
+        by_key[(entry['name'], entry.get('weight', 'regular'))] = entry
+        entries.append(entry)
+    for name, weight, kind in _used_icons(screens, components):
+        if (name, weight) in by_key:
+            continue
+        if kind == 'custom':
+            # Any name can be custom as long as an entry carries its markup; the five the
+            # Builder publishes resolve here, and anything else is the author's to supply.
+            try:
+                entry = icons.custom_icon_meta(name)
+            except ValueError as exc:
+                raise ValueError(
+                    f'custom icon {name!r} is used but has no markup to declare — {exc}. Pass '
+                    f'the entry yourself: config(icons=[{{"name": {name!r}, "weight": '
+                    f'"regular", "raw": "<svg…>"}}]).') from None
+        else:
+            entry = icons.icon_meta(name, weight)
+        by_key[(name, weight)] = entry
+        entries.append(entry)
+    return entries

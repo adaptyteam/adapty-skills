@@ -227,7 +227,10 @@ the spinner that are not guessable:
 
 - **`spinner`** — a rotating icon. Its `props.icon.type` **must be `"custom"`**, not `"phosphor"`:
   the publish gate rejects a phosphor spinner with a 422 (`Spinner element only supports custom
-  icons`). Point the custom icon at a `_meta.icons` entry you authored.
+  icons`). The five the Builder publishes ship with this skill —
+  `python3 references/icons.py spinner1` — and `flowkit.spinner('spinner1')` declares the
+  entry for you. Any other name is legal (a `custom` icon draws its own `raw`), but then the
+  markup is yours to supply through `config(icons=[…])`.
 - **`loader`** — a determinate progress bar (`duration`, `easing`), when the affordance is a bar
   rather than a spinner.
 - the invisible auto-advance **`timer`** below — that is what actually moves the flow on; the
@@ -1051,21 +1054,30 @@ There is no `header` shortcut for this: `header` is a plain container with a sta
 built-in navigation. (`footer` shares that prop set but **not** that inertness — it is pinned out
 of the flow; see [`footer`](#a-bar-that-stays-at-the-bottom-use-footer).)
 
-**If the arrow glyph is not in `_meta.icons`, you have three options in this order.** A text
-affordance ("Back", "Not now") always works and needs nothing. Copying an icon from another flow in
-the same account is safe — `_meta.icons` entries are inline SVG in the document, not uploaded
-assets, unlike the `id`/`url` pairs in the do-not-lift list above. Authoring one is the last resort
-and **only acceptable because you can render it**: the format is visible in any existing entry
-(`viewBox="0 0 256 256"`, `fill="currentColor"`, one filled path, `{name, raw, weight}` all
-required), so write it, render the screen, and *look at the glyph*. An ArrowLeft authored this way
-was confirmed correct by render before being kept. **Mirror a real entry's markup exactly, and use
-a phosphor-style name** — measured: three authored icons with invented lowercase names
-(`mf-lock`) and no `width`/`height` attributes on the `<svg>` tag rendered as *blank* in
-`config preview` (empty chips, no error anywhere); the same paths drew once the entries copied a
-real export's shape — `width="20" height="20" fill="currentColor"` on the tag and phosphor-cased
-names (`LockSimple`, `Bell`). Which change fixed it is unisolated (both were made together), and
-whether the preview drew the `raw` or a bundled phosphor glyph of that name is ambiguous — the
-device SDK reads `raw`, so keep the authored path visually equivalent to the phosphor glyph the
-name says it is. Never keep an authored icon you have not seen
-drawn — that is the difference between this and inventing a product id, which no render can check.
+**If the arrow glyph is not in `_meta.icons`, resolve it — do not author it.**
+
+```bash
+python3 references/icons.py --search arrow            # ArrowLeft, ArrowRight, ArrowCircleLeft, …
+python3 references/icons.py ArrowLeft                 # the entry, ready to paste
+```
+
+The bundle ships with this skill, and `flowkit.icon()` refuses a name it does not contain while
+`config()` declares whatever the tree uses, so both the wrong name and the missing declaration
+are unrepresentable from the module. Copying an entry from another flow in the same account is
+still safe — `_meta.icons` entries are inline SVG in the document, not uploaded assets, unlike
+the `id`/`url` pairs in the do-not-lift list above. A text affordance ("Back", "Not now") remains
+the right answer when no glyph fits.
+
+> **Superseded.** This used to end in *"authoring one is the last resort and only
+> acceptable because you can render it"*, with a rule to mirror a real entry's markup and use a
+> phosphor-cased name. The evidence behind it stands and the conclusion has moved: measured,
+> three authored icons with invented lowercase names (`mf-lock`) and no
+> `width`/`height` on the `<svg>` tag drew **blank**, and the same paths drew once the entries
+> copied a real export's shape. That was recorded as unisolated, with the open question of
+> *"whether the preview drew the `raw` or a bundled phosphor glyph of that name"*. It is the
+> **name**: a `phosphor` icon resolves from the renderer's own bundle and `raw` does not override
+> it, so a lowercase invented name could never have drawn whatever markup sat beside it
+> (flow-schema.md trap 23). Authoring markup for a phosphor name is therefore not a last resort
+> but a non-answer — the bundle is the source. A `custom` icon is the opposite case and still
+> renders its own `raw`.
 
