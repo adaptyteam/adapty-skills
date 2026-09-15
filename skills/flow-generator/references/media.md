@@ -109,7 +109,10 @@ Work down this ladder and take the first rung that fits:
 
 1. **A monochrome glyph → an `icon` element with `raw` SVG in `_meta.icons`.** Real exports write
    these with `fill="currentColor"`, so the glyph takes its colour from the element's `colorId` —
-   which is what makes it follow the theme. Never rasterize this rung.
+   which is what makes it follow the theme. Never rasterize this rung. **Do not author the markup
+   either**: a `phosphor` name resolves from the renderer's own bundle, so an invented name draws
+   blank with correct `raw` sitting right there (flow-schema.md trap 23). Search the bundle —
+   `python3 references/icons.py --search arrow` — and let `flowkit.icon()` declare it.
 2. **A flat or linear-gradient surface → a `fill`** (with `stops`), on a stack you already have.
 3. **A composition → stacks**, using the layout vocabulary before padding or docking.
 4. **Nobody has a file → a styled empty `image` and an ASK** (trap 5). This is rung 4, not the

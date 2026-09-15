@@ -104,7 +104,7 @@ the one invariant on this list that a real multi-locale export has never exercis
 | 7 | Every `const` compared against `<groupId>.selectedOptionId` matches some member's `customId` | branching edits, renaming an option | The case never matches, so every user takes the `default` branch. Silent — the flow still routes somewhere. |
 | 8 | Every `colorId` and every `font.preset` resolves in **that file's own** `theme` | pasting a screen from another flow | **A hard 422, confirmed.** A screen pasted in from another flow kept `font.preset: "button-label"`, a preset the destination theme does not define; device preview returned `unknown_font_preset` as **severity `error`**, once per text element, blocking the whole flow. `config update` had saved it without complaint. So this is a publish blocker, not a cosmetic drift — and `references/verify-config.py` catches it, which is the check earning its place. Fix by repointing to a preset the destination theme has, not by adding the source's name to the theme. Never validate these against a remembered list of built-in names — see [Shape traps](#shape-traps). |
 | 9 | Every `family.id` resolves in `_meta.fonts` — via **both** reference paths: an element's `props.font.family.id`, and `theme.typography[].settings.family.id` | pasting a screen from another flow, editing or deleting a typography preset | Unresolvable font reference. **Check both paths or you check nothing**: element-level refs number 7 in `timer` and 0 in both `quiz` and `comparison`, so in `comparison` all three declared fonts are reached only through theme presets, and in `timer` the two paths together are what reach all four. A check that reads only element props would find `comparison`'s `_meta.fonts` entirely unreferenced and could license deleting them. Resolving here also does not mean the font ships — trap 7. |
-| 10 | Every `(name, weight)` icon pair used by an `icon` element appears in `_meta.icons` | adding an icon | `_meta.icons[].raw` carries the literal SVG markup the renderer draws, so an unlisted pair has nothing to draw. `raw` cannot be synthesized. |
+| 10 | Every `(name, weight)` icon pair used by an `icon` element appears in `_meta.icons` | adding an icon | `_meta.icons[].raw` carries the literal SVG markup the renderer draws, so an unlisted pair has nothing to draw. The markup is **no longer unobtainable**: [`icons.py`](icons.py) resolves any `phosphor` name+weight and the five Builder spinners, byte-identically to a real export — and `flowkit.config()` derives the whole list from the tree, which makes this invariant unrepresentable to violate from the module. A `custom` icon nobody has markup for is still yours to supply. Note the harder sibling: for a `phosphor` icon, being declared is not enough, because the renderer resolves the NAME from its own bundle — trap 23. |
 | 11 | Every locale in `locales[]` has an entry in every `_localizable` `values` map | adding a locale | The field falls back or renders empty for that locale. There are three localizable families, not one — trap 1. |
 | 12 | Every variable **consumer** still has a **producer**, and *which* producer depends on the form: `<inputCustomId>.value` needs the `text-input` carrying that `customId`; `<groupId>.selectedOptionId` needs a group with that id; `<productUUID>.prod_*` needs that product declared; `<groupId>.selectedProduct.<field>` needs a `product`-typed **group** — resolve it against `selectableGroups`, never against the product list, or you repeat invariant 5's false positive | **screen deletion**, moving an element between screens | Breaks the **opposite way** from invariant 3: the reference survives and its producer dies, so nothing on the screen you edited looks wrong. In `quiz`, the `text-input` with `customId: "name"` lives on the Quiz screen while `name.value` is read on three *other* screens (both genre branches and the paywall) — deleting Quiz strands all three, and none of them is the screen that was touched. |
 
@@ -141,7 +141,7 @@ invariants above, and is still wrong. This table is the index into them.
 
 The numbers are this file's addressing scheme: other files, and two checker messages in
 `verify-config.py` and `render-check.py`, cite them as **trap N**. They are therefore stable — a
-trap is never renumbered, a new one takes the next free number (**23**), and a new trap with no
+trap is never renumbered, a new one takes the next free number (**24**), and a new trap with no
 row here is unreachable, because the number is the only address anyone cites.
 
 | trap | the thing that parses and is still wrong |
@@ -173,6 +173,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 20 | A screen background is bound to a token in every real export — never a literal hex |
 | 21 | `theme.colors` and `theme.typography` share ONE id namespace |
 | 22 | Which group types a conditional can read — and the one action that does not work |
+| 23 | A `phosphor` icon resolves from the renderer's own bundle, and `raw` does not override it |
 
 ### 1. `text.props.content` has two shapes, and there are three localizable families
 
@@ -728,6 +729,69 @@ state-varying siblings have to stay the same size, put the toggled element insid
 a **fixed** height and hide the element rather than the wrapper.
 
 It round-trips through `config update` unchanged, including inside `propsByState`.
+
+### 23. A `phosphor` icon resolves from the renderer's own bundle, and `raw` does not override it
+
+`props.icon.type` decides where the glyph comes from, and the two types behave in opposite ways.
+A **`custom`** icon draws the `raw` markup in its `_meta.icons` entry, so any name works as long
+as the entry exists. A **`phosphor`** icon is resolved **by name from the renderer's own bundle**
+— and a name the bundle lacks draws **nothing at all**, with correct `raw` sitting right there in
+`_meta.icons`. Measured: hand-authored two-stroke markup under `name: "CloseX"`, correctly
+declared, rendered as empty space twice — once with `stroke="currentColor"`, once with filled
+paths, so it is the name and not the markup — while `name: "X"`, `weight: regular` drew
+immediately.
+
+Every gate is blind. `flows config validate` returns `valid: true`, the schema types `name` as a
+bare `string` with no enum (the `IColorHex` class again), and in a screenshot a missing glyph
+reads as a spacing bug. That combination — silent, total, and invisible to the loop — is why
+[`verify-config.py`](verify-config.py) makes it an **error** rather than a warning.
+
+**Resolve the name instead of remembering it.** [`icons.py`](icons.py) ships the bundle
+(`@phosphor-icons/core` 2.1.1 — 1,512 names × `regular`/`bold`/`fill`, 4,536 variants) plus the
+five custom spinners the Builder publishes:
+
+```bash
+python3 references/icons.py --search arrow    # names containing "arrow"
+python3 references/icons.py ArrowRight        # the _meta.icons entry, ready to paste
+```
+
+The markup it returns is the builder's own: with the two serialization quirks applied
+(`width="20" height="20"`, `<path/>` expanded), it is **byte-identical to the export's `raw` for
+all 12 distinct icons in the tracked and raw corpus**. The baked `20` is inert — real exports
+carry it beside elements whose `props.icon.size` is 12, 13, 15, 22, 24 and 30 — so it is
+serialization, not a size. `flowkit.icon()` refuses an unknown name outright and `config()`
+declares whatever the tree uses, which makes both this trap and invariant 10 unrepresentable
+from the module.
+
+Three weights ship, not Phosphor's six: `thin`, `light` and `duotone` exist upstream and resolve
+to nothing here.
+
+## The transform service is the authoritative validator
+
+Publishing runs the config through a **transform service**, and that is the only checker in this
+system whose verdict is binding. It answers with a request id, a single fatal `error`, and an
+`issues` array:
+
+```json
+{"error": "Unsupported flow input: flow._meta.screens[\"scr_duoPay\"].products is missing
+           flowProductId for product \"68c96b3c-…\" (screens[\"scr_duoPay\"].elements.map
+           [\"el_Pay022S\"].props.product)",
+ "issues": [{"severity": "warning",
+             "code": "unsupported_text_typography_setting",
+             "path": "screens[\"scr_duoWelcome\"].elements.map[\"el_Duo003T\"].props.verticalAlign",
+             "message": "Text verticalAlign is not supported by the SDK transformer and will be ignored"}]}
+```
+
+Three things to take from that, all observed on a real 422:
+
+- **It fails with HTTP 422 and names the exact element.** The `error` string carries both the
+  `_meta` path that is incomplete *and* the `props.product` path that demanded it. When a publish
+  is rejected, read the paths — they identify the element, not just the screen.
+- **`severity` separates fatal from advisory.** A `warning` publishes fine. Only the top-level
+  `error` blocks. Do not report warnings to the user as though they stopped anything.
+- **This is a different and stricter gate than anything local.** `config update` saved this exact
+  config happily; the transform service refused it. So "it saved" never means "it will publish",
+  which is the same lesson trap 10 teaches about rendering, one layer further out.
 
 ### 14b. A condition is an expression tree, and `assign` is the one type it may not use
 

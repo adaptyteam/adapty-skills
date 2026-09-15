@@ -51,6 +51,23 @@ Exit 0 if every file is clean (warnings allowed), 1 if any invariant is violated
 """
 import json, re, sys, os
 
+# `icons.py` (the Phosphor bundle) sits beside this file. It is OPTIONAL on purpose: this
+# script is also run by `flow-audit` as a sibling-skill path, and a directory-copy install of
+# that skill alone has no `flow-generator/references/` to find. A missing pack silences the one
+# check that needs it rather than failing the run — the same degrade-do-not-crash rule the
+# baseline and catalog paths already follow. Bytecode writing is off across the import: a skill
+# directory installs by plain copy, so a `__pycache__` written here would ship inside the next
+# install.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_bytecode = sys.dont_write_bytecode
+sys.dont_write_bytecode = True
+try:
+    import icons as _icons
+except Exception:                                        # noqa: BLE001 - any import failure degrades
+    _icons = None
+finally:
+    sys.dont_write_bytecode = _bytecode
+
 # The only selectable-group types observed in real exports. A tab group is declared
 # `single_choice`; there is no `tabs` group type. See flow-schema.md, Vocabulary.
 GROUP_TYPES = {'single_choice', 'multi_choice', 'product', 'toggle'}
@@ -1271,6 +1288,46 @@ def check(path, baseline_text=None):
         meta.add((i['name'], i['weight']))
     if used - meta:
         bad.append(f'icons used but absent from _meta.icons: {sorted(used - meta)}')
+
+    # A `phosphor` icon resolves from the renderer's OWN bundle by name, so a name the bundle
+    # lacks draws NOTHING — and an authored `raw` does not rescue it. Measured: correct
+    # hand-authored two-stroke markup under `name: "CloseX"`, correctly declared, rendered as
+    # empty space twice (once with `stroke="currentColor"`, once with filled paths, so it is the
+    # name and not the markup); `name: "X"` drew immediately. Every other gate is blind —
+    # `validate` returns valid:true, the schema types the name as a bare string, and a blank
+    # reads as a spacing bug in a screenshot — which is why this is an ERROR rather than a
+    # warning: it is a hard render failure that only a device or a careful eye can otherwise
+    # catch. Scoped to `type: "phosphor"`: a `custom` icon renders from its own declared `raw`,
+    # so any name is legal there (the catalog's `spinner1` is one).
+    # Calibrated: all 12 distinct icons across the tracked and raw corpus resolve, as do all
+    # those in `component-catalog.json` — so it is silent on real builder output and on the
+    # templates the skill tells an agent to fill first.
+    if _icons is not None:
+        unknown = set()
+
+        def _phosphor(o):
+            for key in ('icon', 'leadingIcon'):
+                ic = o.get(key)
+                if not isinstance(ic, dict) or ic.get('type') != 'phosphor':
+                    continue
+                name, weight = ic.get('name'), ic.get('weight')
+                if not isinstance(name, str) or not name or weight is None:
+                    continue            # a half-written entry is not this check's to report
+                if not _icons.has_phosphor(name, weight):
+                    unknown.add((name, weight))
+
+        walk(d, _phosphor)
+        for name, weight in sorted(unknown):
+            others = [w for w in _icons.WEIGHTS if _icons.has_phosphor(name, w)]
+            if others:
+                bad.append(f'icon {name!r} has no {weight!r} weight in '
+                           f'{_icons.pack_version()} — it ships as {", ".join(others)}, and a '
+                           f'weight the bundle lacks resolves to nothing')
+            else:
+                hint = ', '.join(_icons.suggest(name)) or 'nothing close'
+                bad.append(f'icon {name!r} is not in {_icons.pack_version()}, so the renderer '
+                           f'resolves nothing and it draws BLANK — an authored `raw` does not '
+                           f'override the bundle. Did you mean: {hint}?')
 
     refs = set()
     walk(d, lambda o: refs.add(o['id']) if o.get('type') == 'global' else None)
