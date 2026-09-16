@@ -237,7 +237,7 @@ Use this to determine the path through Steps 4 and 5:
 
 Google Play blocks creating in-app products and subscriptions in the Console until at least one AAB with the `com.android.vending.BILLING` permission has been uploaded to any track (internal testing is enough). So at this stage, for Android-first or Android-only integrations, real Google Play product IDs do not exist yet and cannot be created yet.
 
-**Store product IDs are IMMUTABLE in Adapty** — once a product is created, its store IDs can never be changed; the only fix is deleting and recreating the product (losing its paywall attachments). So NEVER create a product with a placeholder or guessed store ID. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/testing-setup-android.md`, Part 1) → run the deferred commands.
+**Store product IDs are IMMUTABLE in Adapty** — once a product is created, its store IDs can never be changed; the only fix is deleting and recreating the product (losing its paywall attachments). So NEVER create a product with a placeholder or guessed store ID. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/store-setup-android.md`, Part 1) → run the deferred commands.
 
 **Collecting store product IDs — a staged conversation, skippable at every step:**
 
@@ -431,6 +431,8 @@ Follow the platform-specific file for the exact doc URLs and implementation orde
 4. Only then move to the next stage
 
 Never skip a checkpoint. A failed checkpoint means something is wrong that will cascade.
+
+**When the last stage's checkpoint passes, the first sandbox purchase is not yours to run — invoke the `purchase-testing` skill.** It preflights the dashboard and the app code through the CLI before anyone opens a browser, so nobody is sent to App Store Connect or Play Console over a placement developer ID that does not match, a placement that is Inactive, or a flow still sitting in `dirty`. Creating store products and connecting the store to Adapty stay here (`references/store-setup-*.md`); that skill routes back when its preflight lands on one of them.
 
 ## Troubleshooting
 

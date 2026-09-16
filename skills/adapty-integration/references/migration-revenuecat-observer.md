@@ -53,7 +53,7 @@ does the obvious test: transactions originating in Xcode's local StoreKit testin
 engineer who validates observer mode against a local `.storekit` configuration will conclude the
 integration is broken when it is fine, or that it works when they have tested nothing. Point them at a
 sandbox purchase instead, and say plainly in `ADAPTY_SETUP.md` that a local StoreKit-file purchase is not
-a valid check. `references/testing-setup-ios.md` covers the sandbox setup.
+a valid check. The `purchase-testing` skill covers the sandbox run; `references/store-setup-ios.md` covers the store side.
 
 `Adapty.reportTransaction` also takes the paywall variation ID when the purchase came from an Adapty
 paywall, which is what ties revenue back to the paywall that earned it. Omitting it does not break the

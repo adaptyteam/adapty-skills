@@ -162,7 +162,7 @@ Then:
    - `https://adapty.io/docs/google-play-store-connection-configuration`
    - `https://adapty.io/docs/enable-real-time-developer-notifications-rtdn`
 
-   To get the sequence right before you write it, read `references/testing-setup-ios.md` Part 2, `references/testing-setup-android.md` Part 2, and the platform reference's Stage 5 checklist — for you, not for the document.
+   To get the sequence right before you write it, read `references/store-setup-ios.md` Part 2, `references/store-setup-android.md` Part 2, and the platform reference's Stage 5 checklist — for you, not for the document.
 
    Write this subsection even when you had no store or dashboard access at all — especially then.
 
