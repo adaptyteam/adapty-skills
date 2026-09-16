@@ -314,7 +314,7 @@ curl -s https://adapty.io/docs/unity-handling-events.md
 curl -s https://adapty.io/docs/unity-handle-paywall-actions.md
 ```
 
-**v4 API names.** Flow Builder uses `GetFlow` / `AdaptyFlow` / `AdaptyUI.CreateFlowView` / `AdaptyUIFlowView` / `IAdaptyFlowsEventsListener`. The same APIs also render existing Paywall Builder paywalls — no dashboard changes are needed for a user moving from Paywall Builder. There is no `GetPaywall`, no `AdaptyUI.CreatePaywallView` and no `AdaptyUIPaywallView` on 4.x; they were removed rather than deprecated, so v3 code does not compile. `GetFlow` takes no `locale` parameter — pass a locale to `CreateFlowView` instead. Listener callbacks are renamed `PaywallView...` → `FlowView...`, `PaywallViewDidFailRendering` → `FlowViewDidReceiveError`, and products are still `AdaptyPaywallProduct`.
+**v4 API names.** Flow Builder uses `GetFlow` / `AdaptyFlow` / `AdaptyUI.CreateFlowView` / `AdaptyUIFlowView` / `IAdaptyFlowsEventsListener`. The same APIs also render existing Paywall Builder paywalls — no dashboard changes are needed for a user moving from Paywall Builder. There is no `GetPaywall`, no `AdaptyUI.CreatePaywallView` and no `AdaptyUIPaywallView` on 4.x; they were removed rather than deprecated, so v3 code does not compile. The `locale` parameter is **removed outright** on Unity — the locale resolves automatically on render, and `CreateFlowView` takes none either. (Unity differs here from React Native, KMP and Capacitor, where the locale moves to `CreateFlowView`.) Listener callbacks are renamed `PaywallView...` → `FlowView...`, `PaywallViewDidFailRendering` → `FlowViewDidReceiveError`, and products are still `AdaptyPaywallProduct`.
 
 **Key implementation pattern:**
 
@@ -343,7 +343,7 @@ public class FlowPresenter : MonoBehaviour, IAdaptyFlowsEventsListener
             {
                 if (viewError != null)
                 {
-                    // Most often: the flow has no view configured ("Show on device" is off)
+                    // No view configuration = a custom paywall; render your own screen here.
                     Debug.LogError($"[Adapty] CreateFlowView error: {viewError.Message}");
                     return;
                 }
@@ -403,7 +403,7 @@ public class FlowPresenter : MonoBehaviour, IAdaptyFlowsEventsListener
 
 **Gotcha:** Blank flow, or `GetFlow` returns an error → placement ID doesn't match the dashboard exactly (case-sensitive), or the placement has no audience assigned.
 
-**Gotcha:** `CreateFlowView` returns an error where `GetFlow` succeeded → the **Show on device** toggle is off for that flow in the Flow Builder. `AdaptyFlow.HasViewConfiguration` does still exist on Unity (unlike the React Native and Capacitor SDKs, where it was removed), but handling `CreateFlowView`'s error is the documented path and covers strictly more failures.
+**Gotcha:** `CreateFlowView` returns an error where `GetFlow` succeeded → the flow has no view configuration, i.e. the placement is a custom paywall you render yourself. `HasViewConfiguration` was **removed from `AdaptyFlow` in v4** on Unity, so handling `CreateFlowView`'s error is the only path — do not reintroduce the v3 check.
 
 **Gotcha:** `CreateFlowView` fails on every flow → `.SetActivateUI(true)` is missing from the configuration builder (Stage 1, Step 4).
 
@@ -692,25 +692,27 @@ Unity targets both iOS and Android. Testing setup differs per platform.
 
 ### iOS testing
 
-Follow `references/testing-setup-ios.md` (in this skill directory) for:
+Follow `references/store-setup-ios.md` (in this skill directory) for:
 1. Creating products in App Store Connect
 2. Connecting App Store to Adapty (Bundle ID, In-App Purchase Key, Server Notifications)
-3. Designing the flow in Flow Builder — template, AI generator, or from scratch *(Flow Builder only)*
-4. Sandbox testing — creating a sandbox account, switching device to sandbox, making a test purchase
+3. Giving the flow a design — via the `flow-generator` skill, a template, Figma, from scratch, or converted from a legacy paywall *(Flow Builder only)*
 
-If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/app-store-connection-configuration.md, https://adapty.io/docs/enable-app-store-server-notifications.md and https://adapty.io/docs/app-store-test.md instead. They cover the connection, notification and sandbox-testing steps; creating the store products and designing the paywall are console and dashboard work with no docs substitute.
+Once those three hold, **the purchase itself belongs to the `purchase-testing` skill** — test accounts, device state, running it, confirming it reached Adapty, and diagnosing it when it does not. Invoke it rather than working through a store console here.
+
+If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/app-store-connection-configuration.md, https://adapty.io/docs/enable-app-store-server-notifications.md and https://adapty.io/docs/app-store-test.md instead. They cover the connection, notification and sandbox-testing steps; designing the flow is https://adapty.io/docs/paywall-builder-templates.md. Creating the store products is console work with no docs substitute.
 
 Note: When building for iOS from Unity, always open `Unity-iPhone.xcworkspace` in Xcode, never `Unity-iPhone.xcodeproj`.
 
 ### Android testing
 
-Follow `references/testing-setup-android.md` (in this skill directory) for:
+Follow `references/store-setup-android.md` (in this skill directory) for:
 1. Creating products in Google Play Console
 2. Connecting Google Play to Adapty (Service Account key, Package name) and enabling Real-Time Developer Notifications
-3. Designing the flow in Flow Builder — template, AI generator, or from scratch *(Flow Builder only)*
-4. Sandbox testing — adding a license tester, uploading to a closed track, making a test purchase, verifying results
+3. Giving the flow a design — via the `flow-generator` skill, a template, Figma, from scratch, or converted from a legacy paywall *(Flow Builder only)*
 
-If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/google-play-store-connection-configuration.md, https://adapty.io/docs/enable-real-time-developer-notifications-rtdn.md and https://adapty.io/docs/testing-on-android.md instead. They cover the connection, notification and sandbox-testing steps; creating the store products and designing the paywall are console and dashboard work with no docs substitute.
+Once those three hold, **the purchase itself belongs to the `purchase-testing` skill** — test accounts, device state, running it, confirming it reached Adapty, and diagnosing it when it does not. Invoke it rather than working through a store console here.
+
+If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/google-play-store-connection-configuration.md, https://adapty.io/docs/enable-real-time-developer-notifications-rtdn.md and https://adapty.io/docs/testing-on-android.md instead. They cover the connection, notification and sandbox-testing steps; designing the flow is https://adapty.io/docs/paywall-builder-templates.md. Creating the store products is console work with no docs substitute.
 
 ---
 

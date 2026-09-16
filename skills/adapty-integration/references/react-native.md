@@ -355,7 +355,7 @@ curl -s https://adapty.io/docs/react-native-handling-events-1.md
 curl -s https://adapty.io/docs/react-native-handle-paywall-actions.md
 ```
 
-**v4 API names:** Flow Builder uses the new `getFlow` / `AdaptyFlow` / `createFlowView` / `AdaptyFlowView` / `FlowEventHandlers` family. The same APIs also render existing Paywall Builder paywalls — no dashboard changes are required for users migrating from Paywall Builder. `getFlow` takes no `locale` parameter (the locale resolves automatically on render), and `hasViewConfiguration` no longer exists on the model — do not check it. The lifecycle handlers `onPaywallShown` / `onPaywallClosed` are now `onAppeared` / `onDisappeared`, and `onRenderingFailed` is now `onError`; the other event handlers keep their v3 names, and products are still `AdaptyPaywallProduct`.
+**v4 API names:** Flow Builder uses the new `getFlow` / `AdaptyFlow` / `createFlowView` / `AdaptyFlowView` / `FlowEventHandlers` family. The same APIs also render existing Paywall Builder paywalls — no dashboard changes are required for users migrating from Paywall Builder. `getFlow` takes no `locale` parameter — it **moves to `createFlowView`** as `{ locale }` in its params. `locale` is optional: omit it and the view renders in `en`, or in the flow's default localization if it has one — so a multi-locale app that never passes it silently ships English. Also, `hasViewConfiguration` was removed from the model in 4.0 but **restored on `AdaptyFlow` in 4.1** — check it on 4.1+, and drop the check only while pinned to 4.0. The lifecycle handlers `onPaywallShown` / `onPaywallClosed` are now `onAppeared` / `onDisappeared`, and `onRenderingFailed` is now `onError`; the other event handlers keep their v3 names, and products are still `AdaptyPaywallProduct`.
 
 **Fetch and display pattern:**
 
@@ -388,15 +388,13 @@ function MyFlowScreen({ flow }) {
 }
 
 // 2b. Display modally (alternative)
-const view = await createFlowView(flow);
+const view = await createFlowView(flow, { locale: 'en' });
 await view.present(); // Each view is single-use; call createFlowView again to re-show
 ```
 
 **Checkpoint:** Flow appears on screen with configured products. Tapping a product triggers the sandbox purchase dialog (App Store sandbox on iOS, Google Play test on Android).
 
 **Gotcha:** Blank flow or `getFlow` returns error → placement ID doesn't match the dashboard exactly (case-sensitive), or the placement has no audience assigned.
-
-**Gotcha:** Flow shows empty → **Show on device** toggle in the Flow Builder is off. Turn it on.
 
 ### Custom paywall (manual)
 
@@ -679,13 +677,14 @@ curl -s https://adapty.io/docs/test-purchases-in-sandbox.md
 ```
 
 **Android testing:**
-Read and follow `references/testing-setup-android.md` (in this skill directory). It contains the full step-by-step checklist for:
+Read and follow `references/store-setup-android.md` (in this skill directory). It contains the store-side checklist — the three things that must be true before a purchase can work:
 1. Creating products in Google Play Console
 2. Connecting Google Play to Adapty (Service Account key, Package name) and enabling Real-Time Developer Notifications
-3. Designing the flow in Flow Builder — template, AI generator, or from scratch *(Flow Builder only)*
-4. Sandbox testing — adding a license tester, uploading to a closed track, making a test purchase, verifying results
+3. Giving the flow a design — via the `flow-generator` skill, a template, Figma, from scratch, or converted from a legacy paywall *(Flow Builder only)*
 
-If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/google-play-store-connection-configuration.md, https://adapty.io/docs/enable-real-time-developer-notifications-rtdn.md and https://adapty.io/docs/testing-on-android.md instead. They cover the connection, notification and sandbox-testing steps; creating the store products and designing the flow are console and dashboard work with no docs substitute.
+Once those three hold, **the purchase itself belongs to the `purchase-testing` skill** — test accounts, device state, running it, confirming it reached Adapty, and diagnosing it when it does not. Invoke it rather than working through a store console here.
+
+If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/google-play-store-connection-configuration.md, https://adapty.io/docs/enable-real-time-developer-notifications-rtdn.md and https://adapty.io/docs/testing-on-android.md instead. They cover the connection, notification and sandbox-testing steps; designing the flow is https://adapty.io/docs/paywall-builder-templates.md. Creating the store products is console work with no docs substitute.
 
 Present the checklist to the user with the actual product IDs from Phase 3 already filled in. Both platforms should be tested if the app targets both iOS and Android.
 

@@ -305,6 +305,8 @@ Adapty.getFlow(AppConstants.PLACEMENT_ID) { result ->
     if (result is AdaptyResult.Success) {
         val flow = result.value
 
+        // false = a custom paywall with no Builder UI, not an error. Render your own
+        // screen from flow.remoteConfigs: https://adapty.io/docs/present-remote-config-paywalls-android.md
         if (!flow.hasViewConfiguration) return@getFlow
 
         AdaptyUI.getFlowConfiguration(flow, locale = "en") { configResult ->
@@ -330,7 +332,7 @@ Adapty.getFlow(AppConstants.PLACEMENT_ID) { result ->
 
 **Gotcha:** Blank flow or `getFlow` returns error → placement ID doesn't match the dashboard exactly (case-sensitive), or the placement has no audience assigned.
 
-**Gotcha:** `hasViewConfiguration` is `false` → the **Show on device** toggle in the Flow Builder is off. Tell the user to enable it in the dashboard.
+**Gotcha:** `hasViewConfiguration` is `false` → not a misconfiguration. The flag tells a Builder-designed placement (`true`, Adapty renders it) from a custom paywall with no Builder UI (`false`, you render it). If the user chose the Custom paywall approach, `false` is the expected value and the branch is where their own screen goes.
 
 ### Custom paywall (manual)
 
@@ -568,13 +570,14 @@ Do not proceed to the manual checklist until the build is clean. Do not hand off
 
 ## Before you can test: manual steps
 
-Read and follow `references/testing-setup-android.md` (in this skill directory). It contains the full step-by-step checklist for:
+Read and follow `references/store-setup-android.md` (in this skill directory). It contains the store-side checklist — the three things that must be true before a purchase can work:
 1. Creating products in Google Play Console (subscriptions or one-time products)
 2. Connecting Google Play to Adapty (Service Account key, Real-Time Developer Notifications)
-3. Designing the flow in Flow Builder — template, AI generator, or from scratch *(Flow Builder only)*
-4. Sandbox testing — adding a license tester, making a test purchase on a real device or emulator, verifying results in the Adapty dashboard Event Feed
+3. Giving the flow a design — via the `flow-generator` skill, a template, Figma, from scratch, or converted from a legacy paywall *(Flow Builder only)*
 
-If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/google-play-store-connection-configuration.md, https://adapty.io/docs/enable-real-time-developer-notifications-rtdn.md and https://adapty.io/docs/testing-on-android.md instead. They cover the connection, notification and sandbox-testing steps; creating the store products and designing the flow are console and dashboard work with no docs substitute.
+Once those three hold, **the purchase itself belongs to the `purchase-testing` skill** — test accounts, device state, running it, confirming it reached Adapty, and diagnosing it when it does not. Invoke it rather than working through a store console here.
+
+If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/google-play-store-connection-configuration.md, https://adapty.io/docs/enable-real-time-developer-notifications-rtdn.md and https://adapty.io/docs/testing-on-android.md instead. They cover the connection, notification and sandbox-testing steps; designing the flow is https://adapty.io/docs/paywall-builder-templates.md. Creating the store products is console work with no docs substitute.
 
 Present the checklist to the user with the exact product IDs from Phase 3 already filled in.
 

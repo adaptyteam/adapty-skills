@@ -437,13 +437,14 @@ Do not proceed to the manual checklist until the build is clean. Do not hand off
 
 ## Before you can test: manual steps
 
-Read and follow `references/testing-setup-ios.md` (in this skill directory). It contains the full step-by-step checklist for:
+Read and follow `references/store-setup-ios.md` (in this skill directory). It contains the store-side checklist — the three things that must be true before a purchase can work:
 1. Creating products in App Store Connect
 2. Connecting App Store to Adapty (Bundle ID, In-App Purchase Key, Server Notifications)
-3. Designing the flow in Flow Builder — template, AI generator, or from scratch *(Flow Builder only)*
-4. Sandbox testing — creating a test account, switching device to sandbox, making a test purchase, verifying results
+3. Giving the flow a design — via the `flow-generator` skill, a template, Figma, from scratch, or converted from a legacy paywall *(Flow Builder only)*
 
-If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/app-store-connection-configuration.md, https://adapty.io/docs/enable-app-store-server-notifications.md and https://adapty.io/docs/app-store-test.md instead. They cover the connection, notification and sandbox-testing steps; creating the store products and designing the flow are console and dashboard work with no docs substitute.
+Once those three hold, **the purchase itself belongs to the `purchase-testing` skill** — test accounts, device state, running it, confirming it reached Adapty, and diagnosing it when it does not. Invoke it rather than working through a store console here.
+
+If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/app-store-connection-configuration.md, https://adapty.io/docs/enable-app-store-server-notifications.md and https://adapty.io/docs/app-store-test.md instead. They cover the connection, notification and sandbox-testing steps; designing the flow is https://adapty.io/docs/paywall-builder-templates.md. Creating the store products is console work with no docs substitute.
 
 Present the checklist to the user with the exact product IDs from Phase 3 already filled in.
 

@@ -18,7 +18,7 @@
  * scripts/app-side-allowlist.txt (plain text, editable without touching code).
  *
  * Usage:  node scripts/lint-symbols.mjs [platform ...]
- *         (default: every references/<platform>.md + the testing-setup files)
+ *         (default: every references/<platform>.md + the store-setup files)
  * Exit codes: 0 = clean, 1 = missing symbols, 2 = infrastructure error
  * (docs unreachable - fix the network/docs, not the skill).
  */
@@ -35,8 +35,8 @@ const FETCH_CONCURRENCY = 3
 
 /** Non-platform references are linted against the platform they belong to. */
 const REFERENCE_PLATFORM_OVERRIDES = {
-  'testing-setup-android': 'android',
-  'testing-setup-ios': 'ios',
+  'store-setup-android': 'android',
+  'store-setup-ios': 'ios',
 }
 
 /**
@@ -255,7 +255,7 @@ for (const reference of references) {
 // silently-unchecked symbol is exactly what this lint exists to prevent. So check the claim
 // instead of believing it. Requires a capital A, which is what separates an SDK symbol
 // (`AdaptyPaywall`, `Adapty.getPaywall`) from the domain (`adapty.io`) and the CLI (`adapty asa`).
-const OTHER_SKILLS = ['adapty-docs', 'ads-manager', 'flow-audit', 'flow-generator', 'migrate-placements', 'onboarding-teardown', 'paywall-teardown']
+const OTHER_SKILLS = ['adapty-docs', 'ads-manager', 'flow-audit', 'flow-generator', 'migrate-placements', 'onboarding-teardown', 'paywall-teardown', 'purchase-testing']
 const SDK_SYMBOL = /\bAdapty[A-Z][A-Za-z0-9_]+|\bAdapty\.[a-z][A-Za-z0-9_]*/g
 const SKILLS_ROOT = join(SCRIPTS_DIR, '..', 'skills')
 
