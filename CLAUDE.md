@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Seven portable, Claude-style skills for agentic CLIs (Claude Code, GitHub Copilot CLI, OpenAI Codex, Gemini CLI):
+Eight portable, Claude-style skills for agentic CLIs (Claude Code, GitHub Copilot CLI, OpenAI Codex, Gemini CLI):
 
+- **`adapty-docs`** — routes any Adapty question to the right docs index and finds the page. The shared fallback every other skill points at when it has no URL for what is being asked: product and dashboard behaviour, Flow Builder, the Developer CLI, the server-side API, or an SDK method on any platform. Owns the surface map, the never-guess-a-slug rule, and the cost of each index.
 - **`adapty-integration`** — guides an agent through integrating the Adapty SDK into a mobile app end-to-end: dashboard setup via the Adapty CLI, SDK install, paywall, store configuration.
 - **`ads-manager`** — operates Apple Search Ads through the Adapty CLI's `adapty asa` topic: reading performance, changing bids and budgets, keyword work, launching and pausing campaigns.
 - **`flow-audit`** — answers one question, is this Flow Builder flow ready for production, by cross-referencing its config against the live dashboard (catalog, access levels) and returning a verdict plus ranked, fixable findings. Read-only: never writes to a flow. Complements `flow-generator` (which owns writes) and `paywall-teardown` (which owns conversion advice).
@@ -16,7 +17,7 @@ Seven portable, Claude-style skills for agentic CLIs (Claude Code, GitHub Copilo
 
 One repo, three distribution channels: a Claude Code plugin (`.claude-plugin/` holds the marketplace + plugin manifests), the skills.sh CLI, and plain directory copy of a `skills/<name>/` directory into a tool's skills folder. Keep every skill directory self-contained and format-portable — nothing in one may assume Claude Code specifically.
 
-All seven skills ship inside the single `adapty-skills` plugin, because a plugin exposes every skill under `skills/`. No manifest edit is needed to add one. The plugin name is deliberately broader than any one skill — installing it gives you every skill in the repo, and that is the intended shape. Splitting the skills into separate marketplace entries was considered and rejected; do not reopen it without a reason the plugin name no longer covers.
+All eight skills ship inside the single `adapty-skills` plugin, because a plugin exposes every skill under `skills/`. No manifest edit is needed to add one. The plugin name is deliberately broader than any one skill — installing it gives you every skill in the repo, and that is the intended shape. Splitting the skills into separate marketplace entries was considered and rejected; do not reopen it without a reason the plugin name no longer covers.
 
 `marketplace.json` also carries a **deprecated `adapty-sdk-integration` entry** pointing at the same `source: "./"`, so installs made under the old plugin name keep resolving and keep updating. Verified: `plugin details` through either handle reports the same plugin identity and the same skill inventory. Drop that entry only after the docs stop teaching the old handle — never before, or you break the installs it exists to protect.
 
@@ -24,6 +25,13 @@ All seven skills ship inside the single `adapty-skills` plugin, because a plugin
 
 ## Layout
 
+- `skills/adapty-docs/SKILL.md` — the docs-discovery skill, and the only file in the repo that maps
+  a question to a docs index. Self-contained, no references, no scripts. Owns the routing table
+  (`<platform>-llms.txt` / `flows-llms.txt` / `api-llms.txt` / `tutorial-llms.txt` / `llms.txt`
+  with each one's token cost), the never-assemble-a-slug rule and what a wrong guess costs, the
+  `# File:` grep recipe for the full-text aggregates, the seven generated SDK reference sites, and
+  the session marker. **It names no SDK symbols and must not start** — the symbol lint's scope
+  guard covers it, and it has no platform to verify one against.
 - `skills/adapty-integration/SKILL.md` — the skill entry point. Phase-by-phase flow: state tracking → setup (docs-fetching rules, session marker, feedback consent) → project analysis → three user questions → dashboard setup through the Adapty CLI → staged, per-platform implementation → closing review → feedback delivery. Platform-agnostic on purpose; per-platform details belong in references.
 - `skills/adapty-integration/references/<platform>.md` — one per platform (`ios`, `android`, `flutter`, `react-native`, `unity`, `kmp`, `capacitor`) plus `testing-setup-{ios,android}.md`. Code snippets and the exact docs URLs the agent fetches before writing each piece of code.
 - `skills/adapty-integration/references/migration.md` — the cross-platform migration spine: source detection, mapping rules from another purchase system's concepts to Adapty's, and the `ADAPTY_SETUP.md` handoff contract. Injected on every run where `migrationSource` is set, alongside the platform reference; kept lean on purpose, since a headless run can't skip past padding. `references/migration-<source>.md` (currently `migration-revenuecat.md`) adds source-specific mapping and is also cross-platform; its section 5 is a 33-row triage table of RC→Adapty behavioral divergences, each row keyed to a grep-able RC signal and ending in **restructure** or **drop**. The third verdict, **swap**, is deliberately kept out of the table — a divergence that resolves at the call site lives in the deep file only, so the always-injected half stays limited to work an agent cannot do without leaving it. Three rows are keyed to the **absence** of a call rather than its presence — no fallback file, no `AdaptyUI.activate`, no preload — because RC has no counterpart to grep for and a call-site-to-call-site mapping therefore skips them silently. Ten files are the odd ones out, loaded **on demand only** and never injected by default. Eight are the RC topic files — `references/migration-revenuecat-{activation,identity,placements,entitlements,purchases,observer,attribution,gaps}.md`, 60–110 lines each — reached from the triage table, whose verdict cell names one of them (`Restructure → placements`). They carry the reasoning, the architectural options, and the per-gap staleness checks that the always-injected table states in a single line, which is the whole point of the split. **They were one 658-line file until the load unit was fixed:** an agent reads files, not headings, so a `§N` pointer into one big file made every matched row cost all eight topics. One file per topic makes the load unit equal the decision unit — a typical run reads 250–350 lines instead of 658, and a run that touches all eight is no worse than before. Adding a topic means adding a file plus a legend row, never growing a shared file. The other two are `references/migration-architecture.md`, when a call site has no one-to-one Adapty equivalent; and `references/migration-flow-rebuild.md`, when `paywallApproach` is `flow_builder` and the app renders its paywall screen itself — the one migration that retires the app's own UI instead of rewiring it. That file owns the two rules the spine can't state generally: no CLI-created placements on such a run (the flow needs those developer IDs), and the screen's copy, assets, and locales get extracted into the handoff before any code changes, because the user rebuilds it in a visual editor from what the agent wrote down.
@@ -58,7 +66,7 @@ All seven skills ship inside the single `adapty-skills` plugin, because a plugin
 
 **The link lint covers ALL of `skills/`; the symbol lint covers `adapty-integration` and guards the rest.** Widened 2026-08-28 — it previously hardcoded `skills/adapty-integration`, so a green run said nothing about four of the five skills that ship, while the runtime agent is told to fetch URLs from all of them. The widening cost 17 unique URLs and found no dead links; coverage is now printed per skill on every run (`adapty-integration 322, ads-manager 1, flow-audit 7, flow-generator 22, onboarding-teardown 1, paywall-teardown 1` — `flow-audit` had none when the lint was widened and has since gained 7). Two extraction rules were needed and both are load-bearing: a URL containing `…` **or** `...` is a documentation placeholder, not a link — the second came from a real 404 on a media URL inside pasted sample output with the hash cut out (`1e5bbbb4-.../hero-600x400.png`), which is elided-example noise rather than a finding.
 
-**The symbol lint was deliberately NOT widened, and that is a measured decision rather than an omission.** It resolves a file's platform from its name (`references/<platform>.md`) and checks against that platform's docs aggregate; the other six skills have no platform and name **zero** SDK symbols (measured across all their `.md`; re-measured 2026-09-03 when `migrate-placements` was added — still zero). But "they name none" is an assumption that rots the moment someone adds one, so it is now checked instead of believed: a **scope guard** scans those six for `Adapty[A-Z]…` / `Adapty.<member>` and turns the lint **red** with a pointer to either drop the symbol or widen the lint. The capital `A` is what separates an SDK symbol from the domain (`adapty.io`) and the CLI (`adapty asa`). Negative-tested by injecting `Adapty.getPaywall()` into `flow-audit`.
+**The symbol lint was deliberately NOT widened, and that is a measured decision rather than an omission.** It resolves a file's platform from its name (`references/<platform>.md`) and checks against that platform's docs aggregate; the other seven skills have no platform and name **zero** SDK symbols (measured across all their `.md`; re-measured when `migrate-placements` and then `adapty-docs` were added — still zero). But "they name none" is an assumption that rots the moment someone adds one, so it is now checked instead of believed: a **scope guard** scans those seven for `Adapty[A-Z]…` / `Adapty.<member>` and turns the lint **red** with a pointer to either drop the symbol or widen the lint. The capital `A` is what separates an SDK symbol from the domain (`adapty.io`) and the CLI (`adapty asa`). Negative-tested by injecting `Adapty.getPaywall()` into `flow-audit`.
 
 There is no test suite for the skills themselves — the lints are the verification gates. Run them after any edit to a SKILL.md or a reference:
 
@@ -89,6 +97,114 @@ These apply to `adapty-integration`; the `ads-manager` section below adds its ow
 - **Migration references are linted against the union corpus.** Their Adapty symbols are still verified, so they may name Adapty APIs; they carry mapping and strategy and delegate platform code to `references/<platform>.md`. Dead `revenuecat.com/docs` links are hard lint failures — take RC URLs from `https://www.revenuecat.com/docs/llms.txt`, never assemble one.
 - **A "no Adapty equivalent" claim carries the command that proves it, not just the claim.** Nothing in CI can catch such a claim going stale: the symbol lint verifies symbols that *are* named, and a feature Adapty lacks has no symbol to check. So every gap entry in the RC topic files — mostly `migration-revenuecat-gaps.md`, plus a few in `-attribution.md` and `-purchases.md` — ships with its own `curl … llms.txt | grep -i "<feature>"` and the rule that a hit means read the page and report the Adapty equivalent instead — written per entry, because one instruction at the top of a section is what an agent skips. Behavioral limits are a different case and get a re-read of the page that proves them (`create-product` for one-access-level-per-product, `making-purchases` for auto-applied offers) rather than an index search, since a model constraint never appears as an index entry. This is not paranoia about the roadmap: two of the four headline gaps in the internal RC comparison this content came from — offline entitlements and virtual currencies — closed within months, and Adapty ships both today.
 - **Behavioral claims about either SDK come from that SDK's source, at a pinned release tag.** The RC topic files state timings and failure modes the docs do not carry — the profile poll cadence and its post-web-paywall acceleration, RC's 5-minute/25-hour cache staleness, the 5-second placement load timeout, and the four different not-initialized failure modes. Every one was read from source, verified to still hold at a release tag (`AdaptySDK-iOS` 4.0.3, `AdaptySDK-Android` 4.0.2, `purchases-ios`/`purchases-android` at 2026-08-17 `master`), and none of it is lint-checkable: the symbol lint verifies that a symbol exists, never what a constant equals. So re-read the source when touching these numbers rather than trusting the prose, and prefer describing a behavior over naming an internal type — the global actor on iOS is deliberately unnamed here, because it is a concurrency detail and not an API an agent should call. This is also the rule that caught a wrong claim inherited from the internal comparison: RC's `recordPurchase` is not macOS-only, and RC's Android observer path is a batch `syncPurchases` rather than a per-transaction report.
+
+## Conventions when editing `adapty-docs`
+
+- **The routing table is the skill.** Everything else in the file supports it. The reason it has to
+  exist at all is measured: **the root `llms.txt` never names the sub-indexes**, so an agent that
+  starts at the documented entry point cannot learn that `ios-llms.txt`, `flows-llms.txt`,
+  `api-llms.txt` or `tutorial-llms.txt` exist. Re-check that before deciding the table is
+  redundant — if the docs ever link the sub-indexes from the root, most of this skill stops earning
+  its place.
+- **Every size in the table is measured, and they are the argument for the ordering.** Per-platform
+  index ~2k tokens, `flows` ~6k, `api` ~2k, `tutorial` ~14k, root `llms.txt` ~33k. The full-text
+  aggregates are ~121k per platform and **~560k for `tutorial`**, which is larger than a context
+  window. Re-measure rather than trusting these; they move as the docs grow.
+- **A wrong slug is not a cheap error, which is why the never-guess rule is phrased around cost.**
+  A 404 returns a **~17k-token HTML page** whose title is the only sign anything went wrong, and 7
+  of 10 plausible guesses for two real pages were 404. An agent that does not know this reads the
+  error page as content.
+- **The full-text files are grep targets, never fetch targets, and the marker is what makes that
+  work.** Every article in every aggregate is delimited by `# File: <slug>` — verified present in
+  all nine (`ios` 56, `android` 52, `flutter` 55, `react-native` 60, `unity` 55, `kmp` 51,
+  `capacitor` 47, `tutorial` 347, `api` 21). The shipped recipe prints slugs and stops there
+  **deliberately**: an earlier version piped through `sed` to build full URLs, and the URL literal
+  inside the `sed` expression was scraped by `lint-links.mjs` as a dead link. Keep the recipe free
+  of bare URL literals inside shell quoting, or the lint reddens on a working command.
+- **This skill must name no SDK symbols.** It has no platform, so `lint-symbols.mjs` cannot verify
+  one against a docs aggregate — and the scope guard now covers `adapty-docs`, so a symbol turns
+  the lint red. Describe a method's purpose and link its reference site; never write its name.
+- **`<platform>` is the lint-safe placeholder.** `lint-links.mjs` skips any URL containing
+  `{}<>*…`, so `https://adapty.io/docs/<platform>-llms.txt` is correctly treated as a template.
+  Anything else — a bare `platform`, a real example like `ios` — gets fetched and checked.
+- **The four API pages are spec headers, not the API docs.** `api-adapty.md` and its siblings carry
+  auth and servers; the per-endpoint pages are separate, and `api-llms.txt` is the index that maps
+  `METHOD /path` to each operation's own page. Route an endpoint question to the index, not to the
+  spec header.
+- **`android.adapty.io` is the canonical Android reference host.** `kotlin.adapty.io` redirects to
+  it and is what the docs index uses; the site footer uses the canonical form, and so does this
+  skill.
+
+### Finding 39 (2026-09-16): the skill changes the PATH, not the PRICE — correctness and cost both null, mechanism a complete separation
+
+Six agents, three per arm, arms differing only in the new skill; scenario, rubric and the null
+clause written to disk before dispatch (`docs/superpowers/baselines/2026-09-16-adapty-docs-baseline.md`).
+The question was a product one whose correct answer is counter-intuitive — the Adapty-side price is
+a placeholder fixed at creation that never reaches the store, and the customer-facing price comes
+from StoreKit at paywall open — so the plausible wrong answer ("wait for the sync") was confidently
+stateable. Scenario chosen after rejecting two others for contamination: `rtdn` and `refund` appear
+in 9 and 8 repo files, `store-sync` in **zero**.
+
+**Correctness: 6 of 6 in both arms**, so the eighth null in this repo's record and the **seventh**
+time predicting control failure has been wrong. **Cost: also null** — 210k control tokens against
+213k treatment, 15.3 tool calls against 16.3. The 33k the routing table saves was reinvested in
+cross-checking rather than banked, so **no token-saving claim is supported by this round**, which
+matters because the docs' own banner promises exactly that.
+
+**What separated is the route, completely: 3/3 control opened the root `llms.txt` and 0/3 opened a
+sub-index; treatment was the exact inverse.** The mechanism is not agent quality, it is
+availability — `llms.txt` does not name the sub-indexes, so control could not have chosen one. That
+makes this the gate's information-not-convenience case, and it is why the round separated on
+mechanism where `helper-green` and `video-green` did not.
+
+**The honest limit, and it is the whole round-2 scenario.** This question was *answerable from the
+root index*, so control never took a wrong turn, and the two rules with the strongest measurements
+behind them — never assemble a slug, grep the aggregates — were never load-bearing for the outcome.
+Round 2 must ask something the root index cannot resolve, where the answer exists only inside a
+`-llms-full.txt`, so the recipe has to carry the result rather than shorten the route. Two
+consecutive clean rounds remain the bar, and this is one round that is null on both scored
+dimensions.
+
+**Acted on per the pre-registration**: the one advisory section was cut in half. Everything kept is
+a fact no agent can derive, and treatment runs used three of the four unprompted — including one
+that reached a second index (`api-llms.txt`) to cross-check a claim against the CLI reference, and
+one that inferred the `?ref=skill-dev-` convention from CLAUDE.md without being told.
+
+### Round 2 (2026-09-16): a full-text-only question, and it was null too — the routing separation replicates, the outcome separation is still zero
+
+Round 1's stated limit was that its question was answerable from the root index. Round 2 was built
+to remove that: a **symptom** question about a Flow Builder paywall whose elements had been renamed,
+whose decisive fact — *renaming a progress-bar segment updates its references automatically, the one
+documented exception* — occurs **once in the entire corpus**, in `flow-common-issues`, and **zero
+times anywhere in this repo**. Scorer written and self-tested against the real doc sentence before
+dispatch, with a plausible-wrong-answer negative.
+
+**All six runs passed all seven rows, control included.** Control found the one-sentence exception
+3/3. Cost was again null and slightly against treatment (216k control tokens against 220k, 15.3 tool
+calls against 17.7). **The route separated again and identically: control opened the 33k root
+`llms.txt` first 3/3, treatment opened the 6k `flows-llms.txt` first 3/3**, and both arms then read
+the same two articles. Across the two rounds that is **6/6 against 0/6 on routing and zero on
+outcome**.
+
+**The scenario flaw is the transferable finding, and it is mine.** I pre-registered "not reachable
+from any index" and verified it by grepping the index files for `element id`, `renam` and
+`progress.bar` — a check that passed and measured the wrong thing. The index describes that article
+as *"Fix the issues that stop a flow from previewing, publishing, or behaving the way you built
+it"*, which matches the symptom **semantically while sharing no keyword with it**. **I tested
+lexical reachability and called it semantic reachability.** To claim an answer is not
+index-reachable, read the candidate descriptions as an agent would and name the one you would open;
+a keyword count is not that check. That belongs in `docs/green-round-gate.md`.
+
+**Acted on per the pre-registration**: the grep section lost its own heading and its claim to find
+what indexes cannot, dropping from 22 lines to 9 and keeping only the measured half — the sizes, do
+not fetch one, and the `# File:` marker if you grep anyway. Skill 834 → 753 words.
+
+**Standing conclusion, and it bounds what may be claimed for this skill.** Two consecutive nulls on
+outcome mean **no quality claim and no token-saving claim is supported**. What is supported is that
+the cheap indexes are undiscoverable from `llms.txt`, so the routing table makes the route
+deterministic instead of dependent on the root index happening to carry the answer. A third arm
+comparison against this hypothesis is not worth running: two deliberately hard scenarios both
+produced competent control answers.
 
 ## Conventions when editing `ads-manager`
 
@@ -392,7 +508,7 @@ Every rule below exists because it was violated while the skill was built.
   **The mechanisms all survived; only the stated expectations rotted — and that is the design being vindicated rather than a lucky escape.** `migrate-placements` probes `content_type` instead of assuming, so its phase-1 branch lands correctly on *"the union is deployed. Proceed."* today with no code change, and `normalize_audience` degraded to a no-op instead of breaking. `migrate.py` needed **no edit at all**. So the correction was a one-file fact change per site rather than a redesign, which is the argument for writing probes over version floors — the same lesson `flows publish` taught three times, arriving here from the API side.
   **What was NOT verified, and is marked as such in all four files: `flows publish`'s route.** Settling it needs a `POST`, and the cheapest safe probe — `flows create` a throwaway then publish it — leaves a flow row that **cannot be deleted**, so it was declined rather than quietly guessed. Every mention now reads as a dated observation with *run it rather than assuming* attached, and `flow-generator`'s own gate paragraph gained that sentence too, because *"the API deployment, which has not happened"* is exactly the wording that stops an agent trying.
   **Two facts pinned from source rather than from an address bar.** The **dashboard route** is `/placements/flows/:placementId`, and `:placementId` is the placement **UUID** — the list row type carries `placementId` *and* `developerId` as separate fields and the navigation uses the former, so the developer ID (the string the app fetches with) **does not route**. The middle segment is the placement's *type*, with `/placements/paywalls/…` and `/placements/onboardings/…` parallel to it, which is a second reason a flow cannot be attached to a paywall placement — they are not one object with a different payload. Read off `apps/web/src/app/Routes.tsx` and `PlacementFlowList.tsx` in `adapty/adapty-dashboard-interface` at `b238f44e0`. **Read, not vendored**, the same rule this file applies to `flow-publish-doctor` and `adapty-agents`.
-  **One constraint shaped the writing and is worth knowing before editing phase 6: the handoff may NOT name the SDK call.** `scripts/lint-symbols.mjs`'s scope guard matches `\bAdapty\.[a-z]\w*` across the six non-integration skills, so writing the fetch method's name in `flow-generator` turns the lint **red** — correctly, since this skill cannot verify a symbol against a platform's docs aggregate. So phase 6 describes the call ("the string your app will fetch with") and `adapty-integration` keeps the symbol. Both lints are green: symbol lint's guard passed, link lint `0 dead docs links, 0 warnings` with `flow-generator` coverage 22 → 26 URLs.
+  **One constraint shaped the writing and is worth knowing before editing phase 6: the handoff may NOT name the SDK call.** `scripts/lint-symbols.mjs`'s scope guard matches `\bAdapty\.[a-z]\w*` across the seven non-integration skills, so writing the fetch method's name in `flow-generator` turns the lint **red** — correctly, since this skill cannot verify a symbol against a platform's docs aggregate. So phase 6 describes the call ("the string your app will fetch with") and `adapty-integration` keeps the symbol. Both lints are green: symbol lint's guard passed, link lint `0 dead docs links, 0 warnings` with `flow-generator` coverage 22 → 26 URLs.
   **Cost, and an eviction pass in the same change: `SKILL.md` 9,563 → 9,774 words, net +211** for a
 whole new phase, a new reference, cold entry and four corrected sites. Phase 6 is 506 words after
 being written at ~700 and split into `placements.md`.

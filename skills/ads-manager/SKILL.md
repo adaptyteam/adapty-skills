@@ -321,3 +321,7 @@ rest with Apple's reason. `--timeout` ends the polling, never the operation, so 
    settles a disagreement between prose and commands.
 
 Do not guess a flag, a command, or a URL path. If none of the three confirms it, say so.
+
+For an Adapty question that is not about the `asa` surface at all — Apple Ads concepts in the
+dashboard, attribution, analytics, anything product-side — use the `adapty-docs` skill to find the
+page rather than searching the web.

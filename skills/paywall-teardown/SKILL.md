@@ -273,6 +273,10 @@ step is the change itself.
 This skill analyzes the **paywall** — one screen, and its execution: plan cards, price display,
 savings framing, CTA, proof placement, trust signals.
 
+This skill reads nothing and fetches nothing. When the user turns from the screen to a question
+about how Adapty itself works — what a setting does, how offers or placements behave — that is the
+`adapty-docs` skill's, not an answer to improvise from memory.
+
 **The sequence in front of it belongs to `onboarding-teardown`** — flow length and branching, goal
 capture, the personalization payoff, loader placement, permission timing, and the onboarding→paywall
 seam. Hand those over rather than answering them from a screen you weren't given; when both are in

@@ -7,6 +7,9 @@ description: Use when someone wants to move an app from paywall placements to Fl
 
 ## What this does, and what it cannot do
 
+For an Adapty docs page this skill does not link — how placements, audiences or flows behave in the
+dashboard — use the `adapty-docs` skill to find it. Never assemble a docs URL from a topic name.
+
 Two facts decide the whole shape of this skill, and both are measured
 ([api-surface.md](references/api-surface.md#why-every-migration-is-a-create)):
 
