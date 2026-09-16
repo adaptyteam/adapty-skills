@@ -410,3 +410,6 @@ per fact:
   decides *what* should change and what it is worth; it writes nothing anywhere.
 - **`flow-audit`** owns whether the flow is safe to ship (triggers, products, locales, store
   compliance). "Is it ready?" is that skill; "is it any good?" is this one.
+- **`adapty-docs`** owns what the product actually does — what a setting means, how a feature
+  behaves. This skill reads nothing and fetches nothing, so hand such a question over rather than
+  answering it from memory.

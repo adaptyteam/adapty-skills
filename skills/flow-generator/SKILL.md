@@ -98,6 +98,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | :--- | :--- |
 | [flow-schema.md](references/flow-schema.md) | **Before any edit.** The envelope, `## Invariants`, `## Shape traps`, and `## Vocabulary` — the map from what a user asks for to what the JSON calls it |
 | [validate.md](references/validate.md) | `validate` says no, or you want to know what a green run does *not* prove |
+| the `adapty-docs` skill | You need an Adapty docs page nothing here links — a dashboard behaviour, a CLI or API detail. It routes to the right docs index instead of guessing a URL |
 | [preview.md](references/preview.md) | A render surprises you: what it cannot show, what it costs, the four disagreeing surfaces, and what to do when it fails |
 | [fidelity.md](references/fidelity.md) | A reference image was given — the per-element inventory, the gap-closing ladder, and what becomes a user ask |
 | [media.md](references/media.md) | The screen has an image: the upload's limits, element-versus-`fill` shapes, geometry, and when to rasterize |

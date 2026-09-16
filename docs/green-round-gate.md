@@ -238,3 +238,12 @@ the pattern to copy: when the classification says convenience, **do not cancel t
 its question** to one a single pooled number can answer (here: do agents produce the bad shape at
 all?). A base rate of zero over twelve runs closed an open item that no amount of arm comparison
 could have.
+
+- [ ] **"Not reachable from the index" is a SEMANTIC claim, and a keyword grep does not test it.**
+      *adapty-docs round 2*: the scenario was pre-registered as unreachable from any docs index,
+      verified by grepping the index files for the answer's key terms — which passed, and measured
+      the wrong thing. The hosting article's description matched the user's symptom *semantically
+      while sharing no keyword with it* ("behaving the way you built it"), so control routed
+      straight to it and the round was null. **Read the candidate descriptions the way an agent
+      would and name the one you would open.** Which description did you read, and why would an
+      agent not pick it? ______

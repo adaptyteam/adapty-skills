@@ -232,6 +232,10 @@ run's copy.
 
 ## Reference
 
+For an Adapty docs page this skill does not link — what a dashboard setting does, a store or
+billing behaviour behind a finding — use the `adapty-docs` skill to locate it. Never assemble a
+docs URL from a topic name.
+
 `references/audit-flow.py` — the six-family completeness checker (stdlib only). Takes
 the bare config plus the catalog JSON; `--report` prints the user-facing block, `--json`
 prints raw findings, no flag prints a plain list. Exit 0 no blockers, 1 at least one
