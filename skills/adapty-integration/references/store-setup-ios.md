@@ -69,6 +69,19 @@ Server notifications are required for subscription events (renewals, cancellatio
    - **Sandbox Server URL**
 4. Save in App Store Connect.
 
+### Step 2d: App Store Connect API key *(only for the dashboard push-to-stores path)*
+
+Skip this unless the user chose to create products **from the Adapty dashboard and push them to the App Store** (Step 4, path C). Linking products that already exist does not need it.
+
+> **This is a different key pair from the In-App Purchase Key in Step 2b.** Both are generated in App Store Connect under Users and Access, and both label their fields **Issuer ID** and **Key ID**, so they are easy to confuse. The In-App Purchase key lets Adapty *validate* purchases; this one lets Adapty *write* products into App Store Connect. Having one does not give you the other.
+
+1. In App Store Connect → **Users and Access → Integrations → App Store Connect API**, generate a key with access to your app.
+2. In [Adapty Dashboard → App settings → iOS SDK](https://app.adapty.io/settings/ios-sdk), add it under **App Store Connect API key**.
+
+Full steps: https://adapty.io/docs/app-store-connection-configuration.md
+
+> **The first product you push must be submitted for review manually** in App Store Connect. It is a one-time gate per app — later products skip it — and the status updates in Adapty on its own once review finishes. Until then that product is not purchasable, so sandbox testing waits on it.
+
 ---
 
 ## Part 3: Give the flow a design *(Flow Builder only — skip for Custom paywall)*

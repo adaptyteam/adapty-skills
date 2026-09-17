@@ -103,6 +103,46 @@ These apply to `adapty-integration`; the `ads-manager` section below adds its ow
 - **A "no Adapty equivalent" claim carries the command that proves it, not just the claim.** Nothing in CI can catch such a claim going stale: the symbol lint verifies symbols that *are* named, and a feature Adapty lacks has no symbol to check. So every gap entry in the RC topic files — mostly `migration-revenuecat-gaps.md`, plus a few in `-attribution.md` and `-purchases.md` — ships with its own `curl … llms.txt | grep -i "<feature>"` and the rule that a hit means read the page and report the Adapty equivalent instead — written per entry, because one instruction at the top of a section is what an agent skips. Behavioral limits are a different case and get a re-read of the page that proves them (`create-product` for one-access-level-per-product, `making-purchases` for auto-applied offers) rather than an index search, since a model constraint never appears as an index entry. This is not paranoia about the roadmap: two of the four headline gaps in the internal RC comparison this content came from — offline entitlements and virtual currencies — closed within months, and Adapty ships both today.
 - **Behavioral claims about either SDK come from that SDK's source, at a pinned release tag.** The RC topic files state timings and failure modes the docs do not carry — the profile poll cadence and its post-web-paywall acceleration, RC's 5-minute/25-hour cache staleness, the 5-second placement load timeout, and the four different not-initialized failure modes. Every one was read from source, verified to still hold at a release tag (`AdaptySDK-iOS` 4.0.3, `AdaptySDK-Android` 4.0.2, `purchases-ios`/`purchases-android` at 2026-08-17 `master`), and none of it is lint-checkable: the symbol lint verifies that a symbol exists, never what a constant equals. So re-read the source when touching these numbers rather than trusting the prose, and prefer describing a behavior over naming an internal type — the global actor on iOS is deliberately unnamed here, because it is a concurrency detail and not an API an agent should call. This is also the rule that caught a wrong claim inherited from the internal comparison: RC's `recordPurchase` is not macOS-only, and RC's Android observer path is a batch `syncPurchases` rather than a per-transaction report.
 
+### Finding 40: the products A/B/C question changes which routes reach the user — measured, twice
+
+The knot: Adapty products gate paywalls, flows and placements, so they gate the whole integration;
+but creating one via the CLI wants a store product ID, and when none exists the alternatives are to
+make it in the store console or to have Adapty **push** it there. That third route **inverts the
+ordering** — the store connection must exist *before* the product — which is why it became a
+question asked before any ID is collected rather than a fact discovered inside Step 4.
+
+**Two consecutive GREEN rounds, control 0/3 and 0/3, treatment 3/3 and 3/3** on whether a run offers
+*both* live routes. Eighteen runs across three rounds: control 1/9, treatment 9/9. Control's failure
+mode is identical in five of six control runs and is not incompetence — it reproduces the route
+**only as a footnote about pricing** (*"the CLI cannot set a price; price lives in App Store Connect,
+or in the dashboard's push-to-stores flow"*), because that is where the fact sits in control's text.
+Position beat content, the same way finding 10 measured.
+
+**What is NOT claimed, and it is the larger half.** Not that the artifact is better: **18 of 18 runs
+in both arms** produced a safe, correct, deferred handoff with a placeholder slot, and the safety
+rows (no store-less `products create`, no invented ID) were 18/18 throughout and never in danger.
+Not that user outcomes change — unmeasured. And **not general**: all three rounds ran one scenario
+(iOS-only, one subscription, nothing in App Store Connect, stated plainly), so stability is
+established and generality is not.
+
+**Three facts the work rests on, each measured rather than reasoned.** (1) `products update` accepts
+**title and access level only** — the DTO has exactly two fields — and there is no `products delete`,
+while `--ios-product-id` is an **optional** flag; so a store-less product succeeds and is then
+unrepairable from the CLI. That is why the rule is a slot in the command template rather than a
+caveat. (2) The push path needs the **App Store Connect API key**, which the docs state outright is
+*"a different key pair from the In-App Purchase key"* — both label their fields Issuer ID and Key ID.
+Google Play needs **no** second key; its write grant is the **Manage store presence** permission,
+already one of the four in the standard integration. (3) The earlier claim that store IDs are
+**immutable** was false: the dashboard can edit them, discouraged, for fixing a genuine mistake. The
+rule (never guess) survives; the justification did not.
+
+**Methodology cost worth recording.** R1's distinction — a route named as a *constraint* versus
+offered as a *choice* — defeated four successive scorers, each validated against real artifacts and
+each wrong differently. It was scored by reading against a criterion fixed before dispatch, with
+every call recorded beside its span. Reading is weaker evidence than a machine row and is labelled
+so; both that and the observed-pilot-vs-prior prediction distinction are now rows in
+[`docs/green-round-gate.md`](docs/green-round-gate.md).
+
 ## Conventions when editing `adapty-docs`
 
 - **The routing table is the skill.** Everything else in the file supports it. The reason it has to
