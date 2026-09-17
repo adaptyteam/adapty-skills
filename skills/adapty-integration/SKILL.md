@@ -229,22 +229,46 @@ Use this to determine the path through Steps 4 and 5:
 
 **CLI scope — what this step does NOT do:**
 
-- **Does not set prices.** The CLI has no `--price` flag. Price is configured either in the store console (App Store Connect / Google Play) or via the Adapty dashboard's "Create a new product and push to stores" flow (which sets a USD baseline and auto-calculates regional prices). If the user specifies a price, tell them the CLI path can't set it, and ask whether they want to set it in the store console later, or switch to the dashboard push-to-stores flow instead.
+- **Does not set prices.** The CLI has no `--price` flag. Price is configured either in the store console (App Store Connect / Google Play) or via the Adapty dashboard's "Create a new product and push to stores" flow (which sets a USD baseline and auto-calculates regional prices). If the user specifies a price, tell them the CLI path can't set it, and ask whether they want to set it in the store console later, or switch to the dashboard push-to-stores flow instead — which is path C above and needs the store connection in place first.
 - **`--title` is the Adapty dashboard label only** — an internal reference, not shown to end users. Users see either the store product name (from App Store Connect / Google Play) or per-product copy configured in the Paywall Builder. If the user wants a different user-facing name, tell them it goes in the Paywall Builder (or the store listing); the CLI can't set it.
 - **Does not create products in the stores.** The CLI creates Adapty products that *reference* store product IDs. The actual store products must exist (or be created later) in App Store Connect / Google Play Console.
 
-**Google Play prerequisite (Android targets):**
+**Deferring is the last resort.** With paths B and C both available, "they do not exist" is usually a reason to make them rather than to stop — so offer both before proposing a defer, and say which of the two reasons applies: the user would rather wait, or Android is genuinely blocked.
 
-Google Play blocks creating in-app products and subscriptions in the Console until at least one AAB with the `com.android.vending.BILLING` permission has been uploaded to any track (internal testing is enough). So at this stage, for Android-first or Android-only integrations, real Google Play product IDs do not exist yet and cannot be created yet.
+**Google Play prerequisite (Android targets) — the one real block.**
 
-**Store product IDs are IMMUTABLE in Adapty** — once a product is created, its store IDs can never be changed; the only fix is deleting and recreating the product (losing its paywall attachments). So NEVER create a product with a placeholder or guessed store ID. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/store-setup-android.md`, Part 1) → run the deferred commands.
+Google Play blocks creating in-app products and subscriptions until at least one AAB with the `com.android.vending.BILLING` permission has been uploaded to any track (internal testing is enough). Expect that to bite the dashboard push as well, since the restriction belongs to Play rather than to one UI.
+
+**So the two stores are asymmetric here, and it is worth saying out loud.** On iOS, "no products yet" is never a blocker — path B or C can run immediately, and a defer is the user choosing to wait. On an Android-first or Android-only app it *is* a blocker, and circular on this run: products need an uploaded build, the build comes out of Phase 4, and Phase 4 has not happened yet. That is the case the deferred `ADAPTY_SETUP.md` commands exist for. Do not describe an iOS defer as though it were forced.
+
+**A store product ID is not fixable from here, so never guess one.** `products update` accepts `--title` and `--access-level-id` and nothing else, and there is no `products delete` — so a product created with a wrong or missing store ID **cannot be corrected or removed by the CLI at all**. The dashboard *can* edit connected store IDs, and Adapty's own docs advise against it (it muddies analytics, and is meant for fixing a genuine mistake), so treat that as a repair, never as a plan. Note the shape of the trap: `--ios-product-id` and `--android-product-id` are **optional flags**, so creating a store-less product succeeds and then strands it — the CLI will not stop you, which is exactly why the rule has to.
+
+**So treat a store ID as required even though the CLI does not.** Before every `products create`, check the argv you are about to run: if it carries neither `--ios-product-id` nor `--android-product-id`, **do not run it** — there is nothing to fix afterwards. That is not a preference about tidiness; it is the one product mistake in this skill with no recovery path on either side, since `products update` cannot add the ID and no `products delete` exists to undo it. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/store-setup-android.md`, Part 1) → run the deferred commands.
+
+**First establish where the products will come from, because one of the three answers reorders the run.** Ask before collecting any IDs:
+
+> "Do the products you sell already exist in App Store Connect / Google Play?"
+> - **Yes, they exist** — I'll link them by ID
+> - **No — I'll create them in the store console** — you make them there, then we link them
+> - **No — create them from the Adapty dashboard and push them to the stores** — Adapty writes them into the store for you
+
+**A and B keep this order.** Collect IDs (A) or send the user to the console first (B), then `products create`. Store connection stays where it is, in the pre-testing checklist.
+
+**C inverts it, and that is the whole reason to ask.** "Create a new product and push to stores" writes into App Store Connect / Google Play on the user's behalf, so **the store connection has to exist before the product does** — the opposite of the order every other path uses. Say this up front rather than letting them discover it at a refusing dashboard button:
+
+- **App Store needs the App Store Connect API key**, which is **a different key pair from the In-App Purchase key** — both label their fields "Issuer ID" and "Key ID", and having one does not give you the other. See `references/store-setup-ios.md`, Part 2d.
+- **Google Play needs no second key** — the push runs on the same service account as everything else, enabled by the **Manage store presence** permission from the four granted in Part 2a. A subset grant reads and validates fine and fails only here. The **AAB gate** applies too: no Android products until a signed build is uploaded, whoever creates them. See `references/store-setup-android.md`, Part 2c.
+- **The first product for an app must be submitted for review manually** in App Store Connect. It is a one-time gate, the status updates in Adapty automatically when review finishes, and until then that product is not purchasable — so sandbox testing waits on it. Say so before they choose C, not after.
+- The push flow also sets a **USD base price** and derives regional prices, which the CLI cannot do at all.
+
+On C, route the user to store connection now (`references/store-setup-ios.md` Parts 2a-2d, `references/store-setup-android.md` Part 2), then have them create the products in the dashboard, then come back here and take the "Yes, they exist" path to link what they made. Do not create Adapty products from the CLI first — that strands them, per the rule above.
 
 **Collecting store product IDs — a staged conversation, skippable at every step:**
 
-1. **Which stores?** Use `AskUserQuestion` with mutually exclusive options built from the app's target stores — never show an irrelevant store (iOS-only app → no Google Play option), and never mix a multi-select with a "No" option:
-   - Cross-platform: "Yes, in both stores" / "Yes, in the App Store only" / "Yes, in Google Play only" / "Not yet — skip for now"
-   - Single-store app: "Yes, in the App Store" / "Not yet — skip for now" (or the Google Play pair)
-   "Not yet" → create no products; defer with commands in ADAPTY_SETUP.md as above.
+1. **Which stores?** This runs on path A only — the user has said the products exist, and you are finding out where. Use `AskUserQuestion` with mutually exclusive options built from the app's target stores — never show an irrelevant store (iOS-only app → no Google Play option), and never mix a multi-select with a "No" option:
+   - Cross-platform: "Yes, in both stores" / "Yes, in the App Store only" / "Yes, in Google Play only" / "Actually, not yet"
+   - Single-store app: "Yes, in the App Store" / "Actually, not yet" (or the Google Play pair)
+   **"Actually, not yet" goes back to the A/B/C choice above — it does not mean defer.** The products can still be made now, in the console or from the dashboard; deferring without offering that leaves the user stuck for no reason.
 2. **The IDs, one product at a time.** Even after "yes", the user may prefer not to dig for IDs right now — offer a skip at this stage too, and treat an empty first answer as "skip for now". Per product ask only what the chosen stores need:
    - App Store product ID
    - Google Play product ID — suggest the App Store ID as the default (cross-store products usually share the identifier)
@@ -261,6 +285,12 @@ When they provide IDs:
 ```bash
 # --period options: weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime
 # --title is the Adapty dashboard label (internal); not visible to end users
+#
+# HARD RULE: every products create you run carries at least one real store product ID.
+# The CLI does NOT enforce this -- --ios-product-id and --android-product-id are optional,
+# so a store-less product is accepted and then cannot be completed (products update is
+# title + access level only) or removed (there is no products delete). If you have no real
+# ID for either store, run nothing and defer.
 # iOS
 npx adapty@latest products create \
   --app <APP_ID> \
@@ -324,18 +354,49 @@ Only then, the command:
 npx adapty@latest placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"flow","flow_id":"<FLOW_ID>","segment_ids":[],"priority":0}]'
 ```
 
-Ask the user via `AskUserQuestion`:
+**Resolve the flow first, then create the placement.** Three routes produce a flow and they converge on one thing — a published `<FLOW_ID>` — after which the `placements create` command above is identical for all of them. Work out which route applies per location before running anything.
 
-> "For each location, have you already created a flow in the Adapty Dashboard and attached it to a placement?"
-> - **Build one with me now** — I'll generate the flow from your description or a reference image
-> - **Yes, already set up** — I'll ask for your placement ID(s)
-> - **No, walk me through it** — I'll guide you through building it yourself in the dashboard
+**Read the account before you ask.** Run this first:
 
-**If build one with me now: stop the setup interview here.** Ask one thing and nothing else — no template questions, no screen-count questions, no product re-confirmation:
+```bash
+npx adapty@latest flows list --app <APP_ID>
+```
+
+There is no `flows delete`, so a flow created for a location that already had one is a duplicate the account keeps forever. Asking "do you already have a flow?" blind invites that answer to be wrong from memory; the list answers it. `flows list` paginates at 20 — page through `meta.pagination.pages` before concluding the account is empty.
+
+Then ask once per location, with the options that actually apply — offer the first only when the list returned something:
+
+> "Which flow should the **&lt;location&gt;** placement show?"
+> - **&lt;flow name&gt;** — reuse a flow that already exists (one flow can serve several placements)
+> - **Build one with me now** — I'll generate it from your description or a reference image
+> - **Create an empty placeholder** — a blank flow so the placement and your code can be finished today
+> - **I'll do it in the dashboard myself** — I'll wait and take the ID from you
+
+**Route A — reuse an existing flow.** Take its id from the list. Confirm `flows get <FLOW_ID> --app <APP_ID>` reads `published`; a draft is refused by `placements create`, and the fix is to publish it, not to create another.
+
+**Route B — build one now.** Stop the setup interview here. Ask one thing and nothing else — no template questions, no screen-count questions, no product re-confirmation:
 
 > "Describe the flow you want, or give me a visual reference — a screenshot, a design, a paywall whose look you want. Whatever you already know helps: how many screens, what it should say, which plans it offers."
 
-Then invoke the **`flow-generator`** skill with that answer, once per confirmed location. It owns everything from there — authenticating, creating the flow, binding the products from Step 4, previewing it for the user's approval, and saving. Do not author flow JSON yourself and do not answer its questions on the user's behalf.
+Then invoke the **`flow-generator`** skill with that answer, once per confirmed location. It owns everything from there — authenticating, creating the flow, binding the products from Step 4, previewing it for the user's approval, and saving. Do not author flow JSON yourself and do not answer its questions on the user's behalf. It hands back a flow id; that is your `<FLOW_ID>`.
+
+**Route C — an empty placeholder.** This unblocks the placement and the code, and it publishes a blank screen to a live placement. **Disclose that and get an explicit yes before running anything** — the user picked "not now", which is not the same as agreeing to ship a placeholder:
+
+> "I can create an empty flow so your placement and code are finished today. It will be a blank screen — real users would see it if this shipped undesigned. You'd open it in the builder later and design it. Create it?"
+
+On a yes, five commands — the stub is a draft until published, and a draft cannot be attached. `<skill>` is this skill's own directory, not the user's project, which is where your shell is:
+
+```bash
+npx adapty@latest flows create --app <APP_ID> --name "<Location> placeholder"     # returns <FLOW_ID>; draft
+npx adapty@latest flows config validate <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
+npx adapty@latest flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
+npx adapty@latest flows publish --app <APP_ID> <FLOW_ID> --yes
+npx adapty@latest flows get <FLOW_ID> --app <APP_ID>                             # poll until published
+```
+
+Validate runs on the **local file before the write**, never after it — afterwards it would be checking bytes that are already saved. Record in `ADAPTY_SETUP.md` that this placement points at a placeholder and needs designing before release, because nothing in the dashboard distinguishes it from a finished flow at a glance.
+
+**Route D — the dashboard.** Take the walk-me-through steps below. This is also where routes A-C land when the CLI refuses for want of the deployment.
 
 **If `flow-generator` is not among your available skills, install it — never hand-author the config instead.** It ships in the same package as this skill, so it is usually already present, possibly namespaced (`adapty-skills:flow-generator`); check both names before concluding it is missing. If it really is absent, get the user's yes via `AskUserQuestion` — this writes to their agent's skill directory — and then run one:
 
@@ -348,21 +409,20 @@ claude plugin marketplace add adaptyteam/adapty-skills   # skip if already added
 claude plugin install adapty-skills@adapty
 ```
 
-The flow config carries traps that cost real money when they are got wrong — a plan card whose selected state is baked in, a footer that vanishes on device, a carousel that does not swipe — and that skill is where every one of them is checked. If the user declines the install, say so plainly and take the walk-me-through branch below instead.
+The flow config carries traps that cost real money when they are got wrong — a plan card whose selected state is baked in, a footer that vanishes on device, a carousel that does not swipe — and that skill is where every one of them is checked. If the user declines the install, say so plainly and take route C or D instead.
 
-**`flow-generator` stops at a saved draft, so two steps remain after it hands back.** Each is a write the user has to agree to first — confirm with `AskUserQuestion` before each, and never run both off one yes:
+**Publishing, on routes B and C.** `flow-generator` stops at a saved draft, so the flow it builds still has to be published; the stub does too. Each publish is a write the user agrees to first — confirm with `AskUserQuestion`, and never run the publish and the placement off one yes. Run it yourself: `npx adapty@latest flows publish --app <APP_ID> <FLOW_ID> --yes`. Publication is asynchronous, so the response reads `publishing`: report that, and re-read `flows get` before treating the flow as published — the command prints that poll itself, and if the status lands on `publication_failed`, `flows config get` carries the reason in `transform_error`. On an `http_404` the route is not live for any account — hand it back to the user, who publishes with the button at the **top right of the builder**. Until it is published, the SDK gets nothing and the placement below is refused.
 
-1. **Publish the flow.** With the go-ahead, run it yourself — `npx adapty@latest flows publish --app <APP_ID> <FLOW_ID> --yes`. Publication is asynchronous, so the response reads `publishing`: report that, and re-read `flows get` before treating the flow as published — the command prints that poll itself, and if the status lands on `publication_failed`, `flows config get` carries the reason in `transform_error`. On an `http_404` the route is not live for any account — hand it back to the user, who publishes with the button at the **top right of the builder**. Until it is published, the SDK gets nothing and the placement below is refused.
-2. **Create the placement.** With the go-ahead and all five preconditions above met, run the `placements create` command above with the confirmed developer ID. If the audience is refused (`audiences.0.paywall_id: Field required`), the user does it at [Adapty Dashboard → Placements](https://app.adapty.io/placements) — **Create placement**, set a **Developer ID** (e.g. `main`, `onboarding`, `settings`, the exact string the SDK uses in `Adapty.getFlow`), attach the flow under the **All Users** audience, save.
+**Then the placement, once per location.** With the go-ahead and all five preconditions met, run the `placements create` command above with the resolved `<FLOW_ID>` and the confirmed developer ID. If the audience is refused (`audiences.0.paywall_id: Field required`), the user does it at [Adapty Dashboard → Placements](https://app.adapty.io/placements) — **Create placement**, set a **Developer ID** (e.g. `main`, `onboarding`, `settings`, the exact string the SDK uses in `Adapty.getFlow`), attach the flow under the **All Users** audience, save.
 
 Then collect the **placement developer ID(s)** via `AskUserQuestion` and continue to Phase 4.
 
-**If already set up:** collect the **placement developer ID** for each location (the user finds it at [Adapty Dashboard → Placements](https://app.adapty.io/placements) — the **Developer ID** column). Set as placement ID(s) and continue to Phase 4.
+**If the user already has placements set up:** collect the **placement developer ID** for each location (the user finds it at [Adapty Dashboard → Placements](https://app.adapty.io/placements) — the **Developer ID** column). Set as placement ID(s) and continue to Phase 4.
 
-**If walk me through:** guide the user through these steps in the dashboard. After each step, use `AskUserQuestion` to confirm completion before moving on.
+**Route D, in full:** guide the user through these steps in the dashboard. After each step, use `AskUserQuestion` to confirm completion before moving on.
 
 1. **Create the flow** at [Adapty Dashboard → Flows](https://app.adapty.io/flows):
-   - Click **Create flow** → pick a template, generate with AI, or start from scratch
+   - Click **Create flow** → a template, a Figma import, from scratch, or converted from a legacy paywall
    - Add the products created in Step 4 to the flow
    - **Save & publish**
 2. **Create the placement** at [Adapty Dashboard → Placements](https://app.adapty.io/placements):

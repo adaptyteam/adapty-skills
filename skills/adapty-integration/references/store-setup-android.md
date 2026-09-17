@@ -75,6 +75,16 @@ RTDN is required for subscription events (renewals, cancellations, refunds) to r
 
 > If "Send test notification" returns an error, the Service Account likely doesn't have Pub/Sub permissions. In Google Cloud Console → IAM, add the `Pub/Sub Publisher` role to the service account.
 
+### Step 2c: What the push-to-stores path needs *(only if products are created from the Adapty dashboard)*
+
+Skip this unless the user chose to create products **from the Adapty dashboard and push them to Google Play** (Step 4, path C). Linking products that already exist does not need it.
+
+> **Unlike iOS, there is no second key.** Apple's push path needs an App Store Connect API key separate from its In-App Purchase key; Google Play's push works off the **same service account** from Step 2a. What enables it is one of the four permissions granted there: **Manage store presence** — that is the write grant. If only the read and order permissions were granted, reads and validation work while the push fails.
+
+So there is nothing extra to configure here — just confirm Step 2a granted all four permissions, not a subset.
+
+> **The AAB gate still applies.** Google Play blocks in-app product creation for an app until a signed AAB carrying `com.android.vending.BILLING` has been uploaded to a track. That restriction belongs to Play rather than to any one UI, so expect it to refuse a dashboard push as well — treat it as applying until you see otherwise. Upload the build first (Part 1's prerequisite note), then push.
+
 ---
 
 ## Part 3: Give the flow a design *(Flow Builder only — skip for Custom paywall)*
