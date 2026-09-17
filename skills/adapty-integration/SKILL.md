@@ -135,17 +135,38 @@ Always use the CLI to retrieve values — never ask the user for SDK key, placem
 
 ### Step 1: Authenticate
 
+Resolve `$ADAPTY` once; every CLI call in this skill goes through it.
+
 ```bash
-npx adapty@latest auth login
-npx adapty@latest auth whoami   # verify login succeeded
+npm i -g adapty@latest >/dev/null 2>&1 \
+  && ADAPTY="adapty" \
+  || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
+$ADAPTY auth login
+$ADAPTY auth whoami   # verify login succeeded
 ```
+
+**Install once; do not wrap every call in `npx`.** The wrapper costs ~1 s per call against
+0.07 s installed, and this phase makes a dozen. On the fallback `--yes` is not optional:
+without it npx stops to ask permission to install, and a headless run has nobody to answer.
+In `zsh`, the macOS default, a multi-word `$ADAPTY` is not word-split — run
+`setopt shwordsplit` once in the same shell, and read
+`command not found: npx --yes adapty@latest` as that shell problem, never as a missing CLI.
+
+**Writing a command out for the user — in `ADAPTY_SETUP.md`, or for them to paste? Expand it to a
+literal `adapty`.** Their shell has no `$ADAPTY`, and it expands to nothing rather than failing
+loudly: what you run carries the variable, what they run carries the command name.
+
+**Declare a command missing only after `--help` says so, never from a version number.**
+`@latest` is the release these skills are written against, but a command can sit in a beta
+and be absent from the release. If `$ADAPTY <command> --help` does not describe it, try
+`npx --yes adapty@beta <command> --help` once; only then is the route unreleased.
 
 ### Step 2: Get or create the app
 
 Run:
 
 ```bash
-npx adapty@latest apps list
+$ADAPTY apps list
 ```
 
 Then act based on `appPreference` (from Phase 2) and what the list returns:
@@ -160,7 +181,7 @@ Then act based on `appPreference` (from Phase 2) and what the list returns:
 To create a new app:
 
 ```bash
-npx adapty@latest apps create --title "Your App Name"
+$ADAPTY apps create --title "Your App Name"
 ```
 
 Note the **app ID** and **Public SDK key** from the output. Both `apps list` and `apps create` return the Public SDK key.
@@ -173,7 +194,7 @@ Every product must be linked to an access level.
 
 ```bash
 # both --sdk-id and --title are required
-npx adapty@latest access-levels create --app <APP_ID> --sdk-id <ACCESS_LEVEL_ID> --title "<TITLE>"
+$ADAPTY access-levels create --app <APP_ID> --sdk-id <ACCESS_LEVEL_ID> --title "<TITLE>"
 ```
 
 **If `appPreference` is `new`:** The default `premium` access level is created automatically with every new app. Skip the list command — use `premium` as the access level ID directly.
@@ -181,7 +202,7 @@ npx adapty@latest access-levels create --app <APP_ID> --sdk-id <ACCESS_LEVEL_ID>
 **If `appPreference` is `existing`:** List the existing access levels to get the correct ID:
 
 ```bash
-npx adapty@latest access-levels list --app <APP_ID>
+$ADAPTY access-levels list --app <APP_ID>
 ```
 
 Note the **ID** from the output.
@@ -200,12 +221,12 @@ Note the **ID** from the output.
 Then run list commands to see what's already configured regardless of the answer — the output determines what to create:
 
 ```bash
-npx adapty@latest products list --app <APP_ID>
-npx adapty@latest paywalls list --app <APP_ID>
-npx adapty@latest placements list --app <APP_ID>
+$ADAPTY products list --app <APP_ID>
+$ADAPTY paywalls list --app <APP_ID>
+$ADAPTY placements list --app <APP_ID>
 ```
 
-**Note for `paywallApproach == "flow_builder"`:** flows are their own CLI topic, not paywalls — `paywalls list` never returns them, so an empty `paywalls list` does **not** mean nothing is set up. List them with `npx adapty@latest flows list --app <APP_ID>` instead of asking. A flow it lists may still be an unpublished draft that no placement points at — the CLI can now publish a flow and create a placement pointing at it, but neither happens on its own; Step 5 settles both with the user. `placements list` is the source of truth for placement developer IDs.
+**Note for `paywallApproach == "flow_builder"`:** flows are their own CLI topic, not paywalls — `paywalls list` never returns them, so an empty `paywalls list` does **not** mean nothing is set up. List them with `$ADAPTY flows list --app <APP_ID>` instead of asking. A flow it lists may still be an unpublished draft that no placement points at — the CLI can now publish a flow and create a placement pointing at it, but neither happens on its own; Step 5 settles both with the user. `placements list` is the source of truth for placement developer IDs.
 
 Use this to determine the path through Steps 4 and 5:
 
@@ -292,7 +313,7 @@ When they provide IDs:
 # title + access level only) or removed (there is no products delete). If you have no real
 # ID for either store, run nothing and defer.
 # iOS
-npx adapty@latest products create \
+$ADAPTY products create \
   --app <APP_ID> \
   --title "Monthly" \
   --period monthly \
@@ -300,7 +321,7 @@ npx adapty@latest products create \
   --ios-product-id "com.example.app.monthly"
 
 # Android subscription (--android-base-plan-id is required for subscriptions)
-npx adapty@latest products create \
+$ADAPTY products create \
   --app <APP_ID> \
   --title "Monthly" \
   --period monthly \
@@ -342,8 +363,8 @@ Then branch by `paywallApproach`:
 
 **Preconditions — all five, checked before you run anything:**
 
-1. **The flow exists** — `npx adapty@latest flows list --app <APP_ID>`. Flows are their own topic; `paywalls list` never shows them.
-2. **Its status is `published`** — `npx adapty@latest flows get <FLOW_ID> --app <APP_ID>`. A draft is refused — `Cannot attach a draft flow to a placement — publish it first.`, or on an older CLI the backend's own `Flow must be published before placing in a placement.`
+1. **The flow exists** — `$ADAPTY flows list --app <APP_ID>`. Flows are their own topic; `paywalls list` never shows them.
+2. **Its status is `published`** — `$ADAPTY flows get <FLOW_ID> --app <APP_ID>`. A draft is refused — `Cannot attach a draft flow to a placement — publish it first.`, or on an older CLI the backend's own `Flow must be published before placing in a placement.`
 3. **`content_type` is present** on every audience entry — without it the CLI exits 2 and sends no request.
 4. **The developer ID is not already taken** — check `placements list` first. IDs are unique across every placement in the app whatever its type, and a collision is permanent.
 5. **Neither call has been refused for want of the deployment.** `flows publish` answering `http_404`, or `placements create` answering `audiences.0.paywall_id: Field required`, are two different failures with two different causes; either one sends you to the dashboard steps below. The placement half is live in production, so treat that refusal as a deployment that is behind — and as something you observed, never as something you expected.
@@ -351,7 +372,7 @@ Then branch by `paywallApproach`:
 Only then, the command:
 
 ```bash
-npx adapty@latest placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"flow","flow_id":"<FLOW_ID>","segment_ids":[],"priority":0}]'
+$ADAPTY placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"flow","flow_id":"<FLOW_ID>","segment_ids":[],"priority":0}]'
 ```
 
 **Resolve the flow first, then create the placement.** Three routes produce a flow and they converge on one thing — a published `<FLOW_ID>` — after which the `placements create` command above is identical for all of them. Work out which route applies per location before running anything.
@@ -359,7 +380,7 @@ npx adapty@latest placements create --app <APP_ID> --title "Main" --developer-id
 **Read the account before you ask.** Run this first:
 
 ```bash
-npx adapty@latest flows list --app <APP_ID>
+$ADAPTY flows list --app <APP_ID>
 ```
 
 There is no `flows delete`, so a flow created for a location that already had one is a duplicate the account keeps forever. Asking "do you already have a flow?" blind invites that answer to be wrong from memory; the list answers it. `flows list` paginates at 20 — page through `meta.pagination.pages` before concluding the account is empty.
@@ -387,11 +408,11 @@ Then invoke the **`flow-generator`** skill with that answer, once per confirmed 
 On a yes, five commands — the stub is a draft until published, and a draft cannot be attached. `<skill>` is this skill's own directory, not the user's project, which is where your shell is:
 
 ```bash
-npx adapty@latest flows create --app <APP_ID> --name "<Location> placeholder"     # returns <FLOW_ID>; draft
-npx adapty@latest flows config validate <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
-npx adapty@latest flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
-npx adapty@latest flows publish --app <APP_ID> <FLOW_ID> --yes
-npx adapty@latest flows get <FLOW_ID> --app <APP_ID>                             # poll until published
+$ADAPTY flows create --app <APP_ID> --name "<Location> placeholder"     # returns <FLOW_ID>; draft
+$ADAPTY flows config validate <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
+$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
+$ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes
+$ADAPTY flows get <FLOW_ID> --app <APP_ID>                             # poll until published
 ```
 
 Validate runs on the **local file before the write**, never after it — afterwards it would be checking bytes that are already saved. Record in `ADAPTY_SETUP.md` that this placement points at a placeholder and needs designing before release, because nothing in the dashboard distinguishes it from a finished flow at a glance.
@@ -411,7 +432,7 @@ claude plugin install adapty-skills@adapty
 
 The flow config carries traps that cost real money when they are got wrong — a plan card whose selected state is baked in, a footer that vanishes on device, a carousel that does not swipe — and that skill is where every one of them is checked. If the user declines the install, say so plainly and take route C or D instead.
 
-**Publishing, on routes B and C.** `flow-generator` stops at a saved draft, so the flow it builds still has to be published; the stub does too. Each publish is a write the user agrees to first — confirm with `AskUserQuestion`, and never run the publish and the placement off one yes. Run it yourself: `npx adapty@latest flows publish --app <APP_ID> <FLOW_ID> --yes`. Publication is asynchronous, so the response reads `publishing`: report that, and re-read `flows get` before treating the flow as published — the command prints that poll itself, and if the status lands on `publication_failed`, `flows config get` carries the reason in `transform_error`. On an `http_404` the route is not live for any account — hand it back to the user, who publishes with the button at the **top right of the builder**. Until it is published, the SDK gets nothing and the placement below is refused.
+**Publishing, on routes B and C.** `flow-generator` stops at a saved draft, so the flow it builds still has to be published; the stub does too. Each publish is a write the user agrees to first — confirm with `AskUserQuestion`, and never run the publish and the placement off one yes. Run it yourself: `$ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes`. Publication is asynchronous, so the response reads `publishing`: report that, and re-read `flows get` before treating the flow as published — the command prints that poll itself, and if the status lands on `publication_failed`, `flows config get` carries the reason in `transform_error`. On an `http_404` the route is not live for any account — hand it back to the user, who publishes with the button at the **top right of the builder**. Until it is published, the SDK gets nothing and the placement below is refused.
 
 **Then the placement, once per location.** With the go-ahead and all five preconditions met, run the `placements create` command above with the resolved `<FLOW_ID>` and the confirmed developer ID. If the audience is refused (`audiences.0.paywall_id: Field required`), the user does it at [Adapty Dashboard → Placements](https://app.adapty.io/placements) — **Create placement**, set a **Developer ID** (e.g. `main`, `onboarding`, `settings`, the exact string the SDK uses in `Adapty.getFlow`), attach the flow under the **All Users** audience, save.
 
@@ -442,10 +463,10 @@ After the user finishes, collect the **placement developer ID(s)** via `AskUserQ
 
 ```bash
 # Create paywall — capture the returned id as <PAYWALL_ID>
-npx adapty@latest paywalls create --app <APP_ID> --title "Main Paywall"
+$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall"
 
 # Repeat for each placement location, using the paywall id from above
-npx adapty@latest placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"paywall","segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'
+$ADAPTY placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"paywall","segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'
 ```
 
 `--audiences` is the canonical flag. The legacy `--paywall-id` shorthand still works but emits a deprecation warning. **Every audience entry needs an explicit `content_type`** — for a paywall it is `"paywall"`. Newer CLI versions validate this client-side and exit 2 without sending a request if it is missing; older ones accept the field and ignore it, so include it always — it is safe on both.

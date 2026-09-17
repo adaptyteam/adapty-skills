@@ -25,16 +25,20 @@ copy it fetches to check.
 Resolve `$ADAPTY` once, exactly as `flow-generator` does:
 
 ```bash
-if [ "$(printf '%s\n' "$(adapty --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" "0.8.0" | sort -V | head -1)" = "0.8.0" ]; then
-  ADAPTY=adapty
-else
-  ADAPTY="npx --yes adapty@latest"
-fi
+npm i -g adapty@latest >/dev/null 2>&1 \
+  && ADAPTY="adapty" \
+  || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
 $ADAPTY auth status
 ```
 
-`--yes` on the npx fallback is load-bearing: without it, npx asks permission to install
-an uncached package, and a headless run has nobody to answer. If `auth status` shows no
+**Never gate this on a version number — the install is what keeps the run off a stale
+global binary, and a command is declared missing only after `--help` says so.** If
+`$ADAPTY <command> --help` does not describe one, try `npx --yes adapty@beta <command>
+--help` once; only then is the route unreleased. `--yes` on the fallback is load-bearing:
+without it npx asks permission to install an uncached package, and a headless run has
+nobody to answer. In `zsh` a multi-word `$ADAPTY` is not word-split, so run
+`setopt shwordsplit` once in the same shell; `command not found: npx --yes adapty@latest`
+is that shell problem, never a missing CLI. If `auth status` shows no
 session, stop and tell the user to run `adapty auth login` — this skill cannot
 authenticate for them.
 

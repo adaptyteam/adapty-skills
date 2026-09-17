@@ -45,8 +45,10 @@ fails with `command not found: npx --yes adapty@latest`. Run `setopt shwordsplit
 shell, or write `npx --yes adapty@latest` out in full. That error is a shell problem, never evidence
 that the CLI or the command is missing.
 
-Declare an `asa` command unavailable only after `npx --yes adapty@latest` lacks it — never from a
-version number you read somewhere.
+Declare an `asa` command unavailable only after `--help` says so — never from a version number you
+read somewhere. `@latest` is the release this skill is written against, but a command can sit in a
+beta and be absent from the release, so try `npx --yes adapty@beta asa <topic> --help` once before
+calling the route unreleased.
 
 ## Account surface
 

@@ -33,7 +33,7 @@ Two consequences, and neither is negotiable:
   came out of the source's own visual builder. A hand-built paywall reaches the same outcome by a
   different route: the flow needs that ID, and a **paywall** placement created on it blocks the flow
   placement with that ID permanently. So while the flow is a draft or does not exist,
-  `npx adapty@latest placements create` is not a command you run at all — not for the source's
+  `$ADAPTY placements create` is not a command you run at all — not for the source's
   default offering, not for one the code names, not "to have something to point the code at". Once
   the flow is published, create it as a **flow** placement on that reserved developer ID, per
   SKILL.md Phase 3 Step 5's Flow Builder path and its five preconditions; where that route is

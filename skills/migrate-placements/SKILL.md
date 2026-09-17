@@ -52,7 +52,7 @@ not writable — then check that the command is there:
 ```bash
 npm i -g adapty@latest >/dev/null 2>&1 \
   && ADAPTY="adapty" \
-  || ADAPTY="npx --yes adapty@latest"
+  || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
 $ADAPTY --version
 $ADAPTY auth whoami
 ```
