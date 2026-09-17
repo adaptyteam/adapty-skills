@@ -22,19 +22,27 @@ copy it fetches to check.
 
 ## Phase 1 — resolve and authenticate
 
-Resolve `$ADAPTY` once, exactly as `flow-generator` does:
+Resolve `$ADAPTY` once:
 
 ```bash
-if [ "$(printf '%s\n' "$(adapty --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" "0.8.0" | sort -V | head -1)" = "0.8.0" ]; then
-  ADAPTY=adapty
-else
-  ADAPTY="npx --yes adapty@latest"
-fi
+ADAPTY="npx --yes adapty@latest"
 $ADAPTY auth status
 ```
 
-`--yes` on the npx fallback is load-bearing: without it, npx asks permission to install
-an uncached package, and a headless run has nobody to answer. If `auth status` shows no
+**This skill installs nothing, which is the one place it differs from every other skill
+here.** An audit is read-only and makes a handful of calls, so the ~1 s the npx wrapper
+costs per call is noise, while `npm i -g` would be the only thing an audit writes to the
+machine. `@latest` on every call is what keeps the run off a stale global binary, which is
+what the install buys elsewhere.
+
+**Never gate this on a version number — a command is declared missing only after `--help`
+says so.** If
+`$ADAPTY <command> --help` does not describe one, try `npx --yes adapty@beta <command>
+--help` once; only then is the route unreleased. `--yes` on the fallback is load-bearing:
+without it npx asks permission to install an uncached package, and a headless run has
+nobody to answer. In `zsh` a multi-word `$ADAPTY` is not word-split, so run
+`setopt shwordsplit` once in the same shell; `command not found: npx --yes adapty@latest`
+is that shell problem, never a missing CLI. If `auth status` shows no
 session, stop and tell the user to run `adapty auth login` — this skill cannot
 authenticate for them.
 

@@ -134,7 +134,7 @@ Then:
 
 **Disclose every inferred value.** Subsection 3 is its home, whatever your account access — it is the one subsection that is always present, and it covers entities you created on an inferred value as well as ones you skipped. An access level may instead go in subsection 2, where its mapping already lives. When subsection 1 applies, the values the user must compare against the source's dashboard also appear there as checkboxes. An inferred value is never allowed to reach the reader looking settled.
 
-**In every ready-to-run command, an inferred value is a placeholder, not a literal** — `--developer-id "<PLACEMENT_ID>"`, never `--developer-id "main"` — with the confirm-it-first note beside the command. A command the reader can paste unchanged is exactly where a caveat in the surrounding prose stops protecting them.
+**In every ready-to-run command, an inferred value is a placeholder, not a literal** — `--developer-id "<PLACEMENT_ID>"`, never `--developer-id "main"` — with the confirm-it-first note beside the command, and the CLI written as a literal `adapty` rather than `$ADAPTY`, which the reader's shell does not have. A command the reader can paste unchanged is exactly where a caveat in the surrounding prose stops protecting them.
 
 1. **Verify against your `<source>` dashboard** — open the Migration section with this when you worked without access to the source's account, which is the default. The code was your only source and the account almost certainly holds entities you could not see. Concrete checkboxes:
    - Products you did NOT create because their store IDs were not in the code — include the ready-to-run `products create` commands with `<REAL_PRODUCT_ID>` slots.

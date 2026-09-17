@@ -41,19 +41,27 @@ Layers 1 and 2 are free and instant. Run them before asking a single question.
 
 ## Phase 1: Preflight — everything you can check without a human
 
-Resolve the CLI once, the way `adapty-integration` does:
+Resolve `$ADAPTY` once, the way `adapty-integration` does:
 
 ```bash
-npx adapty@latest auth whoami
+npm i -g adapty@latest >/dev/null 2>&1 \
+  && ADAPTY="adapty" \
+  || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
+$ADAPTY auth whoami
 ```
+
+`--yes` on the fallback is load-bearing: without it npx stops to ask permission to install,
+and a headless run has nobody to answer. In `zsh` a multi-word `$ADAPTY` is not word-split,
+so run `setopt shwordsplit` once in the same shell; `command not found: npx --yes
+adapty@latest` is that shell problem, never a missing CLI.
 
 If that fails, say authentication is needed and stop; every check below reads the
 account. Then, with the app id:
 
 ```bash
-npx adapty@latest placements list --app <APP_ID>
-npx adapty@latest products list --app <APP_ID>
-npx adapty@latest access-levels list --app <APP_ID>
+$ADAPTY placements list --app <APP_ID>
+$ADAPTY products list --app <APP_ID>
+$ADAPTY access-levels list --app <APP_ID>
 ```
 
 > **`--page-size` defaults to 20** and the response carries `meta.pagination
@@ -75,7 +83,7 @@ case-sensitive. A mismatch is layer 2, it is yours to fix, and it needs no user 
 return audiences — you need the detail call:
 
 ```bash
-npx adapty@latest placements get --app <APP_ID> <PLACEMENT_ID>
+$ADAPTY placements get --app <APP_ID> <PLACEMENT_ID>
 ```
 
 Each audience entry carries a `content_type` of `flow` or `paywall`, plus `flow_id` or
@@ -86,7 +94,7 @@ looks exactly like a broken SDK call from inside the app.
 cause of "I changed it and my phone still shows the old screen":
 
 ```bash
-npx adapty@latest flows config get --app <APP_ID> <FLOW_ID>
+$ADAPTY flows config get --app <APP_ID> <FLOW_ID>
 ```
 
 `status` is `draft`, `dirty`, or `published`. **`dirty` means the flow has unpublished
