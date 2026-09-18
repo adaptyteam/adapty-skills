@@ -6,7 +6,7 @@ Platform: React Native · Language: TypeScript / JavaScript · Package manager: 
 
 - iOS 15.0+ (SDK v4 raises the minimum deployment target from 13.0)
 - Android with Google Play Billing Library (Adapty ships v7.0.0 by default; compatible up to 8.x)
-- `react-native-adapty` **4.0.0+**. A bare `npm install react-native-adapty` installs the latest release, so there is no version to pin — do not substitute an older major. The floor is `4.0.0` rather than `4.1.0` for one reason only: **no 4.1 has been published for React Native**, where iOS, Android, Kotlin Multiplatform, Unity and Capacitor all floor at `4.1.0`. When a 4.1 ships here, raise this floor and port the SDK 4.1 attribution changes those references already carry in Stage 3.5
+- `react-native-adapty` **v4**. The install below takes the latest release from npm, so there is no version to write and none to pin — do not substitute an older major. v4 is the floor because Stage 2 fetches with `getFlow`, and the flow APIs do not exist below it
 - React Native **0.75+** (or Expo with Dev Client — Expo Go only supports mock mode). This is a hard floor, not a preference: below it the iOS install cannot resolve, and there is no 3.x path in this reference to fall back to. If the project is below 0.75, say so, name the React Native upgrade as the prerequisite, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
 - Node.js with npm or yarn
 
@@ -238,6 +238,16 @@ npx expo install react-native-adapty
 npx expo prebuild
 ```
 
+**Confirm what actually resolved before writing any Stage 2 code** — a bare `npm install` takes the latest release, but `expo install` may hold a package back to suit the Expo SDK, and an existing `package.json` range can resolve below v4:
+
+```bash
+npm ls react-native-adapty
+```
+
+It must report `4.` or higher. If it reports a 3.x, install the latest explicitly with `npm install react-native-adapty@latest` — Stage 2's `getFlow` does not exist on 3.x. If it reports a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
+
+If the project is already on a 3.x package, this is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-react-native-sdk-v4.md) for the paywall-to-flow API rename, then [Migrate to v4.1](https://adapty.io/docs/migration-to-react-native-sdk-41.md) for the attribution changes below. Coming from 4.0.x, the v4.1 guide alone is enough.
+
 **iOS native SDKs come through Swift Package Manager (v4+):** starting with v4, the native `Adapty`, `AdaptyUI`, and `AdaptyPlugin` SDKs are no longer pulled as CocoaPods sub-dependencies — the podspec pulls them through SPM. This requires **React Native 0.75 or later** and dynamic frameworks:
 
 - **Bare React Native** — add dynamic frameworks to the `ios/Podfile` target, then reinstall pods. If the Podfile has explicit `pod 'Adapty'`, `pod 'AdaptyUI'`, or `pod 'AdaptyPlugin'` lines, remove them first.
@@ -323,6 +333,18 @@ async function initAdapty() {
 initAdapty();
 ```
 
+**Adapty Attribution is opt-in, so it is off unless you turn it on.** If the user wants Adapty's own install attribution, add `adaptyAttributionEnabled: true` to the activate options above. Without it the SDK registers no installs, the `'onInstallationDetailsSuccess'` and `'onInstallationDetailsFail'` events never fire, and `getCurrentInstallationStatus` returns `not_available` — silently, with no build error either way. Ask rather than leaving the default, because both outcomes look identical from the code:
+
+```typescript
+adapty.activate(ADAPTY_PUBLIC_KEY, {
+  adaptyAttributionEnabled: true, // only if the user uses Adapty Attribution
+  logLevel: 'verbose',
+  __ignoreActivationOnFastRefresh: __DEV__,
+});
+```
+
+This is separate from the third-party attribution providers in Stage 3.5 — see [Adapty Attribution](https://adapty.io/docs/user-acquisition.md) for what it covers.
+
 **iOS simulator gotcha** — add `__debugDeferActivation` to suppress excessive StoreKit prompts in the simulator:
 
 ```typescript
@@ -355,7 +377,7 @@ curl -s https://adapty.io/docs/react-native-handling-events-1.md
 curl -s https://adapty.io/docs/react-native-handle-paywall-actions.md
 ```
 
-**v4 API names:** Flow Builder uses the new `getFlow` / `AdaptyFlow` / `createFlowView` / `AdaptyFlowView` / `FlowEventHandlers` family. The same APIs also render existing Paywall Builder paywalls — no dashboard changes are required for users migrating from Paywall Builder. `getFlow` takes no `locale` parameter — it **moves to `createFlowView`** as `{ locale }` in its params. `locale` is optional: omit it and the view renders in `en`, or in the flow's default localization if it has one — so a multi-locale app that never passes it silently ships English. Also, `hasViewConfiguration` was removed from the model in 4.0 but **restored on `AdaptyFlow` in 4.1** — check it on 4.1+, and drop the check only while pinned to 4.0. The lifecycle handlers `onPaywallShown` / `onPaywallClosed` are now `onAppeared` / `onDisappeared`, and `onRenderingFailed` is now `onError`; the other event handlers keep their v3 names, and products are still `AdaptyPaywallProduct`.
+**v4 API names:** Flow Builder uses the new `getFlow` / `AdaptyFlow` / `createFlowView` / `AdaptyFlowView` / `FlowEventHandlers` family. The same APIs also render existing Paywall Builder paywalls — no dashboard changes are required for users migrating from Paywall Builder. `getFlow` takes no `locale` parameter — it **moves to `createFlowView`** as `{ locale }` in its params. `locale` is optional: omit it and the view renders in `en`, or in the flow's default localization if it has one — so a multi-locale app that never passes it silently ships English. Also, `hasViewConfiguration` was removed from the model in 4.0 and **restored on `AdaptyFlow` in 4.1**, which is what a fresh install now resolves — so the check is available; drop it only on a project pinned to 4.0.x. It is an alternative to catching, not a replacement: `createFlowView` still throws an `AdaptyError` for a flow with no view configuration on both versions. The lifecycle handlers `onPaywallShown` / `onPaywallClosed` are now `onAppeared` / `onDisappeared`, and `onRenderingFailed` is now `onError`; the other event handlers keep their v3 names, and products are still `AdaptyPaywallProduct`.
 
 **Fetch and display pattern:**
 
@@ -532,6 +554,8 @@ curl -s https://adapty.io/docs/<slug>.md
 ```bash
 curl -s https://adapty.io/docs/<slug>.md
 ```
+
+**On an upgrade run only:** 4.1 renamed the external-attribution APIs with no deprecated aliases, so a 4.0.x or 3.x call site stops type-checking — `adapty.updateAttribution(attribution, source)` → `adapty.updateExternalAttribution(attribution, provider)`, the `AttributionSource` type → `AdaptyExternalAttributionProvider` (an open union, with a new `'custom'` for providers Adapty does not integrate with directly), and `AdaptyProfile.appliedAttributionSources` → `AdaptyProfile.appliedExternalAttributionProviders`. Attribution was also automatic on 4.0 and below, so an upgrade that skips the Stage 1 opt-in silently loses install registration it used to have. Details in [Migrate to v4.1](https://adapty.io/docs/migration-to-react-native-sdk-41.md).
 
 ### Messaging / CRM integrations
 
@@ -730,12 +754,14 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 > 6. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
 > 7. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
 > 8. **App Tracking Transparency (ATT)** — handle the iOS ATT prompt correctly in relation to Adapty activation
+> 9. **App Store promoted purchases** — take over completion of a purchase promoted on your App Store product page, e.g. to show a screen first
 
 For each item the user picks, fetch the relevant doc and implement it:
 
 | Feature | Doc slug(s) |
 |---|---|
 | Fallback paywalls | `react-native-use-fallback-paywalls` |
+| App Store promoted purchases | `react-native-making-purchases` |
 | Custom user attributes | `react-native-setting-user-attributes` |
 | Promotional offers | `app-store-offers`, `create-offer` |
 | Onboardings | `react-native-get-onboardings`, `react-native-present-onboardings`, `react-native-handling-onboarding-events` |
@@ -747,6 +773,10 @@ For each item the user picks, fetch the relevant doc and implement it:
 ```bash
 curl -s https://adapty.io/docs/<slug>.md
 ```
+
+**If you set up fallback paywalls on an upgrade from 4.0.x, download the file again.** The [fallback file](https://adapty.io/docs/fallback-flows.md) format changed in 4.1, and a file downloaded for 4.0 is rejected by `setFallback` — every placement silently loses its fallback. There is no build error, so this is only caught by testing offline.
+
+**App Store promoted purchases are handled for you unless you ask to intercept them.** 4.1 adds the `'onPromotedPurchaseReceived'` event and `adapty.makePromotedPurchase`; register the listener only if the app needs to do something first, such as show a screen — while it is registered the SDK stops completing those purchases itself. Two limits worth stating before promising it: the hook is built on StoreKit 2 and needs **iOS 16.4+**, and the event never fires on Android.
 
 ---
 

@@ -136,6 +136,13 @@ Then guide the user through each step explicitly.
 
 ### Step 1: Add the Swift package
 
+**Resolve the version — do not write one from memory, and do not reuse a number from this page.** Run this and use exactly what it prints; `releases/latest` is the newest *stable* release, so it skips betas on its own:
+```bash
+curl -s https://api.github.com/repos/adaptyteam/AdaptySDK-iOS/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4
+```
+
+It must print `4.` or higher. If it prints nothing — no network, a proxy, no `curl`, or a GitHub rate limit — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-iOS/releases) rather than guessing one. If it prints a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
+
 Tell the user to do this in Xcode:
 
 1. **File → Add Package Dependencies...**
@@ -143,7 +150,7 @@ Tell the user to do this in Xcode:
    ```
    https://github.com/adaptyteam/AdaptySDK-iOS.git
    ```
-3. Choose the version: keep the default **Up to Next Major Version** rule starting from `4.1.0`. That rule resolves the current 4.x release on its own, so there is no version to look up and nothing here to keep up to date. **The floor is not conditional on the paywall approach** — Stage 2 fetches with `getFlow` on every approach, and the flow APIs do not exist below v4, so a 3.x package produces code that does not compile.
+3. Choose the version: keep the default **Up to Next Major Version** rule, starting from the version the command above printed. **The floor is not conditional on the paywall approach** — Stage 2 fetches with `getFlow` on every approach, and the flow APIs do not exist below v4, so a 3.x package produces code that does not compile.
 4. Click **Add Package**
 5. In the "Choose Package Products" dialog, select:
    - **Adapty** — always required
@@ -152,7 +159,7 @@ Tell the user to do this in Xcode:
 6. Click **Add Package**
 7. Verify: "Adapty" (and "AdaptyUI" if selected) should appear under **Package Dependencies** in the project navigator
 
-**If the project uses a `Package.swift` manifest instead of the Xcode UI:** add `.package(url: "https://github.com/adaptyteam/AdaptySDK-iOS.git", from: "4.1.0")` to the `dependencies` array. `from:` is a floor with the same up-to-next-major semantics, so write `4.1.0` and let SwiftPM resolve the release — do not substitute a pinned version you remembered.
+**If the project uses a `Package.swift` manifest instead of the Xcode UI:** add `.package(url: "https://github.com/adaptyteam/AdaptySDK-iOS.git", from: "<version-printed-by-the-command-above>")` to the `dependencies` array. `from:` carries the same up-to-next-major semantics as the Xcode rule, so the resolved version goes in as the floor and SwiftPM keeps it current within the major.
 
 If the project is already on a 3.x package, this is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-ios-sdk-v4.md) for the paywall-to-flow API rename, then [Migrate to v4.1](https://adapty.io/docs/migration-to-ios-sdk-41.md) for the attribution changes below.
 

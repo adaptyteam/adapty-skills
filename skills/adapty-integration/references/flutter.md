@@ -4,7 +4,7 @@ Platform: Flutter · Language: Dart · Targets: iOS and Android from one codebas
 
 ## Prerequisites
 
-- `adapty_flutter` **4.0.0+** — the `^4.0.0` constraint in Stage 1 resolves the current 4.x release, so there is no version to look up. The floor is `4.0.0` rather than `4.1.0` for one reason only: **no 4.1 has been published for Flutter**, where iOS, Android, Kotlin Multiplatform, Unity and Capacitor all floor at `4.1.0`. When a 4.1 ships here, raise this to `^4.1.0` and port the SDK 4.1 attribution changes those references already carry in Stage 3.5
+- `adapty_flutter` **v4** — Stage 1 resolves the exact version from pub.dev. v4 is the floor because Stage 2 fetches with `getFlow`, and the flow APIs do not exist below it
 - Flutter 3.32.0+ / Dart 3.8.0+ (stable channel) — required by SDK v4, and a hard floor: below it the iOS native SDK cannot be resolved and there is no 3.x path in this reference to fall back to. If the project is below 3.32, say so, name the Flutter upgrade as the prerequisite, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
 - iOS 15.0+ (SDK v4 raises the minimum deployment target from 13.0); building for iOS requires Xcode 26+
 - Android: Google Play Billing Library up to 8.x (Adapty defaults to 7.0.0)
@@ -230,11 +230,18 @@ Then guide the user through each step explicitly.
 
 ### Step 1: Add the dependency
 
-Add Adapty to `pubspec.yaml`:
+**Resolve the version — do not write one from memory, and do not reuse a number from this page.** Run this and use exactly what it prints; `latest` on pub.dev is the newest *stable* release, so it skips prereleases on its own:
+```bash
+curl -s https://pub.dev/api/packages/adapty_flutter | grep -o '"latest":{"version":"[^"]*"' | cut -d'"' -f6
+```
+
+It must print `4.` or higher. If it prints nothing — no network, a proxy, no `curl` — **stop and ask the user** for the current version from [pub.dev](https://pub.dev/packages/adapty_flutter/versions) rather than guessing one. If it prints a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
+
+Add Adapty to `pubspec.yaml`, with the caret carrying the version the command printed:
 
 ```yaml
 dependencies:
-  adapty_flutter: ^4.0.0   # a floor — the caret resolves the current 4.x release, so leave it as written
+  adapty_flutter: ^<version-printed-by-the-command-above>   # a floor — the caret keeps it current within the major
 ```
 
 Then run:

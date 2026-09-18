@@ -4,7 +4,7 @@ Platform: Capacitor · Language: TypeScript / JavaScript · Targets: iOS + Andro
 
 ## Prerequisites
 
-- `@adapty/capacitor` **4.1+**. 4.1 is the first stable 4.x release — there is no stable `4.0.x` here — so `4.1.0` is the floor, and `@adapty/capacitor@latest` resolves it. The requirements below are hard floors, not preferences: a project that cannot meet them cannot install this SDK, and there is no 3.x path in this reference to fall back to. Say which requirement is unmet, name the upgrade, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
+- `@adapty/capacitor` **v4**. `@adapty/capacitor@latest` in Stage 1 takes the latest release, so there is no version to write here. v4 is the floor because Stage 2 fetches with `getFlow`, and the flow APIs do not exist below it. The requirements below are hard floors, not preferences: a project that cannot meet them cannot install this SDK, and there is no 3.x path in this reference to fall back to. Say which requirement is unmet, name the upgrade, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
 - **Capacitor 8.** Capacitor 7 and below cannot run SDK 4.x
 - iOS 15.0+ and Android minSdk 24
 - **Xcode 26 or later** to build for iOS on SDK 4.x — the native iOS SDK is built with Swift tools 6.2. This is a build-machine requirement, so check it before promising a v4 upgrade
@@ -245,11 +245,13 @@ npm install @adapty/capacitor@latest
 npx cap sync
 ```
 
-Confirm the resolved version before writing any Stage 2 code — Stage 2 is written against the 4.x flow APIs, and an existing `package.json` may carry a caret range that resolved below the floor:
+Confirm the resolved version before writing any Stage 2 code — Stage 2 is written against the v4 flow APIs, and an existing `package.json` may carry a caret range that resolved below them:
 
 ```bash
 npm ls @adapty/capacitor
 ```
+
+It must report `4.` or higher. If it reports a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
 
 `npx cap sync` is mandatory — it copies the native plugin code into `ios/` and `android/` directories. Skipping it means the native modules won't be available.
 

@@ -99,7 +99,7 @@ Use `AskUserQuestion` for all three together in one call:
 
 1. **Paywall approach** — which do they want?
    - **Paywall Builder** (recommended): Adapty renders paywalls in a no-code visual editor; no paywall UI to build
-     - **Every platform** — iOS, Android, React Native, Flutter, Kotlin Multiplatform, Unity, and Capacitor: Present this option as **Flow Builder** instead. Flow Builder is the v4 successor to Paywall Builder and also supports onboarding flows. The `paywallApproach` state value for this choice is `flow_builder`. **Every platform installs SDK v4 and only v4 — the floor is not conditional on this answer**, because Stage 2 fetches with `getFlow` on all three approaches. See Stage 1 in `references/<platform>.md` for that platform's exact floor — `4.1.0` on iOS, Android, Kotlin Multiplatform, Unity and Capacitor, and `4.0.0` on Flutter and React Native only because no 4.1 has been published for those two yet — and for its build requirements, which on Unity and Capacitor changed in v4 (Swift Package Manager instead of CocoaPods on iOS).
+     - **Every platform** — iOS, Android, React Native, Flutter, Kotlin Multiplatform, Unity, and Capacitor: Present this option as **Flow Builder** instead. Flow Builder is the v4 successor to Paywall Builder and also supports onboarding flows. The `paywallApproach` state value for this choice is `flow_builder`. **Every platform installs SDK v4 and only v4 — the floor is not conditional on this answer**, because Stage 2 fetches with `getFlow` on all three approaches. See Stage 1 in `references/<platform>.md` for that platform's resolve command and its build requirements, which on Unity and Capacitor changed in v4 (Swift Package Manager instead of CocoaPods on iOS).
    - **Custom paywall**: User builds their own paywall UI; Adapty fetches products and handles purchases
    - **Observer mode** *(not recommended for new projects)*: Keep existing StoreKit/Billing purchase infrastructure unchanged; Adapty only tracks events. Limitations: no paywall management, no A/B testing, manual transaction reporting required. Only suitable if replacing a purchase system is not feasible.
 
@@ -500,6 +500,13 @@ Proceed to Phase 4 with the values you collected from the CLI output above.
 One call site is not a swap: if `paywallApproach` is `flow_builder` and the app renders its paywall screen itself, that screen is being retired rather than rewired, and fetch, presentation, purchase, and entitlement gating move together or not at all. Read `references/migration-flow-rebuild.md` before you edit it.
 
 **If `migrationSource` is not empty and `paywallApproach` is `observer`:** delete nothing. The user chose to keep their existing purchase infrastructure, so the source's purchase code stays in place and only event tracking routes through Adapty, per the platform reference's Observer mode section.
+
+**Resolve the SDK version from its registry, never from memory and never from a number written in this skill.** Stage 1 of each `references/<platform>.md` carries that platform's resolve command — run it and write exactly what it prints. A remembered version either fails the build or silently installs an API set Stage 2 was not written against; if the command prints nothing — no network, a proxy, no `curl` — **stop and ask the user** rather than guessing one.
+
+Two conditions change this, and only these two:
+
+- **The user named a version.** Install theirs, exactly. Say once what the current release is, then drop it.
+- **The resolved major is above the one these references target (v4).** A `5.x` install would succeed while Stage 2's code no longer matches it. Stop and ask whether to take the newest v4 or to proceed and adapt.
 
 Follow the platform-specific file for the exact doc URLs and implementation order. For each stage:
 
