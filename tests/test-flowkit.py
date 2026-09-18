@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -192,21 +193,65 @@ def main():
 
     check('_meta.screens is left empty (builder-owned)', cfg['_meta']['screens'] == {})
 
-    # predeclare(): the provisional declaration that lets a NEW draft preview on a device
+    # flow_product_id(): the builder's own derivation, reproduced. These nine vectors are real
+    # builder-minted values from three independent sources -- if any one of them breaks, the
+    # derivation has drifted and every predeclared draft is minting ids the builder disagrees
+    # with. Sources, in order: the builder's unit test `buildFlowMeta.test.ts` (both branches),
+    # the demo flow `demo/src/data/calm.data.ts`, and the transformer fixture
+    # `src/fixtures/v5/progress-bar-connectors/input.json`.
+    for screen, product, offer, expected in [
+        ('screen-1', 'annual', None, '2093eb92-15e4-50c4-b918-910385b6646d'),
+        ('screen-1', 'annual', 'trial', '00b2d28e-21a5-5ccc-837b-ebb1c685793f'),
+        ('screen-1', 'component', 'offer', '333d04d7-c788-53eb-a0b3-d240ef8764da'),
+        ('scr_lsT14qTJ', 'b136422f-8153-402a-afbb-986929c68f6a', None,
+         'e6633f38-f060-55c7-92fc-bf8a2ef76b61'),
+        ('scr_lsT14qTJ', 'ac281b85-9294-4109-b9f1-4ab66b52d263', None,
+         '8dfdde18-e09e-555d-a9d5-b55fd42eb068'),
+        ('scr_lsT14qTJ', '4f930955-b0e4-47c3-8bb9-abd1bbdccabd', None,
+         '085c69fb-f8da-5b9e-a503-f42ec7e0e5df'),
+        ('ae4fbd22-7b44-4aea-aa24-a3d227c085fd', '73d6328a-7b76-46af-949b-d3d34c329e7c', None,
+         '9974b07a-6b26-55a0-882d-58c821ce4e88'),
+        ('ae4fbd22-7b44-4aea-aa24-a3d227c085fd', '33bc0f34-76c5-4598-9a85-3dd66bac9079', None,
+         '6ce1b2c9-9059-57d1-8ee2-331ff6d20d33'),
+        ('ae4fbd22-7b44-4aea-aa24-a3d227c085fd', '7ce976b7-ca13-42b8-a4a0-365d6ed4297b', None,
+         '5f3456cc-f8fd-56a6-aadd-ea0ba7a63a34'),
+    ]:
+        got = fk.flow_product_id(screen, product, offer)
+        pair = f'{screen}:{product}' + (f':{offer}' if offer else '')
+        check(f'flow_product_id matches the builder for {pair}', got == expected, got)
+
+    # the empty-namespace detail the earlier search missed: uuid5 over a ZERO namespace is a
+    # different hash input (16 zero bytes vs no prefix), and would silently produce wrong ids
+    check('flow_product_id is not uuid5 over a zero namespace',
+          fk.flow_product_id('screen-1', 'annual')
+          != str(uuid.uuid5(uuid.UUID(int=0), 'screen-1:annual')))
+
+    # predeclare(): the declaration that lets a NEW draft preview on a device
     pids = ['db3cfae2-5266-4678-85b3-b2ea535301ce', 'a80615bd-86b5-4851-b895-a343fa7db228']
     dec = fk.predeclare('scr_pro', pids)
     entries = dec['scr_pro']['products']
     check('predeclare emits one entry per product', [e['id'] for e in entries] == pids)
-    check('predeclare emits only id and flowProductId',
+    check('predeclare emits only id and flowProductId when there is no offer',
           all(set(e) == {'id', 'flowProductId'} for e in entries))
     check('predeclare is deterministic', fk.predeclare('scr_pro', pids) == dec)
     check('predeclare is screen-scoped',
           fk.predeclare('scr_other', pids)['scr_other']['products'][0]['flowProductId']
           != entries[0]['flowProductId'])
-    # the exact pair that was verified to preview on an unpublished draft
-    check('predeclare reproduces the verified-previewing pair',
+    check('predeclare agrees with flow_product_id',
           [e['flowProductId'] for e in entries]
-          == ['63d3e909-2581-5762-9345-c2423730e27a', '55258fb4-6310-5e4e-9086-7ea4d71f9418'])
+          == [fk.flow_product_id('scr_pro', p) for p in pids])
+
+    # exact pairs: a product bound WITH an offer is a different entry and a different id
+    paired = fk.predeclare('scr_pro', [pids[0], (pids[0], 'trial')])['scr_pro']['products']
+    check('predeclare accepts a (product, offer) pair', len(paired) == 2)
+    check('predeclare carries offerId, in the builder key order',
+          list(paired[1]) == ['id', 'offerId', 'flowProductId'], json.dumps(paired[1]))
+    check('an offer-bound pair gets its own id',
+          paired[0]['flowProductId'] != paired[1]['flowProductId'])
+    check('the offer-bound id is the builder\'s',
+          paired[1]['flowProductId'] == fk.flow_product_id('scr_pro', pids[0], 'trial'))
+    check('a list is accepted where a tuple is',
+          fk.predeclare('scr_pro', [[pids[0], 'trial']])['scr_pro']['products'] == [paired[1]])
     check('config(meta_screens=...) carries it through',
           fk.config(screens=[], meta_screens=dec)['_meta']['screens'] == dec)
     check('opacity, when given, is a percentage not a fraction',

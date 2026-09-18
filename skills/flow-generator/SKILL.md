@@ -9,15 +9,9 @@ Read an Adapty flow's builder config, transform it, check the result, and write 
 Transforming a config that exists is the default, and the safer path: everything you emit is then
 grounded in a document that already works.
 
-**Authoring a new flow is also in scope**, and three things — and only these three — genuinely
+**Authoring a new flow is also in scope**, and two things — and only these two — genuinely
 cannot be synthesized:
 
-- **`flowProductId`**, the per-screen declaration in `_meta.screens[].products[]` — only the
-  builder mints the real value. But you do not need it: the transform service checks a declaration
-  is **present and consistent**, so `flowkit.predeclare(screen_id, product_ids)` lets a brand-new
-  draft preview on a device with no publish and no builder visit. Omit it and device preview 422s.
-  When *rewriting* a flow, never generate one — carry the live `_meta.screens` forward
-  ([products.md](references/products.md)).
 - **An image you have no readable FILE for.** Given a path you can now upload it —
   `flows media upload` ([media.md](references/media.md)). An image you can only *see* — pasted or
   attached into the conversation — is not one you have: ask for a path. With no file there is
@@ -31,7 +25,13 @@ cannot be synthesized:
 
 Everything else is reachable: product UUIDs from `adapty products list` (or `products create`),
 `theme` colours sampled off a reference screenshot, and icon markup resolved from the bundle
-`references/icons.py` ships.
+`references/icons.py` ships. **`flowProductId` used to head this list and no longer belongs on
+it** — it is a UUIDv5 over `screenId:productId[:offerId]` with an empty namespace, and
+`flowkit.predeclare(screen_id, products)` writes the per-screen `_meta.screens[].products[]`
+declaration with the ids the builder itself would mint. Pass exact Product + Offer pairs, a bare
+product id or a `(product_id, offer_id)` tuple, because the offer is part of the id. Omit the
+declaration entirely and device preview 422s. When *rewriting* a flow, still carry the live
+`_meta.screens` forward instead of regenerating it ([products.md](references/products.md)).
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 

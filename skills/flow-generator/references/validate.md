@@ -112,8 +112,9 @@ transform produces: removing a screen strands a `navigate`, moving an element st
 and authoring a purchase strands a product declaration.
 
 **The declaration is checked for presence and consistency, not for correctness.** A fabricated
-`flowProductId` validates clean — measured, and consistent with
-[products.md](products.md) on `flowkit.predeclare()`. What fails is a product with *no* entry.
+`flowProductId` validates clean — measured. What fails is a product with *no* entry. That gap is
+now only a curiosity: `flowkit.predeclare()` mints the builder's own ids, so there is no reason to
+ship a fabricated one ([products.md](products.md)).
 
 ### A worked example of both rules at once
 

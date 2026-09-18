@@ -50,9 +50,9 @@ protects the content.**
 `config update` replaces everything, so a rebuilt config does not merge with the live flow — it
 replaces it. Everything below lives in the live document and in no script:
 
-- **`_meta.screens[].products[]`** — the builder-owned product attachments, each with a
-  `flowProductId` only the builder mints. A rebuild carries `{}` and wipes them
-  ([products.md](products.md)).
+- **`_meta.screens[].products[]`** — the product attachments. Each `flowProductId` is derivable,
+  but the **set of declared Product + Offer pairs** is not: the live block can hold pairs no
+  script of yours knows about. A rebuild carries `{}` and wipes them ([products.md](products.md)).
 - **Every manual edit** — copy, colours, spacing, a screen someone added, an action they rewired.
 - **Locales added in the dashboard**, and the translations under them.
 - **The builder's own normalisations** — re-sorted `_meta.icons`, a v9 → v10 fill migration on

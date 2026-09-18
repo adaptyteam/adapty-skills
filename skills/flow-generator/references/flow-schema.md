@@ -37,7 +37,7 @@ observed.
 | `defaultLocale` | a locale `id` | Must name an entry in `locales`. |
 | `variables` | `[{id, name, valueType}]` | **Custom, app-supplied variables only** — `{"id": "var_ddvg4jeg", "name": "app.permission.location.allowed", "valueType": "boolean"}`. Built-ins are never declared here. `[]` in `timer` and `comparison`. |
 | `theme` | `{typography: [{id, name, settings}], colors: [{id, name, light, dark?}]}` | Per-project design system. **Not a fixed vocabulary** — see [Shape traps](#shape-traps). `colors[].dark` is present only where dark mode was configured (`quiz` only). |
-| `_meta` | `{icons, fonts, screens}` | `icons`: `[{name, weight, raw}]`, `raw` being literal SVG markup. `fonts`: `[{id, name, url, iosName, androidName}]`, `[]` in `quiz`. `screens`: an object keyed by screen id, holding that screen's declared products — `{"<screen-id>": {"products": [{"id": "<product-uuid>", "flowProductId": "<flow-product-uuid>"}]}}`. Screens with no products have no entry at all. **`screens[].products[]` is builder-owned: carry it through untouched or not at all.** [`products.md`](products.md) owns the rules and the reasoning. |
+| `_meta` | `{icons, fonts, screens}` | `icons`: `[{name, weight, raw}]`, `raw` being literal SVG markup. `fonts`: `[{id, name, url, iosName, androidName}]`, `[]` in `quiz`. `screens`: an object keyed by screen id, holding that screen's declared products — `{"<screen-id>": {"products": [{"id": "<product-uuid>", "flowProductId": "<flow-product-uuid>"}]}}`. An entry also carries `offerId` when the binding has one, between `id` and `flowProductId`. Screens with no products have no entry at all. **On a flow you are rewriting, carry `screens[].products[]` through untouched; on one you authored, derive it with `flowkit.predeclare()`.** [`products.md`](products.md) owns the rules and the reasoning. |
 
 `elements.hierarchy` — and a component's `hierarchy` — is **one node, always
 `{"id": "root", "children": [...]}`**, and `root` has no entry in `map`. True of 9 of 9
@@ -59,9 +59,10 @@ An element inside `elements.map` has at most seven keys: `id`, `type`, `props` a
 and `caption`, `interactions`, `propsByState` optionally. `props` content varies by `type`.
 
 `flowProductId` is a UUIDv5 — the version nibble is `5` in both exports that declare products
-(`timer` declares none, so the evidence is 2 of 3) — so it is **derived** from something, not
-random. Never invent one: carry the pair through from the source export, and if a product must
-be added, the user attaches it in the Flow Builder.
+(`timer` declares none, so the evidence is 2 of 3) — and **what it is derived from is now known**:
+`screenId:productId[:offerId]`, hashed with an empty namespace. Never *invent* one and never lift
+one from another export, but you no longer have to wait for the builder either — derive it with
+`flowkit.flow_product_id()` ([products.md](products.md)).
 
 ## Browser export versus CLI config
 

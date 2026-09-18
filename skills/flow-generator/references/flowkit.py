@@ -29,6 +29,7 @@ Run `tests/test-flowkit.py` after touching it.
         typography=[("h1", "H1", 28, "bold"), ("body", "Body", 16, "regular")],
     )
 """
+import hashlib
 import os
 import re
 import sys
@@ -1716,12 +1717,44 @@ def _typo(entry):
     return {'id': i, 'name': n, 'settings': settings}
 
 
-PREDECLARE_NS = uuid.UUID('1b671a64-40d5-491e-99b0-da01ff1f3341')
+def flow_product_id(screen_id, product_id, offer_id=None):
+    """The builder's own `flowProductId`, reproduced exactly.
+
+    This value is NOT server-side and NOT unguessable -- both were long-standing claims here,
+    and both were wrong. The builder mints it client-side in `buildFlowMeta.ts` (`collectProducts`,
+    marked "FROZEN (ADP-7398 E4)"):
+
+        getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}`)
+
+    `getUuid` is npm `uuid-by-string`: an RFC-4122 **v5** UUID over the UTF-8 name bytes with an
+    **empty namespace prefix** -- a zero-LENGTH prefix, not sixteen zero bytes. That one detail is
+    why the earlier search missed it: every candidate in the 2,944- and then 19,776-combination
+    sweeps prefixed a 16-byte namespace, so none of them could ever have matched. The same detail
+    is why the obvious shortcut is also wrong --
+
+        uuid.uuid5(uuid.UUID(int=0), name)   # NOT this: it prefixes 16 zero bytes
+
+    -- and why this hashes by hand instead.
+
+    Verified 9/9 against real builder-minted values from three independent sources: the builder's
+    own unit test `buildFlowMeta.test.ts` (both branches, offer-bearing pairs included),
+    the demo flow `demo/src/data/calm.data.ts`, and the transformer fixture
+    `src/fixtures/v5/progress-bar-connectors/input.json`. The vectors are in
+    `tests/test-flowkit.py`; re-run it if you touch this.
+
+    `offer_id` is part of the hash, so a product bound WITH an offer and the same product bound
+    without one are two different ids. Passing the offer when there is one is not optional.
+    """
+    name = f'{screen_id}:{product_id}:{offer_id}' if offer_id else f'{screen_id}:{product_id}'
+    digest = bytearray(hashlib.sha1(name.encode('utf-8')).digest()[:16])
+    digest[6] = (digest[6] & 0x0F) | 0x50   # version 5
+    digest[8] = (digest[8] & 0x3F) | 0x80   # RFC-4122 variant
+    return str(uuid.UUID(bytes=bytes(digest)))
 
 
-def predeclare(screen_id, product_ids):
-    """A provisional `_meta.screens` declaration, so a NEW flow previews on a device
-    immediately instead of only after the builder has saved it.
+def predeclare(screen_id, products):
+    """The `_meta.screens` declaration for a NEW flow, so it previews on a device immediately
+    instead of only after the builder has saved it.
 
     Why this exists: the transform service (which device preview and publish run, and
     `config update` does not) rejects a bound product with no declaration --
@@ -1730,24 +1763,31 @@ def predeclare(screen_id, product_ids):
     after someone opens the flow in the builder and saves it. "Publish it to preview it" is not
     a workflow you can hand a user.
 
-    The `flowProductId` values here are FABRICATED, and deliberately so. The real derivation is
-    server-side -- 19,776 namespace/name/version combinations over 4 triples with full
-    provenance (app, flow, screen, element, product) produce no match. Measured: the service
-    checks that a declaration is present and internally consistent, not that the value is the
-    builder's own, so a draft carrying these previews on a real device with no publish and no
-    builder visit.
+    `products` is a list of **exact Product + optional Offer pairs**, because the offer is part
+    of the id (see `flow_product_id`). Each item is either a bare product id, or a
+    `(product_id, offer_id)` tuple:
 
-    Two limits, both important:
+        predeclare('scr_x', ['annual', ('annual', 'trial')])
 
-      * When REWRITING a flow, never call this -- carry the live `_meta.screens` forward
-        instead. Overwriting a real declaration with a provisional one is a regression.
-      * `flowProductId` is a server-side handle whose other uses are unknown to this project.
-        Treat a provisional value as good for previewing, and expect the builder to replace it
-        on its next save.
+    The emitted `flowProductId`s are the ones the builder itself would mint, not placeholders --
+    so a draft carrying them previews on a real device with no publish and no builder visit, and
+    a later builder save rewrites them to the same values. Entry key order matches the builder's:
+    `id`, then `offerId` when there is one, then `flowProductId`.
+
+    One limit remains: when REWRITING a flow, carry the live `_meta.screens` forward rather than
+    regenerating it. These ids now agree with the builder's for every pair you pass, but a live
+    declaration may hold pairs your rewrite does not know about -- component-owned bindings among
+    them -- and regenerating drops those.
     """
-    return {screen_id: {'products': [
-        {'id': pid, 'flowProductId': str(uuid.uuid5(PREDECLARE_NS, f'{screen_id}:{pid}'))}
-        for pid in product_ids]}}
+    entries = []
+    for item in products:
+        pid, offer_id = item if isinstance(item, (tuple, list)) else (item, None)
+        entry = {'id': pid}
+        if offer_id:
+            entry['offerId'] = offer_id
+        entry['flowProductId'] = flow_product_id(screen_id, pid, offer_id)
+        entries.append(entry)
+    return {screen_id: {'products': entries}}
 
 
 def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'English'),),

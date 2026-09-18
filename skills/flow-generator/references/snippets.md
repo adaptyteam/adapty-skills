@@ -291,7 +291,8 @@ be resolved before a write.
 
 ## What cannot be reused
 
-- **`flowProductId`.** Builder-minted and screen-scoped — [`products.md`](products.md) owns why.
+- **`flowProductId`.** Screen-scoped, so a value from another screen is simply wrong; derive it
+  rather than carrying it — [`products.md`](products.md) owns why.
   A grafted `product` element arrives on its new screen unattached
   ([invariant 4](flow-schema.md#invariants)); the graft cannot fix that, and the user resolves it
   in the Flow Builder. It is named in `NEEDS YOU` and warned on by `verify-config.py` too.
