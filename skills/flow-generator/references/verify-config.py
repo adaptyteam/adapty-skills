@@ -487,6 +487,44 @@ def iter_visible_text(d):
                 if joined:
                     yield s.get('id'), eid, locale, joined
 
+def iter_bound_images(d):
+    """Every `IImage` in the document that is actually bound to an asset, both shapes.
+
+    An asset binds two different ways and a check that knows only one sees half the document:
+    an `image` ELEMENT wraps its value in a per-locale `values` map, while a background FILL
+    carries the same `IImage` flat inside a `{type: "image", image: {...}}` layer. The fill walk
+    is recursive on purpose -- a fill sits on a screen, on any stack, and inside `propsByState`.
+
+    Keyed on the fill layer's own `type`, never on the presence of a `url`. That predicate is
+    what lets the walk cover the WHOLE document rather than `screens` alone -- which it has to,
+    because an element inside `components` carries fills like any other -- without reporting
+    `_meta.fonts[].url`, which is a url and is not an image.
+    """
+    for s in d.get('screens', []):
+        for el in (s.get('elements', {}).get('map', {}) or {}).values():
+            if el.get('type') != 'image':
+                continue
+            content = (el.get('props') or {}).get('image')
+            if not isinstance(content, dict):
+                continue
+            vals = content.get('values') if content.get('_localizable') else {None: content}
+            for code, entry in (vals or {}).items():
+                if isinstance(entry, dict) and isinstance(entry.get('url'), str):
+                    yield (f"{el.get('id')}[{code}]" if code else str(el.get('id'))), entry
+
+    def fills(node, where):
+        if isinstance(node, dict):
+            if node.get('type') == 'image' and isinstance(node.get('image'), dict):
+                img = node['image']
+                if isinstance(img.get('url'), str):
+                    yield f'{where} fill', img
+            for k, v in node.items():
+                yield from fills(v, node.get('id') or where)
+        elif isinstance(node, list):
+            for v in node:
+                yield from fills(v, where)
+    yield from fills(d, 'screen')
+
 def unwrap(d):
     """`config get`/`config update` return an ENVELOPE ({config, remote_configs, status,
     updated_at}) and every check reads a bare config. Matches `diff-config.py`, which already
@@ -496,7 +534,7 @@ def unwrap(d):
         return d['config']
     return d
 
-def check(path, baseline_text=None):
+def check(path, baseline_text=None, baseline_images=None):
     d = unwrap(json.load(open(path)))
     bad, warn = [], []
     els = lambda: ((s, e) for s in d.get('screens', [])
@@ -764,6 +802,37 @@ def check(path, baseline_text=None):
         warn.append(f"image asset id is missing or not a string on "
                     f"{', '.join(unstrung[:4])}{', …' if len(unstrung) > 4 else ''} — "
                     f"`flows media upload` prints a number, the schema wants a string")
+
+    # `previewValue` is the base64 thumbnail the renderer paints WHILE the full asset downloads.
+    # With the key absent the renderer has nothing to paint and substitutes a transparent 1x1, so
+    # the screen shows a hole until the image arrives — seconds, on a slow connection. Every gate
+    # is blind: `validate` returns valid:true either way, the schema declares the field optional,
+    # and `config preview` renders a local file where there is no download to wait for.
+    #
+    # Reported only against a --baseline, and the reason is that the fix is only available at
+    # ONE moment. `preview_base64` comes back from `flows media upload` and there is no
+    # `flows media get`, so a preview not captured at upload time cannot be read later at all —
+    # re-uploading mints a second asset with a different URL, and on a fetched config the source
+    # file is usually gone. An image that arrived WITH the config is therefore not repairable
+    # here (it is the user's to re-upload in the builder), and a warning nobody can act on is
+    # noise. An image this draft ADDED is the opposite: the agent ran the upload, so the value
+    # was in its hands one command ago.
+    if baseline_images is not None:
+        no_preview = []
+        for label, entry in iter_bound_images(d):
+            if isinstance(entry.get('previewValue'), str) and entry['previewValue'].strip():
+                continue
+            prior = baseline_images.get(entry['url'])
+            if prior is False:          # inherited, and already missing its preview
+                continue
+            no_preview.append(label)
+        if no_preview:
+            warn.append(f"{len(no_preview)} image(s) bound with NO previewValue "
+                        f"({', '.join(no_preview[:4])}{', …' if len(no_preview) > 4 else ''}) — "
+                        f"they draw as a transparent 1x1 until the full asset downloads, and no "
+                        f"gate sees it. Re-read `preview_base64` from the SAME "
+                        f"`flows media upload --json` that gave you the URL; there is no way to "
+                        f"fetch it afterwards")
 
     # A `video` is the empty-image story one element type over, with one difference that makes
     # it permanent rather than provisional: `flows media upload` REFUSES a clip outright
@@ -2136,12 +2205,19 @@ args = sys.argv[1:]
 # --baseline <config> turns on the price/discount/duration comparison: literals already in the
 # baseline are the flow's own copy, only NEW ones are reported. Pass the config you fetched
 # (phase 2's backup) when checking a draft you are about to write.
-baseline_text = None
+baseline_text = baseline_images = None
 if '--baseline' in args:
     i = args.index('--baseline')
     if i + 1 >= len(args):
         sys.exit('verify-config.py: --baseline needs a config path')
-    baseline_text = {t for _, _, _, t in iter_visible_text(unwrap(json.load(open(args[i + 1]))))}
+    base = unwrap(json.load(open(args[i + 1])))
+    baseline_text = {t for _, _, _, t in iter_visible_text(base)}
+    # url -> did the baseline already carry a preview for it. False means the flow arrived
+    # without one, which is not this draft's doing and cannot be repaired from the CLI.
+    baseline_images = {}
+    for _label, entry in iter_bound_images(base):
+        has = isinstance(entry.get('previewValue'), str) and bool(entry['previewValue'].strip())
+        baseline_images[entry['url']] = baseline_images.get(entry['url'], False) or has
     del args[i:i + 2]
 if not args:
     sys.exit('usage: verify-config.py [--baseline <config.json>] <config.json> [more.json ...]')
@@ -2154,7 +2230,7 @@ for path in args:
     # Exit 2 keeps that distinct from exit 1 (the document has findings), matching the exit-code
     # convention the rest of this repo's scripts use.
     try:
-        bad, warn = check(path, baseline_text)
+        bad, warn = check(path, baseline_text, baseline_images)
     except Exception as exc:                                  # noqa: BLE001 - the point is breadth
         import traceback
         print(f'{os.path.basename(path):34} CHECKER ERROR')

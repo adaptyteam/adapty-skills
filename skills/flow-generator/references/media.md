@@ -24,18 +24,28 @@ The file argument is positional and required; `--app` is the only flag that matt
 URL is **live immediately** — a `curl` against it returned `200 image/png` in the same second as
 the upload, so there is no propagation wait to build into the workflow.
 
-**Capture the URL from the human output, never with `--json`.** The JSON body carries a fourth
-key, `preview_base64` — a WEBP thumbnail inlined as base64, **8,232 characters for a 5 KB source
-PNG**. It is pure context burn with no use to an agent, and on a real hero image it is far worse.
-
-A config needs **both** the id and the URL, so capture both from the *one* invocation — the
-upload does not deduplicate, so running it again just to read the other field leaves a second
-identical asset behind that no CLI command can remove:
+**A config needs three values from this command and the human output carries only two.** The
+JSON body has a fourth key, `preview_base64` — a base64 WEBP thumbnail, thousands of characters
+even for a small source — which the human output suppresses. That is the value a config binds as
+`previewValue`, and without it the image draws as a transparent 1×1 until the full asset
+downloads (see below). So take `--json`, and **redirect it to a file so the blob never lands in
+your context**:
 
 ```bash
-eval "$($ADAPTY flows media upload --app "$APP" ./hero.png \
-        | sed -n 's/^ID: /MEDIA_ID=/p; s/^URL: /MEDIA_URL=/p')"
+$ADAPTY flows media upload --app "$APP" ./hero.png --json > upload.json
+MEDIA_ID=$(jq -r .id upload.json)
+MEDIA_URL=$(jq -r .url upload.json)
+MEDIA_PREVIEW=$(jq -r '.preview_base64 // empty' upload.json)   # may legitimately be empty
 ```
+
+Reading the file with `jq` keeps the cost at one short string per variable; `cat`-ing
+`upload.json`, or running the command without the redirect, puts the whole thumbnail in front of
+you for nothing.
+
+**Capture all three from the *one* invocation.** There is no `flows media get` — `flows media`
+has exactly one subcommand — so a preview not read at upload time **cannot be read afterwards at
+all**. And the upload does not deduplicate, so re-running it to recover the value mints a second
+asset with a different id and URL and leaves the first behind, which no CLI command can remove.
 
 ## Getting the file: the upload needs a PATH, not a picture
 
@@ -233,7 +243,8 @@ silent defect — no gate catches it (see below).
 
 ```json
 {"id": "el_PSJTQ6QeQt", "type": "image", "props": {
-  "image": {"_localizable": true, "values": {"en": {"id": "516395", "url": "https://…/hero.png"}}},
+  "image": {"_localizable": true, "values": {"en": {
+    "id": "516395", "url": "https://…/hero.png", "previewValue": "UklGRhQJAABXRUJQVlA4…"}}},
   "width": {"type": "fixed", "value": 242}, "height": {"type": "hug"},
   "objectFit": "cover", "borderRadius": {"tl": 20, "tr": 20, "bl": 20, "br": 20}}}
 ```
@@ -242,7 +253,9 @@ silent defect — no gate catches it (see below).
 `values` map and no `_localizable`:
 
 ```json
-"fill": {"type": "image", "image": {"id": "516395", "url": "https://…/hero.png"},
+"fill": {"type": "image",
+         "image": {"id": "516395", "url": "https://…/hero.png",
+                   "previewValue": "UklGRhQJAABXRUJQVlA4…"},
          "color": {"type": "hex", "hex": "#FFFFFF"}}
 ```
 
@@ -254,10 +267,37 @@ that must change per language has to be an element.
 (`"id": 516395`), while the schema's `IImage` declares `id` as a required `string` and every real
 builder export carries it quoted. Stringify it as you bind it.
 
+## `previewValue`: what the user sees before the image arrives
+
+`IImage` is `{id, url, previewValue?}`, and the third field is what the renderer paints **while
+the full asset downloads** — a tiny base64 thumbnail, blurred up to fill the box, so the screen
+is composed from the first frame. Leave it out and the renderer has nothing to paint, so it
+substitutes a **transparent 1×1**: the layout is right and the picture is a hole, for as long as
+the download takes. On a fast connection that is a blink. On a slow one it is the whole first
+impression of a paywall.
+
+Bind it exactly as the upload returned it:
+
+- **Bare base64, no `data:` prefix.** `preview_base64` is a half-size WEBP; the renderer's own
+  1×1 fallback is bare base64 too. A data URI is not the same string and does not belong here.
+- **Omit the key when the upload returned nothing.** `preview_base64` is nullable — preview
+  generation can fail — and the field is optional, so an absent key is a legal document. Never
+  write `null` or `""` to fill the slot.
+- **It rides with the asset, not with the element.** The same three-field `IImage` goes into a
+  per-locale `values` entry on an element and flat inside a fill, so a background needs it just
+  as much — more visibly, since a background is usually the largest thing on the screen.
+
+**This is capture-at-upload or never.** Only `--json` returns the value, there is no command that
+reads it back for an asset already uploaded, and re-uploading the file mints a different asset.
+So when you are editing a **fetched** config whose images already lack a preview, that is not
+yours to repair and not worth a silent rewrite: say so in the handoff and let the user re-upload
+the image in the builder, which writes the field for them. `verify-config.py` draws the same
+line — it reports only the images your draft added, and stays quiet about inherited ones.
+
 ## No gate catches an image defect. Only the render does.
 
-Measured on one config, four ways — real URL with a string `id`, with a numeric `id`, with no `id`
-at all, and with an empty `values` map:
+Measured on one config, five ways — real URL with a string `id`, with a numeric `id`, with no
+`id` at all, with no `previewValue`, and with an empty `values` map:
 
 - **`flows config validate` returned `valid: true` for all four.** An image is not part of the
   publish gate, so **a flow whose hero is still an empty placeholder publishes cleanly** and ships

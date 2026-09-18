@@ -133,7 +133,7 @@ $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--o
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
     (--config-file <file|-> | --config <json-string>) \
     [--expected-updated-at <int>] [--remote-configs <json>]
-$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID>   # PNG/JPEG/WEBP/GIF, < ~2.5 MB; no SVG
+$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP/GIF, < ~2.5 MB; no SVG
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; 405 in prod, rename in the builder
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404 in prod, see below
 ```
@@ -165,8 +165,10 @@ never evidence the command or the CLI is missing.
 to bind into the config, so an image the user *handed you a file for* is yours to place, not a user
 ask. Two limits shape when you reach for it: **SVG
 returns `http_500`**, and the ceiling is **~2.5 MB of file bytes** (a bare `http_400` means too
-large). Call shape, the two config shapes it binds into, and the geometry:
-[media.md](references/media.md).
+large). **Run it with `--json` redirected to a file**: the human output omits `preview_base64`,
+the config binds it as `previewValue`, and `flows media` has no read command, so a preview missed
+at upload time is gone. Call shape, the three values to capture, the two config shapes they bind
+into, and the geometry: [media.md](references/media.md).
 
 **`flows publish --app <APP_UUID> <FLOW_ID>` is not in every build.** Per the rule above, decide
 that by running `flows publish --help`, not from a version number — the command has left stable
@@ -354,12 +356,18 @@ you were shown.
 For every asset the screen needs, one of three states, decided before you write the element:
 
 1. **You have a path that reads** — one they gave you, or a project file you found and *named*.
-   Upload it now and bind the URL it returns:
+   Upload it now and take **three** values off that one call, `--json` into a file so the preview
+   blob stays out of your context:
    ```bash
-   URL="$($ADAPTY flows media upload --app "$APP" ./hero.png | sed -n 's/^URL: //p')"
+   $ADAPTY flows media upload --app "$APP" ./hero.png --json > upload.json
+   MEDIA_URL=$(jq -r .url upload.json); MEDIA_ID=$(jq -r .id upload.json)
+   MEDIA_PREVIEW=$(jq -r '.preview_base64 // empty' upload.json)
    ```
-   Bind it on an `image` element or flat inside a `fill` — two different shapes, and the `id` is a
-   **string** even though the command prints a number ([media.md](references/media.md)).
+   Bind all three on an `image` element or flat inside a `fill` — two different shapes, and the
+   `id` is a **string** even though the command prints a number. **`previewValue` is not
+   optional in practice**: without it the renderer draws a transparent 1×1 until the asset
+   downloads, so the screen ships with a hole in it, and there is no way to read the value back
+   later ([media.md](references/media.md)).
 2. **You can see the image but have no path** (pasted, attached), or they named one they have not
    sent — **ask for a path**, once, batched with your other asks. Never guess one: a guess that
    misses fails loudly, and a guess that *hits* ships the wrong picture in a screen that renders

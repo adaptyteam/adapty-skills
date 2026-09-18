@@ -300,6 +300,44 @@ def main():
     except ValueError:
         check('an objectFit outside the two-value enum raises', True)
 
+    # previewValue — the base64 thumbnail the renderer paints while the asset downloads. With
+    # the key absent the renderer draws a transparent 1x1 and the screen has a hole until the
+    # download finishes, and no gate sees it. Only `--json` returns it and there is no
+    # `flows media get`, so it is capture-at-upload or never.
+    PREV = 'UklGRhQJAABXRUJQVlA4IAgJAAAwSQCdASos'
+    withp = fk.image(HERO, media_id=516395, preview=PREV)
+    check('preview binds as previewValue, bare, beside id and url',
+          withp['props']['image']['values']['en'] ==
+          {'url': HERO, 'id': '516395', 'previewValue': PREV},
+          json.dumps(withp['props']['image']['values']['en']))
+    check('no preview OMITS the key rather than writing null — what the builder does when the '
+          'upload generated none',
+          'previewValue' not in fk.image(HERO, media_id=1)['props']['image']['values']['en'])
+    for bad, why in ((lambda: fk.image(HERO, preview='data:image/webp;base64,AAA'),
+                      'a data URI is refused: the field wants bare base64'),
+                     (lambda: fk.image(HERO, preview='   '),
+                      'a blank preview is refused rather than written as an empty string')):
+        try:
+            bad()
+            check(why, False, 'accepted')
+        except (TypeError, ValueError) as exc:
+            # Assert on the MESSAGE: the whole value of these guards is telling an author where
+            # the string comes from, and a bare `raises` here would pass on any exception.
+            check(why, 'preview_base64' in str(exc) or 'BARE base64' in str(exc), str(exc)[:60])
+
+    # image_fill() — the SAME asset binds a second way, flat, with no locale map. There was no
+    # helper for it, so a background image was hand-assembled and its preview was the easiest
+    # thing to leave out.
+    bg = fk.image_fill(HERO, media_id=516395, preview=PREV, hexval='#0B0B10')
+    check('image_fill emits one flat layer, preview included',
+          bg == [{'type': 'image',
+                  'image': {'url': HERO, 'id': '516395', 'previewValue': PREV},
+                  'color': {'type': 'hex', 'hex': '#0B0B10'}}], json.dumps(bg))
+    check('image_fill wraps in a one-item array, like every other v10 fill',
+          isinstance(bg, list) and len(bg) == 1)
+    check('image_fill refuses two colour sources',
+          raises(lambda: fk.image_fill(HERO, color_id='bg', hexval='#FFF'), TypeError))
+
     # video() — `flows media upload` REFUSES a clip (permitted formats are JPEG/JPEG2000/WEBP/
     # PNG/SVG), so the only correct artifact is a styled element with NO source plus a spoken
     # "open the builder and upload it". Before this helper there was no way to emit one from
