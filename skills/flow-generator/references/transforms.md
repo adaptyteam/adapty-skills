@@ -336,8 +336,7 @@ can never resolve, so a placeholder cannot land on someone else's page, and it r
 unfinished *to a human reading the config*. It does not read as unfinished to any check.
 
 **So: default to the inert row and ask for the URLs.** This is the standing preference for the
-failure that is *visible* over the one that renders clean — the same rule the retired
-plain-text-prices guidance was withdrawn under. A placeholder URL is still defensible when the
+failure that is *visible* over the one that renders clean. A placeholder URL is still defensible when the
 user is mid-build and wants the wiring in place, but only with the asymmetry disclosed, because
 otherwise a clean `flow-audit` run is exactly the evidence that convinces someone to ship it.
 

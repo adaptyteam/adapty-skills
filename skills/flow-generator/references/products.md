@@ -61,7 +61,7 @@ Builder, the flow was re-exported:
 | `_meta.screens[].products[].flowProductId` | copied from another export | **regenerated** |
 | element ids | the agent's own | **preserved byte-stable** |
 
-Four consequences, and this file is the authority on all four:
+Consequences, and this file is the authority on all of them:
 
 - **Never copy `_meta.screens[].products[]` from another flow or export.** On a flow you are
   rewriting, carry the live block through untouched. On a flow you authored, derive it with
@@ -231,15 +231,14 @@ warning. Two consequences worth stating plainly:
 **Price variables authored before the declaration exists do resolve once it lands — verified.** The
 round trip is exact: 51 of 51 element ids unchanged, and every price `variableId` preserved
 verbatim, including `<productUUID>.prod_price`, `<productUUID>.prod_price_per_month` and the
-group-relative `<groupId>.selectedProduct.prod_price`. So authoring a price variable is correct as
-written, and the note elsewhere that the builder rewrites price `variableId`s applies to *changing*
-a product on an element, not to declaring one.
+group-relative `<groupId>.selectedProduct.prod_price`. So author price variables freely. The rule
+that the builder rewrites price `variableId`s applies to *changing* a product on an element, not to
+declaring one.
 
-Static price copy is therefore no longer the required default — it is the choice you make when the
-flow must be publishable without a first publish, or when the price should not track the store.
-
-This was learned by shipping the mistake — a trial paywall with a `const` purchase, no product
-element, and two price variables that the builder rejected as unknown-product on publish.
+Reserve static price copy for the two cases that call for it: the flow must be publishable without
+a first publish, or the price should not track the store. Otherwise bind the variable — a trial
+paywall with a `const` purchase, no product element and two price variables is the shape the builder
+rejects as unknown-product on publish.
 
 ### A purchase can bind a product with no `product` element
 
@@ -253,7 +252,7 @@ rendered and worked with **no `product` element on the screen and no
 `_meta.screens[].products[]` entry**. So the `const` form is self-sufficient *for binding*: the
 action names the product directly, and no element has to stand behind it.
 
-**But it is not self-sufficient for publishing, and an earlier version of this page said it was.**
+**But it is not self-sufficient for publishing.**
 Measured against `adapty/0.8.0` in production: `flows config validate` refuses that
 exact fixture with `flow._meta.screens["scr_RvSel001"].products is missing flowProductId for
 product "<uuid>" (…elements.map[…].purchase.product)`. The transform service harvests declarations

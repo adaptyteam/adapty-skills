@@ -330,17 +330,16 @@ with a child `text` whose rich text carries `token` nodes:
   {"type": "token", "attrs": {"token": "timer_seconds"}}]}
 ```
 
-**The token id carries a `timer_` PREFIX — this is not optional and it is the one place two of
-this skill's references used to disagree.** The four ids are `timer_days`, `timer_hours`,
+**The token id carries a `timer_` PREFIX — this is not optional.** The four ids are
+`timer_days`, `timer_hours`,
 `timer_minutes`, `timer_seconds`. The bare names (`hours`, `minutes`, `seconds`) **do not
 resolve**: `config validate` accepts them, but the Flow Builder paints them red `Unknown` and the
 device/preview renders the literal `%hours%:%minutes%:%seconds%`. Confirmed by pushing
 both forms to a real flow and reloading the builder — the prefixed ids render a live `23:59:59`
-chip, the bare ones stay `Unknown`. **`component-catalog.json`'s four timer templates
-(`timer-badge`, `timer-inline`, `timer-blocks`, `timer-inline-units`) shipped the bare names until
-2026-08-25** — filling one of their slots is exactly how a broken timer gets authored, so if you
-lift a timer from a template, prefix the tokens. `flowkit.timer()` + `flowkit.timer_digits()` emit
-the correct ids, and `verify-config.py` now warns on any un-prefixed `token`.
+chip, the bare ones stay `Unknown`. **Check the prefix on any timer you lift from
+`component-catalog.json`** — filling a template slot is how a broken timer gets authored.
+`flowkit.timer()` + `flowkit.timer_digits()` emit the correct ids, and `verify-config.py` warns on
+any un-prefixed `token`.
 
 ### A carousel — the real `carousel` element, never a static card with dots
 
@@ -728,8 +727,7 @@ The chip holds one 24pt `icon`; the text column holds a title and a description.
 carries no rail.**
 
 **Three parts of the rail are load-bearing, each measured by removing it** from a rendered row
-whose description had been grown from two lines to four — the exact copy growth that used to
-reopen the gap:
+whose description had been grown from two lines to four:
 
 | Change | Result |
 | :--- | :--- |
@@ -762,12 +760,10 @@ Verify by measurement, never by eye: walk the painted runs down the rail column 
 gaps** (`references/render-measure.py --column`). A rail that stops one pixel short looks like a
 design choice in a screenshot.
 
-> Superseded, and recorded so it is not rebuilt: this used to be an in-flow rail sized by
-> arithmetic, so that `chip + rail` exceeded the tallest text and the rail set the row pitch. It
-> works until the copy grows — a description going from two lines to four reopened a **49px** gap —
-> and every fix is another guess at a number a translator can invalidate. The absolute form has no
-> such number. The old note that `absolute` "cannot fix a layout-flow problem" was drawn from a
-> probe that never tried a `bottom` anchor.
+> **Never size a rail by arithmetic.** An in-flow rail tuned so `chip + rail` exceeds the tallest
+> text sets the row pitch, and it holds only until the copy grows — a description going from two
+> lines to four reopens a **49px** gap. Every fix is another guess at a number a translator can
+> invalidate. The absolute form carries no such number.
 
 ### A selectable plan card
 
@@ -869,12 +865,10 @@ Skip the declaration and the variable is what breaks: device preview returns 422
 copy under a docked CTA. Judge the layout on a throwaway copy with plausible prices substituted
 (`SKILL.md` phase 4), and never let those substituted numbers reach the config you write.
 
-An earlier version of this section said the opposite — write prices as plain text and let the user
-swap them for variables later. That was the rule before a config could carry its own declaration,
-and it is retired: it makes an authored paywall ship a fabricated price, which is worse than any
-layout defect because the user cannot see that it is wrong. Same distinction as
-[`old-price`](flow-schema.md): check whether a claim is about the *element* or about *what only the
-builder can write*.
+**Bind a price variable; never write the price as plain text for the user to swap later.** A
+literal ships a fabricated price, which is worse than any layout defect because the user cannot see
+that it is wrong. Same distinction as [`old-price`](flow-schema.md): check whether a claim is about
+the *element* or about *what only the builder can write*.
 
 **A `propsByState` entry may restyle an element; it must never resize one.** Colour, fill, opacity,
 border *colour* are free. A **border `width`** that differs between base and `selected` changes the
@@ -938,12 +932,9 @@ The shape that avoids it uses each mechanism for the one thing it is for:
   variable resolves only against a declared product, and only a `product` element can be
   attached to. Hidden costs nothing — hiding collapses the space (trap 14) — and the price then
   lives in ordinary copy anywhere on the screen.
-- **`height` is `hug`, not `fixed: 0`.** Corrected 2026-09-02: this skeleton spelled it
-  `{"type": "fixed", "value": 0}`, which is the exact shape `verify-config.py` **errors** on under
-  trap 15 — a fixed 0 saves fine and kills the element on device. So the file that tells you to
-  prefer a documented skeleton was handing you the one the checker rejects, which is finding 15's
-  class. `visibility: hidden` already collapses the space; belt-and-braces with a zero height buys
-  nothing and trips a real gate. Found by an agent that hit the error and worked around it.
+- **`height` is `hug`, never `fixed: 0`.** A `{"type": "fixed", "value": 0}` saves fine and kills
+  the element on device; `verify-config.py` **errors** on it under trap 15. `visibility: hidden`
+  already collapses the space, so a zero height buys nothing and trips a real gate.
 - The **CTA buys with `const`**, which names the product directly and needs no group and no
   selection. Both facts, with their evidence, are
   [products.md → a price variable REQUIRES a `product` element](products.md) and
@@ -1017,8 +1008,7 @@ Two more things that follow from the sheet being an ordinary part of the documen
 Two buttons on one row at the bottom, each with its own action. **If the row should stay put while
 content scrolls, put both buttons inside one
 [`footer`](#a-bar-that-stays-at-the-bottom-use-footer) as a horizontal stack and skip the
-arithmetic below entirely** — that is the case this section used to be written for, under the
-title "a side-by-side docked footer". What follows is for genuinely free-floating buttons.
+arithmetic below entirely.** What follows is for genuinely free-floating buttons.
 
 The trap is treating them as one fixed container holding two relative children: the container
 swallows the taps (same failure as [a bottom-docked button](#a-bottom-docked-button)). Each button
@@ -1068,16 +1058,9 @@ still safe — `_meta.icons` entries are inline SVG in the document, not uploade
 the `id`/`url` pairs in the do-not-lift list above. A text affordance ("Back", "Not now") remains
 the right answer when no glyph fits.
 
-> **Superseded.** This used to end in *"authoring one is the last resort and only
-> acceptable because you can render it"*, with a rule to mirror a real entry's markup and use a
-> phosphor-cased name. The evidence behind it stands and the conclusion has moved: measured,
-> three authored icons with invented lowercase names (`mf-lock`) and no
-> `width`/`height` on the `<svg>` tag drew **blank**, and the same paths drew once the entries
-> copied a real export's shape. That was recorded as unisolated, with the open question of
-> *"whether the preview drew the `raw` or a bundled phosphor glyph of that name"*. It is the
-> **name**: a `phosphor` icon resolves from the renderer's own bundle and `raw` does not override
-> it, so a lowercase invented name could never have drawn whatever markup sat beside it
-> (flow-schema.md trap 23). Authoring markup for a phosphor name is therefore not a last resort
-> but a non-answer — the bundle is the source. A `custom` icon is the opposite case and still
+> **Never author markup for a `phosphor` name — it is a non-answer, not a last resort.** A
+> `phosphor` icon resolves from the renderer's own bundle and `raw` does not override it, so an
+> invented lowercase name (`mf-lock`) draws **blank** whatever markup sits beside it
+> (flow-schema.md trap 23). The bundle is the source. A `custom` icon is the opposite case and
 > renders its own `raw`.
 

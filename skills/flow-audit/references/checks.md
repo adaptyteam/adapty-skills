@@ -23,8 +23,8 @@ real `openUrl` × 2 to `/terms` and `/privacy`, a real `restorePurchases`, and a
 on, not just an absence of selling screens. It is **not** a negative control for the
 products family: it binds three products through `const` purchase actions, none of
 which exist in the catalog fixture, and the products family correctly fires
-`product-not-in-catalog` × 3 on it — a blind spot in an earlier version of
-`bound_products`, not a pass, and the fixture never earned that claim.
+`product-not-in-catalog` × 3 on it. Treat that firing as correct — do not read it as a
+fixture the products family should be silent on.
 
 Every table below states **status** as either a real fixture it is silent on, or a real
 fixture/live flow it fires on, or both — a check with only one half proven is marked
@@ -128,7 +128,7 @@ only what it measurably *passes*.
 | Trap | What would have shipped |
 | :--- | :--- |
 | A literal-text-only presence test | Every price element's whole content is a single `variable` node with no literal text — a blank-text check flags every price on every paywall. A value counts as present if it carries text **or** a `variable`/`token`/`image` node. |
-| Treating an empty `text` node as substantive | An earlier version of the check counted a paragraph containing `{'type': 'text', 'text': ''}` as content, which made it miss its own injected empty-translation defect — a truly empty field slipped through as "has a text node". |
+| Treating an empty `text` node as substantive | Counting a paragraph containing `{'type': 'text', 'text': ''}` as content makes the check miss its own injected empty-translation defect — a truly empty field slips through as "has a text node". |
 | Reading a per-locale value as always richtext-shaped | **Three measured instances of one trap**, and the third is the worst: variable-only content (every price on every paywall reads as empty), a per-locale image object (`{id, url}`, no `type` — fired on two real fixtures), and a **conditional-text `switch`**, which is what a personalization payoff's copy is made of. That last one put a *blocker* on a real 6-screen onboarding, naming the three fields of its payoff — the read-only auditor blocking the exact screen `onboarding-teardown` exists to produce. The fix recurses the branches rather than accepting the type, so an all-empty switch still counts as empty. **Known limitation, labelled in the code:** `flat_text` still returns `''` for a switch, so conditional copy stays invisible to the `same`-as-base parity count and to every check that reads visible text — widening it reaches the price and store-review checks, which are calibrated against measured false positives. |
 | A per-locale **image** value read by the richtext-only walk | A per-locale image value is a bare `{id, url}` object with **no `type` key at all**, so a `type`-based substantive test sees nothing and calls a real, filled image asset empty. Measured on two real, working fixtures before the fix (`onboarding-quiz-paywall.json`, `vpn-timer-draft.json`). Fixed: a truthy `url` on the value also counts as present. |
 | Treating any identical-to-base value as a defect | The only two untranslated values in the whole corpus are the brand name — correctly untranslated. `untranslated` is inherently judgmental, so it can never be a blocker and is never reported per-field: it is a count with up-to-4 examples, grouped once for the whole flow, and the human judges. |
