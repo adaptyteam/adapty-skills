@@ -337,7 +337,7 @@ A boolean is for visibility, never for text: the transform service refuses one i
 **The set is closed.** A field outside those twelve is refused as `unknown_product_field` — and the
 service treats that as the author's own typo rather than a registry problem, so it is on you to get
 right. `verify-config.py` errors on one, and on a bad product id in *any* of the three families
-(`prod_*`, `offer_*`, `is_*`), which is wider than it used to check.
+(`prod_*`, `offer_*`, `is_*`).
 
 The group id is not fixed at `products` — it is whatever that screen's `selectableGroups`
 declares. The corpus uses `products`; a live builder screen used `products2`. Read it from the
@@ -659,10 +659,10 @@ Two things make this expensive to diagnose:
 - **Every check passes.** The value is a legal number, the colour resolves, `config update` saves it,
   and referential integrity is untouched. Only the render shows it.
 - **It looks like a different bug.** An element whose fill silently vanished reads as "my edit did
-  nothing" — or, in `propsByState.selected`, as "selection isn't working". This trap was originally
-  written up in this repo as *"a raw hex in a fill is silently ignored"*, which was wrong: the probe
-  that produced it changed the colour form and the opacity at the same time, and `color-style` has no
-  opacity field, so it appeared to fix a problem it had merely sidestepped.
+  nothing" — or, in `propsByState.selected`, as "selection isn't working". Do not read it as *"a raw
+  hex in a fill is silently ignored"*: that diagnosis comes from changing the colour form and the
+  opacity together, and since `color-style` has no opacity field it sidesteps the problem rather
+  than fixing it.
 
 **Also note the two colour forms are not interchangeable in what they accept.** A `color-style`
 reference (`{"type": "color-style", "colorId": "clr_X"}`) carries no `opacity`; if you need
@@ -708,9 +708,9 @@ has to be an explicit number.
 
 **The better exit is to leave the flow entirely.** An `absolute` child of that row, anchored `top`
 **and** `bottom` with `height: {"type": "auto"}`, stretches to the row's own height without any
-number at all — trap 9's fourth form. That is what a timeline rail should be, and it is why
-`patterns.md` no longer sizes one by arithmetic. `fill` is still wrong there: with both anchors
-present it stretches but stops 2px short.
+number at all — trap 9's fourth form. That is what a timeline rail should be; never size one by
+arithmetic ([patterns.md](patterns.md)). `fill` is still wrong there: with both anchors present it
+stretches but stops 2px short.
 
 ### 14. `visibility: hidden` collapses the space, it does not reserve it
 
@@ -1111,9 +1111,8 @@ fire on real builder output.
 | `validate-with-schema.mjs` | schema-validates a config — the gap `flows config validate` leaves | see below |
 | `preview-with-playwright.mjs` | headless screenshot via the render page's file input | `npx playwright install chromium` once; skip it if you already have a browser tool |
 
-A snapshot used to ship here and no longer does. At the moment it was removed the bundled copy was
-**byte-identical** to the published one, which is exactly the argument against bundling: it buys
-nothing today and silently goes stale tomorrow.
+**Do not bundle a schema snapshot here.** It buys nothing over the published one and silently
+goes stale.
 
 ### Shape and publishability are two different checks — run both
 
@@ -1268,9 +1267,8 @@ export has exactly one layer — 0 of 8 files contain a multi-layer fill**, and 
 gradient fills always live on separate elements. The builder never emits the shape, so nothing
 downstream is obliged to composite it.
 
-An earlier version of this section said the array is "composited bottom → top, which is how a tint
-over an image is expressed". That sentence is what produced the bug; the array form is a container
-the schema permits, not a compositing feature you can rely on.
+**Do not treat the array as a compositing feature** — it is a container the schema permits, not a
+bottom-to-top stack you can rely on to express a tint over an image.
 
 **So express a tint one of two ways:** bake it into the asset and upload the result (one `image`
 layer — see [media.md](media.md)), or put the second visual on its own element. **One visual
@@ -1470,9 +1468,8 @@ do not author it. This section exists because the *schema* is what sends you her
 **You cannot disable a button.** There is no disable mechanism to drive: no input has a `required`
 prop or an error-message prop, and an element's `disabled` *state* takes no condition — the builder
 emits `states: [{"id": "disabled", "type": "system"}]` with no `condition` key, and the runtime
-drives it. An earlier version of this section taught a conditional `disabled` state with a greyed
-`propsByState`. **It does not work**: four such conditions produced a 422 from the transform
-service, and no builder-emitted config contains one.
+drives it. **Never author a conditional `disabled` state with a greyed `propsByState`**: four such
+conditions produced a 422 from the transform service, and no builder-emitted config contains one.
 
 What actually exists is **conditional visibility on the button** — show it once the field has
 content. Verified from a Flow Builder export of a working screen:
@@ -1615,9 +1612,9 @@ search the entire config for the identifier in the message — not the screen yo
 A single broken screen anywhere blocks preview and publish for every screen.
 
 **The builder's duplicate-screen action copies a broken condition faithfully.** That is how the
-screen above came to exist: an earlier draft of this project's own probe was duplicated in the
-editor, and the copy carried a conditional `disabled` state — the mechanism that does not work —
-into a flow whose visible screens were all correct. Deleting the copy fixed the flow. When a 422
+screen above came to exist — a duplicated screen carried a conditional `disabled` state, the
+mechanism that does not work, into a flow whose visible screens were all correct. Deleting the copy
+fixed the flow. When a 422
 names an identifier you thought you had removed, look for a duplicate screen before you doubt the
 error, and do **not** write it off as a stale cache: nothing here is cached, and the diagnostic was
 accurate about a screen that really was still in the config.

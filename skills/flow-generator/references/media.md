@@ -1,8 +1,8 @@
 # Media assets: uploading an image and binding it into a config
 
 `flows media upload` puts a local image file on Adapty's CDN and prints the URL to reference from
-a flow config. It is the only asset path an agent has, and it closes the gap that used to make
-every image in an authored flow a user ask.
+a flow config. It is the only asset path an agent has: given a file, an image in an authored flow
+is yours to place rather than a user ask.
 
 Everything below was measured against **production** with `adapty` 0.8.0.
 Where a claim rests on a render rather than on the endpoint, it says so.
@@ -121,9 +121,8 @@ Work down this ladder and take the first rung that fits:
    ([`crop.py`](crop.py), below), or draw and rasterize it. A crop first, since their pixels beat
    your approximation of them.
 
-**Why the ask outranks both, and why this ladder used to say the opposite.** It was first written
-with crop and draw *above* the placeholder, ordered by fidelity-if-it-works. That is the wrong
-axis. The real comparison is crop **versus asking**, and asking wins on the thing that matters:
+**Why the ask outranks both.** Do not order these rungs by fidelity-if-it-works — the real
+comparison is crop **versus asking**, and asking wins on the thing that matters:
 
 | | what the user ends up with |
 | :--- | :--- |
@@ -191,18 +190,15 @@ that is the case for the missing-assets block's third route, *design around it*
 > **Crop a graphic, never a region containing text or data.** If the region you want is mostly
 > text, it is a composition, not an asset — build it, and crop only the graphic inside it.
 
-> **Corrected 2026-09-02.** This rule used to read "*any* text" and rest on "baked words cannot be
-> translated … and are invisible to the locale parity check". **Both halves are wrong for an
-> `image` element**: its `values` map is keyed by **locale**, so a per-locale lockup is
-> expressible, and `verify-config.py`'s parity walk collects *every* `_localizable` node
-> regardless of key, image maps included. The reason that survives is the variable one, and it is
-> narrower than the old rule — so the old rule forbade the right answer for a **designed lockup**
-> and pushed agents to ship a solid-colour `text` lookalike instead. See
-> [fidelity.md](fidelity.md) for what to do with lettering whose treatment is unreachable.
+> **The bar is text-or-data, not *any* text.** A **designed lockup** may be an image: an `image`
+> element's `values` map is keyed by **locale**, so a per-locale lockup is expressible, and
+> `verify-config.py`'s parity walk collects *every* `_localizable` node regardless of key, image
+> maps included. Do not downgrade a lockup to a solid-colour `text` lookalike to avoid baking
+> words. See [fidelity.md](fidelity.md) for lettering whose treatment is unreachable.
 
 **Lettering that carries a variable or a price stays a `text`, always** — an image cannot carry
-one, and that is the half of the old rule worth keeping. If its *treatment* is also unreachable,
-that is the one place a solid-colour downgrade is correct, and it ships disclosed.
+one. If its *treatment* is also unreachable, that is the one place a solid-colour downgrade is
+correct, and it ships disclosed.
 
 **Anything selectable.** A group member must be a `product`, a `selectable` or a `tab-item`; an
 `image` carrying a `groupId` is inert. So plan cards, toggles and tab bars cannot be pictures of

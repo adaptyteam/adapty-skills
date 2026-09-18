@@ -98,11 +98,9 @@ Ranked the way this repo already ranks evidence, strongest first.
    [prepare-your-app-for-store-review](https://adapty.io/docs/prepare-your-app-for-store-review)
    — the page a client is sent to, rather than a guidelines wall. **It is handed over by
    [`SKILL.md`](../SKILL.md)'s phase-5 report instruction, not by any finding's `fix`
-   string.** That placement is deliberate and was a ruling, not an oversight: an earlier
-   draft of this line promised the link would sit in every fix, and `lint-links.mjs`
-   walks `.md` files only, so a URL inside `audit-flow.py` is unlinted and rots silently.
-   The findings carry the guideline number (what a developer pastes into an appeal); the
-   report carries the link.
+   string.** Keep it there: `lint-links.mjs` walks `.md` files only, so a URL placed
+   inside `audit-flow.py` is unlinted and rots silently. The findings carry the guideline
+   number (what a developer pastes into an appeal); the report carries the link.
 4. **What is computable from a config plus the catalog.** A rule that cannot be
    measured from those two inputs is not a check; it is a `BEFORE YOU SHIP` line.
 
@@ -170,14 +168,12 @@ design. The pattern is legal, it renders, and it sells; enforcement is inconsist
 **Why structure and not the caption.** A caption match would test the template's name.
 The shape is what a reviewer sees.
 
-**One sentence was deleted from its fix, and the reason generalises.** The fix used to end
-"…or a trial timeline that states when the charge happens. **Both convert at least as
-well.**" That is a conversion claim, inside a skill whose own `SKILL.md` says *"Not
-conversion advice. This skill answers 'is it wired up', never 'will it convert' — that is
-`paywall-teardown`"*, and it was unsourced: it appears in no evidence tier here and this
-file never measured it. Deleted. Both remediations stand on their own as ways to show the
-trial's terms without a tap, which is the only thing this check knows about. If a
-conversion comparison between them is ever wanted, `paywall-teardown` owns it.
+**Never put a conversion claim in a fix string.** `SKILL.md` is explicit — *"Not conversion
+advice. This skill answers 'is it wired up', never 'will it convert' — that is
+`paywall-teardown`"* — and a comparison like "both convert at least as well" sits in no
+evidence tier here. Each remediation stands on its own as a way to show the trial's terms
+without a tap, which is the only thing this check knows about. A conversion comparison
+between them belongs to `paywall-teardown`.
 
 **Calibration — silent.** All 12 corpus configs (7 tracked + 5 raw). Plus four
 constructed SILENT cases: an Android-only app (`--stores android`), a switch that names
@@ -271,8 +267,8 @@ certify what you could not see". This is also why `tests/test-audit-flow.py`'s
 "catalog-path-equals-config-path" test carves this check out alongside the `products`
 family: it is family `compliance` but genuinely catalog-dependent.
 
-**The question form has three outcomes, not one, and two of them were wrong at first.**
-A missing `period` has several causes and they are not equally worth saying:
+**The question form has three outcomes, not one.** A missing `period` has several causes and they
+are not equally worth saying:
 
 | the product is… | outcome | why |
 |---|---|---|
@@ -393,12 +389,12 @@ outside the card — "Billed yearly" under the CTA discloses it for every card a
 a card-scoped test would flag a compliant layout, and one row per card would bury four
 identical findings in the report.
 
-**Its message says only what it knows, and the earlier wording did not.** The finding
-used to read "A user sees a price and a button with no billing frequency attached", with a
-fix pointing at "where the price is". The **one real export it fires on**,
-`tests/fixtures/tabs-paywall.json`, has **zero price variables in the whole document** —
-recorded two paragraphs down, in this same file — so the message asserted a fact its only
-real firing case contradicts, and the fix pointed at something that is not on the screen.
+**Its message must say only what it knows — never that a price is on screen.** The **one
+real export it fires on**, `tests/fixtures/tabs-paywall.json`, has **zero price variables in
+the whole document** (recorded two paragraphs down, in this same file), so wording like "a
+user sees a price and a button with no billing frequency attached" asserts a fact its only
+real firing case contradicts, and a fix pointing at "where the price is" points at something
+not on the screen.
 Reworded to the absence the check actually measures: no billing period appears anywhere in
 this screen's copy. **Never reintroduce a price into either string** — this check cannot
 see prices; `billed-amount-not-shown` is the one that reads them.
