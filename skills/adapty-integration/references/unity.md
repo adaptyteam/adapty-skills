@@ -5,7 +5,7 @@ Platform: Unity · Language: C# · Targets: iOS and Android from one project
 ## Prerequisites
 
 - Unity 2022.3 or later (the `com.adapty.unity-sdk` package declares this as its minimum)
-- Adapty Unity SDK **4.1+**. 4.1 is the first stable release of the 4.x line — there is no stable `4.0.x` here — so `4.1.0` is the floor. The requirements below are hard floors, not preferences: a project that cannot meet them cannot install this SDK, and there is no 3.x path in this reference to fall back to. Say which requirement is unmet, name the upgrade, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
+- Adapty Unity SDK **v4** — Stage 1 resolves the exact version from the releases API. v4 is the floor because Stage 2 fetches with `getFlow`, and the flow APIs do not exist below it. The requirements below are hard floors, not preferences: a project that cannot meet them cannot install this SDK, and there is no 3.x path in this reference to fall back to. Say which requirement is unmet, name the upgrade, and record it in `ADAPTY_SETUP.md` rather than installing an older Adapty major
 - **iOS 15.0+ for the whole app** on SDK 4.x — not just for builder-rendered screens. An Editor build validator fails the iOS build when the deployment target is lower
 - External Dependency Manager for Unity (EDM4U / unity-jar-resolver) **1.2.188 or later** — this is the SDK's declared peer dependency, and earlier versions cannot resolve Swift Package Manager dependencies
 - Android with Google Play Billing Library support (SDK 4.x uses Billing Library v8)
@@ -231,7 +231,7 @@ Two install paths. **Prefer the Package Manager one** — it resolves `com.unity
    ```bash
    curl -s https://api.github.com/repos/adaptyteam/AdaptySDK-Unity/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4
    ```
-   It must print `4.1.0` or higher. If it prints nothing — no network, a proxy, no `curl`, or a GitHub rate limit — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-Unity/releases) rather than guessing one.
+   It must print `4.` or higher. If it prints nothing — no network, a proxy, no `curl`, or a GitHub rate limit — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-Unity/releases) rather than guessing one. If it prints a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
 
 4. Enter the URL with that tag appended, and click **Add**:
    ```

@@ -8,7 +8,7 @@ Platform: Kotlin Multiplatform · Language: Kotlin · Targets: Android + iOS
 - Xcode 16.2+ (for iOS target); iOS deployment target 15.0+
 - Google Play Billing Library up to 8.x (Adapty defaults to 7.0.0)
 - `mavenCentral()` in your Gradle repositories
-- Adapty Kotlin Multiplatform SDK **4.1.0+**. There is no stable `4.0.x` on this platform — the line went `4.0.0-beta.1` → `4.0.1-beta.1` → `4.1.0` — so `4.1.0` is the floor here, not `4.0.0`
+- Adapty Kotlin Multiplatform SDK **v4** — Stage 1 resolves the exact version from Maven Central. v4 is the floor because Stage 2 fetches with `getFlow`, and the flow APIs do not exist below it
 
 ---
 
@@ -157,7 +157,7 @@ The dependency goes in the **shared module's** `build.gradle.kts` (or equivalent
 curl -s https://repo1.maven.org/maven2/io/adapty/adapty-kmp/maven-metadata.xml | grep -o '<release>[^<]*' | cut -c10-
 ```
 
-Sanity-check the result against the floor: it must be `4.1.0` or higher. If the command prints nothing — no network, a proxy, no `curl` — **stop and ask the user** for the current version from [Maven Central](https://central.sonatype.com/artifact/io.adapty/adapty-kmp/versions). An SDK version you remember is the one value on this page you cannot verify, and on this platform a remembered version is very likely a `4.0.0-beta` that is no longer the right answer.
+It must print `4.` or higher. If the command prints nothing — no network, a proxy, no `curl` — **stop and ask the user** for the current version from [Maven Central](https://central.sonatype.com/artifact/io.adapty/adapty-kmp/versions). An SDK version you remember is the one value on this page you cannot verify, and on this platform a remembered version is very likely a `4.0.0-beta` that was never the right answer. If it prints a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
 
 **Write a concrete version, never a dynamic range.** Gradle does accept ranges (`[4.1.0,5.0.0)`, `4.1.+`), but unlike SwiftPM's `from:` or Dart's `^` they are resolved fresh per build, so the same commit can produce different versions on two machines — and `latest.release` would cross into the next major and break the API set Stage 2 is written against. Resolve once, write the result, and refresh it deliberately.
 

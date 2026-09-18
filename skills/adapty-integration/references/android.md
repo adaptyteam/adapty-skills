@@ -154,14 +154,14 @@ Then guide the user through each step explicitly.
 
 The user needs to add dependencies to their **module-level** `build.gradle` (or `build.gradle.kts`). Ask which file format they use, then write the correct block.
 
-**The floor is `4.1.0` and it is not conditional on the paywall approach.** Stage 2 fetches with `getFlow` on every approach — Flow Builder, custom paywall and Observer mode alike — and the flow APIs do not exist below v4, so a 3.x BOM produces code that does not compile. The BOM resolves the matching `android-sdk` and `android-ui` versions for you.
+**The floor is v4 and it is not conditional on the paywall approach.** Stage 2 fetches with `getFlow` on every approach — Flow Builder, custom paywall and Observer mode alike — and the flow APIs do not exist below v4, so a 3.x BOM produces code that does not compile. The BOM resolves the matching `android-sdk` and `android-ui` versions for you.
 
-**Resolve the version — do not write one from memory.** Run this and use exactly what it prints; `<release>` is the newest *stable* release, so it skips betas on its own:
+**Resolve the version — do not write one from memory, and do not reuse a number from this page.** Run this and use exactly what it prints; `<release>` is the newest *stable* release, so it skips betas on its own:
 ```bash
 curl -s https://repo1.maven.org/maven2/io/adapty/adapty-bom/maven-metadata.xml | grep -o '<release>[^<]*' | cut -c10-
 ```
 
-Sanity-check the result against the floor: it must be `4.1.0` or higher. If the command prints nothing — no network, a proxy, no `curl` — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-Android/releases). An SDK version you remember is the one value on this page you cannot verify, and a wrong one either fails the build or silently installs an API set Stage 2 was not written against.
+It must print `4.` or higher. If the command prints nothing — no network, a proxy, no `curl` — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-Android/releases). An SDK version you remember is the one value on this page you cannot verify, and a wrong one either fails the build or silently installs an API set Stage 2 was not written against. If it prints a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
 
 If the project is already on a 3.x BOM, it is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-android-sdk-v4.md) for the paywall-to-flow API rename, then [Migrate to v4.1](https://adapty.io/docs/migration-to-android-sdk-41.md) for the attribution changes below.
 
