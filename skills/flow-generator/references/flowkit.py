@@ -1718,32 +1718,22 @@ def _typo(entry):
 
 
 def flow_product_id(screen_id, product_id, offer_id=None):
-    """The builder's own `flowProductId`, reproduced exactly.
+    """The builder's `flowProductId` for one Product + optional Offer pair on one screen.
 
-    This value is NOT server-side and NOT unguessable -- both were long-standing claims here,
-    and both were wrong. The builder mints it client-side in `buildFlowMeta.ts` (`collectProducts`,
-    marked "FROZEN (ADP-7398 E4)"):
+    An RFC-4122 v5 UUID over the UTF-8 bytes of `screenId:productId[:offerId]`, with an EMPTY
+    namespace -- a zero-LENGTH prefix, not sixteen zero bytes. So do not reach for
+
+        uuid.uuid5(uuid.UUID(int=0), name)   # prefixes 16 zero bytes, returns a different id
+
+    which is why this hashes by hand. Pass `offer_id` whenever the binding has one: it is part of
+    the hash, so the same product with and without an offer are two different ids.
+
+    Matches the builder's `buildFlowMeta.ts` (`collectProducts`, "FROZEN (ADP-7398 E4)"):
 
         getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}`)
 
-    `getUuid` is npm `uuid-by-string`: an RFC-4122 **v5** UUID over the UTF-8 name bytes with an
-    **empty namespace prefix** -- a zero-LENGTH prefix, not sixteen zero bytes. That one detail is
-    why the earlier search missed it: every candidate in the 2,944- and then 19,776-combination
-    sweeps prefixed a 16-byte namespace, so none of them could ever have matched. The same detail
-    is why the obvious shortcut is also wrong --
-
-        uuid.uuid5(uuid.UUID(int=0), name)   # NOT this: it prefixes 16 zero bytes
-
-    -- and why this hashes by hand instead.
-
-    Verified 9/9 against real builder-minted values from three independent sources: the builder's
-    own unit test `buildFlowMeta.test.ts` (both branches, offer-bearing pairs included),
-    the demo flow `demo/src/data/calm.data.ts`, and the transformer fixture
-    `src/fixtures/v5/progress-bar-connectors/input.json`. The vectors are in
-    `tests/test-flowkit.py`; re-run it if you touch this.
-
-    `offer_id` is part of the hash, so a product bound WITH an offer and the same product bound
-    without one are two different ids. Passing the offer when there is one is not optional.
+    Nine vectors from real builder output are pinned in `tests/test-flowkit.py` -- run it if you
+    touch this.
     """
     name = f'{screen_id}:{product_id}:{offer_id}' if offer_id else f'{screen_id}:{product_id}'
     digest = bytearray(hashlib.sha1(name.encode('utf-8')).digest()[:16])
@@ -1763,21 +1753,19 @@ def predeclare(screen_id, products):
     after someone opens the flow in the builder and saves it. "Publish it to preview it" is not
     a workflow you can hand a user.
 
-    `products` is a list of **exact Product + optional Offer pairs**, because the offer is part
-    of the id (see `flow_product_id`). Each item is either a bare product id, or a
-    `(product_id, offer_id)` tuple:
+    Pass `products` as exact Product + optional Offer pairs: each item is either a bare product id
+    or a `(product_id, offer_id)` tuple.
 
         predeclare('scr_x', ['annual', ('annual', 'trial')])
 
-    The emitted `flowProductId`s are the ones the builder itself would mint, not placeholders --
-    so a draft carrying them previews on a real device with no publish and no builder visit, and
-    a later builder save rewrites them to the same values. Entry key order matches the builder's:
-    `id`, then `offerId` when there is one, then `flowProductId`.
+    The emitted ids are the ones the builder mints, so a draft carrying them previews on a real
+    device with no publish and no builder visit, and the builder's next save rewrites them to the
+    same values. Entry key order matches the builder's: `id`, `offerId` when there is one, then
+    `flowProductId`.
 
-    One limit remains: when REWRITING a flow, carry the live `_meta.screens` forward rather than
-    regenerating it. These ids now agree with the builder's for every pair you pass, but a live
-    declaration may hold pairs your rewrite does not know about -- component-owned bindings among
-    them -- and regenerating drops those.
+    When REWRITING a flow, carry the live `_meta.screens` forward instead of calling this. A live
+    declaration can hold pairs your rewrite does not know about -- component-owned bindings among
+    them -- and regenerating drops them.
     """
     entries = []
     for item in products:

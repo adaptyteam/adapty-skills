@@ -25,12 +25,12 @@ cannot be synthesized:
 
 Everything else is reachable: product UUIDs from `adapty products list` (or `products create`),
 `theme` colours sampled off a reference screenshot, and icon markup resolved from the bundle
-`references/icons.py` ships. **`flowProductId` used to head this list and no longer belongs on
-it** — it is a UUIDv5 over `screenId:productId[:offerId]` with an empty namespace, and
-`flowkit.predeclare(screen_id, products)` writes the per-screen `_meta.screens[].products[]`
-declaration with the ids the builder itself would mint. Pass exact Product + Offer pairs, a bare
-product id or a `(product_id, offer_id)` tuple, because the offer is part of the id. Omit the
-declaration entirely and device preview 422s. When *rewriting* a flow, still carry the live
+`references/icons.py` ships.
+
+**`flowProductId`** — the per-screen declaration in `_meta.screens[].products[]` — is derived, not
+waited for. `flowkit.predeclare(screen_id, products)` writes the block; pass exact Product + Offer
+pairs, a bare product id or a `(product_id, offer_id)` tuple, because the offer is part of the id.
+Omit the declaration and device preview 422s. When *rewriting* a flow, carry the live
 `_meta.screens` forward instead of regenerating it ([products.md](references/products.md)).
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.

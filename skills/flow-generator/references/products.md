@@ -63,16 +63,11 @@ Builder, the flow was re-exported:
 
 Four consequences, and this file is the authority on all four:
 
-- **Never COPY `_meta.screens[].products[]` between flows or exports, and on a flow you are
-  rewriting, carry the live block through untouched.** Authoring one for a flow you wrote yourself
-  is fine and is the preferred route — see *Declare the products yourself* below. What is never
-  fine is a value lifted from somewhere else.
-- **`flowProductId` is SCREEN-scoped, and that is now explained rather than merely observed.** The
-  same product in the same flow (`c599e7f6…`) carried `a00b5c50…` in one export and `6cc4fef1…` in
-  a later one — because the id hashes the **screen id** along with the product, so a recreated
-  screen mints a new one. It is a UUIDv5 over `screenId:productId[:offerId]`, so it **can** be
-  predicted, by `flowkit.flow_product_id()`. It still cannot be reused across exports whose screen
-  ids differ.
+- **Never copy `_meta.screens[].products[]` from another flow or export.** On a flow you are
+  rewriting, carry the live block through untouched. On a flow you authored, derive it with
+  `flowkit.predeclare()` — *Declare the products yourself*, below.
+- **`flowProductId` is screen-scoped.** Derive it per screen; the same product on two screens has
+  two different ids, and an id is wrong the moment the screen id differs.
 - **Price variables self-heal on attachment.** A wrong `product.id` is repaired by the human
   step rather than shipped as a broken paywall — the builder rewrites the id and every price
   `variableId` keyed to it. So worry less about id accuracy and more about the two failures the
@@ -83,9 +78,8 @@ Four consequences, and this file is the authority on all four:
   attachment pass before the user tries to publish.
 - **Builder-owned means do not OMIT it either, not just do not author it.** `config update`
   replaces the whole config, so a script that regenerates a config from source and emits
-  `_meta.screens: {}` **destroys attachments the user made in the builder** — and the
-  `flowProductId` values are recomputable but the **pairs** are not — a live block can declare
-  Product + Offer combinations your source never mentions — so the next publish fails with a 422
+  `_meta.screens: {}` **destroys attachments the user made in the builder** — a live block can
+  declare Product + Offer pairs your source never mentions, so the next publish fails with a 422
   and the user has to redo the pass. Measured in this project: a hand-built flow was regenerated and rewritten
   four times from a source whose `_meta.screens` was empty; it only escaped clobbering the
   attachment because the user happened to attach *after* the last write. **On every regeneration,
@@ -158,29 +152,20 @@ So the division of labour is:
 | | |
 |---|---|
 | An agent can | bind `product.id`, set `groupId`/`default`, wire `<group>.selectedProduct` |
-| An agent cannot | *nothing here any more* — see below; `config update` still does not synthesize the block, but you can write it |
+| An agent can also | derive `_meta.screens[].products[]` and write it — `config update` does not synthesize the block, so send it yourself (below) |
 | The builder does | declare the products on open, minting the same `flowProductId` you would |
 
-`flowProductId` **is computable, and this file said for months that it was not.** It is a UUIDv5
-over `screenId:productId` — or `screenId:productId:offerId` when the binding carries an offer —
-with an **empty namespace**. Source: the builder's `buildFlowMeta.ts`, whose `collectProducts`
-is marked *"FROZEN (ADP-7398 E4)"*:
+`flowProductId` is a UUIDv5 over `screenId:productId` — or `screenId:productId:offerId` when the
+binding carries an offer — hashed with an **empty namespace**. The builder mints it in
+`buildFlowMeta.ts` → `collectProducts`, marked *"FROZEN (ADP-7398 E4)"*:
 
 ```js
 flowProductId: getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}`)
 ```
 
-`getUuid` is npm `uuid-by-string`, which hashes the UTF-8 name with a **zero-length** namespace
-prefix. That is the whole reason the earlier searches failed: every one of the 2,944 and then
-19,776 combinations prefixed a 16-byte namespace, so none could have matched. Two consequences
-worth holding on to — the same product on two screens still gets two different ids (the screen id
-is in the hash), and `uuid.uuid5(uuid.UUID(int=0), name)` is **not** the same thing, because
-Python prefixes sixteen zero bytes where the JS library prefixes nothing.
-
-`flowkit.flow_product_id(screen_id, product_id, offer_id=None)` implements it, verified 9/9
-against real builder-minted values from three independent sources (the builder's own
-`buildFlowMeta.test.ts`, its demo flow, and a transformer fixture). Still do not **copy** one
-between flows — derive it.
+Call `flowkit.flow_product_id(screen_id, product_id, offer_id=None)`. Do not substitute
+`uuid.uuid5(uuid.UUID(int=0), name)`: Python prefixes sixteen zero bytes where the builder
+prefixes nothing, so it returns a different id.
 
 ### Declare the products yourself, and a new flow previews on a device immediately
 
@@ -193,24 +178,19 @@ the config you send:
   {"id": "<product-uuid>", "offerId": "<offer-id>", "flowProductId": "<derived>"}]}}}
 ```
 
-`flowkit.predeclare(screen_id, products)` generates it. `products` is a list of **exact Product +
-Offer pairs** — a bare product id, or a `(product_id, offer_id)` tuple — because the offer is part
-of the hash, so the same product with and without an offer are two entries with two different ids:
+`flowkit.predeclare(screen_id, products)` generates it. Pass **exact Product + Offer pairs** — a
+bare product id, or a `(product_id, offer_id)` tuple. The offer is part of the id, so a product
+bound with an offer and the same product bound without one are two entries:
 
 ```python
 fk.predeclare('scr_x', ['annual', ('annual', 'trial')])
 ```
 
-The ids it writes are the builder's own, so a later builder save rewrites them to the same values
-and nothing churns. That is stronger than what this route used to promise: a **draft** flow, never
-published and never opened in the builder, was measured previewing on a real device with two
-*fabricated* ids, because the transform service checks a declaration is **present and internally
-consistent** rather than correct. Correct ids simply remove the question.
+The ids match what the builder mints, so its next save rewrites them to the same values.
 
-One limit, narrower than the old one: **when rewriting an existing flow, carry the live
-`_meta.screens` forward rather than regenerating it.** The ids now agree for every pair you pass,
-but a live declaration can hold pairs your rewrite does not know about — component-owned bindings
-among them — and regenerating drops those.
+**When rewriting an existing flow, carry the live `_meta.screens` forward instead.** A live
+declaration can hold pairs your rewrite does not know about — component-owned bindings among them
+— and regenerating drops them.
 
 ### Device preview fails on a freshly authored flow, and publishing fixes it
 
