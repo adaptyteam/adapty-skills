@@ -958,7 +958,7 @@ hidden attach point at all** — every `product` element across the corpus is a 
 two halves it is built from *are* attested separately: `hug` is what every real `product` element
 uses, and `visibility: hidden` appears on real builder output elsewhere in the corpus. What is
 *not* yet verified: whether the builder declares a product on a **hidden** element when it saves.
-Provisional declaration via `flowkit.predeclare()` covers device preview meanwhile, so check the
+Declare it with `flowkit.predeclare()` to cover device preview meanwhile, and check the
 live `_meta.screens` after the flow has been saved in the builder once before relying on it.
 
 ### Plans in a `bottom-sheet`

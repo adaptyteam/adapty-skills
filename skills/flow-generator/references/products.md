@@ -63,13 +63,11 @@ Builder, the flow was re-exported:
 
 Four consequences, and this file is the authority on all four:
 
-- **NEVER hand-author or copy `_meta.screens[].products[]`.** It is builder-owned bookkeeping.
-  Carry the block through untouched from the source export, or leave the screen without one and
-  let the user attach.
-- **`flowProductId` is assignment-scoped, not flow-scoped.** The same product in the same flow
-  (`c599e7f6…`) carried `a00b5c50…` in one export and `6cc4fef1…` in a later one. It is a
-  UUIDv5, so derived — but not from `(flow, product)`. It cannot be predicted, and it cannot be
-  reused across exports of the same flow.
+- **Never copy `_meta.screens[].products[]` from another flow or export.** On a flow you are
+  rewriting, carry the live block through untouched. On a flow you authored, derive it with
+  `flowkit.predeclare()` — *Declare the products yourself*, below.
+- **`flowProductId` is screen-scoped.** Derive it per screen; the same product on two screens has
+  two different ids, and an id is wrong the moment the screen id differs.
 - **Price variables self-heal on attachment.** A wrong `product.id` is repaired by the human
   step rather than shipped as a broken paywall — the builder rewrites the id and every price
   `variableId` keyed to it. So worry less about id accuracy and more about the two failures the
@@ -80,9 +78,9 @@ Four consequences, and this file is the authority on all four:
   attachment pass before the user tries to publish.
 - **Builder-owned means do not OMIT it either, not just do not author it.** `config update`
   replaces the whole config, so a script that regenerates a config from source and emits
-  `_meta.screens: {}` **destroys attachments the user made in the builder** — and the
-  `flowProductId` values cannot be recomputed, so the next publish fails with a 422 and the user
-  has to redo the pass. Measured in this project: a hand-built flow was regenerated and rewritten
+  `_meta.screens: {}` **destroys attachments the user made in the builder** — a live block can
+  declare Product + Offer pairs your source never mentions, so the next publish fails with a 422
+  and the user has to redo the pass. Measured in this project: a hand-built flow was regenerated and rewritten
   four times from a source whose `_meta.screens` was empty; it only escaped clobbering the
   attachment because the user happened to attach *after* the last write. **On every regeneration,
   re-read the live config and carry `_meta.screens` forward** for every screen that still exists
@@ -92,8 +90,8 @@ Four consequences, and this file is the authority on all four:
   an empty `_meta.screens` **saved without complaint** and then failed the publish transform with
   **HTTP 422** — `flow._meta.screens["scr_duoPay"].products is missing flowProductId for product
   "68c96b3c-…"`, naming both the `_meta` path and the `props.product` path that required it. So the
-  missing `flowProductId` is a hard stop at publish time, which is exactly why you must not invent
-  one and must hand the attachment pass to the user instead.
+  missing `flowProductId` is a hard stop at publish time, which is exactly why a declaration must
+  be **derived** — `flowkit.predeclare()` — rather than invented or omitted.
 
 ### VERIFIED ON DEVICE: a second price-variable form that tracks the selection
 
@@ -154,13 +152,20 @@ So the division of labour is:
 | | |
 |---|---|
 | An agent can | bind `product.id`, set `groupId`/`default`, wire `<group>.selectedProduct` |
-| An agent cannot | write `_meta.screens[].products[]` — `config update` does not synthesize it |
-| The builder does | mint `flowProductId` and declare the products, on open |
+| An agent can also | derive `_meta.screens[].products[]` and write it — `config update` does not synthesize the block, so send it yourself (below) |
+| The builder does | declare the products on open, minting the same `flowProductId` you would |
 
-`flowProductId` is a UUIDv5 but **not over any input the config contains** — 2,944
-namespace/name/version combinations tested against 5 real (screen, product, flowProductId)
-triples, no match, and the same product on two screens gets two different ids. So do not try to
-author one, and do not copy one between flows.
+`flowProductId` is a UUIDv5 over `screenId:productId` — or `screenId:productId:offerId` when the
+binding carries an offer — hashed with an **empty namespace**. The builder mints it in
+`buildFlowMeta.ts` → `collectProducts`, marked *"FROZEN (ADP-7398 E4)"*:
+
+```js
+flowProductId: getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}`)
+```
+
+Call `flowkit.flow_product_id(screen_id, product_id, offer_id=None)`. Do not substitute
+`uuid.uuid5(uuid.UUID(int=0), name)`: Python prefixes sixteen zero bytes where the builder
+prefixes nothing, so it returns a different id.
 
 ### Declare the products yourself, and a new flow previews on a device immediately
 
@@ -169,22 +174,23 @@ the config you send:
 
 ```json
 "_meta": {"screens": {"scr_x": {"products": [
-  {"id": "<product-uuid>", "flowProductId": "<any stable uuid>"}]}}}
+  {"id": "<product-uuid>", "flowProductId": "<derived>"},
+  {"id": "<product-uuid>", "offerId": "<offer-id>", "flowProductId": "<derived>"}]}}}
 ```
 
-Measured: a **draft** flow, never published and never opened in the builder, carrying two
-fabricated `flowProductId`s, previewed on a real device with no errors. The transform service
-checks that a declaration is **present and internally consistent** — not that the value is the one
-the builder would have minted. `flowkit.predeclare(screen_id, product_ids)` generates one.
+`flowkit.predeclare(screen_id, products)` generates it. Pass **exact Product + Offer pairs** — a
+bare product id, or a `(product_id, offer_id)` tuple. The offer is part of the id, so a product
+bound with an offer and the same product bound without one are two entries:
 
-The value cannot be computed (19,776 namespace/name/version combinations over 4 triples with full
-provenance — app, flow, screen, element and product ids all known — produce no match), so this is
-a provisional handle, not the right answer. Two limits:
+```python
+fk.predeclare('scr_x', ['annual', ('annual', 'trial')])
+```
 
-- **Never do this when rewriting an existing flow.** Carry the live `_meta.screens` forward
-  instead; replacing a real declaration with a provisional one is a regression.
-- `flowProductId` is a server-side handle and this project does not know what else it keys. Treat
-  a provisional value as good for previewing, and expect the builder to replace it when it saves.
+The ids match what the builder mints, so its next save rewrites them to the same values.
+
+**When rewriting an existing flow, carry the live `_meta.screens` forward instead.** A live
+declaration can hold pairs your rewrite does not know about — component-owned bindings among them
+— and regenerating drops them.
 
 ### Device preview fails on a freshly authored flow, and publishing fixes it
 
@@ -265,7 +271,7 @@ Three consequences, the third of which is a correction:
   its product attached and resolvable; a `const` purchase does not.
 - **Every product a screen names needs a `_meta.screens[<sid>].products[]` entry, however it is
   named** — element, `const` purchase, condition or price variable. On a flow you authored,
-  `flowkit.predeclare()` writes it and a provisional `flowProductId` is accepted. A screen with
+  `flowkit.predeclare()` writes it, minting the same `flowProductId` the builder would. A screen with
   hardcoded price copy and `const` purchases is complete for rendering and **still blocked for
   publishing** until those products are declared.
 

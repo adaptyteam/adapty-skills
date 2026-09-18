@@ -29,6 +29,7 @@ Run `tests/test-flowkit.py` after touching it.
         typography=[("h1", "H1", 28, "bold"), ("body", "Body", 16, "regular")],
     )
 """
+import hashlib
 import os
 import re
 import sys
@@ -1716,12 +1717,34 @@ def _typo(entry):
     return {'id': i, 'name': n, 'settings': settings}
 
 
-PREDECLARE_NS = uuid.UUID('1b671a64-40d5-491e-99b0-da01ff1f3341')
+def flow_product_id(screen_id, product_id, offer_id=None):
+    """The builder's `flowProductId` for one Product + optional Offer pair on one screen.
+
+    An RFC-4122 v5 UUID over the UTF-8 bytes of `screenId:productId[:offerId]`, with an EMPTY
+    namespace -- a zero-LENGTH prefix, not sixteen zero bytes. So do not reach for
+
+        uuid.uuid5(uuid.UUID(int=0), name)   # prefixes 16 zero bytes, returns a different id
+
+    which is why this hashes by hand. Pass `offer_id` whenever the binding has one: it is part of
+    the hash, so the same product with and without an offer are two different ids.
+
+    Matches the builder's `buildFlowMeta.ts` (`collectProducts`, "FROZEN (ADP-7398 E4)"):
+
+        getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}`)
+
+    Nine vectors from real builder output are pinned in `tests/test-flowkit.py` -- run it if you
+    touch this.
+    """
+    name = f'{screen_id}:{product_id}:{offer_id}' if offer_id else f'{screen_id}:{product_id}'
+    digest = bytearray(hashlib.sha1(name.encode('utf-8')).digest()[:16])
+    digest[6] = (digest[6] & 0x0F) | 0x50   # version 5
+    digest[8] = (digest[8] & 0x3F) | 0x80   # RFC-4122 variant
+    return str(uuid.UUID(bytes=bytes(digest)))
 
 
-def predeclare(screen_id, product_ids):
-    """A provisional `_meta.screens` declaration, so a NEW flow previews on a device
-    immediately instead of only after the builder has saved it.
+def predeclare(screen_id, products):
+    """The `_meta.screens` declaration for a NEW flow, so it previews on a device immediately
+    instead of only after the builder has saved it.
 
     Why this exists: the transform service (which device preview and publish run, and
     `config update` does not) rejects a bound product with no declaration --
@@ -1730,24 +1753,29 @@ def predeclare(screen_id, product_ids):
     after someone opens the flow in the builder and saves it. "Publish it to preview it" is not
     a workflow you can hand a user.
 
-    The `flowProductId` values here are FABRICATED, and deliberately so. The real derivation is
-    server-side -- 19,776 namespace/name/version combinations over 4 triples with full
-    provenance (app, flow, screen, element, product) produce no match. Measured: the service
-    checks that a declaration is present and internally consistent, not that the value is the
-    builder's own, so a draft carrying these previews on a real device with no publish and no
-    builder visit.
+    Pass `products` as exact Product + optional Offer pairs: each item is either a bare product id
+    or a `(product_id, offer_id)` tuple.
 
-    Two limits, both important:
+        predeclare('scr_x', ['annual', ('annual', 'trial')])
 
-      * When REWRITING a flow, never call this -- carry the live `_meta.screens` forward
-        instead. Overwriting a real declaration with a provisional one is a regression.
-      * `flowProductId` is a server-side handle whose other uses are unknown to this project.
-        Treat a provisional value as good for previewing, and expect the builder to replace it
-        on its next save.
+    The emitted ids are the ones the builder mints, so a draft carrying them previews on a real
+    device with no publish and no builder visit, and the builder's next save rewrites them to the
+    same values. Entry key order matches the builder's: `id`, `offerId` when there is one, then
+    `flowProductId`.
+
+    When REWRITING a flow, carry the live `_meta.screens` forward instead of calling this. A live
+    declaration can hold pairs your rewrite does not know about -- component-owned bindings among
+    them -- and regenerating drops them.
     """
-    return {screen_id: {'products': [
-        {'id': pid, 'flowProductId': str(uuid.uuid5(PREDECLARE_NS, f'{screen_id}:{pid}'))}
-        for pid in product_ids]}}
+    entries = []
+    for item in products:
+        pid, offer_id = item if isinstance(item, (tuple, list)) else (item, None)
+        entry = {'id': pid}
+        if offer_id:
+            entry['offerId'] = offer_id
+        entry['flowProductId'] = flow_product_id(screen_id, pid, offer_id)
+        entries.append(entry)
+    return {screen_id: {'products': entries}}
 
 
 def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'English'),),
