@@ -875,15 +875,70 @@ PLACEHOLDER = object()
 OBJECT_FIT = ('cover', 'fit')
 
 
-def image(url, *, media_id=None, fit='cover', width='fill', height='hug',
+def _image_value(url, media_id, preview):
+    """One `IImage`: `{id, url, previewValue?}`, the shape the builder's own upload writes.
+
+    `previewValue` is the base64 thumbnail the renderer paints while the full asset downloads.
+    Without it the renderer has nothing to paint, so it substitutes a transparent 1x1 and the
+    screen shows a HOLE until the image arrives — on a slow connection, for seconds. Nothing
+    catches this: `flows config validate` returns valid:true either way, the schema declares
+    `previewValue` optional, and `config preview` renders off a local file where there is no
+    download to wait for.
+
+    The value is bare base64 with NO `data:` prefix, exactly as `flows media upload --json`
+    returns it in `preview_base64` (a half-size WEBP; the renderer's own fallback is a bare
+    base64 PNG). The key is OMITTED when the upload generated no preview, matching the builder,
+    rather than written as null or an empty string.
+    """
+    entry = {'url': url}
+    if media_id is not None:
+        entry['id'] = str(media_id)
+    if preview is not None:
+        if not isinstance(preview, str) or not preview.strip():
+            raise TypeError(
+                'preview= wants the `preview_base64` string from `flows media upload --json`, '
+                f'or None when the upload returned none — never {preview!r}')
+        if preview.startswith('data:'):
+            raise ValueError(
+                'preview= wants BARE base64, not a data URI: pass `preview_base64` through '
+                'unchanged, exactly as the upload returned it')
+        entry['previewValue'] = preview
+    return entry
+
+
+def image_fill(url, *, media_id=None, preview=None, color_id=None, hexval=None):
+    """A background image fill — `props.fill` on a screen or a stack.
+
+    The SAME asset binds two different ways and this is the other one: an `image` element wraps
+    its value in a per-locale `values` map, while a fill takes the `IImage` FLAT. A fill is not
+    localizable, so a background that must change per language has to be an element instead.
+
+    `preview` matters here for the same reason it does on an element, and more visibly: a
+    background is usually the largest asset on the screen, so it is the one whose absence reads
+    as a broken screen rather than a missing picture.
+    """
+    layer = {'type': 'image', 'image': _image_value(url, media_id, preview)}
+    if color_id is not None and hexval is not None:
+        raise TypeError('image_fill(): pass color_id or hexval, not both')
+    if color_id is not None:
+        layer['color'] = color(color_id)
+    elif hexval is not None:
+        layer['color'] = hex_color(hexval)
+    return [layer]
+
+
+def image(url, *, media_id=None, preview=None, fit='cover', width='fill', height='hug',
           fixed_w=None, fixed_h=None, corner=None, margin=None, position=None,
           locale='en', **kw):
     """An `image` element bound to an uploaded asset.
 
-    `url` is the CDN URL that `flows media upload` printed, and `media_id` the id it printed
+    `url` is the CDN URL that `flows media upload` printed, `media_id` the id it printed
     alongside — passed through `str()`, because the command prints a number while the schema
-    declares `IImage.id` as a string. Pass `flowkit.PLACEHOLDER` as the url for the no-asset
-    case; anything else falsy is an error rather than a silent empty map.
+    declares `IImage.id` as a string — and `preview` the `preview_base64` string that only
+    `--json` returns. Capture all three from the ONE invocation: there is no `flows media get`,
+    so a preview not read at upload time cannot be read later at all, and re-uploading the file
+    mints a second asset with a different URL. Pass `flowkit.PLACEHOLDER` as the url for the
+    no-asset case; anything else falsy is an error rather than a silent empty map.
 
     Geometry, measured (media.md): with `height='hug'` the drawn height comes from the ASSET's
     aspect ratio, so the screen re-flows if the file is swapped and `fit` has no visible effect.
@@ -895,10 +950,8 @@ def image(url, *, media_id=None, fit='cover', width='fill', height='hug',
     if url is PLACEHOLDER:
         content = {'values': {}, '_localizable': True}
     elif isinstance(url, str) and url.strip():
-        entry = {'url': url}
-        if media_id is not None:
-            entry['id'] = str(media_id)
-        content = {'values': {locale: entry}, '_localizable': True}
+        content = {'values': {locale: _image_value(url, media_id, preview)},
+                   '_localizable': True}
     else:
         raise TypeError(
             'image(url=...) wants the URL that `flows media upload` printed, or '

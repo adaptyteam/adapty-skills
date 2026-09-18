@@ -358,8 +358,9 @@ the file, never from a docs table.
 ### 5. An asset you have no FILE for is an EMPTY values map, never a made-up URL
 
 **If you were given a file, upload it** — `flows media upload` returns a live CDN URL to bind, and
-the shapes it binds into (per-locale `values` map on an element, flat inside a `fill`) plus the
-`id`-is-a-string rule live in [media.md](media.md). This trap governs what is left after that: an
+the shapes it binds into (per-locale `values` map on an element, flat inside a `fill`), the
+`id`-is-a-string rule and the third field to carry across, `previewValue`, all live in
+[media.md](media.md). This trap governs what is left after that: an
 image nobody has a file for, an SVG (upload returns `http_500`), or a video (no path at all).
 
 You still cannot *create* media. An `image` whose asset does not exist is written with the
