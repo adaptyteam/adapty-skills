@@ -12,15 +12,18 @@ schema declares the field optional, and `config preview` renders a local file wh
 download to wait for. The builder's own upload path writes `previewValue` from the API's
 `preview_base64` and omits the key when no preview was generated -- the shape reproduced here.
 
-The check is BASELINE-GATED, and that is the load-bearing decision. `preview_base64` comes back
-from `flows media upload` and there is no `flows media get`, so a preview not captured at upload
-time cannot be read afterwards at all. An image that arrived with a fetched config is therefore
-not repairable from the CLI, and a warning on one is noise; an image this draft added is one the
-agent uploaded a command ago. Hence both directions below are about PROVENANCE, not shape.
+The check is BASELINE-GATED, and that is the load-bearing decision -- on ownership, not on
+repairability. An image this draft added is one the agent bound, so the value was in its hands a
+command ago or sits in whatever other flow already carries the asset; an image that arrived with
+a fetched config was bound by someone else, and adding a preview there is a change to report and
+offer rather than to make on the way past. Hence both directions below are about PROVENANCE, not
+shape. The message is asserted too: the finding is only actionable if it says where the value
+comes from, and that is the half an agent turns into "well, the field must be optional".
 
     FIRES   -- an image the draft added, element form and fill form
             -- a fill inside `components`, not just under `screens`
             -- an image whose baseline DID carry a preview and the draft dropped it
+    SAYS    -- the finding names the upload and the lift-it-from-another-config route
     SILENT  -- all 12 real exports with no baseline, and each against itself
             -- an image inherited from the baseline already missing its preview
             -- a placeholder (empty `values`), which the empty-image check owns
@@ -71,6 +74,15 @@ def silent(name, doc, baseline=None):
     print(f'  {"ok   " if not hits else "FAIL "} {name}')
     if hits:
         fails.append(f'{name}: expected no previewValue finding, got {hits!r}')
+
+
+def says(name, want, doc, baseline=None):
+    hits = run(doc, baseline)
+    got = ' '.join(hits)
+    ok = bool(hits) and all(w in got for w in want)
+    print(f'  {"ok   " if ok else "FAIL "} {name}')
+    if not ok:
+        fails.append(f'{name}: {got[:160]!r} does not carry {want!r}')
 
 
 def img_value(preview=True, url=URL):
@@ -135,6 +147,12 @@ fires('a fill inside `components`, which is why the walk is not screens-only',
 _regressed = doc_with(image_el(preview=False))
 fires('the baseline HAD a preview for this url and the draft dropped it',
       _regressed, doc_with(image_el(preview=True)))
+
+# -------------------------------------------------------------------------- SAYS
+print('\nSAYS where to get the value back, because a dead end is what gets rationalised away:')
+says('the finding names the upload, the config lookup, and what an empty lookup means',
+     ['media upload --json', 'config get', 'not that the field is optional'],
+     doc_with(image_el(preview=False)), EMPTY_BASE)
 
 # ------------------------------------------------------------------------- SILENT
 print('\nSILENT where the finding would be wrong or unactionable:')
