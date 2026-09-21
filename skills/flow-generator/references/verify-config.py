@@ -957,8 +957,20 @@ def check(path, baseline_text=None, baseline_images=None):
                     f"`/localizations/N/id`. Renaming means the key in `locales`, every `values` "
                     f"map that carries it, and `remote_configs`")
 
+    # `defaultLocale` has to name one of the declared locales. The transform service refuses a
+    # stray one, but leaning on that is not enough twice over: a stray value silently corrupts
+    # the parity walk below, which takes it as the base every other locale is compared against,
+    # and `validate` does not reach locales at all while a product binding is unsettled — it
+    # stops at the first fatal and binding fails earlier.
+    dflt = d.get('defaultLocale')
+    if dflt is not None and declared and dflt not in declared:
+        bad.append(f'defaultLocale is {dflt!r}, which is not one of the declared locales '
+                   f'({", ".join(str(c) for c in declared)}) — the flow will not publish, and '
+                   f'the locale parity check above compares every field against a locale that '
+                   f'does not exist')
+
     if len(declared) > 1:
-        base = d.get('defaultLocale') or declared[0]
+        base = dflt or declared[0]
 
         def _blocks(v):
             """Block arrays out of a localizable value.
@@ -1100,7 +1112,17 @@ def check(path, baseline_text=None, baseline_images=None):
         if e['type'] == 'product':
             pid = (e.get('props') or {}).get('product', {}).get('id')
             decl = {p['id'] for p in ms.get(s['id'], {}).get('products', [])}
-            if pid not in decl:
+            # An EMPTY id is a card with no product chosen — a different situation from a
+            # chosen product nobody declared, and predeclare(), the advice below, does not apply
+            # to it. Under one message the empty case reads as a bookkeeping slip rather than
+            # the unfinished card it is, which is why the two are split.
+            if not pid:
+                warn.append(f'the product card {e["id"]} on screen {s["id"]} has no product '
+                            f'chosen (`props.product.id` is empty), so the flow will not '
+                            f'publish: "Product element requires a selected product". Pick one '
+                            f'from `adapty products list`, or leave it and say in your report '
+                            f'that the user must choose it in the builder first')
+            elif pid not in decl:
                 warn.append(f'product {pid} bound on screen {s["id"]} but not yet declared in '
                             f'_meta.screens, so device preview returns HTTP 422 '
                             f'missing_flow_product_id until the builder saves. For an authored '

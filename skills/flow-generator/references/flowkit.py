@@ -30,6 +30,7 @@ Run `tests/test-flowkit.py` after touching it.
         typography=[("h1", "H1", 28, "bold"), ("body", "Body", 16, "regular")],
     )
 """
+import copy
 import hashlib
 import os
 import re
@@ -1704,6 +1705,55 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     return node
 
 
+# --- catalog templates -------------------------------------------------------------------
+
+def from_catalog(template, *, group_id=None):
+    """Turn a `component-catalog.json` template into nodes this module can assemble.
+
+    A catalog template is the builder's own output, so its internal wiring is already right --
+    but it is written in the EXPORT shape (`children`, no ids) while everything here is written
+    in the AUTHORING shape (`_children`, minted ids). So a template cannot be handed to
+    `screen()` as it stands. Without this conversion a template gets retyped as a hand-built
+    skeleton instead of lifted, which is where its correct wiring is lost on the way in.
+
+        entry = json.load(open('component-catalog.json'))['components']
+        tpl   = next(c for c in entry if c['id'] == 'prod-vertical-list')['template']
+        nodes = fk.from_catalog(tpl, group_id='plans')
+
+    Mints an id for every element, and for every interaction and action the template carries --
+    the shipped templates leave those `""`, which is the builder's placeholder rather than a
+    value. `group_id` renames the template's own group so it matches the `selectableGroups`
+    entry you declare on the screen: the catalog ships generic ids (`products`, `quiz`, `tabs`),
+    so two templates of the same family on one screen would otherwise share one group and move
+    together.
+
+    Deep-copies, so the catalog entry itself is never mutated. Fill the slots either before or
+    after -- `slots` paths address the template's own `children`, so fill first if you want to
+    use them verbatim.
+    """
+    if not isinstance(template, dict) or 'type' not in template:
+        raise TypeError(
+            'from_catalog() takes a catalog entry\'s `template`, not the entry itself -- '
+            "pass `entry['template']`.")
+
+    def walk(node):
+        out = {k: copy.deepcopy(v) for k, v in node.items() if k != 'children'}
+        kind = out.get('type', 'stack')
+        out['id'] = eid('S' if kind == 'stack' else kind[:1].upper())
+        out.setdefault('states', [])
+        props = out.get('props')
+        if group_id and isinstance(props, dict) and 'groupId' in props:
+            props['groupId'] = group_id
+        for i, inter in enumerate(out.get('interactions') or []):
+            inter['id'] = 'int' + out['id'][2:] + ('' if i == 0 else f'_{i}')
+            for j, act in enumerate(inter.get('actions') or []):
+                act['id'] = f'act_{act.get("type", "x")}' + ('' if j == 0 else f'_{j}')
+        out['_children'] = [walk(k) for k in node.get('children') or []]
+        return out
+
+    return [walk(template)]
+
+
 # --- assembly ----------------------------------------------------------------------------
 
 def flatten(nodes):
@@ -2026,8 +2076,19 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
     return out
 
 
+# `IFontWeight` in the published schema, and every weight in every real export is one of these.
+# A CSS NUMBER is the natural thing to write and it is not a weight here: the publish gate takes
+# `weight: 600` and returns `valid: true`, and the render page then throws
+# `Invalid font weight value: 600` and draws "Preview failed to render" — a blank screen whose
+# only explanation is in the browser console. The schema check names the enum, but it is the one
+# gate that is advisory, so the value is refused here where it is written.
+FONT_WEIGHTS = ('thin', 'light', 'regular', 'medium', 'semibold', 'bold')
+
+
 def _typo(entry):
     """`(id, name, size, weight)`, optionally extended with `lineHeight` and `letterSpacing`.
+
+    `weight` is a NAME from `FONT_WEIGHTS`, never a number.
 
     Both extras are plain numbers inside `settings`, verified against a real export that carries
     them on 6 of its 7 presets. Leading is a design lever, not a nicety: at the default the
@@ -2035,6 +2096,11 @@ def _typo(entry):
     set it — a `text` element cannot override what the preset does not carry.
     """
     i, n, s, w, *rest = entry
+    if w not in FONT_WEIGHTS:
+        raise ValueError(
+            f'typography {i!r}: weight {w!r} is not a font weight here — use one of '
+            f'{", ".join(FONT_WEIGHTS)}. A CSS number passes `flows config validate` and then '
+            f'kills the render with "Invalid font weight value", which draws as a blank screen.')
     settings = {'size': s, 'weight': w}
     if len(rest) > 0 and rest[0] is not None:
         settings['lineHeight'] = rest[0]

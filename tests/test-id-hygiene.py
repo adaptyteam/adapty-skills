@@ -51,7 +51,8 @@ RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 # Every line this suite owns, and nothing else -- the fixtures legitimately produce other
 # findings (`timeline-anchored.json` fires legibility, for one) and matching loosely would
 # turn those into failures of this file.
-MINE = re.compile(r'element id\(s\)|more than one screen|identifier\(s\) outside|locale code')
+MINE = re.compile(r'element id\(s\)|more than one screen|identifier\(s\) outside|locale code'
+                  r'|defaultLocale is')
 
 fails = []
 
@@ -155,6 +156,15 @@ for bad in ('pt-br', 'PT-BR', 'sr-latn', 'sr-LATN', 'pt_BR', 'en-us'):
               locales=(('en', 'en', 'English'), (bad, bad, 'Other'))),
           'locale code')
 
+print()
+print('FIRES on a defaultLocale that names no declared locale:')
+fires('defaultLocale outside the declared set',
+      doc([screen('scr_1', [text_el('el_t')])], default='de'), 'defaultLocale is')
+fires('and it fires with several locales declared, where it also corrupts the parity base',
+      doc([screen('scr_1', [text_el('el_t')])],
+          locales=(('en', 'en', 'English'), ('fr', 'fr', 'French')), default='de'),
+      'defaultLocale is')
+
 # ------------------------------------------------------------------------- SILENT
 print()
 print('SILENT on the real corpus:')
@@ -176,6 +186,9 @@ for good in ('en', 'fil', 'sr', 'sr-Latn', 'pt-BR', 'zh-Hans', 'zh-Hant-HK', 'es
                locales=(('en', 'en', 'English'), (good, good, 'Other'))))
 silent('an id that is all underscores and digits',
        doc([screen('scr_1', [text_el('_el_001A')])]))
+silent('a defaultLocale that names a declared locale',
+       doc([screen('scr_1', [text_el('el_t')])],
+           locales=(('en', 'en', 'English'), ('fr', 'fr', 'French')), default='fr'))
 silent('the same id on ONE screen twice is unrepresentable in JSON — one element, no finding',
        doc([screen('scr_1', [text_el('el_t')])]))
 

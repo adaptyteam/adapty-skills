@@ -40,6 +40,22 @@ yourself *before* the first run rather than using `validate` as a discovery loop
 cheap and local, and it finds the other four defects while `validate` is still telling you about
 the first.
 
+## Unsettled products hide everything else
+
+The stages are ordered and binding comes early, so an unsatisfied product binding fails there and
+the later stages are **never reached**. Measured: a config carrying both an unbound card and a
+`navigate` to a screen that does not exist reports the product error *alone*. Three shapes sit
+behind that mask, and all three are ordinary states of a flow being authored rather than
+mistakes — a card with no product chosen, a product bound but not yet in `_meta.screens`, and a
+product bought by a `const` purchase.
+
+This is the sharpest reason to walk [Verify](../SKILL.md#verify) and run `verify-config.py`
+first. Of six later-stage defects planted behind an unbound card, the local walk names five —
+dangling navigate, unknown group, a hierarchy id with no map entry, a malformed theme hex, an
+off-charset element id — for free and with better locations, while `validate` reports only the
+product. So it is not that `validate` costs a round trip per defect here; while the products are
+unsettled it costs a round trip for no defect but theirs.
+
 ## Reading the output
 
 Always use `--json`. Three shapes come back:

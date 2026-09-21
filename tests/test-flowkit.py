@@ -1168,6 +1168,67 @@ def main():
           _const['products'] == [{'id': 'p_const', 'offerId': 'intro'}], _const['products'])
 
 
+    # --- catalog templates -----------------------------------------------------------------
+    # A catalog template is the builder's own output, in the EXPORT shape. Until from_catalog()
+    # existed there was no way to feed one to screen(), so the templates the skill tells agents
+    # to prefer were unreachable from the module that assembles the document.
+    _cat = json.load(open(os.path.join(ROOT, 'skills', 'flow-generator', 'references',
+                                       'component-catalog.json')))
+    _by_id = {c['id']: c for c in _cat['components']}
+
+    _tpl = json.loads(json.dumps(_by_id['prod-vertical-list']['template']))
+    _nodes = fk.from_catalog(_tpl, group_id='plans')
+    check('from_catalog returns a list of nodes', isinstance(_nodes, list) and len(_nodes) == 1)
+    check('from_catalog does not mutate the template it was given',
+          _tpl == _by_id['prod-vertical-list']['template'])
+    check('from_catalog renames the group so two templates cannot share one',
+          all(n['props']['groupId'] == 'plans' for n in _nodes[0]['_children']))
+
+    def _walk_nodes(node):
+        yield node
+        for kid in node.get('_children', []):
+            yield from _walk_nodes(kid)
+
+    _all = list(_walk_nodes(_nodes[0]))
+    check('from_catalog mints an id for every node',
+          all(n.get('id') for n in _all) and len({n['id'] for n in _all}) == len(_all))
+    check('from_catalog moves children into the authoring key',
+          all('children' not in n for n in _all))
+
+    # The footer template ships `"id": ""` on its restore interaction — the builder's placeholder.
+    _foot = fk.from_catalog(json.loads(json.dumps(_by_id['footer']['template'])))
+    _inters = [i for n in _walk_nodes(_foot[0]) for i in n.get('interactions', [])]
+    check('from_catalog fills the placeholder interaction and action ids',
+          _inters and all(i['id'] and all(a['id'] for a in i['actions']) for i in _inters))
+    check('from_catalog refuses a catalog ENTRY where a template was meant',
+          raises(lambda: fk.from_catalog(_by_id['footer']), TypeError))
+
+    # A screen assembled from the two templates is the commonest paywall there is, and it has to
+    # come out of the module publishable rather than merely well-formed.
+    _plans = fk.from_catalog(json.loads(json.dumps(_by_id['prod-vertical-list']['template'])),
+                             group_id='plans')
+    for _i, _card in enumerate(_plans[0]['_children']):
+        _card['props']['product'] = {'id': f'prod-{_i}'}
+    try:
+        _scr = fk.screen('scr_pay', _plans + fk.from_catalog(
+            json.loads(json.dumps(_by_id['footer']['template']))), scrollable=True,
+            selectable_groups=[{'id': 'plans', 'type': 'product'}])
+    except Exception as _exc:                                   # noqa: BLE001
+        _scr = {'products': [{'id': f'screen() refused: {_exc}'}]}
+    check('a screen built from the product template declares every card in its registry',
+          [p['id'] for p in _scr['products']] == ['prod-0', 'prod-1', 'prod-2'],
+          _scr.get('products'))
+
+    # --- font weights ----------------------------------------------------------------------
+    # `weight: 600` passes the publish gate and then kills the render.
+    check('a numeric font weight is refused',
+          'not a font weight' in _message(
+              lambda: fk.config(screens=[], colors=[], typography=[('b', 'B', 16, 600)])))
+    check('every name in FONT_WEIGHTS is accepted',
+          all(fk.config(screens=[], colors=[],
+                        typography=[('b', 'B', 16, w)])['theme']['typography'][0]['settings']
+              ['weight'] == w for w in fk.FONT_WEIGHTS))
+
     print()
     if FAILURES:
         print(f'{len(FAILURES)} failure(s): ' + ', '.join(FAILURES))

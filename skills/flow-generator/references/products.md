@@ -79,6 +79,10 @@ Consequences, and this file is the authority on all of them:
 - **A `product` element with no product attached is a documented publish blocker**:
   <https://adapty.io/docs/flow-common-issues.md>. Say in your report which screens need an
   attachment pass before the user tries to publish.
+- **And until they are attached, `validate` reports nothing else.** Binding is an early stage,
+  so a card with no product chosen — or one bound but not yet declared — hides every later-stage
+  defect in the document; run `verify-config.py`, which finds them locally either way. See
+  [validate.md → unsettled products](validate.md#unsettled-products-hide-everything-else).
 - **Builder-owned means do not OMIT it either, not just do not author it.** `config update`
   replaces the whole config, so a script that regenerates a config from source and emits
   `_meta.screens: {}` **destroys attachments the user made in the builder** — a live block can

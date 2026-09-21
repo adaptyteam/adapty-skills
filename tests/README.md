@@ -89,6 +89,7 @@ python3 tests/test-id-hygiene.py                                         # id ch
 python3 tests/test-customid-analytics.py                                 # the customId an input/option reports under
 python3 tests/test-video-element.py                                      # the unset video + its fixed height, and the catalog contract
 python3 tests/test-image-preview.py                                      # previewValue on an image this draft added, both binding shapes
+python3 tests/test-product-template.py                                   # the plan-card catalog entry, and from_catalog
 python3 tests/test-rename-screens.py                                     # screen rename: three sites, refusals, the oracle
 python3 tests/mobile-preview-check.py                                    # the device-preview link, over the corpus
 python3 tests/test-audiences.py                                          # audience normalization, both directions
