@@ -31,7 +31,10 @@ Everything else is reachable: product UUIDs from `adapty products list` (or `pro
 waited for. `flowkit.predeclare(screen_id, products)` writes the block; pass exact Product + Offer
 pairs, a bare product id or a `(product_id, offer_id)` tuple, because the offer is part of the id.
 Omit the declaration and device preview 422s. When *rewriting* a flow, carry the live
-`_meta.screens` forward instead of regenerating it ([products.md](references/products.md)).
+`_meta.screens` forward instead of regenerating it — **and `screens[].products` with it**, the
+screen-owned registry that `_meta` is derived from at schemaVersion 12. Never write
+`"products": []`: absent and empty mean opposite things to the builder
+([products.md](references/products.md)).
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
@@ -709,8 +712,8 @@ past it and never re-send your local copy — that is the content that would era
 their version differs in ways you did not author, ask rather than restore.
 
 **If you rebuilt the config from a script rather than patching the fetched one, you have the wrong
-document** — a rebuild replaces the live flow, taking `_meta.screens`
-([products.md](references/products.md)) and every manual edit with it. Patch the fetched config;
+document** — a rebuild replaces the live flow, taking `_meta.screens` and the `screens[].products`
+registry it derives from ([products.md](references/products.md)) and every manual edit with it. Patch the fetched config;
 [merge.md](references/merge.md) names the only two cases where a rebuild is right.
 
 #### The file deliverable

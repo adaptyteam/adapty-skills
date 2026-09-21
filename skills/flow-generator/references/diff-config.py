@@ -34,7 +34,8 @@ WHAT IT COMPARES (identity in brackets -- a fact whose identity changes reads as
 plus one addition, which is the honest reading of an id rewrite):
   screens [id], elements per screen [id], components [id], locales [code], theme colours and
   typography presets [id], variables [id], `_meta.icons` [name+weight], `_meta.fonts` [family],
-  `_meta.screens[].products[]` [product id] -- the builder-owned attachments a rebuilt config
+  `_meta.screens[].products[]` [product id] and `screens[].products` [product id + offer id] --
+  the builder-owned attachments and the registry they derive from, both of which a rebuilt config
   wipes -- element `type`, `props`, `interactions` and screen `caption`, plus every localizable
   value BY LOCALE, so a dropped translation is a removal rather than a change.
 
@@ -155,6 +156,20 @@ def facts(d):
         f[f'screen:{sid}.props'] = canon(s.get('props'))
         f[f'screen:{sid}.selectableGroups'] = canon(s.get('selectableGroups'))
         f[f'screen:{sid}.hierarchy'] = canon((s.get('elements') or {}).get('hierarchy'))
+        # The screen-owned product registry (schemaVersion 12), which is what `_meta.screens`
+        # above is derived from. Two facts, because absent and `[]` mean opposite things to the
+        # builder -- absent is materialized from usages, `[]` declares the screen product-free --
+        # and a rebuild that turns one into the other must not read as silent (products.md).
+        f[f'screen:{sid}.products'] = 'absent' if s.get('products') is None else 'declared'
+        pairs = [f'{p.get("id")}:{p.get("offerId") or ""}'
+                 for p in s.get('products') or [] if isinstance(p, dict)]
+        for pair in pairs:
+            f[f'screen:{sid}.registry-product:{pair}'] = 'declared'
+        # Order is a fact here, unlike every other collection in this file. Android resolves a
+        # price variable to whichever pair comes first for a store product, so swapping the
+        # offer-bearing pair with its bare duplicate silently empties `offer_price` (products.md).
+        if len(pairs) > 1:
+            f[f'screen:{sid}.products-order'] = ' '.join(pairs)
         for eid, e in ((s.get('elements') or {}).get('map') or {}).items():
             base = f'screen:{sid}/element:{eid}'
             f[base] = canon(e.get('type'))

@@ -14,7 +14,13 @@ compute has to be carried forward on every regeneration.
 
 Merges, per screen id that still exists in the regenerated config:
     _meta.screens[<sid>]        product declarations incl. flowProductId, webPaywallURL
+    screens[].products          the screen-owned Product + Offer registry (schemaVersion 12)
     _meta.fonts                 uploaded font records, if the regenerated config has none
+
+The registry is carried for the same reason as the declarations it feeds: an entry can exist
+with no usage anywhere on the screen, so nothing that walks the elements rebuilds it. An empty
+`products` in the regenerated config is treated as absent and overwritten — `[]` is authoritative
+to the builder and would declare the screen product-free, which is the loss this guards against.
 
 Reports exactly what it carried and what it dropped, because a screen that no longer exists
 legitimately loses its declarations and that should be visible rather than silent.
@@ -47,6 +53,17 @@ def main():
         n = len((block or {}).get('products') or [])
         carried.append(f'{sid} ({n} product declaration{"s" if n != 1 else ""})')
 
+    live_screens = {s['id']: s for s in live.get('screens') or [] if isinstance(s, dict)}
+    reg_carried, reg_kept = [], []
+    for s in new.get('screens') or []:
+        live_reg = (live_screens.get(s.get('id')) or {}).get('products')
+        if not live_reg:
+            continue
+        if s.get('products'):
+            reg_kept.append(s['id']); continue
+        s['products'] = live_reg
+        reg_carried.append(f'{s["id"]} ({len(live_reg)} registry entr{"ies" if len(live_reg) != 1 else "y"})')
+
     fonts_note = ''
     live_fonts = (live.get('_meta') or {}).get('fonts') or []
     if live_fonts and not (new['_meta'].get('fonts') or []):
@@ -54,8 +71,12 @@ def main():
         fonts_note = f' | carried {len(live_fonts)} font record(s)'
 
     print('carried forward :', ', '.join(carried) or 'nothing' , fonts_note)
+    if reg_carried:
+        print('registry carried:', ', '.join(reg_carried))
     if kept_existing:
         print('left as authored:', ', '.join(kept_existing))
+    if reg_kept:
+        print('registry left as authored:', ', '.join(reg_kept))
     if dropped:
         print('DROPPED (screen no longer exists):', ', '.join(dropped))
     out = a.out or a.new
