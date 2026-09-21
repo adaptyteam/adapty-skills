@@ -1200,8 +1200,17 @@ def main():
     _inters = [i for n in _walk_nodes(_foot[0]) for i in n.get('interactions', [])]
     check('from_catalog fills the placeholder interaction and action ids',
           _inters and all(i['id'] and all(a['id'] for a in i['actions']) for i in _inters))
-    check('from_catalog refuses a catalog ENTRY where a template was meant',
-          raises(lambda: fk.from_catalog(_by_id['footer']), TypeError))
+    # An ENTRY is now the preferred argument — it carries the slots that `fills=`/`items=` need.
+    check('from_catalog accepts a whole entry and uses its template',
+          fk.from_catalog(_by_id['footer'])[0]['type'] == 'footer')
+    check('from_catalog refuses something that is neither an entry nor a template',
+          raises(lambda: fk.from_catalog({'caption': 'nope'}), TypeError))
+    check('fills= on a bare template is refused, because slots live on the entry',
+          raises(lambda: fk.from_catalog(_by_id['footer']['template'], fills={'cta': 'x'}),
+                 TypeError))
+    check('fills= writes through a declared slot',
+          fk.from_catalog(_by_id['footer'], fills={'cta': 'Start now'}
+                          )[0]['_children'][0]['_children'][0]['props']['content'] == 'Start now')
 
     # A screen assembled from the two templates is the commonest paywall there is, and it has to
     # come out of the module publishable rather than merely well-formed.
