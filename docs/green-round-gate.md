@@ -86,6 +86,14 @@ agent, given this wording, behave differently?** Three things masquerade as that
 - [ ] **The arms differ only in the thing that changes the decision.** Everything else byte-
       identical, and paired in time so machine contention cannot favour an arm.
 
+- [ ] **...and nothing ELSE in the arm supplies the same capability.** *btn-green* removed the
+      nine `btn-*` catalog entries from the control arm and left `footer` in both — and `footer`
+      ships a CTA button *and* the Terms/Restore/Privacy row, i.e. four of the five affordances
+      the task asked for. **6 of 6 runs in both arms solved it with the footer**, so the round
+      could only speak to the one affordance the footer does not supply. Removing the named
+      thing is not the same as removing the capability: list what else in the arm could answer
+      the task, and say why it cannot. ______
+
 - [ ] **Overlay only what SHIPS.** *video-green*: the first arm build overlaid the whole working
       tree, which put the change's own CLAUDE.md finding — every measurement, spelled out — into
       the treatment arm, where **CLAUDE.md is auto-loaded as project instructions**. Maintainer

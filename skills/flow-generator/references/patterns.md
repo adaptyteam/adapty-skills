@@ -16,31 +16,67 @@ already has one, copy that instead — it is better than anything here.
    then `flows config get` the one that has the shape you need — no need to ask for an export.
    Same app means products and custom fonts still resolve; see the break list below for what
    does not.
-3. **`component-catalog.json`, which ships in this directory.** 39 official templates with named
-   slots — `prod-vertical-list` (the plan cards), `footer` (cta/terms/privacy), `quiz-icons`,
-   `quiz-icon-grid`, `chk-radio-on`/`off`, `chk-toggle-on`/`off`, `list-timeline`,
-   `list-comparison`, `list-icons`, `tabs-segmented`, `ue-social-proof`, `reviews-carousel`,
-   `video-hero`/`video-card`, four timer variants and more. **Query it, never read it whole** (428KB):
+3. **`component-catalog.json`, which ships in this directory.** The builder's own premade set,
+   69 templates with named slots, covering every family the Flow Builder's element menu offers:
+
+   | family | ids |
+   | :--- | :--- |
+   | products | `prod-vertical-list`, `prod-horizontal-list`, `prod-carousel`, `prod-feature-carousel`, `prod-feature-cards`, `prod-banner-list` |
+   | buttons | `btn-base`, `btn-secondary`, `btn-sub`, `btn-trial`, `btn-pulse`, `btn-next`, `btn-back`, `btn-close`, `btn-links` |
+   | inputs | `inp-text`/`-email`/`-password`/`-number`/`-phone`, `pick-date`/`-time`/`-date-time` |
+   | selectables | `trial-toggle`, `checkbox-with-text`, `toggle-with-text`, `tabs-*`, `quiz-*`, `chk-*` |
+   | lists | `list-icons`, `list-images`, `list-icon-cards`, `list-image-cards`, `list-comparison`, `list-timeline` |
+   | social proof | `ue-review`, `ue-review-carousel`, `ue-rating`, `ue-app-rating`, `ue-social-proof` |
+   | the rest | `footer`, `carousel`, `bottom-sheet`, `badge`, `loader-spinner`, `loader-loader`, four timers, `video-hero`/`video-card` |
+
+   **Query it, never read it whole.** The file is ~790KB (~198k tokens) and every template in
+   it is a full element tree. Two commands are all you need, and both are cheap:
 
    ```bash
-   jq -r '.components[].id' references/component-catalog.json
+   # the whole inventory — id, caption, keywords, fillable slots — ~1.1k tokens for all 69
+   jq -r '.components[] | "\(.id)\t\(.caption)\t[\(.keywords|join(" "))]\t\(if .slots|length>0 then (.slots|keys|join(",")) else "-" end)"' \
+     references/component-catalog.json
+
+   # then ONE entry, once you know which — median ~590 tokens, worst ~4.3k
    jq '.components[]|select(.id=="footer")' references/component-catalog.json
    ```
 
-   Each entry carries `slots`, `keywords`, `insertion_policy` and an **`agent_allowed`** flag.
-   Respect it. Filling a template's slots beats assembling a skeleton below, because the
-   template's internal wiring is already correct.
+   Read the inventory first. An id alone does not say what a component is — `btn-trial` is the
+   button *with a subtitle*, not a trial offer — so guessing from ids is what sends you into the
+   templates, which is the one thing that costs real context.
+
+   Each entry carries `slots`, `keywords` and an **`agent_allowed`** flag. Respect it. Filling a
+   template's slots beats assembling a skeleton below, because the template's internal wiring is
+   already correct — and because its geometry is the builder's own. Measured: given no template,
+   three independent agents each built a back control at **40x40**, under both the 44pt iOS and
+   48dp Android minimum tap target; the premade is 48x48. Nothing in this skill states a minimum,
+   so a hand-built control is only as good as the number the agent picked.
 
    **A template is in the EXPORT shape — `children`, no ids — so it cannot go into `screen()` as
-   it stands.** `flowkit.from_catalog(template, group_id=...)` converts one: it mints every id,
-   fills the `""` placeholder ids on interactions and actions, and renames the template's own
-   group so two templates on one screen do not share it. Without it a template gets retyped as a
-   hand-built skeleton, which is how the correct wiring gets lost on the way in.
+   it stands.** `flowkit.from_catalog()` converts one: it mints every id, fills the `""`
+   placeholder ids on interactions and actions, and renames the template's own group so two
+   templates on one screen do not share it.
 
    ```python
    entry = next(c for c in catalog['components'] if c['id'] == 'prod-vertical-list')
-   nodes = fk.from_catalog(entry['template'], group_id='plans')   # fill the slots either side
+   nodes = fk.from_catalog(entry, group_id='plans', items=[
+       {'title': 'Annual',  'details': 'Billed yearly',  'product_id': '<uuid>'},
+       {'title': 'Monthly', 'details': 'Billed monthly', 'product_id': '<uuid>'}])
+   cta = fk.from_catalog(entry_for('btn-sub'), fills={'label': 'Start now'})
    ```
+
+   Pass the **whole entry** — `fills=` writes a top-level slot, `items=` writes one dict per
+   repeat and truncates the template to that many, and both run before the conversion because a
+   slot path addresses `children` while the authoring shape uses `_children`. `items=` also makes
+   exactly one repeat the default: every repeat is a copy of a unit that starts selected, so
+   without that rule a three-card group has three defaults and the selection never moves.
+
+   **What the templates deliberately do NOT carry.** Product cards ship **unbound** (`product.id`
+   is `""`) with no price, discount or trial copy — bind real products from `adapty products
+   list`, or leave them and say in your report that the user must choose them in the builder
+   before the flow can publish. Inputs and selectables ship an **empty `customId`**, which
+   silently untracks them; each has a `custom_id` slot, so fill it.
+
 4. **The skeletons in this file.** Last resort. They are minimal and carry no theme, so every
    `colorId`, `font.preset` and id in them has to be replaced with the input's own before use.
 
@@ -785,7 +821,8 @@ product group, `states` + `propsByState.selected` on every card, exactly one `de
 `details` and `product_id` per card and you have skipped every trap in this section:
 
 ```python
-nodes = fk.from_catalog(entry['template'], group_id='plans')
+nodes = fk.from_catalog(entry, group_id='plans', items=[
+    {'title': 'Annual', 'details': 'Billed yearly', 'product_id': '<uuid>'}, ...])
 ```
 
 Read the rest of this section when the catalog shape does not fit — a comparison layout, a single

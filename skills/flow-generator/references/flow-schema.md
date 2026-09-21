@@ -1191,7 +1191,7 @@ documented by its own publishers:
 ### Typography metrics: `lineHeight` and `letterSpacing` exist
 
 `IFont` carries **`lineHeight`** and **`letterSpacing`** alongside `family`, `preset`, `size` and
-`weight`. Both are absent from every real export and from all 36 catalog templates, so they are a
+`weight`. Both are absent from every real export and from every catalog template, so they are a
 *grep-zero* shape — declare them knowing the device may ignore them, and note that they **fail
 safe**: an ignored `lineHeight` gives looser leading, not a broken screen.
 

@@ -1705,10 +1705,66 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     return node
 
 
+def _slot_write(node, path, value):
+    target = node
+    for step in path[:-1]:
+        target = target[step]
+    target[path[-1]] = value
+
+
+def _fill_slots(template, slots, fills, items):
+    """Write through a catalog entry's declared slots, on the export-shaped template."""
+    for name, value in fills.items():
+        if name not in slots:
+            raise KeyError(f'no slot {name!r} on this component -- it has '
+                           f'{sorted(slots) or "none"}')
+        slot = slots[name]
+        if slot.get('kind') == 'items':
+            raise TypeError(f'slot {name!r} repeats -- pass it as items=[{{...}}, ...]')
+        _slot_write(template, slot['path'], value)
+    if items is None:
+        return template
+    repeats = [s for s in slots.values() if s.get('kind') == 'items']
+    if not repeats:
+        raise TypeError('this component has no repeating slot, so items= means nothing')
+    slot = repeats[0]
+    container = template
+    for step in slot['path']:
+        container = container[step]
+    unit_index = slot.get('item_index', 0)
+    unit = container[unit_index]
+    lo, hi = slot.get('min', 1), slot.get('max', len(items))
+    if not lo <= len(items) <= hi:
+        raise ValueError(f'this component takes {lo}-{hi} items, got {len(items)}')
+    filled = []
+    for values in items:
+        one = copy.deepcopy(unit)
+        for name, value in values.items():
+            if name not in slot['item_slots']:
+                raise KeyError(f'no item slot {name!r} -- it has '
+                               f'{sorted(slot["item_slots"])}')
+            _slot_write(one, slot['item_slots'][name]['path'], value)
+        filled.append(one)
+    # Every repeat is a copy of the unit, so a unit that starts selected would make EVERY card
+    # the default one -- a group with three defaults, which is the dead-selected-state defect
+    # arriving through the helper instead of through hand assembly.
+    for position, one in enumerate(filled):
+        def mark(node, first=position == 0):
+            if isinstance((node.get('props') or {}).get('default'), bool):
+                node['props']['default'] = first
+            for child in node.get('children') or []:
+                mark(child, first)
+        mark(one)
+    # The repeats are the TRAILING entries: anything before `item_index` is a header the
+    # template keeps (a comparison table's column titles, for instance).
+    container[unit_index:] = filled
+    return template
+
+
 # --- catalog templates -------------------------------------------------------------------
 
-def from_catalog(template, *, group_id=None):
-    """Turn a `component-catalog.json` template into nodes this module can assemble.
+def from_catalog(entry, *, group_id=None, fills=None, items=None):
+    """Turn a `component-catalog.json` entry into nodes this module can assemble.
 
     A catalog template is the builder's own output, so its internal wiring is already right --
     but it is written in the EXPORT shape (`children`, no ids) while everything here is written
@@ -1727,17 +1783,36 @@ def from_catalog(template, *, group_id=None):
     so two templates of the same family on one screen would otherwise share one group and move
     together.
 
-    Deep-copies, so the catalog entry itself is never mutated. Fill the slots either before or
-    after -- `slots` paths address the template's own `children`, so fill first if you want to
-    use them verbatim.
+    Pass the whole ENTRY to fill its slots on the way through:
+
+        fk.from_catalog(entry, fills={'label': 'Continue'})
+        fk.from_catalog(entry, group_id='plans',
+                        items=[{'title': 'Annual', 'product_id': uuid}, {...}])
+
+    `fills` writes a top-level slot, `items` writes one dict per repeat of an `items` slot and
+    truncates the template to that many. Both run BEFORE the conversion, which is the only point
+    where they can: a slot path addresses the template's own `children`, and the authoring shape
+    this returns uses `_children`. Passing a bare `template` still works, without slot filling.
+
+    Deep-copies, so the catalog entry itself is never mutated.
     """
+    template, slots = entry, {}
+    if isinstance(entry, dict) and 'template' in entry:
+        template, slots = entry['template'], entry.get('slots') or {}
+    elif fills or items:
+        raise TypeError(
+            'from_catalog(fills=/items=) needs the whole catalog entry, not just its '
+            "`template` -- the slot paths live on the entry.")
     if not isinstance(template, dict) or 'type' not in template:
         raise TypeError(
-            'from_catalog() takes a catalog entry\'s `template`, not the entry itself -- '
-            "pass `entry['template']`.")
+            "from_catalog() takes a catalog entry (or its `template`) -- got something with no "
+            "`type`.")
+    template = copy.deepcopy(template)
+    if fills or items:
+        template = _fill_slots(template, slots, fills or {}, items)
 
     def walk(node):
-        out = {k: copy.deepcopy(v) for k, v in node.items() if k != 'children'}
+        out = {k: v for k, v in node.items() if k != 'children'}
         kind = out.get('type', 'stack')
         out['id'] = eid('S' if kind == 'stack' else kind[:1].upper())
         out.setdefault('states', [])
