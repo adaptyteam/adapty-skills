@@ -64,6 +64,22 @@ The skill you invoke is now `/adapty-integration` (previously `/adapty-sdk-integ
 
 </details>
 
+### Codex
+
+```bash
+codex plugin marketplace add adaptyteam/adapty-skills
+codex plugin add adapty-skills@adapty
+```
+
+Then start a new thread, so Codex picks up the skills. One plugin, `adapty-skills`, carries every skill in the repo.
+
+To pull later changes:
+
+```bash
+codex plugin marketplace upgrade
+codex plugin add adapty-skills@adapty
+```
+
 ### Any agentic CLI
 
 The [skills CLI](https://skills.sh) installs into any supported agent — Cursor, Copilot, Codex, Gemini CLI, Zed, Amp, and more:
@@ -97,7 +113,7 @@ git clone https://github.com/adaptyteam/adapty-skills.git
 cp -r adapty-skills/skills/* ~/.copilot/skills/
 ```
 
-**OpenAI Codex CLI** — [docs](https://developers.openai.com/codex/skills). Use `~/.agents/skills/` for personal, `<repo>/.agents/skills/` for project:
+**OpenAI Codex CLI** — [docs](https://developers.openai.com/codex/skills). The [plugin](#codex) is the better route unless you want one project scoped to its own copy. Use `~/.agents/skills/` for personal, `<repo>/.agents/skills/` for project:
 
 ```bash
 git clone https://github.com/adaptyteam/adapty-skills.git
