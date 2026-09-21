@@ -2656,15 +2656,556 @@
       "keywords": [
         "products",
         "plans",
-        "subscriptions"
+        "subscriptions",
+        "pricing",
+        "tiers"
       ],
-      "agent_allowed": false,
-      "slots": {},
+      "agent_allowed": true,
+      "slots": {
+        "items": {
+          "kind": "items",
+          "path": [
+            "children"
+          ],
+          "item_index": 0,
+          "min": 1,
+          "max": 6,
+          "item_slots": {
+            "title": {
+              "kind": "text",
+              "path": [
+                "children",
+                0,
+                "children",
+                0,
+                "props",
+                "content"
+              ]
+            },
+            "details": {
+              "kind": "text",
+              "path": [
+                "children",
+                0,
+                "children",
+                1,
+                "props",
+                "content"
+              ]
+            },
+            "product_id": {
+              "kind": "text",
+              "path": [
+                "props",
+                "product",
+                "id"
+              ]
+            }
+          }
+        }
+      },
+      "groups": [
+        {
+          "id": "products",
+          "type": "product"
+        }
+      ],
       "template": {
         "type": "stack",
         "caption": "Products",
-        "props": {},
-        "children": []
+        "props": {
+          "position": {
+            "type": "relative"
+          },
+          "width": {
+            "type": "fill"
+          },
+          "height": {
+            "type": "hug"
+          },
+          "layout": {
+            "direction": "vertical",
+            "alignH": "center",
+            "alignV": "start",
+            "distribution": {
+              "type": "gap",
+              "gap": 12
+            }
+          }
+        },
+        "children": [
+          {
+            "type": "product",
+            "caption": "Plan",
+            "props": {
+              "position": {
+                "type": "relative"
+              },
+              "width": {
+                "type": "fill"
+              },
+              "height": {
+                "type": "hug"
+              },
+              "layout": {
+                "direction": "horizontal",
+                "alignH": "start",
+                "alignV": "center",
+                "distribution": {
+                  "type": "space-between"
+                }
+              },
+              "padding": {
+                "top": 14,
+                "right": 16,
+                "bottom": 14,
+                "left": 16
+              },
+              "borderRadius": {
+                "tl": 16,
+                "tr": 16,
+                "bl": 16,
+                "br": 16
+              },
+              "border": {
+                "width": 1,
+                "style": "solid",
+                "color": {
+                  "type": "color-style",
+                  "colorId": "gray-200"
+                }
+              },
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
+                }
+              ],
+              "groupId": "products",
+              "default": true,
+              "product": {
+                "id": ""
+              }
+            },
+            "states": [
+              {
+                "id": "selected",
+                "type": "system"
+              }
+            ],
+            "propsByState": {
+              "selected": {
+                "border": {
+                  "width": 1,
+                  "style": "solid",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "gray-800"
+                  }
+                }
+              }
+            },
+            "children": [
+              {
+                "type": "stack",
+                "caption": "Plan text",
+                "props": {
+                  "position": {
+                    "type": "relative"
+                  },
+                  "width": {
+                    "type": "hug"
+                  },
+                  "height": {
+                    "type": "hug"
+                  },
+                  "layout": {
+                    "direction": "vertical",
+                    "alignH": "start",
+                    "alignV": "center",
+                    "distribution": {
+                      "type": "gap",
+                      "gap": 2
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "type": "text",
+                    "props": {
+                      "position": {
+                        "type": "relative"
+                      },
+                      "width": {
+                        "type": "hug"
+                      },
+                      "height": {
+                        "type": "hug"
+                      },
+                      "align": "left",
+                      "verticalAlign": "top",
+                      "color": {
+                        "type": "color-style",
+                        "colorId": "gray-800"
+                      },
+                      "decoration": "none",
+                      "layout": "auto-height",
+                      "content": "Choose a plan",
+                      "font": {
+                        "preset": "body"
+                      }
+                    },
+                    "caption": "Plan title"
+                  },
+                  {
+                    "type": "text",
+                    "props": {
+                      "position": {
+                        "type": "relative"
+                      },
+                      "width": {
+                        "type": "hug"
+                      },
+                      "height": {
+                        "type": "hug"
+                      },
+                      "align": "left",
+                      "verticalAlign": "top",
+                      "color": {
+                        "type": "color-style",
+                        "colorId": "gray-500"
+                      },
+                      "decoration": "none",
+                      "layout": "auto-height",
+                      "content": "Product details",
+                      "font": {
+                        "preset": "caption"
+                      }
+                    },
+                    "caption": "Plan details"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "product",
+            "caption": "Plan",
+            "props": {
+              "position": {
+                "type": "relative"
+              },
+              "width": {
+                "type": "fill"
+              },
+              "height": {
+                "type": "hug"
+              },
+              "layout": {
+                "direction": "horizontal",
+                "alignH": "start",
+                "alignV": "center",
+                "distribution": {
+                  "type": "space-between"
+                }
+              },
+              "padding": {
+                "top": 14,
+                "right": 16,
+                "bottom": 14,
+                "left": 16
+              },
+              "borderRadius": {
+                "tl": 16,
+                "tr": 16,
+                "bl": 16,
+                "br": 16
+              },
+              "border": {
+                "width": 1,
+                "style": "solid",
+                "color": {
+                  "type": "color-style",
+                  "colorId": "gray-200"
+                }
+              },
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
+                }
+              ],
+              "groupId": "products",
+              "default": false,
+              "product": {
+                "id": ""
+              }
+            },
+            "states": [
+              {
+                "id": "selected",
+                "type": "system"
+              }
+            ],
+            "propsByState": {
+              "selected": {
+                "border": {
+                  "width": 1,
+                  "style": "solid",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "gray-800"
+                  }
+                }
+              }
+            },
+            "children": [
+              {
+                "type": "stack",
+                "caption": "Plan text",
+                "props": {
+                  "position": {
+                    "type": "relative"
+                  },
+                  "width": {
+                    "type": "hug"
+                  },
+                  "height": {
+                    "type": "hug"
+                  },
+                  "layout": {
+                    "direction": "vertical",
+                    "alignH": "start",
+                    "alignV": "center",
+                    "distribution": {
+                      "type": "gap",
+                      "gap": 2
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "type": "text",
+                    "props": {
+                      "position": {
+                        "type": "relative"
+                      },
+                      "width": {
+                        "type": "hug"
+                      },
+                      "height": {
+                        "type": "hug"
+                      },
+                      "align": "left",
+                      "verticalAlign": "top",
+                      "color": {
+                        "type": "color-style",
+                        "colorId": "gray-800"
+                      },
+                      "decoration": "none",
+                      "layout": "auto-height",
+                      "content": "Choose a plan",
+                      "font": {
+                        "preset": "body"
+                      }
+                    },
+                    "caption": "Plan title"
+                  },
+                  {
+                    "type": "text",
+                    "props": {
+                      "position": {
+                        "type": "relative"
+                      },
+                      "width": {
+                        "type": "hug"
+                      },
+                      "height": {
+                        "type": "hug"
+                      },
+                      "align": "left",
+                      "verticalAlign": "top",
+                      "color": {
+                        "type": "color-style",
+                        "colorId": "gray-500"
+                      },
+                      "decoration": "none",
+                      "layout": "auto-height",
+                      "content": "Product details",
+                      "font": {
+                        "preset": "caption"
+                      }
+                    },
+                    "caption": "Plan details"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "product",
+            "caption": "Plan",
+            "props": {
+              "position": {
+                "type": "relative"
+              },
+              "width": {
+                "type": "fill"
+              },
+              "height": {
+                "type": "hug"
+              },
+              "layout": {
+                "direction": "horizontal",
+                "alignH": "start",
+                "alignV": "center",
+                "distribution": {
+                  "type": "space-between"
+                }
+              },
+              "padding": {
+                "top": 14,
+                "right": 16,
+                "bottom": 14,
+                "left": 16
+              },
+              "borderRadius": {
+                "tl": 16,
+                "tr": 16,
+                "bl": 16,
+                "br": 16
+              },
+              "border": {
+                "width": 1,
+                "style": "solid",
+                "color": {
+                  "type": "color-style",
+                  "colorId": "gray-200"
+                }
+              },
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
+                }
+              ],
+              "groupId": "products",
+              "default": false,
+              "product": {
+                "id": ""
+              }
+            },
+            "states": [
+              {
+                "id": "selected",
+                "type": "system"
+              }
+            ],
+            "propsByState": {
+              "selected": {
+                "border": {
+                  "width": 1,
+                  "style": "solid",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "gray-800"
+                  }
+                }
+              }
+            },
+            "children": [
+              {
+                "type": "stack",
+                "caption": "Plan text",
+                "props": {
+                  "position": {
+                    "type": "relative"
+                  },
+                  "width": {
+                    "type": "hug"
+                  },
+                  "height": {
+                    "type": "hug"
+                  },
+                  "layout": {
+                    "direction": "vertical",
+                    "alignH": "start",
+                    "alignV": "center",
+                    "distribution": {
+                      "type": "gap",
+                      "gap": 2
+                    }
+                  }
+                },
+                "children": [
+                  {
+                    "type": "text",
+                    "props": {
+                      "position": {
+                        "type": "relative"
+                      },
+                      "width": {
+                        "type": "hug"
+                      },
+                      "height": {
+                        "type": "hug"
+                      },
+                      "align": "left",
+                      "verticalAlign": "top",
+                      "color": {
+                        "type": "color-style",
+                        "colorId": "gray-800"
+                      },
+                      "decoration": "none",
+                      "layout": "auto-height",
+                      "content": "Choose a plan",
+                      "font": {
+                        "preset": "body"
+                      }
+                    },
+                    "caption": "Plan title"
+                  },
+                  {
+                    "type": "text",
+                    "props": {
+                      "position": {
+                        "type": "relative"
+                      },
+                      "width": {
+                        "type": "hug"
+                      },
+                      "height": {
+                        "type": "hug"
+                      },
+                      "align": "left",
+                      "verticalAlign": "top",
+                      "color": {
+                        "type": "color-style",
+                        "colorId": "gray-500"
+                      },
+                      "decoration": "none",
+                      "layout": "auto-height",
+                      "content": "Product details",
+                      "font": {
+                        "preset": "caption"
+                      }
+                    },
+                    "caption": "Plan details"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {

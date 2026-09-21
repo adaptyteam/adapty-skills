@@ -17,9 +17,10 @@ already has one, copy that instead — it is better than anything here.
    Same app means products and custom fonts still resolve; see the break list below for what
    does not.
 3. **`component-catalog.json`, which ships in this directory.** 39 official templates with named
-   slots — `footer` (cta/terms/privacy), `quiz-icons`, `quiz-icon-grid`, `chk-radio-on`/`off`,
-   `chk-toggle-on`/`off`, `list-timeline`, `list-comparison`, `list-icons`, `tabs-segmented`,
-   `ue-social-proof`, `reviews-carousel`, `video-hero`/`video-card`, four timer variants and more. **Query it, never read it whole** (428KB):
+   slots — `prod-vertical-list` (the plan cards), `footer` (cta/terms/privacy), `quiz-icons`,
+   `quiz-icon-grid`, `chk-radio-on`/`off`, `chk-toggle-on`/`off`, `list-timeline`,
+   `list-comparison`, `list-icons`, `tabs-segmented`, `ue-social-proof`, `reviews-carousel`,
+   `video-hero`/`video-card`, four timer variants and more. **Query it, never read it whole** (428KB):
 
    ```bash
    jq -r '.components[].id' references/component-catalog.json
@@ -27,8 +28,19 @@ already has one, copy that instead — it is better than anything here.
    ```
 
    Each entry carries `slots`, `keywords`, `insertion_policy` and an **`agent_allowed`** flag.
-   Respect it: `prod-vertical-list` is `agent_allowed: false`. Filling a template's slots beats
-   assembling a skeleton below, because the template's internal wiring is already correct.
+   Respect it. Filling a template's slots beats assembling a skeleton below, because the
+   template's internal wiring is already correct.
+
+   **A template is in the EXPORT shape — `children`, no ids — so it cannot go into `screen()` as
+   it stands.** `flowkit.from_catalog(template, group_id=...)` converts one: it mints every id,
+   fills the `""` placeholder ids on interactions and actions, and renames the template's own
+   group so two templates on one screen do not share it. Without it a template gets retyped as a
+   hand-built skeleton, which is how the correct wiring gets lost on the way in.
+
+   ```python
+   entry = next(c for c in catalog['components'] if c['id'] == 'prod-vertical-list')
+   nodes = fk.from_catalog(entry['template'], group_id='plans')   # fill the slots either side
+   ```
 4. **The skeletons in this file.** Last resort. They are minimal and carry no theme, so every
    `colorId`, `font.preset` and id in them has to be replaced with the input's own before use.
 
@@ -767,9 +779,21 @@ design choice in a screenshot.
 
 ### A selectable plan card
 
-The commonest paywall shape there is, and the one most likely to be rebuilt from scratch. Radio
-and product-card shapes below are lifted from `tests/fixtures/onboarding-quiz-paywall.json` (a real
-export); the assembly is **verified by render**.
+**Reach for `prod-vertical-list` first.** It is the catalog's own plan-card list — one shared
+product group, `states` + `propsByState.selected` on every card, exactly one `default: true`, and
+`product.id: ""` on each so nothing is bound until you or the user chooses. Fill `title`,
+`details` and `product_id` per card and you have skipped every trap in this section:
+
+```python
+nodes = fk.from_catalog(entry['template'], group_id='plans')
+```
+
+Read the rest of this section when the catalog shape does not fit — a comparison layout, a single
+hidden attach point, cards that are not a vertical list. This is the commonest paywall shape there
+is and the one most likely to be rebuilt from scratch, and rebuilding it is where the dead
+selected state comes from. Radio and product-card shapes below are lifted from
+`tests/fixtures/onboarding-quiz-paywall.json` (a real export); the assembly is **verified by
+render**.
 
 Three parts have to agree, and the group id is what ties them together:
 

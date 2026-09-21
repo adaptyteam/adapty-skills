@@ -469,6 +469,12 @@ code reports a good config as broken and a dead call as a defect.
 > **Done here is a run that printed `valid: true` over the exact bytes you are about to write.**
 > It reports one fatal per run, so fix, re-run, repeat — a shorter list is not progress.
 
+**And while the products are unsettled it reports nothing but the products** — binding is an
+early stage, so an unbound card or an undeclared product hides every later defect behind it.
+That is what makes the local walk above the fast path rather than the thorough one: it names
+those defects anyway, at no round trip.
+[validate.md](references/validate.md#unsettled-products-hide-everything-else).
+
 **Neither check is a proof, and they do not overlap.** `validate` catches the stranded references
 the schema cannot see — an undeclared product, a `groupId` or a `navigate` pointing at something
 that is gone. It also passes `fill: "banana"`, `schemaVersion: 999`, an element with no `states`,
