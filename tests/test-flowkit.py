@@ -274,7 +274,8 @@ def main():
         check('an unknown distribution raises rather than emitting junk', True)
     # image() — an uploaded asset was unreachable from this module before 0.8.0's media upload
     HERO = 'https://public-media.adapty.io/public/1e/5b/1e5bbbb4/hero.png'
-    img = fk.image(HERO, media_id=516395, fixed_w=242, corner=fk.radius(20))
+    img = fk.image(HERO, media_id=516395, preview=fk.NO_PREVIEW, fixed_w=242,
+                   corner=fk.radius(20))
     check('image binds the url inside the per-locale localizable map',
           img['props']['image'] == {'_localizable': True,
                                     'values': {'en': {'id': '516395', 'url': HERO}}},
@@ -302,8 +303,9 @@ def main():
 
     # previewValue — the base64 thumbnail the renderer paints while the asset downloads. With
     # the key absent the renderer draws a transparent 1x1 and the screen has a hole until the
-    # download finishes, and no gate sees it. Only `--json` returns it and there is no
-    # `flows media get`, so it is capture-at-upload or never.
+    # download finishes, and no gate sees it. Only the upload returns it, so `preview=` is
+    # REQUIRED here: a default would let "the upload gave me none" and "I never captured one"
+    # write the same document, and only the first is finished work.
     PREV = 'UklGRhQJAABXRUJQVlA4IAgJAAAwSQCdASos'
     withp = fk.image(HERO, media_id=516395, preview=PREV)
     check('preview binds as previewValue, bare, beside id and url',
@@ -312,7 +314,8 @@ def main():
           json.dumps(withp['props']['image']['values']['en']))
     check('no preview OMITS the key rather than writing null — what the builder does when the '
           'upload generated none',
-          'previewValue' not in fk.image(HERO, media_id=1)['props']['image']['values']['en'])
+          'previewValue' not in
+          fk.image(HERO, media_id=1, preview=fk.NO_PREVIEW)['props']['image']['values']['en'])
     for bad, why in ((lambda: fk.image(HERO, preview='data:image/webp;base64,AAA'),
                       'a data URI is refused: the field wants bare base64'),
                      (lambda: fk.image(HERO, preview='   '),
@@ -325,6 +328,27 @@ def main():
             # the string comes from, and a bare `raises` here would pass on any exception.
             check(why, 'preview_base64' in str(exc) or 'BARE base64' in str(exc), str(exc)[:60])
 
+    for bad, why, want in (
+            (lambda: fk.image(HERO, media_id=516395),
+             'image() with no preview= at all raises rather than quietly omitting the field',
+             'required'),
+            (lambda: fk.image_fill(HERO, media_id=516395),
+             'image_fill() with no preview= raises too — a background is the most visible hole',
+             'required'),
+            (lambda: fk.image(fk.PLACEHOLDER, preview=PREV),
+             'a preview on a PLACEHOLDER raises: there is no asset for it to be a preview of',
+             'contradiction')):
+        try:
+            bad()
+            check(why, False, 'accepted')
+        except TypeError as exc:
+            # The message is the guard. `preview` is keyword-only, so a bare `raises` here would
+            # also pass on Python's own missing-argument error, which teaches an author nothing.
+            check(why, want in str(exc), str(exc)[:70])
+    check('NO_PREVIEW is a distinct object, not a falsy value another argument could collide with',
+          fk.NO_PREVIEW is not None and fk.NO_PREVIEW is not fk.PLACEHOLDER and
+          bool(fk.NO_PREVIEW))
+
     # image_fill() — the SAME asset binds a second way, flat, with no locale map. There was no
     # helper for it, so a background image was hand-assembled and its preview was the easiest
     # thing to leave out.
@@ -336,7 +360,8 @@ def main():
     check('image_fill wraps in a one-item array, like every other v10 fill',
           isinstance(bg, list) and len(bg) == 1)
     check('image_fill refuses two colour sources',
-          raises(lambda: fk.image_fill(HERO, color_id='bg', hexval='#FFF'), TypeError))
+          raises(lambda: fk.image_fill(HERO, preview=fk.NO_PREVIEW, color_id='bg',
+                                       hexval='#FFF'), TypeError))
 
     # video() — `flows media upload` REFUSES a clip (permitted formats are JPEG/JPEG2000/WEBP/
     # PNG/SVG), so the only correct artifact is a styled element with NO source plus a spoken

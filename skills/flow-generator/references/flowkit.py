@@ -872,6 +872,18 @@ def spinner(icon_name, *, size_pt=32, color_id=None, hexval=None, duration_ms=10
 #: values map is something you *asked* for and a reader can grep, never something you forgot.
 PLACEHOLDER = object()
 
+#: `preview=` has no default ON PURPOSE. `previewValue` is the base64 thumbnail the renderer
+#: paints while the asset downloads, and without it the screen ships with a hole in it -- a defect
+#: no gate sees, because the document is well formed either way. A default would collapse the two
+#: situations that produce the same JSON: the upload returned no preview, and the author never
+#: captured one. Only the first is finished work, so it is the one with a name.
+NO_PREVIEW = object()
+
+#: Distinct from NO_PREVIEW: the caller passed nothing at all. Keeping the two apart is the whole
+#: mechanism -- a default of None would let a forgotten preview and a genuinely absent one write
+#: the same document.
+_PREVIEW_UNSET = object()
+
 OBJECT_FIT = ('cover', 'fit')
 
 
@@ -888,16 +900,29 @@ def _image_value(url, media_id, preview):
     The value is bare base64 with NO `data:` prefix, exactly as `flows media upload --json`
     returns it in `preview_base64` (a half-size WEBP; the renderer's own fallback is a bare
     base64 PNG). The key is OMITTED when the upload generated no preview, matching the builder,
-    rather than written as null or an empty string.
+    rather than written as null or an empty string — and that case is spelled
+    `flowkit.NO_PREVIEW`, so a document missing the field says which situation produced it.
     """
     entry = {'url': url}
     if media_id is not None:
         entry['id'] = str(media_id)
-    if preview is not None:
+    if preview is _PREVIEW_UNSET:
+        raise TypeError(
+            'image(preview=...) / image_fill(preview=...) is required: pass the '
+            '`preview_base64` string from the `flows media upload --json` that gave you this '
+            'URL, the value lifted out of a config that already binds this asset, or '
+            'flowkit.NO_PREVIEW when that upload returned none. Without it the renderer paints '
+            'a transparent 1x1 and the screen ships with a hole in it, and no gate sees it — so '
+            'this is not a field to leave to a default. If you no longer have the value, go and '
+            'find it: media.md, "When you have a URL and no preview"')
+    if preview is not NO_PREVIEW and preview is not None:
         if not isinstance(preview, str) or not preview.strip():
             raise TypeError(
                 'preview= wants the `preview_base64` string from `flows media upload --json`, '
-                f'or None when the upload returned none — never {preview!r}')
+                'the value lifted out of a config that already binds this asset, or '
+                f'flowkit.NO_PREVIEW when that upload returned none — never {preview!r}. A '
+                'preview you no longer have is one to go and find, not one to drop: see '
+                'media.md, "When you have a URL and no preview"')
         if preview.startswith('data:'):
             raise ValueError(
                 'preview= wants BARE base64, not a data URI: pass `preview_base64` through '
@@ -906,7 +931,7 @@ def _image_value(url, media_id, preview):
     return entry
 
 
-def image_fill(url, *, media_id=None, preview=None, color_id=None, hexval=None):
+def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hexval=None):
     """A background image fill — `props.fill` on a screen or a stack.
 
     The SAME asset binds two different ways and this is the other one: an `image` element wraps
@@ -927,7 +952,7 @@ def image_fill(url, *, media_id=None, preview=None, color_id=None, hexval=None):
     return [layer]
 
 
-def image(url, *, media_id=None, preview=None, fit='cover', width='fill', height='hug',
+def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fill', height='hug',
           fixed_w=None, fixed_h=None, corner=None, margin=None, position=None,
           locale='en', **kw):
     """An `image` element bound to an uploaded asset.
@@ -935,10 +960,12 @@ def image(url, *, media_id=None, preview=None, fit='cover', width='fill', height
     `url` is the CDN URL that `flows media upload` printed, `media_id` the id it printed
     alongside — passed through `str()`, because the command prints a number while the schema
     declares `IImage.id` as a string — and `preview` the `preview_base64` string that only
-    `--json` returns. Capture all three from the ONE invocation: there is no `flows media get`,
-    so a preview not read at upload time cannot be read later at all, and re-uploading the file
-    mints a second asset with a different URL. Pass `flowkit.PLACEHOLDER` as the url for the
-    no-asset case; anything else falsy is an error rather than a silent empty map.
+    `--json` returns. Take all three off the ONE invocation and keep its JSON: nothing else
+    returns the preview, and re-uploading the file mints a second asset with a different URL
+    rather than handing the value back. If you are rebinding an asset whose preview you no longer
+    have, lift it out of a config that already binds it (media.md) rather than dropping the
+    field. Pass `flowkit.PLACEHOLDER` as the url for the no-asset case; anything else falsy is an
+    error rather than a silent empty map.
 
     Geometry, measured (media.md): with `height='hug'` the drawn height comes from the ASSET's
     aspect ratio, so the screen re-flows if the file is swapped and `fit` has no visible effect.
@@ -948,6 +975,11 @@ def image(url, *, media_id=None, preview=None, fit='cover', width='fill', height
     if fit not in OBJECT_FIT:
         raise ValueError(f'objectFit must be one of {OBJECT_FIT}, not {fit!r}')
     if url is PLACEHOLDER:
+        if preview is not _PREVIEW_UNSET and preview is not NO_PREVIEW:
+            raise TypeError(
+                'image(flowkit.PLACEHOLDER, preview=...) is a contradiction: a placeholder binds '
+                'no asset, so there is nothing for a preview to be a preview OF. Drop the '
+                'preview, or pass the URL the upload printed')
         content = {'values': {}, '_localizable': True}
     elif isinstance(url, str) and url.strip():
         content = {'values': {locale: _image_value(url, media_id, preview)},

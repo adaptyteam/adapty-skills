@@ -32,20 +32,27 @@ downloads (see below). So take `--json`, and **redirect it to a file so the blob
 your context**:
 
 ```bash
-$ADAPTY flows media upload --app "$APP" ./hero.png --json > upload.json
-MEDIA_ID=$(jq -r .id upload.json)
-MEDIA_URL=$(jq -r .url upload.json)
-MEDIA_PREVIEW=$(jq -r '.preview_base64 // empty' upload.json)   # may legitimately be empty
+mkdir -p media
+$ADAPTY flows media upload --app "$APP" ./hero.png --json > media/hero.json
+MEDIA_ID=$(jq -r .id media/hero.json)
+MEDIA_URL=$(jq -r .url media/hero.json)
+MEDIA_PREVIEW=$(jq -r '.preview_base64 // empty' media/hero.json)   # may legitimately be empty
 ```
 
-Reading the file with `jq` keeps the cost at one short string per variable; `cat`-ing
-`upload.json`, or running the command without the redirect, puts the whole thumbnail in front of
-you for nothing.
+Reading the file with `jq` keeps the cost at one short string per variable; `cat`-ing it, or
+running the command without the redirect, puts the whole thumbnail in front of you for nothing.
 
-**Capture all three from the *one* invocation.** There is no `flows media get` — `flows media`
-has exactly one subcommand — so a preview not read at upload time **cannot be read afterwards at
-all**. And the upload does not deduplicate, so re-running it to recover the value mints a second
-asset with a different id and URL and leaves the first behind, which no CLI command can remove.
+**That file is the asset's record, so keep it for the whole run.** `preview_base64` comes back
+from this call and from nothing else, and the upload does not deduplicate — re-running it to
+recover a value mints a *second* asset with a different id and URL, and leaves the first behind
+where no CLI command can remove it. So when you bind an asset you uploaded earlier, read its
+three values out of its file. Looking one up later is a file read, not a command.
+
+**A response that hands you an id and a URL and no preview is not telling you the field is
+optional.** It is telling you that value was not kept for you. Bind the asset without it and the
+screen ships with a hole in it, exactly as if you had never had it — so treat a missing preview
+as a value to go and find ([When you have a URL and no preview](#when-you-have-a-url-and-no-preview)),
+never as a fact about the format.
 
 ## Getting the file: the upload needs a PATH, not a picture
 
@@ -280,19 +287,56 @@ Bind it exactly as the upload returned it:
 
 - **Bare base64, no `data:` prefix.** `preview_base64` is a half-size WEBP; the renderer's own
   1×1 fallback is bare base64 too. A data URI is not the same string and does not belong here.
-- **Omit the key when the upload returned nothing.** `preview_base64` is nullable — preview
-  generation can fail — and the field is optional, so an absent key is a legal document. Never
-  write `null` or `""` to fill the slot.
+- **Omit the key only when the upload itself returned nothing.** `preview_base64` is nullable —
+  preview generation can fail — and the field is optional, so that document is legal. Never write
+  `null` or `""` to fill the slot, and never reach for this bullet to cover a value you had and
+  lost: *the upload gave me none* and *I did not capture it* are different situations that produce
+  the same JSON, and only the first one is finished work. Say which one it was.
 - **It rides with the asset, not with the element.** The same three-field `IImage` goes into a
   per-locale `values` entry on an element and flat inside a fill, so a background needs it just
   as much — more visibly, since a background is usually the largest thing on the screen.
+- **A config is where it is stored.** Because the whole `IImage` is written into the flow, an
+  asset already bound somewhere carries its preview there, and that is what makes a lost one
+  recoverable — see below.
 
-**This is capture-at-upload or never.** Only `--json` returns the value, there is no command that
-reads it back for an asset already uploaded, and re-uploading the file mints a different asset.
-So when you are editing a **fetched** config whose images already lack a preview, that is not
-yours to repair and not worth a silent rewrite: say so in the handoff and let the user re-upload
-the image in the builder, which writes the field for them. `verify-config.py` draws the same
-line — it reports only the images your draft added, and stays quiet about inherited ones.
+## When you have a URL and no preview
+
+Reuse is the ordinary way to get here: the asset went up an hour ago, or into another flow
+entirely, and what you are holding now is a URL. Work down this ladder and take the first rung
+that fits. **Do not skip to the bottom** — rung 3 mints a duplicate nobody can delete, and rung 4
+is work you hand back to the user.
+
+| What you have | What to do |
+|---|---|
+| **An upload you ran** | Its record file has all three values. Read them back out of it. |
+| **The asset bound in some flow** | Fetch that config and lift the preview out by URL — one read, nothing minted, and the value is the API's own. |
+| **The local file, and no record** | Re-upload it with `--json`. You get a *second* asset with a different id and URL: bind the new one everywhere on this screen, and say in the handoff that the media library now holds a duplicate. |
+| **Only the URL** | Hand it back: the user re-uploads that image in the builder, which writes the field for them. Name the elements, so they know which. |
+
+Rung 2 is the one worth a recipe, and it is how you reuse an asset across flows — read it out of
+the config that already binds it rather than uploading the file again:
+
+```bash
+$ADAPTY flows config get <FLOW_ID> --app "$APP" --json > other.json
+jq -r --arg u "$MEDIA_URL" \
+  '[.. | objects | select(.url? == $u and (.previewValue? // "") != "")][0].previewValue // empty' \
+  other.json
+```
+
+Redirect and `jq` for the same reason as the upload: a config runs to six figures of characters,
+and the value you want is one string inside it. The walk is over the whole document because the
+same asset binds two ways — a per-locale `values` entry on an element, flat inside a fill — and
+either one carries the field.
+
+**An empty result is the common case, and it means the agent that bound it dropped the field —
+not that the field is optional.** Only an asset bound *with* a preview can hand one back, so
+anything written before this rule, and anything the dashboard's paywall conversion moved over,
+comes back empty. Fall through to the next rung; do not conclude anything about the format.
+
+That is also the line `verify-config.py` draws. It reports the images **your draft added** and
+stays quiet about ones that arrived with the config — not because an inherited one cannot be
+fixed, but because fixing it means editing an asset someone else bound, which is a change to
+report and offer rather than to make silently.
 
 ## No gate catches an image defect. Only the render does.
 

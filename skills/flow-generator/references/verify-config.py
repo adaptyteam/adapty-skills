@@ -809,14 +809,20 @@ def check(path, baseline_text=None, baseline_images=None):
     # is blind: `validate` returns valid:true either way, the schema declares the field optional,
     # and `config preview` renders a local file where there is no download to wait for.
     #
-    # Reported only against a --baseline, and the reason is that the fix is only available at
-    # ONE moment. `preview_base64` comes back from `flows media upload` and there is no
-    # `flows media get`, so a preview not captured at upload time cannot be read later at all —
-    # re-uploading mints a second asset with a different URL, and on a fetched config the source
-    # file is usually gone. An image that arrived WITH the config is therefore not repairable
-    # here (it is the user's to re-upload in the builder), and a warning nobody can act on is
-    # noise. An image this draft ADDED is the opposite: the agent ran the upload, so the value
-    # was in its hands one command ago.
+    # Reported only against a --baseline, and the reason is ownership rather than repairability.
+    # An image this draft ADDED is one the agent bound: the value was in its hands a command ago,
+    # or is a `flows config get` away in whatever flow already carries the asset. An image that
+    # arrived WITH the config was bound by someone else, and adding a preview there means editing
+    # their work -- a change to report and offer, not one to make on the way past. Repairable it
+    # often is: because a config stores the whole IImage, an asset bound anywhere carries its
+    # preview there. What nothing recovers is a preview no binding ever had, since `preview_base64`
+    # comes back from the upload alone and re-uploading mints a second asset rather than the value.
+    #
+    # KNOWN LIMITATION: with no --baseline this says nothing, and an authored flow has no baseline
+    # to pass (`config get` 404s on a flow that was just created). Un-gating is not the fix: real
+    # exports predate the field, and `flow-audit` runs this checker bare on fetched flows, so it
+    # would blocker builder output. The authoring path is covered upstream instead -- `flowkit`'s
+    # `image()`/`image_fill()` require `preview=`, so forgetting it is unrepresentable there.
     if baseline_images is not None:
         no_preview = []
         for label, entry in iter_bound_images(d):
@@ -830,9 +836,12 @@ def check(path, baseline_text=None, baseline_images=None):
             warn.append(f"{len(no_preview)} image(s) bound with NO previewValue "
                         f"({', '.join(no_preview[:4])}{', …' if len(no_preview) > 4 else ''}) — "
                         f"they draw as a transparent 1x1 until the full asset downloads, and no "
-                        f"gate sees it. Re-read `preview_base64` from the SAME "
-                        f"`flows media upload --json` that gave you the URL; there is no way to "
-                        f"fetch it afterwards")
+                        f"gate sees it. Take it from the `flows media upload --json` that gave "
+                        f"you the URL, or lift it out of a config that already binds the same "
+                        f"asset (`flows config get`, then jq the previewValue beside that url); "
+                        f"re-upload the file only if neither has it, and say so, because that "
+                        f"mints a second asset. An empty lookup means whoever bound it dropped "
+                        f"the field — not that the field is optional")
 
     # A `video` is the empty-image story one element type over, with one difference that makes
     # it permanent rather than provisional: `flows media upload` REFUSES a clip outright
