@@ -5,8 +5,9 @@ Scope is deliberately narrow. This owns the parts that are *error-prone but not 
   * the `hierarchy` / `map` split — every node declared twice, in two structures that must
     agree exactly; an id in one and not the other is a broken config. `flatten()` makes that
     unrepresentable, and it is the reason this module exists. No JSON skeleton can help here.
-  * the envelope, at the current `schemaVersion` with **array** fills (v10). Authoring is the
-    one case with no input form to preserve, so it uses the current one.
+  * the envelope, stamped at the `schemaVersion` whose shapes it emits — **array** fills, dotted
+    product variables, no screen registry, which is v10. Authoring is the one case with no input
+    form to preserve, so the number is chosen; see `SCHEMA_VERSION` for why it is not the latest.
   * one canonical rich-text builder, with the span kinds named instead of guessed.
 
 Not in scope: anything with a design opinion. Element shapes, card recipes, spacing — those are
@@ -56,7 +57,12 @@ try:
 finally:
     sys.dont_write_bytecode = _bytecode
 
-SCHEMA_VERSION = 10          # authoring uses the current version; a FETCHED flow keeps its own
+#: The version whose shapes this module emits, which is the builder's own latest: array fills
+#: (010), structured product refs (011) and the screen product registry (012). The number
+#: declares which migrations a document has already been through, so it may only be raised in
+#: step with what the module actually writes -- stamping a version whose shapes are absent makes
+#: the builder SKIP the migration that would have produced them. A FETCHED flow keeps its own.
+SCHEMA_VERSION = 12
 
 # --- ids ---------------------------------------------------------------------------------
 
@@ -277,7 +283,8 @@ def visible():
 # The published schema's ExpressionType enum, verbatim
 # (schemastore.adaptybuilder.com/latest.json -> definitions.ExpressionType).
 EXPR_TYPES = ('const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
-              'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat')
+              'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
+              'productRef')
 
 # ...and the one member the condition walker has NO case for, so it falls through to
 # `default: return `${path}.type`` and the flow is refused. `assign` is schema-legal and is
@@ -337,6 +344,14 @@ def _bad_expr_path(v, path):
     if t == 'var':
         vid = v.get('variableId')
         return None if isinstance(vid, str) and vid else f'{path}.variableId'
+    if t == 'productRef':
+        # Normally this module writes these itself, after a condition has been validated --
+        # see `_apply_product_refs`. The case is here for a hand-built one, and it is
+        # deliberately shallow: `verify-config.py` owns the full target check and runs on the
+        # finished document, which is where a malformed target has to be caught anyway.
+        target = v.get('target')
+        return None if isinstance(target, dict) and target.get('kind') in (
+            'product', 'selected') else f'{path}.target'
     if t in _BINARY:
         return (_bad_expr_path(v.get('left'), f'{path}.left')
                 or _bad_expr_path(v.get('right'), f'{path}.right'))
@@ -1254,19 +1269,25 @@ def on_selected(node, **props):
     return node
 
 
-def product(children=(), *, product_id, group_id, default=False, **kw):
+def product(children=(), *, product_id, group_id, default=False, offer_id=None, **kw):
     """A selectable plan card — the member type for a `product` group. For any other group
     type (`single_choice`, `multi_choice`, `toggle`) use `selectable()` instead.
 
     The `selectableGroups` entry on the screen must use `group_id`.
 
-    A price variable resolves only against a screen's DECLARED products, and only the builder
-    writes that declaration — so bind the product here and put the price in the copy.
+    A price variable resolves only against a screen's DECLARED products, and the declaration is
+    built from the bindings on the screen — so bind the product here and put the price in the
+    copy.
+
+    `offer_id` names an offer on this binding. It is part of the product's identity everywhere:
+    the same product with and without an offer is two bindings, two registry entries and two
+    `flowProductId`s. Binding an offer is also the reason the structured product ref exists —
+    a dotted `<productId>.offer_price` cannot say which offer it means.
     """
+    value = {'id': product_id} if not offer_id else {'id': product_id, 'offerId': offer_id}
     node = stack(children, **kw)
     node['type'] = 'product'
-    node['props'].update({'groupId': group_id, 'default': default,
-                          'product': {'id': product_id}})
+    node['props'].update({'groupId': group_id, 'default': default, 'product': value})
     if not node['states']:
         node['states'] = [{'id': 'selected', 'type': 'system'}]
     return node
@@ -1710,6 +1731,219 @@ def flatten(nodes):
     return node_map, {'id': 'root', 'children': roots}
 
 
+# --- structured product refs, and the screen registry -------------------------------------
+#
+# Two shapes the builder's own migrations produce, emitted here at authoring time so the
+# document matches the `SCHEMA_VERSION` it is stamped with. Both are derived from the screen
+# being built -- never from what the caller remembered to declare -- which is the same source
+# the builder walks, so the two agree.
+#
+# The rules below mirror `011-product-refs-structured` and `012-screen-products`. Where a ref
+# cannot be resolved with certainty the legacy dotted string is LEFT ALONE, exactly as the
+# migration leaves it: a half-converted ref is worse than an unconverted one, and the builder
+# resolves the rest the first time a human opens the flow.
+
+#: The product sub-variable vocabulary, addressed as `<productId>.<name>` or
+#: `<groupId>.selectedProduct.<name>`. A dotted id whose tail is not in here is an ordinary
+#: variable and is never touched.
+PRODUCT_VAR_NAMES = (
+    'prod_title', 'prod_price', 'prod_price_per_day', 'prod_price_per_week',
+    'prod_price_per_month', 'prod_price_per_year', 'is_free_trial', 'is_pay_up_front',
+    'is_pay_as_you_go', 'offer_price', 'offer_billing_period', 'offer_full_duration')
+
+_SELECTED_PRODUCT = 'selectedProduct'
+
+
+def _binding(pid, offer_id):
+    """One `{kind: 'product'}` target. `offerId` is OMITTED rather than null for a base
+    binding -- the transformer rejects an empty string outright (`empty_offer_id`) and reads a
+    missing key as the base."""
+    return {'kind': 'product', 'id': pid} if not offer_id else {
+        'kind': 'product', 'id': pid, 'offerId': offer_id}
+
+
+def _product_value(pid, offer_id):
+    """One registry entry. Same omit-don't-null rule as `_binding`, and the same key order the
+    builder writes: `id`, then `offerId` when there is one."""
+    return {'id': pid} if not offer_id else {'id': pid, 'offerId': offer_id}
+
+
+def screen_products(node_map):
+    """Every Product + Offer pair this screen binds, in first-seen order, deduplicated.
+
+    Two sources, because they are the two ways a screen names a product: a `product` element's
+    `props.product`, and a `const` purchase payload -- which products.md documents as binding
+    perfectly well with no element behind it, and which therefore still has to be declared.
+
+    Pass a screen's `elements.map`. `screen()` calls this for you; it is public so an author
+    can hand the same pairs to `predeclare()` instead of listing them twice:
+
+        scr = fk.screen('scr_x', nodes, selectable_groups=[...])
+        meta = fk.predeclare('scr_x', [(p['id'], p.get('offerId')) for p in scr['products']])
+    """
+    pairs, seen = [], set()
+
+    def add(value):
+        if not isinstance(value, dict):
+            return
+        pid = value.get('id')
+        if not isinstance(pid, str) or not pid:
+            return
+        offer = value.get('offerId') or None
+        if (pid, offer) in seen:
+            return
+        seen.add((pid, offer))
+        pairs.append((pid, offer))
+
+    def purchases(obj):
+        if isinstance(obj, list):
+            for item in obj:
+                purchases(item)
+        elif isinstance(obj, dict):
+            if obj.get('type') == 'purchase':
+                payload = (obj.get('payload') or {}).get('product')
+                if isinstance(payload, dict) and payload.get('type') == 'const':
+                    add(payload.get('value'))
+            for v in obj.values():
+                purchases(v)
+
+    for el in node_map.values():
+        if el.get('type') == 'product':
+            add((el.get('props') or {}).get('product'))
+    for el in node_map.values():
+        purchases(el.get('interactions'))
+    return pairs
+
+
+def _split_product_var(variable_id):
+    """`(prefix, field)` when a dotted id ends in a product field name, else None."""
+    if not isinstance(variable_id, str):
+        return None
+    prefix, _, field = variable_id.rpartition('.')
+    return (prefix, field) if prefix and field in PRODUCT_VAR_NAMES else None
+
+
+def _ref_target(prefix, pairs, product_groups):
+    """The target a dotted prefix denotes, or None to leave the id legacy.
+
+    None covers migration 011's whole leftovers taxonomy, and each case is a real document:
+    a product id bound twice on one screen with different offers (the offer cannot be chosen
+    for the author), one bound nowhere (nothing to resolve against), and a group id that is
+    not a `product` selectable group of this screen (the transformer refuses that target with
+    `unknown_product_group`, so emitting it would turn a silent legacy ref into a hard error).
+    """
+    group, sep, tail = prefix.rpartition('.')
+    if sep and tail == _SELECTED_PRODUCT:
+        return {'kind': 'selected', 'groupId': group} if group in product_groups else None
+    matches = [p for p in pairs if p[0] == prefix]
+    return _binding(*matches[0]) if len(matches) == 1 else None
+
+
+def _identity_target(node, pairs, product_groups):
+    """The FIELDLESS target of one operand of an identity comparison, or None.
+
+    `var(<group>.selectedProduct) == const(<productId>)` is the shape, and it converts as a
+    unit or not at all -- a pair with one structured side and one legacy side compares a ref
+    against a raw string and is always false.
+    """
+    if not isinstance(node, dict):
+        return None
+    if node.get('type') == 'var':
+        vid = node.get('variableId')
+        if isinstance(vid, str):
+            group, sep, tail = vid.rpartition('.')
+            if sep and tail == _SELECTED_PRODUCT and group in product_groups:
+                return {'kind': 'selected', 'groupId': group}
+        return None
+    if node.get('type') == 'const':
+        value = node.get('value')
+        matches = [p for p in pairs if p[0] == value] if isinstance(value, str) else []
+        return _binding(*matches[0]) if len(matches) == 1 else None
+    return None
+
+
+def _apply_product_refs(obj, pairs, product_groups):
+    """Rewrite one screen's product references in place.
+
+    Rich-text spans are DUAL-written: `attrs.productRef` is added beside `attrs.variableId`
+    and the string stays, because readers that resolve through the string catalog still need
+    it. DSL nodes are REPLACED, because an expression has one type.
+    """
+    if isinstance(obj, list):
+        for item in obj:
+            _apply_product_refs(item, pairs, product_groups)
+        return
+    if not isinstance(obj, dict):
+        return
+
+    node_type = obj.get('type')
+
+    # A purchase action keeps its own `dynamicProduct` contract: whatever its payload names,
+    # the product slot stays a `var`/`const` node and a productRef must never flow into it.
+    #
+    # NOTHING CURRENTLY REACHES THIS, and it is kept anyway. The payload's var is the fieldless
+    # `<group>.selectedProduct`, which the resolver below already declines, so removing this
+    # branch reddens no test -- stated rather than left for someone to discover while trusting
+    # a green suite. It stays because the exclusion is the transform service's own (A6), and
+    # the day the resolver widens by one line this is what keeps a productRef out of a payload
+    # that would refuse it.
+    if node_type == 'purchase':
+        for key, value in obj.items():
+            if key != 'payload':
+                _apply_product_refs(value, pairs, product_groups)
+        for key, value in (obj.get('payload') or {}).items():
+            if key != 'product':
+                _apply_product_refs(value, pairs, product_groups)
+        return
+
+    # `assign.left` must stay a var node per the JSONAssign contract. `setVariable` entries are
+    # recognised by the OWNING action rather than their own tag, and real converter output omits
+    # `type: 'assign'` entirely, so key on the shape: a dict with `left` and `right` and no
+    # operator type. Only the right side is a value slot.
+    if 'left' in obj and 'right' in obj and node_type in (None, 'assign'):
+        for key, value in obj.items():
+            if key != 'left':
+                _apply_product_refs(value, pairs, product_groups)
+        return
+
+    if node_type in ('==', '!='):
+        left = _identity_target(obj.get('left'), pairs, product_groups)
+        right = _identity_target(obj.get('right'), pairs, product_groups)
+        if left is not None and right is not None:
+            obj['left'] = {'type': 'productRef', 'target': left}
+            obj['right'] = {'type': 'productRef', 'target': right}
+            for key, value in obj.items():
+                if key not in ('left', 'right'):
+                    _apply_product_refs(value, pairs, product_groups)
+            return
+
+    if node_type == 'variable':
+        attrs = obj.get('attrs')
+        if isinstance(attrs, dict) and 'productRef' not in attrs:
+            split = _split_product_var(attrs.get('variableId'))
+            if split:
+                target = _ref_target(split[0], pairs, product_groups)
+                if target is not None:
+                    attrs['productRef'] = {'target': target, 'field': split[1]}
+
+    # Only the FIELD-BEARING form converts here. The fieldless `<group>.selectedProduct`
+    # denotes product identity rather than a value, and it has exactly one safe destination:
+    # the identity pair above, where the other operand fixes what it is being compared to.
+    # Converting it anywhere else produced a mixed pair -- a ref against a raw string, always
+    # false -- which is the shape migration 011 calls impossible in its output.
+    if node_type == 'var':
+        split = _split_product_var(obj.get('variableId'))
+        if split:
+            target = _ref_target(split[0], pairs, product_groups)
+            if target is not None:
+                obj.clear()
+                obj.update({'type': 'productRef', 'target': target, 'field': split[1]})
+                return
+
+    for value in obj.values():
+        _apply_product_refs(value, pairs, product_groups)
+
+
 def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
            direction='vertical', gap=0, align_h='start', align_v='start',
            distribution=None, scrollable=True, status_bar=False,
@@ -1777,9 +2011,16 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
         props['fill'] = fill_
     if padding is not None:
         props['padding'] = padding
+    # Product refs and the registry, from the screen just built. Order matters only in that
+    # both read the same bindings: the refs resolve against them and the registry IS them.
+    pairs = screen_products(node_map)
+    product_groups = {gid for gid, g in groups.items() if g.get('type') == 'product'}
+    _apply_product_refs(node_map, pairs, product_groups)
+
     out = {'id': screen_id, 'props': props,
            'elements': {'map': node_map, 'hierarchy': hierarchy},
-           'selectableGroups': [dict(g) for g in selectable_groups]}
+           'selectableGroups': [dict(g) for g in selectable_groups],
+           'products': [_product_value(pid, offer) for pid, offer in pairs]}
     if caption:
         out['caption'] = caption
     return out

@@ -60,12 +60,15 @@ Builder, the flow was re-exported:
 | price `variableId` | keyed to the agent's id | **rewritten** to match |
 | `_meta.screens[].products[].flowProductId` | copied from another export | **regenerated** |
 | element ids | the agent's own | **preserved byte-stable** |
+| `screens[].products` | absent (the round-trip predates it) | **materialized** from the screen's usages — see [the screen registry](#the-screen-registry-owns-the-declaration) |
 
 Consequences, and this file is the authority on all of them:
 
 - **Never copy `_meta.screens[].products[]` from another flow or export.** On a flow you are
   rewriting, carry the live block through untouched. On a flow you authored, derive it with
   `flowkit.predeclare()` — *Declare the products yourself*, below.
+- **Carry `screens[].products` forward on the same terms as `_meta.screens`**, for the same reason:
+  it is builder-owned, it can hold pairs your source never mentions, and dropping it is silent.
 - **`flowProductId` is screen-scoped.** Derive it per screen; the same product on two screens has
   two different ids, and an id is wrong the moment the screen id differs.
 - **Price variables self-heal on attachment.** A wrong `product.id` is repaired by the human
@@ -116,8 +119,11 @@ The chain, end to end:
 1. A price variable `<productUUID>.prod_price` resolves against **that screen's declared
    products** — nothing else.
 2. Declarations live in `_meta.screens[<screenId>].products[]`, each with a `flowProductId`.
-3. **Only the Flow Builder writes those**, and it writes them when a product is attached to a
-   **`product` element**.
+3. The Flow Builder writes those, and it builds them from **the screen's `products` registry**,
+   not from element props directly. Attaching a product to a `product` element is what puts the
+   pair in the registry; the registry is what reaches `_meta`. A screen with no registry of its
+   own has one materialized from its product usages, which lands in the same place — see
+   [the screen registry](#the-screen-registry-owns-the-declaration).
 4. So a screen with no `product` element has nothing to attach a product *to* — which means no
    declaration is possible, which means the variable can never resolve. Not "needs an attachment
    pass": **unattachable**.
@@ -154,6 +160,7 @@ So the division of labour is:
 | An agent can | bind `product.id`, set `groupId`/`default`, wire `<group>.selectedProduct` |
 | An agent can also | derive `_meta.screens[].products[]` and write it — `config update` does not synthesize the block, so send it yourself (below) |
 | The builder does | declare the products on open, minting the same `flowProductId` you would |
+| The builder also does | materialize `screens[].products` on open — carry it forward, never author it from scratch |
 
 `flowProductId` is a UUIDv5 over `screenId:productId` — or `screenId:productId:offerId` when the
 binding carries an offer — hashed with an **empty namespace**. The builder mints it in
@@ -166,6 +173,123 @@ flowProductId: getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : prod
 Call `flowkit.flow_product_id(screen_id, product_id, offer_id=None)`. Do not substitute
 `uuid.uuid5(uuid.UUID(int=0), name)`: Python prefixes sixteen zero bytes where the builder
 prefixes nothing, so it returns a different id.
+
+### The screen registry owns the declaration
+
+> Read in the builder source (`adapty-dashboard-interface`, `packages/unified-builder`), not
+> measured against a live flow. The three exports this skill is pinned to are v9 and carry no
+> registry, so nothing here contradicts what they show.
+
+Every screen owns a Product + Offer registry, `products`, sitting beside `elements` and
+`selectableGroups`:
+
+```json
+{"id": "scr_x", "products": [{"id": "<product-uuid>"},
+                             {"id": "<product-uuid>", "offerId": "<offer-id>"}]}
+```
+
+It is **not** `_meta.screens[<id>].products[]`, and the two are worth keeping straight: the
+registry holds bare pairs, `_meta` holds the minted `flowProductId`s the publish transform checks.
+The registry is where `_meta` comes from:
+
+```ts
+// catalog.ts — what reaches _meta.screens[].products[]
+function collectDeclaredBindingValues(screen: IScreen): IProductValue[] {
+  return mergeProductBindingValues(normalizeScreenProducts(screen));
+}
+```
+
+Element props do not feed it. `collectBindingValues`, the function that reads
+`element.props.product.id`, serves only the global-component branch — *"Screen-owned Product
+Cards/refs are represented by `screen.products`; component cards remain a compatibility-only
+runtime union."* So a `product` element whose id is missing from the registry contributes nothing
+to `_meta`. The builder keeps the two in step whenever a human attaches a product, so that
+mismatch is not a state the UI produces — it is one **you** produce, by writing a partial registry
+over a flow whose elements say otherwise.
+
+**An absent key is materialized from the screen's own product usages**, by
+`normalizeScreenProducts` at read time and by migration 012 at load — which is the safety net
+under a flow that predates the registry, not a licence to leave it out of one that claims to have
+it. A document stamped `schemaVersion: 12` says it has been through migration 012, so the
+migration does not run on it and the key is yours to write.
+
+Three rules follow, and the last is the one that costs work:
+
+- **Do not hand-write the registry; derive it from the screen.** `flowkit.screen()` emits it from
+  the same walk the builder uses — `product` elements and `const` purchase payloads, in first-seen
+  order — so the pairs come from the document rather than from what you remembered to declare.
+  `flowkit.screen_products()` is that walk on its own, which is also how you feed
+  `predeclare()` without listing the products twice:
+
+  ```python
+  scr = fk.screen('scr_x', nodes, selectable_groups=[{'id': 'plans', 'type': 'product'}])
+  meta = fk.predeclare('scr_x', [(p['id'], p.get('offerId')) for p in scr['products']])
+  ```
+
+  A registry assembled by hand from memory is how a binding goes missing, and nothing downstream
+  reports it: the screen renders, and the product it forgot is simply not declared.
+- **Never write `"products": []`.** An existing array is authoritative — *"Existing arrays are
+  authoritative: sanitize invalid entries and deduplicate exact pairs, but never rebuild them from
+  references"* — and migration 012 skips any screen that already has the key, *"including an
+  explicit `[]`"*. An empty array is not a neutral default. It declares that the screen has no
+  products and suppresses the materialization that would otherwise cover you. Absent and `[]` mean
+  opposite things.
+- **Carry the registry forward on a rewrite, per screen, exactly as you carry `_meta.screens`.**
+  An entry can have no usage anywhere on the screen — the export prune keeps *"known catalog
+  products … even with zero usages"* — so a product someone added through the Add-product dialog
+  before wiring an element is real, declared, and invisible to any walk of the elements.
+  `tests/preserve-builder-state.py` does both.
+
+What the prune removes, for completeness: entries that are **both** unknown to the product catalog
+**and** unreferenced on the screen — Figma-import and AI placeholder ids. Unknown-but-used entries
+stay, deliberately, so publication still fails loudly rather than quietly dropping a binding.
+
+### A product reference is structured, and an offer is part of it
+
+A dotted variable id cannot say which offer it means. `<productUUID>.offer_price` names a product
+and stops there, so a product bound with an offer and the same product bound without one are the
+same string — and the offer-bound one fails to publish. The structured form carries the offer:
+
+```json
+{"type": "variable", "attrs": {"variableId": "<uuid>.prod_price",
+                               "productRef": {"target": {"kind": "product", "id": "<uuid>",
+                                                         "offerId": "<offer-id>"},
+                                              "field": "prod_price"}}}
+```
+
+Two shapes, and the difference is not cosmetic. **Rich text dual-writes**: `attrs.productRef`
+goes beside `attrs.variableId` and the string stays, because readers that resolve through the
+string catalog still need it. **A DSL operand is replaced**, because an expression has one type —
+a `{"type": "var"}` becomes `{"type": "productRef", "target": …, "field": …}`. The target is
+either `{"kind": "product", "id", "offerId"?}` or `{"kind": "selected", "groupId"}`, exactly
+those keys, no empty strings, and `offerId` **omitted** rather than empty for a base binding.
+
+**You do not write these by hand.** Keep writing `fk.Var('<uuid>.prod_price')` and
+`fk.ref('<group>.selectedProduct')`; `flowkit.screen()` resolves them against the screen's own
+bindings once the screen is assembled, which is the only point where the offer is knowable. Bind
+the offer where the product is bound:
+
+```python
+fk.product(card, product_id='<uuid>', group_id='plans', offer_id='trial7', default=True)
+```
+
+**Where it cannot resolve, it leaves the dotted string alone** — deliberately, and in three
+cases that are worth recognising because each is a real document rather than a bug:
+
+| The screen | Why it stays legacy |
+| :--- | :--- |
+| binds one product twice, with different offers | The offer is unguessable — either could be meant |
+| never binds the product the variable names | There is nothing to resolve against |
+| names `selectedProduct` on a group that is not `product`-typed | The transform service refuses that target outright (`unknown_product_group`), so a ref here would turn a quiet legacy string into a hard failure |
+
+A half-converted reference is worse than an unconverted one, and the builder resolves the rest the
+first time someone opens the flow. The same rule governs an identity comparison — `selectedProduct
+== <productUUID>` converts **both** operands or neither, since a structured side compared against a
+raw string is always false.
+
+Two contracts a `productRef` must never enter, both enforced in `flowkit` and both easy to break by
+hand: a **purchase payload**, which keeps its own `dynamicProduct` var/const node, and
+**`assign.left`**, which the service requires to be a `var`.
 
 ### Declare the products yourself, and a new flow previews on a device immediately
 
@@ -190,7 +314,9 @@ The ids match what the builder mints, so its next save rewrites them to the same
 
 **When rewriting an existing flow, carry the live `_meta.screens` forward instead.** A live
 declaration can hold pairs your rewrite does not know about — component-owned bindings among them
-— and regenerating drops them.
+— and regenerating drops them. **Carry the live `screens[].products` with it** on any flow that has
+the key: that registry is where the declaration comes from, and it can hold
+pairs with no usage on the screen at all.
 
 ### Device preview fails on a freshly authored flow, and publishing fixes it
 
@@ -286,14 +412,21 @@ the same store product therefore both resolve to whichever comes **first in the 
 list**, and if the base product is first, `offer_price` silently renders empty or undiscounted.
 Three facts that follow, all team-stated (2026-08-17, ADP-7541 tracks the real fix):
 
-- **Order is the creation order of the Product elements.** Dragging elements in the Layers panel
-  does not change it.
-- **The offer-bearing product must come first.** To repair an inverted order: leave the offer
-  Product untouched, delete the hidden base, recreate it (duplicate the offer Product, set
-  "No offer", hide it) so it lands last.
+- **The order is the `screens[].products` array's own**, and on a screen with no registry of its
+  own it is the order the usage walk finds — effectively the creation order of the Product
+  elements. Dragging elements in the Layers panel does not change either.
+- **The offer-bearing pair must come first.** Read the registry and check that before anything
+  else: it is the whole diagnosis, and it is one array. To repair an inverted order in the
+  builder, leave the offer Product untouched, delete the hidden base, recreate it (duplicate the
+  offer Product, set "No offer", hide it) so it lands last.
 - **A republish can reorder the list** — including across a schemaVersion migration — which is why
   this defect flip-flops between "works" and "broken" with no edit anyone made. If offer prices
   appear and vanish across publishes, check the order first.
+
+If the offer-bearing pair is already ahead of the bare one and prices are still wrong, the cause is
+elsewhere and the delete-and-recreate dance will not help. Whether writing the registry directly is
+a complete repair depends on Android-side matching this skill has not re-measured, so do it through
+the builder where you can.
 
 Two more product-element facts from the same channel: **two visible cards bound to the same product
 get the same `flowProductId` and selection breaks** — bind distinct products, one `default` — and a

@@ -141,6 +141,30 @@ sprinkle(two['screens'])
 assert added == 40, f'fixture drifted: only {added} localizable fields found'
 case('fires: the de locale dropped (locale + 40 fields)', two, D, 1, 41, 0, 0)
 
+# --- The screen product registry (schemaVersion 12) --------------------------------------
+# The tracked fixtures are v9 and carry no `products` key, so the registry is synthesised here.
+# All three directions matter: dropping it is the loss preserve-builder-state.py exists to stop,
+# writing `[]` over an absent key is the trap that silently declares a screen product-free, and a
+# reorder is the Android offer-price defect, which no other check in this repo can see.
+REG = [{'id': 'prod_a', 'offerId': 'trial'}, {'id': 'prod_a'}, {'id': 'prod_b'}]
+
+live_reg = copy.deepcopy(D); live_reg['screens'][0]['products'] = copy.deepcopy(REG)
+
+b = copy.deepcopy(live_reg); del b['screens'][0]['products']
+case('fires: screens[].products dropped by a rebuild', live_reg, b, 1, 1, 0, 0)
+
+b = copy.deepcopy(live_reg); b['screens'][0]['products'] = []
+case('fires: screens[].products emptied over a live one', live_reg, b, 1, 1, 0, 0)
+
+b = copy.deepcopy(D); b['screens'][0]['products'] = []
+case('reported: absent -> [] (opposite meanings)', D, b, 0, 0, 1, 0)
+
+b = copy.deepcopy(live_reg); b['screens'][0]['products'] = [REG[1], REG[0], REG[2]]
+case('reported: registry reordered (Android offer trap)', live_reg, b, 0, 0, 1, 0)
+
+b = copy.deepcopy(live_reg); b['screens'][0]['products'] = copy.deepcopy(REG)
+case('silent: same registry, rebuilt object by object', live_reg, b, 0, 0, 0, 0)
+
 # --- CHANGES are not removals: a rewrite must not read as destruction --------------------
 b = copy.deepcopy(D)
 def first_string(o):

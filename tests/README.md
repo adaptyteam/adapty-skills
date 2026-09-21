@@ -360,6 +360,13 @@ It carries `_meta.screens` per surviving screen id (and uploaded `_meta.fonts` i
 none), and reports what it carried, what was already authored, and what it dropped because the screen
 no longer exists — the last one being legitimate but worth seeing.
 
+It also carries **`screens[].products`**, the screen-owned Product + Offer registry that
+`_meta.screens` is derived from. Same reason, one step earlier in the chain: a
+registry entry can exist with no usage on the screen, so walking the elements does not rebuild it.
+An empty `products` in the regenerated config is treated as absent and overwritten — to the builder
+`[]` is an authoritative "this screen has no products", which is the louder version of the same
+loss. `diff-config.py` reports all three directions (dropped, emptied, reordered).
+
 
 ## `test-existing-flows.py` — the flow the user already converted
 

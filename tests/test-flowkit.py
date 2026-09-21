@@ -140,12 +140,16 @@ def main():
     except ValueError:
         check('flatten rejects a duplicate id', True)
 
-    # v10 shape
-    check('schemaVersion is 10', cfg['schemaVersion'] == 10)
+    # The stamped version and the shapes that entitle the module to stamp it. These belong
+    # together: the number is a claim about the document, so a test that pins it without
+    # pinning the shapes would go green on a flow the builder then refuses to migrate.
+    check('schemaVersion is 12', cfg['schemaVersion'] == 12)
     fills = [n['props']['fill'] for n in node_map.values() if 'fill' in n['props']]
     fills.append(scr['props']['fill'])
-    check('every fill is an array (v10)', all(isinstance(f, list) for f in fills),
+    check('every fill is an array (010)', all(isinstance(f, list) for f in fills),
           f'{sum(1 for f in fills if not isinstance(f, list))} non-array')
+    check('every screen carries a products registry (012)',
+          all(isinstance(s.get('products'), list) for s in cfg['screens']))
 
     # the divergence this module was built to kill
     spans = None
@@ -1035,6 +1039,133 @@ def main():
     check("an author's own entry wins over the derived one",
           [i['raw'] for i in _explicit['_meta']['icons']] == ['<svg/>'],
           _explicit['_meta']['icons'])
+
+    # --- structured product refs (011) and the screen registry (012) ---------------------
+    # Both halves matter and they fail in opposite directions. An unconverted ref is a flow
+    # that publishes without its offer; a ref converted on a guess is a flow the transformer
+    # rejects outright (`unknown_product_group`, `malformed_target`). So every case below
+    # asserts which way it went, and the negative cases outnumber the positive ones.
+    def _refs(doc):
+        found = []
+
+        def walk(o):
+            if isinstance(o, list):
+                for x in o:
+                    walk(x)
+            elif isinstance(o, dict):
+                if isinstance(o.get('attrs'), dict) and 'productRef' in o['attrs']:
+                    found.append(o['attrs']['productRef'])
+                if o.get('type') == 'productRef':
+                    found.append({k: v for k, v in o.items() if k != 'type'})
+                for x in o.values():
+                    walk(x)
+        walk(doc)
+        return found
+
+    _groups = [{'id': 'plans', 'type': 'product'}]
+    _bound = fk.screen('scr_p', [
+        fk.product([], product_id='p_year', group_id='plans', default=True, offer_id='trial7'),
+        fk.product([], product_id='p_month', group_id='plans'),
+        fk.text(fk.rich('then ', fk.Var('p_year.prod_price'))),
+        fk.text(fk.rich('now ', fk.Var('plans.selectedProduct.prod_price'))),
+        fk.text(fk.rich('mine ', fk.Var('my_custom.value'))),
+    ], selectable_groups=_groups)
+    _found = _refs(_bound)
+    check('a bound product resolves, carrying its offer id',
+          {'target': {'kind': 'product', 'id': 'p_year', 'offerId': 'trial7'},
+           'field': 'prod_price'} in _found, _found)
+    check("a product group's selectedProduct resolves",
+          {'target': {'kind': 'selected', 'groupId': 'plans'},
+           'field': 'prod_price'} in _found, _found)
+    check('the legacy variableId is kept beside the ref (dual write)',
+          'p_year.prod_price' in json.dumps(_bound))
+    check('an ordinary dotted variable is left alone',
+          not any('my_custom' in json.dumps(r) for r in _found))
+    check('a base binding omits offerId rather than nulling it',
+          {'id': 'p_month'} in _bound['products'] and
+          {'id': 'p_year', 'offerId': 'trial7'} in _bound['products'], _bound['products'])
+
+    # A DSL operand, which is REPLACED rather than dual-written: an expression has one type.
+    # This is a separate branch from the rich-text spans above and needs its own case — a
+    # field-value comparison migrates on its own, independently of the identity pair below.
+    _dsl = fk.screen('scr_v', [
+        fk.product([], product_id='p_a', group_id='plans', default=True, offer_id='intro'),
+        fk.stack([fk.text('Trial')],
+                 visibility=fk.when(fk.eq(fk.ref('p_a.is_free_trial'), fk.lit(True)))),
+    ], selectable_groups=_groups)
+    check('a DSL var operand becomes a productRef node, offer and all',
+          {'target': {'kind': 'product', 'id': 'p_a', 'offerId': 'intro'},
+           'field': 'is_free_trial'} in _refs(_dsl), _refs(_dsl))
+    check('its literal operand is untouched', '"value": true' in json.dumps(_dsl))
+
+    # Migration 011's leftovers taxonomy, one case each. All three stay legacy.
+    _ambiguous = fk.screen('scr_a', [
+        fk.product([], product_id='p', group_id='plans', default=True, offer_id='t1'),
+        fk.product([], product_id='p', group_id='plans', offer_id='t2'),
+        fk.text(fk.rich(fk.Var('p.prod_price'))),
+    ], selectable_groups=_groups)
+    check('two offers of one product on a screen: no ref, the offer is unguessable',
+          _refs(_ambiguous) == [], _refs(_ambiguous))
+
+    _unbound = fk.screen('scr_u', [fk.text(fk.rich(fk.Var('ghost.prod_price')))])
+    check('a product bound nowhere on the screen: no ref',
+          _refs(_unbound) == [] and 'ghost.prod_price' in json.dumps(_unbound))
+
+    _foreign = fk.screen('scr_f', [
+        fk.selectable([fk.text('a')], group_id='quiz'),
+        fk.text(fk.rich(fk.Var('quiz.selectedProduct.prod_price'))),
+    ], selectable_groups=[{'id': 'quiz', 'type': 'single_choice'}])
+    check('selectedProduct on a non-product group: no ref (transformer would refuse it)',
+          _refs(_foreign) == [], _refs(_foreign))
+
+    # The two contracts a productRef must never enter.
+    _purchase = fk.screen('scr_b', [
+        fk.product([], product_id='p_a', group_id='plans', default=True),
+        fk.stack([fk.text('Buy')], actions=[fk.purchase('plans')]),
+    ], selectable_groups=_groups)
+    check('a purchase payload keeps its dynamicProduct var node',
+          '"product": {"type": "var", "variableId": "plans.selectedProduct"}'
+          in json.dumps(_purchase))
+
+    _assign = fk.screen('scr_s', [
+        fk.product([], product_id='p_a', group_id='plans', default=True),
+        fk.stack([fk.text('go')],
+                 actions=[fk.set_variable([('p_a.prod_price', fk.lit('x'))])]),
+    ], selectable_groups=_groups)
+    check('assign.left stays a var node per the JSONAssign contract',
+          '"left": {"type": "var", "variableId": "p_a.prod_price"}' in json.dumps(_assign))
+
+    # An identity comparison converts as a UNIT or not at all: one structured side and one
+    # legacy side compares a ref against a raw string and is always false.
+    _pair = fk.screen('scr_c', [
+        fk.product([], product_id='p_year', group_id='plans', default=True),
+        fk.product([], product_id='p_month', group_id='plans'),
+        fk.stack([fk.text('Best value')],
+                 visibility=fk.when(fk.eq(fk.ref('plans.selectedProduct'),
+                                          fk.lit('p_year')))),
+    ], selectable_groups=_groups)
+    check('an identity pair converts both operands, fieldless',
+          _refs(_pair) == [{'target': {'kind': 'selected', 'groupId': 'plans'}},
+                           {'target': {'kind': 'product', 'id': 'p_year'}}], _refs(_pair))
+
+    _half = fk.screen('scr_d', [
+        fk.product([], product_id='p_year', group_id='plans', default=True),
+        fk.stack([fk.text('x')],
+                 visibility=fk.when(fk.eq(fk.ref('plans.selectedProduct'),
+                                          fk.lit('never_bound')))),
+    ], selectable_groups=_groups)
+    check('an unresolvable operand leaves BOTH sides legacy, never a mixed pair',
+          _refs(_half) == [] and 'never_bound' in json.dumps(_half), _refs(_half))
+
+    # A `const` purchase binds with no element behind it, and still has to be declared.
+    _const = fk.screen('scr_e', [
+        fk.stack([fk.text('buy')], actions=[
+            {'id': 'a1', 'type': 'purchase',
+             'payload': {'product': {'type': 'const',
+                                     'value': {'id': 'p_const', 'offerId': 'intro'}}}}]),
+    ])
+    check('a const purchase product reaches the registry with no product element',
+          _const['products'] == [{'id': 'p_const', 'offerId': 'intro'}], _const['products'])
 
 
     print()

@@ -159,7 +159,8 @@ MIN_OPAQUE_ALPHA = 0.8
 # function (`findInvalidExpressionPath`), which is why two codes share one walker here.
 # Ranked 3rd and 18th among transformer refusals over the 40 days to 2026-08-28.
 EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
-              'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat'}
+              'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
+              'productRef'}
 # `assign` is in the schema's ExpressionType enum and has NO case in the condition walker, so
 # it falls through to `default` and the flow is refused. Legal in a `setVariable` payload,
 # illegal as a condition — hence scoped here and not to expressions generally.
@@ -203,6 +204,34 @@ def bad_expr_path(v, path):
     if t == 'var':
         vid = v.get('variableId')
         return None if isinstance(vid, str) and vid else f'{path}.variableId'
+    if t == 'productRef':
+        # The structured form of a product reference. The service validates the target itself
+        # and its messages name the part, so mirror its two shapes exactly rather than waving
+        # the node through: `{kind: 'product', id, offerId?}` or `{kind: 'selected', groupId}`,
+        # with no extra keys and no empty strings. An empty `offerId` is called out separately
+        # because omitting the key is the base binding and `''` is a different, rejected thing.
+        target = v.get('target')
+        if not isinstance(target, dict):
+            return f'{path}.target'
+        if target.get('kind') == 'product':
+            if not (isinstance(target.get('id'), str) and target['id']):
+                return f'{path}.target.id'
+            if 'offerId' in target and not (isinstance(target['offerId'], str)
+                                            and target['offerId']):
+                return f'{path}.target.offerId (omit the key for a base binding, never "")'
+            extra = set(target) - {'kind', 'id', 'offerId'}
+        elif target.get('kind') == 'selected':
+            if not (isinstance(target.get('groupId'), str) and target['groupId']):
+                return f'{path}.target.groupId'
+            extra = set(target) - {'kind', 'groupId'}
+        else:
+            return f'{path}.target.kind'
+        if extra:
+            return f'{path}.target ({", ".join(sorted(extra))} not allowed on this target)'
+        field = v.get('field')
+        if field is not None and field not in PRODUCT_FIELDS:
+            return f'{path}.field ({field!r} is not a product variable)'
+        return None
     if t in _BINARY:
         return (bad_expr_path(v.get('left'), f'{path}.left')
                 or bad_expr_path(v.get('right'), f'{path}.right'))
