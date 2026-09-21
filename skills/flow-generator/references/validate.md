@@ -67,8 +67,13 @@ inside the `message` string.
 | `Generated JSON failed schema validation` | The transform produced output the SDK schema rejects | **Location-free.** You get no field and no index; bisect against your backup |
 | `Invalid flow input` | The request body did not parse as a flow at all | **You sent the wrong document** — see the envelope trap below |
 
-## Two traps in the call itself
+## Three traps in the call itself
 
+- **It never validates the stored config.** `--config` or `--config-file` is required —
+  `Exactly one of the following must be provided` — and the flow id alone will not do it. So
+  there is no way to ask whether what is *already saved* is publishable; you can only ask about a
+  document you are holding. To check a live flow, `flows config get`, take `.config`, and pass
+  that back in.
 - **It takes the bare config, not the envelope.** Piping `flows config get --json` straight in
   returns `valid: false` with `Invalid flow input` — which reads exactly like "your config is
   broken". `preview` accepts either form; `validate` does not. Pass `jq '.config'`, the same
