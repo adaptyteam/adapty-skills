@@ -60,7 +60,7 @@ Builder, the flow was re-exported:
 | price `variableId` | keyed to the agent's id | **rewritten** to match |
 | `_meta.screens[].products[].flowProductId` | copied from another export | **regenerated** |
 | element ids | the agent's own | **preserved byte-stable** |
-| `screens[].products` | absent (the round-trip predates it) | **materialized** — see [the screen registry](#the-screen-registry-owns-the-declaration-from-schemaversion-12) |
+| `screens[].products` | absent (the round-trip predates it) | **materialized** from the screen's usages — see [the screen registry](#the-screen-registry-owns-the-declaration) |
 
 Consequences, and this file is the authority on all of them:
 
@@ -119,11 +119,11 @@ The chain, end to end:
 1. A price variable `<productUUID>.prod_price` resolves against **that screen's declared
    products** — nothing else.
 2. Declarations live in `_meta.screens[<screenId>].products[]`, each with a `flowProductId`.
-3. The Flow Builder writes those, and **from schemaVersion 12 it builds them from the screen's
-   `products` registry**, not from element props directly. Attaching a product to a `product`
-   element is what puts the pair in the registry; the registry is what reaches `_meta`. On a
-   pre-v12 flow the registry is materialized from the screen's product usages, so the outcome is
-   the same — see [the screen registry](#the-screen-registry-owns-the-declaration-from-schemaversion-12).
+3. The Flow Builder writes those, and it builds them from **the screen's `products` registry**,
+   not from element props directly. Attaching a product to a `product` element is what puts the
+   pair in the registry; the registry is what reaches `_meta`. A screen with no registry of its
+   own has one materialized from its product usages, which lands in the same place — see
+   [the screen registry](#the-screen-registry-owns-the-declaration).
 4. So a screen with no `product` element has nothing to attach a product *to* — which means no
    declaration is possible, which means the variable can never resolve. Not "needs an attachment
    pass": **unattachable**.
@@ -160,7 +160,7 @@ So the division of labour is:
 | An agent can | bind `product.id`, set `groupId`/`default`, wire `<group>.selectedProduct` |
 | An agent can also | derive `_meta.screens[].products[]` and write it — `config update` does not synthesize the block, so send it yourself (below) |
 | The builder does | declare the products on open, minting the same `flowProductId` you would |
-| The builder also does | materialize `screens[].products` on open, at schemaVersion 12 — carry it forward, never author it from scratch |
+| The builder also does | materialize `screens[].products` on open — carry it forward, never author it from scratch |
 
 `flowProductId` is a UUIDv5 over `screenId:productId` — or `screenId:productId:offerId` when the
 binding carries an offer — hashed with an **empty namespace**. The builder mints it in
@@ -174,24 +174,23 @@ Call `flowkit.flow_product_id(screen_id, product_id, offer_id=None)`. Do not sub
 `uuid.uuid5(uuid.UUID(int=0), name)`: Python prefixes sixteen zero bytes where the builder
 prefixes nothing, so it returns a different id.
 
-### The screen registry owns the declaration, from schemaVersion 12
+### The screen registry owns the declaration
 
 > Read in the builder source (`adapty-dashboard-interface`, `packages/unified-builder`), not
-> measured against a live flow. The three exports this skill is pinned to are v9 and predate it,
-> so nothing here contradicts what they show — it describes what a flow looks like *after* someone
-> opens it in the current builder.
+> measured against a live flow. The three exports this skill is pinned to are v9 and carry no
+> registry, so nothing here contradicts what they show.
 
-ADP-7541 gave each screen its own Product + Offer registry, and ADP-7543 migrated flows into it:
+Every screen owns a Product + Offer registry, `products`, sitting beside `elements` and
+`selectableGroups`:
 
 ```json
 {"id": "scr_x", "products": [{"id": "<product-uuid>"},
                              {"id": "<product-uuid>", "offerId": "<offer-id>"}]}
 ```
 
-`products` sits beside `elements` and `selectableGroups` on the screen — **not** under `_meta`, and
-not to be confused with `_meta.screens[<id>].products[]`, which carries the derived `flowProductId`
-and is still the thing the publish transform checks. The registry holds bare pairs; `_meta` holds
-minted ids. Both exist, and the first now feeds the second:
+It is **not** `_meta.screens[<id>].products[]`, and the two are worth keeping straight: the
+registry holds bare pairs, `_meta` holds the minted `flowProductId`s the publish transform checks.
+The registry is where `_meta` comes from:
 
 ```ts
 // catalog.ts — what reaches _meta.screens[].products[]
@@ -200,35 +199,34 @@ function collectDeclaredBindingValues(screen: IScreen): IProductValue[] {
 }
 ```
 
-Element props no longer feed it directly. `collectBindingValues`, the function that reads
-`element.props.product.id`, now serves only the global-component branch — *"Screen-owned Product
+Element props do not feed it. `collectBindingValues`, the function that reads
+`element.props.product.id`, serves only the global-component branch — *"Screen-owned Product
 Cards/refs are represented by `screen.products`; component cards remain a compatibility-only
-runtime union."* So on a v12 flow, a `product` element whose id is missing from the registry
-contributes nothing to `_meta`. The builder keeps the two in step whenever a human attaches a
-product, so this is not a state the UI produces — it is one **you** produce, by writing a partial
-registry over a flow whose elements say otherwise.
+runtime union."* So a `product` element whose id is missing from the registry contributes nothing
+to `_meta`. The builder keeps the two in step whenever a human attaches a product, so that
+mismatch is not a state the UI produces — it is one **you** produce, by writing a partial registry
+over a flow whose elements say otherwise.
 
-**Why your existing configs still work.** `normalizeScreenProducts` falls back to
-`collectScreenProductUsages(screen)` when the key is **absent**, and migration 012 materializes the
-registry the same way. A config you wrote with no `products` key gets one built from its own
-usages — the same pairs, so the same `flowProductId`s. `flowkit.predeclare()` remains correct and
-nothing you have shipped is stale.
+**An absent key is materialized from the screen's own product usages**, by
+`normalizeScreenProducts` at read time and by migration 012 at load. That is why omitting it is
+safe and why `flowkit.predeclare()` derives the same `flowProductId`s either way.
 
-Two rules follow, and the second is the one that costs work:
+Three rules follow, and the last is the one that costs work:
 
-- **Never write `"products": []` on a screen that uses products.** An existing array is
-  authoritative — *"Existing arrays are authoritative: sanitize invalid entries and deduplicate
-  exact pairs, but never rebuild them from references"*, and migration 012 skips any screen that
-  already has the key, *"including an explicit `[]`"*. An empty array is therefore not a neutral
-  default; it is a declaration that the screen has no products, and it suppresses the
-  materialization that would otherwise save you. **Omit the key instead** — absent and `[]` mean
+- **Omit `products` when authoring.** You know only what you bound; the usage walk knows the whole
+  screen, and it runs on any screen without the key. Writing a registry from what you happen to
+  have recorded is how a binding goes missing.
+- **Never write `"products": []`.** An existing array is authoritative — *"Existing arrays are
+  authoritative: sanitize invalid entries and deduplicate exact pairs, but never rebuild them from
+  references"* — and migration 012 skips any screen that already has the key, *"including an
+  explicit `[]`"*. An empty array is not a neutral default. It declares that the screen has no
+  products and suppresses the materialization that would otherwise cover you. Absent and `[]` mean
   opposite things.
-- **A registry entry can have no usage anywhere on the screen**, which is exactly what
-  usage-derivation cannot reconstruct. The builder's export prune states the rule it keeps:
-  *"Known catalog products stay even with zero usages."* A product the user added through the
-  Add-product dialog before wiring an element is real, declared, and invisible to any rebuild of
-  the screen. So on a rewrite, **carry `screens[].products` forward per screen exactly as you carry
-  `_meta.screens`** — `tests/preserve-builder-state.py` does both.
+- **Carry the registry forward on a rewrite, per screen, exactly as you carry `_meta.screens`.**
+  An entry can have no usage anywhere on the screen — the export prune keeps *"known catalog
+  products … even with zero usages"* — so a product someone added through the Add-product dialog
+  before wiring an element is real, declared, and invisible to any walk of the elements.
+  `tests/preserve-builder-state.py` does both.
 
 What the prune removes, for completeness: entries that are **both** unknown to the product catalog
 **and** unreferenced on the screen — Figma-import and AI placeholder ids. Unknown-but-used entries
@@ -258,7 +256,7 @@ The ids match what the builder mints, so its next save rewrites them to the same
 **When rewriting an existing flow, carry the live `_meta.screens` forward instead.** A live
 declaration can hold pairs your rewrite does not know about — component-owned bindings among them
 — and regenerating drops them. **Carry the live `screens[].products` with it** on any flow that has
-the key: at schemaVersion 12 that registry is where the declaration comes from, and it can hold
+the key: that registry is where the declaration comes from, and it can hold
 pairs with no usage on the screen at all.
 
 ### Device preview fails on a freshly authored flow, and publishing fixes it
@@ -355,21 +353,21 @@ the same store product therefore both resolve to whichever comes **first in the 
 list**, and if the base product is first, `offer_price` silently renders empty or undiscounted.
 Three facts that follow, all team-stated (2026-08-17, ADP-7541 tracks the real fix):
 
-- **Order is the creation order of the Product elements.** Dragging elements in the Layers panel
-  does not change it.
-- **The offer-bearing product must come first.** To repair an inverted order: leave the offer
-  Product untouched, delete the hidden base, recreate it (duplicate the offer Product, set
-  "No offer", hide it) so it lands last.
+- **The order is the `screens[].products` array's own**, and on a screen with no registry of its
+  own it is the order the usage walk finds — effectively the creation order of the Product
+  elements. Dragging elements in the Layers panel does not change either.
+- **The offer-bearing pair must come first.** Read the registry and check that before anything
+  else: it is the whole diagnosis, and it is one array. To repair an inverted order in the
+  builder, leave the offer Product untouched, delete the hidden base, recreate it (duplicate the
+  offer Product, set "No offer", hide it) so it lands last.
 - **A republish can reorder the list** — including across a schemaVersion migration — which is why
   this defect flip-flops between "works" and "broken" with no edit anyone made. If offer prices
   appear and vanish across publishes, check the order first.
 
-**ADP-7541 has since shipped**, and on a v12 flow the order is the `screens[].products` array's own
-order rather than element creation order — which is readable, and editable, in a way creation order
-never was. Whether that retires the repair recipe above depends on Android-side matching this skill
-has not re-measured, so **treat the recipe as still current and check the registry order first**:
-if the offer-bearing pair is already ahead of the bare one and prices are still wrong, the cause is
-elsewhere and the delete-and-recreate dance will not help.
+If the offer-bearing pair is already ahead of the bare one and prices are still wrong, the cause is
+elsewhere and the delete-and-recreate dance will not help. Whether writing the registry directly is
+a complete repair depends on Android-side matching this skill has not re-measured, so do it through
+the builder where you can.
 
 Two more product-element facts from the same channel: **two visible cards bound to the same product
 get the same `flowProductId` and selection breaks** — bind distinct products, one `default` — and a

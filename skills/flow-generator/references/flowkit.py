@@ -5,8 +5,9 @@ Scope is deliberately narrow. This owns the parts that are *error-prone but not 
   * the `hierarchy` / `map` split — every node declared twice, in two structures that must
     agree exactly; an id in one and not the other is a broken config. `flatten()` makes that
     unrepresentable, and it is the reason this module exists. No JSON skeleton can help here.
-  * the envelope, at the current `schemaVersion` with **array** fills (v10). Authoring is the
-    one case with no input form to preserve, so it uses the current one.
+  * the envelope, stamped at the `schemaVersion` whose shapes it emits — **array** fills, dotted
+    product variables, no screen registry, which is v10. Authoring is the one case with no input
+    form to preserve, so the number is chosen; see `SCHEMA_VERSION` for why it is not the latest.
   * one canonical rich-text builder, with the span kinds named instead of guessed.
 
 Not in scope: anything with a design opinion. Element shapes, card recipes, spacing — those are
@@ -56,7 +57,13 @@ try:
 finally:
     sys.dont_write_bytecode = _bytecode
 
-SCHEMA_VERSION = 10          # authoring uses the current version; a FETCHED flow keeps its own
+#: The version whose shapes this module emits -- array fills, dotted product variables, no screen
+#: registry -- and NOT the builder's latest, which is 12. The number declares which migrations a
+#: document has already been through, so raising it to look current makes the builder skip the
+#: steps that would have converted those variables: step 011 turns dotted product ids into
+#: structured refs, and a dotted id cannot carry an offer id, so offer-bound products stop
+#: publishing. Emit 011 and 012 shapes first, then raise this. A FETCHED flow keeps its own.
+SCHEMA_VERSION = 10
 
 # --- ids ---------------------------------------------------------------------------------
 

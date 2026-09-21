@@ -156,7 +156,7 @@ def facts(d):
         f[f'screen:{sid}.props'] = canon(s.get('props'))
         f[f'screen:{sid}.selectableGroups'] = canon(s.get('selectableGroups'))
         f[f'screen:{sid}.hierarchy'] = canon((s.get('elements') or {}).get('hierarchy'))
-        # The screen-owned product registry (schemaVersion 12), which is what `_meta.screens`
+        # The screen-owned product registry, which is what `_meta.screens`
         # above is derived from. Two facts, because absent and `[]` mean opposite things to the
         # builder -- absent is materialized from usages, `[]` declares the screen product-free --
         # and a rebuild that turns one into the other must not read as silent (products.md).

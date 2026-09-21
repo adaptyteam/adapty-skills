@@ -14,7 +14,7 @@ compute has to be carried forward on every regeneration.
 
 Merges, per screen id that still exists in the regenerated config:
     _meta.screens[<sid>]        product declarations incl. flowProductId, webPaywallURL
-    screens[].products          the screen-owned Product + Offer registry (schemaVersion 12)
+    screens[].products          the screen-owned Product + Offer registry
     _meta.fonts                 uploaded font records, if the regenerated config has none
 
 The registry is carried for the same reason as the declarations it feeds: an entry can exist

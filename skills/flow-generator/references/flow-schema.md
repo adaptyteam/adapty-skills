@@ -30,9 +30,9 @@ observed.
 | :--- | :--- | :--- |
 | `id` | UUID | Identifies the **flow**, not the document. Two exports in the corpus share one. The CLI takes the flow id as a command argument, so this is not what routes a write. |
 | `status` | `"draft"` \| `"dirty"` \| `"publication_failed"` \| `"published"` | **Present in a browser export, and not part of the CLI config document — see below.** Four values observed on the envelope: `draft`, `dirty` (a save over a flow that already has a published version — the draft has diverged from what users see), `publication_failed` (a publish attempt that the transform service rejected), and `published`. The dashboard shows six statuses (Draft, Dirty, Publishing, Failed, Published, Archived); a saved-but-unpublished edit over a live flow is the "Dirty" state, not a third JSON value. |
-| `schemaVersion` | `9` in every export here; **also seen absent, `2`, `6`, and `8.0`**; the builder's own latest is **12** | Not a constant, and not always an integer — the transformer's own front-format fixtures omit it in 21 of 30 files and carry `8.0` as a float in another. **Carry whatever the input has, unchanged, and do not add one if it is missing.** Never rewrite it: you cannot know what a different number changes, and a version you invented is worse than a version that was absent. Migrating is the builder's job, not yours: it runs every registered step on load (`AppStore` calls `migrateFlow`), so a v9 config you write is migrated in memory the moment someone opens the flow, and the next save persists the result. The two steps past this corpus that touch products are **011** (`product-refs-structured`) and **012** (`screen-products`, below). |
+| `schemaVersion` | `9` in every export here; **also seen absent, `2`, `6`, and `8.0`**; the builder's latest is **12** | Not a constant, and not always an integer — the transformer's own front-format fixtures omit it in 21 of 30 files and carry `8.0` as a float in another. **The number declares which migrations the document has already been through**, and the builder acts on that declaration alone: on load it applies every registered step whose version is greater than the flow's, then stamps its own latest. So the number is a claim about the shapes inside, not a label. Three consequences, and they are the whole rule. **Carry the input's number unchanged** — a flow you fetched stays at its own version, and `config update` never migrates it. **Never raise it to look current**: a flow stamped 12 has steps 11 and 12 skipped, so dotted product variables are never converted to structured refs and offer-bound products fail to publish. **Never stamp past 12** either — a version ahead of the builder's latest throws `Downgrade is not supported` and the flow will not open. Authoring is the one case with no input to preserve: stamp the version whose shapes you actually emit, which for `flowkit` is **10** (array fills, dotted product variables, no screen registry), and let the builder migrate the rest on load. |
 | `components` | `{}` or `{"pb_XXXXXXXX": {map, hierarchy}}` | Reusable blocks with the same `{map, hierarchy}` shape as a screen's `elements`. Referenced from a screen hierarchy as `{"id": "pb_XXXXXXXX", "type": "global"}` — a hierarchy node with no entry in that screen's `map`. Empty object in `comparison`. May be present and referenced by nobody. |
-| `screens` | `[{id, props, caption, elements: {map, hierarchy}, selectableGroups}]` — plus `products` from schemaVersion 12 | Array order is flow order; `screens[0]` is the entry screen. All five keys present on every screen in all three exports, which are v9. `selectableGroups` is `[]` on screens with no groups, never omitted. `hierarchy` is a single rooted node — see below. **The corpus is pre-registry: v12 adds a sixth screen key, `products`, and it is what `_meta.screens[].products[]` is now derived from** — [`products.md`](products.md) owns the rules. Do not treat the five-key list as exhaustive for a flow you did not export yourself. |
+| `screens` | `[{id, props, caption, elements: {map, hierarchy}, selectableGroups, products}]` | Array order is flow order; `screens[0]` is the entry screen. `selectableGroups` is `[]` on screens with no groups, never omitted. `hierarchy` is a single rooted node — see below. **`products` is the screen's Product + Offer registry, and it is what `_meta.screens[].products[]` is derived from** — [`products.md`](products.md) owns the rules, including the one that matters most here: absent and `[]` mean opposite things, so omit the key rather than emptying it. The three exports in this corpus are v9 and carry the other five keys only; a screen you did not export yourself has six. |
 | `locales` | `[{id, code, name}]` | e.g. `{"id": "en", "code": "en", "name": "English"}`. The `id` is the key used in every `values` map. |
 | `defaultLocale` | a locale `id` | Must name an entry in `locales`. |
 | `variables` | `[{id, name, valueType}]` | **Custom, app-supplied variables only** — `{"id": "var_ddvg4jeg", "name": "app.permission.location.allowed", "valueType": "boolean"}`. Built-ins are never declared here. `[]` in `timer` and `comparison`. |
@@ -1155,9 +1155,15 @@ per problem:
 The schema is a **static snapshot and it is not the authority.** Three ways it misleads, all
 documented by its own publishers:
 
-- **It is v10; most live flows are v9.** Check `config.schemaVersion` first. A `config update`
-  never migrates a flow, so a v9 flow stays v9 across any number of CLI writes. Use the schema for
-  *what fields exist*, not *how they are shaped*.
+- **It is v10, and it trails the builder by two migrations.** Check `config.schemaVersion` first.
+  A `config update` never migrates a flow, so a flow stays at its own version across any number of
+  CLI writes. Use the schema for *what fields exist*, not *how they are shaped* — and know which
+  fields it does not reach: the published copy models neither the structured product refs of
+  step 011 nor the `screens[].products` registry of step 012. `IScreen` lists five properties and
+  `products` is not among them. Nothing is rejected, because the screen object does not set
+  `additionalProperties: false`, so the registry passes through unmodelled: **a clean schema run
+  says nothing about it in either direction.** Verify the registry against
+  [`products.md`](products.md) and the live `validate`, never against this check.
 
   **But the Flow Builder does migrate, on save.** Measured: a flow written at `schemaVersion 9` came
   back as **10** after the user opened it in the builder and saved, with all of its fills rewritten
@@ -1167,13 +1173,16 @@ documented by its own publishers:
   over a flow the builder has since migrated silently downgrades it and converts every fill back.
   This is the concrete reason the workflow re-fetches on a 409 instead of retrying the same body.
 
-  **Authoring a config from nothing is the one case with no form to preserve — use the current
-  one.** "Keep the input's shape" has no input to point at, so author at the newest
-  `schemaVersion` with **array fills**, which is what the builder itself now writes. Measured:
-  a new paywall authored at v9 out of habit collected 10 schema findings, every one of them the
-  `fill` object-versus-array difference and none a real defect; re-authoring the same document at
-  v10 came back clean. This is *not* licence to convert an existing flow — a flow you fetched
-  stays at its own version.
+  **Authoring a config from nothing is the one case with no form to preserve — stamp the version
+  whose shapes you emit.** "Keep the input's shape" has no input to point at, so the number is
+  yours to choose, and the choice is decided by the document rather than by what looks current:
+  `flowkit` writes array fills, dotted product variables and no screen registry, which is **10**.
+  Measured: a new paywall authored at v9 out of habit collected 10 schema findings, every one of
+  them the `fill` object-versus-array difference and none a real defect; re-authoring the same
+  document at v10 came back clean. Stamping 11 or 12 over the same bytes is the mirror of that
+  mistake and a worse one — the steps that would have converted those variables are skipped
+  because the document claims to have been through them. This is *not* licence to convert an
+  existing flow — a flow you fetched stays at its own version.
 - **Its `required` lists are unreliable.** It marks `defaultLocale` required and the validator
   accepts a config without it. **Never add a field just because the schema calls it required** —
   match the config you fetched. (Omitting `status` and `id` is separately safe: measured across many

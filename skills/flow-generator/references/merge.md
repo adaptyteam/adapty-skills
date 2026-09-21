@@ -53,8 +53,8 @@ replaces it. Everything below lives in the live document and in no script:
 - **`_meta.screens[].products[]`** — the product attachments. Each `flowProductId` is derivable,
   but the set of declared Product + Offer pairs is not: the live block can hold pairs no script of
   yours knows about. A rebuild carries `{}` and wipes them ([products.md](products.md)).
-- **`screens[].products`** — the screen-owned Product + Offer registry, on any flow at
-  schemaVersion 12. It is where the block above is derived from, and it can hold a pair with no
+- **`screens[].products`** — the screen-owned Product + Offer registry. It is where the block
+  above is derived from, and it can hold a pair with no
   usage on the screen, so nothing that walks the elements reconstructs it. A rebuild that omits the
   key loses those pairs; one that writes `[]` declares the screen product-free, which is worse
   ([products.md](products.md)).
