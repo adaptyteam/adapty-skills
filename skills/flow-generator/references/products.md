@@ -208,14 +208,26 @@ mismatch is not a state the UI produces — it is one **you** produce, by writin
 over a flow whose elements say otherwise.
 
 **An absent key is materialized from the screen's own product usages**, by
-`normalizeScreenProducts` at read time and by migration 012 at load. That is why omitting it is
-safe and why `flowkit.predeclare()` derives the same `flowProductId`s either way.
+`normalizeScreenProducts` at read time and by migration 012 at load — which is the safety net
+under a flow that predates the registry, not a licence to leave it out of one that claims to have
+it. A document stamped `schemaVersion: 12` says it has been through migration 012, so the
+migration does not run on it and the key is yours to write.
 
 Three rules follow, and the last is the one that costs work:
 
-- **Omit `products` when authoring.** You know only what you bound; the usage walk knows the whole
-  screen, and it runs on any screen without the key. Writing a registry from what you happen to
-  have recorded is how a binding goes missing.
+- **Do not hand-write the registry; derive it from the screen.** `flowkit.screen()` emits it from
+  the same walk the builder uses — `product` elements and `const` purchase payloads, in first-seen
+  order — so the pairs come from the document rather than from what you remembered to declare.
+  `flowkit.screen_products()` is that walk on its own, which is also how you feed
+  `predeclare()` without listing the products twice:
+
+  ```python
+  scr = fk.screen('scr_x', nodes, selectable_groups=[{'id': 'plans', 'type': 'product'}])
+  meta = fk.predeclare('scr_x', [(p['id'], p.get('offerId')) for p in scr['products']])
+  ```
+
+  A registry assembled by hand from memory is how a binding goes missing, and nothing downstream
+  reports it: the screen renders, and the product it forgot is simply not declared.
 - **Never write `"products": []`.** An existing array is authoritative — *"Existing arrays are
   authoritative: sanitize invalid entries and deduplicate exact pairs, but never rebuild them from
   references"* — and migration 012 skips any screen that already has the key, *"including an
@@ -231,6 +243,53 @@ Three rules follow, and the last is the one that costs work:
 What the prune removes, for completeness: entries that are **both** unknown to the product catalog
 **and** unreferenced on the screen — Figma-import and AI placeholder ids. Unknown-but-used entries
 stay, deliberately, so publication still fails loudly rather than quietly dropping a binding.
+
+### A product reference is structured, and an offer is part of it
+
+A dotted variable id cannot say which offer it means. `<productUUID>.offer_price` names a product
+and stops there, so a product bound with an offer and the same product bound without one are the
+same string — and the offer-bound one fails to publish. The structured form carries the offer:
+
+```json
+{"type": "variable", "attrs": {"variableId": "<uuid>.prod_price",
+                               "productRef": {"target": {"kind": "product", "id": "<uuid>",
+                                                         "offerId": "<offer-id>"},
+                                              "field": "prod_price"}}}
+```
+
+Two shapes, and the difference is not cosmetic. **Rich text dual-writes**: `attrs.productRef`
+goes beside `attrs.variableId` and the string stays, because readers that resolve through the
+string catalog still need it. **A DSL operand is replaced**, because an expression has one type —
+a `{"type": "var"}` becomes `{"type": "productRef", "target": …, "field": …}`. The target is
+either `{"kind": "product", "id", "offerId"?}` or `{"kind": "selected", "groupId"}`, exactly
+those keys, no empty strings, and `offerId` **omitted** rather than empty for a base binding.
+
+**You do not write these by hand.** Keep writing `fk.Var('<uuid>.prod_price')` and
+`fk.ref('<group>.selectedProduct')`; `flowkit.screen()` resolves them against the screen's own
+bindings once the screen is assembled, which is the only point where the offer is knowable. Bind
+the offer where the product is bound:
+
+```python
+fk.product(card, product_id='<uuid>', group_id='plans', offer_id='trial7', default=True)
+```
+
+**Where it cannot resolve, it leaves the dotted string alone** — deliberately, and in three
+cases that are worth recognising because each is a real document rather than a bug:
+
+| The screen | Why it stays legacy |
+| :--- | :--- |
+| binds one product twice, with different offers | The offer is unguessable — either could be meant |
+| never binds the product the variable names | There is nothing to resolve against |
+| names `selectedProduct` on a group that is not `product`-typed | The transform service refuses that target outright (`unknown_product_group`), so a ref here would turn a quiet legacy string into a hard failure |
+
+A half-converted reference is worse than an unconverted one, and the builder resolves the rest the
+first time someone opens the flow. The same rule governs an identity comparison — `selectedProduct
+== <productUUID>` converts **both** operands or neither, since a structured side compared against a
+raw string is always false.
+
+Two contracts a `productRef` must never enter, both enforced in `flowkit` and both easy to break by
+hand: a **purchase payload**, which keeps its own `dynamicProduct` var/const node, and
+**`assign.left`**, which the service requires to be a `var`.
 
 ### Declare the products yourself, and a new flow previews on a device immediately
 

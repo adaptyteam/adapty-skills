@@ -108,6 +108,44 @@ fires('condition: a switch case that is not a [predicate, value] pair',
 fires('condition: a bare string where an expression belongs',
       with_visibility('email.value'), 'invalid condition expression')
 
+# --- productRef, the structured product reference. The service validates the target itself
+# and names the part it rejected, so the port mirrors its two shapes rather than waving the
+# node through. Both directions: a valid ref must NOT be reported (it is what flowkit now
+# writes, so a false positive here reddens every authored flow).
+silent('productRef: a product target with an offer',
+       with_visibility({'type': 'productRef',
+                        'target': {'kind': 'product', 'id': 'p', 'offerId': 'intro'},
+                        'field': 'offer_price'}))
+silent('productRef: a base binding, offerId omitted',
+       with_visibility({'type': 'productRef', 'target': {'kind': 'product', 'id': 'p'},
+                        'field': 'is_free_trial'}))
+# `is_free_trial` above rather than `prod_price` on purpose: the unattachable-screen check
+# scans the screen's JSON for the substring, so it sees a structured ref as readily as a
+# dotted one. That is the correct behaviour and is worth its own case rather than a footnote
+# in someone's debugging session.
+fires('productRef: a price ref still trips the unattachable-screen check',
+      with_visibility({'type': 'productRef', 'target': {'kind': 'product', 'id': 'p'},
+                       'field': 'prod_price'}),
+      'no `product` element')
+silent('productRef: a selected target, fieldless (identity)',
+       with_visibility({'type': 'productRef', 'target': {'kind': 'selected', 'groupId': 'g'}}))
+fires('productRef: no target',
+      with_visibility({'type': 'productRef', 'field': 'prod_price'}), '.target')
+fires('productRef: unknown target kind',
+      with_visibility({'type': 'productRef', 'target': {'kind': 'group', 'id': 'p'}}),
+      '.target.kind')
+fires('productRef: empty offerId, which is not the base binding',
+      with_visibility({'type': 'productRef',
+                       'target': {'kind': 'product', 'id': 'p', 'offerId': ''}}),
+      'omit the key for a base binding')
+fires('productRef: a groupId on a product target',
+      with_visibility({'type': 'productRef',
+                       'target': {'kind': 'product', 'id': 'p', 'groupId': 'g'}}),
+      'not allowed on this target')
+fires('productRef: a field outside the product vocabulary',
+      with_visibility({'type': 'productRef', 'target': {'kind': 'product', 'id': 'p'},
+                       'field': 'prod_colour'}), 'is not a product variable')
+
 # The three collections whose ABSENCE the service accepts -- a stricter port would fire here.
 silent('condition: `&&` with predicates absent (service accepts)',
        with_visibility({'type': '&&'}))

@@ -32,8 +32,10 @@ waited for. `flowkit.predeclare(screen_id, products)` writes the block; pass exa
 pairs, a bare product id or a `(product_id, offer_id)` tuple, because the offer is part of the id.
 Omit the declaration and device preview 422s. When *rewriting* a flow, carry the live
 `_meta.screens` forward instead of regenerating it — **and `screens[].products` with it**, the
-screen-owned registry that `_meta` is derived from. Never write
-`"products": []`: absent and empty mean opposite things to the builder
+screen-owned registry that `_meta` is derived from. Never write `"products": []`: absent and empty
+mean opposite things to the builder. When *authoring*, `flowkit.screen()` writes the registry and
+the structured product refs for you, from the screen's own bindings — bind an offer with
+`product(..., offer_id=...)` and a dotted price variable picks it up
 ([products.md](references/products.md)).
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
