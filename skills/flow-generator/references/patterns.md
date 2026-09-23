@@ -1073,22 +1073,6 @@ that an action opens, with a scrim (`overlayColor`); a sliding sheet is always v
 opens it, and it has no scrim. Never fake it with a tall image followed by a card with rounded top
 corners: that scrolls away with the content, which is exactly the difference the user asked for.
 
-**First, check that the account can publish one.** The element reaches accounts through a transform
-service release, and before that release `flows config validate` refuses any config that contains
-one:
-
-```
-Unsupported flow input: Element type "sliding-sheet" is not supported yet (screens["…"].elements.map["…"])
-```
-
-In that state `flows config preview` draws *Preview failed to render*, and the schema check reports
-`sliding-sheet` as an unknown type. All three come from the same cause, and none of them is a
-defect in your config. So validate a config carrying the sheet **before** you build the rest of the
-screen around it. If validate refuses the element type, stop and tell the user their account does
-not support the sliding sheet yet. The fallback is the hero as an ordinary `image` at the top of a
-scrolling screen, and say what it gives up: the picture scrolls away with the content instead of
-staying put. Build the fallback only if they agree.
-
 The shape: the sheet is a **direct child of the screen root**, at most one per screen. Everything
 else at the root is the **cover**.
 

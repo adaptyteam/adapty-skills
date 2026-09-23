@@ -1420,17 +1420,15 @@ nothing more; for anything about whether users see it, that surface does not qua
 
 ### What the schema settles
 
-- **34 element types**, not the handful these exports use: `bottom-sheet`, `carousel`,
+- **35 element types**, not the handful these exports use: `bottom-sheet`, `carousel`,
   `date-picker`, `date-time-picker`, `divider`, `email-input`, `footer` (**pinned** — see
   [patterns.md](patterns.md); its props are the plain container set, so the schema cannot tell you
   it behaves differently from a `stack`), `header` ⚠, `icon`, `image`,
   `loader`, `number-input`, `old-price` ⚠, `password-input`, `phone-input`, `product`, `progress-bar` ⚠,
-  `progress-bar-loader` ⚠, `progress-bar-segment` ⚠, `selectable`, `spinner`, `stack`, `tab-bar`,
+  `progress-bar-loader` ⚠, `progress-bar-segment` ⚠, `selectable`, `sliding-sheet` (a screen-root
+  panel that rides up over a fixed hero — see [patterns.md](patterns.md)), `spinner`, `stack`, `tab-bar`,
   `tab-content`, `tab-content-wrapper`, `tab-item`, `tabs`, `text`, `text-input`, `time-picker`,
   `timer`, `video`.
-  **`sliding-sheet` is newer than this list** and can be missing from the fetched schema: a
-  screen-root panel that rides up over a fixed hero. An account can only publish one once its
-  transform service supports it, so read [patterns.md](patterns.md) before authoring one.
   **⚠ = flagged `"x-supported": false`** — read [`x-supported`](#the-schema-tells-you-what-the-transformer-handles-x-supported)
   before authoring one. Being listed here means the schema permits it, never that it reaches a
   device: `old-price` is measured absent on device, while the three progress-bar types are a known
@@ -1740,7 +1738,7 @@ style error: you will search for an element type that does not exist, or invent 
 | a text field, email, phone, a date picker | `text-input`, or one of `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker`. Its `customId` becomes the variable `<customId>.value`. |
 | a price | Never literal text. A rich-text `variable` node — see invariant 5 for the two forms. |
 | a close button, "dismiss" | A tappable `stack` whose action is `{"type": "closeFlow"}` (no payload). |
-| a hero image the content slides up over, an overlay hero, a panel over a background | A **`sliding-sheet`** at the screen root holding the content, with the hero as the screen `fill` or as a root sibling of the sheet (the cover band). **Not a `bottom-sheet`**: that one is a hidden modal an action opens. Check that the account can publish it first; see [`patterns.md`](patterns.md). |
+| a hero image the content slides up over, an overlay hero, a panel over a background | A **`sliding-sheet`** at the screen root holding the content, with the hero as the screen `fill` or as a root sibling of the sheet (the cover band). **Not a `bottom-sheet`**: that one is a hidden modal an action opens. See [`patterns.md`](patterns.md). |
 | an image, a background | An `image` element for content; `props.fill` with `{"type": "image"}` for a screen or element background. **Different shapes** — see trap 1. |
 | a video, a looping banner | A `video` element (`loop`, `objectFit`). No CLI upload for the source — the command refuses a clip — so leave `customMediaID`/`video` unset: it renders a styled **"Upload Video"** placeholder and publishes clean. Give it a **fixed** height (a `hug` one draws an arbitrary 256pt, measured) plus the radius and margins of the design around it, then tell the user in words to upload it in the builder. `flowkit.video()`, or the catalog's `video-hero` / `video-card`. **Never** fake it with a `stack` + Play icon — trap 5. |
 | a carousel, reviews/testimonials, a slider, swipeable cards, cards with dots | A `carousel` element, one child `stack` per slide. It is swipeable and **renders its own indicator dots** from `props.dots` (`{size, color, activeColor}`) — you never build the dots by hand. Fixed geometry only (`slideWidth`/`slideHeight`/`height`; `hug` is dropped on device). **Never** fake it with a static card plus decorative dot `stack`s — that ships one frozen slide and dots that do nothing, the same lookalike mistake as the fake footer/spinner/video (trap 5). If the seed flow has one, copy it; otherwise take `component-catalog.json`'s filled **`reviews-carousel`** template, never the single-card `ue-review` — [`patterns.md`](patterns.md). |

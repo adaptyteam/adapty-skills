@@ -737,10 +737,6 @@ def sliding_sheet(children=(), *, fill_=None, start=55, padding=None, gap=16,
     * `fill_` is REQUIRED: the sheet rides over the cover, so a missing fill shows the hero
       straight through the content.
     * a `position` cannot be passed: the sheet is placed by `start`, not by offsets.
-
-    Only accounts whose transform service supports the element can publish it. Run `flows config
-    validate` on the first draft, before building the rest of the screen; patterns.md has the
-    probe and the fallback.
     """
     if fill_ is None:
         raise ValueError(
