@@ -1259,6 +1259,19 @@ def main():
     check('fills= writes through a declared slot',
           fk.from_catalog(_by_id['footer'], fills={'cta': 'Start now'}
                           )[0]['_children'][0]['_children'][0]['props']['content'] == 'Start now')
+    # The sliding-sheet entry: the builder's default sheet with its placeholder text as a slot.
+    # It must land on a screen through screen()'s placement guards, beside a cover element.
+    try:
+        _sheet = fk.from_catalog(_by_id['sliding-sheet'], fills={'content': 'Choose a plan'})[0]
+        _sscr = fk.screen('scr_cat_sheet', [fk.stack([], fixed_h=200), _sheet])
+        _sroot = [_sscr['elements']['map'][c['id']] for c in _sscr['elements']['hierarchy']['children']]
+        _sres = ([e['type'] for e in _sroot], _sroot[1]['props'].get('startPosition'),
+                 [_sscr['elements']['map'][c['id']]['props']['content']
+                  for c in _sscr['elements']['hierarchy']['children'][1]['children']])
+    except (ValueError, KeyError, StopIteration) as _exc:
+        _sres = f'refused: {_exc!r}'
+    check('the catalog sliding-sheet converts, fills its content slot and sits at the root',
+          _sres == (['stack', 'sliding-sheet'], 55, ['Choose a plan']), _sres)
 
     # A screen assembled from the two templates is the commonest paywall there is, and it has to
     # come out of the module publishable rather than merely well-formed.

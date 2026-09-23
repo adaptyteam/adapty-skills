@@ -402,6 +402,96 @@
       }
     },
     {
+      "id": "sliding-sheet",
+      "caption": "Sliding sheet",
+      "keywords": [
+        "hero",
+        "overlay",
+        "sheet",
+        "panel",
+        "scroll",
+        "background",
+        "singleton"
+      ],
+      "agent_allowed": true,
+      "slots": {
+        "content": {
+          "kind": "text",
+          "path": [
+            "children",
+            0,
+            "props",
+            "content"
+          ]
+        }
+      },
+      "template": {
+        "type": "sliding-sheet",
+        "props": {
+          "width": {
+            "type": "fill"
+          },
+          "height": {
+            "type": "hug"
+          },
+          "startPosition": 55,
+          "layout": {
+            "direction": "vertical",
+            "alignH": "center",
+            "alignV": "center",
+            "distribution": {
+              "type": "gap",
+              "gap": 16
+            }
+          },
+          "padding": {
+            "top": 24,
+            "right": 16,
+            "bottom": 16,
+            "left": 16
+          },
+          "borderRadius": {
+            "tl": 20,
+            "tr": 20,
+            "bl": 0,
+            "br": 0
+          },
+          "fill": [
+            {
+              "type": "color",
+              "color": {
+                "type": "color-style",
+                "colorId": "white"
+              }
+            }
+          ]
+        },
+        "caption": "Sliding sheet",
+        "children": [
+          {
+            "type": "text",
+            "props": {
+              "position": {
+                "type": "relative"
+              },
+              "width": {
+                "type": "fill"
+              },
+              "height": {
+                "type": "hug"
+              },
+              "color": {
+                "type": "color-style",
+                "colorId": "gray-700"
+              },
+              "content": "Put your content here"
+            },
+            "caption": "Content"
+          }
+        ]
+      }
+    },
+    {
       "id": "ue-review",
       "caption": "Review",
       "keywords": [

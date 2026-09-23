@@ -17,7 +17,7 @@ already has one, copy that instead — it is better than anything here.
    Same app means products and custom fonts still resolve; see the break list below for what
    does not.
 3. **`component-catalog.json`, which ships in this directory.** The builder's own premade set,
-   69 templates with named slots, covering every family the Flow Builder's element menu offers:
+   70 templates with named slots, covering every family the Flow Builder's element menu offers:
 
    | family | ids |
    | :--- | :--- |
@@ -27,13 +27,13 @@ already has one, copy that instead — it is better than anything here.
    | selectables | `trial-toggle`, `checkbox-with-text`, `toggle-with-text`, `tabs-*`, `quiz-*`, `chk-*` |
    | lists | `list-icons`, `list-images`, `list-icon-cards`, `list-image-cards`, `list-comparison`, `list-timeline` |
    | social proof | `ue-review`, `ue-review-carousel`, `ue-rating`, `ue-app-rating`, `ue-social-proof` |
-   | the rest | `footer`, `carousel`, `bottom-sheet`, `badge`, `loader-spinner`, `loader-loader`, four timers, `video-hero`/`video-card` |
+   | the rest | `footer`, `sliding-sheet`, `carousel`, `bottom-sheet`, `badge`, `loader-spinner`, `loader-loader`, four timers, `video-hero`/`video-card` |
 
    **Query it, never read it whole.** The file is ~790KB (~198k tokens) and every template in
    it is a full element tree. Two commands are all you need, and both are cheap:
 
    ```bash
-   # the whole inventory — id, caption, keywords, fillable slots — ~1.1k tokens for all 69
+   # the whole inventory — id, caption, keywords, fillable slots — ~1.1k tokens for all 70
    jq -r '.components[] | "\(.id)\t\(.caption)\t[\(.keywords|join(" "))]\t\(if .slots|length>0 then (.slots|keys|join(",")) else "-" end)"' \
      references/component-catalog.json
 
@@ -1095,8 +1095,10 @@ else at the root is the **cover**.
   "states": [] }
 ```
 
-`flowkit.sliding_sheet()` emits this, and `screen()` refuses a sheet that is not at the root, and
-refuses two.
+The catalog's `sliding-sheet` entry is the builder's own default: this shape holding one
+placeholder text, exposed as its `content` slot. Replace that text with the screen's content;
+do not ship it. `flowkit.sliding_sheet()` emits the same shape, and `screen()` refuses a sheet
+that is not at the root, and refuses two.
 
 - **`startPosition` is the sheet's share of the screen at rest, measured from the bottom.** `55`
   means the sheet covers the bottom 55% and the cover band is the top 45%. It is **not** "how much
