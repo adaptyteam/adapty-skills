@@ -644,7 +644,7 @@ four screenshots will otherwise assume the pictures were the whole change:
 
 > - `scr_commit` CTA: `closeFlow` → `navigate scr_paywall` — an action, not a pixel
 > - `_meta.screens`: product declaration added for the two new plan cards
-> - 42 localizable fields gained `de` — the render only ever draws one locale
+> - 38 text and placeholder fields gained `de`; the 4 images did not, since `de` shows the default's file — the render only ever draws one locale
 
 **Open exactly one of them live, and mark which row it is.** You are on their machine, so open it
 rather than handing over a command to paste:

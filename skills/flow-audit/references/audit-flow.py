@@ -1464,6 +1464,14 @@ def _has_content(value, locale):
     return isinstance(value, dict) and bool(value.get('url'))
 
 
+def _is_media_field(vals, base):
+    """True when this localizable holds an image or video: `{id, url, previewValue?}` or
+    `{videoUrl, ...}`, read off the default locale's value (or any value, if it has none)."""
+    v = vals.get(base) if base in vals else next(iter(vals.values()), None)
+    return isinstance(v, dict) and any(
+        isinstance(v.get(k), str) and v[k].strip() for k in ('url', 'videoUrl'))
+
+
 def locale_coverage(config):
     """Per-locale coverage stats and examples, over every localizable value in the flow.
 
@@ -1483,9 +1491,15 @@ def locale_coverage(config):
     examples = {l: [] for l in locales}
     for vals in _localizable_values(config, locales):
         base_text = flat_text(vals.get(base), base) if base in vals else ''
+        media = _is_media_field(vals, base)
         for code in locales:
             if code not in vals:
-                stat[code]['missing'] += 1
+                # A locale with no media entry shows the default locale's file (the SDK
+                # resolves a locale's assets on top of the default's), so it is not missing --
+                # and counting it would push a copy of the default's image, preview and all,
+                # into every locale.
+                if not media:
+                    stat[code]['missing'] += 1
                 continue
             if not _has_content(vals[code], code):
                 stat[code]['empty'] += 1
@@ -1518,7 +1532,8 @@ def check_localization(config):
         return out
     base = default_locale(config)
     stat, examples = locale_coverage(config)
-    total = len(_localizable_values(config, locales))
+    total = sum(1 for vals in _localizable_values(config, locales)
+                if not _is_media_field(vals, base))
 
     for code in locales:
         s = stat[code]
