@@ -88,6 +88,7 @@ python3 tests/test-icon-assets.py                                        # the v
 python3 tests/test-id-hygiene.py                                         # id charset, cross-screen dupes, locale codes
 python3 tests/test-customid-analytics.py                                 # the customId an input/option reports under
 python3 tests/test-video-element.py                                      # the unset video + its fixed height, and the catalog contract
+python3 tests/test-sliding-sheet.py                                      # the sheet's root/singleton placement, startPosition, footer placement, taps in the cover band
 python3 tests/test-image-preview.py                                      # previewValue on an image this draft added, both binding shapes
 python3 tests/test-product-template.py                                   # the plan-card catalog entry, and from_catalog
 python3 tests/test-catalog-premades.py                                   # the whole catalog's contract, and the four deviations from builder source

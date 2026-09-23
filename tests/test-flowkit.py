@@ -574,6 +574,54 @@ def main():
           fk.screen('scr_y', [fk.stack([]), fk.footer([], fill_=fk.fill('surface'))])
             is not None)
 
+    # sliding_sheet() — the "Overlay" hero's panel. Placement is its meaning (the transform
+    # service looks for it among the root children only), so screen() enforces it; the props
+    # guards assert on the MESSAGE, because `**kw` reaches stack(), which validates too, and a
+    # bare raises() would pass on a downstream error rather than on the rule.
+    _surf = fk.fill('surface')
+    sh = fk.sliding_sheet([fk.text(fk.localized('Plans'))], fill_=_surf)
+    check('sliding_sheet() emits type sliding-sheet', sh['type'] == 'sliding-sheet', sh['type'])
+    check('sliding_sheet() defaults startPosition to the builder\'s 55',
+          sh['props'].get('startPosition') == 55, sh['props'].get('startPosition'))
+    check('sliding_sheet() carries no position — it is placed by startPosition',
+          'position' not in sh['props'], sh['props'].get('position'))
+    check('sliding_sheet() rounds the top corners only by default',
+          sh['props'].get('borderRadius') == {'tl': 20, 'tr': 20, 'bl': 0, 'br': 0},
+          sh['props'].get('borderRadius'))
+    check('a sheet with no fill is refused (the hero would show through the content)',
+          'is required' in _message(lambda: fk.sliding_sheet([])))
+    for _bad in (101, -1, '55', True):
+        check(f'startPosition {_bad!r} is refused',
+              'percentage from 0 to 100' in _message(
+                  lambda: fk.sliding_sheet([], fill_=_surf, start=_bad)))
+    check('a positioned sheet is refused',
+          'placed by start=' in _message(
+              lambda: fk.sliding_sheet([], fill_=_surf, position=fk.relative())))
+    _hero = fk.stack([], fixed_h=200)
+    # Guarded: a refusal here must fail THIS row, not end the run and hide every row after it.
+    try:
+        _ok = fk.screen('scr_sheet', [_hero, fk.sliding_sheet(
+            [fk.stack([]), fk.footer([], fill_=_surf)], fill_=_surf)])
+        _kinds = [_ok['elements']['map'][c['id']]['type']
+                  for c in _ok['elements']['hierarchy']['children']]
+    except ValueError as _exc:
+        _kinds = f'screen() refused: {_exc}'
+    check('a cover element beside a sheet with a footer inside it builds',
+          _kinds == ['stack', 'sliding-sheet'], _kinds)
+    check('a sheet nested in a stack is refused',
+          'not a direct child of the screen' in _message(lambda: fk.screen(
+              'scr_n', [fk.stack([fk.sliding_sheet([], fill_=_surf)])])))
+    check('two sheets on one screen are refused',
+          'at most one' in _message(lambda: fk.screen(
+              'scr_2', [fk.sliding_sheet([], fill_=_surf), fk.sliding_sheet([], fill_=_surf)])))
+    check('a footer nested in a stack inside the sheet is refused',
+          'nested inside another element' in _message(lambda: fk.screen(
+              'scr_f', [fk.sliding_sheet([fk.stack([fk.footer([], fill_=_surf)])],
+                                         fill_=_surf)])))
+    check('a footer nested in a stack on a plain screen is refused',
+          'nested inside another element' in _message(lambda: fk.screen(
+              'scr_g', [fk.stack([fk.footer([], fill_=_surf)])])))
+
     # carousel() — the swipeable element. Same story as footer(): the module exposed no way to
     # build one, so an author reaching for a reviews slider found only stack(), and the result
     # was a static card plus decorative dot stacks — one frozen slide, dead dots, and a

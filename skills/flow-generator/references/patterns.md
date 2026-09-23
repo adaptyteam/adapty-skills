@@ -1064,6 +1064,98 @@ Two more things that follow from the sheet being an ordinary part of the documen
   the page furniture hidden, which is the state the actions produce. That verifies both layouts and
   proves nothing about the tap: whether `showElement` actually fires is an Adapty-app check.
 
+### A hero with the content sliding over it: `sliding-sheet`
+
+The "Overlay" hero: a picture fills the top of the screen and stays put, and a panel holding the
+content starts partway down and rides up over the picture as the user scrolls. That is a
+`sliding-sheet`, a real element. **It is not a `bottom-sheet`**: a bottom sheet is a hidden modal
+that an action opens, with a scrim (`overlayColor`); a sliding sheet is always visible, nothing
+opens it, and it has no scrim. Never fake it with a tall image followed by a card with rounded top
+corners: that scrolls away with the content, which is exactly the difference the user asked for.
+
+**First, check that the account can publish one.** The element reaches accounts through a transform
+service release, and before that release `flows config validate` refuses any config that contains
+one:
+
+```
+Unsupported flow input: Element type "sliding-sheet" is not supported yet (screens["…"].elements.map["…"])
+```
+
+In that state `flows config preview` draws *Preview failed to render*, and the schema check reports
+`sliding-sheet` as an unknown type. All three come from the same cause, and none of them is a
+defect in your config. So validate a config carrying the sheet **before** you build the rest of the
+screen around it. If validate refuses the element type, stop and tell the user their account does
+not support the sliding sheet yet. The fallback is the hero as an ordinary `image` at the top of a
+scrolling screen, and say what it gives up: the picture scrolls away with the content instead of
+staying put. Build the fallback only if they agree.
+
+The shape: the sheet is a **direct child of the screen root**, at most one per screen. Everything
+else at the root is the **cover**.
+
+```json
+"hierarchy": {"id": "root", "children": [
+  {"id": "el_hero"},
+  {"id": "el_sheet", "children": [{"id": "el_title"}, {"id": "el_plans"}, {"id": "el_footer"}]}
+]}
+```
+
+```json
+{ "id": "el_sheet", "type": "sliding-sheet", "caption": "Sliding sheet",
+  "props": {"startPosition": 55,
+            "width": {"type": "fill"}, "height": {"type": "hug"},
+            "layout": {"direction": "vertical", "alignH": "center", "alignV": "start",
+                       "distribution": {"type": "gap", "gap": 16}},
+            "padding": {"top": 24, "right": 16, "bottom": 16, "left": 16},
+            "borderRadius": {"tl": 20, "tr": 20, "bl": 0, "br": 0},
+            "fill": [{"type": "color", "color": {"type": "color-style", "colorId": "white"}}]},
+  "states": [] }
+```
+
+`flowkit.sliding_sheet()` emits this, and `screen()` refuses a sheet that is not at the root, and
+refuses two.
+
+- **`startPosition` is the sheet's share of the screen at rest, measured from the bottom.** `55`
+  means the sheet covers the bottom 55% and the cover band is the top 45%. It is **not** "how much
+  of the background shows" (that reading gives the inverse layout). Range 0–100, default 55.
+- **The cover band is every root element except the sheet.** It is `(100 − startPosition)%` of the
+  screen tall and pinned to the top. It drifts up more slowly than the content on scroll (parallax)
+  while the sheet rides over it. **Screen `padding` and the top safe area apply to the cover, not to
+  the sheet.** The sheet is full-bleed and carries its own `padding`. A root element positioned
+  `absolute` or `fixed` belongs to the cover too, so the sheet scrolls over it.
+- **The screen `fill` sits behind both** and does not move. It is the simplest route to a
+  full-bleed hero, one that runs under the status bar with nothing to size: put the image in the
+  screen's `fill` (the flat fill shape, trap 1) and leave the cover empty, or hold only a logo.
+- **An image in the cover is sized by its own props.** This applies when it is the cover's only
+  flow element and has `objectFit: cover`. With more than one element in the cover, the band lays
+  them out like any stack, and overflow is clipped at the band's bottom edge.
+
+  | the image's size | what the band draws |
+  | :--- | :--- |
+  | `width` fixed | edge to edge, **ignoring** screen padding and the safe area, so it runs under the status bar. The width is a preview width, so the proportions change on a wider device |
+  | `width` fill, `height` fill | fills the band, inset by the screen padding and the top safe area |
+  | `width` fill, `height` fixed | exactly that height, top-aligned; the rest of the band shows the screen fill |
+  | `width` fill, `height` hug | its natural height if that fits the band, cropped to the band if it is taller. The call is made from the image's **`previewValue`**; without one the image is treated as fitting, so a tall image letterboxes instead of cropping. Carry the preview ([`media.md`](media.md)) |
+
+- **The footer goes inside the sheet, as its last child, or at the root.** Either way it is the
+  screen's one pinned bar, and rule 0 of the footer section still holds: `scrollable` must stay
+  `true`.
+- **`scrollable` decides whether the sheet can grow.** With `true`, the sheet grows with its content
+  and the screen scrolls. With `false`, the sheet is held at its start height and anything taller is
+  cut off.
+- **Give the sheet an opaque `fill`**, because it rides over the cover. Round the top corners only:
+  the bottom edge sits at the screen edge, so bottom radii are never seen.
+- **Put every tappable element inside the sheet, the close button included.** On Android a tap on
+  an element in the cover band does not register, while the same button works on iOS and works
+  inside the sheet on both. `verify-config.py` warns on any interaction in the cover. A close
+  button nobody can tap on Android is a store-review problem, not a cosmetic one. A video in a cover
+  that also holds other elements can be letterboxed on a device, and there is no curved top edge,
+  only corner radii.
+
+**What the preview cannot show you.** A `flows config preview` screenshot is one frame at rest. It
+cannot show the parallax, the sheet riding over the cover, or the Android tap problem. Put
+*scroll the screen and watch the sheet ride over the hero, on iOS and on Android* into the device
+check.
+
 ### A side-by-side pair of docked buttons
 
 Two buttons on one row at the bottom, each with its own action. **If the row should stay put while
