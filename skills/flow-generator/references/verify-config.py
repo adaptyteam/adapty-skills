@@ -2211,6 +2211,62 @@ def check(path, baseline_text=None, baseline_images=None):
                     f"transform service does not track it, so what the user types never "
                     f"reaches your app, and no condition can read `<customId>.value` for it")
 
+    # ---- sliding sheet: the "Overlay" hero. The transform service looks for one among the root
+    # children ONLY and turns the rest of the root into the cover band above it, so placement is
+    # the element's meaning: a nested sheet is drawn as a plain box and the hero never happens.
+    # A footer may sit at the root or directly inside the sheet (it is lifted to the screen's
+    # pinned bar either way), nowhere else.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+        root = s['elements']['hierarchy'].get('children') or []
+        root_ids = [c['id'] for c in root]
+        sheets = [k for k, e in m.items() if e.get('type') == 'sliding-sheet']
+        for k in sheets:
+            if k not in root_ids:
+                bad.append(f'screen {s["id"]}: sliding sheet {k} is not a direct child of the '
+                           f'screen root — a nested sheet is drawn as an ordinary box and the '
+                           f'hero never happens. Move it to the root')
+            sp = (m[k].get('props') or {}).get('startPosition')
+            if sp is not None and (isinstance(sp, bool) or not isinstance(sp, (int, float))
+                                   or not 0 <= sp <= 100):
+                bad.append(f'screen {s["id"]}: sliding sheet {k} has startPosition {sp!r} — it '
+                           f'is a percentage 0-100, the share of the screen the sheet covers at '
+                           f'rest, measured from the bottom')
+            if not (m[k].get('props') or {}).get('fill'):
+                warn.append(f'screen {s["id"]}: sliding sheet {k} has no fill — it rides up over '
+                            f'the cover, so the hero will show straight through the content')
+        if len(sheets) > 1:
+            bad.append(f'screen {s["id"]}: {len(sheets)} sliding sheets ({sorted(sheets)}) — a '
+                       f'screen takes at most one. Put all the content inside one sheet')
+        root_sheets = [c for c in root if c['id'] in sheets]
+        sheet_kids = {kid['id'] for c in root_sheets for kid in c.get('children') or []}
+        for k, e in m.items():
+            if e.get('type') == 'footer' and k not in root_ids and k not in sheet_kids:
+                bad.append(f'screen {s["id"]}: footer {k} is nested inside another element — a '
+                           f'footer sits at the screen root, or directly inside the sliding sheet')
+        # Taps in the cover band do not register on Android, while the same element works on iOS
+        # and works inside the sheet on both. A close button there is unreachable for Android
+        # users. A statically hidden sheet produces no cover, so it is skipped.
+        live = [c for c in root_sheets
+                if ((m[c['id']].get('props') or {}).get('visibility') or {}).get('type') != 'hidden']
+        if live:
+            def _tappable(node, out):
+                e = m.get(node['id']) or {}
+                if e.get('type') == 'footer':
+                    return
+                if any(i.get('actions') for i in e.get('interactions') or []):
+                    out.append(node['id'])
+                for c in node.get('children') or []:
+                    _tappable(c, out)
+            cover_taps = []
+            for c in root:
+                if c['id'] not in sheets:
+                    _tappable(c, cover_taps)
+            for k in cover_taps:
+                warn.append(f'screen {s["id"]}: {k} is tappable and sits in the cover band above '
+                            f'the sliding sheet — on Android a tap there does not register. Move '
+                            f'it inside the sheet (a close button included)')
+
     # ---- element types the transform service has no mapper handler for. Every other gate
     # passes these: the schema declares them, `validate` accepts them, and the preview page
     # reads the config directly so it DRAWS them. The device does not, because the SDK gets

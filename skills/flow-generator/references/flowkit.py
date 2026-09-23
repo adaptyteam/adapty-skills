@@ -722,6 +722,44 @@ def footer(children=(), *, fill_=None, padding=None, gap=16, direction='vertical
     return node
 
 
+def sliding_sheet(children=(), *, fill_=None, start=55, padding=None, gap=16,
+                  direction='vertical', align_h='center', align_v='start', corner=None, **kw):
+    """The panel of an "Overlay" hero: it starts `start`% up from the bottom of the screen and
+    rides up over the fixed hero as the screen scrolls. Pass the screen's content as `children`;
+    a `footer()` may be its last child.
+
+    Placement is the element's meaning, so `screen()` enforces it: a DIRECT child of the screen
+    root, at most one per screen. Every other root element becomes the cover band above it.
+
+    * `start` is the sheet's share of the screen at rest, measured from the BOTTOM: 55 means the
+      sheet covers the bottom 55% and the cover band is the top 45%. Not "how much background
+      shows", which is the inverse layout.
+    * `fill_` is REQUIRED: the sheet rides over the cover, so a missing fill shows the hero
+      straight through the content.
+    * a `position` cannot be passed: the sheet is placed by `start`, not by offsets.
+    """
+    if fill_ is None:
+        raise ValueError(
+            'sliding_sheet(fill_=...) is required: the sheet rides up over the cover, so without '
+            'an opaque fill the hero shows through the content. Pass fill_=fill("surface").')
+    if isinstance(start, bool) or not isinstance(start, (int, float)) or not 0 <= start <= 100:
+        raise ValueError(
+            f'sliding_sheet(start={start!r}): startPosition is a percentage from 0 to 100 -- the '
+            f'share of the screen the sheet covers at rest, measured from the bottom.')
+    if 'position' in kw:
+        raise ValueError(
+            'a sliding sheet is placed by start=, not by a position. Put it at the screen root '
+            'and set start= to the share of the screen it covers at rest.')
+    node = stack(children, height='hug', fill_=fill_,
+                 padding=padding if padding is not None else pad(24, 16, 16, 16), gap=gap,
+                 direction=direction, align_h=align_h, align_v=align_v,
+                 corner=corner if corner is not None else radius(tl=20, tr=20), **kw)
+    node['type'] = 'sliding-sheet'
+    node['props']['startPosition'] = start
+    node['props'].pop('position', None)
+    return node
+
+
 def _is_dotlike(node):
     """The hand-built indicator dot: a tiny childless square `stack` with a corner radius.
 
@@ -2083,6 +2121,28 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
     viewport. See `layout()` for why a spread needs it anyway."""
     node_map, hierarchy = flatten(list(nodes))
     feet = [k for k, v in node_map.items() if v.get('type') == 'footer']
+    # Where a sheet and a footer may sit. A sheet is a root singleton: the transform service reads
+    # only the root for one, so a nested sheet is drawn as a plain box and the hero never happens.
+    # A footer may sit at the root or directly inside the sheet, nowhere else.
+    root_ids = [c['id'] for c in hierarchy['children']]
+    sheets = [k for k, v in node_map.items() if v.get('type') == 'sliding-sheet']
+    nested = [k for k in sheets if k not in root_ids]
+    if nested:
+        raise ValueError(
+            f'screen {screen_id!r}: sliding sheet {nested[0]} is not a direct child of the screen '
+            'root. A sheet nested anywhere else is drawn as an ordinary box and the hero never '
+            'happens. Pass it in the screen\'s own node list.')
+    if len(sheets) > 1:
+        raise ValueError(
+            f'screen {screen_id!r}: {len(sheets)} sliding sheets ({", ".join(sorted(sheets))}) -- '
+            'a screen takes at most one. Put all the content inside one sheet.')
+    sheet_kids = {kid['id'] for top in hierarchy['children'] if top['id'] in sheets
+                  for kid in top.get('children', [])}
+    for k in feet:
+        if k not in root_ids and k not in sheet_kids:
+            raise ValueError(
+                f'screen {screen_id!r}: footer {k} is nested inside another element. A footer '
+                'sits at the screen root, or directly inside the sliding sheet as its last child.')
     if feet and not scrollable:
         raise ValueError(
             f'screen {screen_id!r} pairs a footer ({feet[0]}) with scrollable=False. '
