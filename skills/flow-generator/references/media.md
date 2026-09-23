@@ -295,6 +295,11 @@ Bind it exactly as the upload returned it:
 - **It rides with the asset, not with the element.** The same three-field `IImage` goes into a
   per-locale `values` entry on an element and flat inside a fill, so a background needs it just
   as much — more visibly, since a background is usually the largest thing on the screen.
+- **Bind it once per asset, never once per locale.** An image element's `values` map holds the
+  default locale, plus a locale only when that locale gets a different file. Every other locale
+  already shows the default's file. Copying the `IImage` into each locale repeats the preview in
+  the published config for every locale, which is how a flow of a few images grows to tens of
+  megabytes and times out at publish. See `flow-schema.md` trap 1.
 - **A config is where it is stored.** Because the whole `IImage` is written into the flow, an
   asset already bound somewhere carries its preview there, and that is what makes a lost one
   recoverable — see below.

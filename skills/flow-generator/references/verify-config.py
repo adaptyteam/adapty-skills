@@ -1008,9 +1008,39 @@ def check(path, baseline_text=None, baseline_images=None):
         def _branches(v):
             return len(_blocks(v))
 
+        def _media_key(v):
+            """The asset an image or video value points at, or None if `v` is not media.
+
+            An image value is `{id, url, previewValue?}` and a video value `{videoUrl, ...}`; the
+            asset is the URL, so two values naming one URL are one asset whatever their preview.
+            """
+            if isinstance(v, dict):
+                for k in ('url', 'videoUrl'):
+                    if isinstance(v.get(k), str) and v[k].strip():
+                        return v[k].strip()
+            return None
+
+        # Media does NOT need a value in every locale, which is the opposite of text. The SDK
+        # resolves a locale's assets on top of the default locale's (iOS merges the default's
+        # asset map under the locale's own; Android loads the default's first and lets the locale
+        # override), so a locale with no entry shows the default's file. A copy of the default's
+        # asset in another locale therefore changes nothing on screen, and it is not free: every
+        # copy carries the whole `previewValue`, so N locales x P images puts the same base64 into
+        # the published config N x P times. That is how a flow of a few small images reaches tens
+        # of megabytes and times out at publish. So: parity is skipped for media, and a copy of
+        # the default's asset is reported.
+        copies = {}
+        copied_bytes = 0
         for vals in loc_vals:
             src = vals.get(base)
             if src is None:
+                continue
+            src_asset = _media_key(src)
+            if src_asset is not None:
+                for code in declared:
+                    if code != base and _media_key(vals.get(code)) == src_asset:
+                        copies[code] = copies.get(code, 0) + 1
+                        copied_bytes += len(vals[code].get('previewValue') or '')
                 continue
             label = (src if isinstance(src, str) else ''.join(
                 s.get('text', '') for s in _spans(src)))[:40]
@@ -1030,6 +1060,18 @@ def check(path, baseline_text=None, baseline_images=None):
                                f'loses its price')
                 elif _kinds(vals[code]) != _kinds(src):
                     warn.append(f'locale {code}: span kinds differ from {base} on {label!r}')
+        if copies:
+            n = sum(copies.values())
+            weight = (f', about {copied_bytes // 1024} KB of duplicated previewValue'
+                      if copied_bytes >= 1024 else '')
+            warn.append(
+                f'{n} image/video value(s) in {len(copies)} non-default locale(s) '
+                f'({", ".join(sorted(copies))}) repeat the {base} asset{weight} — a locale with '
+                f'no media entry already shows the {base} file, so each copy changes nothing on '
+                f'screen and adds its preview to the published config once per locale. Keep a '
+                f'per-locale media value only where that locale gets a DIFFERENT file. If this '
+                f'run wrote the copies, delete them; if they came with the fetched config, '
+                f'report them and ask')
     # Stale sizing values persist through the editor and the transformer BELIEVES them:
     # hug carrying value -> min:<value> on device (ADP-7308, team-diagnosed; content vanished at
     # 8008). Real exports carry small ones routinely (16 in one rendering fixture), so warning,
