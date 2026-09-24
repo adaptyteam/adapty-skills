@@ -167,7 +167,7 @@ Open your terminal in any directory and ask for it:
 /ads-manager
 ```
 
-It covers ten workflows: orienting on your account, reporting performance, launching a campaign, harvesting keywords from search terms, a bid-and-budget optimization pass, pausing or resuming, running ads against a custom product page, diagnosing an ad that isn't serving, rule-based automations, and a competitor check.
+It covers ten workflows: orienting on your account, reporting performance, launching a campaign (seeded from Adapty's keyword recommendations when you have no keyword list), harvesting keywords from search terms, a bid-and-budget optimization pass, pausing or resuming, running ads against a custom product page, diagnosing an ad that isn't serving, rule-based automations, and a competitor check.
 
 **It treats your ad account as live money.** There is no delete and no undo in this surface, so the skill confirms before every write, never invents an ID or a budget, prefers small keyword batches, and pins idempotency keys so a re-run can't double-apply. Reads and automation dry runs are free, and it uses them freely.
 

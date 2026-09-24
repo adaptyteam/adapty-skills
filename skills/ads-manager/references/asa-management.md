@@ -119,6 +119,7 @@ Read `payment_model` from `orgs list` before a launch; do not assume `PAYG`.
 | Command | Flags | Notes |
 |---|---|---|
 | `asa keywords list` | scope filters only | Metadata only. Filter by `--ad-group` — unfiltered, this is the widest read in the surface. |
+| `asa keywords recommend` | `--adam-id` (Apple App Store ID from `asa apps list`), `--type` (`brand` / `generic` / `competitor`) required; optional `--country` (two-letter ISO code, repeatable, default every country in the pool) | A read: ready-made keyword pools that Adapty computes for one of your apps — the same sets the dashboard's campaign setup uses. It takes no scope filters and no pagination. `brand`: the app's own brand terms, their spelling variants, and organic terms that carry the brand; the text output also prints `brand_terms`. `generic`: non-brand terms the app and its top organic competitors rank for, minus every known brand term; `relevance_tier: top_organic` marks terms where the app already ranks in the organic top 10. `competitor`: one pool per competitor selected for the app in the dashboard's Autopilot setup — empty until someone selects competitors there, so an empty `pools` list is an answer, not an error. Read `status` before the list: `ready` is usable, `building` means retry in about a minute, `empty` is a real answer, `failed` means retry another day. A cold `brand` or `generic` call builds the pool during the request and can take tens of seconds — see [Request budgets](#request-budgets). Terms carry `country`, `popularity`, `score` and `median_organic_rank`, but no bid and no match type: those are the user's decision, then `asa keywords add` loads the chosen terms at 15 per call. |
 | `asa keywords add` | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; optional `--bid`, `--match-type` (`BROAD`/`EXACT`, default `BROAD`), `--status` (`ACTIVE`/`PAUSED`, default `ACTIVE`) | Batch call, capped at 100 keywords per call — the skill's own practice caps a single call lower, at 15 (see `SKILL.md`'s `## Never`). `--from-file` reads one keyword per line, trims each line, drops blank lines, and combines the result with any `--text` values. Default match type is `BROAD`, which widens spend beyond exact matches; pass `--match-type EXACT` to narrow it. |
 | `asa keywords update <id> [<id>...]` | one or more positional ids | The same change (e.g. `--bid`, `--status`) is applied to every id in the list. `--text` is only valid when a single id is given — you cannot bulk-rename keyword text. |
 
@@ -250,6 +251,7 @@ Every `asa` command is rate limited per company, not per token:
 |---|---|
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
+| `keywords recommend` | 10/min, one in-flight `brand`/`generic` build at a time, `Retry-After: 5` on `cli_analytics_busy` |
 | all writes | 20/min |
 | template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |
@@ -258,7 +260,9 @@ Every `asa` command is rate limited per company, not per token:
 the account-size reason to filter it in Scope filters. `metrics`, `metrics overview`,
 `search-terms list`, and `competitors summary` share a separate analytics pool with its own
 budget and its own `429 cli_analytics_busy`; that pool and its numbers live in the metrics
-reference, not here.
+reference, not here. `keywords recommend` answers the same `cli_analytics_busy` code from a
+different, one-slot pool of its own: a busy `brand`/`generic` build answers with this
+section's `Retry-After: 5`, not the metrics pool's numbers.
 
 A budget running out answers `429 cli_rate_limit_exceeded` with the wait in `Retry-After` —
 a different code from `cli_analytics_busy` (that other pool's concurrency cap) and from

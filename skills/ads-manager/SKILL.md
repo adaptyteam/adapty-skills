@@ -1,6 +1,6 @@
 ---
 name: ads-manager
-description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, or setting up rule-based ad automations.
+description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, getting keyword recommendations for an app, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, or setting up rule-based ad automations.
 ---
 
 # Apple Search Ads through the Adapty CLI
@@ -10,8 +10,8 @@ within seconds and spends real money, and nothing it creates can be deleted or u
 
 Open the reference a workflow names before running its commands:
 
-- `references/asa-management.md` — campaigns, ad groups, ads, keywords, negative keywords,
-  product pages, creatives, automations.
+- `references/asa-management.md` — campaigns, ad groups, ads, keywords and keyword
+  recommendations, negative keywords, product pages, creatives, automations.
 - `references/asa-metrics.md` — `metrics`, `metrics overview`, `search-terms list`,
   `competitors summary`.
 
@@ -19,13 +19,13 @@ Open the reference a workflow names before running its commands:
 
 **Resolve `$ADAPTY` once, before your first `asa` call, and use it for every command you run.** A
 global `adapty` is frequently old. The `asa` topic ships in **0.4.0**, but `ad-groups create
---automated` and the five `--invoice-*` flags ship in **0.8.2**, and the `metrics` scope flags and the
-`automations` action flags in **0.8.3**, so treat 0.8.3 as this skill's floor. An older install answers
-with `unknown command` or an unknown-flag error, which reads like the command does not exist rather
-than like a stale CLI:
+--automated` and the five `--invoice-*` flags ship in **0.8.2**, the `metrics` scope flags and the
+`automations` action flags in **0.8.3**, and `keywords recommend` in **0.8.7**, so treat 0.8.7 as this
+skill's floor. An older install answers with `unknown command` or an unknown-flag error, which reads
+like the command does not exist rather than like a stale CLI:
 
 ```bash
-adapty --version                                   # >= 0.8.3 ?  ADAPTY="adapty", done
+adapty --version                                   # >= 0.8.7 ?  ADAPTY="adapty", done
 npm i -g adapty@latest >/dev/null 2>&1 \
   && ADAPTY="adapty" \
   || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
@@ -228,8 +228,11 @@ $ADAPTY asa metrics --entity <ad|ad-group|campaign|keyword> --date-from <YYYY-MM
 each create consumes an id the previous printed. Neither the order nor any key is optional.
 Mint `<run>` once per launch, so a second launch cannot collide. Create the campaign `PAUSED`,
 verify the structure, then enable it with workflow 6 — nothing spends until you do. Set
-`--match-type` yourself: it defaults to `BROAD`, which is the widest, most expensive targeting. →
-`references/asa-management.md`, `## Writes and idempotency`.
+`--match-type` yourself: it defaults to `BROAD`, which is the widest, most expensive targeting.
+No keyword list from the user? Read one pool first with
+`keywords recommend --adam-id <adam-id> --type <brand|generic|competitor>` — the same `--adam-id` —
+and show the user the terms you would add. A pool carries no bids and no match types, so both stay
+the user's call. → `references/asa-management.md`, `## Keywords` and `## Writes and idempotency`.
 
 ```
 $ADAPTY asa campaigns create --org <id> --adam-id <adam-id> --name <name> --country <country-code> --daily-budget <amount> --status PAUSED --idempotency-key <run>-camp
