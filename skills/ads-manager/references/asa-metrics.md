@@ -26,8 +26,8 @@ that field.
 
 | Command | Flags | Notes |
 |---|---|---|
-| `asa metrics` | `--entity`, `--date-from`, `--date-to`, `--metric` (repeatable) all **required**; `--app` / `--campaign` / `--ad-group` (repeatable UUIDs, see [Scoping a metrics call](#scoping-a-metrics-call)), `--group-by` (repeatable), `--order` (`asc`/`desc`, default `desc`), `--order-by`, `--by-days` (repeatable, max 16), `--order-by-day`, `--page` (default `1`), `--page-size` (default `100`, max `1000`) optional | One row per entity — `ad`, `ad-group`, `campaign`, or `keyword` — already aggregated over the period and already sorted server-side by `--order-by`. A top-N question is one call, `--order-by X --page-size N`; never paginate and sum yourself, and for a full breakdown take one big page (`--page-size 1000`) instead of looping. `--order` defaults to `desc`; pass `--order asc` for a "worst" question instead of "best." `--group-by` is one of `country`, `day`, `month`, `quarter`, `week`, `year`, and its coarseness sets the date-window cap (see [Date window caps](#date-window-caps)). A page is capped at **5000 breakdown rows** — entities × countries × periods, not the row count you asked for — and over it the call fails `422 cli_response_too_large`; coarsen the grouping, narrow the window, or scope it, rather than reaching for a smaller `--page-size` and looping. Account-level totals are one call to `metrics overview` instead. |
-| `asa metrics overview` | `--entity`, `--date-from`, `--date-to` required; `--metric` (repeatable, root names only, and **optional here** — unlike on `asa metrics`, omitting it returns every metric), `--by-days` (repeatable, max 16), `--period-unit` (`day`/`week`/`month`/`quarter`/`year`, default `day`) optional | Returns one response, not a list — totals for the whole entity level plus a per-period series in the same call, no pagination, no client-side summing. That's the one-call answer to a trend question ("today vs. yesterday," "this week vs. last"). Has no `--group-by` and no `--order`/`--order-by`/`--order-by-day`. Shares the 5-per-minute metrics budget with `metrics` (see [The analytics pool](#the-analytics-pool)). Metric names here are root names only — see [Metric vocabulary](#metric-vocabulary). |
+| `asa metrics` | `--entity`, `--date-from`, `--date-to`, `--metric` (repeatable) all **required**; `--app` / `--campaign` / `--ad-group` (repeatable UUIDs, see [Scoping a metrics call](#scoping-a-metrics-call)), `--group-by` (repeatable), `--order` (`asc`/`desc`, default `desc`), `--order-by`, `--by-days` (repeatable, max 16), `--order-by-day`, `--page` (default `1`), `--page-size` (default `100`, max `1000`) optional | One row per entity — `ad`, `ad-group`, `campaign`, or `keyword` — already aggregated over the period and already sorted server-side by `--order-by`. A top-N question is one call, `--order-by X --page-size N`; never paginate and sum yourself, and for a full breakdown take one big page (`--page-size 1000`) instead of looping. `--order` defaults to `desc`; pass `--order asc` for a "worst" question instead of "best." `--group-by` is one of `country`, `day`, `month`, `quarter`, `week`, `year`, and its coarseness sets the date-window cap (see [Date window caps](#date-window-caps)). A page is capped at the company's `max_breakdown_rows_per_page` breakdown rows — **5000** by default, raised per company, and reported by `asa whoami` under `limits` — counting entities × countries × periods, not the row count you asked for. Over it the call fails `422 cli_response_too_large`; coarsen the grouping, narrow the window, or scope it, rather than reaching for a smaller `--page-size` and looping. When `day` is in `--group-by`, the refusal names the `page[size]` that fits — take that number from the message, never compute one yourself. Account-level totals are one call to `metrics overview` instead. |
+| `asa metrics overview` | `--entity`, `--date-from`, `--date-to` required; `--metric` (repeatable, root names only, and **optional here** — unlike on `asa metrics`, omitting it returns every metric), `--by-days` (repeatable, max 16), `--period-unit` (`day`/`week`/`month`/`quarter`/`year`, default `day`) optional | Returns one response, not a list — totals for the whole entity level plus a per-period series in the same call, no pagination, no client-side summing. That's the one-call answer to a trend question ("today vs. yesterday," "this week vs. last"). Has no `--group-by` and no `--order`/`--order-by`/`--order-by-day`. Shares the metrics budget with `metrics` (see [The analytics pool](#the-analytics-pool)). Metric names here are root names only — see [Metric vocabulary](#metric-vocabulary). |
 | `asa search-terms list` | `--date-from` / `--date-to` (default: today); scope with `--ad-group` / `--campaign`; `--page` (default `1`), `--page-size` (default `100`, max `1000`) | The only list command in the `asa` topic that takes period flags — it draws on the same analytics pool as `metrics` (see [The analytics pool](#the-analytics-pool)), not the metadata store the other lists use. The full scope-filter set (`--app`, `--campaign-group`, `--search` included) is in `asa-management.md`. This file covers *reading* search terms; turning what you find into keywords or negative keywords is in `asa-management.md`. |
 | `asa competitors summary` | `--app-ids` (1–5 Apple App Store IDs, comma-separated) | Covers the last full month across every country — there are deliberately no period or country flags. The first call on a cold cache can take tens of seconds. |
 
@@ -37,7 +37,7 @@ that field.
 from the matching list command. They are not filters over a printed page: they cut down the
 set of entities the server aggregates, and aggregation cost follows that set, not
 `--page-size`. Scoping is therefore the cheapest way to make any metrics call fast, and the
-first thing to reach for when one is slow or trips the 5000-row page cap.
+first thing to reach for when one is slow or trips the breakdown-row page cap.
 
 Two consequences worth separating:
 
@@ -137,26 +137,72 @@ $ADAPTY asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-3
   --metric roas --by-days 7 --by-days 90 --order-by gross_roas --order-by-day 90
 ```
 
+### Windows the cohort has not lived through yet
+
+A cohort value is what has been observed so far, not a projection. A window longer than the
+cohort's age repeats the last real figure instead of returning nothing — a July cohort read in
+August reports the same number at day 60, day 90 and day 300 as at day 28.
+
+`meta.max_valid_day` in the response is how many days the youngest cohort in the date range has
+lived, counted from `--date-to`. Treat every `--by-days` window above it as not reached:
+
+- Never read a flat line past `max_valid_day` as a plateau. That time has not passed yet.
+- Never divide a clipped numerator by a full-window denominator — it understates the result.
+- Compare markets or campaigns only at a window all of them have reached.
+
+The text output prints a warning when a requested window is past `max_valid_day`. Under `--json`
+there is no warning: read `meta.max_valid_day` yourself.
+
+## Money and currency
+
+Money columns — `spend`, `local_spend`, and every revenue-derived metric — are in the campaign
+group's currency, not USD, and `spend` and `local_spend` carry the same figure despite the naming.
+The currency belongs to the campaign group, not to a row, so read it from `asa orgs list` before
+you sum, compare across organizations, or state an amount to the user.
+
+## Counting entities in metrics
+
+The rows on a page are the page, not the inventory: `--order-by spend --page-size 1000` ranks
+across everything the scope allows, so one page can hold a fraction of an app's keywords.
+`meta.pagination.count` in the same response is the full count behind the scope — take inventory
+from there.
+
+That count runs higher than the matching catalog list (`campaigns list`, `keywords list`), and
+both are right: an entity deleted in Apple keeps the spend it already booked, so metrics still
+report it, while the catalog lists only what exists today. Use the catalog for "what do I have",
+and metrics for "what did I spend".
+
 ## The analytics pool
 
-Four commands draw on one 2-concurrent-query pool per company: `metrics`, `metrics
+Four commands draw on one shared concurrency pool per company: `metrics`, `metrics
 overview`, `search-terms list`, and `competitors summary`. A slot held by one is a slot the
 others can't use. On top of that shared concurrency, each pair also carries its own
-per-minute budget:
+per-minute budget.
 
-| Commands | Per-minute budget |
+**Budgets are set per company, so read them rather than assume them.** `asa whoami` reports
+the effective ones under `limits`: `metrics_limit_per_minute` and `metrics_burst_limit` for
+`metrics` and `metrics overview`, `metrics_inflight_limit` for how many analytics calls may
+overlap, and `max_breakdown_rows_per_page` for the page cap. Plan against those numbers. The
+table is the platform default, for when `limits` is absent:
+
+| Commands | Default per-minute budget |
 |---|---|
-| `metrics`, `metrics overview` | 5/min, burst at most 2 per 10s |
+| `metrics`, `metrics overview` | 15/min, burst at most 5 per 10s |
 | `search-terms list`, `competitors summary` | 30/min |
 
 Three 429 codes, not one:
 
-- `cli_analytics_busy` — the 2-concurrent pool is full; wait about 5 seconds.
-- `cli_rate_limit_exceeded` — the per-minute window (5/min or 30/min, whichever pair) is
-  full.
+- `cli_analytics_busy` — the concurrency pool is full; wait about 5 seconds.
+- `cli_rate_limit_exceeded` — the per-minute window for that pair is full.
 - `cli_cooldown_active` — stop entirely; tell the user when to retry.
 
-Every refusal carries the wait in `Retry-After`. The CLI already absorbs the first 429 of
+A 503 is a fourth refusal: `cli_upstream_unavailable` means the Adapty service that identifies
+the company is briefly unreachable. Nothing ran, the token is fine, and no cool-down strike is
+recorded. The CLI waits out its `Retry-After` once, the same as a 429, so if it reaches you the
+outage outlasted the retry. Tell the user the service is down; don't blame the command or change
+the request.
+
+Every refusal carries the wait in `Retry-After`. The CLI already absorbs the first 429 or 503 of
 any single command on its own — it waits the exact `Retry-After` (up to 60s; cool-downs
 excluded) and retries once. So a 429 that reaches you is the *second* attempt failing: the
 budget is genuinely exhausted for now. Don't loop on it — cut the number of calls in the
@@ -170,5 +216,5 @@ These limits are specific to the four commands above. They do not apply to the m
 commands in `asa-management.md` — campaigns, ad groups, ads, keywords, negative keywords,
 product pages, creatives, automations all run outside this pool. `asa keywords list` looks
 like it belongs here (it's the heaviest metadata read in the topic) but runs on its own,
-separate 2-concurrent pool with its own 30/min budget — documented in `asa-management.md`,
+separate 2-concurrent pool with its own 30/min default budget (`keywords_read_limit_per_minute` in `whoami`) — documented in `asa-management.md`,
 shared with nothing in this file.

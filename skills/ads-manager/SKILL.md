@@ -1,6 +1,6 @@
 ---
 name: ads-manager
-description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, or setting up rule-based ad automations.
+description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, getting keyword recommendations for an app, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, or setting up rule-based ad automations.
 ---
 
 # Apple Search Ads through the Adapty CLI
@@ -10,8 +10,8 @@ within seconds and spends real money, and nothing it creates can be deleted or u
 
 Open the reference a workflow names before running its commands:
 
-- `references/asa-management.md` — campaigns, ad groups, ads, keywords, negative keywords,
-  product pages, creatives, automations.
+- `references/asa-management.md` — campaigns, ad groups, ads, keywords and keyword
+  recommendations, negative keywords, product pages, creatives, automations.
 - `references/asa-metrics.md` — `metrics`, `metrics overview`, `search-terms list`,
   `competitors summary`.
 
@@ -19,13 +19,13 @@ Open the reference a workflow names before running its commands:
 
 **Resolve `$ADAPTY` once, before your first `asa` call, and use it for every command you run.** A
 global `adapty` is frequently old. The `asa` topic ships in **0.4.0**, but `ad-groups create
---automated` and the five `--invoice-*` flags ship in **0.8.2**, and the `metrics` scope flags and the
-`automations` action flags in **0.8.3**, so treat 0.8.3 as this skill's floor. An older install answers
-with `unknown command` or an unknown-flag error, which reads like the command does not exist rather
-than like a stale CLI:
+--automated` and the five `--invoice-*` flags ship in **0.8.2**, the `metrics` scope flags and the
+`automations` action flags in **0.8.3**, and `keywords recommend` in **0.8.7**, so treat 0.8.7 as this
+skill's floor. An older install answers with `unknown command` or an unknown-flag error, which reads
+like the command does not exist rather than like a stale CLI:
 
 ```bash
-adapty --version                                   # >= 0.8.3 ?  ADAPTY="adapty", done
+adapty --version                                   # >= 0.8.7 ?  ADAPTY="adapty", done
 npm i -g adapty@latest >/dev/null 2>&1 \
   && ADAPTY="adapty" \
   || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
@@ -52,7 +52,9 @@ calling the route unreleased.
 
 ## Account surface
 
-- `$ADAPTY asa whoami` — company, how access was granted, Apple connection state. Run it first.
+- `$ADAPTY asa whoami` — company, how access was granted, Apple connection state, and the company's
+  effective request budgets under `limits`. Run it first. `access_source: trial` works like a
+  subscription until the trial ends; after that every data command answers `402`.
 - `$ADAPTY asa connect [--no-wait]` — prints the Apple authorization link and waits; `--no-wait`
   returns immediately.
 - `$ADAPTY asa orgs list` — ASA organizations. Each row carries two identifiers, not
@@ -110,16 +112,18 @@ That, plus `422 cli_idempotency_key_reuse` and `409 cli_idempotency_in_progress`
 - **You run it** — in this session. Ask, get an explicit yes, then append `--yes` to the command you
   run.
 
-`metrics`, `metrics overview`, `search-terms list` and `competitors summary` share **2 concurrent
-queries per company**: `429 cli_analytics_busy` is a full pool, `429 cli_rate_limit_exceeded` a
-full window, and
-`429 cli_cooldown_active` the escalating **5m → 30m → 3h** lockout. See
-`references/asa-metrics.md`, `## The analytics pool`.
+`metrics`, `metrics overview`, `search-terms list` and `competitors summary` share one concurrency
+pool per company (`limits.metrics_inflight_limit` in `whoami`): `429 cli_analytics_busy` is a full
+pool, `429 cli_rate_limit_exceeded` a full window, and `429 cli_cooldown_active` the escalating
+**5m → 30m → 3h** lockout. `503 cli_upstream_unavailable` means an Adapty service is down, not that
+the command is wrong. See `references/asa-metrics.md`, `## The analytics pool`.
 
 ## One question, one call
 
 The server aggregates and the server ranks. Decide the single call that answers the question before
-running anything; the metrics budget is **5 calls per minute** (`references/asa-metrics.md`).
+running anything. The metrics budget is set per company — read `limits.metrics_limit_per_minute`
+from `whoami`; the default is **15 calls per minute**, at most 5 per 10 seconds
+(`references/asa-metrics.md`).
 
 - Totals: one `metrics overview` call.
 - Best or worst N: one `metrics --metric <m> --order-by <metric> --page-size N` call, `--order asc`
@@ -138,8 +142,14 @@ running anything; the metrics budget is **5 calls per minute** (`references/asa-
   differ at day grain. `metrics`: **28 days** grouped by day, **90** with no period grouping, **180**
   by week, **365** by month and coarser. `metrics overview`: **90** at day, then the same. A year of
   data is one call at `--group-by month` (or `--period-unit month`), not four 90-day calls.
-- A `metrics` page is capped at **5000 breakdown rows** (entities × countries × periods); over it the
-  call fails `422 cli_response_too_large`. Coarsen, narrow, or scope — never loop smaller pages.
+- A `metrics` page is capped at `limits.max_breakdown_rows_per_page` breakdown rows (entities ×
+  countries × periods; **5000** by default); over it the call fails `422 cli_response_too_large`.
+  Coarsen, narrow, or scope — never loop smaller pages. At day grain the refusal names the
+  `page[size]` that fits: use that number, don't compute one.
+- **A `--by-days` window past `meta.max_valid_day` is not reached yet** and repeats the last real
+  figure. Never report it as a plateau, and compare only at a window every row has reached.
+- **Money is in the campaign group's currency, not USD** — read it from `orgs list` before stating
+  or comparing an amount.
 
 Never sum pages client-side, never call once per period, and never add a comparison the user did not
 ask for — propose that in the answer instead.
@@ -228,8 +238,11 @@ $ADAPTY asa metrics --entity <ad|ad-group|campaign|keyword> --date-from <YYYY-MM
 each create consumes an id the previous printed. Neither the order nor any key is optional.
 Mint `<run>` once per launch, so a second launch cannot collide. Create the campaign `PAUSED`,
 verify the structure, then enable it with workflow 6 — nothing spends until you do. Set
-`--match-type` yourself: it defaults to `BROAD`, which is the widest, most expensive targeting. →
-`references/asa-management.md`, `## Writes and idempotency`.
+`--match-type` yourself: it defaults to `BROAD`, which is the widest, most expensive targeting.
+No keyword list from the user? Read one pool first with
+`keywords recommend --adam-id <adam-id> --type <brand|generic|competitor>` — the same `--adam-id` —
+and show the user the terms you would add. A pool carries no bids and no match types, so both stay
+the user's call. → `references/asa-management.md`, `## Keywords` and `## Writes and idempotency`.
 
 ```
 $ADAPTY asa campaigns create --org <id> --adam-id <adam-id> --name <name> --country <country-code> --daily-budget <amount> --status PAUSED --idempotency-key <run>-camp

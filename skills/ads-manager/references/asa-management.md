@@ -17,7 +17,7 @@ Every `list` and `get` command in this file returns metadata only, no metrics. E
 
 | Command | Notes |
 |---|---|
-| `asa whoami` | Company, how access was granted, Apple connection state. Run this first. No connected Apple Ads account or no active Ads Manager subscription answers `402 ads_manager_subscription_required` on every other `asa` command. |
+| `asa whoami` | Company, how access was granted (`access_source`), Apple connection state, and the company's effective request budgets (`limits`). Run this first. Ads Manager access comes from the trial (`access_source: trial`) or a subscription (`payg`, `legacy`); `none` means every other `asa` command answers `402 ads_manager_subscription_required`. A `trial` works like a subscription until the trial ends — then the same commands start answering `402`, which is an access change, not a broken command. |
 | `asa connect [--no-wait]` | Prints the Apple authorization link and waits for the link to be completed; `--no-wait` returns immediately instead of waiting. |
 | `asa apps list` | Apps promoted in Apple Search Ads; pagination only. Its rows supply `--adam-id` for `campaigns create`. |
 | `asa orgs list` | Apple Search Ads organizations; pagination only. Each row carries two identifiers, not interchangeable: `internal_id` (a UUID) and `org_id` (Apple's numeric id). `--org` on `campaigns create` takes `internal_id` — passing the numeric `org_id` fails with "Invalid org ID format." Each row also carries `payment_model` (`LOC`/`PAYG`), which tells you whether campaigns in that organization need Invoicing Options — see [Line of credit](#line-of-credit-organizations). |
@@ -119,6 +119,7 @@ Read `payment_model` from `orgs list` before a launch; do not assume `PAYG`.
 | Command | Flags | Notes |
 |---|---|---|
 | `asa keywords list` | scope filters only | Metadata only. Filter by `--ad-group` — unfiltered, this is the widest read in the surface. |
+| `asa keywords recommend` | `--adam-id` (Apple App Store ID from `asa apps list`), `--type` (`brand` / `generic` / `competitor`) required; optional `--country` (two-letter ISO code, repeatable, default every country in the pool) | A read: ready-made keyword pools that Adapty computes for one of your apps — the same sets the dashboard's campaign setup uses. It takes no scope filters and no pagination. `brand`: the app's own brand terms, their spelling variants, and organic terms that carry the brand; the text output also prints `brand_terms`. `generic`: non-brand terms the app and its top organic competitors rank for, minus every known brand term; `relevance_tier: top_organic` marks terms where the app already ranks in the organic top 10. `competitor`: one pool per competitor selected for the app in the dashboard's Autopilot setup — empty until someone selects competitors there, so an empty `pools` list is an answer, not an error. Read `status` before the list: `ready` is usable, `building` means retry in about a minute, `empty` is a real answer, `failed` means retry another day. A cold `brand` or `generic` call builds the pool during the request and can take tens of seconds — see [Request budgets](#request-budgets). Terms carry `country`, `popularity`, `score` and `median_organic_rank`, but no bid and no match type: those are the user's decision, then `asa keywords add` loads the chosen terms at 15 per call. |
 | `asa keywords add` | `--ad-group` plus `--text` (repeatable) and/or `--from-file`; optional `--bid`, `--match-type` (`BROAD`/`EXACT`, default `BROAD`), `--status` (`ACTIVE`/`PAUSED`, default `ACTIVE`) | Batch call, capped at 100 keywords per call — the skill's own practice caps a single call lower, at 15 (see `SKILL.md`'s `## Never`). `--from-file` reads one keyword per line, trims each line, drops blank lines, and combines the result with any `--text` values. Default match type is `BROAD`, which widens spend beyond exact matches; pass `--match-type EXACT` to narrow it. |
 | `asa keywords update <id> [<id>...]` | one or more positional ids | The same change (e.g. `--bid`, `--status`) is applied to every id in the list. `--text` is only valid when a single id is given — you cannot bulk-rename keyword text. |
 
@@ -244,12 +245,16 @@ entity.
 
 ## Request budgets
 
-Every `asa` command is rate limited per company, not per token:
+Every `asa` command is rate limited per company, not per token. The table is the platform
+default; budgets are raised per company, and `asa whoami` reports the effective ones under
+`limits` (`read_limit_per_minute`, `keywords_read_limit_per_minute`, and the metrics fields
+described in the metrics reference). Plan against `limits` when it is present.
 
-| Commands | Budget |
+| Commands | Default budget |
 |---|---|
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
+| `keywords recommend` | 10/min, one in-flight `brand`/`generic` build at a time, `Retry-After: 5` on `cli_analytics_busy` |
 | all writes | 20/min |
 | template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |
@@ -258,7 +263,9 @@ Every `asa` command is rate limited per company, not per token:
 the account-size reason to filter it in Scope filters. `metrics`, `metrics overview`,
 `search-terms list`, and `competitors summary` share a separate analytics pool with its own
 budget and its own `429 cli_analytics_busy`; that pool and its numbers live in the metrics
-reference, not here.
+reference, not here. `keywords recommend` answers the same `cli_analytics_busy` code from a
+different, one-slot pool of its own: a busy `brand`/`generic` build answers with this
+section's `Retry-After: 5`, not the metrics pool's numbers.
 
 A budget running out answers `429 cli_rate_limit_exceeded` with the wait in `Retry-After` —
 a different code from `cli_analytics_busy` (that other pool's concurrency cap) and from
@@ -269,6 +276,16 @@ the budget is genuinely exhausted; don't loop, wait for the window to reset or r
 call. Twenty rejections within 5 minutes escalate any of these commands into
 `429 cli_cooldown_active`, a cool-down scoped to the token (5m → 30m → 3h) that stops every
 `asa` command from that token, not just the one that tripped it.
+
+Two transport failures depend on the HTTP method, not on whether the command changes anything.
+A `GET` that fails on the network — every `list` and `get`, `whoami`, `search-terms list`,
+`keywords recommend` — is retried once by the CLI. Everything sent as a `POST` or
+`PUT` is not: every write, and also `metrics`, `metrics overview` and `competitors summary`,
+which are reads sent as `POST`. A `NetworkError` on one of those three changed nothing, so run it
+again. A `NetworkError` on a write means the outcome is unknown — read the entity back, and resend
+only with the same `--idempotency-key` (see [Writes and idempotency](#writes-and-idempotency)).
+A `2xx` whose body is not JSON fails as `malformed_response`: the response was cut short and
+nothing was read. Retry a read; read a write's target back before you resend it.
 
 ## Writes and idempotency
 
