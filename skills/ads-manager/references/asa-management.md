@@ -17,7 +17,7 @@ Every `list` and `get` command in this file returns metadata only, no metrics. E
 
 | Command | Notes |
 |---|---|
-| `asa whoami` | Company, how access was granted, Apple connection state. Run this first. No connected Apple Ads account or no active Ads Manager subscription answers `402 ads_manager_subscription_required` on every other `asa` command. |
+| `asa whoami` | Company, how access was granted (`access_source`), Apple connection state, and the company's effective request budgets (`limits`). Run this first. Ads Manager access comes from the trial (`access_source: trial`) or a subscription (`payg`, `legacy`); `none` means every other `asa` command answers `402 ads_manager_subscription_required`. A `trial` works like a subscription until the trial ends — then the same commands start answering `402`, which is an access change, not a broken command. |
 | `asa connect [--no-wait]` | Prints the Apple authorization link and waits for the link to be completed; `--no-wait` returns immediately instead of waiting. |
 | `asa apps list` | Apps promoted in Apple Search Ads; pagination only. Its rows supply `--adam-id` for `campaigns create`. |
 | `asa orgs list` | Apple Search Ads organizations; pagination only. Each row carries two identifiers, not interchangeable: `internal_id` (a UUID) and `org_id` (Apple's numeric id). `--org` on `campaigns create` takes `internal_id` — passing the numeric `org_id` fails with "Invalid org ID format." Each row also carries `payment_model` (`LOC`/`PAYG`), which tells you whether campaigns in that organization need Invoicing Options — see [Line of credit](#line-of-credit-organizations). |
@@ -245,9 +245,12 @@ entity.
 
 ## Request budgets
 
-Every `asa` command is rate limited per company, not per token:
+Every `asa` command is rate limited per company, not per token. The table is the platform
+default; budgets are raised per company, and `asa whoami` reports the effective ones under
+`limits` (`read_limit_per_minute`, `keywords_read_limit_per_minute`, and the metrics fields
+described in the metrics reference). Plan against `limits` when it is present.
 
-| Commands | Budget |
+| Commands | Default budget |
 |---|---|
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
@@ -273,6 +276,16 @@ the budget is genuinely exhausted; don't loop, wait for the window to reset or r
 call. Twenty rejections within 5 minutes escalate any of these commands into
 `429 cli_cooldown_active`, a cool-down scoped to the token (5m → 30m → 3h) that stops every
 `asa` command from that token, not just the one that tripped it.
+
+Two transport failures depend on the HTTP method, not on whether the command changes anything.
+A `GET` that fails on the network — every `list` and `get`, `whoami`, `search-terms list`,
+`keywords recommend` — is retried once by the CLI. Everything sent as a `POST` or
+`PUT` is not: every write, and also `metrics`, `metrics overview` and `competitors summary`,
+which are reads sent as `POST`. A `NetworkError` on one of those three changed nothing, so run it
+again. A `NetworkError` on a write means the outcome is unknown — read the entity back, and resend
+only with the same `--idempotency-key` (see [Writes and idempotency](#writes-and-idempotency)).
+A `2xx` whose body is not JSON fails as `malformed_response`: the response was cut short and
+nothing was read. Retry a read; read a write's target back before you resend it.
 
 ## Writes and idempotency
 
