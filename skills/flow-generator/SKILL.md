@@ -234,9 +234,13 @@ Four facts about the config commands that are not guessable:
   $ADAPTY flows config update <FLOW_ID> --app <APP_UUID> --config-file <f> --expected-updated-at "$UA"
   ```
 
-  Never convert the ISO value to milliseconds to make it fit. The flag accepts the number, but it
-  names a different event, so the write fails as a conflict nobody caused. If the flag rejects
-  your value, re-run `config get` rather than reformatting it.
+  A raw ISO string fails before anything is sent (`Expected an integer`, exit 2). Never convert it
+  to milliseconds to make it fit: the flag accepts the number, and the write comes back `409`
+  with *"This flow configuration was already updated by <name>"* — naming a person who did not
+  touch it. So before believing a 409, check where your token came from: if it was not
+  `config get`, the conflict is yours, and re-running `config get` and retrying with its value
+  clears it. A 409 on a token that did come from `config get` is a real edit — re-fetch and apply
+  your change to the new config. Never drop the flag to get past either.
 - **`config update` has no dry run.** `validate` and `preview` are the pre-flight checks, and
   both run *before* a write — see phase 5 on why that ordering matters.
 ## The six phases
