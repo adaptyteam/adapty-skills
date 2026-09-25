@@ -8,7 +8,9 @@
 #      covered adapty-integration alone before, so a green run said nothing
 #      about four of the five skills that ship). The symbol lint verifies
 #      adapty-integration, which is where every SDK symbol lives, and
-#      carries a scope guard that turns red if one appears elsewhere.
+#      carries a scope guard that turns red if one appears elsewhere. The
+#      frontmatter lint parses every SKILL.md's frontmatter as strict YAML
+#      and checks the spec's name/description rules; it needs no network.
 #   2. daily cron: catches drift that happens WITHOUT any skill commit -
 #      the docs renamed a page, an SDK release rewrote a section. On
 #      failure a GitHub issue is filed (deduped: one open issue, follow-up
@@ -18,8 +20,8 @@
 # "works but not in llms.txt" and flaky external links are warnings in the
 # job log only - llms.txt completeness is the docs repo's responsibility.
 #
-# Both lints also run locally: node scripts/lint-symbols.mjs [platform],
-# node scripts/lint-links.mjs
+# All three lints also run locally: node scripts/lint-frontmatter.mjs,
+# node scripts/lint-symbols.mjs [platform], node scripts/lint-links.mjs
 
 name: skill-lints
 
@@ -50,7 +52,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Frontmatter lint (every SKILL.md parses as strict YAML and meets the spec)
+        id: frontmatter
+        run: node scripts/lint-frontmatter.mjs 2>&1 | tee /tmp/lint-frontmatter.out
+
       - name: Symbol lint (SDK symbols exist in the docs; + out-of-scope guard)
+        if: always()
         id: symbols
         run: node scripts/lint-symbols.mjs 2>&1 | tee /tmp/lint-symbols.out
 
@@ -71,7 +78,7 @@ jobs:
             echo "The daily skill lints failed on \`main\` - the docs or SDK moved underneath the skill (no skill commit involved)."
             echo
             echo '```'
-            tail -n 60 /tmp/lint-symbols.out /tmp/lint-links.out 2>/dev/null
+            tail -n 60 /tmp/lint-frontmatter.out /tmp/lint-symbols.out /tmp/lint-links.out 2>/dev/null
             echo '```'
             echo
             echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
