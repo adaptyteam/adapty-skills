@@ -1,6 +1,6 @@
 ---
 name: flow-audit
-description: Use when a client asks whether a Flow Builder flow is ready for production, wants it audited or checked, or asks something like "did I forget anything — triggers, products, variables?", "is this ready to publish?", or "check my paywall/flow". Answers one question — is this flow safe to put in front of paying users — with a verdict and ranked findings. Read-only: never writes to a flow. Complements `flow-generator` (which owns writes) and `paywall-teardown` (which owns conversion advice).
+description: 'Use when a client asks whether a Flow Builder flow is ready for production, wants it audited or checked, or asks something like "did I forget anything — triggers, products, variables?", "is this ready to publish?", or "check my paywall/flow". Answers one question — is this flow safe to put in front of paying users — with a verdict and ranked findings. Read-only: never writes to a flow. Complements `flow-generator` (which owns writes) and `paywall-teardown` (which owns conversion advice).'
 ---
 
 # flow-audit
