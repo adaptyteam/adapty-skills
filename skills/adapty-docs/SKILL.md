@@ -1,6 +1,6 @@
 ---
 name: adapty-docs
-description: Use when an Adapty question has no page already linked in the skill you are holding — how a product or dashboard feature behaves, what a setting does, a limit, store connections, Flow Builder, the Developer CLI, the server-side API, or an SDK method on any platform. Also use when you need a docs page and have no URL for it, or when a docs URL you tried returned 404.
+description: Use when an Adapty question has no page already linked in the skill you are holding — how a product or dashboard feature behaves, what a setting does, a limit, store connections, Flow Builder, the Developer CLI, the server-side API, or an SDK method on any platform. Also use when you need a docs page and have no URL for it, or when a docs URL you tried returned 404. Not for making a change to an app's Adapty setup — connecting a store, or creating products, access levels or placements — which `adapty-integration` carries out through the Adapty CLI.
 ---
 
 # Adapty docs
@@ -9,6 +9,10 @@ Adapty's docs publish one small index per subject area. **None of them is reacha
 `llms.txt`** — the root index never names them — so the table below is the only place the mapping is
 written down. Start at the narrowest index that covers the question; open `llms.txt` only when you
 cannot tell which one that is.
+
+**If the user wants something changed, not explained** — a store connected, a product, access level
+or placement created — use `adapty-integration` instead: it makes the change through the Adapty CLI,
+which this skill never does.
 
 ## Route the question
 
