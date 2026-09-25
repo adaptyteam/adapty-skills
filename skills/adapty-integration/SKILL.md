@@ -98,8 +98,7 @@ Load the platform-specific reference file from the `references/` subdirectory (`
 Use `AskUserQuestion` for all three together in one call:
 
 1. **Paywall approach** — which do they want?
-   - **Paywall Builder** (recommended): Adapty renders paywalls in a no-code visual editor; no paywall UI to build
-     - **Every platform** — iOS, Android, React Native, Flutter, Kotlin Multiplatform, Unity, and Capacitor: Present this option as **Flow Builder** instead. Flow Builder is the v4 successor to Paywall Builder and also supports onboarding flows. The `paywallApproach` state value for this choice is `flow_builder`. **Every platform installs SDK v4 and only v4 — the floor is not conditional on this answer**, because Stage 2 fetches with `getFlow` on all three approaches. See Stage 1 in `references/<platform>.md` for that platform's resolve command and its build requirements, which on Unity and Capacitor changed in v4 (Swift Package Manager instead of CocoaPods on iOS).
+   - **Flow Builder** (recommended): Adapty renders paywalls and onboarding flows from a no-code visual editor; no paywall UI to build. It is the v4 successor to Paywall Builder — present it by this name on every platform. The `paywallApproach` state value for this choice is `flow_builder`. **Every platform installs SDK v4 and only v4 — the floor is not conditional on this answer**, because Stage 2 fetches with `getFlow` on all three approaches. See Stage 1 in `references/<platform>.md` for that platform's resolve command and its build requirements, which on Unity and Capacitor changed in v4 (Swift Package Manager instead of CocoaPods on iOS).
    - **Custom paywall**: User builds their own paywall UI; Adapty fetches products and handles purchases
    - **Observer mode** *(not recommended for new projects)*: Keep existing StoreKit/Billing purchase infrastructure unchanged; Adapty only tracks events. Limitations: no paywall management, no A/B testing, manual transaction reporting required. Only suitable if replacing a purchase system is not feasible.
 
@@ -262,9 +261,7 @@ Google Play blocks creating in-app products and subscriptions until at least one
 
 **So the two stores are asymmetric here, and it is worth saying out loud.** On iOS, "no products yet" is never a blocker — path B or C can run immediately, and a defer is the user choosing to wait. On an Android-first or Android-only app it *is* a blocker, and circular on this run: products need an uploaded build, the build comes out of Phase 4, and Phase 4 has not happened yet. That is the case the deferred `ADAPTY_SETUP.md` commands exist for. Do not describe an iOS defer as though it were forced.
 
-**A store product ID is not fixable from here, so never guess one.** `products update` accepts `--title` and `--access-level-id` and nothing else, and there is no `products delete` — so a product created with a wrong or missing store ID **cannot be corrected or removed by the CLI at all**. The dashboard *can* edit connected store IDs, and Adapty's own docs advise against it (it muddies analytics, and is meant for fixing a genuine mistake), so treat that as a repair, never as a plan. Note the shape of the trap: `--ios-product-id` and `--android-product-id` are **optional flags**, so creating a store-less product succeeds and then strands it — the CLI will not stop you, which is exactly why the rule has to.
-
-**So treat a store ID as required even though the CLI does not.** Before every `products create`, check the argv you are about to run: if it carries neither `--ios-product-id` nor `--android-product-id`, **do not run it** — there is nothing to fix afterwards. That is not a preference about tidiness; it is the one product mistake in this skill with no recovery path on either side, since `products update` cannot add the ID and no `products delete` exists to undo it. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/store-setup-android.md`, Part 1) → run the deferred commands.
+**A store product ID is not fixable from here, so never guess one — and treat it as required even though the CLI does not.** `products update` accepts `--title` and `--access-level-id` and nothing else, and there is no `products delete`, so a product created with a wrong or missing store ID **cannot be corrected or removed by the CLI at all**. `--ios-product-id` and `--android-product-id` are **optional flags**, so a store-less product is accepted and then stranded — the CLI will not stop you, which is why the rule has to. The dashboard *can* edit connected store IDs, but Adapty's docs advise against it (it muddies analytics), so treat that as a repair, never as a plan. Before every `products create`, check the argv: if it carries neither `--ios-product-id` nor `--android-product-id`, **do not run it**. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/store-setup-android.md`, Part 1) → run the deferred commands.
 
 **First establish where the products will come from, because one of the three answers reorders the run.** Ask before collecting any IDs:
 
@@ -291,17 +288,11 @@ On C, route the user to store connection now (`references/store-setup-ios.md` Pa
    - Single-store app: "Yes, in the App Store" / "Actually, not yet" (or the Google Play pair)
    **"Actually, not yet" goes back to the A/B/C choice above — it does not mean defer.** The products can still be made now, in the console or from the dashboard; deferring without offering that leaves the user stuck for no reason.
 2. **The IDs, one product at a time.** Even after "yes", the user may prefer not to dig for IDs right now — offer a skip at this stage too, and treat an empty first answer as "skip for now". Per product ask only what the chosen stores need:
-   - App Store product ID
+   - App Store product ID (e.g. `com.example.app.monthly`)
    - Google Play product ID — suggest the App Store ID as the default (cross-store products usually share the identifier)
    - **Period** — one of the CLI's `--period` values: `weekly`, `monthly`, `two_months`, `trimonthly`, `semiannual`, `annual`, `lifetime` (lifetime = one-time purchase, not a subscription)
-   - Google Play **base plan ID** — only when the period is NOT `lifetime`; lifetime products never have one
+   - Google Play **base plan ID** (e.g. `monthly-base`) — required for every Android subscription (the CLI rejects the command without `--android-base-plan-id`); a `lifetime` product never has one
    After each product ask whether to add another. Any number of products is fine — keep looping. A product available in both stores is ONE Adapty product carrying both store IDs, not two. Do NOT assume every product exists in all the selected stores — a specific product may live in only one of them (e.g. an old iOS-only lifetime SKU); if the user's answer leaves that ambiguous, ask, and create the product with only the store IDs it really has.
-
-When they provide IDs:
-
-- **iOS**: product ID (e.g. `com.example.app.monthly`)
-- **Android subscriptions**: product ID **and** base plan ID (e.g. `monthly-base`) — both required; the CLI rejects the command without `--android-base-plan-id`
-- **Android one-time purchases**: only the product ID is needed
 
 ```bash
 # --period options: weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime
@@ -357,7 +348,7 @@ Then branch by `paywallApproach`:
 
 #### `paywallApproach == "flow_builder"` (Flow Builder) — flow path
 
-**The division on this path is conditional, so establish which side of it you are on before promising anything.** The **`flow-generator`** skill authors the config and saves it as a draft; from there the CLI can publish the flow (`flows publish`) and create a placement whose audience points at it. Two things gate both routes and **neither of them is the account**: the **CLI version** (`flows publish` is not in every build — including not in the `0.8.3` release, though earlier and later builds have it, so check `flows publish --help` rather than a version number) and the **API deployment**. The flow-audience half **has shipped**: `placements create` with a flow audience is accepted against production, so `audiences.0.paywall_id: Field required` means the deployment you are on is behind rather than that the capability is missing. `flows publish`'s route is **unverified** — it has been observed answering `http_404`, so run it rather than assuming either way. On either error, stop reaching for the CLI and walk the user through the dashboard steps below — they are the fallback, not a fossil, and switching accounts changes nothing. `flow-generator` still owns building and publishing the flow; you only ask for the go-ahead and read back what it reports.
+**The division on this path is conditional, so establish which side of it you are on before promising anything.** The **`flow-generator`** skill authors the config and saves it as a draft; from there the CLI can publish the flow (`flows publish`) and create a placement whose audience points at it. Two things gate both routes and **neither of them is the account**: the **CLI version** (`flows publish` is not in every build — including not in the `0.8.3` release — so check `flows publish --help` rather than a version number) and the **API deployment**. The flow-audience half **has shipped**, so `audiences.0.paywall_id: Field required` means the deployment you are on is behind, not that the capability is missing; `flows publish`'s route is **unverified** — it has been observed answering `http_404`, so run it rather than assuming either way. On either error, take Route D below — the fallback, not a fossil — and know that switching accounts changes nothing. `flow-generator` still owns building and publishing the flow; you only ask for the go-ahead and read back what it reports.
 
 **If you do create the placement here, create a *flow* placement — never a paywall one as a stopgap, and not "so the code has an ID to point at".** A placement carries a type — flow, paywall, or onboarding — fixed at creation and not convertible afterwards (the backend refuses with `Placement type can not be changed.`), and a developer ID cannot be changed or reused. So a paywall placement created here permanently blocks the flow placement with that ID: the user has to invent a different ID in the dashboard and you have to edit the code to match. This is the same reservation `references/migration.md` section 3 applies to a source's visual-builder paywalls, reached from the greenfield side. When this step is deferred for missing products (see the prerequisite above), the deferred sequence carries the `products create` commands only — no `paywalls create`, and no `placements create`, because the flow it would point at does not exist yet — and the flow placement stays a step in `ADAPTY_SETUP.md`, written with the exact developer ID the code uses.
 
@@ -367,7 +358,7 @@ Then branch by `paywallApproach`:
 2. **Its status is `published`** — `$ADAPTY flows get <FLOW_ID> --app <APP_ID>`. A draft is refused — `Cannot attach a draft flow to a placement — publish it first.`, or on an older CLI the backend's own `Flow must be published before placing in a placement.`
 3. **`content_type` is present** on every audience entry — without it the CLI exits 2 and sends no request.
 4. **The developer ID is not already taken** — check `placements list` first. IDs are unique across every placement in the app whatever its type, and a collision is permanent.
-5. **Neither call has been refused for want of the deployment.** `flows publish` answering `http_404`, or `placements create` answering `audiences.0.paywall_id: Field required`, are two different failures with two different causes; either one sends you to the dashboard steps below. The placement half is live in production, so treat that refusal as a deployment that is behind — and as something you observed, never as something you expected.
+5. **Neither call has been refused for want of the deployment** — `flows publish` answering `http_404`, or `placements create` answering `audiences.0.paywall_id: Field required`. They are two different failures with two different causes, and either one sends you to Route D. Treat either as something you observed, never as something you expected.
 
 Only then, the command:
 
@@ -393,7 +384,7 @@ Then ask once per location, with the options that actually apply — offer the f
 > - **Create an empty placeholder** — a blank flow so the placement and your code can be finished today
 > - **I'll do it in the dashboard myself** — I'll wait and take the ID from you
 
-**Route A — reuse an existing flow.** Take its id from the list. Confirm `flows get <FLOW_ID> --app <APP_ID>` reads `published`; a draft is refused by `placements create`, and the fix is to publish it, not to create another.
+**Route A — reuse an existing flow.** Take its id from the list and check precondition 2; if it is a draft, the fix is to publish it, not to create another.
 
 **Route B — build one now.** Stop the setup interview here. Ask one thing and nothing else — no template questions, no screen-count questions, no product re-confirmation:
 
@@ -417,7 +408,11 @@ $ADAPTY flows get <FLOW_ID> --app <APP_ID>                             # poll un
 
 Validate runs on the **local file before the write**, never after it — afterwards it would be checking bytes that are already saved. Record in `ADAPTY_SETUP.md` that this placement points at a placeholder and needs designing before release, because nothing in the dashboard distinguishes it from a finished flow at a glance.
 
-**Route D — the dashboard.** Take the walk-me-through steps below. This is also where routes A-C land when the CLI refuses for want of the deployment.
+**Route D — the dashboard.** This is also where routes A-C land when the CLI refuses for want of the deployment. Guide the user through these steps, confirming each with `AskUserQuestion` before moving on:
+
+1. **Create the flow** at [Adapty Dashboard → Flows](https://app.adapty.io/flows) — **Create flow** from a template, a Figma import, from scratch, or converted from a legacy paywall; add the products from Step 4; **Save & publish**. Skip this when a published flow already exists and only the placement was refused.
+2. **Create the placement** at [Adapty Dashboard → Placements](https://app.adapty.io/placements) — **Create placement** (or open an existing one if it fits the location), set a **Developer ID** (e.g. `main`, `onboarding`, `settings` — the exact string the SDK uses in `Adapty.getFlow`), attach the flow under the **All Users** audience, save.
+3. Repeat for each confirmed location.
 
 **If `flow-generator` is not among your available skills, install it — never hand-author the config instead.** It ships in the same package as this skill, so it is usually already present, possibly namespaced (`adapty-skills:flow-generator`); check both names before concluding it is missing. If it really is absent, get the user's yes via `AskUserQuestion` — this writes to their agent's skill directory — and then run one:
 
@@ -434,26 +429,11 @@ The flow config carries traps that cost real money when they are got wrong — a
 
 **Publishing, on routes B and C.** `flow-generator` stops at a saved draft, so the flow it builds still has to be published; the stub does too. Each publish is a write the user agrees to first — confirm with `AskUserQuestion`, and never run the publish and the placement off one yes. Run it yourself: `$ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes`. Publication is asynchronous, so the response reads `publishing`: report that, and re-read `flows get` before treating the flow as published — the command prints that poll itself, and if the status lands on `publication_failed`, `flows config get` carries the reason in `transform_error`. On an `http_404` the route is not live for any account — hand it back to the user, who publishes with the button at the **top right of the builder**. Until it is published, the SDK gets nothing and the placement below is refused.
 
-**Then the placement, once per location.** With the go-ahead and all five preconditions met, run the `placements create` command above with the resolved `<FLOW_ID>` and the confirmed developer ID. If the audience is refused (`audiences.0.paywall_id: Field required`), the user does it at [Adapty Dashboard → Placements](https://app.adapty.io/placements) — **Create placement**, set a **Developer ID** (e.g. `main`, `onboarding`, `settings`, the exact string the SDK uses in `Adapty.getFlow`), attach the flow under the **All Users** audience, save.
+**Then the placement, once per location.** With the go-ahead and all five preconditions met, run the `placements create` command above with the resolved `<FLOW_ID>` and the confirmed developer ID. If the audience is refused, take Route D step 2.
 
-Then collect the **placement developer ID(s)** via `AskUserQuestion` and continue to Phase 4.
+**If the user already has placements set up:** they find each developer ID at [Adapty Dashboard → Placements](https://app.adapty.io/placements), in the **Developer ID** column.
 
-**If the user already has placements set up:** collect the **placement developer ID** for each location (the user finds it at [Adapty Dashboard → Placements](https://app.adapty.io/placements) — the **Developer ID** column). Set as placement ID(s) and continue to Phase 4.
-
-**Route D, in full:** guide the user through these steps in the dashboard. After each step, use `AskUserQuestion` to confirm completion before moving on.
-
-1. **Create the flow** at [Adapty Dashboard → Flows](https://app.adapty.io/flows):
-   - Click **Create flow** → a template, a Figma import, from scratch, or converted from a legacy paywall
-   - Add the products created in Step 4 to the flow
-   - **Save & publish**
-2. **Create the placement** at [Adapty Dashboard → Placements](https://app.adapty.io/placements):
-   - Click **Create placement** (or open an existing one if it fits the location)
-   - Set a **Developer ID** (e.g. `main`, `onboarding`, `settings`) — this is the exact string the SDK uses in `Adapty.getFlow`
-   - Under the **All Users** audience, attach the flow you just created
-   - Save
-3. Repeat for each confirmed location.
-
-After the user finishes, collect the **placement developer ID(s)** via `AskUserQuestion`. These are the values you'll use in Phase 4.
+Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion` — these are the values Phase 4 uses — and continue to Phase 4.
 
 #### `paywallApproach == "paywall_builder"`, `"custom"`, or `"observer"` — CLI path
 
@@ -537,7 +517,7 @@ When a checkpoint fails:
 - **Skipping dashboard setup** — paywalls and products return empty until dashboard is configured
 - **Placement ID mismatch** — copy-paste exactly from the dashboard; it's case-sensitive
 - **Access level not assigned to product** — `accessLevels["premium"]` is empty after purchase; fix in dashboard
-- **`identify()` called too late** — must be called after `activate()` but before `getPaywall()`; otherwise purchases are attributed to an anonymous profile
+- **`identify()` called too late** — must be called after `activate()` but before `getFlow()`; otherwise purchases are attributed to an anonymous profile
 - **Server notifications not configured** — events won't appear in the dashboard; required before going to production
 - **Wrong SDK key** — using secret key instead of public key in `activate()`
 
