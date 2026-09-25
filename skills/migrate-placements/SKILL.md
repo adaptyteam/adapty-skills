@@ -164,42 +164,35 @@ ignored and every placement kept
 **An absent `is_active` is not `false`.** On that line, say the account cannot be filtered and use
 the scale gate below — it is then the only thing there is to scope on. Do not report an empty
 migration; the tool will not hand you one, and neither should you. **Never report either line
-without having run the command**: this skill once told agents up front that the field was absent
-everywhere and the fallback was what they would see, which is exactly the shape of caveat that
-becomes an excuse not to look.
+without having run the command.**
 
 **Report both halves of that line to the user.** A filter that hides work is worse than no filter:
 if `is_active` turns out narrower than the placement status it is documented to be, the withheld
-rows are placements that needed migrating and nobody would see them. `migrate.py` produces the
-withheld count from the same code that withholds, and `plan` repeats it in `summary.scope`, so
-there is nothing to remember — just do not drop it from your message.
+rows are placements that needed migrating and nobody would see them. `plan` repeats the withheld
+count in `summary.scope` — do not drop it from your message.
 
 **The mixed case has its own flag, so it is not something to spot.** Rows carrying no readable
-`is_active` are withheld under `active` — they are not known-active — but they are counted apart
-from the inactive ones, because *"you disabled these"* and *"I could not tell"* are different things
-to tell a user. When any exist, the scope block sets **`unknown_withheld: true`** with a reason;
-that flag is what triggers phase 4's offer to widen.
+`is_active` are withheld under `active` but counted apart from the inactive ones, because *"you
+disabled these"* and *"I could not tell"* are different things to tell a user. When any exist, the
+scope block sets **`unknown_withheld: true`** with a reason; that flag is what triggers phase 4's
+offer to widen.
 
-**Why the filter is an argument to `inventory` rather than something applied to its output.**
-the API source declares `is_active` on the summary that `list` returns, which costs 2 calls, while
-audiences come only from `get`, which costs one per placement — so filtering the `list` result is what turns `2 + 150` into
-`2 + 30`. Filtering after the GET loop produces a byte-identical file and saves nothing.
+**Filter with `--scope`, never on the output.** `is_active` comes on the `list` summary while
+audiences cost one `get` each, so filtering before the GET loop is what turns `2 + 150` calls into
+`2 + 30`; filtering afterwards saves nothing.
 
-**The scale gate.** Redundant once the field is present; the only option while it is absent, which
-is today. Note it scopes the **placement-first** enumeration — do not reach for
+**The scale gate.** Redundant when the field is present; the only option on a deployment where it
+is absent. Note it scopes the **placement-first** enumeration — do not reach for
 `paywalls placements` as a cheaper narrow path, because it is filtered to live, paywall-typed rows
 and so **cannot see an inactive placement at all**
 ([api-surface.md](references/api-surface.md#summary-vs-detail)). Read `meta.pagination.count` first. Past **25** placements, state the cost — one `get` per
 placement — and offer to scope before spending it: a `developer_id` substring, or an explicit list
 of placements. "All of them" is then an informed choice rather than an accidental sweep.
 
-> **Widening is a full re-read, not a top-up.** There is no resume and no merge, and `--out`
-> overwrites — so `--scope all` after a narrow pass costs the whole `2 + N` again, on top of what
-> the first pass already spent. Narrow-first is therefore a **bet that the suggestion is right**: it
-> wins outright when the user accepts active-only, and costs one extra `list` plus the active GETs
-> when they do not. Take the bet — the reads are cheap and idempotent, and the count that actually
-> matters is the *flows* a wider scope adds, one per extra distinct paywall, each of which someone
-> has to fill in by hand. Do not tell the user widening is free.
+> **Narrow first anyway.** Widening later is a full re-read — no resume, and `--out` overwrites —
+> but the reads are cheap and idempotent; the count that actually matters is the *flows* a wider
+> scope adds, one per extra distinct paywall, each of which someone fills in by hand. Phase 4 says
+> the cost to the user.
 
 ## Phase 3 — Classify and group
 
@@ -274,14 +267,11 @@ full re-read of the account, because there is no resume and `--out` overwrites.
 with the unknown count. Those rows were withheld because their status could not be read, not because
 anyone disabled them, and that is the one exclusion the user is most likely to want reversed.
 
-**Phase 2 already applied `--scope active` before this question was asked, and that is deliberate
-rather than a decision taken on the user's behalf.** The choice cannot be put usefully before the
-read — until `list` comes back nobody knows whether the field even exists, or that 118 of 150
-placements are disabled. So the first pass is narrow, its withheld counts are on screen, and this
-question is where the user widens it. Nothing has been written and nothing has been hidden; what a
-widen costs is a second read, which is stated above rather than hidden.
+**Phase 2 already applied `--scope active`, and that is not a decision taken on the user's
+behalf** — the choice cannot be put usefully before the read shows whether the field exists and how
+many placements are disabled. Nothing has been written; this question is where the user widens it.
 
-**When the field is absent — today, on every account — say the account cannot be filtered** and ask
+**When the inventory fell back because the field is absent, say the account cannot be filtered** and ask
 the original question instead: all of them, with the count shown, or a named subset. That is the
 phase-2 scale gate being answered, not a second ask about the same thing.
 
@@ -365,10 +355,8 @@ $ADAPTY flows publish --app "$APP" <FLOW> --yes
 $ADAPTY flows get <FLOW> --app "$APP" --json                                  # poll until published
 ```
 
-**Validate runs on the local file before the write, never after it.** That is `flow-generator`'s
-ordering and it is load-bearing for the same reason here: validate reads a **config file** and needs
-only the flow to *exist*, so running it after `config update` checks bytes that are already saved.
-`create` still comes first, because validate resolves a flow id.
+**Validate runs on the local file before the write, never after it** — afterwards it checks bytes
+that are already saved. `create` still comes first, because validate resolves a flow id.
 
 `flows publish` reports `status: publishing`, **never** `published` — so **poll `flows get` until
 the status reads `published`** and do not report the flow as live off the publish response. The
@@ -381,17 +369,15 @@ with exit 2 rather than hanging. `flow-generator` owns the publish contract, the
 failure diagnosis — delegate to it rather than re-deriving them.
 
 **A `http_404` from `flows publish` stops the run here, and it is not a clean stop.** The route is
-not deployed to production, so every account gets it; but `flows create` has already run for this
+not live on this deployment, so switching accounts does not help; but `flows create` has already run for this
 paywall and there is no `flows delete`, so **say how many flow rows exist and that they have to be
 removed from the dashboard** — https://app.adapty.io/flows. Do not keep creating flows for the
 remaining paywalls once publish has 404'd.
 
-`references/stub-flow.json` is shipped rather than authored per run because it carries evidence a
-runtime pass cannot inherit: **`valid: true` from the real transform service and a clean
-`verify-config.py`**. Below that floor the failure message is the location-free `Generated JSON
-failed schema validation`, which names no field
-([api-surface.md](references/api-surface.md#the-publishable-floor)). One screen, one `text`. Do not
-hand-write a smaller one.
+**Use `references/stub-flow.json` as shipped; do not hand-write a smaller one.** It is known to
+return **`valid: true` from the real transform service**, and below that floor the failure is the
+location-free `Generated JSON failed schema validation`, which names no field
+([api-surface.md](references/api-surface.md#the-publishable-floor)).
 
 ### The flow ledger — `flows.json`
 
@@ -484,12 +470,10 @@ not a smaller version of the migration — it is a different outcome for users.
 acknowledgment** — a mechanical guard over a caveat, which is what this repo prefers. An inactive
 placement carries no such cost at all.
 
-> **Read the count from `summary.exposure`, never from `summary.scope`.** They are different
-> numbers and only one of them is the exposure. `scope` partitions the whole account as `list`
-> returned it; `exposure` partitions **the placements this plan would actually create**, which
-> excludes every already-flow and every empty placement. Measured on a 3-row account:
-> `scope.active` is `3` and `exposure.active` is `1`. Quoting `scope` here **overstates the live
-> exposure**, which is precisely the harm this block exists to prevent.
+> **Read the count from `summary.exposure`, never from `summary.scope`.** `scope` partitions the
+> whole account as `list` returned it; `exposure` partitions **the placements this plan would
+> actually create**, excluding every already-flow and every empty placement. Quoting `scope` here
+> **overstates the live exposure**, which is precisely the harm this block exists to prevent.
 
 **There are two forms of this block and you print exactly one.** `exposure.status_readable`
 decides which, and nothing else does:
@@ -497,7 +481,7 @@ decides which, and nothing else does:
 | `exposure.status_readable` | Print | Slots |
 |---|---|---|
 | `true` | **the COUNT form** (immediately below) | `<n>` = `exposure.placements`, `<a>` = `exposure.active` |
-| `false` — today, every account | **the NO-COUNT form** (the second block, after this one) | none; it is verbatim |
+| `false` | **the NO-COUNT form** (the second block, after this one) | none; it is verbatim |
 
 **The COUNT form:**
 
@@ -514,7 +498,7 @@ decides which, and nothing else does:
 > no placement. Fill them in, **publish again**, then say yes whenever you are
 > ready — a placement can only be attached to a flow that reads `published`.
 
-**The NO-COUNT form.** When `exposure.status_readable` is false — today, on every account — the
+**The NO-COUNT form.** When `exposure.status_readable` is false, the
 count cannot be stated and the acknowledgment is all there is. Use this wording verbatim, and do
 not substitute a guess for the number:
 
@@ -526,14 +510,11 @@ not substitute a guess for the number:
 > no placement. Fill them in, **publish again**, then say yes whenever you are
 > ready — a placement can only be attached to a flow that reads `published`.
 
-**The re-publish is not a nicety, and the escape hatch is untrue without it.** Filling the stub in
-is a config write, and a write to a published flow marks it **`dirty`** — whether a `dirty` flow can
-be attached is explicitly unverified
+**Keep "publish again" in both forms.** Filling the stub in marks the flow **`dirty`**, and whether
+a `dirty` flow can be attached is unverified
 ([api-surface.md](references/api-surface.md#what-is-still-unverified)), so `published` is the only
-status treated as attachable. An offer that stops at "fill them in and say yes" therefore leads
-straight back to `Cannot attach a draft flow to a placement`, the one error the phase ordering
-exists to avoid. On the return trip, re-read `flows get` and check the status the way phase
-5 does rather than assuming the edit left it alone.
+status treated as attachable. On the return trip, re-read `flows get` the way phase 5 does rather
+than assuming the edit left it alone.
 
 ## Phase 7 — Create
 
@@ -624,14 +605,11 @@ placement ID compiled in and cannot reach the flow until they update, so retirin
 placement early takes the paywall away from everyone who has not updated. Both placements run side
 by side, each measured on its own metrics, until v4 adoption is high enough.
 
-**No rollback file is needed, and say why rather than leaving it unsaid:** nothing existing was
-modified, so **the untouched paywall placements are the rollback.** Until the app ships the call
-change, users are on the old paywalls; if the new flows are wrong, ship nothing and fix the flows in
-the builder — https://adapty.io/docs/adapty-flow-builder.md.
-
-**Rollback covers placements, not flows** — say so rather than letting "nothing was modified" carry
-more weight than it earns. Every flow the run created is a new row that **cannot be deleted from the
-CLI**, so a run that stopped early leaves them behind: name the count and where to remove them,
+**No rollback file is needed, and say why:** nothing existing was modified, so **the untouched
+paywall placements are the rollback.** Until the app ships the call change, users are on the old
+paywalls; if the new flows are wrong, ship nothing and fix the flows in the builder —
+https://adapty.io/docs/adapty-flow-builder.md. **Rollback covers placements, not flows:** every
+flow the run created **cannot be deleted from the CLI**, so name the count and where to remove them,
 https://app.adapty.io/flows.
 
 Close by naming what is still outstanding, once: flows still holding a stub, placements that failed,
