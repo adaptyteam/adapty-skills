@@ -76,11 +76,14 @@ All eight skills ship inside the single `adapty-skills` plugin, because a plugin
 There is no test suite for the skills themselves — the lints are the verification gates. Run them after any edit to a SKILL.md or a reference:
 
 ```bash
+node scripts/lint-frontmatter.mjs              # no network needed
 node scripts/lint-symbols.mjs [platform ...]   # default: all platforms
 node scripts/lint-links.mjs
 ```
 
-Exit codes for both: `0` clean (warnings allowed), `1` findings, `2` infrastructure error (docs unreachable — fix the network, not the skill).
+Exit codes for all three: `0` clean (warnings allowed), `1` findings, `2` infrastructure error (docs unreachable or a file unreadable — fix the environment, not the skill).
+
+- **Frontmatter lint** — every `skills/<name>/SKILL.md` frontmatter must parse as **strict** YAML and meet the Agent Skills spec: `name` present, matching its directory, lowercase letters/digits/hyphens, ≤ 64 chars; `description` present, non-empty, ≤ 1024 chars; no repeated or unknown key. It exists because an unquoted description containing `: ` (flow-audit's `Read-only: never writes…`) is invalid YAML that a lenient loader accepts and a strict one rejects — so a harness can drop the skill with no error — and neither other lint parses frontmatter; `skill-validator` found it, CI did not. Zero-dependency like the others, so it accepts a **deliberate subset** (top-level scalars: plain, single- or double-quoted, or a `>`/`|` block) and **refuses anything else by name** rather than passing a shape it cannot check. Calibrated against Ruby's YAML parser: the parsed value matches on all nine skills, and it flags every shape that parser rejects — plus an unquoted ` #`, which that parser *accepts* and silently truncates as a comment. If a skill ever needs `metadata` (a map), extend the script; do not loosen a check.
 
 - **Symbol lint** — every Adapty-branded symbol used in a reference's code contexts (`Adapty.x` / `adapty.x` / `AdaptyUI().x` member calls, `Adapty*` type names, in fenced blocks and inline backticks) must exist in that platform's official docs. Ground truth is the `<platform>-llms-full.txt` docs aggregate plus pages the reference links; the docs are verified against SDK sources by the docs team's release process, so docs presence transitively means the symbol exists in the SDK. A reference's platform comes from its filename (`store-setup-*` files are pinned to their platform in the script). Two plain-text escape hatches, editable without touching code:
   - `scripts/app-side-allowlist.txt` — wrapper names the references deliberately tell the *user* to create. They look Adapty-branded but are not SDK symbols; add the name here when a reference introduces a new suggested wrapper.
