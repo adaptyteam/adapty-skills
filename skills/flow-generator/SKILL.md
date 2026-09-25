@@ -222,9 +222,25 @@ Four facts about the config commands that are not guessable:
   it inside `config`. Do not emit it in a config you send to `update`, and do not treat its
   absence as a defect. (A *browser export* does carry `status` and `id` at the top level — that
   is a different document shape, and phase 5 covers what to do when the user wants a file.)
-- **`updated_at` is an epoch integer** (e.g. `1787210847609`) and it is the optimistic lock.
-  `flows create` prints an **ISO** timestamp instead, which `--expected-updated-at` rejects — so
-  always take the integer from `config get`.
+- **The lock token comes from `flows config get` and from nothing else.** Two fields share the
+  name `updated_at` and mean different things. The `config get` envelope carries it as epoch
+  milliseconds (`1787210847609`), and it marks the last change to the **content**. That value
+  is the optimistic lock. `flows get`, `flows list` and `flows create` carry an **ISO string**
+  (`2026-09-24T12:14:40Z`), and it marks the last change to the flow **row** (name, status). You
+  already hold that one after a publish poll, and it is the wrong one:
+
+  ```bash
+  UA="$($ADAPTY flows config get <FLOW_ID> --app <APP_UUID> --json | jq -r .updated_at)"   # right
+  $ADAPTY flows config update <FLOW_ID> --app <APP_UUID> --config-file <f> --expected-updated-at "$UA"
+  ```
+
+  A raw ISO string fails before anything is sent (`Expected an integer`, exit 2). Never convert it
+  to milliseconds to make it fit: the flag accepts the number, and the write comes back `409`
+  with *"This flow configuration was already updated by <name>"* — naming a person who did not
+  touch it. So before believing a 409, check where your token came from: if it was not
+  `config get`, the conflict is yours, and re-running `config get` and retrying with its value
+  clears it. A 409 on a token that did come from `config get` is a real edit — re-fetch and apply
+  your change to the new config. Never drop the flag to get past either.
 - **`config update` has no dry run.** `validate` and `preview` are the pre-flight checks, and
   both run *before* a write — see phase 5 on why that ordering matters.
 ## The six phases
@@ -256,7 +272,8 @@ Decide this explicitly and say which you chose, because the two paths differ in 
 destroy.
 
 **Existing flow** — the user names it, or `flows list` and confirm the match back to them
-before touching it. Then `flows config get`, and **keep the `updated_at`** for the write.
+before touching it. Then `flows config get`, and **keep its `updated_at`** for the write, not
+the one `flows get` or `flows list` printed.
 
 **Take a backup before the first edit.** `config update` replaces the whole config and there is no
 undo, so the copy you fetched is the only way back:
@@ -892,7 +909,7 @@ only the UUID routes. `placements create` prints it as `id`. The middle segment 
 
 **Pass `--expected-updated-at` on every write except the first.** A stale value fails instead of
 clobbering, so this is a real guarantee rather than a warning. Read it from `config get`
-immediately before you write. Omitting it is last-write-wins and will silently overwrite an edit
+immediately before you write — never from `flows get`, whose `updated_at` is a different field. Omitting it is last-write-wins and will silently overwrite an edit
 someone else made in between.
 
 **The lock is not a merge.** It guards the *timing* of a write and says nothing about its
