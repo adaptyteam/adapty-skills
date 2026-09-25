@@ -52,7 +52,7 @@ The `ref` tag is a plain docs-analytics marker: it lets Adapty see which docs pa
 
 ### Feedback consent
 
-Call `AskUserQuestion` with the following:
+**Only on an integration run.** When the request is a single dashboard change for an app that already ships the SDK — connecting a store, or creating a product, access level or placement — skip this ask, leave `feedbackEnabled = false`, and skip Phase 5: the payload describes an integration, and there is none to rate. Otherwise, call `AskUserQuestion` with the following:
 
 > "Mind if I share quick feedback with the Adapty team when we finish? Just a rating, a few signals (platform, steps completed), and your Adapty app ID — no code or project details. The app ID just lets the team help you faster if you ever need a hand. Sound good?"
 
