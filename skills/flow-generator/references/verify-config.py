@@ -1383,6 +1383,13 @@ def check(path, baseline_text=None, baseline_images=None):
                 elif isinstance(o, list):
                     for v in o: collect(v)
             collect(s)
+            # navigateNext has no target of its own: it goes to the next screen in order.
+            # Without this edge, a flow that advances with "Navigate Next" read as a chain
+            # of unreachable screens.
+            if '"navigateNext"' in json.dumps(s):
+                i = sids.index(s['id'])
+                if i + 1 < len(sids):
+                    outs.append(sids[i + 1])
             edges[s['id']] = outs
         seen, stack = set(), [sids[0]]
         while stack:
@@ -1738,6 +1745,39 @@ def check(path, baseline_text=None, baseline_images=None):
     def _dotlike(e):
         return _dot_stack(e) or _dot_icon(e) or _dot_text(e)
 
+    # STEP INDICATOR GUARD. A fake slider is one frozen screen; a step indicator is the
+    # same row on several screens with the active marker somewhere else on each ("step 1
+    # of 3", "step 2 of 3"). Both signals required, so a fake slider copied unchanged
+    # onto two screens still fires. Measured on a real onboarding whose three "Progress
+    # dots" pills (the wide one moving 1 -> 2 -> 3 over three screens) errored three
+    # times here -- and flow-audit reports a failing ERROR as a blocker.
+    def _row_marker(n, m):
+        kids = [c['id'] for c in n.get('children') or []]
+        sig = [(json.dumps(((m.get(k) or {}).get('props') or {}).get('width'), sort_keys=True),
+                json.dumps(((m.get(k) or {}).get('props') or {}).get('fill'), sort_keys=True))
+               for k in kids]
+        odd = [i for i, x in enumerate(sig) if sig.count(x) == 1]
+        return len(kids), (odd[0] if len(odd) == 1 else None)
+
+    _rows = {}
+    for _s in d.get('screens', []):
+        _m = _s['elements']['map']
+
+        def _collect(n):
+            kids = n.get('children') or []
+            if len(kids) >= 2 and all(not c.get('children') for c in kids):
+                ln, odd = _row_marker(n, _m)
+                if odd is not None:
+                    _rows.setdefault(ln, []).append((_s['id'], n.get('id'), odd))
+            for c in kids:
+                _collect(c)
+        _collect(_s['elements'].get('hierarchy') or {})
+    step_rows = set()
+    for _found in _rows.values():
+        if (len({sid for sid, _, _ in _found}) >= 2
+                and len({odd for _, _, odd in _found}) >= 2):
+            step_rows.update(nid for _, nid, _ in _found)
+
     for s in d.get('screens', []):
         m = s['elements']['map']
         if any(e.get('type') == 'carousel' for e in m.values()):
@@ -1774,6 +1814,8 @@ def check(path, baseline_text=None, baseline_images=None):
             # TWO is the floor, not three: a two-slide carousel gets two dots, and the old
             # `>= 3` let that through. Measured silent at this threshold on all 12 real configs
             # (7 tracked fixtures + 5 raw exports), so the looser count costs no false positive.
+            if n.get('id') in step_rows:
+                dots, solo_text = [], False
             if len(dots) >= 2 or solo_text:
                 bad.append(
                     f'screen {s["id"]}: {len(dots)} hand-built indicator dot(s) ({dots}) under '

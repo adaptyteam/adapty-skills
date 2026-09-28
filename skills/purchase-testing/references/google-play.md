@@ -8,6 +8,16 @@ on layer 3 or 4, route there.
 
 Full procedure: https://adapty.io/docs/testing-on-android.md
 
+Which part belongs to which step of the walk in the parent skill:
+
+| Step | Here |
+|---|---|
+| before step 2, if the product pages in Play Console are empty or disabled | [The ordering gate](#the-ordering-gate-before-anything-else) |
+| 2. Set up the test account and the phone | [Three things gate a purchase](#three-things-gate-a-purchase-and-all-three-are-silent) |
+| 3. Buy | [Installing and buying](#installing-and-buying) |
+| 5. Restore, then a renewal | [Renewals](#renewals) |
+| something is stuck | [Getting unstuck](#getting-unstuck) |
+
 ## The ordering gate, before anything else
 
 **Google Play will not let you create in-app products or subscriptions until a signed AAB
@@ -31,9 +41,9 @@ device, and it cannot be the developer account itself.
 this is the single most common "the purchase sheet doesn't appear." Upload a signed
 APK/AAB to a closed track.
 
-> **You do not need to roll out the release.** Uploading to the track is enough. Our
-> older guidance walked users through Review release → Start rollout, which is real work
-> for no benefit. Wait a few minutes for processing.
+> **You do not need to roll out the release.** Uploading to the track is enough; Review
+> release → Start rollout is real work for no benefit here. Wait a few minutes for
+> processing.
 
 **3. The tester opened the opt-in URL, on the test device.** From the track's *How testers
 join your test* section. **Skipping this means products will not load** — and nothing
@@ -49,6 +59,13 @@ account, not to the install source.
 Then trigger the paywall and buy. The Play purchase sheet should show your product's real
 name and price; a sheet that shows neither means the product is not active in the console,
 which is layer 4.
+
+A license tester pays with Google's test instruments, and they behave differently: **"Test
+card, always approves"** completes at once, while **"Slow test card, approves after a few
+minutes"** leaves the purchase pending first. A pending purchase is not a failure, but it
+delays everything after it — ask which one was used before reading an empty Event Feed as
+a broken connection. The instruments are listed in Google's test guide:
+https://developer.android.com/google/play/billing/test
 
 ## Renewals
 

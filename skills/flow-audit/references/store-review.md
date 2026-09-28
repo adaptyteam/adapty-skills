@@ -22,15 +22,15 @@ These checks answer *"is this likely to draw a rejection"* — never *"will this
    hazard.
 2. **A store-review finding never changes the verdict.** Blockers decide it, and no
    check here is one. The leak this closes is subtler than the blocker case: an open
-   `question` normally downgrades a bare `READY FOR PRODUCTION` to `READY, PENDING n
-   CHECKS I CANNOT MAKE`, so **every** question here is excluded from the pending count
+   `question` normally downgrades a bare **Ready to publish** to **Almost ready: n
+   things I could not check**, so **every** question here is excluded from the pending count
    and carries its ask inside its own message text instead. There are **two** checks
    that can raise one, not one: `external-purchase-link` always does, and
    `billed-amount-not-shown` degrades to a question when a catalogued product's row
    states no billing period. A store-review section can be full and the verdict can
-   still read a clean `READY FOR PRODUCTION`. That is correct; the disclaimer is what
+   still read a clean **Ready to publish**. That is correct; the disclaimer is what
    keeps it honest.
-3. **A verbatim disclaimer prints with the section**, non-optional — the same form
+3. **A fixed disclaimer prints with the section**, non-optional — the same form
    `paywall-teardown` uses for its impact numbers, and for the same reason: this repo
    already owns a case where numbers presented without a disclaimer were read as
    promises.
@@ -60,7 +60,7 @@ severity loop and the verdict line run, so the verdict is isolated by constructi
 rather than by a special case in the verdict code. That partition is negative-tested:
 removing the partition line so store findings flow back into the severity groups turns
 two named assertions in `tests/test-store-review.py` red — `a store-review-only flow
-still reads READY FOR PRODUCTION` and `...and is not downgraded to READY, PENDING`.
+still reads "Ready to publish"` and `...and is not downgraded to "Almost ready"`.
 
 Getting there took a correction worth recording, because the first two attempts at that
 test could not fail:
@@ -72,12 +72,12 @@ test could not fail:
   central claim was tested on no fixture at all.
 - The second used a synthesized store-review-only config whose findings were **both
   `risk`** — and a risk never moves the verdict, partitioned or not. Measured: with and
-  without the partition, `[risk, risk]` prints `READY FOR PRODUCTION` either way.
+  without the partition, `[risk, risk]` prints **Ready to publish** either way.
 - The config that finally discriminates adds an element whose `openUrl` points at
   `external.example.com/payment/confirm`, firing `external-purchase-link`, a
-  **question**. Measured on that config: partitioned → `READY FOR PRODUCTION`;
-  unpartitioned → `READY, PENDING 1 CHECK I CANNOT MAKE`, with the finding moving into
-  `COULD NOT CHECK`.
+  **question**. Measured on that config: partitioned → **Ready to publish**;
+  unpartitioned → **Almost ready: 1 thing I could not check**, with the finding moving
+  into **I could not check these**.
 - One more trap in the mutation itself: emptying `store` instead of un-partitioning
   *deletes* the findings rather than routing them, and the verdict correctly does not
   move. **The mutation has to route the findings, not drop them.**
@@ -102,7 +102,7 @@ Ranked the way this repo already ranks evidence, strongest first.
    inside `audit-flow.py` is unlinted and rots silently. The findings carry the guideline
    number (what a developer pastes into an appeal); the report carries the link.
 4. **What is computable from a config plus the catalog.** A rule that cannot be
-   measured from those two inputs is not a check; it is a `BEFORE YOU SHIP` line.
+   measured from those two inputs is not a check; it is a **Check these yourself** line.
 
 Every finding cites its guideline number in its fix text, because that number is what a
 developer pastes into an appeal.
@@ -482,9 +482,9 @@ Three things about that merge are load-bearing:
   row — pinned against `tabs-paywall.json`, the real export that fires
   `no-period-disclosed` alone.
 - **`trial-terms-incomplete-merged` must be listed in `STORE_REVIEW_CHECKS`**, or
-  `render()`'s partition routes it into `RISKS` instead of the advisory section. It is
-  also registered in `CHECK_TO_GROUP` as `GROUP_FLOW`, so `WHAT TO DO NEXT` still routes
-  it (asserted: exactly once).
+  `render()`'s partition routes it into **Worth fixing** instead of the advisory
+  section. It is also registered in `CHECK_TO_GROUP` as `GROUP_FLOW`, so **What happens
+  next** still routes it by its number (asserted).
 
 **Why `risk`.** Same argument as `no-period-disclosed` — see *Why these are risks and
 not blockers* above — with one addition specific to this check: its `after` guard is
@@ -676,8 +676,8 @@ Recorded so nobody re-litigates these from the guideline text alone.
 ## Tier 4 — the reminders
 
 These cannot be checked from a config and a catalog at all, so they are fixed
-`BEFORE YOU SHIP` bullets, never numbered findings — the same way the placement reminder
-already works.
+**Check these yourself** bullets, never numbered findings, and each one says where to
+look.
 
 **Unverifiable is not the same as always relevant, and that distinction was learned
 late.** Three of the four originally printed on every audit forever, whatever the flow
@@ -716,26 +716,22 @@ right console, which is a text change no evidence in this file supports yet.
 
 ## The disclaimer
 
-Printed **verbatim** by `render()` whenever the `STORE REVIEW — ADVISORY` section prints
-— it is `STORE_REVIEW_DISCLAIMER` in `audit-flow.py`, indented two spaces, immediately
-after the section's last finding and before `BEFORE YOU SHIP`:
+The section's heading is the disclaimer: **Store review (advisory, doesn't block
+publishing)** — `STORE_REVIEW_HEADING` in `audit-flow.py`. It used to be a three-line
+paragraph after the last finding, and the heading replaced it for a measured reason: it
+stated two directions, and one of them had nothing to attach to. "A clean section is not
+a pass" can never be read, because a clean section is never printed. What a reader needs
+beside a finding is the other direction — **a finding here is not a rejection and does
+not hold the release** — and a heading says it before the first finding instead of after
+the last. The agent translates it with the rest of the report and never weakens it or
+restates a store-review risk as a blocker.
 
-> These are rejection hazards, not verdicts. App Review and Play review are human,
-> inconsistent between submissions, and change without notice — the toggle-paywall wave
-> arrived with no guideline edit and no warning. A clean store-review section is not a
-> guarantee of approval, and a finding here is not a guarantee of rejection. Nothing in
-> this section blocks the verdict above.
-
-Both directions are stated on purpose: **a clean section is not a pass, and a finding is
-not a rejection.** Report it as printed. Never paraphrase it away, and never restate a
-store-review risk as a blocker.
-
-The section itself sits after `LOCALE COVERAGE` and before `BEFORE YOU SHIP`, so the
-verdict is already printed and closed by the time a reader reaches it — it reads as an
-addendum, never as a hedge. Its findings continue the report's single `n` counter, so
-`WHAT TO DO NEXT` can never silently drop one; all six checks route to **Change in the
-flow**, and **nothing routes to the Answer group**, whose heading reads "they change the
-verdict" and by construction these do not.
+The section sits after the findings and the languages table and before **What happens
+next**, so the verdict is already printed and closed by the time a reader reaches it —
+it reads as an addendum, never as a hedge. Its findings continue the report's single `n`
+counter, so **What happens next** can never silently drop one; all six checks route to
+the **I can fix** line, and **nothing routes to "Answer these first"**, which holds only
+questions whose answer can change the verdict, and by construction these cannot.
 
 ## Where the section came from, and what it does not claim
 

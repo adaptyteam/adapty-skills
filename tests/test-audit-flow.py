@@ -259,10 +259,10 @@ check('the paywall blockers make the run exit 1', rc == 1, f'rc={rc}')
 
 # the escape finding must report the label as evidence, since 7 of 9 measured escapes
 # are icon-only -- this flow's own closeFlow buttons carry no text, so the message
-# must fall back to the "(icon only, no text)" phrase rather than go silent about it.
+# must fall back to the "an icon with no text" phrase rather than go silent about it.
 esc = of(findings, 'no-escape-from-paywall')
 check('no-escape-from-paywall names a label or the icon-only phrase as evidence',
-      bool(esc) and '(icon only, no text)' in esc[0]['message'],
+      bool(esc) and 'an icon with no text' in esc[0]['message'],
       esc[0]['message'] if esc else '<no finding>')
 
 # SILENT: adding a restorePurchases action anywhere clears no-restore
@@ -495,9 +495,11 @@ dup_missing = of(run(c)[1], 'product-not-in-catalog')
 check('the same missing product bound on two elements yields exactly ONE '
       'product-not-in-catalog finding', len(dup_missing) == 1,
       f'got {len(dup_missing)}')
-check('...and its message names both binding sites',
-      dup_missing and all(f'scr_paywall/{eid}' in dup_missing[0]['message']
-                           for eid in bound_eids),
+# Both binding sites are on ONE screen, so the message names that screen once --
+# a user looks in one place, and an element id would mean nothing to them.
+check('...and its message names the screen both bindings are on, once',
+      dup_missing and dup_missing[0]['message'].count('the "Paywall" screen') == 1
+      and 'el_' not in dup_missing[0]['message'],
       dup_missing[0]['message'] if dup_missing else '<no finding>')
 
 # Same shape for a check that was already deduping (product-store-gap) but was
@@ -512,9 +514,11 @@ for eid in bound_eids:
 dup_gap = of(run(c)[1], 'product-store-gap')
 check('the same store-gap product bound on two elements yields exactly ONE '
       'product-store-gap finding', len(dup_gap) == 1, f'got {len(dup_gap)}')
-check('...and its message names both binding sites',
-      dup_gap and all(f'scr_paywall/{eid}' in dup_gap[0]['message']
-                       for eid in bound_eids),
+# Both binding sites are on ONE screen, so the message names that screen once --
+# a user looks in one place, and an element id would mean nothing to them.
+check('...and its message names the screen both bindings are on, once',
+      dup_gap and dup_gap[0]['message'].count('the "Paywall" screen') == 1
+      and 'el_' not in dup_gap[0]['message'],
       dup_gap[0]['message'] if dup_gap else '<no finding>')
 
 print('\nproducts / catalog: const-purchase product binding (C1)')
@@ -917,10 +921,10 @@ check('hardcoded-price FIRES on a sibling savings figure ("Save $20 vs monthly")
       'silenced by the same-element guard',
       len(save_hard) == 1 and save_hard[0]['element'] == save_eid,
       save_hard)
-check('...and its message never asserts the amount IS the price -- it says a '
-      'currency amount is written into the copy, and lets the reader judge',
+check('...and its message never asserts the amount IS the price -- it says the '
+      'amount is typed into the text, and lets the reader judge',
       bool(save_hard)
-      and 'currency amount' in save_hard[0]['message']
+      and 'If it is a price' in save_hard[0]['message']
       and '$20' in save_hard[0]['message']
       and 'the price $20' not in save_hard[0]['message'],
       save_hard[0]['message'] if save_hard else '<no finding>')
@@ -1211,47 +1215,49 @@ r = subprocess.run([sys.executable, AUDIT, FLOW, '--catalog', CATALOG, '--report
                     '--name', 'Nimbus onboarding', '--flow-id', 'abc', '--status',
                     'publication_failed'], capture_output=True, text=True)
 txt = r.stdout
-check('the verdict is the first non-empty line',
-      txt.strip().splitlines()[0].startswith('Flow:'))
-check('the verdict line names NOT READY and a blocker count',
-      'NOT READY FOR PRODUCTION' in txt and 'blocker' in txt)
+lines_ = txt.strip().splitlines()
+verdict_line = lines_[0]
+check('the verdict is the first line, in bold',
+      verdict_line.startswith('**') and verdict_line.endswith('**'), verdict_line)
+check('the verdict line says not ready and how many things to fix',
+      verdict_line == '**Not ready to publish yet: 2 things to fix first.**',
+      verdict_line)
+check('the header names the flow and its status as the dashboard shows it',
+      lines_[1].startswith('Nimbus onboarding · Failed · '), lines_[1])
 check('a clickable flow url is printed, not a bare uuid',
       'https://app.adapty.io/flows/abc/builder' in txt)
-check('BEFORE YOU SHIP reminds about the placement link',
-      'BEFORE YOU SHIP' in txt and 'placement' in txt)
+check('while blockers remain, the check-it-yourself list is held back',
+      '**Check these yourself' not in txt, txt[-600:])
 check('there is no gate-status section',
-      'verify-config' not in txt and 'GATES' not in txt)
-check('the locale coverage table is printed', 'LOCALE COVERAGE' in txt
-      and 'sr-Latn' in txt)
+      'verify-config' not in txt and 'GATES' not in txt and 'validate' not in txt)
+check('the languages table is printed, with languages by name, not code',
+      '**Languages**' in txt and 'Serbian (Latin)' in txt and 'sr-Latn' not in txt, txt)
 check('report mode still exits 1 when blockers fired', r.returncode == 1)
-check('the closing offer hands blockers to flow-generator',
-      'flow-generator' in txt and 'Want me to fix' in txt)
+check('the offer describes the outcome and asks, never names a skill',
+      'I can fix' in txt and 'Want me to?' in txt and 'flow-generator' not in txt)
+check('the verdict line is comfortably short', len(verdict_line) < 120, verdict_line)
 
-# DEFECT 1 -- the verdict line is short family labels, never a slice of full finding
-# prose. Extract it (the first line after 'Flow:'/url/stats/blank) and check its shape
-# rather than its exact wording, since the label set is allowed to evolve.
-verdict_line = next(l for l in txt.splitlines() if l.startswith('NOT READY'))
-check('the verdict line is comfortably short', len(verdict_line) < 120,
-      f'{len(verdict_line)} chars: {verdict_line!r}')
-check('the verdict line is not built from raw finding messages (no ";")',
-      ';' not in verdict_line, verdict_line)
-check('the verdict line uses short labels, not colon-clauses',
-      verdict_line.count(':') <= 1, verdict_line)
+# Every fixture's report opens with one of the three verdicts, names no element id,
+# and never names another skill -- the reader knows screens by their builder names.
+VERDICTS = re.compile(r'^\*\*(Not ready to publish yet: \d+ things? to fix first\.'
+                      r'|Almost ready: \d+ things? I could not check\.'
+                      r'|Ready to publish\.)\*\*$')
+for _fname in sorted(os.listdir(FIX)):
+    if not _fname.endswith('.json'):
+        continue
+    _r_all = subprocess.run([sys.executable, AUDIT, os.path.join(FIX, _fname),
+                              '--catalog', CATALOG, '--report'],
+                             capture_output=True, text=True)
+    _first = _r_all.stdout.splitlines()[0] if _r_all.stdout else ''
+    check(f'{_fname}: the report opens with one of the three verdicts',
+          bool(VERDICTS.match(_first)), _first)
+    check(f'{_fname}: no element id reaches the report',
+          not re.search(r'\bel_\w+', _r_all.stdout), _r_all.stdout[:400])
+    check(f'{_fname}: no skill name reaches the report',
+          'flow-generator' not in _r_all.stdout and 'flow-audit' not in _r_all.stdout)
 
-# Regression: a label that already reads as a negation ("no legal links", "no restore
-# action") must never get a "<count> " prefix -- two independent checks (no-terms-link,
-# no-privacy-link) share the one "no legal links" label, and prefixing a count onto it
-# produced the ungrammatical "2 no legal links" on real fixtures. A countable-noun label
-# ("product not in catalog") still gets the count, correctly pluralized.
-#
-# comparison-paywall.json USED to exercise this (its three sibling dead-affordance
-# elements merged into three separate findings, two of which landed on "no legal
-# links"), but Task 15's sibling collapse (DEFECT 1) now merges all three into ONE
-# finding, so that fixture no longer doubles the label. The regression this guards
-# still matters -- two SEPARATE merged findings landing on the same negation label --
-# so it is reproduced directly: "Terms" and "Privacy" under two DIFFERENT (unwired)
-# parents, so they merge with no-terms-link and no-privacy-link SEPARATELY rather
-# than collapsing together, and both findings' label is the same "no legal links".
+# Two SEPARATE merged findings (Terms and Privacy under different parents) stay two
+# findings in the report and are counted as two things to fix.
 two_legal_gaps = {
     'screens': [{'id': 'scr_pay', 'elements': {
         'map': {
@@ -1280,38 +1286,23 @@ with tempfile.TemporaryDirectory() as tmp:
 check('fixture setup: two dead-affordance findings (Terms, Privacy) under different '
       'parents, both merging with a legal-link check',
       len(of(_findings_tlg, 'dead-affordance')) == 2, _findings_tlg)
-_cmp_verdict = next(l for l in _r_cmp.stdout.splitlines() if l.startswith('NOT READY'))
-check('a doubled negation label ("no legal links", from two SEPARATE merged '
-      'findings) is never count-prefixed',
-      'no legal links' in _cmp_verdict and '2 no legal links' not in _cmp_verdict,
-      _cmp_verdict)
+check('two separate merged legal-link findings print as two numbered findings',
+      len(re.findall(r'^\d+\. "(Terms|Privacy)" looks like', _r_cmp.stdout, re.M)) == 2,
+      _r_cmp.stdout)
 
-for _fname in sorted(os.listdir(FIX)):
-    if not _fname.endswith('.json'):
-        continue
-    _r_all = subprocess.run([sys.executable, AUDIT, os.path.join(FIX, _fname),
-                              '--catalog', CATALOG, '--report'],
-                             capture_output=True, text=True)
-    for _vl in _r_all.stdout.splitlines():
-        if not (_vl.startswith('NOT READY') or _vl.startswith('READY')):
-            continue
-        check(f'{_fname}: no verdict line has a digit directly before "no"',
-              not re.search(r'\d no\b', _vl), _vl)
-
-# DEFECT 2 -- findings 1-4 on this fixture are one defect (a dead row that already
-# explains the missing restore/terms/privacy actions) stated four times; the renderer
-# must collapse them to ONE blocker, so this fixture reports exactly 2.
-blocker_count = int(re.search(r'(\d+) blocker', verdict_line).group(1))
+# DEFECT 2 -- a dead row that already explains the missing restore/terms/privacy
+# actions is one defect, not four: the renderer collapses them, so this fixture
+# reports exactly 2 things to fix.
+blocker_count = int(re.search(r'(\d+) things? to fix', verdict_line).group(1))
 check('this fixture reports exactly 2 blockers after the dead-affordance collapse',
-      blocker_count == 2, f'got {blocker_count}: {verdict_line!r}')
-check('the BLOCKERS section prints exactly 2 numbered findings',
-      txt.count('BLOCKERS') == 1 and len(re.findall(r'^\d+\.', txt.split('RISKS')[0],
-                                                       re.M)) == 2)
+      blocker_count == 2, verdict_line)
+_fix_section = txt.split('**Fix before publishing**', 1)[1].split('**', 1)[0]
+check('the Fix before publishing section prints exactly 2 numbered findings',
+      len(re.findall(r'^\d+\.', _fix_section, re.M)) == 2, _fix_section)
 
 # The underlying checks stay independent: a flow missing a restore action but with NO
-# dead-affordance row of its own (every element that names an affordance word is
-# properly wired) must still report its OWN separate `no-restore` blocker -- collapsing
-# is a display-only merge, never a suppression.
+# dead-affordance row of its own must still report its OWN `no-restore` blocker --
+# collapsing is a display-only merge, never a suppression.
 no_dead_row = {
     'screens': [{'id': 'scr_pay', 'elements': {'map': {
         'el_buy': {
@@ -1345,27 +1336,19 @@ check('no dead-affordance row fires on this config',
 check('the missing restore action still fires its own blocker',
       len(of(findings_nd, 'no-restore')) == 1, findings_nd)
 check('the report surfaces the un-merged restore blocker on its own',
-      'NOT READY FOR PRODUCTION — 1 blocker: no restore action' in rnd.stdout,
-      rnd.stdout[:300])
+      rnd.stdout.startswith('**Not ready to publish yet: 1 thing to fix first.**')
+      and "1. There's no way to restore a purchase." in rnd.stdout, rnd.stdout[:300])
 
-# `dead-affordance-merged` always sets its own `_label` at creation time today, so
-# `CHECK_LABELS` never actually falls back to a per-check entry for it -- this reads
-# the source (never imports it, per this suite's own rule) so a future change that
-# ever constructs a merged finding without `_label` set still gets a real label
-# instead of the raw check name reaching a client's verdict line.
 _audit_src = open(AUDIT).read()
 _labels_block = _audit_src.split('CHECK_LABELS = {', 1)[1].split('\n}', 1)[0]
 check("CHECK_LABELS carries a 'dead-affordance-merged' entry -- a defensive guard "
-      'against a future unlabelled verdict, not something reachable today',
+      'against a future unlabelled merge, not something reachable today',
       "'dead-affordance-merged':" in _labels_block)
 
 print('\nDEFECT 1 -- sibling dead affordances collapse in the report')
-# comparison-paywall.json: el_CqN7LxyqK8 ("Restore"), el_WiqJNVPbb8 ("Terms") and
-# el_zSZPjSyaqU ("Privacy") are three SIBLING elements sharing one parent
-# (el_fiZXD04jZt) on the same screen -- one thing a user recognises (a dead
-# legal/restore row), not three. `audit()`/`--json` must keep reporting all three as
-# separate `dead-affordance` findings -- the underlying checks stay independent;
-# only `--report` collapses them.
+# comparison-paywall.json: "Restore", "Terms" and "Privacy" are three SIBLING
+# elements sharing one parent -- one thing a user recognises (a dead row), not
+# three. `--json` keeps all three; only `--report` collapses them.
 cmp_fixture = os.path.join(FIX, 'comparison-paywall.json')
 rc_cmp2, findings_cmp2 = run(cmp_fixture)
 check('comparison-paywall.json still raises 3 separate dead-affordance findings in '
@@ -1376,31 +1359,25 @@ check('comparison-paywall.json still raises 3 separate dead-affordance findings 
 r_cmp2 = subprocess.run([sys.executable, AUDIT, cmp_fixture, '--catalog', CATALOG,
                           '--report'], capture_output=True, text=True)
 cmp_txt = r_cmp2.stdout
-cmp_verdict = next(l for l in cmp_txt.splitlines() if l.startswith('NOT READY'))
-cmp_blocker_count = int(re.search(r'(\d+) blocker', cmp_verdict).group(1))
+cmp_blocker_count = int(re.search(r'(\d+) things? to fix', cmp_txt.splitlines()[0]).group(1))
 check('comparison-paywall.json reports exactly 2 blockers after the sibling '
       'dead-affordance collapse (1 merged dead row + 1 product-not-in-catalog, '
-      'down from 4)', cmp_blocker_count == 2, f'got {cmp_blocker_count}: {cmp_verdict!r}')
-check('the BLOCKERS section prints exactly 2 numbered findings for '
-      'comparison-paywall.json',
-      len(re.findall(r'^\d+\.', cmp_txt.split('BEFORE YOU SHIP')[0], re.M)) == 2,
+      'down from 4)', cmp_blocker_count == 2, cmp_txt.splitlines()[0])
+check('comparison-paywall.json prints exactly 2 numbered findings',
+      len(re.findall(r'^\d+\.', cmp_txt.split('**What happens next**')[0], re.M)) == 2,
       cmp_txt)
-check('the BLOCKERS section prints exactly ONE "This row is dead text." finding',
-      len(re.findall(r'^\d+\. This row is dead text\.', cmp_txt, re.M)) == 1, cmp_txt)
-
-cmp_finding1 = cmp_txt.split('1. This row is dead text.', 1)[1].split('\n2.', 1)[0]
-check('the collapsed sibling finding names all three contributing elements',
-      all(eid in cmp_finding1 for eid in
-          ('el_CqN7LxyqK8', 'el_WiqJNVPbb8', 'el_zSZPjSyaqU')), cmp_finding1)
-check('the collapsed sibling finding names all three affordances (their own copy)',
-      all(w in cmp_finding1 for w in ('Restore', 'Terms', 'Privacy')), cmp_finding1)
+check('comparison-paywall.json prints exactly ONE merged row finding',
+      len(re.findall(r'^\d+\. .* look like .*none has an On Tap action', cmp_txt, re.M)) == 1,
+      cmp_txt)
+cmp_finding1 = cmp_txt.split('\n1. ', 1)[1].split('\n2.', 1)[0]
+check('the collapsed sibling finding names all three affordances by their own text',
+      all(f'"{w}"' in cmp_finding1 for w in ('Restore', 'Terms', 'Privacy')),
+      cmp_finding1)
+check('...and tells the user what to give each one, in builder terms',
+      '"Restore" a "Restore purchases" action' in cmp_finding1
+      and '"Open URL"' in cmp_finding1, cmp_finding1)
 
 print('\nDEFECT 2 -- the single-affordance fix line wording')
-# The old wording -- "Split the row into one tappable element" -- is nonsense when
-# the element already is one element. No fix line anywhere may read that way, for
-# any fixture: the sibling-merge case wires N already-separate elements ("Wire
-# el_a to ..., el_b to ...") and the single-affordance case wires the one element
-# ("Wire this element to ...") -- neither ever says "split into one".
 for _fname in sorted(os.listdir(FIX)):
     if not _fname.endswith('.json'):
         continue
@@ -1410,10 +1387,6 @@ for _fname in sorted(os.listdir(FIX)):
     check(f'{_fname}: no fix line reads "into one tappable element"',
           'into one tappable element' not in _r_fix.stdout, _r_fix.stdout)
 
-# A synthetic single-element, single-affordance case, isolated from every other
-# compliance check so exactly one matches: "Restore" is the only dead row (terms
-# and privacy are both properly wired to real openUrl actions), so only no-restore
-# merges with it.
 one_word = {
     'screens': [{'id': 'scr_pay', 'elements': {'map': {
         'el_buy': {
@@ -1443,18 +1416,12 @@ with tempfile.TemporaryDirectory() as tmp:
 check('fixture setup: exactly one dead-affordance finding (only "Restore" is dead; '
       'terms/privacy are wired)', len(of(findings_ow, 'dead-affordance')) == 1,
       findings_ow)
-check('a single-affordance merge says what to WIRE it to, not to "split" a row '
-      'that is already one element',
-      'Fix: Wire this element to a restorePurchases action.' in row.stdout,
-      row.stdout)
+check('a single-affordance merge says what to give the element, not to "split" it',
+      'Fix: Give it a "Restore purchases" action.' in row.stdout, row.stdout)
 check('...and never the old "Split the row into one tappable element" wording',
       'into one tappable element' not in row.stdout, row.stdout)
 
 print('\nsibling grouping is strict on (screen, parent) -- different parents never merge')
-# Two elements naming DISTINCT affordance words on the SAME screen but under
-# DIFFERENT parents must stay two separate merged findings -- merging them would
-# combine two rows a user sees as unrelated. `el_restore` and `el_terms` sit under
-# `el_group_a`/`el_group_b` respectively, two different (unwired) wrapping stacks.
 two_parents = {
     'screens': [{'id': 'scr_pay', 'elements': {
         'map': {
@@ -1482,16 +1449,12 @@ with tempfile.TemporaryDirectory() as tmp:
                           capture_output=True, text=True)
 check('fixture setup: two dead-affordance findings under two different parents',
       len(of(findings_tp, 'dead-affordance')) == 2, findings_tp)
-tp_txt = r_tp.stdout
-tp_dead_findings = len(re.findall(r'^\d+\. This row is dead text\.', tp_txt, re.M))
 check('two dead affordances under DIFFERENT parents stay as two separate merged '
       'findings in the report (never collapsed together)',
-      tp_dead_findings == 2, tp_txt)
+      len(re.findall(r'^\d+\. "[^"]+" looks like', r_tp.stdout, re.M)) == 2,
+      r_tp.stdout)
 
 print('\ncontract: the collapse never widens the finding dict\'s key set')
-# The collapse is structural (walks `config`'s hierarchy), not an extra key on the
-# finding dict -- re-assert the exact-key-set contract holds for --json output on
-# both fixtures exercised above, so a future edit cannot quietly reopen that route.
 check('comparison-paywall.json --json findings keep the exact 7-key contract',
       all(set(f) == {'severity', 'family', 'check', 'screen', 'element', 'message',
                       'fix'} for f in (findings_cmp2 or [])))
@@ -1506,17 +1469,15 @@ r4 = subprocess.run([sys.executable, AUDIT, FLOW, '--json', '--name', 'Nimbus on
 check('flow-untitled is SILENT on a real name',
       len(of(json.loads(r4.stdout)['findings'], 'flow-untitled')) == 0)
 
-# publication-failed reads STATUS, which is also not in the config -- same shape as
-# flow-untitled above, reached through `check_meta` after `audit()` runs.
 r5 = subprocess.run([sys.executable, AUDIT, FLOW, '--json', '--status',
                     'publication_failed'], capture_output=True, text=True)
 pf = of(json.loads(r5.stdout)['findings'], 'publication-failed')
 check('publication-failed FIRES on --status publication_failed', len(pf) == 1, pf)
 check('publication-failed is a question, never a blocker (no cause is knowable here)',
       bool(pf) and pf[0]['severity'] == 'question')
-check('publication-failed does not invent a cause -- it names the dashboard status, '
-      'says no local check explains it, and points at the Flow Builder, nothing more',
-      bool(pf) and 'publication_failed' in pf[0]['message']
+check('publication-failed does not invent a cause -- it names the status the '
+      'dashboard shows and points at the Flow Builder, nothing more',
+      bool(pf) and 'Failed' in pf[0]['message'] and 'will not guess' in pf[0]['message']
       and 'Flow Builder' in pf[0]['fix'])
 for _status in ('draft', 'published', 'archived', None):
     _cmd = [sys.executable, AUDIT, FLOW, '--json']
@@ -1526,27 +1487,19 @@ for _status in ('draft', 'published', 'archived', None):
     check(f'publication-failed is SILENT when --status is {_status!r}',
           len(of(json.loads(_r.stdout)['findings'], 'publication-failed')) == 0)
 
-# A flow with zero other findings still cannot print a bare READY once it is sitting
-# in publication_failed -- the question alone must hold the verdict open.
 with tempfile.TemporaryDirectory() as tmp:
     pf_path = os.path.join(tmp, 'pf_clean.json')
     json.dump({'screens': [], 'locales': [], 'defaultLocale': 'en'}, open(pf_path, 'w'))
     r_pf = subprocess.run([sys.executable, AUDIT, pf_path, '--report', '--status',
                            'publication_failed'], capture_output=True, text=True)
-check('a flow with no other findings still prints READY, PENDING once its status is '
-      'publication_failed, never a bare READY FOR PRODUCTION',
-      'READY, PENDING' in r_pf.stdout and 'READY FOR PRODUCTION' not in r_pf.stdout,
+check('a flow with no other findings still reads "Almost ready" once its status is '
+      'publication_failed, never "Ready to publish"',
+      r_pf.stdout.startswith('**Almost ready') and 'Ready to publish' not in r_pf.stdout,
       r_pf.stdout)
 check('the publication_failed run exits 0 -- no blocker fired, only a question',
       r_pf.returncode == 0)
 
-# A ruling overrides the brief's `/dev/stdin` + subprocess `input=` approach: `load_config`
-# uses `open(path)`, and `/dev/stdin` is not reliable that way across platforms, so a temp
-# file is written and its path passed -- matching every other case in this suite.
-# A genuinely empty `screens: []` flow is no longer "nothing wrong" now that
-# `no-escape-in-flow` applies to any flow -- it has no escape either, so it would
-# fire. This fixture carries one non-selling screen with a real closeFlow action, so
-# it stays a true negative control across every family, `no-escape-in-flow` included.
+# One non-selling screen with a real closeFlow action: a true negative control.
 clean = {
     'screens': [{'id': 'scr_only', 'elements': {'map': {
         'el_close': {
@@ -1560,25 +1513,16 @@ with tempfile.TemporaryDirectory() as tmp:
     json.dump(clean, open(clean_path, 'w'))
     r2 = subprocess.run([sys.executable, AUDIT, clean_path, '--report'],
                         capture_output=True, text=True)
-check('a flow with nothing wrong prints READY', 'READY FOR PRODUCTION' in r2.stdout)
+check('a flow with nothing wrong reads "Ready to publish"',
+      r2.stdout.startswith('**Ready to publish.**'), r2.stdout[:200])
 check('a clean run exits 0', r2.returncode == 0)
-check('a clean run offers no fix -- nothing to fix', 'Want me to fix' not in r2.stdout)
+check('a clean run offers no fix -- nothing to fix', 'Want me to' not in r2.stdout)
 
-# READY, PENDING n CHECKS I CANNOT MAKE -- zero blockers, at least one open question.
-# Built directly rather than relying on a fixture: a selling screen with a working
-# restorePurchases action and both legal links present (so none of those fire), but
-# no closeFlow/navigateBack anywhere in the flow, which is exactly what makes
-# `no-escape-in-flow` a QUESTION rather than a blocker. The bare "Continue" CTA states
-# no period, so `check_disclosure` (Task 4/5) also fires `no-period-disclosed` here --
-# left in place, not edited away, because it gives this fixture double duty. Before
-# Task 7 this was the only place in the suite that exercised a `question` and a
-# `risk` finding together in one report; Task 7's partition pulls `no-period-
-# disclosed` out of the severity loop entirely (it never reaches `RISKS` -- this
-# report now has no `RISKS` heading at all) and numbers it last, in its own STORE
-# REVIEW -- ADVISORY section, so what this fixture now exercises is a non-store
-# `question` alongside a store-review finding printed after it (Answer group,
-# flow-edit group, correct numbering -- see the grouping comment at the assertions
-# below).
+# Zero blockers, open questions: a selling screen with restore and both legal links
+# wired, but no closeFlow/navigateBack anywhere (so `no-escape-in-flow` is a
+# QUESTION). The bare "Continue" CTA states no period, so the store-review
+# `no-period-disclosed` fires too and is numbered after the question, in its own
+# advisory section -- kept on purpose, it gives this fixture double duty.
 questions_only = {
     'screens': [{'id': 'scr_a', 'elements': {'map': {
         'el_buy': {
@@ -1610,28 +1554,24 @@ with tempfile.TemporaryDirectory() as tmp:
     json.dump(questions_only, open(q_path, 'w'))
     rq = subprocess.run([sys.executable, AUDIT, q_path, '--report'],
                         capture_output=True, text=True)
-check('a flow with only open questions prints READY, PENDING ... I CANNOT MAKE',
-      'READY, PENDING' in rq.stdout and 'I CANNOT MAKE' in rq.stdout,
+check('a flow with only open questions reads "Almost ready: 1 thing I could not check"',
+      rq.stdout.startswith('**Almost ready: 1 thing I could not check.**'),
       rq.stdout[:300])
 check('a questions-only run still exits 0 -- no blocker fired', rq.returncode == 0)
 
-# a single-locale flow omits the LOCALE COVERAGE table entirely
 single = {'screens': [], 'locales': [{'code': 'en'}], 'defaultLocale': 'en'}
 with tempfile.TemporaryDirectory() as tmp:
     s_path = os.path.join(tmp, 's.json')
     json.dump(single, open(s_path, 'w'))
     rs = subprocess.run([sys.executable, AUDIT, s_path, '--report'],
                         capture_output=True, text=True)
-check('a single-locale flow has no LOCALE COVERAGE table',
-      'LOCALE COVERAGE' not in rs.stdout)
-check('the header singularizes "1 locale", never "1 locales" -- the verdict line '
-      'already singularizes "1 blocker"/"1 CHECK", the header must match',
-      '1 locale' in rs.stdout and '1 locales' not in rs.stdout, rs.stdout[:200])
+check('a single-language flow has no languages table',
+      '**Languages**' not in rs.stdout)
+check('the header singularizes "1 language", never "1 languages"',
+      '1 language' in rs.stdout and '1 languages' not in rs.stdout, rs.stdout[:200])
 check('the header still pluralizes "0 screens" (count != 1)',
       '0 screens' in rs.stdout, rs.stdout[:200])
 
-# The inverse: exactly one screen, no locales declared, one bound product -- singular
-# everywhere a count is 1, matching the verdict line's own singular/plural rule.
 one_each = {
     'screens': [{'id': 'scr_only', 'elements': {'map': {
         'el_p': {'type': 'text', 'props': {
@@ -1646,136 +1586,277 @@ with tempfile.TemporaryDirectory() as tmp:
     json.dump(one_each, open(oe_path, 'w'))
     r_oe = subprocess.run([sys.executable, AUDIT, oe_path, '--report'],
                           capture_output=True, text=True)
-check('the header prints "1 screen" and "1 product", singular, not "1 screens"/'
-      '"1 products"',
+check('the header prints "1 screen" and "1 product", singular',
       '1 screen ' in r_oe.stdout and '1 screens' not in r_oe.stdout
       and '1 product' in r_oe.stdout and '1 products' not in r_oe.stdout,
       r_oe.stdout[:200])
 
-# --report and --json are mutually exclusive -- a usage error, not a silent pick
 rboth = subprocess.run([sys.executable, AUDIT, FLOW, '--report', '--json'],
                        capture_output=True, text=True)
 check('--report and --json together is a usage error',
       rboth.returncode == 2 and rboth.stdout == '')
 
-print('\nwhat to do next')
-# `txt` is still the multilocale fixture's report from the `report` section above,
-# run with `--status publication_failed`: 6 findings after collapse (1-2 blockers,
-# 3 risk -- the untranslated-values one -- 4-5 questions -- the store gap and the
-# publication_failed status itself -- 6 the June 2026 price-prominence hazard, which
-# Task 7 moved out of RISKS into its own STORE REVIEW -- ADVISORY section, numbered
-# last and printed after LOCALE COVERAGE, before BEFORE YOU SHIP).
-check('WHAT TO DO NEXT is present', 'WHAT TO DO NEXT' in txt)
-check('WHAT TO DO NEXT comes after BEFORE YOU SHIP',
-      'BEFORE YOU SHIP' in txt
-      and txt.index('WHAT TO DO NEXT') > txt.index('BEFORE YOU SHIP'))
-check('WHAT TO DO NEXT comes before the closing offer',
-      'Want me to fix' in txt
-      and txt.index('WHAT TO DO NEXT') < txt.index('Want me to fix'))
-
-# The important one: every finding number the BLOCKERS/RISKS/COULD NOT CHECK
-# sections assign must be named somewhere in WHAT TO DO NEXT, as "finding N" -- a
-# finding that never shows up here is silently dropped from the plan.
+print('\nwhat happens next')
+# `txt` is the multilocale fixture's report, run with `--status publication_failed`:
+# 1-2 blockers, 3 the untranslated-values risk, 4-5 questions (the Android store gap
+# and the failed publish), 6 the store-review price-prominence hazard.
+check('What happens next is present', '**What happens next**' in txt)
+check('What happens next comes after the store-review section, as the last section',
+      txt.index('**Store review') < txt.index('**What happens next**')
+      and '**' not in txt.split('**What happens next**', 1)[1])
+next_section = txt.split('**What happens next**', 1)[1].split('**Check these', 1)[0]
 nums = sorted(int(m) for m in re.findall(r'^(\d+)\.', txt, re.M))
-next_section = txt.split('WHAT TO DO NEXT', 1)[1].split('Want me to fix', 1)[0]
-missing = [n for n in nums if f'finding {n}' not in next_section]
-check('every numbered finding is referenced in WHAT TO DO NEXT',
-      nums == [1, 2, 3, 4, 5, 6] and not missing, f'nums={nums} missing={missing}')
-
-check('Answer group asks about the store gap and points at its finding number',
-      'Answer these' in next_section
-      and 'Do you ship on Android?' in next_section
-      and 'finding 4' in next_section.split('Change in the flow')[0])
-check('the store-gap question and its dashboard fix both cite finding 4 '
-      '(one question, one action -- not a drop, not a merge)',
-      next_section.count('finding 4') == 2, next_section)
-check('the flow-edit group names the dead row\'s screen/element',
-      'scr_paywall / el_089T' in next_section.split('Change in the Adapty')[0])
-check('the dashboard group carries the unconditional placement line',
-      'Confirm the flow is attached to a placement.' in next_section)
-# `billed-amount-not-shown` is a store-review check (Task 7): it is registered in
-# `CHECK_TO_GROUP` as GROUP_FLOW like any other flow-edit fix, so it still gets a
-# line here -- but it is numbered LAST (finding 6), after every non-store finding,
-# because `render()` appends the STORE REVIEW section (and its own numbering) only
-# after the BLOCKERS/RISKS/COULD NOT CHECK loop has assigned 1-5.
-check('the flow-edit group carries the billed-amount-not-shown price risk',
-      'finding 6' in next_section.split('Change in the Adapty')[0])
-check('the optional group carries the untranslated-values risk',
-      'Optional' in next_section
-      and 'finding 3' in next_section.split('Optional', 1)[1])
-check('the publication_failed question is finding 5, named once under the '
-      'dashboard group, and does NOT get an Answer-group line (no answer here '
-      'changes the verdict)',
-      next_section.count('finding 5') == 1
-      and 'finding 5' in next_section.split('Change in the Adapty')[1]
-      and 'finding 5' not in next_section.split('Change in the flow')[0],
+routed = {int(m) for m in re.findall(r'\b(\d+)\b', next_section)}
+check('every numbered finding is routed in What happens next',
+      nums == [1, 2, 3, 4, 5, 6] and set(nums) <= routed, f'nums={nums} routed={routed}')
+check('the Android question comes first and points at finding 4',
+      'Answer these first' in next_section
+      and '- Do you ship on Android? If yes, finding 4 is a blocker.' in next_section
+      and next_section.index('Answer these') < next_section.index('I can fix'))
+check('the offer is the last thing in What happens next, as prose rather than a bullet',
+      next_section.strip().splitlines()[-1].startswith('I can fix')
+      and '- I can fix' not in next_section, next_section)
+check('the store gap is also listed as the user\'s to fix in the dashboard, with the '
+      'failed publish', 'Findings 4 and 5 are yours to do in the Adapty dashboard' in next_section,
       next_section)
+check('the offer covers the flow edits and the store-review fix, and asks for the '
+      'legal page addresses', 'I can fix findings 1, 2 and 6 for you.' in next_section
+      and 'Terms of Use and Privacy Policy pages' in next_section, next_section)
+check('the untranslated risk is optional', 'Finding 3 is optional.' in next_section)
+check('...and because some findings are the user\'s, the offer names numbers, not "all"',
+      'all of these' not in next_section, next_section)
+check('the failed publish is not an Answer-group question (no answer changes the '
+      'verdict)', 'finding 5 is a blocker' not in next_section and ', 5 ' not in
+      next_section.split('I can fix')[0])
+_f4 = txt.split('\n4. ', 1)[1].split('\n5. ', 1)[0]
+check('a finding whose message already names its screen does not repeat it',
+      _f4.count('"Paywall" screen') == 1, _f4)
+check('finding 1 names the screen by its builder name',
+      'On the "Paywall" screen.' in txt.split('\n2.', 1)[0], txt[:800])
 
-# Zero findings at all -- `r2`'s clean fixture from the `report` section above --
-# prints no section, even though BEFORE YOU SHIP's placement line is unconditional.
-check('a flow with nothing wrong has no WHAT TO DO NEXT section',
-      'WHAT TO DO NEXT' not in r2.stdout)
-check('...but still keeps the unconditional placement reminder',
-      'placement' in r2.stdout)
+check('a flow with nothing wrong has no What happens next section',
+      '**What happens next**' not in r2.stdout)
+check('...but still asks the user to check the placement',
+      'https://app.adapty.io/placements' in r2.stdout)
 
-# A group with no members prints no heading. `rnd`'s config (from DEFECT 2 above)
-# fires exactly one finding -- `no-restore`, a flow edit -- so Answer (no verdict-
-# conditional question fired) and Optional (no risk fired) must both be absent,
-# while Flow (the finding itself) and Dashboard (the unconditional placement line)
-# both appear.
-rnd_next = rnd.stdout.split('WHAT TO DO NEXT', 1)[1] if 'WHAT TO DO NEXT' in rnd.stdout else ''
-check('a single flow-edit finding still gets a WHAT TO DO NEXT section', bool(rnd_next))
-check('...with no Answer heading (nothing verdict-conditional fired)',
+rnd_next = rnd.stdout.split('**What happens next**', 1)[1] if '**What happens next**' in rnd.stdout else ''
+check('a single flow-edit finding still gets a What happens next section', bool(rnd_next))
+check('...offering to fix everything when every finding is one it can fix (the '
+      'restore blocker plus the store-review hazard the bare CTA also trips)',
+      'I can fix all of these.' in rnd_next, rnd_next)
+check('...with no Answer block (nothing verdict-conditional fired)',
       'Answer these' not in rnd_next)
-check('...with no Optional heading (nothing risk-severity fired)',
-      'Optional' not in rnd_next)
-check('...with the flow-edit heading and its finding number',
-      'Change in the flow' in rnd_next and 'finding 1' in rnd_next)
-check('...with the dashboard heading present only for the placement line',
-      'Change in the Adapty dashboard' in rnd_next
-      and 'Confirm the flow is attached to a placement.' in rnd_next)
+check('...with no optional line (nothing optional fired)', 'optional' not in rnd_next)
+check('...and nothing left for the dashboard', 'yours to do' not in rnd_next)
 
-# `rq`'s questions-only config (from the READY-PENDING case above) now fires TWO
-# findings, not one -- the bare "Continue" CTA states no billing period, so
-# `check_disclosure` (Task 4/5) also fires `no-period-disclosed`. This is
-# deliberately NOT edited away (a prior pass rewrote the CTA to silence it; restored
-# on review, because that hid a real finding rather than testing it): the fixture now
-# gives this suite its only report combining a non-store `question` and a
-# store-review finding together -- Answer group, flow-edit group and correct
-# numbering all in one place.
-#
-# finding 1 = `no-escape-in-flow` (verdict-conditional question) -- lands in BOTH the
-# Answer group and its own default (flow-edit) group, per the same rule
-# `product-store-gap` demonstrates on the main fixture.
-# finding 2 = `no-period-disclosed` -- a store-review check (Task 7), so it is
-# partitioned out of the severity groups entirely (it never reaches RISKS, and never
-# sorts against the question by `ORDER`) and numbered last, in its own STORE REVIEW
-# -- ADVISORY section printed after LOCALE COVERAGE. It IS registered in
-# `CHECK_TO_GROUP` (Task 7 Step 6), as GROUP_FLOW like every other store-review
-# check, so it still gets a "Change in the flow" line in WHAT TO DO NEXT.
-#
-# Both land in the SAME group ("Change in the flow"), not split across a flow-edit/
-# Optional divide -- but for a different reason than before Task 7: `no-period-
-# disclosed` is mapped to GROUP_FLOW, not GROUP_OPTIONAL, so there is no `Optional`
-# heading in this report. (Store-review checks are deliberately absent from
-# `VERDICT_CONDITIONAL` and `CHECK_LABELS` too -- see Task 7's brief -- neither of
-# which this scenario exercises.)
-rq_next = rq.stdout.split('WHAT TO DO NEXT', 1)[1] if 'WHAT TO DO NEXT' in rq.stdout else ''
-check('a questions-only-plus-store-review report still gets a WHAT TO DO NEXT section',
+rq_next = rq.stdout.split('**What happens next**', 1)[1] if '**What happens next**' in rq.stdout else ''
+check('a questions-plus-store-review report still gets a What happens next section',
       bool(rq_next))
-check('...with an Answer prompt about the missing dismiss',
-      'Answer these' in rq_next and 'dismiss' in rq_next.lower())
-check('...naming finding 1 (no-escape-in-flow) in both the Answer and flow-edit groups',
-      rq_next.count('finding 1') == 2, rq_next)
-check('...naming finding 2 (no-period-disclosed) once, in the flow-edit group',
-      rq_next.count('finding 2') == 1
-      and 'finding 2' in rq_next.split('Change in the Adapty')[0], rq_next)
-check('...with no Optional heading -- no-period-disclosed is registered in '
-      'CHECK_TO_GROUP as GROUP_FLOW, not GROUP_OPTIONAL, and never reaches RISKS '
-      'at all (see the comment above)',
-      'Optional' not in rq_next)
-check('...and the STORE REVIEW -- ADVISORY section is present for finding 2',
-      'STORE REVIEW' in rq.stdout and '2. ' in rq.stdout.split('STORE REVIEW', 1)[1])
+check('...with an Answer prompt about closing the flow',
+      'Answer these first' in rq_next and 'close button' in rq_next, rq_next)
+check('...naming finding 1 in the Answer block, and offering to fix all of them',
+      'If not, finding 1 needs a close button' in rq_next
+      and 'I can fix all of these.' in rq_next,
+      rq_next)
+check('...with no optional line', 'optional' not in rq_next)
+check('...and the store-review section is present for finding 2',
+      "**Store review (advisory, doesn't block publishing)**" in rq.stdout
+      and '2. ' in rq.stdout.split('**Store review', 1)[1])
+
+# Two products missing the same store ask ONE question, not two.
+_two_gap_cat = json.load(open(CATALOG))
+_two_gap_cat = _two_gap_cat.get('data', _two_gap_cat) if isinstance(_two_gap_cat, dict) else _two_gap_cat
+with tempfile.TemporaryDirectory() as tmp:
+    _cp = os.path.join(tmp, 'cat.json')
+    json.dump([dict(p, vendor_products={'app_store': (p.get('vendor_products') or {}).get('app_store') or {'product_id': 'x'}})
+               for p in _two_gap_cat], open(_cp, 'w'))
+    _r_gap = subprocess.run([sys.executable, AUDIT, FLOW, '--catalog', _cp, '--report'],
+                            capture_output=True, text=True).stdout
+_gap_rows = re.findall(r'^(\d+)\. ("[^"]+" and "[^"]+") have no Google Play product ID', _r_gap, re.M)
+check('two products missing a Google Play ID print as ONE finding naming both',
+      len(_gap_rows) == 1 and _r_gap.count('have no Google Play product ID') == 1, _r_gap[:900])
+check('...and the report asks "Do you ship on Android?" once, pointing at it',
+      bool(_gap_rows) and _r_gap.count('Do you ship on Android?') == 1
+      and f'If yes, finding {_gap_rows[0][0]} is a blocker' in _r_gap, _r_gap[-700:])
+with tempfile.TemporaryDirectory() as tmp:
+    _cp2 = os.path.join(tmp, 'cat.json')
+    json.dump([dict(p, vendor_products={'app_store': (p.get('vendor_products') or {}).get('app_store') or {'product_id': 'x'}})
+               for p in _two_gap_cat], open(_cp2, 'w'))
+    _js_gap = json.loads(subprocess.run([sys.executable, AUDIT, FLOW, '--catalog', _cp2, '--json'],
+                                        capture_output=True, text=True).stdout)['findings']
+check('...while --json keeps one finding per product, with no report-only fields',
+      len(of(_js_gap, 'product-store-gap')) >= 2
+      and not any(k.startswith('_') for f in _js_gap for k in f), _js_gap)
+
+# Four typed-in prices on one screen are one finding; one finding repeated on three
+# screens is one row naming the screens.
+_multi_price = {'screens': [{'id': 'scr_p', 'caption': 'Plans', 'elements': {'map': {
+    'el_card': {'type': 'product', 'props': {'product': {'id': 'fbc63856-bf3a-45d1-7bee-dd4bcb54b10a'}},
+                'interactions': [{'id': 'i', 'trigger': 'tap', 'actions': [
+                    {'id': 'a', 'type': 'purchase', 'payload': {}}]}]},
+    'el_a': {'type': 'text', 'props': {'content': {'values': {'en': '$9.99'}}}},
+    'el_b': {'type': 'text', 'props': {'content': {'values': {'en': '$59.99'}}}}},
+    'hierarchy': {'id': 'el_card', 'children': [{'id': 'el_a', 'children': []},
+                                                {'id': 'el_b', 'children': []}]}}}],
+    'locales': [], 'defaultLocale': 'en'}
+with tempfile.TemporaryDirectory() as tmp:
+    _mp = os.path.join(tmp, 'mp.json'); json.dump(_multi_price, open(_mp, 'w'))
+    _f_mp = run(_mp)[1]
+    _r_mp = subprocess.run([sys.executable, AUDIT, _mp, '--catalog', CATALOG, '--report'],
+                           capture_output=True, text=True).stdout
+check('fixture setup: two hardcoded-price findings in --json', len(of(_f_mp, 'hardcoded-price')) == 2,
+      _f_mp)
+check('...printed as one finding listing both amounts',
+      _r_mp.count('typed into the text') == 1 and '2 amounts are typed into the text here: $9.99 and $59.99'
+      in _r_mp, _r_mp)
+
+# One finding, word for word, on two screens: one row naming both.
+def _skip_screen(sid, cap):
+    return {'id': sid, 'caption': cap, 'elements': {'map': {
+        'el_skip': {'type': 'text', 'props': {'content': {'values': {'en': 'Skip'}}}},
+        'el_close': {'type': 'icon', 'props': {}, 'interactions': [{'id': 'i', 'trigger': 'tap',
+                     'actions': [{'id': 'a', 'type': 'closeFlow', 'payload': {}}]}]}}}}
+with tempfile.TemporaryDirectory() as tmp:
+    _sp = os.path.join(tmp, 's.json')
+    json.dump({'screens': [_skip_screen('scr_1', 'Welcome'), _skip_screen('scr_2', 'Goal')],
+               'locales': [], 'defaultLocale': 'en'}, open(_sp, 'w'))
+    _f_sp = run(_sp, catalog=None)[1]
+    _r_sp = subprocess.run([sys.executable, AUDIT, _sp, '--report'], capture_output=True,
+                           text=True).stdout
+check('fixture setup: the same dead "Skip" fires on both screens',
+      len(of(_f_sp, 'dead-affordance')) == 2, _f_sp)
+check('...and the report prints it once, naming both screens',
+      _r_sp.count('looks tappable but does nothing') == 1
+      and 'It\'s on the "Welcome" and "Goal" screens.' in _r_sp, _r_sp)
+
+# "Terms of Service" is a Terms label, like "Terms of use".
+with tempfile.TemporaryDirectory() as tmp:
+    _tp = os.path.join(tmp, 't.json')
+    json.dump({'screens': [_skip_screen('scr_1', 'Paywall')], 'locales': [], 'defaultLocale': 'en'},
+              open(_tp, 'w'))
+    _cfg = json.load(open(_tp))
+    _cfg['screens'][0]['elements']['map']['el_skip']['props']['content']['values']['en'] = 'Terms of Service'
+    json.dump(_cfg, open(_tp, 'w'))
+    _f_tos = run(_tp, catalog=None)[1]
+check('"Terms of Service" with no action is a dead Terms label',
+      len(of(_f_tos, 'dead-affordance')) == 1, _f_tos)
+
+# The placement fix depends on whether the flow is published yet.
+def _np_fix(status):
+    with tempfile.TemporaryDirectory() as tmp:
+        pp = os.path.join(tmp, 'p.json'); json.dump([], open(pp, 'w'))
+        js = json.loads(subprocess.run([sys.executable, AUDIT, FLOW, '--placements', pp,
+                                        '--flow-id', 'abc', '--status', status, '--json'],
+                                       capture_output=True, text=True).stdout)['findings']
+    return (of(js, 'no-placement') or [{}])[0].get('fix', '')
+check('a published flow with no placement is told to attach one now',
+      _np_fix('published') == 'Attach it to a placement.', _np_fix('published'))
+check('a draft is told to attach one once it is published',
+      _np_fix('draft').startswith('Once it is published'), _np_fix('draft'))
+
+# One finding the agent can fix: "I can fix it", never "all of these" for a single item.
+_one = {'screens': [{'id': 's', 'caption': 'A', 'elements': {'map': {
+    'e': {'type': 'text', 'props': {'content': {'values': {'en': 'Hi'}}}}}}}],
+    'locales': [], 'defaultLocale': 'en'}
+with tempfile.TemporaryDirectory() as tmp:
+    _op = os.path.join(tmp, 'one.json'); json.dump(_one, open(_op, 'w'))
+    _r_one = subprocess.run([sys.executable, AUDIT, _op, '--report'], capture_output=True,
+                            text=True).stdout
+check('a single fixable finding is offered as "I can fix it for you", not "all of these"',
+      'I can fix it for you.' in _r_one and 'all of these' not in _r_one, _r_one)
+# Contractions are for the report's own words, never for the user's copy: a quoted
+# string reaches them exactly as they wrote it.
+_quoted = {'screens': [{'id': 'scr_a', 'caption': 'A', 'elements': {'map': {
+    'el_t': {'type': 'text', 'props': {'content': {'values': {'en': 'Lorem ipsum is not final'}}}},
+    'el_c': {'type': 'text', 'props': {'content': {'values': {'en': 'Close'}}},
+             'interactions': [{'id': 'i', 'trigger': 'tap', 'actions': [
+                 {'id': 'a', 'type': 'closeFlow', 'payload': {}}]}]}}}}],
+    'locales': [], 'defaultLocale': 'en'}
+with tempfile.TemporaryDirectory() as tmp:
+    _qp = os.path.join(tmp, 'q.json'); json.dump(_quoted, open(_qp, 'w'))
+    _rq = subprocess.run([sys.executable, AUDIT, _qp, '--report'], capture_output=True,
+                         text=True).stdout
+check('contractions never touch the user\'s quoted copy',
+      '"Lorem ipsum is not final"' in _rq and "isn't final" not in _rq, _rq)
+check('...but do apply to the report\'s own words', "Ready to publish." in _rq
+      or "couldn't" in _rq or "doesn't" in _rq or "isn't" in _rq, _rq)
+# One-screen flows print no location line; multi-screen flows do (see finding 1 above).
+check('a one-screen flow prints no "On the … screen" line',
+      '   On the "' not in rnd.stdout, rnd.stdout)
+
+# No "Open URL" anywhere: the Terms and Privacy blockers are one gap with one fix, so the
+# report prints them as ONE finding and counts one thing to fix (the --json keeps both).
+_no_links = {'screens': [{'id': 'scr_pay', 'elements': {'map': {
+    'el_buy': {'type': 'text', 'props': {'content': {'values': {'en': 'Continue'}}},
+               'interactions': [{'id': 'i_buy', 'trigger': 'tap', 'actions': [
+                   {'id': 'a_buy', 'type': 'purchase', 'payload': {}}]}]},
+    'el_restore': {'type': 'text', 'props': {'content': {'values': {'en': 'Restore purchases'}}},
+                   'interactions': [{'id': 'i_r', 'trigger': 'tap', 'actions': [
+                       {'id': 'a_r', 'type': 'restorePurchases', 'payload': {}}]}]},
+    'el_close': {'type': 'icon', 'props': {},
+                 'interactions': [{'id': 'i_c', 'trigger': 'tap', 'actions': [
+                     {'id': 'a_c', 'type': 'closeFlow', 'payload': {}}]}]}}}}],
+    'locales': [], 'defaultLocale': 'en'}
+with tempfile.TemporaryDirectory() as tmp:
+    _nlp = os.path.join(tmp, 'nl.json'); json.dump(_no_links, open(_nlp, 'w'))
+    _rc_nl, _f_nl = run(_nlp, catalog=None)
+    _r_nl = subprocess.run([sys.executable, AUDIT, _nlp, '--report'], capture_output=True,
+                           text=True).stdout
+check('fixture setup: both legal-link blockers fire in --json',
+      len(of(_f_nl, 'no-terms-link')) == 1 and len(of(_f_nl, 'no-privacy-link')) == 1, _f_nl)
+check('...and the report prints them as one finding, counted once',
+      _r_nl.startswith('**Not ready to publish yet: 1 thing to fix first.**')
+      and _r_nl.count('There are no links to your Terms of Use or Privacy Policy') == 1
+      and 'There is no link to your' not in _r_nl and "There's no link to your" not in _r_nl,
+      _r_nl)
+check('...and the offer still asks for both page addresses',
+      'Terms of Use and Privacy Policy pages' in _r_nl, _r_nl)
+
+print('\nplacements')
+_multi = json.load(open(FLOW))
+def _placements_run(placements, flow_id='abc'):
+    with tempfile.TemporaryDirectory() as tmp:
+        pp = os.path.join(tmp, 'placements.json')
+        json.dump(placements, open(pp, 'w'))
+        cmd = [sys.executable, AUDIT, FLOW, '--catalog', CATALOG, '--placements', pp]
+        if flow_id:
+            cmd += ['--flow-id', flow_id]
+        rep = subprocess.run(cmd + ['--report'], capture_output=True, text=True)
+        js = subprocess.run(cmd + ['--json'], capture_output=True, text=True)
+    return rep.stdout, json.loads(js.stdout)['findings']
+_shown = [{'id': 'p-uuid-1', 'developer_id': 'onboarding', 'is_active': True,
+           'audiences': [{'segment_ids': [], 'priority': 0, 'content_type': 'flow',
+                          'flow_id': 'abc'}]},
+          {'id': 'p-uuid-2', 'developer_id': 'main', 'is_active': True,
+           'audiences': [{'content_type': 'paywall', 'paywall_id': 'pw'}]}]
+_rep, _f = _placements_run(_shown)
+check('a flow shown by an active placement says so in the header',
+      'Your app fetches it through placement `onboarding`.' in _rep, _rep[:400])
+check('...raises no placement finding', not of(_f, 'no-placement')
+      and not of(_f, 'placement-inactive'))
+check('...and does not ask the user to check the placement themselves',
+      'https://app.adapty.io/placements and check' not in _rep)
+_rep, _f = _placements_run({'data': [dict(_shown[0], is_active=False)]})
+check('a placement that shows the flow but is off raises placement-inactive with a '
+      'link to that placement', len(of(_f, 'placement-inactive')) == 1
+      and 'https://app.adapty.io/placements/flows/p-uuid-1' in _rep, _rep)
+_rep, _f = _placements_run([_shown[1]])
+check('no placement showing the flow raises no-placement, a risk, not a blocker',
+      len(of(_f, 'no-placement')) == 1 and of(_f, 'no-placement')[0]['severity'] == 'risk')
+_np = re.search(r'^(\d+)\. No placement shows this flow', _rep, re.M)
+check('...which the offer includes by its number',
+      bool(_np) and re.search(rf'I can fix [^\n]*\b{_np.group(1)}\b', _rep) is not None,
+      _rep)
+_other = [dict(_shown[0], audiences=[{'content_type': 'flow', 'flow_id': 'other-flow'}])]
+_rep, _f = _placements_run(_other)
+check('a placement showing a DIFFERENT flow does not count as showing this one',
+      len(of(_f, 'no-placement')) == 1 and 'fetches it through' not in _rep, _rep[:400])
+_rep, _f = _placements_run(_shown, flow_id=None)
+check('placements without --flow-id cannot be matched, so nothing is claimed either way',
+      not of(_f, 'no-placement') and 'fetches it through' not in _rep, _rep[:300])
+check('placement findings keep the exact 7-key contract',
+      all(set(f) == {'severity', 'family', 'check', 'screen', 'element', 'message',
+                      'fix'} for f in _placements_run([_shown[1]])[1]))
 
 if fails:
     print(f'\n{len(fails)} FAILED')

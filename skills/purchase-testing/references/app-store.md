@@ -2,6 +2,16 @@
 
 Preflight passed, so Adapty and the app agree. What is left is the store and the device.
 
+Which part belongs to which step of the walk in the parent skill:
+
+| Step | Here |
+|---|---|
+| 2. Set up the test account and the phone | [Pick the loop first](#pick-the-loop-first) (one line: use sandbox), then [Sandbox](#sandbox) down to the sign-in |
+| 3. Buy | [Sandbox](#sandbox): run from Xcode, the sheet says it is a sandbox purchase |
+| 5. Restore, then a renewal | [Renewals](#renewals) |
+| a re-test | clearing purchase history, in [Sandbox](#sandbox) |
+| TestFlight comes up | the TestFlight trap, in [Sandbox](#sandbox) |
+
 Creating products in App Store Connect and connecting the App Store to Adapty are **not
 here** — they belong to `adapty-integration`. If preflight landed on layer 3 or 4, route
 there instead of working through this file.
