@@ -17,18 +17,21 @@ data, and the traps are recorded there.
 Usage:
   audit-flow.py <config.json> [--catalog <catalog.json>] [--stores ios,android]
                 [--json | --report] [--name <name>] [--flow-id <id>] [--status <status>]
+                [--placements <placements.json>]
 Exit: 0 no blockers, 1 at least one blocker, 2 usage or unreadable input.
 
 `--json` prints the raw findings; `--report` prints the user-facing report (verdict,
-BLOCKERS/RISKS/COULD NOT CHECK, locale coverage, BEFORE YOU SHIP) and the two are
-mutually exclusive. `--name`/`--flow-id`/`--status` come from `flows list`, not the
-config, and feed `render()`'s header and the `flow-untitled` check.
+findings by severity, languages, store review, what happens next, what to check
+yourself) and the two are mutually exclusive. `--name`/`--flow-id`/`--status` come
+from `flows list`, not the config, and feed `render()`'s header and the
+`flow-untitled` check. `--placements` is a JSON array of `placements get` bodies; with
+`--flow-id` it answers whether any placement shows this flow.
 """
 import ast, json, re, sys
 
 SEVERITIES = ('blocker', 'risk', 'question')
 FAMILIES = ('triggers', 'compliance', 'products', 'variables', 'localization',
-            'placeholders')
+            'placeholders', 'placement', 'navigation')
 
 
 def finding(severity, family, check, message, fix, screen=None, element=None):
@@ -36,6 +39,27 @@ def finding(severity, family, check, message, fix, screen=None, element=None):
     assert family in FAMILIES, family
     return {'severity': severity, 'family': family, 'check': check, 'screen': screen,
             'element': element, 'message': message, 'fix': fix}
+
+
+def screen_name(config, sid):
+    """The name the Flow Builder shows for a screen (its `caption`), falling back to
+    the id when a screen has none. Every location a user reads goes through this: a
+    screen id like `scr_RvSel001` means nothing to them, while "Select plan" is what
+    they see in the builder's screen list.
+    """
+    for s in (config or {}).get('screens') or []:
+        if s.get('id') == sid:
+            return s.get('caption') or sid
+    return sid
+
+
+def _tag(f, **report_only):
+    """Attach report-only fields (underscore-prefixed) that `render()` needs to merge
+    findings -- a product title, a store, an amount -- so it never has to parse them
+    back out of the message. `--json` strips every underscore key, so the finding
+    contract stays the seven keys it has always been."""
+    f.update({f'_{k.lstrip("_")}': v for k, v in report_only.items()})
+    return f
 
 
 def load_config(path):
@@ -82,7 +106,8 @@ AFFORDANCE_WORDS = ('restore', 'terms', 'eula', 'privacy', 'skip',
 # "Restore" / "Terms" / "Privacy" (three separate elements, so each is trivially its
 # own whole segment) and `el_089T`'s three-affordance row must both still fire.
 AFFORDANCE_SEPARATORS = re.compile(r'\s*(?:·|\||•|/|\n)\s*|\s+and\s+', re.I)
-AFFORDANCE_QUALIFIERS = ('purchase', 'purchases', 'policy', 'of use', '& conditions')
+AFFORDANCE_QUALIFIERS = ('purchase', 'purchases', 'policy', 'of use', 'of service',
+                         '& conditions', 'and conditions')
 
 
 def _affordance_labels(text):
@@ -200,30 +225,33 @@ def check_triggers(config):
         if named and not _wired(eid, m, pm):
             out.append(finding(
                 'blocker', 'triggers', 'dead-affordance',
-                f'copy promises {", ".join(named)} but neither the element nor any '
-                f'ancestor carries an interaction: {txt[:70]!r}',
-                'Split the row into one tappable element per action and wire each one, '
-                'or wire the ancestor that is meant to handle the tap. The copy is not '
-                'the mechanism.',
+                f'"{txt[:70]}" looks tappable but does nothing: it says '
+                f'{_join_and(named)}, and neither it nor anything around it has an '
+                f'On Tap action.',
+                'Give it an On Tap action that does what the text says. If it names '
+                'several things, make each one its own tappable element.',
                 s['id'], eid))
         for i, a in actions_of(e):
             if a.get('type') == 'nothing':
                 out.append(finding(
                     'risk', 'triggers', 'action-nothing',
-                    'an action is explicitly wired to `nothing`',
-                    'Give it a real action, or remove the interaction so the element '
-                    'does not look tappable.', s['id'], eid))
+                    'A tap here is set to "Do nothing", so it looks tappable and '
+                    'nothing happens.',
+                    'Give it a real action, or remove the On Tap interaction.',
+                    s['id'], eid))
             if a.get('type') == 'openUrl' and not (a.get('payload') or {}).get('url'):
                 out.append(finding(
                     'blocker', 'triggers', 'openurl-no-url',
-                    'an openUrl action has no url', 'Set the url, or remove the action.',
+                    'An "Open URL" action has no web address, so the tap goes nowhere.',
+                    'Enter the address, or remove the action.',
                     s['id'], eid))
         for i in (e.get('interactions') or []):
             if not (i.get('actions') or []):
                 out.append(finding(
                     'risk', 'triggers', 'interaction-no-actions',
-                    f'interaction {i.get("id")!r} has an empty actions array',
-                    'Wire an action or drop the interaction.', s['id'], eid))
+                    'This element has an On Tap interaction with no actions in it, so '
+                    'the tap does nothing.',
+                    'Add an action to it, or remove the interaction.', s['id'], eid))
     return out
 
 
@@ -271,21 +299,35 @@ def selling_screens(config):
     return out
 
 
+def _nav_targets(node, sid, order):
+    """Every screen a navigate or navigateNext anywhere inside `node` can lead to,
+    including inside a conditional's branches -- a branch is still a way off the
+    screen, and missing it made the reachability walk blind to quiz routing."""
+    out = []
+    if isinstance(node, dict):
+        if node.get('type') == 'navigate':
+            tgt = (node.get('payload') or {}).get('screen')
+            if tgt:
+                out.append(tgt)
+        elif node.get('type') == 'navigateNext':
+            i = order.index(sid) if sid in order else -1
+            if 0 <= i < len(order) - 1:
+                out.append(order[i + 1])
+        for v in node.values():
+            out += _nav_targets(v, sid, order)
+    elif isinstance(node, list):
+        for v in node:
+            out += _nav_targets(v, sid, order)
+    return out
+
+
 def nav_graph(config):
-    """screen id -> screens reachable by one navigate/navigateNext edge."""
+    """screen id -> screens reachable by one navigate/navigateNext edge, branches included."""
     order = [s['id'] for s in config.get('screens') or []]
-    idx = {sid: i for i, sid in enumerate(order)}
     edges = {sid: set() for sid in order}
     for s, eid, e in elements(config):
         for _, a in actions_of(e):
-            if a.get('type') == 'navigate':
-                tgt = (a.get('payload') or {}).get('screen')
-                if tgt:
-                    edges[s['id']].add(tgt)
-            elif a.get('type') == 'navigateNext':
-                nxt = idx[s['id']] + 1
-                if nxt < len(order):
-                    edges[s['id']].add(order[nxt])
+            edges[s['id']].update(_nav_targets(a, s['id'], order))
     return edges
 
 
@@ -309,7 +351,7 @@ def escape_labels(config):
             if a.get('type') in ESCAPE_ACTIONS:
                 out.append((s['id'],
                             flat_text((e.get('props') or {}).get('content'), dl)
-                            or '(icon only, no text)'))
+                            or 'an icon with no text'))
     return out
 
 
@@ -360,10 +402,10 @@ def check_compliance(config):
     if not escapes:
         out.append(finding(
             'question', 'compliance', 'no-escape-in-flow',
-            'no closeFlow or navigateBack action anywhere in the flow, so nothing in '
-            'the config lets a user leave',
-            'Confirm the host app presents this flow with a system dismiss. If it does '
-            'not, add a closeFlow action.'))
+            'Nothing in this flow lets a user leave it: there is no "Close Flow" or '
+            '"Navigate back" action anywhere.',
+            'If your app shows this flow with its own close button or swipe-to-dismiss, '
+            'you are fine. If not, add a close button with a "Close Flow" action.'))
 
     selling = selling_screens(config)
     if not selling:
@@ -377,11 +419,12 @@ def check_compliance(config):
     if 'restorePurchases' not in all_actions:
         out.append(finding(
             'blocker', 'compliance', 'no-restore',
-            'the flow sells but has no restorePurchases action anywhere'
-            + (' — although the copy says "restore", which makes it look present'
+            'There is no way to restore a purchase. Someone who reinstalls your app '
+            'or moves to a new phone cannot get their subscription back.'
+            + (' The text mentions "restore", but nothing is wired to it.'
                if 'restore' in corpus_text else ''),
-            'Add a restorePurchases action to a tappable element. App Store 3.1.1 '
-            'requires a restore path.'))
+            'Add a "Restore purchases" action to a button, usually a small link under '
+            'the purchase button. (App Store 3.1.1)'))
 
     # Three outcomes, in order of certainty. (1) No `openUrl` action anywhere: there
     # cannot be a legal link without one, so both checks are a blocker. (2) An
@@ -392,15 +435,15 @@ def check_compliance(config):
     # question that names the urls actually found and asks the human to confirm.
     urls = openurl_urls(config)
     url_token_sets = [_url_tokens(u) for u in urls]
-    for words, name, label in ((TERMS_URL_WORDS, 'no-terms-link', 'terms/EULA'),
-                              (PRIVACY_URL_WORDS, 'no-privacy-link', 'privacy policy')):
+    for words, name, label in ((TERMS_URL_WORDS, 'no-terms-link', 'Terms of Use'),
+                              (PRIVACY_URL_WORDS, 'no-privacy-link', 'Privacy Policy')):
         if not urls:
             out.append(finding(
                 'blocker', 'compliance', name,
-                f'no working link to a {label}: the flow has no openUrl action '
-                'anywhere',
-                f'Add an openUrl action pointing at your hosted {label}. '
-                'App Store 3.1.2 requires it on a subscription screen.'))
+                f'There is no link to your {label}: the flow has no "Open URL" '
+                'action at all.',
+                f'Add a link with an "Open URL" action that opens your {label} page. '
+                '(App Store 3.1.2)'))
             continue
         # Exact token match, never substring containment -- see `_url_tokens`.
         if any(w in toks for toks in url_token_sets for w in words):
@@ -408,10 +451,9 @@ def check_compliance(config):
         shown = ', '.join(sorted(set(urls)))
         out.append(finding(
             'question', 'compliance', name,
-            f'the flow has openUrl action(s) but none of their urls look like a '
-            f'{label} link -- confirm one of these is it: {shown}',
-            f'If one of the urls above is your {label} document, no action needed. '
-            f'Otherwise add an openUrl action pointing at your hosted {label}.'))
+            f'The flow has links, but none of them looks like your {label}: {shown}',
+            f'If one of them is your {label}, there is nothing to do. If not, add a '
+            f'link with an "Open URL" action that opens it.'))
 
     if escapes:
         # Evidence for the human, never a detection signal: 7 of 9 measured escape
@@ -427,11 +469,11 @@ def check_compliance(config):
             if _reaches(edges, sid, escapes) is None:
                 out.append(finding(
                     'blocker', 'compliance', 'no-escape-from-paywall',
-                    'a user who does not buy cannot leave this screen: no closeFlow or '
-                    'navigateBack is reachable from it. Escapes elsewhere in the flow '
-                    f'are labeled: {labels_str}',
-                    'Add a dismiss affordance with a closeFlow action. It does not need '
-                    'to say "close" — most escapes are an icon with no text.', sid))
+                    'Someone who does not buy cannot leave this screen: no "Close Flow" '
+                    'or "Navigate back" action can be reached from it. Other screens in '
+                    f'the flow do have a way out ({labels_str}).',
+                    'Add a close button with a "Close Flow" action. A close icon with no '
+                    'text is enough.', sid))
     # else: escapes is empty, already handled above by `no-escape-in-flow` -- when
     # there is no escape ANYWHERE, the per-screen reachability blocker below would be
     # true of every selling screen too, which is exactly the redundant restating the
@@ -498,17 +540,25 @@ def bound_products(config):
     return out
 
 
-def _format_sites(sites, cap=3):
-    """Render binding sites as 'scr_a/el_1, scr_b/el_2 and 3 more'.
+def _format_sites(sites, config, cap=3):
+    """Render binding sites by the screen names the builder shows: 'the "Plans"
+    screen', 'the "Plans" and "Offer" screens', 'the "A", "B", "C" screens and 2 more'.
 
-    Caps the printed list so a product bound across many screens still produces a
-    readable message, while the count after 'and' accounts for every site that did
-    not make the cut.
+    One entry per SCREEN, not per element -- an element id means nothing to the
+    person reading the report, and two cards on one screen are one place to look.
+    Capped so a product bound across many screens still reads as one line, with the
+    count after 'and' covering every screen that did not make the cut.
     """
-    shown = [f'{sid}/{eid}' for sid, eid in sites[:cap]]
-    extra = len(sites) - len(shown)
-    text = ', '.join(shown)
-    return f'{text} and {extra} more' if extra > 0 else text
+    names = []
+    for sid, _eid in sites:
+        name = screen_name(config, sid)
+        if name not in names:
+            names.append(name)
+    shown = [f'"{n}"' for n in names[:cap]]
+    extra = len(names) - len(shown)
+    if extra > 0:
+        return f'the {", ".join(shown)} screens and {extra} more'
+    return f'the {_join_and(shown)} screen' + ('s' if len(shown) > 1 else '')
 
 
 def check_products_catalog(config, catalog, stores):
@@ -535,10 +585,9 @@ def check_products_catalog(config, catalog, stores):
         if bound_products(config):
             out.append(finding(
                 'question', 'products', 'catalog-not-fetched',
-                'no product catalog was supplied, so nothing about the bound products '
-                'could be verified',
-                'Re-run the audit with your product catalog included so the bound '
-                'products can be checked.'))
+                'I could not read your product list, so I could not check the products '
+                'this flow sells.',
+                'Fetch the product list and run the audit again.'))
         return out
     by_id = {p['id']: p for p in catalog}
     by_pid = {}
@@ -547,61 +596,70 @@ def check_products_catalog(config, catalog, stores):
 
     for pid, sites in by_pid.items():
         first_sid, first_eid = sites[0]
-        sites_str = _format_sites(sites)
+        # ' It is on the "Plans" screen.' -- or nothing on a one-screen flow, where
+        # naming the screen tells the reader nothing.
+        sites_str = ('' if len(config.get('screens') or []) <= 1
+                     else f' It is on {_format_sites(sites, config)}.')
         prod = by_id.get(pid)
         if prod is None:
             out.append(finding(
                 'blocker', 'products', 'product-not-in-catalog',
-                f'bound product {pid} does not exist in this app\'s catalog, so the '
-                f'purchase cannot complete (bound at {sites_str})',
-                'Bind a product from `adapty products list`, or create the product in '
-                'the dashboard first.', first_sid, first_eid))
+                f'This flow sells a product that does not exist in your app ({pid}), '
+                f'so the purchase will fail.{sites_str}',
+                'Choose one of your existing products for it, or create the product '
+                'in the Adapty dashboard first.', first_sid, first_eid))
             continue
         title = prod.get('title') or pid
         vendors = prod.get('vendor_products') or {}
         if not prod.get('access_level_id'):
             out.append(finding(
                 'blocker', 'products', 'product-no-access-level',
-                f'{title} has no access level, so a purchase would grant nothing '
-                f'(bound at {sites_str})',
-                'Attach an access level to the product in the dashboard.',
+                f'"{title}" has no access level, so someone who buys it gets nothing '
+                f'unlocked.{sites_str}',
+                'In the Adapty dashboard, open the product and set its access level.',
                 first_sid, first_eid))
         if not vendors:
             out.append(finding(
                 'blocker', 'products', 'product-store-gap',
-                f'{title} has no store binding at all, so it cannot be purchased '
-                f'anywhere (bound at {sites_str})',
-                'Bind the product to App Store and/or Google Play in the dashboard.',
+                f'"{title}" is not linked to the App Store or Google Play, so nobody '
+                f'can buy it.{sites_str}',
+                'In the Adapty dashboard, open the product and add its App Store '
+                'and/or Google Play product ID.',
                 first_sid, first_eid))
         else:
             missing = {'ios': 'app_store', 'android': 'play_store'}
+            store_word = {'ios': ('App Store', 'iOS'), 'android': ('Google Play', 'Android')}
             for want, key in missing.items():
+                store_name, platform = store_word[want]
                 if key in vendors:
                     continue
                 if stores is None:
-                    out.append(finding(
+                    out.append(_tag(finding(
                         'question', 'products', 'product-store-gap',
-                        f'{title} has no {key} entry. If you ship on '
-                        f'{"Android" if want == "android" else "iOS"}, this purchase '
-                        f'cannot complete there — tell me and this is a blocker '
-                        f'(bound at {sites_str})',
-                        f'Add the {key} binding in the dashboard.',
-                        first_sid, first_eid))
+                        f'"{title}" has no {store_name} product ID, so it cannot be '
+                        f'bought on {platform}.{sites_str}',
+                        f'If you ship on {platform}, add its {store_name} product ID '
+                        f'in the Adapty dashboard.',
+                        first_sid, first_eid), _title=title, _store=store_name,
+                        _platform=platform, _sites=sites))
                 elif want in stores:
-                    out.append(finding(
+                    out.append(_tag(finding(
                         'blocker', 'products', 'product-store-gap',
-                        f'{title} has no {key} entry but the app ships on {want}, so '
-                        f'the purchase cannot complete there (bound at {sites_str})',
-                        f'Add the {key} binding in the dashboard.',
-                        first_sid, first_eid))
+                        f'"{title}" has no {store_name} product ID, but your app ships '
+                        f'on {platform}, so the purchase will fail there.'
+                        f'{sites_str}',
+                        f'In the Adapty dashboard, add its {store_name} product ID.',
+                        first_sid, first_eid), _title=title, _store=store_name,
+                        _platform=platform, _sites=sites))
             play = vendors.get('play_store')
             if play and not play.get('base_plan_id'):
                 out.append(finding(
                     'blocker', 'products', 'play-base-plan-missing',
-                    f'{title} has a play_store entry with no base_plan_id; Google needs '
-                    f'product id plus base plan id to complete a purchase '
-                    f'(bound at {sites_str})',
-                    'Set the base plan id on the Google Play binding.',
+                    f'"{title}" has a Google Play product ID but no base plan ID. '
+                    f'Google Play needs both to sell a subscription.'
+                    f'{sites_str}',
+                    'In the Adapty dashboard, add the base plan ID from Play Console '
+                    'to the product.',
                     first_sid, first_eid))
     return out
 
@@ -754,9 +812,10 @@ def check_period_claim(config, catalog):
                 said = next(iter(claimed))
                 out.append(finding(
                     'blocker', 'products', 'period-claim-mismatch',
-                    f'this card says {said} but {by_id[pid].get("title") or pid} is '
-                    f'{actual} — the user is shown a period the product does not have',
-                    f'Either bind the {said} product, or change the copy to {actual}.',
+                    f'This card says {said}, but "{by_id[pid].get("title") or pid}" is '
+                    f'set up as {actual}, so buyers see the wrong billing period.',
+                    f'Choose the {said} product for this card, or change the text to '
+                    f'say {actual}.',
                     s['id'], eid))
     return out
 
@@ -871,9 +930,9 @@ def check_price_integrity(config, catalog):
                 names = ', '.join((by_id.get(f, {}).get('title') or f) for f in sorted(foreign))
                 out.append(finding(
                     'blocker', 'products', 'foreign-price-variable',
-                    f'this card is bound to {by_id.get(pid, {}).get("title") or pid} but '
-                    f'shows a price variable for {names}, so it displays the wrong price',
-                    'Point the price variable at the product this card sells.',
+                    f'This card sells "{by_id.get(pid, {}).get("title") or pid}" but '
+                    f'shows the price of {names}, so buyers see the wrong price.',
+                    'Change the price on this card to the price of the product it sells.',
                     s['id'], eid))
 
             # hardcoded-price: element-scoped -- judge each descendant text element
@@ -884,17 +943,15 @@ def check_price_integrity(config, catalog):
                 money = [m.group(0) for m in MONEY_RE.finditer(elblob)]
                 nonzero = [m for m in money if re.sub(r'[^\d]', '', m).strip('0')]
                 if nonzero and not elrefs:
-                    out.append(finding(
+                    out.append(_tag(finding(
                         'blocker', 'products', 'hardcoded-price',
-                        f'a currency amount ({nonzero[0]}) is written into the copy '
-                        f'here instead of coming from a price variable -- if it is '
-                        f'meant to show a price, it will not localise currency and '
-                        f'will not follow a store price change',
-                        'If this is a price, replace the literal with a price '
-                        'variable for this product. If it is a savings or '
-                        'comparison figure, confirm it does not need to track a '
-                        'store price change either.',
-                        s['id'], lit_eid))
+                        f'{nonzero[0]} is typed into the text here. If it is a price, '
+                        f'it will not show in the buyer\'s currency and will not '
+                        f'change when you change the price in the store.',
+                        'If it is a price, replace it with the product\'s price. If '
+                        'it is a savings figure, check that it still holds when '
+                        'prices change.',
+                        s['id'], lit_eid), _amount=nonzero[0]))
     return out
 
 
@@ -1043,18 +1100,13 @@ def check_price_prominence(config, catalog):
                 if period:
                     out.append(finding(
                         'risk', 'compliance', 'billed-amount-not-shown',
-                        f'this screen shows a per-unit price for {title} but never the '
-                        f'amount the store actually charges. App Review rejected an '
-                        f'Adapty customer in June 2026 for exactly this, citing App Store 3.1.2(c): '
-                        f'"the subscription displays the monthly calculated pricing more '
-                        f'clearly and conspicuously than the billed amount"',
-                        f'Show the billed {period} amount on this screen too, at least as '
-                        f'prominently as the per-unit figure. Keeping the per-unit figure '
-                        f'is fine — it carries the savings framing — as long as the billed '
-                        f'amount is the louder of the two. Google Play requires the '
-                        f'price a user will actually be charged to be stated accurately '
-                        f'and completely, so this is a Play hazard as well as an App '
-                        f'Store one.',
+                        f'This screen shows "{title}" as a price per '
+                        f'{derived[0][2].rsplit("_", 1)[-1]}, but not the amount the '
+                        f'store actually charges. Apple has rejected paywalls for '
+                        f'exactly this.',
+                        f'Show the billed {period} amount too, at least as prominently. '
+                        f'You can keep the calculated price: it shows the saving. '
+                        f'(App Store 3.1.2(c), Google Play)',
                         s['id'], rows[0][0]))
                 elif already_reported is None or pid in already_reported:
                     # Already reported, once, by `check_products_catalog` -- see the
@@ -1069,27 +1121,23 @@ def check_price_prominence(config, catalog):
                     # wording did. `title` is the bare id here, by construction.
                     out.append(finding(
                         'question', 'compliance', 'billed-amount-not-shown',
-                        f'this screen shows a per-unit price for product {pid}, which is '
-                        f'not in the catalog and is not bound anywhere in this flow, so I '
-                        f'cannot tell whether the billed amount is shown anywhere',
-                        'Check that this price variable points at a product you actually '
-                        'sell — an id that is in neither the catalog nor the flow usually '
-                        'means the variable was left behind by an edit. If it is right, '
-                        'confirm the amount the store charges is on this screen: Apple '
-                        'rejects a paywall showing only a calculated per-month figure '
-                        '(App Store 3.1.2), and Google Play requires the price a user will '
-                        'actually be charged to be accurate and complete.',
+                        f'This screen shows a calculated price for a product that is '
+                        f'not in your product list and not sold anywhere in this flow '
+                        f'({pid}), so I cannot tell whether the billed amount is shown.',
+                        'Check that this price belongs to a product you actually sell: '
+                        'an unknown product usually means it was left behind by an edit. '
+                        'Then make sure the amount the store charges is on the screen. '
+                        '(App Store 3.1.2, Google Play)',
                         s['id'], rows[0][0]))
                 else:
                     out.append(finding(
                         'question', 'compliance', 'billed-amount-not-shown',
-                        f'this screen shows a per-unit price for {title}, whose catalog '
-                        f'entry states no billing period, so I cannot tell whether the '
-                        f'billed amount is shown anywhere',
-                        'Confirm the amount the store charges is on this screen. Apple '
-                        'rejects a paywall that shows only a calculated per-month figure '
-                        '(App Store 3.1.2). Google Play requires the price a user will '
-                        'actually be charged to be accurate and complete too.',
+                        f'This screen shows a calculated price for "{title}", but the '
+                        f'product has no billing period set, so I cannot tell whether '
+                        f'the billed amount is shown.',
+                        'Make sure the amount the store actually charges is on this '
+                        'screen, not only a calculated per-month price. '
+                        '(App Store 3.1.2, Google Play)',
                         s['id'], rows[0][0]))
                 continue
             bmax = max((r[3], r[4]) for r in billed)
@@ -1104,21 +1152,19 @@ def check_price_prominence(config, catalog):
                 # (regular/normal both rank 4), so the size-equal branch names the
                 # dimension and leaves the value to the config.
                 if dmax[0] > bmax[0]:
-                    louder = (f'is set larger than the billed amount '
-                              f'({dmax[0]}pt against {bmax[0]}pt)')
+                    louder = (f'is bigger than the billed amount '
+                              f'({dmax[0]} pt against {bmax[0]} pt)')
                 else:
-                    louder = (f'is set in a heavier weight than the billed amount, '
-                              f'both at {dmax[0]}pt')
+                    louder = (f'is bolder than the billed amount, '
+                              f'both at {dmax[0]} pt')
                 out.append(finding(
                     'risk', 'compliance', 'derived-price-louder',
-                    f'the per-unit price for {title} {louder}. App Store 3.1.2(c) '
-                    f'asks for the billed amount to be the more conspicuous of the two, '
-                    f'and has rejected on it',
-                    'Make the billed amount the heavier of the two — the fix that '
-                    'passed for one Adapty customer was billed amount bold at 14px with '
-                    'the per-month figure at 12px. Google Play requires the price a '
-                    'user will actually be charged to be stated accurately and '
-                    'completely, so an Android-only app has the same hazard.',
+                    f'The calculated price for "{title}" {louder}. Apple wants the '
+                    f'billed amount to be the more prominent of the two, and has '
+                    f'rejected paywalls over it.',
+                    'Make the billed amount bigger or bolder than the calculated one, '
+                    'for example billed amount bold at 14 pt and the per-month price at '
+                    '12 pt. (App Store 3.1.2(c), Google Play)',
                     s['id'], derived[0][0]))
     return out
 
@@ -1195,14 +1241,11 @@ def check_trial_toggle(config, stores):
                 continue
             out.append(finding(
                 'risk', 'compliance', 'trial-toggle',
-                'this looks like a free-trial toggle — a switch the user has to flip to '
-                'see the trial. Apple began rejecting this pattern in January 2026 under '
-                'App Store 3.1.2, with no announcement and no grace period, and several '
-                'Adapty customers were caught by it',
-                'Show the trial terms without requiring a tap: a side-by-side plan '
-                'comparison with the trial badged on one plan, or a trial timeline that '
-                'states when the charge happens. If you '
-                'keep the toggle, expect the next iOS submission to draw attention.',
+                'This looks like a free-trial switch: the user has to flip it to see the '
+                'trial. Apple has been rejecting this pattern, with no warning.',
+                'Show the trial without a tap: two plans side by side with the trial on '
+                'one of them, or a timeline that says when the first charge happens. If '
+                'you keep the switch, expect questions at iOS review. (App Store 3.1.2)',
                 s['id'], eid))
     return out
 
@@ -1260,15 +1303,11 @@ def check_disclosure(config, catalog):
                 # and a button") asserted a fact its only real firing case
                 # contradicts, and its fix pointed at a price that is not there.
                 'risk', 'compliance', 'no-period-disclosed',
-                'nothing on this selling screen states how often the subscription '
-                'bills — no billing period appears anywhere in its copy, so a user '
-                'is asked to subscribe without being told the frequency',
-                'Put the billing period in this screen\'s copy — "Billed yearly" '
-                'under the button, or a "/year" on the plan it belongs to. App Store '
-                '3.1.2 lists Length of subscription among the four disclosures '
-                'required in the binary (Schedule 2, cited by every App Store 3.1.2 '
-                'rejection); '
-                'Google Play requires the billing frequency too.',
+                'This screen asks people to subscribe but never says how often they '
+                'will be billed.',
+                'Add the billing period to the text: "Billed yearly" under the button, '
+                'or "/year" next to the price. '
+                '(App Store 3.1.2, Google Play)',
                 s['id']))
 
         # trial-terms-incomplete. Google Play, verbatim: developers must "clearly and
@@ -1297,12 +1336,11 @@ def check_disclosure(config, catalog):
             continue
         out.append(finding(
             'risk', 'compliance', 'trial-terms-incomplete',
-            'this screen offers a free trial but never says what happens when it ends '
-            '— no price, no billing period, nothing about renewal',
-            'State the charge that follows the trial next to the offer: "Free for 7 '
-            'days, then $79.99/year". Google Play requires the cost after the offer '
-            'ends and how to cancel; Apple rejects the same omission under App Store '
-            '3.1.2.',
+            'This screen offers a free trial but does not say what happens when it '
+            'ends: no price, no billing period, nothing about renewal.',
+            'Say what the trial turns into, next to the offer: "Free for 7 days, '
+            'then $79.99/year". (App Store 3.1.2, '
+            'Google Play)',
             s['id']))
     return out
 
@@ -1380,14 +1418,13 @@ def check_external_purchase(config, stores):
             continue
         out.append(finding(
             'question', 'compliance', 'external-purchase-link',
-            'this selling screen opens a url that looks like a payment page: '
+            'This screen links to what looks like a payment page: '
             + ', '.join(sorted(set(hits)))
-            + '. App Store 3.1.1 forbids steering users to a purchase method other '
-              'than in-app purchase, outside the US storefront',
-            'If this link takes users somewhere to pay and you ship outside the US '
-            'storefront without the External Link Account Entitlement, remove it — this '
-            'is a reliable rejection. If it opens a help page or your US-storefront '
-            'build only, no action needed.',
+            + '. Outside the US, Apple does not allow sending users to pay outside '
+            'the app.',
+            'If it is a payment page and you sell outside the US, remove it: this is a '
+            'reliable rejection. If it is a help page, or you sell only in the US, you '
+            'are fine. (App Store 3.1.1)',
             s['id']))
     return out
 
@@ -1531,6 +1568,10 @@ def check_localization(config):
     if not locales:
         return out
     base = default_locale(config)
+    # The builder shows a language by its name ("Serbian (Latin)"), not its code.
+    name = {l.get('code'): l.get('name') or l.get('code')
+            for l in (config.get('locales') or []) if l.get('code')}
+    nm = lambda c: name.get(c) or c
     stat, examples = locale_coverage(config)
     total = sum(1 for vals in _localizable_values(config, locales)
                 if not _is_media_field(vals, base))
@@ -1540,14 +1581,26 @@ def check_localization(config):
         if s['empty']:
             out.append(finding(
                 'blocker', 'localization', 'empty-translation',
-                f'{code}: {s["empty"]} field(s) have a value with no content at all, so '
-                f'the screen shows nothing there in {code}',
-                f'Fill the {code} values, or remove {code} from the flow\'s locales.'))
+                f'{s["empty"]} text field(s) are empty in {nm(code)}, so those parts of '
+                f'the screen show nothing in {nm(code)}.',
+                f'Fill in the {nm(code)} text, or remove {nm(code)} from the flow\'s '
+                f'languages.'))
+        if total and 0 < s['missing'] < total and code != base:
+            # Missing, not empty: the language has no key at all for these fields. One
+            # translated field used to be enough to keep a nearly untranslated language
+            # out of the report -- measured on a real flow listing Russian with 80 of
+            # its 81 text fields missing, which printed only a table row.
+            out.append(finding(
+                'blocker', 'localization', 'missing-translation',
+                f'{nm(code)} is listed as a language, but {s["missing"]} of {total} text '
+                f'fields have no {nm(code)} text yet.',
+                f'Translate the remaining text into {nm(code)}, or remove {nm(code)} from '
+                f'the flow\'s languages.'))
         if total and s['missing'] == total and code != base:
             out.append(finding(
                 'blocker', 'localization', 'locale-entirely-empty',
-                f'{code} is declared but has no values anywhere in the flow',
-                f'Translate the flow into {code}, or remove it from locales.'))
+                f'{nm(code)} is listed as a language but has no text anywhere in the flow.',
+                f'Translate the flow into {nm(code)}, or remove it from the languages.'))
 
     # Grouped, once for the whole flow -- see the docstring above for why.
     hit_locales = [code for code in locales if code != base and stat[code]['same']]
@@ -1557,14 +1610,14 @@ def check_localization(config):
             for ex in examples[code]:
                 if ex not in seen:
                     seen.append(ex)
-        counts = ', '.join(f'{code}: {stat[code]["same"]}' for code in hit_locales)
-        shown = ', '.join(repr(x) for x in seen[:4])
+        counts = ', '.join(f'{nm(code)}: {stat[code]["same"]}' for code in hit_locales)
+        shown = ', '.join(f'"{x}"' for x in seen[:4])
         out.append(finding(
             'risk', 'localization', 'untranslated',
-            f'value(s) identical to the base locale ({base}) elsewhere in the flow '
-            f'({counts}) -- for example {shown}. Brand names and product names are '
-            f'expected here; check whether the rest is a missed translation.',
-            'Translate anything in that list that is not a proper noun.'))
+            f'Some text is the same as in {nm(base)} ({counts}), for example {shown}. '
+            f'That is expected for brand and product names; the rest may be a missed '
+            f'translation.',
+            'Translate anything in that list that is not a name.'))
     return out
 
 
@@ -1586,8 +1639,8 @@ def check_placeholders(config):
         if txt and PLACEHOLDER_RE.search(txt.strip()):
             out.append(finding(
                 'risk', 'placeholders', 'placeholder-copy',
-                f'this looks like unfinished copy: {txt[:60]!r}',
-                'Replace it with the real wording.', s['id'], eid))
+                f'This looks like unfinished text: "{txt[:60]}"',
+                'Replace it with the real text.', s['id'], eid))
     return out
 
 
@@ -1658,9 +1711,9 @@ def check_variables(config):
         if vid not in refs:
             out.append(finding(
                 'risk', 'variables', 'variable-no-consumer',
-                f'variable {vid!r} is set but never read anywhere in the flow',
-                'Use it in a condition or a text field, or remove the action that '
-                'sets it.', sid, eid))
+                f'The variable "{vid}" is set but never used anywhere in the flow.',
+                'Use it in a condition or a text field, or remove the "Set Variable" '
+                'action that sets it.', sid, eid))
     return out
 
 
@@ -1717,9 +1770,53 @@ def _dot_text(e, locale=None):
     return len(visible) >= 3 and all(c in DOT_GLYPHS for c in visible)
 
 
+def _row_marker(node, m):
+    """(length, index) for an indicator row: how many markers it has and which one is the
+    odd one out -- the ACTIVE marker, drawn wider or in another colour. None when no
+    single marker stands out."""
+    kids = [c.get('id') for c in node.get('children') or []]
+    sig = [(json.dumps(((m.get(k) or {}).get('props') or {}).get('width'), sort_keys=True),
+            json.dumps(((m.get(k) or {}).get('props') or {}).get('fill'), sort_keys=True))
+           for k in kids]
+    odd = [i for i, x in enumerate(sig) if sig.count(x) == 1]
+    return (len(kids), odd[0] if len(odd) == 1 else None)
+
+
+def _step_indicator_rows(config):
+    """Node ids of dot rows that are a STEP INDICATOR, not a fake slider.
+
+    A fake slider is one frozen screen. A step indicator is the same row repeated on
+    several screens with the active marker in a different place on each -- "step 1 of
+    3", "step 2 of 3". Both signals are required: a fake slider copied unchanged onto
+    two screens keeps its active marker in one place and still fires. Measured on
+    Lingua Pro, whose "Progress dots" (three pills, the wide one moving 1 -> 2 -> 3
+    across Welcome, Goal and Pace) fired three times as a fake carousel.
+    """
+    rows = {}
+    for s in config.get('screens') or []:
+        m = (s.get('elements') or {}).get('map') or {}
+
+        def walk(node):
+            kids = node.get('children') or []
+            if len(kids) >= 2 and all(not c.get('children') for c in kids):
+                length, odd = _row_marker(node, m)
+                if odd is not None:
+                    rows.setdefault(length, []).append((s.get('id'), node.get('id'), odd))
+            for c in kids:
+                walk(c)
+        walk((s.get('elements') or {}).get('hierarchy') or {})
+    step = set()
+    for length, found in rows.items():
+        screens = {sid for sid, _, _ in found}
+        if len(screens) >= 2 and len({odd for _, _, odd in found}) >= 2:
+            step.update(nid for _, nid, _ in found)
+    return step
+
+
 def check_fake_carousel(config):
     out = []
     dl = default_locale(config)
+    step_rows = _step_indicator_rows(config)
     for s in config.get('screens') or []:
         m = ((s.get('elements') or {}).get('map') or {})
         if any(e.get('type') == 'carousel' for e in m.values()):
@@ -1735,15 +1832,16 @@ def check_fake_carousel(config):
             # A single text node of bullet glyphs IS the whole indicator row, so it
             # counts alone; two is the floor otherwise, because a two-slide carousel
             # gets exactly two dots.
-            if len(dots) >= 2 or any(_dot_text(e, dl) for _, e in leaves):
+            if node.get('id') in step_rows:
+                pass
+            elif len(dots) >= 2 or any(_dot_text(e, dl) for _, e in leaves):
                 out.append(finding(
                     'risk', 'placeholders', 'fake-carousel',
-                    f'{len(dots)} hand-built indicator dot(s) under one parent and no '
-                    f'`carousel` element on this screen — a slider faked as a static '
-                    f'card with decorative dots. It shows one frozen slide, does not '
-                    f'swipe, and the dots never move.',
-                    'Replace it with the real `carousel` element and delete the dot '
-                    'elements — the carousel draws its own dots from props.dots.',
+                    f'This looks like a slider but is not one: {len(dots)} dots drawn by '
+                    f'hand under a single card. Users see one slide that does not swipe, '
+                    f'and the dots never move.',
+                    'Replace it with a Carousel element and delete the dots: a Carousel '
+                    'swipes and draws its own dots.',
                     s.get('id'), dots[0] if dots else None))
             parent = m.get(node.get('id'), {})
             # `props.layout` is a bare STRING ('auto-height') on a text element, so it
@@ -1761,17 +1859,214 @@ def check_fake_carousel(config):
                         and sum(widths) + gap * (len(widths) - 1) > VIEWPORT_PT):
                     out.append(finding(
                         'risk', 'placeholders', 'fake-carousel',
-                        f'a horizontal row of {len(widths)} equal fixed-width cards '
-                        f'({widths[0]}pt each) totals more than the {VIEWPORT_PT}pt '
-                        f'viewport on a screen with no `carousel` — a swipeable row '
-                        f'built as a static one, so the overflow is simply clipped.',
-                        'Use the real `carousel` element, which scrolls its slides.',
+                        f'{len(widths)} cards in a row ({widths[0]} pt each) are wider than '
+                        f'the screen, and there is no Carousel, so the cards past the edge are '
+                        f'cut off instead of scrolling.',
+                        'Put the cards in a Carousel element so they scroll.',
                         s.get('id'), node.get('id')))
             for c in kids:
                 walk(c)
 
         walk(hierarchy)
     return out
+
+
+def _norm(text):
+    return re.sub(r'[^a-z0-9]', '', (text or '').lower())
+
+
+def _branches(config):
+    """Every conditional that routes on a single-choice answer: yields
+    (screen, group id, [(answer ids, target screen ids)], default target screen ids)."""
+    order = [s['id'] for s in config.get('screens') or []]
+    for s, eid, e in elements(config):
+        stack = [a for _, a in actions_of(e)]
+        while stack:
+            a = stack.pop()
+            if not isinstance(a, dict):
+                continue
+            if a.get('type') != 'conditional':
+                continue
+            pl = a.get('payload') or {}
+            cases, group = [], None
+            for case in pl.get('cases') or []:
+                if not (isinstance(case, list) and len(case) == 2):
+                    continue
+                cond, then = case
+                preds = (cond.get('predicates') if isinstance(cond, dict)
+                         and cond.get('type') in ('&&', '||') else [cond])
+                vals = []
+                for pd in preds or []:
+                    left = (pd or {}).get('left') or {}
+                    right = (pd or {}).get('right') or {}
+                    vid = left.get('variableId') or ''
+                    if (pd.get('type') == '==' and vid.endswith('.selectedOptionId')
+                            and right.get('type') == 'const'
+                            and isinstance(right.get('value'), str)):
+                        group = vid.split('.')[0]
+                        vals.append(right['value'])
+                if vals:
+                    cases.append((vals, _nav_targets(then, s['id'], order)))
+            if group and cases:
+                yield (s, group, cases,
+                       _nav_targets(pl.get('default'), s['id'], order))
+
+
+def _answers(config, group):
+    """customId -> the answer's visible text, for one selectable group."""
+    dl = default_locale(config)
+    out = {}
+    for s in config.get('screens') or []:
+        m = (s.get('elements') or {}).get('map') or {}
+        pm_children = {}
+
+        def index(n):
+            pm_children[n.get('id')] = [c.get('id') for c in n.get('children') or []]
+            for c in n.get('children') or []:
+                index(c)
+        index((s.get('elements') or {}).get('hierarchy') or {})
+
+        def text_of(eid):
+            t = flat_text(((m.get(eid) or {}).get('props') or {}).get('content'), dl)
+            return ' '.join(x for x in [t] + [text_of(c) for c in pm_children.get(eid, [])]
+                            if x).strip()
+        n = 0
+        for eid, e in m.items():
+            pr = e.get('props') or {}
+            if pr.get('groupId') == group and e.get('type') == 'selectable':
+                # The element that CARRIES the branch on this group is its submit
+                # button, not an answer -- the builder makes the quiz's Next button a
+                # group member (caption "Button" in the quiz fixture). Counting it as an
+                # answer invented a "Next" answer that falls through to a named screen.
+                if f'{group}.selectedOptionId' in json.dumps(e.get('interactions') or []):
+                    continue
+                n += 1
+                cid = pr.get('customId')
+                if isinstance(cid, str) and cid.strip():
+                    out[cid] = text_of(eid) or cid
+                else:
+                    # An answer with no ID can never be named in a branch, so it always
+                    # takes the "otherwise" path -- exactly the answer this check must
+                    # see. Keyed so it can never collide with a real ID.
+                    ordinal = {1: '1st', 2: '2nd', 3: '3rd'}.get(n, f'{n}th')
+                    out[f'\0{n}'] = text_of(eid) or f'the {ordinal} answer'
+    return out
+
+
+def check_navigation(config):
+    """Does each quiz branch go where its answer says it should?
+
+    Three checks, each keyed to something observable rather than to intent:
+    - a branch naming an answer ID the question does not have can never fire (blocker);
+    - a branch that leads to a screen NAMED after a different answer is probably wired
+      to the wrong screen (risk);
+    - an "otherwise" path that leads to a screen named after ONE answer, while other
+      answers also fall through to it, sends those answers to that one answer's screen
+      (risk).
+    The last two need the name signal on purpose: sending "some" and "talk" to an
+    "Accelerated path" screen is a design, not a bug, and must stay silent -- it does
+    on the real "Language onboarding" flow this was calibrated against.
+    """
+    out = []
+    cap = {s['id']: s.get('caption') or s['id'] for s in config.get('screens') or []}
+    for s, group, cases, default in _branches(config):
+        answers = _answers(config, group)
+        if not answers:
+            continue
+        def label(cid):
+            text = answers.get(cid) or cid
+            if cid.startswith('\0'):
+                return text if text.startswith('the ') else f'"{text}"'
+            return f'"{text}"' 
+        by_name = {}
+        for cid, text in answers.items():
+            if cid.startswith('\0'):
+                continue
+            for key in {_norm(cid), _norm(text)} - {''}:
+                by_name[key] = cid
+        covered = set()
+        for vals, targets in cases:
+            for v in vals:
+                covered.add(v)
+                tnames = _join_and(f'"{cap.get(t, t)}"' for t in dict.fromkeys(targets))
+                if v not in answers:
+                    known = _join_and(f'{label(c)} (ID "{c}")' for c in answers
+                                      if not c.startswith('\0'))
+                    out.append(finding(
+                        'blocker', 'navigation', 'dead-branch',
+                        f'The "{cap[s["id"]]}" screen sends people who pick "{v}" '
+                        f'{"to " + tnames if tnames else "somewhere"}, but no answer to this '
+                        f'question has that ID, so nobody ever goes there: everyone takes '
+                        f'the other path.',
+                        f'Point this branch at one of the answers the question has: {known}.',
+                        s['id']))
+                    continue
+                for t in targets:
+                    owner = by_name.get(_norm(cap.get(t)))
+                    if owner and owner != v:
+                        out.append(finding(
+                            'risk', 'navigation', 'branch-mismatch',
+                            f'People who pick {label(v)} on the "{cap[s["id"]]}" screen go to '
+                            f'the "{cap.get(t, t)}" screen, which is named after a different '
+                            f'answer, {label(owner)}.',
+                            f'Check this branch in the builder and point it at the screen '
+                            f'meant for {label(v)}.', s['id']))
+        rest = [c for c in answers if c not in covered]
+        # A dead branch already explains why its answer falls through; saying it again as
+        # a fall-through repeats one problem as two.
+        if any(v not in answers for vals, _ in cases for v in vals):
+            continue
+        for t in dict.fromkeys(default):
+            owner = by_name.get(_norm(cap.get(t)))
+            others = [c for c in rest if c != owner]
+            if owner and others:
+                out.append(finding(
+                    'risk', 'navigation', 'fallthrough-to-answer-screen',
+                    f'On the "{cap[s["id"]]}" screen only '
+                    f'{_join_and(label(c) for c in covered if c in answers)} '
+                    f'{"has" if len(covered) == 1 else "have"} a branch of '
+                    f'{"its" if len(covered) == 1 else "their"} own. '
+                    f'{_join_and(label(c) for c in others)} also '
+                    f'go{"es" if len(others) == 1 else ""} to the "{cap.get(t, t)}" screen, '
+                    f'which is named after {label(owner)}.',
+                    f'Give {_join_and(label(c) for c in others)} '
+                    f'{"its" if len(others) == 1 else "their"} own branch, or point the '
+                    f'"otherwise" path at a screen that fits every remaining answer.',
+                    s['id']))
+    return out
+
+
+def check_sibling_locales(config, siblings):
+    """Languages the app's other published flows offer and this one does not.
+
+    `siblings` is {flow name: [locale codes]} for the app's OTHER published flows, or
+    None when they were not fetched. The audit cannot know which markets the app
+    serves; what it can see is that the rest of the app already speaks a language this
+    flow does not. A risk, never a blocker: an English-only flow is a legitimate choice.
+    """
+    if not siblings:
+        return []
+    names = {l.get('code'): l.get('name') or l.get('code')
+             for l in config.get('locales') or [] if l.get('code')}
+    mine = set(names)
+    have = {}
+    for flow, entries in siblings.items():
+        for x in entries or []:
+            code = x.get('code') if isinstance(x, dict) else x
+            if not code or code in mine:
+                continue
+            names.setdefault(code, (x.get('name') if isinstance(x, dict) else None) or code)
+            have.setdefault(code, []).append(flow)
+    if not have:
+        return []
+    langs = _join_and(names[c] for c in sorted(have))
+    ours = _join_and(names[c] for c in sorted(mine)) or 'one language'
+    where = _join_and(f'"{n}"' for n in sorted({n for ns in have.values() for n in ns})[:3])
+    return [finding(
+        'risk', 'localization', 'missing-sibling-locale',
+        f'Your other published flows ({where}) are also in {langs}; this one is only in '
+        f'{ours}.',
+        f'If people who use your app in {langs} see this flow, translate it too.')]
 
 
 def audit(config, catalog=None, stores=None):
@@ -1789,6 +2084,7 @@ def audit(config, catalog=None, stores=None):
     findings += check_placeholders(config)
     findings += check_fake_carousel(config)
     findings += check_variables(config)
+    findings += check_navigation(config)
     return findings
 
 
@@ -1803,24 +2099,19 @@ def check_meta(meta):
         if name:
             out.append(finding(
                 'question', 'placeholders', 'flow-untitled',
-                f'the flow is still called {name!r}, which usually means it was never '
-                f'named',
-                'Rename it in the dashboard so your team can find it.'))
+                f'The flow is still called "{name}".',
+                'Give it a real name in the dashboard so your team can find it.'))
     status = (meta or {}).get('status') or ''
     if status == 'publication_failed':
         out.append(finding(
             'question', 'placeholders', 'publication-failed',
-            'the dashboard reports this flow as publication_failed -- the last '
-            'attempt to publish it did not go through. No check in this audit '
-            'explains why; do not guess a cause here.',
-            'Run `adapty flows config get --app <APP> <FLOW>` and read '
-            '`transform_error` -- that is the transform service\'s own reason for '
-            'the failure. The Flow Builder shows the same thing.'))
+            'The last attempt to publish this flow failed (the dashboard shows it as '
+            'Failed). Nothing in this audit explains why, so I will not guess.',
+            'Open the flow in the Flow Builder: it shows why the publish failed.'))
     return out
 
 
 ORDER = {'blocker': 0, 'risk': 1, 'question': 2}
-HEADINGS = {'blocker': 'BLOCKERS', 'risk': 'RISKS', 'question': 'COULD NOT CHECK'}
 
 # Store-review checks are partitioned out of the severity groups and printed under
 # their own heading. They are advisory: they never count toward the verdict, never
@@ -1839,12 +2130,7 @@ STORE_REVIEW_CHECKS = frozenset({
 # finding is not a rejection. An earlier draft of this feature gave the verdict line a
 # store dimension ("1 would fail App Store review"); that is exactly the certificate
 # this section must not issue, and it was dropped.
-STORE_REVIEW_DISCLAIMER = (
-    'These are rejection hazards, not verdicts. App Review and Play review are human, '
-    'inconsistent between submissions, and change without notice — the toggle-paywall '
-    'wave arrived with no guideline edit and no warning. A clean store-review section '
-    'is not a guarantee of approval, and a finding here is not a guarantee of '
-    'rejection. Nothing in this section blocks the verdict above.')
+STORE_REVIEW_HEADING = "Store review (advisory, doesn't block publishing)"
 
 # A short, human label per check -- a few words, no colon-clauses -- for the verdict
 # line ONLY. The full message stays in the finding row below it; the verdict line is
@@ -1955,22 +2241,22 @@ def _verdict_labels(blockers, cap=4):
 AFFORDANCE_TO_CHECK = {'restore': 'no-restore', 'terms': 'no-terms-link',
                        'eula': 'no-terms-link', 'privacy': 'no-privacy-link'}
 MERGE_ORDER = ('no-restore', 'no-terms-link', 'no-privacy-link')
+# What the dead text looks like it is, and the rule that requires it -- one entry per
+# compliance check a dead row can stand in for. Keyed the same as `LEGAL_NAME` and
+# `ACTION_PHRASE`.
 BULLET_INFO = {
-    'no-restore': ('no restorePurchases action anywhere in the flow', 'App Store 3.1.1'),
-    'no-terms-link': ('no link to terms/EULA', 'App Store 3.1.2'),
-    'no-privacy-link': ('no link to a privacy policy', 'App Store 3.1.2'),
+    'no-restore': ('a Restore button', 'App Store 3.1.1'),
+    'no-terms-link': ('a link to your Terms of Use', 'App Store 3.1.2'),
+    'no-privacy-link': ('a link to your Privacy Policy', 'App Store 3.1.2'),
 }
-LEGAL_NAME = {'no-terms-link': 'terms', 'no-privacy-link': 'privacy'}
-# What to wire ONE element to, for the one-affordance fix line -- see
-# `_merge_dead_affordance_group`'s `len(parsed) == 1, n == 1` branch and the sibling
-# branch's per-check clause. Keyed the same as `BULLET_INFO`/`LEGAL_NAME`.
-ACTION_PHRASE = {
-    'no-restore': 'a restorePurchases action',
-    'no-terms-link': 'an openUrl action pointing at your hosted terms URL',
-    'no-privacy-link': 'an openUrl action pointing at your hosted privacy URL',
-}
+LEGAL_NAME = {'no-terms-link': 'Terms of Use', 'no-privacy-link': 'Privacy Policy'}
+# What to give ONE element, in the builder's own action names.
 WORD_NUM = {1: 'one', 2: 'two', 3: 'three'}
-DEAD_AFFORDANCE_RE = re.compile(r'^copy promises (.+?) but neither the element')
+ACTION_PHRASE = {
+    'no-restore': 'a "Restore purchases" action',
+    'no-terms-link': 'an "Open URL" action that opens your Terms of Use page',
+    'no-privacy-link': 'an "Open URL" action that opens your Privacy Policy page',
+}
 
 # The second report-only collapse: the two `check_disclosure` halves, when both fire
 # on the SAME screen. Ordered absorber-last, mirroring `MERGE_ORDER`'s convention of
@@ -1986,33 +2272,31 @@ def _merge_disclosure(screen):
     """
     return finding(
         'risk', 'compliance', 'trial-terms-incomplete-merged',
-        'this selling screen offers a free trial and discloses neither of the two '
-        'things a store requires alongside it: nothing states how often the '
-        'subscription bills, and nothing states what happens when the trial ends',
-        'State both next to the offer, in one line: "Free for 7 days, then '
-        '$79.99/year". App Store 3.1.2 lists Length of subscription among the four '
-        'disclosures required in the binary (Schedule 2, cited by every App Store '
-        '3.1.2 rejection); Google Play requires the billing frequency, the cost after the '
-        'offer ends, and how to cancel.',
+        'This screen offers a free trial but says neither how often it bills nor what '
+        'happens when the trial ends.',
+        'Say both next to the offer, in one line: "Free for 7 days, then $79.99/year". '
+        '(App Store 3.1.2, Google Play)',
         screen)
 
 
-def _dead_raw_text(dead):
-    """The literal copy a `dead-affordance` finding's message quotes, recovered by
-    parsing `check_triggers`' own message text. A known, accepted coupling -- see
-    the module docstring's note on it -- kept rather than threaded through the
-    finding dict, which a contract test pins to an exact key set.
+def _element_text(config, sid, eid):
+    """The literal text of one element, read from the CONFIG -- never parsed back out
+    of a finding's message. The report used to recover it (and the affordance words)
+    by regex over `check_triggers`' own wording, which made every rewording of that
+    message a silent break in the merge; reading the element costs one lookup and
+    frees the message to say whatever reads best.
     """
-    lit = re.search(r': (.*)$', dead['message'])
-    try:
-        return ast.literal_eval(lit.group(1)) if lit else ''
-    except (ValueError, SyntaxError):
-        return lit.group(1) if lit else ''
+    for s in config.get('screens') or []:
+        if s.get('id') != sid:
+            continue
+        e = ((s.get('elements') or {}).get('map') or {}).get(eid) or {}
+        return flat_text((e.get('props') or {}).get('content'), default_locale(config))
+    return ''
 
 
 def _join_and(items):
     """'a' / 'a and b' / 'a, b and c' -- no Oxford comma, matching `render`'s own
-    `blocker_nums` join."""
+    number joins."""
     items = list(items)
     if not items:
         return ''
@@ -2021,111 +2305,82 @@ def _join_and(items):
     return ', '.join(items[:-1]) + f' and {items[-1]}'
 
 
-def _merge_dead_affordance_group(screen, parent, parsed, matched):
+def _merge_dead_affordance_group(screen, parent, parsed, matched, config):
     """One finding covering every `dead-affordance` finding in `parsed` -- a list of
     `(raw_finding, named_words)` pairs that all share one screen and one parent
     element (or, when `parent` is None, a single pair that has no parent at all) --
     plus the compliance blockers named in `matched` (a subsequence of `MERGE_ORDER`).
 
-    `len(parsed) == 1` is the original shape: one element whose OWN copy names
-    several affordance words (`el_089T` reading "Restore purchase · Terms ·
-    Privacy"). `len(parsed) > 1` is DEFECT 1's shape: several SIBLING elements
-    under one parent, each naming exactly one word
-    (`comparison-paywall.json`'s Restore/Terms/Privacy row). The two read and fix
-    differently -- the first names ONE row and asks to split or wire IT; the second
-    already has N separate rows and asks to wire EACH of them -- so the branch is on
+    `len(parsed) == 1` is one element whose OWN text names several things ("Restore
+    purchase · Terms · Privacy"): the fix is to split it, or to wire it when it names
+    only one. `len(parsed) > 1` is several SIBLING elements under one parent, each
+    naming one thing (`comparison-paywall.json`'s Restore/Terms/Privacy row): the fix
+    is to wire each of them. The two read and fix differently, so the branch is on
     `len(parsed)`, not on `len(matched)` alone.
     """
     legal = [c for c in matched if c in LEGAL_NAME]
-    trailer = ''
-    if legal:
-        trailer = ('\n   In fact openUrl appears nowhere in this flow, so no legal '
-                   'link exists to wire to.')
+    what = _join_and(BULLET_INFO[c][0] for c in matched)
+    rules = list(dict.fromkeys(BULLET_INFO[c][1].split()[-1] for c in matched))
+    cites = 'App Store ' + _join_and(rules)
+    trailer = (' The flow has no "Open URL" action anywhere, so these links do not '
+               'exist yet.' if legal else '')
 
     if len(parsed) == 1:
         dead, _named = parsed[0]
-        where = ' / '.join(x for x in (dead['screen'], dead['element']) if x)
-        raw_text = _dead_raw_text(dead)
-        bullets = '\n'.join(
-            f'     · {BULLET_INFO[c][0]:<50} → {BULLET_INFO[c][1]}'
-            for c in matched)
-        message = (
-            'This row is dead text.\n'
-            f'   {where} reads "{raw_text}" and carries no interaction at all. It '
-            f'renders exactly like a working row, and none of the following work:\n'
-            f'{bullets}{trailer}'
-        )
-        n_tap = len(matched)
-        if n_tap == 1:
-            # One element, one affordance: it already IS one tappable element, so
-            # the fix is to wire it, not to "split" a row that is not split (DEFECT
-            # 2 -- the old wording, "Split the row into one tappable element", was
-            # nonsense for exactly this case).
-            fix = f'Wire this element to {ACTION_PHRASE[matched[0]]}.'
+        raw_text = _element_text(config, dead['screen'], dead['element'])
+        message = (f'"{raw_text}" looks like {what}, but nothing happens when it is '
+                   f'tapped: it has no On Tap action. Apple requires '
+                   f'{"these" if len(matched) > 1 else "it"} on a subscription '
+                   f'screen ({cites}).{trailer}')
+        if len(matched) == 1:
+            fix = f'Give it {ACTION_PHRASE[matched[0]]}.'
         else:
-            fix_bits = []
+            parts = []
             if 'no-restore' in matched:
-                fix_bits.append('one restorePurchases action')
+                parts.append('one with a "Restore purchases" action')
             if legal:
-                ln = len(legal)
-                names = ' and '.join(LEGAL_NAME[c] for c in legal)
-                fix_bits.append(f'{WORD_NUM.get(ln, str(ln))} openUrl action'
-                                 f'{"s" if ln != 1 else ""} pointing at your hosted '
-                                 f'{names} URL{"s" if ln != 1 else ""}')
-            tap_count = WORD_NUM.get(n_tap, str(n_tap))
-            fix = (f'Split the row into {tap_count} tappable elements — '
-                   + ', '.join(fix_bits) + '.') if fix_bits else dead['fix']
+                names = _join_and(LEGAL_NAME[c] for c in legal)
+                if len(legal) == 1:
+                    parts.append(f'one with an "Open URL" action that opens your '
+                                 f'{names} page')
+                else:
+                    parts.append(f'{WORD_NUM.get(len(legal), len(legal))} with "Open '
+                                 f'URL" actions that open your {names} pages')
+            fix = (f'Split it into {WORD_NUM.get(len(matched), len(matched))} '
+                   f'tappable elements: ' + _join_and(parts) + '.')
         element = dead['element']
     else:
-        by_eid = {d['element']: (d, words) for d, words in parsed}
-        where = ' / '.join(x for x in (screen, parent) if x)
-        rows = []
-        covered = set()
+        texts = {d['element']: _element_text(config, d['screen'], d['element'])
+                 for d, _words in parsed}
+        elem_list = _join_and(f'"{texts[d["element"]]}"' for d, _words in parsed)
+        message = (f'{elem_list} look like {what}, but nothing happens when any of '
+                   f'them is tapped: none has an On Tap action. Apple requires these on '
+                   f'a subscription screen ({cites}).{trailer}')
+        clauses, covered = [], set()
         for c in matched:
-            owners = [eid for eid, (_d, words) in by_eid.items()
+            owners = [d['element'] for d, words in parsed
                       if any(w in words for w, cc in AFFORDANCE_TO_CHECK.items()
                              if cc == c)]
             covered.update(owners)
-            named_owners = _join_and(
-                f'{eid} ("{_dead_raw_text(by_eid[eid][0])}")' for eid in owners)
-            rows.append(f'     · {named_owners}: {BULLET_INFO[c][0]:<40} → '
-                       f'{BULLET_INFO[c][1]}')
-        # A sibling whose named word maps to no firing compliance check (e.g. a
-        # "skip" label sitting in the same row) is still named here, so nothing in
-        # the group is silently dropped from the finding.
-        for eid, (d, _words) in by_eid.items():
-            if eid not in covered:
-                rows.append(f'     · {eid} ("{_dead_raw_text(d)}"): also carries no '
-                           f'interaction, though no compliance check names it')
-        bullets = '\n'.join(rows)
-        elem_list = _join_and(
-            f'{d["element"]} ("{_dead_raw_text(d)}")' for d, _words in parsed)
-        n = len(parsed)
-        message = (
-            'This row is dead text.\n'
-            f'   {where} groups {WORD_NUM.get(n, str(n))} sibling elements that '
-            f'render like a working row and carry no interaction at all -- '
-            f'{elem_list}. None of the following work:\n'
-            f'{bullets}{trailer}'
-        )
-        fix_clauses = []
-        for c in matched:
-            owners = [eid for eid, (_d, words) in by_eid.items()
-                      if any(w in words for w, cc in AFFORDANCE_TO_CHECK.items()
-                             if cc == c)]
             if owners:
-                fix_clauses.append(f'{_join_and(owners)} to {ACTION_PHRASE[c]}')
-        fix = ('Wire ' + _join_and(fix_clauses) + '.') if fix_clauses else (
-            'Wire each element to a real action.')
+                clauses.append(f'{_join_and(chr(34) + texts[o] + chr(34) for o in owners)} '
+                               f'{ACTION_PHRASE[c]}')
+        fix = ('Give ' + _join_and(clauses) + '.') if clauses else (
+            'Give each of them a real action.')
+        # A sibling whose word maps to no firing compliance check (a "Skip" label in
+        # the same row) is still named, so nothing in the group is silently dropped.
+        rest = [texts[d['element']] for d, _w in parsed if d['element'] not in covered]
+        if rest:
+            fix += (f' {_join_and(chr(34) + t + chr(34) for t in rest)} in the same '
+                    f'row {"has" if len(rest) == 1 else "have"} no action either.')
         element = parent
 
-    # Carry the row's own screen/element forward -- the merged finding is still
-    # about that one row (or that one group of sibling rows), and WHAT TO DO NEXT
-    # names the screen/element for every flow edit, which this would otherwise be
-    # the only one to leave blank.
     merged = finding('blocker', 'triggers', 'dead-affordance-merged', message, fix,
                       screen, element)
     merged['_label'] = CHECK_LABELS[next(c for c in MERGE_ORDER if c in matched)]
+    # Report-only, like `_label`: which legal pages the fix needs an address for, so
+    # the next-step offer can ask for them without parsing this finding's text.
+    merged['_needs'] = [LEGAL_NAME[c] for c in legal]
     return merged
 
 
@@ -2143,10 +2398,9 @@ def _collapse_for_report(findings, config):
     the same screen under DIFFERENT parents never merge -- a user sees those as
     separate rows -- and a dead-affordance finding whose element has no parent at
     all (the screen's own root) groups alone, since it cannot share a parent with
-    anything. Only the per-finding AFFORDANCE WORD list still comes from parsing
-    `check_triggers`' message text (`DEAD_AFFORDANCE_RE`) -- that coupling is a
-    known, accepted limitation the finding dict's fixed key set does not allow
-    fixing without a new key, so it stays as before.
+    anything. The per-finding affordance words are recomputed from the element's own
+    text in the config (`_element_text`), never parsed out of a message, so the
+    wording of `check_triggers`' finding is free to change.
     """
     compliance_pos = {}
     for i, f in enumerate(findings):
@@ -2169,10 +2423,9 @@ def _collapse_for_report(findings, config):
     for i, f in enumerate(findings):
         if f['severity'] != 'blocker' or f['check'] != 'dead-affordance':
             continue
-        m = DEAD_AFFORDANCE_RE.match(f['message'])
-        if not m:
+        named = set(_affordance_labels(_element_text(config, f['screen'], f['element'])))
+        if not named:
             continue
-        named = {w.strip() for w in m.group(1).split(',')}
         parent = parent_of(f['screen'], f['element'])
         key = ((f['screen'], parent) if parent is not None
                else (f['screen'], f['element'], '_solo'))
@@ -2198,7 +2451,7 @@ def _collapse_for_report(findings, config):
         parent = key[1] if len(key) == 2 else None
         parsed = [(f, named) for _, f, named in members]
         replacements[members[0][0]] = _merge_dead_affordance_group(
-            screen, parent, parsed, matched)
+            screen, parent, parsed, matched, config)
         for idx, _f, _named in members[1:]:
             consumed.add(idx)
 
@@ -2228,30 +2481,111 @@ def _collapse_for_report(findings, config):
                 consumed.add(i)
         replacements[first] = _merge_disclosure(sid)
 
+    # --- Third collapse: `no-terms-link` and `no-privacy-link` as BLOCKERS (the flow
+    # has no "Open URL" action at all) are one gap with one fix. Two rows that differ
+    # by one noun make the user read the same finding twice. Report-only, like the
+    # others; the question form (links exist, none looks right) stays separate,
+    # because each of those names different urls.
+    legal_pos = {f['check']: i for i, f in enumerate(findings)
+                 if i not in consumed and f['severity'] == 'blocker'
+                 and f['check'] in LEGAL_NAME and f['check'] not in
+                 {findings[j]['check'] for j in consumed}}
+    if len(legal_pos) == 2:
+        first = min(legal_pos.values())
+        consumed.update(i for i in legal_pos.values() if i != first)
+        merged = finding(
+            'blocker', 'compliance', 'no-legal-links-merged',
+            'There are no links to your Terms of Use or Privacy Policy: the flow has no '
+            '"Open URL" action at all.',
+            'Add two links with "Open URL" actions that open those pages. '
+            '(App Store 3.1.2)')
+        merged['_needs'] = ['Terms of Use', 'Privacy Policy']
+        replacements[first] = merged
+
+    # --- Fourth collapse: the same gap for several products or amounts. A missing
+    # Google Play ID on two products is one answer ("do you ship on Android?") and one
+    # place to fix it; four typed-in prices on one screen are one habit. Grouped on the
+    # report-only fields the checks attach (`_tag`), never on message text.
+    groups = {}
+    for i, f in enumerate(findings):
+        if i in consumed or i in replacements:
+            continue
+        if f['check'] == 'product-store-gap' and f.get('_store'):
+            groups.setdefault(('gap', f['severity'], f['_store']), []).append(i)
+        elif f['check'] == 'hardcoded-price' and f.get('_amount'):
+            groups.setdefault(('price', f['screen']), []).append(i)
+    for key, idx in groups.items():
+        if len(idx) < 2:
+            continue
+        fs = [findings[i] for i in idx]
+        first = idx[0]
+        consumed.update(idx[1:])
+        if key[0] == 'gap':
+            store, platform = fs[0]['_store'], fs[0]['_platform']
+            titles = _join_and(f'"{f["_title"]}"' for f in fs)
+            sites = [site for f in fs for site in f.get('_sites') or []]
+            where = ('' if len(config.get('screens') or []) <= 1
+                     else f' They are on {_format_sites(sites, config)}.')
+            if key[1] == 'question':
+                msg = (f'{titles} have no {store} product ID, so they cannot be bought on '
+                       f'{platform}.{where}')
+                fix = (f'If you ship on {platform}, add their {store} product IDs in the '
+                       f'Adapty dashboard.')
+            else:
+                msg = (f'{titles} have no {store} product ID, but your app ships on '
+                       f'{platform}, so those purchases will fail there.{where}')
+                fix = f'In the Adapty dashboard, add their {store} product IDs.'
+            merged = finding(key[1], 'products', 'product-store-gap', msg, fix,
+                             fs[0]['screen'], fs[0]['element'])
+            merged.update(_store=store, _platform=platform)
+        else:
+            amounts = _join_and(f['_amount'] for f in fs)
+            merged = finding(
+                'blocker', 'products', 'hardcoded-price',
+                f'{len(fs)} amounts are typed into the text here: {amounts}. If they are '
+                f'prices, they will not show in the buyer\'s currency and will not change '
+                f'when you change prices in the store.',
+                'If they are prices, replace them with the product\'s price. If they are '
+                'savings figures, check that they still hold when prices change.',
+                fs[0]['screen'], fs[0]['element'])
+        replacements[first] = merged
+
+    # --- Fifth collapse: one finding repeated word for word on several screens (the
+    # same fake slider on three quiz screens). One row naming every screen, instead of
+    # three rows the reader has to compare to see they are the same.
+    same = {}
+    for i, f in enumerate(findings):
+        if i in consumed or i in replacements or not f['screen']:
+            continue
+        same.setdefault((f['check'], f['severity'], f['message'], f['fix']), []).append(i)
+    for key, idx in same.items():
+        screens = list(dict.fromkeys(findings[i]['screen'] for i in idx))
+        if len(screens) < 2:
+            continue
+        consumed.update(idx[1:])
+        f0 = findings[idx[0]]
+        names = _join_and(f'"{screen_name(config, sid)}"' for sid in screens)
+        replacements[idx[0]] = finding(
+            f0['severity'], f0['family'], f0['check'],
+            f'{f0["message"]} It is on the {names} screens.', f0['fix'])
+
     return [replacements.get(i, f) for i, f in enumerate(findings) if i not in consumed]
 
 
-# --- WHAT TO DO NEXT: route every (already-numbered) finding by WHO does the work,
+# --- WHAT HAPPENS NEXT: route every (already-numbered) finding by WHO does the work,
 # which is a different axis from severity -- severity says how bad it is, this says
 # who has to act on it. Routed by CHECK NAME, never by parsing `message` text (that
-# trap already exists once, in `DEAD_AFFORDANCE_RE` above; a second instance would be
-# worse). An unmapped check name defaults to GROUP_FLOW rather than being dropped --
-# a finding missing from this section entirely is the one failure this must never
-# have, and "assume I can fix it in the config" is the least surprising wrong guess
-# for a check nobody has taught this table about yet.
+# trap was closed once already, in the dead-affordance merge above; do not reopen
+# it). An unmapped check name defaults to GROUP_FLOW rather than being dropped -- a
+# finding missing from this section entirely is the one failure this must never
+# have, and "assume I can fix it" is the least surprising wrong guess for a check
+# nobody has taught this table about yet.
 GROUP_ANSWER, GROUP_FLOW, GROUP_DASHBOARD, GROUP_OPTIONAL = 1, 2, 3, 4
 NEXT_STEP_ORDER = (GROUP_ANSWER, GROUP_FLOW, GROUP_DASHBOARD, GROUP_OPTIONAL)
-NEXT_STEP_HEADINGS = {
-    GROUP_ANSWER: 'Answer these — they change the verdict',
-    GROUP_FLOW: 'Change in the flow — I can do these',
-    GROUP_DASHBOARD: 'Change in the Adapty dashboard — only you can',
-    GROUP_OPTIONAL: 'Optional',
-}
 
 # Default group per check name: where the FIX lives, regardless of this instance's
-# severity. `catalog-not-fetched` is deliberately absent -- its fix (re-run the audit
-# with a catalog) is neither a flow edit, a dashboard action nor a judgement call, and
-# the unmapped-default (GROUP_FLOW) is as reasonable a home for it as any of the three.
+# severity. GROUP_FLOW means "the agent can do it" -- a flow edit, a placement, or
+# fetching what the audit was missing -- and GROUP_DASHBOARD means only the user can.
 CHECK_TO_GROUP = {
     'dead-affordance': GROUP_FLOW,
     'dead-affordance-merged': GROUP_FLOW,
@@ -2261,8 +2595,10 @@ CHECK_TO_GROUP = {
     'no-restore': GROUP_FLOW,
     'no-terms-link': GROUP_FLOW,
     'no-privacy-link': GROUP_FLOW,
+    'no-legal-links-merged': GROUP_FLOW,
     'no-escape-in-flow': GROUP_FLOW,
     'no-escape-from-paywall': GROUP_FLOW,
+    'catalog-not-fetched': GROUP_FLOW,
     'product-not-in-catalog': GROUP_DASHBOARD,
     'product-no-access-level': GROUP_DASHBOARD,
     'product-store-gap': GROUP_DASHBOARD,
@@ -2272,12 +2608,19 @@ CHECK_TO_GROUP = {
     'hardcoded-price': GROUP_FLOW,
     'empty-translation': GROUP_FLOW,
     'locale-entirely-empty': GROUP_FLOW,
+    'missing-translation': GROUP_FLOW,
     'untranslated': GROUP_OPTIONAL,
     'placeholder-copy': GROUP_FLOW,
     'fake-carousel': GROUP_FLOW,
     'variable-no-consumer': GROUP_FLOW,
     'flow-untitled': GROUP_DASHBOARD,
     'publication-failed': GROUP_DASHBOARD,
+    'no-placement': GROUP_FLOW,
+    'dead-branch': GROUP_FLOW,
+    'branch-mismatch': GROUP_FLOW,
+    'fallthrough-to-answer-screen': GROUP_FLOW,
+    'missing-sibling-locale': GROUP_FLOW,
+    'placement-inactive': GROUP_DASHBOARD,
     'trial-toggle': GROUP_FLOW,
     'billed-amount-not-shown': GROUP_FLOW,
     'derived-price-louder': GROUP_FLOW,
@@ -2289,20 +2632,24 @@ CHECK_TO_GROUP = {
 
 # Checks whose severity for THIS instance is a question that an answer could turn
 # into a real blocker -- these get an EXTRA line in GROUP_ANSWER, on top of (never
-# instead of) their normal `CHECK_TO_GROUP` line, exactly like `product-store-gap`
-# does in the worked example: "do you ship on Android" up top, "add the play_store
-# binding" still listed under the dashboard, because the fix is worth doing whether
-# or not the answer turns out to matter. `flow-untitled`, `catalog-not-fetched` and
-# `publication-failed` are deliberately excluded: none of them is a question whose
-# ANSWER changes whether this finding is a problem -- a name is cosmetic, a missing
-# catalog is just missing, and opening the Flow Builder does not change today's
-# verdict, only tells the user why the last publish failed.
+# instead of) their normal `CHECK_TO_GROUP` line: "do you ship on Android" up top,
+# the missing product ID still listed as the user's to add, because the fix is worth
+# doing whether or not the answer turns out to matter. `flow-untitled`,
+# `catalog-not-fetched` and `publication-failed` are deliberately excluded: none of
+# them is a question whose ANSWER changes whether the finding is a problem.
 VERDICT_CONDITIONAL = {'no-terms-link', 'no-privacy-link', 'no-escape-in-flow',
                         'product-store-gap'}
 
+# The Flow Builder's own status labels, so the header says what the dashboard says.
+# `dirty` reads as "Dirty" there, which means nothing to a newcomer, so it carries
+# its meaning beside it.
+STATUS_LABELS = {'draft': 'Draft', 'dirty': 'Dirty (unpublished changes)',
+                 'publishing': 'Publishing', 'publication_failed': 'Failed',
+                 'published': 'Published', 'archived': 'Archived'}
+
 
 def _next_step_groups(f):
-    """Which WHAT TO DO NEXT group(s) get a line for this finding. Never zero."""
+    """Which next-step group(s) get this finding. Never zero."""
     groups = []
     if f['check'] in VERDICT_CONDITIONAL and f['severity'] == 'question':
         groups.append(GROUP_ANSWER)
@@ -2312,130 +2659,184 @@ def _next_step_groups(f):
 
 def _answer_prompt(f, n):
     """The yes/no question for GROUP_ANSWER. Reads `message` for the one word that
-    decides the phrasing (which store, which document) -- display detail, not a
-    routing decision, so it does not reopen the message-parsing rule above.
+    decides the phrasing (which store) -- display detail, not a routing decision, so
+    it does not reopen the message-parsing rule above.
     """
     check = f['check']
     if check == 'product-store-gap':
-        store = 'Android' if 'ship on Android' in f['message'] else 'iOS'
-        return f'Do you ship on {store}? If yes, finding {n} becomes a blocker.'
+        platform = 'Android' if 'Google Play' in f['message'] else 'iOS'
+        return f'Do you ship on {platform}? If yes, finding {n} is a blocker.'
     if check in ('no-terms-link', 'no-privacy-link'):
-        doc = 'terms' if check == 'no-terms-link' else 'privacy'
-        return (f'Is one of the linked urls really your {doc} document? If not, '
-                f'finding {n} needs a real one.')
+        doc = 'Terms of Use' if check == 'no-terms-link' else 'Privacy Policy'
+        return (f'Is one of the links in finding {n} really your {doc}? If not, you '
+                f'need to add one.')
     if check == 'no-escape-in-flow':
-        return (f'Does the host app give users its own way to dismiss this flow? '
-                f'If not, finding {n} needs a closeFlow action.')
-    return f'See finding {n} — your answer may change the verdict.'
+        return ('Does your app show this flow with its own close button or '
+                f'swipe-to-dismiss? If not, finding {n} needs a close button.')
+    return f'Look at finding {n}: your answer may change the verdict.'
 
 
-def _next_step_line(group, f, n):
-    if group == GROUP_ANSWER:
-        return _answer_prompt(f, n)
-    where = ' / '.join(x for x in (f['screen'], f['element']) if x)
-    ref = f'finding {n}' + (f', {where}' if where else '')
-    return f"{f['fix'].rstrip('.')} ({ref})"
+def _nums(ns):
+    """'finding 3' / 'findings 1, 2 and 6' -- a bare number reads as a count."""
+    ns = list(ns)
+    return ('finding ' if len(ns) == 1 else 'findings ') + _join_and(str(n) for n in ns)
+
+
+def _legal_needs(f):
+    """Which legal pages an agent needs the ADDRESS of before it can fix `f` --
+    the one input a flow edit here cannot invent. A link the flow already has (the
+    question form of `no-terms-link`) needs nothing new."""
+    if f['severity'] == 'blocker' and f['check'] in LEGAL_NAME:
+        return [LEGAL_NAME[f['check']]]
+    return list(f.get('_needs') or [])
+
+
+def check_placements(placements, flow_id, status=None):
+    """Is any placement showing this flow, and is it switched on?
+
+    `placements` is a list of `placements get` bodies (the list endpoint carries no
+    audiences, so the caller fetches each one), or None when they were not fetched.
+    A flow audience is `{"content_type": "flow", "flow_id": ...}`. Returns
+    `(findings, shown_by)`: `shown_by` is the developer IDs of the active placements
+    that show this flow, for the report header.
+
+    Neither finding blocks: a flow is attached AFTER it is published, so "no
+    placement yet" is the normal state of a flow being checked before its first
+    publish -- a next step, not a defect.
+    """
+    if placements is None or not flow_id:
+        return [], None
+    shown_by, out = [], []
+    for p in placements:
+        hit = any(a.get('content_type') == 'flow' and a.get('flow_id') == flow_id
+                  for a in (p.get('audiences') or []))
+        if not hit:
+            continue
+        dev = p.get('developer_id') or p.get('id')
+        if p.get('is_active') is False:
+            out.append(finding(
+                'risk', 'placement', 'placement-inactive',
+                f'Placement "{dev}" shows this flow but is switched off, so nobody '
+                f'sees it yet.',
+                'Turn the placement on in the Adapty dashboard when you are ready: '
+                f'https://app.adapty.io/placements/flows/{p.get("id")}'))
+        else:
+            shown_by.append(dev)
+    if not shown_by and not out:
+        out.append(finding(
+            'risk', 'placement', 'no-placement',
+            'No placement shows this flow yet, so your app cannot fetch it and nobody '
+            'will see it.',
+            'Attach it to a placement.' if status in ('published', 'dirty')
+            else 'Once it is published, attach it to a placement.'))
+    return out, shown_by
 
 
 def render(findings, config, meta=None, stores=None):
-    """The user-facing report. See the design spec's `## What the skill prints` for
-    the exact shape this reproduces: a verdict first line that is the answer on its
-    own, BLOCKERS/RISKS/COULD NOT CHECK numbered continuously, a LOCALE COVERAGE
-    table only when more than one locale is declared, a fixed BEFORE YOU SHIP
-    reminder (never a numbered finding -- the placement link is unverifiable by
-    design, not a question about this flow's data), a WHAT TO DO NEXT section that
-    routes every numbered finding by who acts on it (present only when there is at
-    least one finding, omitted entirely on a clean flow), and a closing offer to hand
-    any blockers to `flow-generator`.
+    """The user-facing report, in the order a reader acts on it: the verdict as one
+    bold line, the flow it is about, the numbered findings grouped by how much they
+    matter, the languages table when there is more than one, the advisory
+    store-review section, then WHAT HAPPENS NEXT (what the agent can do, what only
+    the user can, what to answer first) and the checks nobody can make from here.
+
+    Every numbered finding appears exactly once with its fix; the next-step section
+    only points back at numbers, never restates a finding. The agent relays this
+    in the user's language -- it is the content of the report, not its final
+    wording -- so the numbering, the verdict and the grouping are the parts that
+    must survive translation.
 
     Deliberately prints NO gate-status section: a passing `verify-config.py` or
     `flows config validate` run tells a client nothing, and a failing one is already
-    reported as a blocker above, in the user's own terms.
+    reported as a blocker, in the user's own terms.
 
-    `stores` is the same set `main()` builds from `--stores`, or None when unknown, and
-    it exists ONLY so BEFORE YOU SHIP can drop a reminder that cannot apply. The
-    reminders are neither checks nor findings -- they are fixed report text -- so the
-    spec's "store scoping lives in the check, not on the finding" rule gives them no
-    route, and they had none: measured, `--stores android` printed both App Store
-    Connect bullets and `--stores ios` printed the Google Play one. Default None keeps
-    today's behaviour whenever the stores are unknown, which is the same direction of
-    error `check_trial_toggle` and `check_external_purchase` already take.
+    `stores` is the same set `main()` builds from `--stores`, or None when unknown;
+    it exists ONLY so the check-it-yourself list can drop a reminder that cannot
+    apply. `meta['shown_by']` is None when placements were not fetched (the list
+    then asks the user to check), or the developer IDs of the placements showing it.
     """
     meta = meta or {}
     findings = _collapse_for_report(findings, config)
     store = [f for f in findings if f['check'] in STORE_REVIEW_CHECKS]
     findings = [f for f in findings if f['check'] not in STORE_REVIEW_CHECKS]
+    blockers = [f for f in findings if f['severity'] == 'blocker']
+    questions = [f for f in findings if f['severity'] == 'question']
+
     lines = []
-    name = meta.get('name') or 'this flow'
-    status = meta.get('status')
-    lines.append(f'Flow: {name}' + (f'  ·  {status}' if status else ''))
-    if meta.get('flow_id'):
-        lines.append(f'https://app.adapty.io/flows/{meta["flow_id"]}/builder')
+    if blockers:
+        k = len(blockers)
+        lines.append(f'**Not ready to publish yet: {k} thing{"s" if k != 1 else ""} '
+                     f'to fix first.**')
+    elif questions:
+        k = len(questions)
+        lines.append(f'**Almost ready: {k} thing{"s" if k != 1 else ""} I could not '
+                     f'check.**')
+    else:
+        lines.append('**Ready to publish.**')
+
     locales = [l.get('code') for l in (config.get('locales') or []) if l.get('code')]
     n_products = len({pid for _, _, pid in bound_products(config)})
     n_screens = len(config.get('screens') or [])
-    bits = [f'{n_screens} screen{"s" if n_screens != 1 else ""}']
+    bits = []
+    if meta.get('name'):
+        bits.append(meta['name'])
+    if meta.get('status'):
+        bits.append(STATUS_LABELS.get(meta['status'], meta['status']))
+    bits.append(f'{n_screens} screen{"s" if n_screens != 1 else ""}')
     if locales:
-        bits.append(f'{len(locales)} locale{"s" if len(locales) != 1 else ""}')
+        bits.append(f'{len(locales)} language{"s" if len(locales) != 1 else ""}')
     if n_products:
         bits.append(f'{n_products} product{"s" if n_products != 1 else ""}')
     lines.append(' · '.join(bits))
-    lines.append('')
-
-    blockers = [f for f in findings if f['severity'] == 'blocker']
-    questions = [f for f in findings if f['severity'] == 'question']
-    if blockers:
-        lines.append(f'NOT READY FOR PRODUCTION — {len(blockers)} '
-                     f'blocker{"s" if len(blockers) != 1 else ""}: '
-                     + _verdict_labels(blockers))
-    elif questions:
-        lines.append(f'READY, PENDING {len(questions)} CHECK'
-                     f'{"S" if len(questions) != 1 else ""} I CANNOT MAKE')
-    else:
-        lines.append('READY FOR PRODUCTION')
-    lines.append('')
+    if meta.get('flow_id'):
+        lines.append(f'https://app.adapty.io/flows/{meta["flow_id"]}/builder')
+    shown_by = meta.get('shown_by')
+    if shown_by:
+        lines.append(f'Your app fetches it through placement '
+                     f'{_join_and(chr(96) + d + chr(96) for d in shown_by)}.')
 
     n = 0
-    blocker_nums = []
     numbered = []
-    for sev in ('blocker', 'risk', 'question'):
+
+    def emit(f):
+        nonlocal n
+        n += 1
+        numbered.append((n, f))
+        lines.append(f'{n}. {f["message"]}')
+        # Skip the location line when the message already names the screen (the
+        # product checks list every screen a product is on).
+        if (f['screen'] and n_screens > 1
+                and f'"{screen_name(config, f["screen"])}"' not in f['message']):
+            lines.append(f'   On the "{screen_name(config, f["screen"])}" screen.')
+        lines.append(f'   Fix: {f["fix"]}')
+        lines.append('')
+
+    for sev, heading in (('blocker', 'Fix before publishing'),
+                         ('risk', 'Worth fixing'),
+                         ('question', 'I could not check these')):
         group = [f for f in findings if f['severity'] == sev]
         if not group:
             continue
-        lines += ['', HEADINGS[sev], '']
+        lines += ['', f'**{heading}**', '']
         for f in group:
-            n += 1
-            numbered.append((n, f))
-            if sev == 'blocker':
-                blocker_nums.append(n)
-            where = ' / '.join(x for x in (f['screen'], f['element']) if x)
-            lines.append(f'{n}. {f["message"]}')
-            # The merged dead-affordance finding already opens with its own
-            # `where` inside the message body (see `_merge_dead_affordance`); its
-            # `screen`/`element` fields exist so WHAT TO DO NEXT can name them, not
-            # to repeat the location a second time right above `Fix:`.
-            if where and f['check'] != 'dead-affordance-merged':
-                lines.append(f'   {where}')
-            lines.append(f'   Fix: {f["fix"]}')
-            lines.append('')
+            emit(f)
 
     if len(locales) > 1:
+        lname = {l.get('code'): l.get('name') or l.get('code')
+                 for l in (config.get('locales') or []) if l.get('code')}
         stat, examples = locale_coverage(config)
         base = default_locale(config)
         total = len(_localizable_values(config, locales))
-        lines += ['', f'LOCALE COVERAGE — {total} localizable fields', '',
-                  f'  {"locale":12}{"missing":>9}{"empty":>8}{"same as " + str(base):>16}']
+        lines += ['', f'**Languages** ({total} text fields)', '',
+                  f'  {"language":20}{"missing":>9}{"empty":>8}{"same as " + lname.get(base, base):>20}']
         for code in locales:
-            s = stat[code]
-            same = '-' if code == base else str(s['same'])
-            lines.append(f'  {code:12}{s["missing"]:>9}{s["empty"]:>8}{same:>16}')
+            st = stat[code]
+            same = '-' if code == base else str(st['same'])
+            lines.append(f'  {lname.get(code, code):20}{st["missing"]:>9}{st["empty"]:>8}{same:>20}')
         lines.append('')
-
-        # The narrative sentence the table alone can't carry: WHICH values repeat and
-        # whether that's expected (a brand name), plus the missing/empty verdict --
-        # "is everything localized" deserves a yes/no, not just a grid to read.
-        same_total = sum(s['same'] for s in stat.values())
-        gap_total = sum(s['missing'] + s['empty'] for s in stat.values())
+        # The sentence the table alone cannot carry: WHICH values repeat and whether
+        # that is expected (a brand name), plus a plain yes/no on missing text.
+        same_total = sum(st['same'] for st in stat.values())
+        gap_total = sum(st['missing'] + st['empty'] for st in stat.values())
         if same_total or gap_total:
             parts = []
             if same_total:
@@ -2444,104 +2845,148 @@ def render(findings, config, meta=None, stores=None):
                     for ex in examples[code]:
                         if ex not in uniq:
                             uniq.append(ex)
-                if len(uniq) <= 1:
-                    quoted = f'"{uniq[0]}"' if uniq else ''
-                elif len(uniq) == 2:
-                    quoted = f'"{uniq[0]}" and "{uniq[1]}"'
-                else:
-                    quoted = (', '.join(f'"{x}"' for x in uniq[:-1])
-                              + f', and "{uniq[-1]}"')
-                noun = 'value is' if len(uniq) == 1 else 'values are'
-                parts.append(f'The {len(uniq)} identical {noun} {quoted} — a '
-                             f'brand or product name, correctly left untranslated.')
+                quoted = _join_and(f'"{x}"' for x in uniq)
+                verb = 'is' if len(uniq) == 1 else 'are'
+                parts.append(f'{quoted} {verb} the same in every language, which is '
+                             f'right for a brand or product name.')
             parts.append('Nothing is missing.' if not gap_total
-                          else f'{gap_total} field(s) are missing or empty above.')
+                         else f'{gap_total} field(s) are missing or empty above.')
             lines.append('  ' + ' '.join(parts))
             lines.append('')
 
     if store:
-        lines += ['', 'STORE REVIEW — ADVISORY', '']
+        # The heading carries the disclaimer. Its other half -- "a clean section is
+        # not a pass" -- has nothing to attach to, because a clean section is never
+        # printed; what a reader needs next to a finding is that it is not a verdict.
+        lines += ['', f'**{STORE_REVIEW_HEADING}**', '']
         for f in store:
-            n += 1
-            numbered.append((n, f))
-            where = ' / '.join(x for x in (f['screen'], f['element']) if x)
-            lines.append(f'{n}. {f["message"]}')
-            if where:
-                lines.append(f'   {where}')
-            lines.append(f'   Fix: {f["fix"]}')
-            lines.append('')
-        lines += ['  ' + STORE_REVIEW_DISCLAIMER, '']
+            emit(f)
 
-    # BEFORE YOU SHIP. Every bullet here is unverifiable from a config and a catalog
-    # by design -- but "unverifiable" is not the same as "always relevant", and three
-    # of the original four printed on every audit forever, including on a flow that
-    # sells nothing (measured on `tests/fixtures/vpn-timer-draft.json`: three screens,
-    # no bound products, zero findings, and the report grew 12 -> 21 lines, entirely
-    # boilerplate telling a non-selling flow to get its products approved).
-    #
-    # A fourth bullet was CUT rather than gated: "a first-time personal developer
-    # account needs 12 testers over 14 consecutive days". It is about the developer
-    # ACCOUNT, not the flow, the app or the store; it applies only to a first-time
-    # PERSONAL account, which excludes nearly every Adapty customer; and a solo
-    # developer meets it in the Play Console anyway. Do not re-add it.
-    lines += ['', 'BEFORE YOU SHIP', '',
-              '  · Confirm this flow is attached to a placement. The CLI cannot see the',
-              '    flow→placement link, so no audit can tell you whether your app can',
-              '    reach this flow at all.']
-    if bound_products(config):
-        lines += ['  · Confirm your products are approved in App Store Connect before you',
-                  '    submit. If they are not, the reviewer opens this paywall and sees',
-                  '    empty prices, and the build comes back rejected as incomplete. This',
-                  '    is invisible to both the flow config and the Adapty catalog.']
-    if stores is None or 'ios' in stores:
-        lines += ['  · Confirm your Terms of Use (EULA) and privacy policy are linked in the',
-                  '    App Store Connect metadata as well as in the app. Half of Apple\'s',
-                  '    App Store 3.1.2 rejections are about the metadata fields, not the',
-                  '    screen.']
-    lines.append('')
-
-    # WHAT TO DO NEXT: every finding is already numbered above (in `numbered`); this
-    # section never restates a finding's own text, only points back at its number.
-    # Silent on a clean flow -- there is nothing to route and no group would have a
-    # single line, so the section itself is a no-op that would only add noise.
     if numbered:
-        next_groups = {g: [] for g in NEXT_STEP_ORDER}
+        groups = {g: [] for g in NEXT_STEP_ORDER}
         for num, f in numbered:
             for g in _next_step_groups(f):
-                next_groups[g].append(_next_step_line(g, f, num))
-        # Unconditional whenever there is at least one finding to route -- the same
-        # placement gap BEFORE YOU SHIP always names, listed here too because it is a
-        # dashboard-only action like every other line in that group.
-        next_groups[GROUP_DASHBOARD].append('Confirm the flow is attached to a placement.')
-        lines += ['', 'WHAT TO DO NEXT', '']
-        for g in NEXT_STEP_ORDER:
-            bullets = next_groups[g]
-            if not bullets:
-                continue
-            lines.append(f'  {NEXT_STEP_HEADINGS[g]}')
-            for b in bullets:
-                lines.append(f'    · {b}')
+                groups[g].append((num, f))
+        lines += ['', '**What happens next**', '']
+        if groups[GROUP_ANSWER]:
+            lines.append('Answer these first, they change the verdict:')
+            # One question per store, not one per product: "Do you ship on Android?"
+            # asked twice reads like a form, and one answer settles both findings.
+            asked = {}
+            for num, f in groups[GROUP_ANSWER]:
+                if f['check'] == 'product-store-gap':
+                    key = 'Android' if 'Google Play' in f['message'] else 'iOS'
+                    asked.setdefault(key, []).append(num)
+                else:
+                    asked[(num,)] = [num, f]
+            for key, val in asked.items():
+                if isinstance(key, tuple):
+                    lines.append(f'- {_answer_prompt(val[1], val[0])}')
+                elif len(val) == 1:
+                    lines.append(f'- Do you ship on {key}? If yes, finding {val[0]} is a '
+                                 f'blocker.')
+                else:
+                    lines.append(f'- Do you ship on {key}? If yes, {_nums(val)} are '
+                                 f'blockers.')
             lines.append('')
+        if groups[GROUP_FLOW]:
+            nums = [num for num, _ in groups[GROUP_FLOW]]
+            needs = []
+            for _num, f in groups[GROUP_FLOW]:
+                for x in _legal_needs(f):
+                    if x not in needs:
+                        needs.append(x)
+            ask = (f' For the links, send me the web addresses of your '
+                   f'{_join_and(needs)} page{"s" if len(needs) != 1 else ""}.'
+                   if needs else '')
+            everything = len(nums) == len(numbered)
+            what = (('it for you' if len(nums) == 1 else 'all of these') if everything
+                    else f'{_nums(nums)} for you')
+            flow_line = (f'I can fix {what}.{ask} I will show you the '
+                         f'screen before and after, and change nothing until you say '
+                         f'yes. Want me to?')
+        # The questions are a list; everything after them is prose, one short
+        # paragraph each, ending on the offer so the report's last line is the one
+        # question the user has to answer.
+        if groups[GROUP_DASHBOARD]:
+            nums = [num for num, _ in groups[GROUP_DASHBOARD]]
+            verb = 'is' if len(nums) == 1 else 'are'
+            where = 'it' if len(nums) == 1 else 'each'
+            lines += [f'{_nums(nums).capitalize()} {verb} yours to do in the Adapty '
+                      f'dashboard; the steps are under {where}.', '']
+        if groups[GROUP_OPTIONAL]:
+            nums = [num for num, _ in groups[GROUP_OPTIONAL]]
+            verb = 'is' if len(nums) == 1 else 'are'
+            lines += [f'{_nums(nums).capitalize()} {verb} optional.', '']
+        if groups[GROUP_FLOW]:
+            lines += [flow_line, '']
 
-    # A fixed BEFORE YOU SHIP reminder is not a finding, and neither is this: the
-    # offer is only about the numbered blockers above, so it is silent when there
-    # are none to fix.
-    if blocker_nums:
-        label = 'blocker' if len(blocker_nums) == 1 else 'blockers'
-        pronoun = 'it' if len(blocker_nums) == 1 else 'them'
-        if len(blocker_nums) == 1:
-            nums = str(blocker_nums[0])
-        else:
-            nums = (', '.join(str(x) for x in blocker_nums[:-1])
-                    + f' and {blocker_nums[-1]}')
-        lines += ['', f'Want me to fix {label} {nums}? I would hand {pronoun} to '
-                  'flow-generator, which will show you a before/after render and ask '
-                  'before writing anything.', '']
+    # Every bullet here is something no config and no catalog can show, and each one
+    # says where to look -- "confirm X" with no place to confirm it is not advice.
+    # Gated so a flow that sells nothing is not told to get products approved
+    # (measured on `tests/fixtures/vpn-timer-draft.json`, where the old ungated list
+    # nearly doubled the report).
+    # Only once nothing blocks: while there are blockers, these are advice for a later
+    # moment that the reader has to scroll past now. The audit that comes back clean is
+    # the one that shows them.
+    checks = []
+    if blockers:
+        pass
+    elif shown_by is None:
+        target = f'"{meta["name"]}"' if meta.get('name') else 'this flow'
+        checks.append(f'Your app can reach this flow: open '
+                      f'https://app.adapty.io/placements and check that a placement '
+                      f'shows {target}.')
+    ios = stores is None or 'ios' in stores
+    if not blockers and bound_products(config) and ios:
+        checks.append('Your subscriptions are ready for review: in App Store Connect '
+                      'each one should read "Ready to Submit", and when you submit the '
+                      'app version, add them under "In-App Purchases and '
+                      'Subscriptions". Otherwise the reviewer sees empty prices and '
+                      'rejects the build.')
+    if not blockers and ios and (bound_products(config) or selling_screens(config)):
+        checks.append('Your Terms of Use and Privacy Policy are also in your App Store '
+                      'listing, not only on the screen: in App Store Connect, put the '
+                      'privacy policy URL in the Privacy Policy field, and Terms of Use '
+                      'in the app description or the License Agreement field. Apple '
+                      'checks both.')
+    if checks:
+        lines += ['', '**Check these yourself, I cannot see them from here**', '']
+        lines += [f'- {c}' for c in checks]
+        lines.append('')
 
-    return '\n'.join(lines)
+    header, body = lines[:2], lines[2:]
+    text = re.sub(r'\n{3,}', '\n\n', '\n'.join(header + [_voice(l) for l in body]))
+    return text.strip('\n') + '\n'
 
 
-VALUE_FLAGS = ('--catalog', '--stores', '--name', '--flow-id', '--status')
+# Contractions, applied at render time only: the report is read by a person, the
+# `--json` findings by code and tests, so the finding text itself stays plain and
+# only the rendered report reads the way a colleague talks. Never inside double
+# quotes or backticks -- those hold the user's own copy, product titles and
+# placement IDs, which must reach them exactly as they wrote them.
+CONTRACTIONS = (
+    ('There is', "There's"), ('there is', "there's"),
+    ('cannot', "can't"), ('Cannot', "Can't"), ('does not', "doesn't"),
+    ('do not', "don't"), ('Do not', "Don't"), ('is not', "isn't"), ('are not', "aren't"),
+    ('will not', "won't"), ('could not', "couldn't"), ('has not', "hasn't"),
+    ('I will', "I'll"), ('It is', "It's"), ('it is', "it's"), ('you are', "you're"),
+    ('That is', "That's"), ('that is', "that's"), ('They are', "They're"),
+    ('they are', "they're"),
+)
+_PROTECTED = re.compile(r'("[^"\n]*"|`[^`\n]*`|https?://\S+)')
+
+
+def _voice(line):
+    parts = _PROTECTED.split(line)
+    for i in range(0, len(parts), 2):
+        for a, b in CONTRACTIONS:
+            parts[i] = re.sub(rf'\b{a}\b', b, parts[i])
+    return ''.join(parts)
+
+
+VALUE_FLAGS = ('--catalog', '--stores', '--name', '--flow-id', '--status',
+               '--placements', '--sibling-locales')
 
 
 def parse_args(argv):
@@ -2595,11 +3040,17 @@ def main(argv):
         config = load_config(args[0])
         catalog = json.load(open(flags['--catalog'])) if isinstance(
             flags.get('--catalog'), str) else None
+        placements = json.load(open(flags['--placements'])) if isinstance(
+            flags.get('--placements'), str) else None
+        siblings = json.load(open(flags['--sibling-locales'])) if isinstance(
+            flags.get('--sibling-locales'), str) else None
     except (OSError, ValueError) as exc:
         print(f'cannot read input: {exc}', file=sys.stderr)
         return 2
     if isinstance(catalog, dict):
         catalog = catalog.get('data') or []
+    if isinstance(placements, dict):
+        placements = placements.get('data') or []
     stores = (set(flags['--stores'].split(','))
               if isinstance(flags.get('--stores'), str) else None)
 
@@ -2610,10 +3061,15 @@ def main(argv):
             'status': flags.get('--status') if isinstance(flags.get('--status'), str)
             else None}
     findings += check_meta(meta)
+    placement_findings, meta['shown_by'] = check_placements(placements, meta['flow_id'],
+                                                                meta['status'])
+    findings += placement_findings
+    findings += check_sibling_locales(config, siblings)
     if flags.get('--report'):
         print(render(findings, config, meta, stores))
     elif flags.get('--json'):
-        print(json.dumps({'findings': findings}, indent=1))
+        print(json.dumps({'findings': [{k: v for k, v in f.items() if not k.startswith('_')}
+                                       for f in findings]}, indent=1))
     else:
         for f in findings:
             where = ' / '.join(x for x in (f['screen'], f['element']) if x)

@@ -183,9 +183,9 @@ The broken product binding, caught before your users find it. `flow-audit` answe
 
 (Or "audit my flow" / "is this ready to publish?")
 
-It checks six families — triggers, store compliance, products, variables, localization, and placeholders — and comes back with a verdict (`READY FOR PRODUCTION`, `NOT READY — n blockers`, or `READY, PENDING n CHECKS I CANNOT MAKE`), ranked findings with a concrete fix for each, and a `WHAT TO DO NEXT` section that routes every finding into what you need to answer, what the agent can fix in the flow, what only you can change in the dashboard, and what's optional.
+It checks six families — triggers, store compliance, products, variables, localization, and placeholders — plus whether any placement shows the flow, and comes back with a plain-language verdict (**Ready to publish**, **Not ready to publish yet: n things to fix first**, or **Almost ready: n things I could not check**), numbered findings that each say what is wrong, why it matters to a real user, and how to fix it, and a **What happens next** section: what to answer first, what the agent can fix for you, and what only you can do in the dashboard. It answers in your language.
 
-**It never certifies what it couldn't see.** A question it can't answer from the data — can the host app dismiss this paywall on its own, is the flow attached to a placement — keeps the verdict from reading a bare `READY` until you've weighed in. When you want something fixed, it hands the findings to `flow-generator`, which owns the actual write.
+**It never certifies what it couldn't see.** A question it can't answer from the data — can the host app dismiss this paywall on its own, are your products approved in App Store Connect — keeps the verdict from reading a bare **Ready to publish** until you've weighed in. When you want something fixed, it offers to do it and hands the findings to `flow-generator`, which owns the actual write.
 
 ## Building flows and paywalls
 

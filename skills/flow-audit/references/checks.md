@@ -121,6 +121,7 @@ only what it measurably *passes*.
 | :--- | :--- | :--- | :--- |
 | `empty-translation` — a locale key is present but carries no literal text and no `variable`/`token`/`image` node, and no non-empty branch if the value is a conditional-text `switch` | blocker | a real user in that locale sees a blank field | **calibrated both ways**: fires on an injected empty value and on an all-empty `switch`, silent on all 43 real fields in `onboarding-multilocale.json`, on every other tracked fixture, and on conditional text |
 | `locale-entirely-empty` — a declared locale has no values anywhere in the flow | blocker | a whole language was declared and never filled | derived from the coverage table; not present in the corpus, not yet proven to fire on real data |
+| `missing-sibling-locale` — a language that at least one of the app's OTHER published flows offers is not among this flow's locales | risk | the audit cannot know the app's markets, but it can see that the rest of the app already speaks a language this flow does not | needs `--sibling-locales` (phase 3 fetches the other published flows); in the sandbox 10 of 11 flows are English-only and one is English plus Russian, so it fires only on a real gap. Tested both ways in `tests/test-navigation.py` |
 | `untranslated` — a value is identical to the base locale's text elsewhere in the flow | risk, grouped once per flow | may be a missed translation, may be a proper noun | **fires** twice on `onboarding-multilocale.json` (and twice on a live flow too) and **both hits are the brand name** (`Nimbus`/`Nimbus Plus` in the fixture, the app's own name and its paid tier in the live one) — correctly untranslated, so this can never be a blocker |
 
 ### False-positive traps — Localization
@@ -133,6 +134,25 @@ only what it measurably *passes*.
 | A per-locale **image** value read by the richtext-only walk | A per-locale image value is a bare `{id, url}` object with **no `type` key at all**, so a `type`-based substantive test sees nothing and calls a real, filled image asset empty. Measured on two real, working fixtures before the fix (`onboarding-quiz-paywall.json`, `vpn-timer-draft.json`). Fixed: a truthy `url` on the value also counts as present. |
 | Treating any identical-to-base value as a defect | The only two untranslated values in the whole corpus are the brand name — correctly untranslated. `untranslated` is inherently judgmental, so it can never be a blocker and is never reported per-field: it is a count with up-to-4 examples, grouped once for the whole flow, and the human judges. |
 
+## Navigation
+
+What a quiz branch does with each answer. Branches are read off `conditional` actions whose
+cases compare `<groupId>.selectedOptionId` with an answer's `customId`.
+
+| Check | Severity | Why | Calibration |
+| :--- | :--- | :--- | :--- |
+| `dead-branch` — a branch names an answer ID that no answer in the question has | blocker | that branch can never fire: everyone takes the other path, silently | silent on all 23 real configs (tracked, raw and sandbox); fires when the quiz fixture's `rock` answer is renamed to `rock_music` |
+| `branch-mismatch` — a branch leads to a screen NAMED after a different answer (Rock → "Rap") | risk | the likeliest reading is a swapped target | silent on all 23; fires when the quiz fixture's two targets are swapped |
+| `fallthrough-to-answer-screen` — the "otherwise" path leads to a screen named after ONE answer while other answers also fall through to it | risk | those answers land on another answer's screen | silent on all 23; fires when a third answer is added to the quiz with no branch |
+
+### False-positive traps — Navigation
+
+| Trap | What would have shipped |
+| :--- | :--- |
+| Counting the quiz's Next button as an answer | The builder makes the submit button a member of the answer group (caption "Button" in the quiz fixture, no `customId`). Counted as an answer, it "fell through" to the Hip hop screen and the correctly wired quiz reported a defect. The element that carries the branch on its own group is excluded. |
+| Firing on every answer that has no branch of its own | Sending everyone past beginner to one "Accelerated path" screen is a design (the sandbox "Language onboarding" flow does exactly that). The two risk checks need a NAME signal — the target screen is named after a specific answer — or they stay silent. |
+| Walking only top-level actions for reachability | A way off a screen reached through a conditional branch was invisible, so a paywall whose close button lived behind a branch read as a trap. `nav_graph` now follows branches. |
+
 ## Placeholders
 
 | Check | Severity | Why | Calibration |
@@ -140,7 +160,7 @@ only what it measurably *passes*.
 | `placeholder-copy` — anchored match on `lorem ipsum`, `your … here`, a bare `text`/`title`/`subtitle`/`button`/`label`/`heading`/`placeholder`, `TODO`/`TBD`/`FIXME`, or `placeholder text` | risk | unfinished copy shipping to users | **0 false positives over 5 live flows / 169 localizable fields** and over all six tracked fixtures; fires on injection (`Lorem ipsum…`, `TODO write this`, `Your headline here`) — not yet proven to fire on a real flow |
 | `flow-untitled` — the flow's dashboard name is `Untitled`/`Untitled flow`/`New flow`/blank | question | usually means the flow was never named | fires on one live flow; silent once the name is anything else |
 | `publication-failed` — the flow's dashboard `--status` is `publication_failed` | question | the flow failed to publish and no local check here explains why; never invents a cause (the reason, when the API sends one, is `transform_error` in the `flows config get` envelope -- quote it, do not derive it) | fires on any `--status publication_failed` run (measured against a live flow in that status); silent on every other status |
-| `fake-carousel` — a hand-built indicator row (dot `stack`s, a pill active dot, small `Circle`/`DotOutline` icons, or a text node of bullet glyphs) with no `carousel` on the screen; or, dotless, a horizontal row of equal fixed-width cards wider than 430pt | risk | a slider faked as a static card ships one frozen slide, does not swipe, and the dots never move — it publishes, renders and passes every other gate | silent on all 12 real configs (7 tracked + 5 raw) and on `reviews-carousel.json` itself; fires on all 7 fake shapes rebuilt from that fixture (`tests/test-fake-carousel.py`) |
+| `fake-carousel` — a hand-built indicator row (dot `stack`s, a pill active dot, small `Circle`/`DotOutline` icons, or a text node of bullet glyphs) with no `carousel` on the screen; or, dotless, a horizontal row of equal fixed-width cards wider than 430pt | risk | a slider faked as a static card ships one frozen slide, does not swipe, and the dots never move — it publishes, renders and passes every other gate | silent on all 12 real configs (7 tracked + 5 raw) and on `reviews-carousel.json` itself; fires on all 7 fake shapes rebuilt from that fixture (`tests/test-fake-carousel.py`). **A step indicator is excluded**: the same row on two or more screens with the active marker in a different place on each is progress ("step 2 of 3"), not a frozen slide — a real onboarding's "Progress dots" fired three times before this. A fake copied unchanged onto two screens keeps its marker in one place and still fires |
 
 ### False-positive trap — Placeholders
 

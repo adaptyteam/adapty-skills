@@ -165,7 +165,7 @@ no_text = with_media({'en': img()})
 for vals in audit._localizable_values(no_text, ['en', 'sr', 'sr-Latn']):
     vals.pop('sr', None)
 entirely = [f for f in audit.check_localization(no_text)
-            if f['check'] == 'locale-entirely-empty' and f['message'].startswith('sr ')]
+            if f['check'] == 'locale-entirely-empty' and f['message'].startswith('Serbian is listed')]
 check('KEEPS: a locale with no text is still locale-entirely-empty beside a default-only image',
       entirely, [f['check'] for f in audit.check_localization(no_text)])
 

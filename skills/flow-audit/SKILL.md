@@ -20,6 +20,24 @@ period the product does not have. When the user wants something fixed, hand it t
 does not implement transforms and does not touch the config on disk beyond the working
 copy it fetches to check.
 
+## How you sound
+
+Every message, not only the report:
+
+- **A patient colleague who knows in-app purchases.** The user may be new to them. When
+  they ask, answer plainly and use their own flow as the example. Friendly through
+  patience, never through filler.
+- **"I" for what you do, "you" for what they do.** Lead with the answer; end on the one
+  thing they need to do next. No opener, no recap, no "let me know if…".
+- **Plain words over raw values.** Show a value only when the user will type it or see it
+  elsewhere — a placement ID, a builder label, a URL. Element ids, status codes and tool
+  names never.
+- **Full, clickable links to the exact page.**
+- **Could not check it? Say how they can.** Do not know something? Look it up before
+  saying so — the CLI, the flow, the `adapty-docs` skill.
+- **Offer the outcome ("I can fix these"), never the skill that will do it.**
+- **Reply in the user's language.**
+
 ## Phase 1 — resolve and authenticate
 
 Resolve `$ADAPTY` once:
@@ -58,7 +76,7 @@ the list and ask which one.
 ## Phase 2 — select the flow
 
 ```bash
-$ADAPTY flows list --app "$APP" --json
+$ADAPTY flows list --app "$APP" --json --page-size 100 > flows.json
 ```
 
 Returns `{id, name, status, updated_at}` per flow — `status` alone is a finding source
@@ -91,6 +109,52 @@ The catalog fetch happens **before** the checks run, in this same phase, because
 product finding in Phase 4 is a comparison against it — a bound product absent from the
 catalog can't be detected without it.
 
+Then fetch every placement, so the audit can say whether the app can reach this flow at
+all. `placements list` carries no audiences, so each placement is read with `placements
+get`; a flow audience is `{"content_type": "flow", "flow_id": …}`.
+
+```bash
+mkdir -p placements; page=1
+while :; do
+  $ADAPTY placements list --app "$APP" --json --page-size 100 --page $page > placements.page.json
+  python3 -c "import json; d = json.load(open('placements.page.json')); \
+print('\n'.join(p['id'] for p in d['data']))" >> placement-ids.txt
+  pages=$(python3 -c "import json; \
+print(json.load(open('placements.page.json'))['meta']['pagination']['pages'])")
+  [ "$page" -ge "$pages" ] && break; page=$((page + 1))
+done
+xargs -P 8 -I{} sh -c "$ADAPTY placements get {} --app $APP --json > placements/{}.json" \
+  < placement-ids.txt
+python3 -c "import glob, json; json.dump([json.load(open(f)) for f in \
+glob.glob('placements/*.json')], open('placements.json', 'w'))"
+```
+
+Then read which languages the app's **other published flows** offer, so the audit can say
+when this one lacks a language the rest of the app speaks:
+
+```bash
+python3 -c "import json; d = json.load(open('flows.json')); \
+print('\n'.join(f['id'] for f in d['data'] if f['id'] != '$FLOW' \
+and f['status'] in ('published', 'dirty')))" > sibling-ids.txt
+mkdir -p siblings
+xargs -P 8 -I{} sh -c "$ADAPTY flows config get {} --app $APP --json > siblings/{}.json" \
+  < sibling-ids.txt
+python3 -c "import glob, json; flows = {f['id']: f['name'] for f in \
+json.load(open('flows.json'))['data']}; json.dump({flows.get(p.split('/')[-1][:-5], p): \
+[{'code': l.get('code'), 'name': l.get('name')} \
+for l in json.load(open(p))['config'].get('locales') or []] \
+for p in glob.glob('siblings/*.json')}, open('sibling-locales.json', 'w'))"
+```
+
+`flows.json` is the Phase 2 `flows list --json` output, saved to that name (page through it
+the same way as placements). If this fetch fails, leave `--sibling-locales` off; nothing
+else depends on it.
+
+**Read every page.** `--page-size` defaults to 20, and stopping at page 1 reports "no
+placement shows this flow" for a flow a later page attaches. If the fetch fails, run the
+audit without `--placements`: the report then tells the user where to check it
+themselves, instead of claiming an answer.
+
 ## Phase 4 — check
 
 Three commands, in this order. The order matters: the two local checks name every
@@ -106,6 +170,7 @@ it there. Both skills ship in the same plugin, so it is always present in a plug
 FG="$(dirname "<skill>")/flow-generator"        # sibling skill directory
 python3 "$FG/references/verify-config.py" flow.config.json
 python3 <skill>/references/audit-flow.py flow.config.json --catalog catalog.json \
+  --placements placements.json --sibling-locales sibling-locales.json \
   --report --name "$NAME" --status "$STATUS" --flow-id "$FLOW"
 $ADAPTY flows config validate "$FLOW" --app "$APP" --config-file flow.config.json --json
 ```
@@ -130,7 +195,7 @@ printed in their own section, and **every `question` among them is excluded from
 pending count** — `external-purchase-link` always asks one, and
 `billed-amount-not-shown` degrades to one when a catalogued product's row states no
 billing period, so "the one question" is two checks, not one. A store-review section
-can be full and the verdict can still read a clean `READY FOR PRODUCTION` — that is
+can be full and the verdict can still read a clean **Ready to publish** — that is
 correct, not a bug. Evidence and calibration:
 `references/store-review.md`.
 
@@ -146,97 +211,138 @@ report the second run's verdict, not the first.
 
 ## Phase 5 — report
 
-Print `audit-flow.py --report`'s output as the verdict block. Two gates ran alongside it
-and neither gets its own section:
+`audit-flow.py --report` prints the report. **It is the content and the order of your
+answer, not its final wording.** Relay it under these rules:
+
+- **Keep all of it.** The verdict line, every numbered finding with its number and its
+  fix, the grouping, the next-step lines and the check-it-yourself list. Drop, merge or
+  renumber nothing — "What happens next" points back at the numbers. Send it as your
+  own message text, never inside a code block: it is markdown, and a code block shows
+  the user raw asterisks.
+- **In the user's language.** Translate everything except what the user sees on screen
+  in another tool, which stays exactly as that tool shows it: builder labels ("Restore
+  purchases", "Open URL", "On Tap"), App Store Connect field names, screen names,
+  product titles, placement IDs and guideline numbers.
+- **About their app.** Where the report says "this screen" or "a button", you may name
+  their real screen or element by its text.
+- **Nothing around it.** No opener, no recap, no closing line. The report already ends
+  on the one question the user has to answer.
+- **When they ask why**, answer plainly at whatever length the question needs, using
+  their own flow as the example. Assume they may be new to in-app purchases.
+
+It looks like this — the shape to follow, not words to copy:
+
+> **Not ready to publish yet: 2 things to fix first.**
+> Premium onboarding · Draft · 1 screen · https://app.adapty.io/flows/1f0c…/builder
+>
+> **Fix before publishing**
+>
+> 1. There's no way to restore a purchase. Someone who reinstalls your app or moves to a
+>    new phone can't get their subscription back.
+>    Fix: Add a "Restore purchases" action to a button, usually a small link under the
+>    purchase button. (App Store 3.1.1)
+>
+> 2. There are no links to your Terms of Use or Privacy Policy: the flow has no "Open
+>    URL" action at all.
+>    Fix: Add two links with "Open URL" actions that open those pages. (App Store 3.1.2)
+>
+> **Worth fixing**
+>
+> 3. No placement shows this flow yet, so your app can't fetch it and nobody will see it.
+>    Fix: Once it's published, attach it to a placement.
+>
+> **What happens next**
+>
+> I can fix all of these. For the links, send me the web addresses of your Terms of Use
+> and Privacy Policy pages. I'll show you the screen before and after, and change nothing
+> until you say yes. Want me to?
+
+Two gates ran beside the script and neither gets its own section:
 
 - **A green gate prints nothing.** `verify-config.py` returning `OK` or `validate`
   returning `{"valid": true, "issues": []}` tells a client nothing they need to act on.
-- **A failing gate becomes a blocker in the list**, restated in the user's own terms —
-  never pasted through as raw tool output. If `verify-config.py` warns that a `const`
+- **A failing gate becomes a numbered finding under "Fix before publishing"**, in the
+  same plain words and the same what / why / fix shape as every other one — never
+  pasted through as raw tool output. If `verify-config.py` warns that a `const`
   purchase has no declared product, say "this card's purchase has no product
-  declaration, so the flow won't publish" — not the tool's own wording. If `validate`
-  returns `valid: false`, translate its `issues[]` entries into the same blocker/fix
-  shape every other finding uses.
+  declaration, so the flow won't publish". Renumber the findings after it, and add its
+  number to the next-step lines. If the report already carries the same problem — a
+  dead quiz branch, say — do not add it a second time.
 
-There is no separate "gates" heading anywhere in the output. A client reading the report
-should never see the names `verify-config.py`, `flows config validate`, or
-`audit-flow.py` — only what they mean.
+A client never sees the names `verify-config.py`, `flows config validate`,
+`audit-flow.py` or any other skill — only what they mean.
 
-If any store-review check fired, the report carries a `STORE REVIEW — ADVISORY` section
-with a **fixed disclaimer** printed under it. **Report it as printed.** Never paraphrase
-the disclaimer away, and never restate a store-review risk as a blocker or as a reason
-the flow is not ready — those findings are hazards, not verdicts, and the verdict line
-above them already accounts for everything that gates a release. Its checks and the
-reason they are advisory are in `references/store-review.md`.
+If any store-review check fired, the report carries a **Store review (advisory, doesn't
+block publishing)** section; the heading is its disclaimer. Translate it, never weaken
+it, and never restate a store-review risk as a blocker or as a reason the flow is not ready — those
+findings are hazards, not verdicts, and the verdict line already accounts for everything
+that gates a release. Its checks and the reason they are advisory are in
+`references/store-review.md`.
 
 **Hand the user one link alongside that section** —
 `https://adapty.io/docs/prepare-your-app-for-store-review` — as the page to read next.
-Every finding in the section cites its own guideline number (`App Store 3.1.1`,
-`App Store 3.1.2`), which is what a developer pastes into an appeal, but a bare
-guideline number sends them to a wall of policy text; that page covers what an Adapty
-app actually has to get right. The link lives here, in the report instruction, rather
-than inside the findings' own `fix` strings on purpose: `scripts/lint-links.mjs` walks
-`.md` files only, so a URL written into `audit-flow.py` would be unlinted and would rot
-silently the next time the docs are reorganised.
+Every finding in the section cites its own guideline number, which is what a developer
+pastes into an appeal, but a bare guideline number sends them to a wall of policy text.
+The link lives here rather than inside the findings' own `fix` strings on purpose:
+`scripts/lint-links.mjs` walks `.md` files only, so a URL written into `audit-flow.py`
+would be unlinted and would rot silently.
 
-The report ends in `BEFORE YOU SHIP` and then, whenever at least one finding fired, a
-**`WHAT TO DO NEXT`** section — printed by `audit-flow.py --report` itself, nothing
-extra to do here. It routes every already-numbered finding into up to four groups by
-check name, never restating a finding's own text, only pointing back at its number:
-**Answer these — they change the verdict** (a `question` whose answer can turn it into
-a blocker — "do you ship on Android?"), **Change in the flow — I can do these** (the
-default group: something `flow-generator` can fix), **Change in the Adapty dashboard —
-only you can** (a dashboard-only action, plus the unconditional placement reminder),
-and **Optional** (a `risk`). Every numbered finding is guaranteed to land in the groups
-its check maps to; a group with no members prints no heading, and the whole section is
-silent on a clean flow.
+**What happens next** is printed whenever at least one finding fired. It routes every
+numbered finding by who acts on it, pointing back at numbers and never restating a
+finding: **Answer these first** (a question whose answer can turn it into a blocker —
+"do you ship on Android?"), **I can fix …** (a flow edit, a placement, or anything else
+this run can hand on), **… are yours to do in the Adapty dashboard**, and **… optional**
+(a risk nobody has to act on). A group with no members prints nothing, and when every
+finding is one this run can fix, the offer says "I can fix all of these". **Check these
+yourself** prints only once nothing blocks, and every line there says where to look,
+not only what to confirm.
 
 ## The verdict rule
 
-`READY FOR PRODUCTION` only when **zero blockers fired and every open question has been
+**Ready to publish** only when **zero blockers fired and every open question has been
 put to the user and answered**. An unanswered question is not a pass. If blockers exist,
-print `NOT READY FOR PRODUCTION — n blockers: <short labels>`. If there are no blockers
-but unresolved questions remain, print `READY, PENDING n CHECKS I CANNOT MAKE` and list
-them. **Never certify what you could not see** — a clean run over five real sandbox
-flows never printed a bare `READY FOR PRODUCTION` with no caveats, and that is the
-default outcome to expect, not a bug.
+the line reads **Not ready to publish yet: n things to fix first**. If there are no
+blockers but unresolved questions remain, it reads **Almost ready: n things I could not
+check**, and they are listed. **Never certify what you could not see** — a clean run over
+five real sandbox flows never printed a bare **Ready to publish**, and that is the
+default outcome to expect, not a bug. When the user answers a question, re-run the audit
+with the answer (`--stores`) and report the new verdict.
 
 ## What you cannot check
 
-State these plainly when they apply; never guess an answer for them.
+State these plainly when they apply; never guess an answer for them. Each one tells the
+user how to check it themselves.
 
-- **Placement attachment.** Measured against `adapty` 0.8.1: `flows get` returns only
-  `{id, name, status, updated_at}`, and flows and paywalls are separate id namespaces
-  (a flow id given to `paywalls get` 404s). There is no `flows placements` command. The
-  audit cannot tell whether this flow is reachable from the app at all — that is a fixed
-  reminder in the report (`BEFORE YOU SHIP`), never a numbered finding, because it is
-  unverifiable by design at this CLI version, not a question about this flow's data.
+- **Whether the app actually fetches that placement.** The audit reads which
+  placements show this flow and whether they are switched on (Phase 3); it cannot see
+  the app's code. If a placement shows the flow, say which, and that the app has to
+  fetch it by that ID.
 - **Whether the host app provides its own dismiss.** A paywall whose only action is
   `purchase` is fine if the app presents the flow modally with a system dismiss — the
   audit cannot see the host app, so this is a `question`, not a blocker, unless no
   `closeFlow`/`navigateBack` is reachable from that screen at all.
 - **Why a flow is `publication_failed`.** Both gates can pass clean over the exact bytes
-  of a flow sitting in that status (measured on a real one) — **no check in this audit
-  explains it**, and that has not changed. `check_meta` turns `--status
-  publication_failed` into its own numbered `question` finding, and because it is a
-  `question` it also blocks a bare `READY FOR PRODUCTION` verdict until the user has
-  seen it. Do not invent a cause.
+  of a flow sitting in that status — **no check in this audit explains it**.
+  `check_meta` turns `--status publication_failed` into its own numbered `question`
+  finding, and because it is a `question` it also blocks a bare **Ready to publish**
+  until the user has seen it. Do not invent a cause.
 
-  What *has* changed is that a cause is often already on disk: the phase-3 envelope's
-  `transform_error` is the transform service's own objection to the failed attempt. When
-  it is present, **quote it verbatim** beside that finding — it is evidence you were
-  handed, not an analysis of yours, so it does not turn the `question` into an answer
-  and it does not move the verdict. When the field is absent the API did not send it,
-  and the finding stands exactly as written.
+  A cause is often already on disk: the Phase 3 envelope's `transform_error` is the
+  transform service's own objection to the failed attempt. When it is present, **quote
+  it verbatim** beside that finding — it is evidence you were handed, not an analysis of
+  yours, so it does not turn the `question` into an answer and it does not move the
+  verdict. When the field is absent the API did not send it, and the finding stands
+  exactly as written.
 
 ## Handoff
 
-When the user wants fixes made, say plainly that this skill will not write, and invoke
-`flow-generator`. It owns the phase-2 backup, `diff-config.py`, `--expected-updated-at`,
-the phase-5 approval gate with a before/after render, and the actual `flows config
-update` call. Point it at the specific blockers by number — "fix blockers 1 and 2" is
-enough context; `flow-generator` re-fetches the flow itself rather than trusting this
-run's copy.
+This skill never writes. When the user says yes to the offer, invoke `flow-generator`
+and point it at the findings by number — "fix blockers 1 and 2" is enough context;
+`flow-generator` re-fetches the flow itself rather than trusting this run's copy. It
+owns the backup, `diff-config.py`, `--expected-updated-at`, the approval gate with a
+before/after render, and the actual `flows config update` call. For "no placement shows
+this flow", its phase 6 attaches one once the flow is published. If `flow-generator` is
+not installed, say what to change instead and give the user the builder link.
 
 ## Reference
 
