@@ -16,8 +16,9 @@ synthetic document write it in the readable inline form and pass it through `v13
 before handing it to a shipped script; suites that mutate a fixture's text either edit its
 `localization.content` entries or work on `localization.resolve()`'s read view, which is what the
 checkers read. `localization-oracle/` holds one shared input document (`base-input.json`),
-each case's locale fields, and the output the builder's TypeScript migration 013 produced for it; `test-localization.py` holds the Python port to them byte for
-byte.
+each case's locale fields, and the output the builder's TypeScript migration 013 produced for
+it; `test-localization.py` holds the Python port to them byte for byte. The oracle files are
+stored minified, one document per line; pretty-print a copy with `jq .` to read one.
 
 
 | Fixture | What it exercises |
