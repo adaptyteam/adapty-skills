@@ -4,8 +4,9 @@
 Repo-only. Four things are pinned here, and each is a way the port could be wrong quietly:
 
   1. `catalog()` matches the builder's own migration 013 BYTE FOR BYTE, key order and warnings
-     included, on every case in `tests/localization-oracle/`. Each file there holds an input and
-     the output the real TypeScript step produced for it; they cover conditional text with a
+     included, on every case in `tests/localization-oracle/`. Every case runs on one document,
+     `base-input.json`; a case file holds only its locale fields (`locales`, `defaultLocale`,
+     `localization`), the output the real TypeScript step produced, and its warnings. They cover conditional text with a
      matching and a mismatched locale, orphan locales, alerts nested in a conditional action,
      components, an existing catalog beside inline values, no declared locales, `locales` that
      is not an array, and a `defaultLocale` that is a locale CODE. A port that is merely
@@ -36,10 +37,30 @@ def check(name, cond, detail=''):
         fails.append(f'{name} {detail}'.strip())
 
 
+ORACLE = os.path.join(HERE, 'localization-oracle')
+BASE_INPUT = json.load(open(os.path.join(ORACLE, 'base-input.json')))
+
+
+def oracle_input(locale_fields):
+    """The case's input as the TypeScript step saw it, key order included: the shared
+    document with `locales`/`defaultLocale` after `theme` and `localization` last."""
+    doc = {}
+    for key, value in copy.deepcopy(BASE_INPUT).items():
+        doc[key] = value
+        if key == 'theme':
+            doc.update({k: locale_fields[k] for k in ('locales', 'defaultLocale')
+                        if k in locale_fields})
+    if 'localization' in locale_fields:
+        doc['localization'] = locale_fields['localization']
+    return doc
+
+
 print('catalog() against the builder migration (tests/localization-oracle)')
-for path in sorted(glob.glob(os.path.join(HERE, 'localization-oracle', '*.json'))):
+for path in sorted(glob.glob(os.path.join(ORACLE, '*.json'))):
+    if os.path.basename(path) == 'base-input.json':
+        continue
     case = json.load(open(path))
-    out, warnings = L.catalog(case['input'])
+    out, warnings = L.catalog(oracle_input(case['input']))
     name = os.path.basename(path)[:-5]
     check(f'{name}: document identical, key order included',
           json.dumps(out) == json.dumps(case['expected']))

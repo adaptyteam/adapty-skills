@@ -15,8 +15,8 @@ the builder's own migration chain, so it is the document the builder stores. Sui
 synthetic document write it in the readable inline form and pass it through `v13.catalogued()`
 before handing it to a shipped script; suites that mutate a fixture's text either edit its
 `localization.content` entries or work on `localization.resolve()`'s read view, which is what the
-checkers read. `localization-oracle/` holds inputs and the output the builder's TypeScript
-migration 013 produced for each; `test-localization.py` holds the Python port to them byte for
+checkers read. `localization-oracle/` holds one shared input document (`base-input.json`),
+each case's locale fields, and the output the builder's TypeScript migration 013 produced for it; `test-localization.py` holds the Python port to them byte for
 byte.
 
 
