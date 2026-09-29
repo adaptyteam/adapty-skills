@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Nine portable, Claude-style skills for agentic CLIs (Claude Code, GitHub Copilot CLI, OpenAI Codex, Gemini CLI):
+Ten portable, Claude-style skills for agentic CLIs (Claude Code, GitHub Copilot CLI, OpenAI Codex, Gemini CLI):
 
+- **`adapty-attribution`** — reads Adapty Attribution (the native `ua-*` product) through the CLI's read-only `attribution` topic and answers campaign-performance questions from ten playbooks: payback and budget, young campaigns, trial quality, weekly digest, countries and stores, winners inside a campaign, low-quality traffic, predicted payback, numbers that disagree, installs dropped. Setup routes to `adapty-docs`, MMP integrations to `adapty-docs`, Apple Search Ads management to `ads-manager`, SDK code to `adapty-integration`.
 - **`adapty-docs`** — routes any Adapty question to the right docs index and finds the page. The shared fallback every other skill points at when it has no URL for what is being asked: product and dashboard behaviour, Flow Builder, the Developer CLI, the server-side API, or an SDK method on any platform. Owns the surface map, the never-guess-a-slug rule, and the cost of each index.
 - **`adapty-integration`** — guides an agent through integrating the Adapty SDK into a mobile app end-to-end: dashboard setup via the Adapty CLI, SDK install, paywall, store configuration.
 - **`ads-manager`** — operates Apple Search Ads through the Adapty CLI's `adapty asa` topic: reading performance, changing bids and budgets, keyword work, launching and pausing campaigns.
@@ -18,7 +19,7 @@ Nine portable, Claude-style skills for agentic CLIs (Claude Code, GitHub Copilot
 
 One repo, three distribution channels: a Claude Code plugin (`.claude-plugin/` holds the marketplace + plugin manifests), the skills.sh CLI, and plain directory copy of a `skills/<name>/` directory into a tool's skills folder. Keep every skill directory self-contained and format-portable — nothing in one may assume Claude Code specifically.
 
-All eight skills ship inside the single `adapty-skills` plugin, because a plugin exposes every skill under `skills/`. No manifest edit is needed to add one. The plugin name is deliberately broader than any one skill — installing it gives you every skill in the repo, and that is the intended shape. Splitting the skills into separate marketplace entries was considered and rejected; do not reopen it without a reason the plugin name no longer covers.
+All ten skills ship inside the single `adapty-skills` plugin, because a plugin exposes every skill under `skills/`. No manifest edit is needed to add one. The plugin name is deliberately broader than any one skill — installing it gives you every skill in the repo, and that is the intended shape. Splitting the skills into separate marketplace entries was considered and rejected; do not reopen it without a reason the plugin name no longer covers.
 
 `marketplace.json` also carries a **deprecated `adapty-sdk-integration` entry** pointing at the same `source: "./"`, so installs made under the old plugin name keep resolving and keep updating. Verified: `plugin details` through either handle reports the same plugin identity and the same skill inventory. Drop that entry only after the docs stop teaching the old handle — never before, or you break the installs it exists to protect.
 
@@ -26,6 +27,7 @@ All eight skills ship inside the single `adapty-skills` plugin, because a plugin
 
 ## Layout
 
+- `skills/adapty-attribution/SKILL.md` and `references/playbooks.md` — the attribution skill. The entry point owns the routing table (which "attribution" the user means), the `$ADAPTY` block, the CLI call rules and the one measured rule, **Apple Search Ads spend is not in Attribution**; the playbooks own commands, reading and reply shape per question. Every playbook command was run against the real CLI's local validation; see the `adapty-attribution` conventions below.
 - `skills/adapty-docs/SKILL.md` — the docs-discovery skill, and the only file in the repo that maps
   a question to a docs index. Self-contained, no references, no scripts. Owns the routing table
   (`<platform>-llms.txt` / `flows-llms.txt` / `api-llms.txt` / `tutorial-llms.txt` / `llms.txt`
@@ -230,6 +232,13 @@ ID handoff on a run that does create a placement; that case is untested.
 Bycatch: 5 of 6 dropped the paywall's 3-second close delay (untested timer shapes, store review), and
 the one that built it produced a checker-clean timer with a child; 4 of 6 found the fixture's own
 bug, a trial string whose `%@` is never filled.
+
+## Conventions when editing `adapty-attribution`
+
+- **The CLI surface is `adapty attribution` (metrics, dimensions, values, report), read-only, first shipped in 0.8.8.** Ground truth is `src/commands/attribution/*.ts` and `docs/agent/attribution.md` in `adaptyteam/adapty-cli`; the agent doc is NOT in the npm package (`files`: bin, dist, manifest), so a runtime agent sees only `--help` and the catalog descriptions. That is why this skill exists at all.
+- **Finding 46 (2026-09-29): two RED rounds, 16 control runs, and the skill is lean because the data said so.** Control = `origin/main` skills, real CLI built from PR #35 head `8b066db`, a local mock serving the real catalogs plus synthetic rows (`ADAPTY_ATTRIBUTION_API_URL`). Round 1 (reports): young-cohort D30, Meta-vs-Adapty units and basis, and the SDK 4.1 opt-in all passed 2/2; **Apple Search Ads spend failed 2/2** — both runs refused to rank on `null` correctly, then told the user to "connect Apple Ads so its spend comes into Attribution", which can never happen, and neither read spend through `asa` despite running `asa whoami`. Round 2 (setup: Meta link split, Stripe test keys, Google pre-Sep-11 reconnect, custom networks without spend) passed 8/8. Per the pre-registered null contract, the passing traps got no SKILL.md space (one line each in `playbooks.md`'s reading list) and **setup is routed to `adapty-docs`, not taught.** The playbooks were added at the owner's request as use-case recipes, not as trap guards; they are not claimed to change behaviour. Ledger: `docs/superpowers/baselines/2026-09-29-attribution-red.md`. **GREEN round 1 did not separate: R1 control 5/6, treatment 5/6.** The pilot's 0/2 did not reproduce (control failed 3 of 8 across pilot and round), and the one treatment miss used the "alongside the other channels" framing the bold prohibition never named — so the prohibition became the sentence to say. **GREEN round 2, against the sentence: treatment 6/6, control 3/6 — and the split is all scenario A (channel payback), 0/3 vs 3/3.** On B ("ASA vs TikTok") control passed 6/6 across both rounds, because a prompt that names ASA sends every agent to its missing spend first; drop it. **Round 3 (A plus a ranking prompt carrying a user-stated ASA spend): R1 control 0/6, treatment 6/6, so the reworded rule has two consecutive clean rounds.** Step 4 (a user-stated spend becomes a threshold, never a ROAS) was added between rounds 2 and 3 and separated 0/3 vs 3/3 in its one round — every control ranked ASA #1 on a ~195% ROAS built from the stated $9k. The form lesson is the transferable part: the bold prohibition ("never tell the user to connect Apple Ads so its spend appears in Attribution") did not separate; the sentence to say did, and treatment runs quoted it verbatim 12/12 across rounds 2 and 3. And, again, an agent's hand-back quoted that sentence while its `reply.md` did not contain it — score the file. Also recorded: every run in both arms called `asa whoami`, and on a prompt that states the budget both arms reason from it, so a hypothetical-ROAS row cannot separate there.
+- **Every playbook command must pass the real CLI's local validation.** Extract the ```bash blocks and run the `attribution` lines against the mock after any edit; a metric name the catalog lacks, a `--granularity` without `--group-by date`, or a window over its cap is a recipe that fails on first use.
+- **The skill names no SDK symbols.** It is in `OTHER_SKILLS`; the 4.1 opt-in is described and linked, and the code change belongs to `adapty-integration`.
 
 ## Conventions when editing `adapty-docs`
 
