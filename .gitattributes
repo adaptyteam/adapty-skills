@@ -1,0 +1,3 @@
+# Test data: generated flow configs, collapsed in GitHub diffs.
+tests/fixtures/*.json linguist-generated=true
+tests/localization-oracle/*.json linguist-generated=true

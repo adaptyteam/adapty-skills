@@ -1593,26 +1593,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Skip",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_0"
               },
               "position": {
                 "type": "relative"
@@ -1648,26 +1629,7 @@
                 "bottom": 8
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Select plan",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_1"
               },
               "position": {
                 "type": "relative"
@@ -1697,26 +1659,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Metal",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_2"
               },
               "position": {
                 "type": "relative"
@@ -1754,26 +1697,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Metal",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_3"
               },
               "position": {
                 "type": "relative"
@@ -1809,26 +1733,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Premium metal card",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_4"
               },
               "position": {
                 "type": "relative"
@@ -1858,26 +1763,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Everything, plus the card",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_5"
               },
               "position": {
                 "type": "relative"
@@ -1913,26 +1799,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Top features",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_6"
               },
               "position": {
                 "type": "relative"
@@ -1962,26 +1829,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Commodities",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_7"
               },
               "position": {
                 "type": "relative"
@@ -2011,26 +1859,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Exchange commodities with fees of 1.99% (minimum fee S$1.49)",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_8"
               },
               "position": {
                 "type": "relative"
@@ -2060,26 +1889,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Safer online shopping",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_9"
               },
               "position": {
                 "type": "relative"
@@ -2109,26 +1919,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Unlimited single-use virtual cards that keep your card details safe",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_10"
               },
               "position": {
                 "type": "relative"
@@ -2158,26 +1949,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Concierge & lounges",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_11"
               },
               "position": {
                 "type": "relative"
@@ -2207,26 +1979,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Unlimited airport lounge access for you and a guest",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_12"
               },
               "position": {
                 "type": "relative"
@@ -2256,26 +2009,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Get Metal",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_13"
               },
               "position": {
                 "type": "relative"
@@ -2305,26 +2039,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Premium",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_14"
               },
               "position": {
                 "type": "relative"
@@ -2362,26 +2077,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Premium",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_15"
               },
               "position": {
                 "type": "relative"
@@ -2417,26 +2113,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Most popular",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_16"
               },
               "position": {
                 "type": "relative"
@@ -2466,26 +2143,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "For everyday spending abroad",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_17"
               },
               "position": {
                 "type": "relative"
@@ -2521,26 +2179,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Top features",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_18"
               },
               "position": {
                 "type": "relative"
@@ -2570,26 +2209,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Commodities",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_19"
               },
               "position": {
                 "type": "relative"
@@ -2619,26 +2239,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Exchange commodities with fees of 1.99% (minimum fee S$1.49)",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_20"
               },
               "position": {
                 "type": "relative"
@@ -2668,26 +2269,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Safer online shopping",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_21"
               },
               "position": {
                 "type": "relative"
@@ -2717,26 +2299,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Unlimited single-use virtual cards that keep your card details safe",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_22"
               },
               "position": {
                 "type": "relative"
@@ -2766,26 +2329,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Overseas medical cover",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_23"
               },
               "position": {
                 "type": "relative"
@@ -2815,26 +2359,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Travel insurance for you and your family while abroad",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_24"
               },
               "position": {
                 "type": "relative"
@@ -2864,26 +2389,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Get Premium",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_25"
               },
               "position": {
                 "type": "relative"
@@ -2913,26 +2419,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Standard",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_26"
               },
               "position": {
                 "type": "relative"
@@ -2970,26 +2457,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Standard",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_27"
               },
               "position": {
                 "type": "relative"
@@ -3019,26 +2487,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Active",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_28"
               },
               "position": {
                 "type": "relative"
@@ -3074,26 +2523,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Complimentary",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_29"
               },
               "position": {
                 "type": "relative"
@@ -3123,26 +2553,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Just the basics",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_30"
               },
               "position": {
                 "type": "relative"
@@ -3178,26 +2589,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Top features",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_31"
               },
               "position": {
                 "type": "relative"
@@ -3227,26 +2619,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Commodities",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_32"
               },
               "position": {
                 "type": "relative"
@@ -3276,26 +2649,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Exchange commodities with fees of 1.99% (minimum fee S$1.49)",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_33"
               },
               "position": {
                 "type": "relative"
@@ -3325,26 +2679,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Safer online shopping",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_34"
               },
               "position": {
                 "type": "relative"
@@ -3374,26 +2709,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Unlimited single-use virtual cards that keep your card details safe",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_35"
               },
               "position": {
                 "type": "relative"
@@ -3423,26 +2739,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Revolut <18 account",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_36"
               },
               "position": {
                 "type": "relative"
@@ -3472,26 +2769,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Create a Revolut <18 account, for a family member aged 6-17",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_37"
               },
               "position": {
                 "type": "relative"
@@ -3521,26 +2799,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Get Standard on us",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_38"
               },
               "position": {
                 "type": "relative"
@@ -3570,26 +2829,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Terms",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_39"
               },
               "position": {
                 "type": "relative"
@@ -3619,26 +2859,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Restore",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_40"
               },
               "position": {
                 "type": "relative"
@@ -3668,26 +2889,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Privacy",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_41"
               },
               "position": {
                 "type": "relative"
@@ -4712,17 +3914,20 @@
           "id": "tabs",
           "type": "single_choice"
         }
+      ],
+      "products": [
+        {
+          "id": "64364f33-610c-4eb7-c19f-46b64b5dc59b"
+        },
+        {
+          "id": "134badab-bd2f-416c-0d7a-e04b4a1a029a"
+        },
+        {
+          "id": "097b40ac-92dd-41c3-403b-0923cb62c7d9"
+        }
       ]
     }
   ],
-  "locales": [
-    {
-      "id": "en",
-      "code": "en",
-      "name": "English"
-    }
-  ],
-  "defaultLocale": "en",
   "variables": [],
   "theme": {
     "colors": [
@@ -4977,5 +4182,941 @@
     "fonts": [],
     "screens": {}
   },
-  "schemaVersion": 9
+  "schemaVersion": 13,
+  "localization": {
+    "locales": [
+      {
+        "id": "en",
+        "code": "en",
+        "name": "English"
+      }
+    ],
+    "defaultLocale": "en",
+    "content": {
+      "lc_0": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Skip",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_1": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Select plan",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_2": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Metal",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_3": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Metal",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_4": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Premium metal card",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_5": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Everything, plus the card",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_6": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Top features",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_7": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Commodities",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_8": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Exchange commodities with fees of 1.99% (minimum fee S$1.49)",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_9": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Safer online shopping",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_10": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Unlimited single-use virtual cards that keep your card details safe",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_11": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Concierge & lounges",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_12": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Unlimited airport lounge access for you and a guest",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_13": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Get Metal",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_14": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Premium",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_15": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Premium",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_16": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Most popular",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_17": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "For everyday spending abroad",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_18": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Top features",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_19": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Commodities",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_20": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Exchange commodities with fees of 1.99% (minimum fee S$1.49)",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_21": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Safer online shopping",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_22": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Unlimited single-use virtual cards that keep your card details safe",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_23": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Overseas medical cover",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_24": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Travel insurance for you and your family while abroad",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_25": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Get Premium",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_26": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Standard",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_27": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Standard",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_28": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Active",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_29": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Complimentary",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_30": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Just the basics",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_31": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Top features",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_32": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Commodities",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_33": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Exchange commodities with fees of 1.99% (minimum fee S$1.49)",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_34": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Safer online shopping",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_35": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Unlimited single-use virtual cards that keep your card details safe",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_36": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Revolut <18 account",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_37": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Create a Revolut <18 account, for a family member aged 6-17",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_38": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Get Standard on us",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_39": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Terms",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_40": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Restore",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_41": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Privacy",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
 }
