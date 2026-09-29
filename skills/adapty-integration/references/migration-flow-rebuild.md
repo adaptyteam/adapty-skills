@@ -1,15 +1,20 @@
-# Migration Reference: Retiring a Hand-Built Paywall in favor of a Flow
+# Migration Reference: Retiring a Paywall in favor of a Flow
 
 Read this **on demand only**, when all three of these are true:
 
 - `migrationSource` is set,
 - `paywallApproach` is `flow_builder`,
-- the project contains a paywall screen the app's own code renders — layout, copy, and product list
-  written by hand, in the app's UI framework.
+- the app shows a paywall the migration replaces. Either the app's own code renders it — layout, copy,
+  and product list written by hand, in the app's UI framework — or it came out of the source's own
+  visual builder (for RevenueCat, a Paywall Editor paywall the app presents through RevenueCatUI).
+
+**`flow_builder` is the user's own Phase 2 answer, never an inference** — not from the source having
+a builder paywall, and not by default on a run with nobody to answer; without it this file does not
+apply.
 
 That combination is the one case where the migration does not preserve the app's UI. Everywhere else
 `references/migration.md` section 4 holds: keep the source's working UI and swap the SDK underneath
-it. Here the user already asked for the replacement in Phase 2, so the paywall screen itself is being
+it. Here the user already asked for the replacement in Phase 2, so the paywall itself is being
 retired — but only on the terms below, and never before the flow that replaces it is live.
 
 Platforms: iOS, Android, React Native, Flutter, Kotlin Multiplatform. Capacitor and Unity have no
@@ -51,8 +56,8 @@ another:
 2. **Real** products created, with real store product IDs. Deferred products (SKILL.md Phase 3
    Step 4 — IDs not in the code, or Google Play's AAB prerequisite) defer everything below, because
    a flow with no products to attach is not worth building twice.
-3. Rebuild spec extracted from the existing paywall code — section 3. Do this **before** any code
-   changes, while the screen is still intact and readable.
+3. Rebuild spec in hand — section 3. For a hand-built screen, extract it **before** any code
+   changes, while the screen is still intact and readable; for a source-builder paywall, ask for it.
 4. The flow is built, **published**, and attached to its placement on the reserved developer ID —
    `flow-generator` builds it from the section 3 spec (SKILL.md Phase 3 Step 5, Route B), and the
    user approves the rebuilt screen before it is published. Route D, the dashboard, when the CLI
@@ -60,14 +65,19 @@ another:
 5. Code swap, atomic per section 1, in the platform reference's Stage 2 Flow Builder section.
 6. Checkpoint on a device: flow renders, products appear, a sandbox purchase completes, access level
    is granted.
-7. Only then: delete the old paywall screen and remove the source SDK — section 6.
+7. Only then: delete the old paywall — the screen, or the source's paywall presentation calls — and
+   remove the source SDK — section 6.
 
-## 3. Extract the rebuild spec before you delete anything
+## 3. Get the rebuild spec before you delete anything
 
 The spec is `flow-generator`'s build brief, and on a run that cannot build the flow it is the
-user's. Copy, product order, badge text, and locales live in the code you are about to delete, and
-`git` history is not a rebuild brief — once the screen is gone, anything you did not record is gone
-with it.
+user's. Where it comes from depends on who built the old paywall.
+
+### 3a. A hand-built screen: extract it from the code
+
+Copy, product order, badge text, and locales live in the code you are about to delete, and `git`
+history is not a rebuild brief — once the screen is gone, anything you did not record is gone with
+it.
 
 Read the paywall screen and every file it pulls strings, assets, or products from. Then copy this
 template into `ADAPTY_SETUP.md` under the **Rebuild as flows** heading that
@@ -102,10 +112,44 @@ element the screen never had from one you did not look for.
 `ADAPTY_FLOW_SPEC.md` and link it from that heading, so the rest of the handoff stays readable. The
 rest of the spec stays inline in `ADAPTY_SETUP.md`.
 
+### 3b. A source-builder paywall: ask for screenshots
+
+Its design lives in the source's dashboard, not in the code, so nothing in the project can be
+extracted. Ask the user for it, once per paywall, in this block. What each line is for:
+one screenshot is one state, so the plan selection and the trial line each need their own; copy
+transcribed from images is where typos come from, so other locales come as text; images come out
+of a screenshot flattened, so the originals come as files; and the offering identifier is the
+reserved placement ID, the one fact you cannot read off a picture.
+
+> To rebuild **`<offering id>`**'s paywall as a flow, send me:
+>
+> 1. A screenshot of it with each plan selected, and one showing the trial offer if it has one.
+> 2. The text for every other language it ships in — an export or a paste, not screenshots.
+> 3. The original image files, and the font's name or file if it uses a custom one.
+>
+> The prices in the screenshots don't matter; the flow shows each store's live price.
+
+*(The shape of the block, not words to copy:)*
+
+> To rebuild **`default`**'s paywall as a flow, send me:
+> 1. A screenshot with Annual selected, one with Monthly selected, and one with the 7-day trial showing.
+> 2. The German and French text, pasted.
+> 3. `hero.png` and the name of the headline font.
+> The prices don't matter; the flow shows each store's live price.
+
+Record the offering ID, the products the offering carries in display order, and the access level in
+the section 3a template, and mark every field the screenshots answer as `from screenshot`. Never type
+a price you read off a screenshot into the spec as copy. If the code does not name the offering —
+the app presents the current one — add a line to the block asking which offering it is, and never
+fill the ID in yourself. When nobody is there to answer, put the
+block in `ADAPTY_SETUP.md` under **Rebuild as flows** as the user's next step, and stop there for
+this paywall.
+
 ## 4. Build it with `flow-generator`, and decide what it cannot reach
 
-Invoke `flow-generator` with the spec, the asset file paths, and the products from section 2. It owns everything about the flow: which builder element each part of the
-screen becomes, binding the products and price variables, uploading images, adding the locales, and
+Invoke `flow-generator` with the spec, the screenshots if you have them, the asset file paths, and
+the products from section 2. It owns everything about the flow: which builder element each part of
+the screen becomes, binding the products and price variables, uploading images, adding the locales, and
 comparing its render against your reference until they match. Do not map elements yourself, and do
 not answer its questions on the user's behalf.
 
@@ -119,10 +163,11 @@ If what makes the screen work is bespoke animation, interaction, or business log
 at the evidence `references/migration-architecture.md` row 4 weighs for keeping a custom paywall. Say
 so to the user and record it. Do not silently change `paywallApproach` — that choice is theirs.
 
-## 5. What the swap needs that a hand-built paywall never had
+## 5. What the swap needs that the old paywall never had
 
-A flow is not a drop-in for a screen the app renders. Four things the old screen did implicitly now
-need code, and all of them are checkpoint failures if missed:
+A flow is not a drop-in for the old paywall, whether the app rendered it or the source's UI library
+did. Four things the old one did implicitly now need code, and all of them are checkpoint failures if
+missed:
 
 - **Button actions arrive as events.** Close, restore, Terms, Privacy, and any custom button in the
   flow emit actions your code handles — they are no longer your own tap handlers. Every behavior you
@@ -152,7 +197,8 @@ if they ask for them.
 
 ## 6. Delete the old screen last, and only on evidence
 
-Delete the paywall screen and its purchase code **after** the section 2 step 6 checkpoint passes on a
+Delete the paywall screen and its purchase code — for a source-builder paywall, the calls that
+present it — **after** the section 2 step 6 checkpoint passes on a
 device: the flow rendered, products appeared, a sandbox purchase completed, the access level was
 granted. Not after the code compiles, not after the flow previews correctly in the dashboard.
 

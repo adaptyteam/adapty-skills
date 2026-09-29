@@ -33,19 +33,26 @@ placement rule, applied to RC's own field.
 
 ---
 
-## 2. An Offering with a published RevenueCat Paywall reserves its placement ID — it gets nothing created
+## 2. An Offering with a published RevenueCat Paywall — on a Flow Builder run, its placement ID is reserved for the flow
 
-`references/migration.md` section 3 already states the general rule: a source paywall built in the
-source's own visual builder gets no placement created for it, only a reservation, because paywall and
-flow placements share one Adapty ID namespace. RevenueCat's version of that visual builder is its
+`references/migration.md` section 3 already states the general rule: on a `flow_builder` run, a
+source paywall built in the source's own visual builder gets no placement created for it until its
+flow is published, and then a **flow** placement on that ID, because paywall and flow placements
+share one Adapty ID namespace. On a `custom` run nothing is reserved, and the rest of this section
+does not apply. RevenueCat's version of that visual builder is its
 Paywall Editor: an Offering can carry one attached Paywall, and once that Paywall is **Published**, RC
 serves it to whichever customers see the Offering.
 
-- **Whether an Offering has a Published Paywall attached is dashboard state — no call site in the app
-  code reveals it.** An offering fetched only for its products looks identical in code whether or not
+- **Whether an Offering the app fetches for its products has a Published Paywall attached is
+  dashboard state — no call site in the app code reveals it.** An offering fetched only for its products looks identical in code whether or not
   it has a Paywall behind it in the dashboard. You can rule this in or out only with RC account access
   (the dashboard's Paywalls list) or the `--rc-key` catalog described in section 3 below; from code
   alone you cannot clear this hazard, only flag it.
+- **The app code does show that an editor paywall is presented** — `import RevenueCatUI` with a
+  paywall view, `presentPaywallIfNeeded`, or the platform's equivalent. It does not show which
+  offering the paywall belongs to when the call takes the current offering, so the offering ID still
+  comes from the code's own identifier or the dashboard. When `paywallApproach` is `flow_builder`,
+  `references/migration-flow-rebuild.md` rebuilds it from the user's screenshots.
 - This is why every offering you are about to turn into a placement belongs in the "Verify against
   your RevenueCat dashboard" checklist below when you worked without account access: the reader must
   confirm in the dashboard that it carries no Published Paywall before treating that placement ID as
