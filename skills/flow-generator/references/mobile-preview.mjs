@@ -95,16 +95,23 @@ function loadQrcode() {
 }
 
 /**
- * Locales live in the flow config as `locales: [{id, code, name}]` with `defaultLocale` naming one
- * by **id**. The link wants codes, so the id is resolved rather than passed through — they are
- * equal in every config seen so far, which is exactly why getting it wrong would go unnoticed.
+ * Locales live in the flow config under `localization`: `localization.locales: [{id, code, name}]`
+ * with `localization.defaultLocale` naming one by **id**. The link wants codes, so the id is
+ * resolved rather than passed through — they are often equal, which is exactly why getting it
+ * wrong would go unnoticed.
  *
  * The backend stores locales as opaque dicts, so nothing upstream guarantees the shape.
  */
-function readLocales(config) {
-  if (typeof config !== 'object' || config === null || !Array.isArray(config.locales)) return []
+function localizationOf(config) {
+  const lz = config?.localization
+  return typeof lz === 'object' && lz !== null ? lz : {}
+}
 
-  return config.locales
+function readLocales(config) {
+  const locales = localizationOf(config).locales
+  if (!Array.isArray(locales)) return []
+
+  return locales
     .filter((entry) => typeof entry === 'object' && entry !== null && typeof entry.code === 'string')
     .map((entry) => ({code: entry.code, id: typeof entry.id === 'string' ? entry.id : entry.code}))
 }
@@ -202,7 +209,8 @@ if (values.locales) {
   // Accepts either a `config get` envelope or a bare config, like the other scripts here.
   const flow = typeof config?.config === 'object' && config.config !== null ? config.config : config
   locales = readLocales(flow)
-  defaultLocaleId = typeof flow?.defaultLocale === 'string' ? flow.defaultLocale : null
+  const dflt = localizationOf(flow).defaultLocale
+  defaultLocaleId = typeof dflt === 'string' ? dflt : null
   configDir = dirname(resolve(values.config))
 }
 

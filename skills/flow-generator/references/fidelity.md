@@ -101,7 +101,7 @@ finished screen.
 **Ship every placeholder fully styled** — `borderRadius`, `objectFit`, and a **fixed size taken
 from the reference** — on the `image` element itself, so the upload lands styled instead of
 handing the user styling work ([flow-schema.md trap 5](flow-schema.md)). A styled placeholder at
-the right box also keeps the layout honest: an empty `values` map does not occupy the space the
+the right box also keeps the layout honest: an image with an empty entry does not occupy the space the
 real asset will, which is measured at 95px on a 932px screen.
 
 The routes are **not symmetric**, so say which one applies rather than offering both everywhere:

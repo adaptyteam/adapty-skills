@@ -169,8 +169,8 @@ one it shows that is not there:
   drew. What this blindness must never license is a repair: swapping the `spinner` for a static
   ring `icon` makes the screenshot look complete and ships something that does not animate
   ([patterns.md → a loading screen](patterns.md#a-loading-screen--fill-the-loader-spinner-label-template-never-fake-the-spinner)).
-- **Any locale but the one it draws.** The render ignores `defaultLocale` and the order of
-  `locales[]` — measured: forcing `defaultLocale: "de"`, and putting `de` first, both produced
+- **Any locale but the one it draws.** The render ignores `localization.defaultLocale` and the
+  order of `localization.locales` — measured: forcing the default to `de`, and putting `de` first, both produced
   byte-identical screenshots to the untouched file. **A locale transform therefore cannot be
   verified visually at all.** Say so, and tell the user to switch locale in the builder and look
   for overflow, because translated text is routinely longer than its source.
@@ -347,7 +347,8 @@ https://mobile-app.adapty.io/flow-preview?app_id=<uuid>&flow_id=<uuid>&current_l
 ```
 
 [`mobile-preview.mjs`](mobile-preview.mjs) builds it and renders the QR. Everything it needs is
-already in your hands by phase 5: the two ids, and `locales`/`defaultLocale` off the config.
+already in your hands by phase 5: the two ids, and `localization.locales` /
+`localization.defaultLocale` off the config.
 
 **It previews what is SAVED, not your local file — the exact opposite of `config preview`.** The app
 opens the link and fetches the flow's current draft from Adapty. So it is a phase-5 tool that runs
@@ -383,8 +384,8 @@ part of it is meaningful and a human may well need to read it aloud or retype it
 
 Three details worth not rediscovering:
 
-- **`defaultLocale` holds a locale *id*, and the link wants a *code*.** The builder resolves id→code
-  before building the URL. They are equal in every config seen so far, which is exactly why passing
+- **`localization.defaultLocale` holds a locale *id*, and the link wants a *code*.** The builder
+  resolves id→code before building the URL. They are often equal, which is exactly why passing
   the id through would go unnoticed until the first flow where they differ.
 - **The `locales` separator must be a literal comma.** Building the query with `URLSearchParams`
   percent-encodes it to `%2C`, and the app is only *known* to accept the builder's spelling. The

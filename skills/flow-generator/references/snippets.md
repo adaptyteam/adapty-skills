@@ -97,13 +97,17 @@ prints a line saying so. Those store ids are what make a cross-app rebind propos
 (see **Grafting** below); nothing else in the file can substitute for them.
 
 `extract` exits **0** clean, **1** when it has something to tell you (a product with no store id
-recorded, a consumed variable with no producer inside the fragment, an image element with an
-empty `values` map), **2** on a bad path or unreadable input. Exit 1 here is the same disclosure
+recorded, a consumed variable with no producer inside the fragment, an image element with no
+asset), **2** on a bad path or unreadable input. Exit 1 here is the same disclosure
 convention as everywhere else in this skill — see **Grafting**.
 
 ## The format
 
-One self-contained `<slug>.flow-snippet.json`, kebab-case. Four kinds, one payload shape each:
+One self-contained `<slug>.flow-snippet.json`, kebab-case. **Localizable values are saved inline**,
+resolved out of the source flow's catalog — `{"_localizable": true, "values": {…}}` where the
+field is used — because a `{_lid}` names an entry of the source flow only
+([`flow-schema.md`](flow-schema.md) trap 24). A snippet therefore carries no content id and cannot
+collide with any destination. Four kinds, one payload shape each:
 
 | Kind | Payload |
 | :--- | :--- |
@@ -136,6 +140,10 @@ python3 references/snippet.py graft --config dest.json --snippet s.flow-snippet.
   --screen scr_dest [--parent el_P] [--index N] [--catalog dest-products.json] \
   --out grafted.json
 ```
+
+`graft` writes the payload into the destination as stored and catalogues the result: the grafted
+values get new entries under ids minted past the destination's own, and every entry the
+destination already had keeps its id, its values and every ref that names it.
 
 **Run `plan` first, always, and read it before ever running `graft`.** `plan` mutates nothing —
 it resolves every dependency against the destination and prints what would happen, and it fails
@@ -306,9 +314,12 @@ be resolved before a write.
   ([`flow-schema.md` invariant 10](flow-schema.md#invariants)).
 - **Locale correctness.** `config preview` draws one locale and is byte-identical whichever one
   you force ([`preview.md`](preview.md#what-a-render-cannot-show-you)) — so a graft's locale
-  handling (drop what the destination doesn't declare, fill what it does from the snippet's
-  default, report both) is **invisible to every visual check**. Read the plan's `WILL FILL` /
-  `WILL DROP` lines; do not look at the screenshot for this.
+  handling is **invisible to every visual check**: it drops a locale the destination doesn't
+  declare, leaves a declared locale the snippet has no text for untranslated (it falls back to
+  the destination's default locale — never a copy of the default text), and fills only the
+  destination's DEFAULT locale when the snippet lacks it, because every other locale falls back to
+  that one. Read the plan's `UNTRANSLATED` / `WILL FILL` / `WILL DROP` lines; do not look at the
+  screenshot for this.
 
 ## After a graft
 

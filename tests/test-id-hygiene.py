@@ -42,6 +42,8 @@ The pinned SILENT case for `sr-Latn` is what stops that regression.
 Usage: python3 tests/test-id-hygiene.py    # 0 all pass, 1 a case regressed
 """
 import glob, json, os, re, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import catalogued, values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
@@ -60,7 +62,7 @@ fails = []
 def run(doc):
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, 'c.json')
-        json.dump(doc, open(path, 'w'))
+        json.dump(catalogued(doc), open(path, 'w'))
         result = subprocess.run([sys.executable, VERIFY, path], capture_output=True, text=True)
     if 'Traceback' in result.stderr or 'CHECKER ERROR' in result.stdout:
         raise AssertionError(f'verify-config.py crashed on this document:\n{result.stdout}\n'

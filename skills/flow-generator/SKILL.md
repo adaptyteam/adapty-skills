@@ -15,7 +15,7 @@ cannot be synthesized:
 - **An image you have no readable FILE for.** Given a path you can now upload it —
   `flows media upload` ([media.md](references/media.md)). An image you can only *see* — pasted or
   attached into the conversation — is not one you have: ask for a path. With no file there is
-  nothing to upload, so it stays an empty values map, never a made-up URL (trap 5). **SVG uploads
+  nothing to upload, so its catalog entry stays empty, never a made-up URL (trap 5). **SVG uploads
   fail**, so a monochrome glyph is authored inline in `_meta.icons`; a graphic no element can
   express, you draw and rasterize ([media.md](references/media.md)). An icon is **not** in this
   list: `python3 references/icons.py --search <word>` resolves any phosphor glyph, and an
@@ -117,7 +117,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | the **`adapty-integration`** skill | **Phase 6**, once a placement points at the flow. It owns the app side — the fetch, the render and the call sites — and this skill hands it one thing: the placement developer ID |
 
 Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph lookup,
-any phase), `verify-config.py` (phase 3),
+any phase), `localization.py` (phase 2, the catalog), `verify-config.py` (phase 3),
 `validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py` and
 `render-measure.py` (phase 4), `preview-with-playwright.mjs` (when a render fails),
 `mobile-preview.mjs` (phase 5, the device-preview link).
@@ -282,6 +282,20 @@ undo, so the copy you fetched is the only way back:
 $ADAPTY flows config get --app $APP $FLOW --json > flow.working.json
 cp flow.working.json flow.backup.json
 ```
+
+**The text is in the catalog.** Every localizable field holds a `{_lid}` ref, and its per-locale
+values live in `localization.content` — so a copy edit or a translation changes
+`content[id].values[<localeId>]` and keeps every id, and an entry several fields share changes all
+of them ([transforms.md](references/transforms.md) decision 1). Anything you write inline — a
+`flowkit` fragment, a catalog template, a hand-written value — gets catalogued before phase 3:
+
+```bash
+python3 references/localization.py catalog flow.working.json
+```
+
+A fetched config below `schemaVersion` 13 is converted first, the same way; below 12 the user opens
+and saves it in the Flow Builder and you fetch again. The rules:
+[flow-schema.md → Localization: the catalog](references/flow-schema.md#localization-the-catalog).
 
 **Patch what you just fetched.** A build script or a `draft.json` from an earlier run predates
 whatever was done in the builder since, and `config update` replaces everything
@@ -794,7 +808,7 @@ point:
 > Until you publish, everyone continues to see the previous version.
 
 **Build the link for slot 2 yourself — do not send the user hunting for it.** It is pure string
-construction from the app id, the flow id and the config's `locales`, so
+construction from the app id, the flow id and the config's `localization.locales`, so
 [`mobile-preview.mjs`](references/mobile-preview.mjs) produces it with no network call and no auth:
 
 ```bash
@@ -966,8 +980,8 @@ blockers, and clearing one often activates whatever it was masking
 `variables[]` or `theme`; an inert `conditional` whose branches all resolve to `nothing`. Real
 configs contain all of these.
 
-**One warning splits by authorship: a locale value under a code `locales[]` does not declare.** If
-**you** wrote it this run it is your defect — add the code and make the parity pass that adding a
-locale implies. If it came **with the config you fetched**, it is report-never-fix like the others:
+**One warning splits by authorship: a catalog value under a locale id `localization.locales` does
+not declare.** If **you** wrote it this run it is your defect — declare the locale and translate
+what adding a locale implies. If it came **with the config you fetched**, it is report-never-fix like the others:
 it is usually half a locale run someone started, and finishing or deleting their work is not your
 call. Name the two exits and ask.

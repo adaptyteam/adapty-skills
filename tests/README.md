@@ -10,6 +10,16 @@ check it. The skills themselves are prose; testing those means running agents ag
 stay gitignored in `fixtures-raw/` because they carry real product UUIDs and real
 `public-media.adapty.io` URLs.
 
+**Every fixture is stored at `schemaVersion` 13, in the localization-catalog form** — converted by
+the builder's own migration chain, so it is the document the builder stores. Suites that build a
+synthetic document write it in the readable inline form and pass it through `v13.catalogued()`
+before handing it to a shipped script; suites that mutate a fixture's text either edit its
+`localization.content` entries or work on `localization.resolve()`'s read view, which is what the
+checkers read. `localization-oracle/` holds inputs and the output the builder's TypeScript
+migration 013 produced for each; `test-localization.py` holds the Python port to them byte for
+byte.
+
+
 | Fixture | What it exercises |
 | :--- | :--- |
 | `onboarding-quiz-paywall.json` | 5 screens, branching, a component, cross-screen variables, 42 localizable fields |
@@ -74,6 +84,7 @@ python3 tests/render-check.py --keep                                    # keep P
 python3 skills/flow-generator/references/render-measure.py shot.png --column 23:68                 # is a column continuous?
 python3 skills/flow-generator/references/render-measure.py shot.png --row 343                       # how wide is it, really?
 python3 skills/flow-generator/references/crop.py ref.png out.png --box 872,543,918,579 --key       # cut a graphic out of a reference
+python3 tests/test-localization.py                                       # the catalog port vs the builder migration, the read view, the catalog checks
 python3 tests/test-flowkit.py                                            # the authoring helpers
 python3 tests/test-diff-config.py                                        # the diff's two directions
 python3 tests/test-snippet.py                                            # extract/plan/graft

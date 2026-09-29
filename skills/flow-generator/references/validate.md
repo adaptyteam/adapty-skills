@@ -26,7 +26,7 @@ clean (measured on two v9 fixtures), so unlike `validate-with-schema.mjs` it nee
 run — never a list.**
 
 Measured: a config with three independent defects (an undeclared product, a dangling `groupId`,
-and a `defaultLocale` naming no configured locale) returned **one** issue. Adding the third defect
+and a default locale naming no configured locale) returned **one** issue. Adding the third defect
 changed *which* one surfaced. Fixing one and re-running surfaced the next.
 
 Two consequences, and both are easy to get wrong:
@@ -111,8 +111,8 @@ Each row measured by injecting the defect into a real, previously-clean config.
 | A `navigate` action targeting a screen that is gone | `Navigate action targets unknown screen "<sid>" (…interactions[0].actions[0].payload.screen)` |
 | Deleting a screen something still navigates to | same, reported at the surviving caller |
 | An id in `hierarchy` with no `elements.map` entry | `Element "<id>" referenced in hierarchy but missing from element map (…)` |
-| `defaultLocale` naming no configured locale | `Default locale "<code>" does not match a configured locale (defaultLocale)` |
-| A locale declared in `locales[]` with no translated values | `Generated JSON failed schema validation` |
+| `localization.defaultLocale` naming no configured locale id | `Default locale "<id>" does not match a configured locale` — match on that prefix, not the path in brackets |
+| A pre-catalog document: top-level `locales` / `defaultLocale`, inline localizable values | refused — the service takes the catalog form only. `references/verify-config.py` names it first, with the way through |
 | A malformed hex colour (e.g. `#FFf`) | `Generated JSON failed schema validation` |
 | An `icon` used but not declared in `_meta.icons` — **including a `custom` icon whose name is a builtin** | `Unsupported flow input: Icon "<name>" with weight "<w>" is missing from flow._meta.icons (screens[…].props.icon)` |
 
@@ -162,7 +162,8 @@ A clean `validate` is a floor, not a proof. Every one of these passed with `vali
 | `schemaVersion: 999` | the schema check |
 | A top-level `status` / `id` on a file deliverable | `references/verify-config.py` |
 | An element with no `states` key — a config the builder cannot open | `references/verify-config.py` |
-| A missing `defaultLocale` | nothing — and the schema is wrong to call it required |
+| A ref naming no catalog entry, or an entry of the wrong `kind` | `references/verify-config.py` — the field renders nothing, and the refusal, if any, names the catalog path rather than the element |
+| An untranslated field | nothing, by design — it falls back to the default locale; `references/verify-config.py` warns per locale |
 | A hyphen in an element id, which breaks the generated runtime script | `references/verify-config.py` (added after this row; the render still cannot show it — see [flow-schema.md](flow-schema.md#element-and-screen-ids-become-identifiers)) |
 | A product id that does not exist in this app | nothing; no price on device and the purchase fails |
 | Advisory warnings about silently dropped props (`verticalAlign` and friends) | nothing reachable from the CLI |

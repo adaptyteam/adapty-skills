@@ -6,6 +6,8 @@ Runs both shipped scripts as subprocesses (never imports them, so nothing writes
 check that fires on intentional designs is worse than none.
 """
 import copy, glob, json, os, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import catalogued, values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIT = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
@@ -22,11 +24,11 @@ def check(name, ok, detail=''):
 
 def audit(doc, *extra):
     with tempfile.TemporaryDirectory() as tmp:
-        p = os.path.join(tmp, 'c.json'); json.dump(doc, open(p, 'w'))
+        p = os.path.join(tmp, 'c.json'); json.dump(catalogued(doc), open(p, 'w'))
         args = []
         for i, x in enumerate(extra):
             if isinstance(x, (dict, list)):
-                q = os.path.join(tmp, f'x{i}.json'); json.dump(x, open(q, 'w')); args.append(q)
+                q = os.path.join(tmp, f'x{i}.json'); json.dump(catalogued(x), open(q, 'w')); args.append(q)
             else:
                 args.append(x)
         r = subprocess.run([sys.executable, AUDIT, p, '--json', *args], capture_output=True, text=True)
@@ -147,12 +149,12 @@ _dropped = [0]
 def _drop_sr(o):
     if isinstance(o, dict):
         vals = o.get('values')
-        if o.get('_localizable') and isinstance(vals, dict) and 'sr' in vals and _dropped[0] < 10:
+        if o.get('kind') and isinstance(vals, dict) and 'sr' in vals and _dropped[0] < 10:
             del vals['sr']; _dropped[0] += 1
         for v in o.values(): _drop_sr(v)
     elif isinstance(o, list):
         for v in o: _drop_sr(v)
-_drop_sr(d)
+_drop_sr(d['localization']['content'])
 f, rep = audit(d)
 mt = [x for x in f if x['check'] == 'missing-translation']
 check('fixture setup: ten Serbian values removed', _dropped[0] == 10, _dropped)
@@ -168,7 +170,7 @@ print('\nnavigateNext counts for reachability (verify-config)')
 
 def unreachable(doc):
     with tempfile.TemporaryDirectory() as tmp:
-        p = os.path.join(tmp, 'c.json'); json.dump(doc, open(p, 'w'))
+        p = os.path.join(tmp, 'c.json'); json.dump(catalogued(doc), open(p, 'w'))
         out = subprocess.run([sys.executable, VERIFY, p], capture_output=True, text=True).stdout
     assert 'CHECKER ERROR' not in out, out
     return 'unreachable' in out, out

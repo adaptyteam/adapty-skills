@@ -20,6 +20,8 @@ its defect too. So every case asserts a direction:
 Usage: python3 tests/test-verify-transformer.py    # 0 all pass, 1 a case regressed
 """
 import copy, glob, json, os, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
@@ -259,8 +261,9 @@ fires('tab group declared something other than single_choice',
 # --- invalid_localized_rich_text
 d = load()
 _s, _eid, _e = first_element(d, lambda e: isinstance((e.get('props') or {}).get('content'), dict))
-_e['props']['content']['values'] = {k: {'oops': True}
-                                    for k in _e['props']['content']['values']}
+_v = values_of(d, _e['props']['content'])
+for k in list(_v):
+    _v[k] = {'oops': True}
 fires('a localizable content value that is neither string, array nor switch',
       d, 'invalid_localized_rich_text')
 
@@ -274,8 +277,9 @@ if len(prods) > 1:
     node = {'type': 'paragraph', 'content': [
         {'type': 'variable', 'variableId': f'{prods[0]}.prod_price'},
         {'type': 'variable', 'variableId': f'{prods[1]}.prod_price'}]}
-    _e['props']['content']['values'] = {k: [node]
-                                        for k in _e['props']['content']['values']}
+    _v = values_of(d, _e['props']['content'])
+    for k in list(_v):
+        _v[k] = [node]
     fires('one text referencing two distinct products', d,
           'mixed_product_targets_in_text')
 else:
