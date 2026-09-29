@@ -355,7 +355,7 @@ config cleanly, some need something only the user has, and **two cannot be built
 | **Permission request** | **No — there is no permission action.** The 15 action types are alert, closeFlow, conditional, custom, hideElement, navigate, navigateBack, navigateNext, nothing, openUrl, purchase, restorePurchases, selectProduct, setVariable, showElement | The **app** makes the system call. The flow can render the pre-permission soft prompt and fire a `custom` action the app handles — so permission-timing findings are a handoff to whoever owns the app code, not a build item |
 | Social proof — rating, review count, testimonials | Element yes | The real numbers and the real quotes, verbatim. Several testimonials on one screen is the `carousel` element, never a static card with hand-built dots |
 | Before/after, results with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, a copy-tier change |
-| Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an empty values map, never a made-up URL |
+| Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | The paywall at the end | Yes | **The products are theirs to pick**, not yours — catalog first, store ids second, create last (`flow-generator` phase 2). And a trial timeline needs a trial that exists |
 | Second-chance offer after the paywall | Yes, as a screen with its own products | A real discount to offer |
 

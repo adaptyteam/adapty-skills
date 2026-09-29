@@ -223,7 +223,7 @@ the patterns that depend on them must name that in **Needs from you**:
 | Social proof, **several testimonials on one screen** | Yes — the `carousel` element, which swipes and draws its own indicator dots | The quotes. Never a static card with hand-built dots: it ships one frozen slide and dots that do nothing, and it screenshots identically to the real thing |
 | Results/proof with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, which is a copy-tier change |
 | Countdown timer | Yes | A real discount to count down to; no offer means no timer |
-| Hero image / video, background image | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an empty values map, never a made-up URL |
+| Hero image / video, background image | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | Goal-personalized headline | Yes, if a variable producer exists earlier in the flow | The onboarding step that captures the goal, if there isn't one |
 
 Mechanics for all of these — the `old-price` element, `_meta.icons`, empty asset maps, variable

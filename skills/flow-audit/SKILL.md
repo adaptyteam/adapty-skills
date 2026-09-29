@@ -142,7 +142,7 @@ xargs -P 8 -I{} sh -c "$ADAPTY flows config get {} --app $APP --json > siblings/
 python3 -c "import glob, json; flows = {f['id']: f['name'] for f in \
 json.load(open('flows.json'))['data']}; json.dump({flows.get(p.split('/')[-1][:-5], p): \
 [{'code': l.get('code'), 'name': l.get('name')} \
-for l in json.load(open(p))['config'].get('locales') or []] \
+for l in (json.load(open(p))['config'].get('localization') or {}).get('locales') or []] \
 for p in glob.glob('siblings/*.json')}, open('sibling-locales.json', 'w'))"
 ```
 
@@ -184,7 +184,9 @@ admit that.
 referential integrity) — run it and report its output, never reimplement any check it
 already owns. `audit-flow.py` is this skill's own script: the six completeness families
 (triggers, store compliance, products, variables, localization, placeholders). Both are
-stdlib-only and take the bare config, never the envelope.
+stdlib-only and take the bare config, never the envelope. Both read the flow's text through its
+localization catalog (`references/localization.py`, shipped beside `audit-flow.py`), so an
+untranslated field is reported as showing the default language, which is what users see.
 
 `audit-flow.py` also runs six **store-review** checks — `trial-toggle`,
 `billed-amount-not-shown`, `derived-price-louder`, `no-period-disclosed`,

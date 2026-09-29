@@ -114,12 +114,15 @@ this check is deliberately the other half, not a restatement.
 
 ## Localization
 
-`verify-config.py` already errors on a missing locale key per field, so this family owns
-only what it measurably *passes*.
+The flow is read through its localization catalog, so every value is checked where it is used.
+A missing value and an **empty** one (`""`, `[]`, a paragraph holding only empty text) mean the
+same thing in this format: the field falls back to the default locale's text. Both count as
+**missing**, never as blank — `verify-config.py` warns on them per locale, and this family turns
+the count into `missing-translation`.
 
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
-| `empty-translation` — a locale key is present but carries no literal text and no `variable`/`token`/`image` node, and no non-empty branch if the value is a conditional-text `switch` | blocker | a real user in that locale sees a blank field | **calibrated both ways**: fires on an injected empty value and on an all-empty `switch`, silent on all 43 real fields in `onboarding-multilocale.json`, on every other tracked fixture, and on conditional text |
+| `empty-translation` — a value is present and not empty by the catalog's rule, yet shows nothing (whitespace only, or no literal text and no `variable`/`token`/`image` node, and no non-empty branch if the value is a conditional-text `switch`) | blocker | a real user in that locale sees a blank field — nothing falls back, because the value is not empty | **calibrated both ways**: fires on an injected whitespace-only value and on an all-empty `switch`, counts an emptied value as missing instead, silent on all 43 real fields in `onboarding-multilocale.json`, on every other tracked fixture, and on conditional text |
 | `locale-entirely-empty` — a declared locale has no values anywhere in the flow | blocker | a whole language was declared and never filled | derived from the coverage table; not present in the corpus, not yet proven to fire on real data |
 | `missing-sibling-locale` — a language that at least one of the app's OTHER published flows offers is not among this flow's locales | risk | the audit cannot know the app's markets, but it can see that the rest of the app already speaks a language this flow does not | needs `--sibling-locales` (phase 3 fetches the other published flows); in the sandbox 10 of 11 flows are English-only and one is English plus Russian, so it fires only on a real gap. Tested both ways in `tests/test-navigation.py` |
 | `untranslated` — a value is identical to the base locale's text elsewhere in the flow | risk, grouped once per flow | may be a missed translation, may be a proper noun | **fires** twice on `onboarding-multilocale.json` (and twice on a live flow too) and **both hits are the brand name** (`Nimbus`/`Nimbus Plus` in the fixture, the app's own name and its paid tier in the live one) — correctly untranslated, so this can never be a blocker |

@@ -16,6 +16,8 @@ stay clean when store-review findings are the only ones that fired.
 Usage: python3 tests/test-store-review.py     # 0 all pass, 1 a case regressed
 """
 import copy, glob, json, os, re, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIT = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
@@ -61,7 +63,8 @@ def of(findings, checkname):
 
 def load(path=MULTI):
     doc = json.load(open(path))
-    return doc.get('config', doc)
+    # The read view (refs inlined), which is what audit-flow.py reads; see test-audit-flow.py.
+    return localization.resolve(doc.get('config', doc))
 
 
 def corpus():

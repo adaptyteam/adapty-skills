@@ -72,9 +72,10 @@ def params_of(url):
 def expected_locales(path):
     config = json.load(open(path))
     config = config.get('config', config)
-    locales = [l for l in config.get('locales', []) if isinstance(l, dict) and l.get('code')]
+    lz = config.get('localization') or {}
+    locales = [l for l in lz.get('locales', []) if isinstance(l, dict) and l.get('code')]
     codes = [l['code'] for l in locales]
-    default_id = config.get('defaultLocale')
+    default_id = lz.get('defaultLocale')
     current = next((l['code'] for l in locales if l.get('id') == default_id), codes[0] if codes else None)
     return codes, current
 
@@ -129,11 +130,14 @@ def check_id_differs_from_code(findings):
     """The one case real data never produces: defaultLocale names an id whose code differs.
     The link must carry the CODE."""
     config = {
-        'defaultLocale': 'uk-UA',
-        'locales': [
-            {'id': 'en-US', 'code': 'en', 'name': 'English'},
-            {'id': 'uk-UA', 'code': 'uk', 'name': 'Ukrainian'},
-        ],
+        'localization': {
+            'defaultLocale': 'uk-UA',
+            'locales': [
+                {'id': 'en-US', 'code': 'en', 'name': 'English'},
+                {'id': 'uk-UA', 'code': 'uk', 'name': 'Ukrainian'},
+            ],
+            'content': {},
+        },
         'screens': [],
     }
     with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as fh:
@@ -220,7 +224,7 @@ def check_qr_lands_beside_config(findings):
     with tempfile.TemporaryDirectory() as tmp:
         config_path = os.path.join(tmp, 'flow.working.json')
         with open(config_path, 'w') as fh:
-            json.dump({'defaultLocale': 'en', 'locales': [{'id': 'en', 'code': 'en'}], 'screens': []}, fh)
+            json.dump({'localization': {'defaultLocale': 'en', 'locales': [{'id': 'en', 'code': 'en'}], 'content': {}}, 'screens': []}, fh)
 
         code, stdout, stderr = run(['--app', APP, '--flow', FLOW, '--config', config_path, '--qr', '--no-open'], cwd=cache)
         if code != 0:
@@ -253,7 +257,7 @@ def check_opens_the_image(findings):
     with tempfile.TemporaryDirectory() as tmp:
         config_path = os.path.join(tmp, 'flow.working.json')
         with open(config_path, 'w') as fh:
-            json.dump({'defaultLocale': 'en', 'locales': [{'id': 'en', 'code': 'en'}], 'screens': []}, fh)
+            json.dump({'localization': {'defaultLocale': 'en', 'locales': [{'id': 'en', 'code': 'en'}], 'content': {}}, 'screens': []}, fh)
 
         env = dict(os.environ, CI='1')
         proc = subprocess.run(
@@ -301,7 +305,7 @@ def check_no_character_art(findings):
     with tempfile.TemporaryDirectory() as tmp:
         config_path = os.path.join(tmp, 'flow.working.json')
         with open(config_path, 'w') as fh:
-            json.dump({'defaultLocale': 'en', 'locales': [{'id': 'en', 'code': 'en'}], 'screens': []}, fh)
+            json.dump({'localization': {'defaultLocale': 'en', 'locales': [{'id': 'en', 'code': 'en'}], 'content': {}}, 'screens': []}, fh)
         code, stdout, _ = run(
             ['--app', APP, '--flow', FLOW, '--config', config_path, '--qr', '--no-open', '--md-base', tmp], cwd=cache
         )
@@ -322,7 +326,7 @@ def check_markdown_line(findings):
     with tempfile.TemporaryDirectory() as tmp:
         config_path = os.path.join(tmp, 'flow.working.json')
         with open(config_path, 'w') as fh:
-            json.dump({'defaultLocale': 'en', 'locales': [{'id': 'en', 'code': 'en'}], 'screens': []}, fh)
+            json.dump({'localization': {'defaultLocale': 'en', 'locales': [{'id': 'en', 'code': 'en'}], 'content': {}}, 'screens': []}, fh)
 
         code, stdout, stderr = run(
             ['--app', APP, '--flow', FLOW, '--config', config_path, '--qr', '--no-open', '--md-base', tmp], cwd=cache
