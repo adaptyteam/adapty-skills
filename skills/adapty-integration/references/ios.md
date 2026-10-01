@@ -117,7 +117,7 @@ final class AdaptyService: NSObject, ObservableObject, AdaptyDelegate {
     }
 
     // Called automatically when Adapty detects a subscription change
-    func didReceiveUpdatedProfile(_ profile: AdaptyProfile) {
+    func didLoadLatestProfile(_ profile: AdaptyProfile) {
         self.profile = profile
     }
 }

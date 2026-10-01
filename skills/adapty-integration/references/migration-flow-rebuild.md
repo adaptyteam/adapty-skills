@@ -43,6 +43,9 @@ Two consequences, and neither is negotiable:
   the flow is published, create it as a **flow** placement on that reserved developer ID, per
   SKILL.md Phase 3 Step 5's Flow Builder path and its five preconditions; where that route is
   refused, every placement here is created in the dashboard instead, attached to its flow.
+- **When `placements list` already shows a paywall placement on the offering's ID, the flow gets
+  `<developer_id>_flow`**, created as above once the flow is published; the paywall placement stays,
+  and the code falls back to it until then (section 7).
 - **The paywall swap is atomic.** Fetch, presentation, purchase, and entitlement gating move to
   Adapty together, in one stage, or none of them move. Section 7 explains the specific way a partial
   swap ships an app that still builds and still locks paying users out.
@@ -213,8 +216,25 @@ versions.
 
 ## 7. If the flow cannot be built this session
 
-Headless runs and users who will not open the dashboard now are normal. The rule is section 1's:
-**no partial swap.** Concretely, on this run:
+Headless runs and users who will not open the dashboard now are normal. What you do depends on one
+thing `placements list` shows: **is there already an Adapty paywall the app can sell through?**
+
+**Yes — a paywall placement already holds the offering's ID, with its products.** Then the whole
+purchase path can move to Adapty now, and the swap is complete rather than partial:
+
+- Fetch the flow from `<developer_id>_flow` (section 1). While that fetch fails, fall back to the
+  paywall placement on `<developer_id>`, rendered by the app's own screen — so keep that screen, with
+  its products, purchase and gating rewired to Adapty per the platform reference's Stage 2.
+- An offering whose paywall came out of the source's visual builder has no Adapty placement to fall
+  back to. Leave its ID free for the flow and fall back to the placement standing in for the source's
+  current offering; when that one is missing too, to the first placement the lists showed.
+- Remove the source SDK, per `references/migration.md` section 4.
+- Put at the **top** of `ADAPTY_SETUP.md`: the flow does not show until it is published; what shows
+  instead until then; and how to publish it — `flow-generator` builds and publishes it from
+  screenshots of the current paywall, then a flow placement on `<developer_id>_flow`.
+
+**No — nothing in Adapty can stand in for the paywall.** The rule is section 1's: **no partial
+swap.** Concretely, on this run:
 
 - Install and activate the Adapty SDK, wire user identification and logout, and set up the
   integrations. All of it is independent of any placement.
