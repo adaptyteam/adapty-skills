@@ -99,7 +99,14 @@ def eid(kind='S'):
 # --- primitives --------------------------------------------------------------------------
 
 def color(color_id):
-    """A reference to a theme colour by id."""
+    """A reference to a theme colour by id.
+
+    Takes the id string only. A dict passed here (a fill layer, a hex colour, a theme entry)
+    would be wrapped as `colorId` and emit a colour the Flow Builder crashes on, so it raises.
+    """
+    if not isinstance(color_id, str) or not color_id.strip():
+        raise TypeError(f'color() takes a theme colour id string, got {color_id!r}. For a literal '
+                        f'colour use hex_color(); a fill layer belongs only in `fill`.')
     return {'type': 'color-style', 'colorId': color_id}
 
 

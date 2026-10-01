@@ -337,6 +337,60 @@ def walk(o, fn):
         for v in o:
             walk(v, fn)
 
+# ---- colour shape. Every property the schema types as `IColor`, by name. ------------------
+# Read off the published schema's `$ref: IColor` sites: text/icon/loader/old-price `color`,
+# `border.color`, a fill layer's and a gradient stop's `color`, rich-text `attrs.color`,
+# shadow/animation colours, dots, the sheet overlay and the input buttons. A key-name walk
+# over an element reaches `propsByState` and rich-text spans too, which a props-path walk
+# would miss.
+ICOLOR_KEYS = frozenset({'color', 'activeColor', 'shadowColor', 'overlayColor',
+                         'clearButtonColor', 'passwordIconColor'})
+
+
+def iter_elements(d):
+    """(where, element id, element) for every element on every screen and in every component."""
+    for s in d.get('screens') or []:
+        for k, e in ((s.get('elements') or {}).get('map') or {}).items():
+            yield s.get('id'), k, e
+    for cid, c in (d.get('components') or {}).items():
+        for k, e in ((c or {}).get('map') or {}).items():
+            yield f'component {cid}', k, e
+
+
+def iter_color_values(o, path=''):
+    """(dotted key path, value) for every value held under an `IColor` key, at any depth."""
+    if isinstance(o, dict):
+        for k, v in o.items():
+            p = f'{path}.{k}' if path else k
+            if k in ICOLOR_KEYS:
+                yield p, v
+            yield from iter_color_values(v, p)
+    elif isinstance(o, list):
+        for i, v in enumerate(o):
+            yield from iter_color_values(v, f'{path}[{i}]')
+
+
+def icolor_problem(v):
+    """None when `v` is a valid `IColor`, else what is wrong with it, in words an author can act on."""
+    if isinstance(v, dict):
+        t = v.get('type')
+        if t == 'hex' and isinstance(v.get('hex'), str):
+            return None
+        if t == 'color-style' and isinstance(v.get('colorId'), str) and v['colorId'].strip():
+            return None
+        if t is None and 'id' in v:
+            return (f'{json.dumps(v)} is a theme colour entry, not a reference to one — write '
+                    f'{{"type": "color-style", "colorId": {json.dumps(v["id"])}}}')
+        if t == 'color' and isinstance(v.get('color'), dict):
+            return (f'{json.dumps(v)} is a fill layer, which belongs only inside `fill` — use '
+                    f'the colour inside it, {json.dumps(v["color"])}')
+        if t == 'hex':
+            return f'{json.dumps(v)} has no string `hex`'
+        if t == 'color-style':
+            return f'{json.dumps(v)} has no `colorId`'
+    return f'{json.dumps(v)} is not a colour object'
+
+
 # ---- colour resolution, for the legibility check. See MIN_LEGIBLE_CONTRAST above. --------
 
 def as_alpha(op):
@@ -748,6 +802,33 @@ def check(path, baseline_text=None, baseline_images=None):
                    + (', …' if len(shared) > 4 else '')
                    + " — one generated script per flow, so the second declaration collides "
                      "with the first")
+
+    # Inside ONE screen a map is keyed by id, so a second element with an id the screen already
+    # holds does not sit beside the first — merging it into `map` replaces it, and the screen's
+    # hierarchy is left pointing at that id twice. That is how adding an element with a minted id
+    # silently rewrites an element someone else put there (an earlier run's additions use the
+    # same default sequence), and nothing else notices: the overwritten element is still a valid
+    # element, `diff-config.py` reports it as a change rather than a removal, and validate passes.
+    # The repeated hierarchy reference is the trace it leaves. 0 of 12 real configs contain one.
+    twice = []
+    def _hier_ids(n, out):
+        for c in n.get('children') or []:
+            if isinstance(c, dict):
+                out.append(c.get('id'))
+                _hier_ids(c, out)
+        return out
+    containers = [(s_['id'], s_.get('elements') or {}) for s_ in d.get('screens') or []]
+    containers += [(f'component {cid}', c or {}) for cid, c in (d.get('components') or {}).items()]
+    for where, c in containers:
+        ids = _hier_ids(c.get('hierarchy') or {}, [])
+        dup = sorted({i for i in ids if ids.count(i) > 1})
+        if dup:
+            twice.append(f"{where}: {', '.join(dup[:4])}{', …' if len(dup) > 4 else ''}")
+    if twice:
+        bad.append("element id(s) placed twice in one screen's hierarchy: " + '; '.join(twice[:4])
+                   + " — the map holds ONE element per id, so a second element added with an id "
+                     "the screen already had replaced the first. Restore it from the fetched "
+                     "config and give the new element an id the flow does not use")
 
     # The same script surface, one tier weaker: these are the heads of `<customId>.value`,
     # `<groupId>.selectedOptionId` and custom variables, so a malformed one lands in the
@@ -1429,6 +1510,27 @@ def check(path, baseline_text=None, baseline_images=None):
         bad.append(f'font.preset not in theme.typography: {sorted(up - presets)}')
     if uc - colors:
         bad.append(f'colorId not in theme.colors: {sorted(uc - colors)}')
+
+    # Every colour an element carries is an `IColor`: `{type: hex, hex}` or
+    # `{type: color-style, colorId}`, nothing else. The Flow Builder's renderer throws on any
+    # other shape and takes the WHOLE editor down with a generic error screen, so the flow can
+    # no longer be opened or fixed from the dashboard. Every other gate passes it: `config update`
+    # stores it, `flows config validate` returns `valid: true`, and the device renders. Only the
+    # advisory schema check sees it. The two shapes an author actually writes are named, because
+    # each is a different mix-up: a theme colour ENTRY (`{id}`) where a reference belongs, and a
+    # fill LAYER (`{type: color, color}`) where a plain colour belongs.
+    bad_colors = []
+    for where, eid_, e in iter_elements(d):
+        for key, v in iter_color_values(e):
+            problem = icolor_problem(v)
+            if problem:
+                bad_colors.append(f'{where}/{eid_} {key}: {problem}')
+    if bad_colors:
+        bad.append(f'{len(bad_colors)} colour value(s) are not a valid colour — the Flow Builder '
+                   f'crashes on open, while validate and the device pass it. A colour is '
+                   f'{{"type": "hex", "hex": "#RRGGBB"}} or {{"type": "color-style", "colorId": '
+                   f'"<theme colour id>"}}: ' + '; '.join(bad_colors[:6])
+                   + (f'; and {len(bad_colors) - 6} more' if len(bad_colors) > 6 else ''))
 
     fonts = {x['id'] for x in d.get('_meta', {}).get('fonts', [])}
     uf = set()
