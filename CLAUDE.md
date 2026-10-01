@@ -233,6 +233,26 @@ Bycatch: 5 of 6 dropped the paywall's 3-second close delay (untested timer shape
 the one that built it produced a checker-clean timer with a child; 4 of 6 found the fixture's own
 bug, a trial string whose `%@` is never filled.
 
+### Finding 47 (2026-09-30): a standalone run on an already-migrated app keeps RevenueCat unless told a fallback exists — one GREEN round, separated on that row alone
+
+The RevenueCat catalog migration (`adapty migrations`, ADP-7768) leaves the Adapty app holding the
+catalog, including a **paywall** placement on the offering's own ID, and hands the code to the agent
+with a guide (`code_migration.py` in `revenue-cat-migrator`) that overrides this skill in two ways:
+the flow goes on `<developer_id>_flow`, and RevenueCat is removed at once because the existing
+paywall placement is the fallback. A standalone `adapty-integration` run never sees that guide.
+`migration-flow-rebuild.md` §1 and §7 now carry both rules, keyed to what `placements list` shows,
+and `migration.md` §3 says to reuse an existing catalog.
+
+**GREEN round (ledger `docs/superpowers/baselines/2026-09-30-post-migration-green.md`): R3 control
+0/3, treatment 3/3; every other row 6/6.** Stub account in the post-migration state, prompt never
+mentioning it. Controls kept RevenueCat, correctly under their own §7. **Null where predicted to
+separate:** all three controls read `placements list`, saw `premium_v2` taken and *proposed
+`premium_v2_flow` unprompted*, and reused every entity via Step 3.5. Per the null contract the `_flow`
+bullet and the question list were cut to one sentence each, and the SKILL.md Step 3–5 edits were
+reverted. **Round 2, on the trimmed wording: R3 control 0/3, treatment 3/3 again, every other row 6/6** — two
+consecutive clean rounds, so the bar is met. **Not claimed:** one scenario only (iOS, hand-built
+paywall, one taken ID); the Paywall Editor fallback branch was never exercised; no build verified.
+
 ## Conventions when editing `adapty-attribution`
 
 - **The CLI surface is `adapty attribution` (metrics, dimensions, values, report), read-only, first shipped in 0.8.8.** Ground truth is `src/commands/attribution/*.ts` and `docs/agent/attribution.md` in `adaptyteam/adapty-cli`; the agent doc is NOT in the npm package (`files`: bin, dist, manifest), so a runtime agent sees only `--help` and the catalog descriptions. That is why this skill exists at all.
