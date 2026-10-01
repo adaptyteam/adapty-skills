@@ -261,6 +261,17 @@ def main():
     check('opacity, when given, is a percentage not a fraction',
           fk.hex_color('#101828', opacity=6)['opacity'] == 6)
 
+    # color() takes an id string; anything else used to be wrapped as `colorId` and emit a
+    # colour the Flow Builder crashes on open. The message is the guard's whole value.
+    check('color() emits a color-style reference',
+          fk.color('ink') == {'type': 'color-style', 'colorId': 'ink'})
+    _layer = fk.fill('ink')[0]
+    check('color() refuses a fill layer, and says where one belongs',
+          'belongs only in `fill`' in _message(lambda: fk.color(_layer), TypeError))
+    check('color() refuses a hex colour object, and names hex_color()',
+          'hex_color()' in _message(lambda: fk.color(fk.hex_color('#101828')), TypeError))
+    check('color() refuses an empty id', raises(lambda: fk.color(' '), TypeError))
+
     # distribution has four modes, and only the gap form used to be reachable
     check('default distribution is the gap form',
           fk.layout(gap=12)['distribution'] == {'gap': 12, 'type': 'gap'})
