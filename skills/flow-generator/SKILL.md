@@ -43,6 +43,25 @@ the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.
 It also covers conditions (`when`/`ref`/`all_`/`not_empty`), all fourteen action types, the
 eight inputs and the tabs composite — each raising on the shape the transform service refuses.
 
+## How you sound
+
+Every line the user reads, the fixed blocks included:
+
+- **"I" for what you do, "you" for what they do.** Lead with what changed; end on one next step.
+  No opener, no recap of their request, no narration of phases.
+- **A patient colleague, not a log.** Assume they may be new to flows; say what a step is for in
+  their terms, once.
+- **Bold at most one thing per block.** A fixed block's heading is that one thing; step labels,
+  list lead-ins and the things to check stay plain.
+- **Raw values only when the user will type them or see them elsewhere** — a flow name, a screen
+  name or button label as the builder shows it, a price, a link. Never element or screen ids,
+  internal action names (`closeFlow`, `navigate`), config keys (`_meta.screens`), language codes,
+  file names, element counts, checker output (`valid: true`) or tool names. Say what it means:
+  "the Continue button now opens the paywall", "Spanish", "the publish check passed".
+- **Full, clickable links**, bare on their own line, never in backticks.
+- **Reply in the user's language**, the fixed blocks too. Builder labels stay exactly as the
+  builder shows them.
+
 ## What you print
 
 The user reads your messages, not this file. Keep them short.
@@ -63,10 +82,10 @@ offering both on every row recommends a path that ends in a refusal:
 > | 1 | `<what it is, in their words>` | `<where on the screen>` | `<w>`×`<h>` |
 >
 > Tell me which, per asset or for all of them:
-> - **Send me a path** — I'll upload and bind it. Images only.
-> - **Upload it yourself** at https://app.adapty.io/flows/`<FLOW_ID>`/builder — the placeholder is
+> - Send me a path — I'll upload and bind it. Images only.
+> - Upload it yourself at https://app.adapty.io/flows/`<FLOW_ID>`/builder — the placeholder is
 >   already styled, so it lands finished.
-> - **Design around it** — I'll replace that region with something the format can build, and say
+> - Design around it — I'll replace that region with something the format can build, and say
 >   what I chose. Right when the reference is someone else's screen and that asset was never going
 >   to be yours.
 >
@@ -653,15 +672,18 @@ backup envelope as-is, no `jq`). A new screen has no before; say so rather than 
 
 > | Screen | What changed | Look at |
 > | :-- | :-- | :-- |
-> | Paywall *(new)* | outcome rows, two plans, trial badge | `after-scr_paywall.png` — **open in your browser** |
-> | Daily goal | nothing visual | `after-scr_commit.png` |
+> | Paywall *(new)* | outcome rows, two plans, trial badge | [Paywall, after](<path to the render>) — open in your browser |
+> | Daily goal | nothing visual | [Daily goal, after](<path to the render>) |
+
+Name screens as the builder shows them and link each render with the screen name as its text — the
+file name is yours, not theirs.
 
 **Changes with nothing to see — list them separately and say why.** A reader who has just looked at
 four screenshots will otherwise assume the pictures were the whole change:
 
-> - `scr_commit` CTA: `closeFlow` → `navigate scr_paywall` — an action, not a pixel
-> - `_meta.screens`: product declaration added for the two new plan cards
-> - 38 text and placeholder fields gained `de`; the 4 images did not, since `de` shows the default's file — the render only ever draws one locale
+> - Daily goal: the Continue button now opens the paywall instead of closing the flow.
+> - The two new plan cards are registered with their products, so the flow can publish.
+> - 38 texts translated into German. The 4 images stay the same in every language. The preview only draws English, so check German on a device.
 
 **Open exactly one of them live, and mark which row it is.** You are on their machine, so open it
 rather than handing over a command to paste:
@@ -682,18 +704,17 @@ most — a picker, a toggle, a selected plan — because state is the one thing 
 show. **Identical screenshots do not mean an identical config**
 ([preview.md](references/preview.md)); that is what the second list is for.
 
-> About to overwrite the config of **<flow name>** (`<flow-id>`), currently **<status>**.
+> About to save over **<flow name>**, currently <status, as the dashboard shows it: draft, published, has unpublished changes>.
 >
 > <the two lists above>
 >
-> - Element count: <before> → <after>
-> - Removes: <the `REMOVES` lines, each traced to the request that asked for it — or "nothing">
-> - Restore: `flow.backup.json`, taken before this edit.
+> Removes: <each `REMOVES` line in plain words, traced to the request that asked for it — or "nothing">.
+> I kept a copy of the current version, so I can put it back if you need it.
 >
-> Write it?
+> Save it?
 
-Do not paraphrase this into "shall I save?" — the flow name, the id, the status and the restore
-path are the content, and an approval given without them is not informed. Wait for a yes; a
+Do not paraphrase this into "shall I save?" — the flow name, the status, what it removes and the
+way back are the content, and an approval given without them is not informed. Wait for a yes; a
 screenshot the user liked is not one.
 
 **If the flow is `published`, disclose what the save changes — then edit in place on their yes.**
@@ -767,26 +788,18 @@ point:
 
 > **Saved as a draft — your users can't see this yet.**
 >
-> 1. **Review it:** https://app.adapty.io/flows/<FLOW_ID>/builder — refresh the page if you
->    already have it open, the builder does not notice a CLI write.
-> 2. **Preview on a real device.** **Check `<the specific things this build could not verify>`.**
+> 1. Review it in the builder — refresh the page if it is already open:
 >
->    Open this on the device you want to test on — it launches the flow in the **Adapty mobile app**,
->    the actual SDK renderer.
+>    https://app.adapty.io/flows/<FLOW_ID>/builder
+> 2. Preview it on a real device and check <the specific things this build could not verify>.
+>    This link opens it in the Adapty mobile app, which draws it the way your users will see it:
 >
 >    <the preview link, bare>
 >
 >    On mobile, tap the link to preview.
 >    <the QR image line if they asked for one; otherwise the offer, or nothing>
-> 3. **Publish** — say the word and I'll run it, or do it yourself with the button at the
->    **top right of the editor**:
->
->    `<$ADAPTY> flows publish --app <APP_ID> <FLOW_ID>`
->
->    It asks for confirmation, then publishes asynchronously — the status reads `publishing`
->    before it reads `published`, and the command prints the poll to run next. Once it reads
->    `published`, say so and I'll point a **placement** at it — that is what makes the flow
->    reachable from your app, and a published flow with no placement reaches nobody.
+> 3. Publish: say the word and I'll do it, or use Publish at the top right of the editor. After
+>    that I can attach it to a placement, which is what makes your app show it.
 >
 > `<one line, only if the phase-2 missing-assets list still has open items:>`
 > `<n>` assets are still placeholders — see the list above.
