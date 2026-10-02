@@ -221,11 +221,17 @@ correct, and it ships disclosed.
 `image` carrying a `groupId` is inert. So plan cards, toggles and tab bars cannot be pictures of
 themselves, however much easier the picture looks.
 
-**Anything whose colour must follow the theme.** An image has **no** appearance variant — the
-`values` map is keyed by *locale*, and `IImageElement` has no light/dark hook anywhere. A themed
-colour does (`light`/`dark` per entry in `theme.colors`), and this is not hypothetical: two of the
-four corpus fixtures define a dark variant for **every** colour they declare (14/14 and 11/11). A
+**Anything whose colour must follow the theme.** An `image` **element** has no appearance
+variant — its `values` map is keyed by *locale*, and `IImageElement` has no light/dark hook
+anywhere. A themed colour does (`light`/`dark` per entry in `theme.colors`), and two of the four
+corpus fixtures define a dark variant for **every** colour they declare (14/14 and 11/11). A
 bitmap with a baked-in background is the thing that breaks, which is why:
+
+> A **background** image can follow the appearance: put it in a theme colour as a layer stack —
+> one image for light, another (or a gradient) for dark — and fill the screen or card with a
+> reference to that colour ([flow-schema.md](flow-schema.md), trap 24). Upload both files; the
+> image layer inside the style takes the same `{id, url, previewValue}` as an image fill, and
+> `flowkit.image_fill()` emits it. This is a fill, so it does not localize.
 
 ### If you do rasterize
 
