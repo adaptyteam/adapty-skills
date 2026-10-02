@@ -400,21 +400,86 @@ def as_alpha(op):
         return 1.0
     return max(0.0, min(1.0, op / 100.0 if op > 1 else float(op)))
 
-def palette(d, variant):
+def style_side(t, variant):
+    """The value a theme colour shows in one appearance. A missing side falls back to the other
+    one, in both directions — that is the runtime's behaviour, and it is the mechanism behind a
+    half-finished dark palette rendering light text on a light background."""
+    other = 'dark' if variant == 'light' else 'light'
+    v = t.get(variant)
+    return v if v is not None else t.get(other)
+
+
+def style_layers(v):
+    """A theme colour's value as fill layers: the `{hex, opacity}` object form is one solid
+    layer, the array form is a layer stack (solid, gradient, image, video). None if neither."""
+    if isinstance(v, dict) and isinstance(v.get('hex'), str):
+        return [{'type': 'color', 'color': {'type': 'hex', **v}}]
+    if isinstance(v, list):
+        return v
+    return None
+
+
+def is_single_solid(t):
+    """True when both appearances of a theme colour are one solid layer — the only kind of style
+    that behaves as a plain colour in every position."""
+    for variant in ('light', 'dark'):
+        layers = style_layers(style_side(t, variant))
+        if not (layers and len(layers) == 1 and isinstance(layers[0], dict)
+                and layers[0].get('type') == 'color'
+                and isinstance(layers[0].get('color'), dict)
+                and layers[0]['color'].get('type') == 'hex'):
+            return False
+    return True
+
+
+def blend_solids(layers):
+    """Source-over composite of a stack's SOLID layers, bottom to top -> ((r, g, b), alpha).
+
+    This is what text and an input's text get from a layered style: gradient, image and video
+    layers contribute no paint at all. A stack with no solid layer blends to alpha 0 —
+    transparent text, which the service accepts without a word.
+    """
+    r = g = b = a = 0.0
+    for layer in layers or []:
+        if not (isinstance(layer, dict) and layer.get('type') == 'color'
+                and isinstance(layer.get('color'), dict) and layer['color'].get('type') == 'hex'):
+            continue
+        got = parse_hex(layer['color'].get('hex'))
+        if got is None:
+            continue
+        rgb, hex_a = got
+        op = hex_a * as_alpha(layer['color'].get('opacity'))
+        r, g, b = (c * op + prev * (1 - op) for c, prev in zip(rgb, (r, g, b)))
+        a = op + a * (1 - op)
+    if a == 0:
+        return (0, 0, 0), 0.0
+    return tuple(round(c / a) for c in (r, g, b)), a
+
+
+def palette(d, variant, role='text'):
     """theme colour id -> (hex, alpha) for one appearance variant.
 
-    A token with no `dark` falls back to its `light` — that is the runtime's own behaviour, and
-    it is the mechanism behind a half-finished dark palette rendering light text on a light
-    background. The alpha is the TOKEN's: `vpn-timer-draft`'s `clr_2MZWrBUc` is `#FFFFFF` at
-    opacity 20, a scrim, and reading only the hex turns it into an opaque white card.
+    The alpha is the TOKEN's: `vpn-timer-draft`'s `clr_2MZWrBUc` is `#FFFFFF` at opacity 20, a
+    scrim, and reading only the hex turns it into an opaque white card.
+
+    A layered style resolves differently by ROLE, because the service resolves it differently.
+    As a text colour it is the blend of its solid layers (`blend_solids`). As a background it
+    resolves only when every layer is a solid; a gradient, image or video in the stack makes it
+    unresolvable, and unresolvable means skip (see MIN_OPAQUE_ALPHA).
     """
     out = {}
     for t in (d.get('theme') or {}).get('colors') or []:
         if not isinstance(t, dict) or not isinstance(t.get('id'), str):
             continue
-        v = t.get(variant) if isinstance(t.get(variant), dict) else t.get('light')
+        v = style_side(t, variant)
         if isinstance(v, dict) and isinstance(v.get('hex'), str):
             out[t['id']] = (v['hex'], as_alpha(v.get('opacity')))
+        elif isinstance(v, list):
+            if role == 'bg' and not all(isinstance(x, dict) and x.get('type') == 'color'
+                                        for x in v):
+                continue
+            rgb, a = blend_solids(v)
+            out[t['id']] = ('#%02X%02X%02X' % rgb, a)
     return out
 
 def parse_hex(v):
@@ -2452,21 +2517,28 @@ def check(path, baseline_text=None, baseline_images=None):
     # that matters for authored work specifically: all 11 genuine exports bind the screen fill
     # to a theme token or an image, so their background and text move together, while an
     # authored screen that hardcodes `fill: #FFFFFF` under a dark-capable theme does not.
+    layered_ids = {c.get('id') for c in (d.get('theme') or {}).get('colors') or []
+                   if isinstance(c, dict) and not is_single_solid(c)}
     for variant in ('light', 'dark'):
         pal = palette(d, variant)
+        pal_bg = palette(d, variant, role='bg')
         for s in d.get('screens', []):
             emap = s['elements']['map']
-            root_bg = fill_backgrounds((s.get('props') or {}).get('fill'), pal)
+            root_bg = fill_backgrounds((s.get('props') or {}).get('fill'), pal_bg)
 
             def legible(node, bg):
                 e = emap.get(node.get('id'))
                 if e:
-                    own = fill_backgrounds((e.get('props') or {}).get('fill'), pal)
+                    own = fill_backgrounds((e.get('props') or {}).get('fill'), pal_bg)
                     if own:
                         bg = own             # this element establishes the background below it
                     if e.get('type') == 'text' and bg is not None:
-                        fg = resolve_color((e.get('props') or {}).get('color'), pal)
-                        if fg:
+                        fc = (e.get('props') or {}).get('color')
+                        fg = resolve_color(fc, pal)
+                        # A layered style that resolves to alpha 0 is reported as an error by
+                        # theme_style_findings, so it is not reported a second time here.
+                        if fg and not (fg[1] == 0 and isinstance(fc, dict)
+                                       and fc.get('colorId') in layered_ids):
                             # Worst stop wins: over a gradient the text has to survive every
                             # part of it, and the one it disappears over is the finding.
                             ratio, bg_at, ink = min(
@@ -2501,7 +2573,167 @@ def check(path, baseline_text=None, baseline_images=None):
                            f'"Generated JSON failed schema validation", and neither the schema '
                            f'check nor the render can see it')
 
+    theme_style_findings(d, bad, warn)
     return bad, warn
+
+
+# ---- layered theme styles ------------------------------------------------------------------
+# A theme colour's `light`/`dark` is either the `{hex, opacity}` object or an ARRAY of fill
+# layers — solid, gradient, image, video — so one style can be a gradient in light mode and a
+# photo under a scrim in dark, and every fill that references it follows the appearance. The
+# transform service refuses a malformed stack with a 422 whose path names the style; the checks
+# below mirror each refusal so a document is named in one local pass. Video layers are carried
+# through untouched and not checked here.
+STYLE_LAYER_TYPES = {'color', 'gradient', 'image', 'video'}
+TEXT_COLOR_TYPES = {'text', 'text-input', 'email-input', 'password-input', 'number-input',
+                    'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
+INPUT_ELEMENT_TYPES = TEXT_COLOR_TYPES - {'text'}
+
+
+def _solid_hex_warning(layer):
+    """A solid layer's hex the service maps but the builder never writes (#RGB, no `#`)."""
+    col = layer.get('color') if isinstance(layer, dict) and layer.get('type') == 'color' else None
+    h = col.get('hex') if isinstance(col, dict) and col.get('type') == 'hex' else None
+    if isinstance(h, str) and not THEME_HEX.match(h) and parse_hex(h) and len(h.lstrip('#')) != 8:
+        return f'solid hex {h!r} maps, but write #RRGGBB — a gradient stop refuses the same value'
+    return None
+
+
+def _style_layer_problem(layer):
+    """None for a layer the service maps, else what is wrong with it."""
+    if not isinstance(layer, dict):
+        return f'{json.dumps(layer)} is not a fill layer object'
+    t = layer.get('type')
+    if t not in STYLE_LAYER_TYPES:
+        return f'layer type {t!r} is not one of {sorted(STYLE_LAYER_TYPES)}'
+    if t == 'color':
+        col = layer.get('color')
+        if isinstance(col, dict) and col.get('type') == 'color-style':
+            return ('a style cannot reference another style — write the colour itself, '
+                    '{"type": "hex", "hex": "#RRGGBB"}')
+        if not (isinstance(col, dict) and col.get('type') == 'hex'):
+            return f'a solid layer needs {{"type": "hex", "hex": "#RRGGBB"}}, not {json.dumps(col)}'
+        h = col.get('hex')
+        if not (isinstance(h, str) and parse_hex(h)) or len(h.lstrip('#')) == 8:
+            return (f'solid hex {h!r} is refused — write #RRGGBB and put any alpha in '
+                    f'`opacity`')
+    if t == 'gradient':
+        stops = layer.get('stops')
+        if not (isinstance(stops, list) and stops):
+            return 'a gradient layer needs at least one stop'
+        for st in stops:
+            col = st.get('color') if isinstance(st, dict) else None
+            if not (isinstance(col, dict) and col.get('type') == 'hex'):
+                return (f'gradient stop colour {json.dumps(col)} must be a literal '
+                        f'{{"type": "hex", "hex": "#RRGGBB"}} — a style reference is refused here')
+            if not (isinstance(col.get('hex'), str) and THEME_HEX.match(col['hex'])):
+                return (f'gradient stop hex {col.get("hex")!r} is not #RRGGBB — the service refuses '
+                        f'#RGB, #RRGGBBAA and an unprefixed hex in a stop; put alpha in `opacity`')
+    if t == 'image':
+        img = layer.get('image')
+        if not (isinstance(img, dict) and isinstance(img.get('url'), str) and img['url'].strip()):
+            return 'an image layer needs `image.url` — an empty image row is refused in a style'
+    return None
+
+
+def _paint_count(layers):
+    return sum(1 for x in layers or [] if isinstance(x, dict) and x.get('type') in ('color', 'gradient'))
+
+
+def theme_style_findings(d, bad, warn):
+    theme = d.get('theme') or {}
+    colors = [c for c in theme.get('colors') or [] if isinstance(c, dict)]
+    layered = {}
+    for i, c in enumerate(colors):
+        cid = c.get('id')
+        where = f'theme colour {cid!r}'
+        if c.get('light') is None and c.get('dark') is None:
+            bad.append(f'{where} has neither `light` nor `dark` — the service refuses a style with '
+                       f'no value (invalid_appearance_fill_layer at theme.colors[{i}])')
+            continue
+        for variant in ('light', 'dark'):
+            v = c.get(variant)
+            if v is None or (isinstance(v, dict) and 'hex' in v):
+                continue
+            if not isinstance(v, list):
+                bad.append(f'{where} {variant} is {json.dumps(v)} — a style value is '
+                           f'{{"hex": "#RRGGBB"}} or an array of fill layers')
+                continue
+            if not v:
+                bad.append(f'{where} {variant} is an empty layer stack — the service refuses it '
+                           f'(invalid_appearance_fill_layer at theme.colors[{i}].{variant})')
+                continue
+            for j, layer in enumerate(v):
+                problem = _style_layer_problem(layer)
+                if problem:
+                    bad.append(f'{where} {variant}[{j}] (theme.colors[{i}].{variant}[{j}]): '
+                               f'{problem}. The transform service refuses the flow')
+                elif _solid_hex_warning(layer):
+                    warn.append(f'{where} {variant}[{j}]: {_solid_hex_warning(layer)}')
+        if isinstance(cid, str) and not is_single_solid(c):
+            layered[cid] = c
+
+    if not layered:
+        return
+
+    # The service mints asset ids from a layered style's id: `<id>_fill_<n>` for the layers
+    # above the first, `<id>_border_<n>` and `<id>_text_color` when a border or text uses it.
+    # A theme colour or typography preset already named that way collides, and the flow is
+    # refused with duplicate_appearance_asset_id.
+    taken = {c.get('id') for c in colors} | {t.get('id') for t in theme.get('typography') or []
+                                             if isinstance(t, dict)}
+    for cid, c in layered.items():
+        count = max(len(style_layers(style_side(c, v)) or []) for v in ('light', 'dark'))
+        minted = ({f'{cid}_fill_{n}' for n in range(1, count)} | {f'{cid}_text_color'}
+                  | {f'{cid}_border_{n}' for n in range(count)})
+        clash = sorted(x for x in minted & taken if isinstance(x, str))
+        if clash:
+            bad.append(f'theme id(s) {clash} collide with the ids the service derives from the '
+                       f'layered style {cid!r} (duplicate_appearance_asset_id) — rename them')
+
+    # Where a layered style may be used. A fill is what it exists for. A border takes its solid
+    # and gradient layers only. Text — and an input's text — gets the BLEND of its solid layers,
+    # so a style with no solid layer draws text at alpha 0. Any other colour position (an icon,
+    # carousel dots, a spinner) receives the style's first layer as its colour, which a device is
+    # not obliged to draw as a gradient or an image.
+    for where, eid_, e in iter_elements(d):
+        etype = e.get('type')
+        for path, v in iter_color_values(e):
+            if not (isinstance(v, dict) and v.get('type') == 'color-style'
+                    and v.get('colorId') in layered):
+                continue
+            sid = v['colorId']
+            c = layered[sid]
+            segs = {seg.split('[')[0] for seg in path.split('.')}
+            if 'fill' in segs:
+                continue
+            if 'border' in segs:
+                for variant in ('light', 'dark'):
+                    n = _paint_count(style_layers(style_side(c, variant)))
+                    if etype in INPUT_ELEMENT_TYPES and n > 1:
+                        bad.append(f'{where}/{eid_} {path}: an input border bound to {sid!r}, '
+                                   f'which has {n} solid/gradient layers in {variant} — an input '
+                                   f'border takes at most one (unsupported_input_border_layers)')
+                        break
+                    if n == 0:
+                        warn.append(f'{where}/{eid_} {path}: border bound to {sid!r}, which has no '
+                                    f'solid or gradient layer in {variant} — a border draws only '
+                                    f'those, so this one is invisible there')
+                        break
+                continue
+            if etype in TEXT_COLOR_TYPES:
+                for variant in ('light', 'dark'):
+                    _, a = blend_solids(style_layers(style_side(c, variant)))
+                    if a == 0:
+                        bad.append(f'{where}/{eid_} {path}: text bound to {sid!r}, which has no '
+                                   f'solid layer in {variant} — text takes only a style\'s solid '
+                                   f'layers, so it draws fully TRANSPARENT there, and the service '
+                                   f'accepts it. Bind the text to a single-colour style')
+                        break
+                continue
+            warn.append(f'{where}/{eid_} {path}: {etype} colour bound to the layered style {sid!r} '
+                        f'— outside a fill, border or text a style is used as a plain colour, so '
+                        f'bind this to a single-colour style')
 
 args = sys.argv[1:]
 # --baseline <config> turns on the price/discount/duration comparison: literals already in the
