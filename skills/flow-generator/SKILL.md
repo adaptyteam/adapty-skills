@@ -488,9 +488,9 @@ so the turns were the expensive part. Drop the app and flow ids and it says so r
 pretending a local pass is a publish gate. The three underlying commands, if you need to run one
 alone, are in [validate.md](references/validate.md).
 
-**Always pass `BASELINE=`** — the pristine copy from step 2. The schema tracks the newest
-`schemaVersion` while most live flows are older, so an unbaselined run on a v9 flow reports
-hundreds of pre-existing mismatches, none of them yours. Details in
+**Always pass `BASELINE=`** — the pristine copy from step 2. The schema describes the newest
+`schemaVersion` while most live flows are older, so an unbaselined run on a v9 or v10 flow reports
+pre-existing mismatches, none of them yours. Details in
 [flow-schema.md → the two different validators](references/flow-schema.md).
 
 `validate` runs the **same transform service that gates publishing**, so it is the only pre-write
