@@ -1,6 +1,6 @@
 ---
 name: flow-generator
-description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app".
+description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "show the user's name or coin balance on my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app".
 ---
 
 # Flow generator
@@ -389,6 +389,17 @@ Before the design, because the catalog *gates* it: a trial timeline needs a veri
 period switcher needs plans differing only by period, a price variable needs a matching period.
 And picking for them is not a shortcut — it decides what they sell, and it is the one choice on
 the screen a screenshot cannot show.
+
+**Something only the app knows is a custom tag, and it costs app code.** The user's name, a
+coin balance, a streak, a level, days left, the plan they are on — anything the flow cannot work
+out by itself. Users ask for what it shows, never for "a custom tag". **First check the flow does
+not already ask for it**: a value the user typed or picked on an earlier screen is an input's
+`<customId>.value` or a group's `selectedOptionId`, and showing that needs no app code at all.
+Otherwise declare it with `flowkit.app_value()`, show it with `Var`, and settle two things here,
+batched with the product questions: the **name** the app's code will pass (theirs, if they
+already have one) and the **fallback** — what every user sees until the app supplies the value.
+With nobody to ask, choose both and say so. Text only — branching on one is not buildable
+([flow-schema.md → trap 24](references/flow-schema.md#24-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
 
 **Assets are resolved here too — upload the file, then build with its URL.** The upload reads a
 **path**, so **an image you can only see is not an image you have**: one the user pasted or
@@ -804,6 +815,10 @@ point:
 > `<one line, only if the phase-2 missing-assets list still has open items:>`
 > `<n>` assets are still placeholders — see the list above.
 >
+> `<only if the flow has custom tags:>`
+> It shows `<n>` values only your app knows — `<name>`, `<name>` — and everyone sees the fallback
+> text until your app passes them. Want me to update your app code to pass them now?
+>
 > Until you publish, everyone continues to see the previous version.
 
 **Build the link for slot 2 yourself — do not send the user hunting for it.** It is pure string
@@ -853,6 +868,29 @@ progress bar that advances, a screen that advances itself, glyph metrics that di
 generic instruction gets skipped; three named things get tapped, and every defect this skill has
 shipped to a user came through a gap this slot exists to hand over
 ([preview.md](references/preview.md)).
+
+**A custom tag is not done until the app passes it, so offer the code, and on a yes write it.**
+The offer is the callout line above. List the tags off the bytes you wrote, never from memory —
+`jq -r '.variables[]? | select(.external == true)'`. On a yes:
+
+1. **Find the app's code.** Usually it is the workspace you are in; if no app project is
+   reachable, ask for its path rather than guess one.
+2. **Find the call site that creates the flow view.** Search for the flow-view creation call; if
+   there are several, match the one that fetches this flow's placement, and ask when you cannot
+   tell. None at all — or an SDK below 4.x, which has no flow API — means the app does not render
+   flows yet: that is SDK integration, so offer `adapty-integration` instead of building it here.
+3. **Find where the app already holds each value** — the user model, the wallet, the store. Ask
+   when you cannot find one; never pass a sample value, a placeholder or the fallback itself.
+4. **Look up the exact parameter** for the platform in [flow-schema.md → trap 24](references/flow-schema.md#24-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)
+   — its docs page, or the SDK source at the app's release tag when the page does not show it —
+   then pass the values at that call: keys exactly the tag names, values strings formatted for
+   display, read right before the view is created. A phrase the app passes needs a version in
+   every locale the flow ships; where one is missing, pass nothing — the fallback — never another
+   language's words.
+5. **Build if the project lets you,** and show the diff in one line per file.
+
+Keep the change to that call site and what it needs — a helper beside it, the strings it reads.
+The app's models and every other screen are not this skill's to edit.
 
 ### 6. Attach it to a placement, then hand the ID over
 
@@ -905,7 +943,7 @@ The flow form of `--audiences` is the normal path — accepted against productio
 which of them is yours to fix, the `update` variant and the dashboard fallback:
 [placements.md](references/placements.md).
 
-**Then hand the ID over and stop.** This skill does not touch app code:
+**Then hand the ID over and stop.** Past the custom-tag call site in phase 5, this skill does not touch app code:
 
 > **Live at `<developer-id>`.** https://app.adapty.io/placements/flows/`<PLACEMENT_UUID>`
 >

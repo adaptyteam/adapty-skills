@@ -532,11 +532,20 @@ def _condition_var_ids(o, out):
 # still published. So the span kinds are named types here, and a bare tuple is rejected.
 
 class Var:
-    """A variable span: renders the variable's value, or its literal token if unresolved."""
+    """A variable span: renders the variable's value, or its literal token if unresolved.
+
+    Takes a variable id, or the entry `app_value()` returned — so a custom tag is bound by the
+    object you declared rather than by an id you retyped.
+    """
 
     __slots__ = ('variable_id',)
 
     def __init__(self, variable_id):
+        if isinstance(variable_id, dict):
+            variable_id = variable_id.get('id')
+        if not (isinstance(variable_id, str) and variable_id):
+            raise ValueError(f'Var() needs a variable id or an app_value() entry, got '
+                             f'{variable_id!r}')
         self.variable_id = variable_id
 
 
@@ -627,6 +636,117 @@ def switch_rich(cases, default, *, locale='en'):
         'type': 'switch', 'cases': out,
         'default': {'type': 'const', 'value': _blocks(default, 'default parts')}}},
         '_localizable': True}
+
+
+# --- values only the app knows (custom tags) -----------------------------------------------
+#
+# A custom tag is a `variables[]` entry with `external: true`: the app supplies its value when it
+# opens the flow, and text shows it wherever a `Var` points at it. The variable's `name` is the
+# contract with the app's code -- the SDK looks the value up by that exact, case-sensitive string
+# -- and its `value` is the FALLBACK, shown whenever the app does not supply one (an old app
+# build, a missing attribute, a resolver that is not wired yet). It is also what the builder
+# preview draws.
+#
+# Text only. A condition, a `setVariable`, an alert or a URL sees the fallback and never the
+# app's value, so a branch keyed on a custom tag goes the same way for every user on a device.
+
+#: Names the SDK resolves itself (product tags, element-scoped tags) plus the legacy builder's
+#: labels for them. Compared case-insensitively; `TIMER_` is reserved as a prefix.
+RESERVED_TAG_NAMES = frozenset({
+    'TITLE', 'DESCRIPTION', 'PRICE', 'PRICE_AMOUNT', 'PRICE_AMOUNT_INTEGER',
+    'PRICE_AMOUNT_FRACTION', 'CURRENCY_CODE', 'CURRENCY_SYMBOL', 'PRICE_PER_DAY',
+    'PRICE_PER_WEEK', 'PRICE_PER_MONTH', 'PRICE_PER_YEAR', 'SUBSCRIPTION_PERIOD', 'OFFER_PRICE',
+    'OFFER_PERIOD', 'OFFER_NUMBER_OF_PERIOD', 'OFFER_PRICE_PER_DAY', 'OFFER_PRICE_PER_WEEK',
+    'OFFER_PRICE_PER_MONTH', 'OFFER_PRICE_PER_YEAR', 'PERCENT', 'TIMER', 'VALUE', 'PROD_TITLE',
+    'PROD_PRICE', 'PROD_PRICE_PER_DAY', 'PROD_PRICE_PER_WEEK', 'PROD_PRICE_PER_MONTH',
+    'PROD_PRICE_PER_YEAR', 'OFFER_BILLING_PERIOD', 'OFFER_FULL_DURATION',
+})
+RESERVED_TAG_PREFIX = 'TIMER_'
+_TAG_NAME = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
+_TAG_VALUE_TYPES = {'string': (str,), 'number': (int, float), 'boolean': (bool,)}
+
+
+def tag_name_issue(name):
+    """Why `name` cannot be a custom tag — `'empty'`, `'invalid'`, `'reserved'` — or None."""
+    if not name:
+        return 'empty'
+    if not (isinstance(name, str) and _TAG_NAME.fullmatch(name)):
+        return 'invalid'
+    upper = name.upper()
+    if upper in RESERVED_TAG_NAMES or upper.startswith(RESERVED_TAG_PREFIX):
+        return 'reserved'
+    return None
+
+
+def app_value(name, *, fallback, value_type='string', variable_id=None, description=None):
+    """A value only the app knows, shown in text: the user's name, a coin balance, a streak.
+
+        coins = fk.app_value('coins_balance', fallback='your coins')
+        fk.text(fk.rich('You have ', fk.Var(coins), ' to spend'))
+        fk.config(screens=[...], variables=[coins])
+
+    `fallback` has no default on purpose: it is what every user sees until the app supplies the
+    value, so it must read as finished copy inside the sentence around it ("Hi, there!" rather
+    than "Hi, !"). Its type must match `value_type`.
+
+    `name` is what the app's code passes, character for character — letters, digits, `_`, `-`,
+    and dots between parts. A name the SDK already resolves (`PRICE`, `TITLE`, `TIMER_*`, ...)
+    is refused, because publishing it would rewrite the SDK's own tag in every fallback.
+    """
+    issue = tag_name_issue(name)
+    if issue:
+        raise ValueError(
+            f'app_value() name {name!r} is {issue}: use letters, digits, `_`, `-` and dots '
+            f'between parts, and not a name the SDK resolves itself '
+            f'({", ".join(sorted(RESERVED_TAG_NAMES)[:4])}, ..., {RESERVED_TAG_PREFIX}*).')
+    if value_type not in _TAG_VALUE_TYPES:
+        raise ValueError(f'app_value() value_type must be one of {sorted(_TAG_VALUE_TYPES)}, '
+                         f'got {value_type!r} — the app passes strings, numbers or booleans only')
+    ok = _TAG_VALUE_TYPES[value_type]
+    if not isinstance(fallback, ok) or (value_type == 'number' and isinstance(fallback, bool)):
+        raise TypeError(f'app_value() fallback {fallback!r} is not a {value_type}; it is shown '
+                        f'in place of the app value, so it must be the same type')
+    vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
+    if not _IDENT.fullmatch(vid):
+        raise ValueError(f'app_value() variable_id {vid!r} must be [A-Za-z0-9_] — it is emitted '
+                         f'as an identifier in the generated script.')
+    entry = {'id': vid, 'name': name, 'valueType': value_type, 'value': fallback,
+             'external': True}
+    if description:
+        entry['description'] = description
+    return entry
+
+
+def _external_ids(variables):
+    return {v['id']: v.get('name') for v in variables
+            if isinstance(v, dict) and v.get('external') is True and v.get('id')}
+
+
+def _expr_var_ids(o, out):
+    """Every `{"type": "var"}` operand in a subtree — logic, never rich text."""
+    if isinstance(o, dict):
+        if o.get('type') == 'var' and isinstance(o.get('variableId'), str):
+            out.add(o['variableId'])
+        for v in o.values():
+            _expr_var_ids(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            _expr_var_ids(v, out)
+    return out
+
+
+def _rich_var_ids(o, out):
+    """Every rich-text `variable` node in a subtree."""
+    if isinstance(o, dict):
+        if o.get('type') == 'variable' and isinstance(o.get('attrs'), dict) \
+                and isinstance(o['attrs'].get('variableId'), str):
+            out.add(o['attrs']['variableId'])
+        for v in o.values():
+            _rich_var_ids(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            _rich_var_ids(v, out)
+    return out
 
 
 # --- nodes -------------------------------------------------------------------------------
@@ -2509,6 +2629,53 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             f'compile (script_type_violation, TS2304 "Cannot find name"). Produce it — an input '
             f'element with that customId, a selectableGroup with that id, a bound product — or '
             f'declare it in variables=(...).')
+
+    # Custom tags (`app_value()`). Each rule is one the transform service also enforces or
+    # warns on; here they raise, because a document you are writing now has no excuse.
+    seen_vids = set()
+    for v in variables:
+        vid = v.get('id') if isinstance(v, dict) else None
+        if vid in seen_vids:
+            raise ValueError(f'variable id {vid!r} is declared twice in variables=(...).')
+        seen_vids.add(vid)
+    external = _external_ids(variables)
+    for v in variables:
+        if not (isinstance(v, dict) and v.get('external') is True):
+            continue
+        if v.get('valueType') not in _TAG_VALUE_TYPES:
+            raise ValueError(f'variable {v.get("name")!r} is external but its valueType is '
+                             f'{v.get("valueType")!r}; only string, number and boolean '
+                             f'variables can come from the app. Build it with app_value().')
+        issue = tag_name_issue(v.get('name'))
+        if issue:
+            raise ValueError(f'custom tag name {v.get("name")!r} is {issue} '
+                             f'(custom_tag_invalid_name). Build it with app_value().')
+    if external:
+        names = [v.get('name') for v in variables if isinstance(v, dict)]
+        shared = sorted({n for n in external.values() if names.count(n) > 1})
+        if shared:
+            raise ValueError(
+                f'custom tag name(s) {shared} are also used by another variable '
+                f'(custom_tag_duplicate_name): both would publish as the same SDK tag, so the '
+                f'app value would land in the other variable\'s text too.')
+        in_logic, in_script = set(), set()
+        maps = [((s_.get('elements') or {}).get('map') or {}) for s_ in screens]
+        maps += [((c or {}).get('map') or {}) for c in (components or {}).values()]
+        for m in maps:
+            for e in m.values():
+                in_logic |= _expr_var_ids(e, set()) & external.keys()
+                in_script |= _rich_var_ids(e.get('interactions') or [], set()) & external.keys()
+        if in_logic:
+            raise ValueError(
+                f'custom tag(s) {sorted(external[i] for i in in_logic)} are read by logic — a '
+                f'condition, conditional text or setVariable. Logic sees only the fallback, never '
+                f'the app\'s value, so the branch goes the same way for every user on a device. '
+                f'A custom tag can only be SHOWN in text.')
+        if in_script:
+            raise ValueError(
+                f'custom tag(s) {sorted(external[i] for i in in_script)} are inside an '
+                f'interaction (an alert, a URL). The app value is not available there and the '
+                f'SDK writes an empty string — put the value in a text element instead.')
 
     meta_icons = _resolve_icons(screens, components, icons)
 
