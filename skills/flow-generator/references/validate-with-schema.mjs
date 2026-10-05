@@ -100,13 +100,22 @@ async function loadSchema(source, refresh) {
 
   if (!response.ok) fail(`Could not fetch ${url}: HTTP ${response.status}`)
   const text = await response.text()
+  // A version that is not published (`/flow-schema/v13.json` before v13 ships) answers 200 with the
+  // dashboard's HTML page, so a status check alone passes it and JSON.parse then throws.
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    fail(`${url} did not return a JSON schema (${response.headers.get('content-type') ?? 'no content type'}). `
+      + 'That version is probably not published yet.')
+  }
   try {
     if (cacheable) writeFileSync(CACHE_PATH, text)
   } catch {
     // a read-only temp dir is not worth failing over
   }
 
-  return JSON.parse(text)
+  return parsed
 }
 
 /**
