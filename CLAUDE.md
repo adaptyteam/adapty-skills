@@ -96,7 +96,7 @@ CI (`.github/workflows/skill-lints.yml`) runs both lints on PRs and pushes to `m
 
 ## Output voice — the baseline every skill follows
 
-What a user reads is written to one voice across all nine skills. This list is the
+What a user reads is written to one voice across all ten skills. This list is the
 canonical version; **each skill carries its own compact copy** (a `## How you sound`
 section), because a directory-copy install ships one skill alone and cannot read this
 file. Change a rule here first, then in every copy.
@@ -129,6 +129,16 @@ file. Change a rule here first, then in every copy.
 Where a script prints the user-facing text (`flow-audit`'s report), the script's
 English is written to these rules and the agent relays it translated, keeping every
 numbered item. Applied so far: `flow-audit`.
+
+**Every skill but `adapty-docs` now carries the copy.** `adapty-docs` is an intermediary: it finds
+a page for another skill and prints nothing of its own, so it has no voice to set. Measured per
+skill against HEAD with two consecutive rounds (ledgers under `docs/superpowers/baselines/`,
+2026-10-02 and 2026-10-05); `ads-manager` got the section with no round, because its baseline
+already met every rule. Two findings recur across skills and are worth knowing before the next
+edit: **the fixed blocks' own templates and examples are what leak** (element ids, file names,
+backticked counts, bolded labels) — fix the template, not the rule — and **a condition the agent
+cannot observe is not followed** ("if `flow-generator` is not installed" was ignored until it
+became a check: a sibling directory and a shell).
 
 **Measured on `flow-audit`, two consecutive rounds (Russian, then Spanish; two different
 flows; 3 control + 3 treatment each; ledger `docs/superpowers/baselines/2026-09-25-flow-audit-voice-green.md`).**
