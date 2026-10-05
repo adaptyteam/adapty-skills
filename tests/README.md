@@ -78,7 +78,7 @@ python3 tests/test-flowkit.py                                            # the a
 python3 tests/test-diff-config.py                                        # the diff's two directions
 python3 tests/test-snippet.py                                            # extract/plan/graft
 python3 tests/test-audit-flow.py                                         # the audit's checks, both directions
-python3 tests/test-unmapped-elements.py                                  # x-supported: the guarded set vs the corpus
+python3 tests/test-unmapped-elements.py                                  # old-price: the guarded set vs the corpus
 python3 tests/test-legibility.py                                         # text-vs-background, both appearance variants
 python3 tests/test-price-literals.py                                     # placeholder + baseline-relative price literals
 python3 tests/test-product-fields.py                                     # the closed product-variable field set
@@ -240,8 +240,8 @@ because it is confidently wrong at scale — so it does not ship without this.
   wrong node type silently and still published. So the test asserts `Var` becomes a variable node,
   `Span` becomes a text node, and a **bare tuple raises**.
 
-Then it puts the whole document through `schema-check.py`, and skips rather than fails if that
-gate is unavailable. Beyond this test, flowkit's output has been rendered through
+Then it puts the whole document through the shipped `validate-with-schema.mjs`, from the ajv
+cache dir `gates.sh` uses, and skips rather than fails if ajv is not installed there. Beyond this test, flowkit's output has been rendered through
 `flows config preview` and looked at — a schema pass is not proof that anything draws.
 
 ## `test-icon-assets.py` — the bundle against real builder output
@@ -291,37 +291,6 @@ breakage `plan` did not predict.
 ```bash
 python3 tests/test-snippet.py
 ```
-
-## `schema-check.py` — validating against the published schema
-
-```bash
-python3 tests/schema-check.py tests/fixtures/*.json                    # summary per file
-python3 tests/schema-check.py --baseline live.json edited.json         # only what YOUR edit caused
-python3 tests/schema-check.py --verbose --refresh config.json          # every error, re-fetch schema
-```
-
-Fetches the schema from `https://schemastore.adaptybuilder.com/latest.json` and caches it for a day
-at `$TMPDIR/adapty-flow.schema.json` — the same path and lifetime the official
-`validate-with-schema.mjs` uses, so both share one download. Needs `jsonschema`. (A default
-`Python-urllib` User-Agent gets a 403 from that host, hence the explicit one.)
-
-**Pass `--baseline` whenever you are checking an edit.** The schema tracks the newest
-`schemaVersion` and most live flows are older, so an unbaselined run on a v9 flow reports every
-pre-existing mismatch. Measured on `onboarding-quiz-paywall.json`: **28 errors unbaselined, 0
-baselined against itself**, and a single deliberately broken `width.type` surfaces as exactly one
-finding. Without the baseline that finding would have been one line in twenty-nine.
-
-**Two checks, not one.** `flows config validate` (stable from `adapty` 0.8.0, endpoint live in
-production) answers *is this publishable* — it runs the real transform service, so it sees stranded
-references — and skips most prop shapes: it accepts `fill: "banana"`. This answers *are the props
-well-formed* and knows nothing about publishability. Neither is evidence about the other. Coverage
-both ways: [validate.md](../skills/flow-generator/references/validate.md).
-
-It suppresses one class of error the schema creates by construction: expression nodes
-(`JSONVariable` / `JSONConstant`) are a `oneOf` over two **identical** permissive branches, commented
-*"shape intentionally opaque, validated by the transformer"*, so every value matches both and `oneOf`
-always fails. That fires on every `purchase` payload in real builder exports too. The count is still
-reported.
 
 ## `mobile-preview-check.py` — the device-preview link
 

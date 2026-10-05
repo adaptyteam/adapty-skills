@@ -19,7 +19,7 @@ THREE reference sites, and the set is closed rather than guessed:
     navigate.payload.screen       every jump, INCLUDING ones nested inside a `conditional`
                                   action's `cases`/`default` branches
 
-`IActionNavigate.payload.screen` is the only string-typed screen reference in the published
+`ActionNavigate.payload.screen` is the only string-typed screen reference in the published
 schema; the entry screen is `screens[0]` by position, not a named pointer, so there is no
 start-screen field to keep in step. Measured over all 12 tracked and raw fixtures: those three
 sites account for every occurrence of a screen id.

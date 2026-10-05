@@ -147,8 +147,8 @@ def facts(d):
     def localizables(prefix, node):
         """Every per-locale value, addressed by locale, so dropping `de` from one field is a
         removal of that field's `de` and not a change to the field. A localizable wrapper is
-        recognised by a `values` dict whose keys are declared locale codes -- the schema types
-        `ILocalizable.values` as unconstrained, so its shape is all there is to go on."""
+        recognised by a `values` dict whose keys are declared locale codes -- the value type
+        differs per prop (rich text, a string, an image), so the shape is what to go on."""
         if isinstance(node, dict):
             vals = node.get('values')
             if is_localizable(vals):

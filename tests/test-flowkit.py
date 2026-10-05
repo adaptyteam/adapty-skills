@@ -521,45 +521,32 @@ def main():
           == {'days': 1, 'hours': 2, 'minutes': 3, 'seconds': 4})
     check('a timer carries states, like every other element', fk.timer()['states'] == [])
 
-    # and finally: does the real schema gate accept it?
-    checker = os.path.join(HERE, 'schema-check.py')
-    if not os.path.exists(checker):
-        print('  SKIP  schema gate (tests/schema-check.py missing)')
+    # and finally: does the published schema accept it? Through the validator the skill ships,
+    # run from the ajv cache dir the way gates.sh runs it.
+    validator = os.path.join(HERE, '..', 'skills', 'flow-generator', 'references',
+                             'validate-with-schema.mjs')
+    ajv_dir = os.path.expanduser(os.environ.get('AJV_DIR', '~/.cache/adapty-flow-schema'))
+    if not os.path.isdir(os.path.join(ajv_dir, 'node_modules', 'ajv')):
+        print(f'  SKIP  schema gate (no ajv in {ajv_dir} — `npm i --prefix {ajv_dir} ajv@8`)')
     else:
         with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as fh:
             json.dump(cfg, fh)
             path = fh.name
         try:
-            res = subprocess.run([sys.executable, checker, path],
-                                 capture_output=True, text=True, timeout=180)
-            out = (res.stdout + res.stderr).strip().splitlines()
-            line = out[0] if out else '(no output)'
+            res = subprocess.run(['node', os.path.abspath(validator), '--config', path],
+                                 cwd=ajv_dir, capture_output=True, text=True, timeout=180)
+            out = (res.stdout + res.stderr).strip()
             if res.returncode == 2:
-                print(f'  SKIP  schema gate unavailable: {line}')
+                print(f'  SKIP  schema gate unavailable: {out.splitlines()[0] if out else ""}')
             else:
-                check('flowkit output passes the schema gate', ' OK ' in f' {line} ', line)
+                check('flowkit output passes the schema gate', res.returncode == 0, out[:1500])
         except (subprocess.TimeoutExpired, OSError) as exc:
             print(f'  SKIP  schema gate could not run: {exc}')
         finally:
             os.unlink(path)
 
-    # The token vocabulary is the schema's, not ours: `ETimerToken` is the ground truth, so if
-    # the builder ever adds a unit, TIMER_UNITS has to move with it. The gate above warms this
-    # cache. Note the schema does NOT constrain a token node's own `attrs.token` (it is typed a
-    # bare string and never $refs ETimerToken), which is why the bad name has to be caught here
-    # and in verify-config.py rather than by the schema check.
-    schema_cache = os.path.join(tempfile.gettempdir(), 'adapty-flow.schema.json')
-    enum = None
-    if os.path.exists(schema_cache):
-        try:
-            enum = json.load(open(schema_cache)).get('$defs', {}).get('ETimerToken', {}).get('enum')
-        except (ValueError, OSError):
-            enum = None
-    if not enum:
-        print('  SKIP  TIMER_UNITS vs schema enum (no cached schema, or no ETimerToken in it)')
-    else:
-        check('TIMER_UNITS matches the schema ETimerToken enum',
-              sorted(enum) == sorted(f'timer_{u}' for u in fk.TIMER_UNITS), str(enum))
+    # The timer token vocabulary is not in the published schema (a token node's `attrs.token` is
+    # a bare string), so TIMER_UNITS and verify-config.py are the only check on it.
 
     # footer() — the pinned bottom bar. Before this existed, an author reaching for a bar that
     # stays put found only docked(), and the documented steer was AWAY from the native element;
@@ -1242,6 +1229,29 @@ def main():
           _tpl == _by_id['prod-vertical-list']['template'])
     check('from_catalog renames the group so two templates cannot share one',
           all(n['props']['groupId'] == 'plans' for n in _nodes[0]['_children']))
+
+    # The catalog keeps pre-v12 shapes; flowkit stamps 12, so from_catalog() must not carry them.
+    def _all(node):
+        yield node
+        for kid in node.get('_children', []):
+            yield from _all(kid)
+    def _props_sets(node):
+        yield node.get('props') or {}
+        yield from (node.get('propsByState') or {}).values()
+    _converted = [n for c in _cat['components'] if c.get('agent_allowed')
+                  for root in fk.from_catalog(c) for n in _all(root)]
+    check('from_catalog drops the pre-v12 border `style` (the catalog carries it on 123 borders)',
+          not any('style' in (p.get('border') or {}) for n in _converted for p in _props_sets(n)))
+    check('from_catalog wraps a v9 object fill into a one-layer array',
+          not any(isinstance(p.get('fill'), dict) for n in _converted for p in _props_sets(n)))
+    check('the catalog still carries the old shapes, so the two rows above test the conversion',
+          '"style": "solid"' in json.dumps(_cat) and any(
+              isinstance((n.get('props') or {}).get('fill'), dict)
+              for n in _all(json.loads(json.dumps(_by_id['timer-blocks']['template'])
+                                       .replace('"children"', '"_children"')))))
+    check('every text align in an agent-allowed template is one the schema allows',
+          all((n.get('props') or {}).get('align', 'left') in ('left', 'center', 'right')
+              for n in _converted if n.get('type') == 'text'))
 
     def _walk_nodes(node):
         yield node

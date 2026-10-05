@@ -6747,7 +6747,7 @@
               "height": {
                 "type": "hug"
               },
-              "align": "start",
+              "align": "left",
               "color": {
                 "type": "color-style",
                 "colorId": "gray-900"
@@ -6772,7 +6772,7 @@
               "height": {
                 "type": "hug"
               },
-              "align": "start",
+              "align": "left",
               "color": {
                 "type": "color-style",
                 "colorId": "gray-500"
