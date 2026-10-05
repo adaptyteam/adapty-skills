@@ -24,7 +24,9 @@ CFG="${1:?usage: shoot.sh <config.json> [screen-id ...]}"; shift || true
 SCREENS="$*"
 OUT="${OUT:-$(dirname "$CFG")}"
 BUDGET="${BUDGET:-8000}"
-WINDOW="${WINDOW:-430,900}"
+# 520 wide, not the phone's own 430: the render page centres its phone frame with a margin, so at
+# 430 the frame starts ~55px in and its right edge is cut off, which reads as a layout overflow.
+WINDOW="${WINDOW:-520,900}"
 [ -f "$CFG" ] || { echo "shoot: no such file: $CFG" >&2; exit 2; }
 mkdir -p "$OUT"
 
