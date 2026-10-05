@@ -221,7 +221,7 @@ correct, and it ships disclosed.
 themselves, however much easier the picture looks.
 
 **Anything whose colour must follow the theme.** An image has **no** appearance variant — its
-catalog entry is keyed by *locale*, and `IImageElement` has no light/dark hook anywhere. A themed
+catalog entry is keyed by *locale*, and `ImageProps` has no light/dark hook anywhere. A themed
 colour does (`light`/`dark` per entry in `theme.colors`), and this is not hypothetical: two of the
 four corpus fixtures define a dark variant for **every** colour they declare (14/14 and 11/11). A
 bitmap with a baked-in background is the thing that breaks, which is why:
@@ -279,12 +279,12 @@ entry's `values` is keyed by locale id exactly like copy. A fill is not localiza
 that must change per language has to be an element.
 
 **Write the `id` as a string.** The command prints a number and `--json` returns a JSON integer
-(`"id": 516395`), while the schema's `IImage` declares `id` as a required `string` and every real
+(`"id": 516395`), while the schema's `Image` declares `id` as a required `string` and every real
 builder export carries it quoted. Stringify it as you bind it.
 
 ## `previewValue`: what the user sees before the image arrives
 
-`IImage` is `{id, url, previewValue?}`, and the third field is what the renderer paints **while
+`Image` is `{id, url, previewValue?}`, and the third field is what the renderer paints **while
 the full asset downloads** — a tiny base64 thumbnail, blurred up to fill the box, so the screen
 is composed from the first frame. Leave it out and the renderer has nothing to paint, so it
 substitutes a **transparent 1×1**: the layout is right and the picture is a hole, for as long as
@@ -300,15 +300,15 @@ Bind it exactly as the upload returned it:
   `null` or `""` to fill the slot, and never reach for this bullet to cover a value you had and
   lost: *the upload gave me none* and *I did not capture it* are different situations that produce
   the same JSON, and only the first one is finished work. Say which one it was.
-- **It rides with the asset, not with the element.** The same three-field `IImage` goes into an
+- **It rides with the asset, not with the element.** The same three-field `Image` goes into an
   element's catalog entry and flat inside a fill, so a background needs it just
   as much — more visibly, since a background is usually the largest thing on the screen.
 - **Bind it once per asset, never once per locale.** An image element's catalog entry holds the
   default locale, plus a locale only when that locale gets a different file. Every other locale
-  already shows the default's file. Copying the `IImage` into each locale repeats the preview in
+  already shows the default's file. Copying the `Image` into each locale repeats the preview in
   the published config for every locale, which is how a flow of a few images grows to tens of
   megabytes and times out at publish. See `flow-schema.md` trap 1.
-- **A config is where it is stored.** Because the whole `IImage` is written into the flow, an
+- **A config is where it is stored.** Because the whole `Image` is written into the flow, an
   asset already bound somewhere carries its preview there, and that is what makes a lost one
   recoverable — see below.
 
@@ -351,7 +351,7 @@ stays quiet about ones that arrived with the config — not because an inherited
 fixed, but because fixing it means editing an asset someone else bound, which is a change to
 report and offer rather than to make silently.
 
-## No gate catches an image defect. Only the render does.
+## No publish gate catches an image defect. Only the render does.
 
 Measured on one config, five ways — real URL with a string `id`, with a numeric `id`, with no
 `id` at all, with no `previewValue`, and with an empty entry:
@@ -359,10 +359,9 @@ Measured on one config, five ways — real URL with a string `id`, with a numeri
 - **`flows config validate` returned `valid: true` for all four.** An image is not part of the
   publish gate, so **a flow whose hero is still an empty placeholder publishes cleanly** and ships
   an "Upload Image" checkerboard to real users.
-- **The schema check passed all four too**, including the missing required `id`. The reason is
-  structural and worth knowing: `ILocalizable.values` is typed
-  `additionalProperties: {"$comment": "unhandled type: T"}`, i.e. completely unconstrained — so
-  anything inside a localizable wrapper is invisible to the schema, `IImage`'s `required` included.
+- **The schema step catches the shape defects and nothing else.** A numeric or missing `id` is a
+  finding there, because each locale's value is typed as an `Image`. A missing `previewValue` and
+  an empty `values` map are legal shapes, so it passes both.
 - **The render is the only check that sees any of it**, and only once a real URL is in place.
 
 That is the whole argument for the ordering in the workflow: the image is verified by looking at a
@@ -440,8 +439,8 @@ is what gets handed over.
 
 **It is publishable, and it reaches a device.** An unset `video` returned `valid: true, issues:
 []` in three forms — fully styled, with an empty entry, and bare with nothing but a
-`position`. `IVideoElement` is `x-supported: true` in the published schema, so unlike
-[`old-price`](flow-schema.md) it has a mapper handler and is not a preview-only element.
+`position`. The transform service maps `video`, so unlike [`old-price`](flow-schema.md) it is not
+a preview-only element.
 
 **A fixed height is the one thing that matters, and `hug` is the trap.** With `height: fixed`
 the box is honoured to the point — `fixed_h: 200` drew exactly 200. With `height: hug` the
@@ -460,7 +459,7 @@ same goes for the size and the margins — take them from the surrounding design
 would for an `image`, because the user can restyle this element like any other media element and
 should not have to.
 
-**What the element has no room for.** `IVideoElementProps` carries `animation`, `border`,
+**What the element has no room for.** `VideoProps` carries `animation`, `border`,
 `borderRadius`, `customMediaID`, `effects`, `height`, `loop`, `margin`, `objectFit`, `opacity`,
 `position`, `rotation`, `video`, `visibility`, `width` — and **no `fill`, no `align`, no
 `layout`**. To place it, position the parent stack.

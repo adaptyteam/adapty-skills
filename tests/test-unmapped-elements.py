@@ -4,24 +4,16 @@
 Repo-only. Runs the shipped script as a subprocess -- never imports it, so nothing writes a
 `__pycache__` into `references/`.
 
-Why this file exists. The published schema at `schemastore.adaptybuilder.com/latest.json`
-annotates 47 definitions with `"x-supported"` -- true when the transform service has a mapper
-handler for that variant. The repo already read this flag for the 16 `IAction*` definitions
-(`selectProduct` is the only false one) and never read it for elements, where six more sit:
-`old-price`, `header`, and the four-member progress-bar family.
+Why this file exists. `old-price` is in the published schema, `flows config validate` accepts
+it, and `config preview` reads the config directly so it draws a struck price -- while a device
+shows nothing, because the transform service has no mapper for it. Every gate we can run is
+blind to that, so `verify-config.py` warns.
 
-`old-price` is the one worth guarding. Every gate we can run is blind to it: the schema
-declares it, `flows config validate` accepts it, and `config preview` reads the config directly
-so it draws a struck price -- while a device shows nothing, which this repo measured the
-expensive way and then explained with an untested hypothesis about `multiplier`. The missing
-mapper handler is the simpler explanation and it was in a file we already fetch every session.
-
-The list is short ON PURPOSE, and the progress-bar case is why: it carries the same
-`x-supported: false` flag and appears in real exports (`onboarding-quiz-paywall` and
-`vpn-timer-draft` -- 2 of the corpus's 7 distinct flows), because the transformer handles
-progress bars in a registry pass the static extractor cannot see. A check keyed on the flag
-alone would fire on real builder output. Evidence order holds -- a real export outranks a
-schema annotation -- so the guard covers only the types where the flag and the corpus agree.
+The list is short ON PURPOSE. The progress-bar family is also absent from the per-element
+mappers and appears in real exports (`onboarding-quiz-paywall` and `vpn-timer-draft` -- 2 of the
+corpus's 7 distinct flows), because the transformer handles progress bars in a registry pass. A
+check keyed on "no mapper" alone would fire on real builder output, so the guard covers only the
+types where the corpus and a device check agree.
 
     FIRES   -- an `old-price` element on a screen
     SILENT  -- all 12 real exports, the progress-bar family, and `old-price` inside `components`
@@ -35,7 +27,7 @@ VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-co
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 
-MARKER = 'x-supported'
+MARKER = 'does not map'
 
 fails = []
 
@@ -151,34 +143,6 @@ print(f'\nSILENT on the tracked corpus ({len(_paths)} configs'
       f'{" — RAW ABSENT, tracked only" if not os.path.isdir(RAW) else ""}):')
 for _p in _paths:
     silent(os.path.basename(_p), json.load(open(_p)))
-
-# ------------------------------------------------------------------------- schema tie
-# The list is the SCHEMA's, not ours. If the transformer gains an `old-price` mapper the flag
-# flips to true and this guard becomes a false positive, so the suite has to notice. Same
-# pattern as test-flowkit.py tying TIMER_UNITS to the ETimerToken enum. Cache-only: this suite
-# stays offline, and `gates.sh` / validate-with-schema.mjs are what warm the cache.
-print('\nThe constant tracks the published schema:')
-_cache = os.path.join(tempfile.gettempdir(), 'adapty-flow.schema.json')
-_defs = None
-if os.path.exists(_cache):
-    try:
-        _defs = json.load(open(_cache)).get('$defs', {})
-    except (ValueError, OSError):
-        _defs = None
-if not _defs:
-    print('  SKIP  no cached schema at $TMPDIR/adapty-flow.schema.json')
-else:
-    _unsupported = {d.get('x-type-literal') for d in _defs.values()
-                    if isinstance(d, dict) and d.get('x-supported') is False}
-    _guarded = {'old-price'}
-    if _guarded <= _unsupported:
-        print(f'  ok    every guarded type is still "x-supported": false '
-              f'(schema flags {len(_unsupported)} in total)')
-    else:
-        _stale = sorted(_guarded - _unsupported)
-        fails.append(f'guarded type(s) {_stale} are no longer "x-supported": false — the '
-                     f'transformer gained a mapper, so drop them from UNMAPPED_ELEMENT_TYPES')
-        print('  FAIL  a guarded type is now supported')
 
 print()
 if fails:

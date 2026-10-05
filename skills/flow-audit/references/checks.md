@@ -35,7 +35,7 @@ fixture/live flow it fires on, or both — a check with only one half proven is 
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
 | `dead-affordance` — copy names an action (`restore`, `terms`, `eula`, `privacy`, `skip`, `manage subscription`, `unsubscribe`) on an element where **neither the element nor any ancestor** carries an interaction | blocker | the row renders exactly like a working control and does nothing | **fires**: `comparison-paywall.json` (3× — Restore/Terms/Privacy, genuinely dead, no `restorePurchases`/`openUrl` anywhere in the flow) and a live flow (`el_089T` reads "Restore purchase · Terms · Privacy" with no interaction at all). **silent**: `onboarding-quiz-paywall.json`, `tabs-paywall.json`, `timeline-anchored.json` — each carries a one-word label ("Skip"/"Terms"/"Restore"/"Privacy") whose tap target lives on a wired **ancestor**, cleared by the ancestor walk |
-| `action-nothing` — an action explicitly typed `nothing` | risk | a forgotten stub the schema allows (`IActionNothing`) | absent from the whole corpus and the five live flows — **untested in both directions** until injected |
+| `action-nothing` — an action explicitly typed `nothing` | risk | a forgotten stub the schema allows (`ActionNothing`) | absent from the whole corpus and the five live flows — **untested in both directions** until injected |
 | `openurl-no-url` — an `openUrl` action with no `url` in its payload | blocker | the button does nothing when tapped | 0 occurrences in the corpus — **untested in both directions** until injected |
 | `interaction-no-actions` — an interaction with an empty `actions` array | risk | wired but does nothing | 0 occurrences across 5 flows, so no false positives measured; not proven to fire on real data (fires on injection in `test-audit-flow.py`) |
 
@@ -199,7 +199,7 @@ defects injected — `verify-config.py` named 19 in one local pass; `validate` r
 | empty image `values` map, non-string asset id | `verify-config.py` |
 | bound-but-undeclared product, `const`-purchase declaration | `verify-config.py` |
 | conditional-branch parity, variable-node parity, stray locale values | `verify-config.py` |
-| unresolved/un-prefixed timer token name | `verify-config.py` (`ETimerToken` prefix check) — Variables' `variable-no-consumer` deliberately does not restate this |
+| unresolved/un-prefixed timer token name | `verify-config.py` (timer-token prefix check) — Variables' `variable-no-consumer` deliberately does not restate this |
 | condition expression shape, incl. `assign`-as-a-condition | `verify-config.py` (a port of the transform service's own walker, shared by `invalid_visibility_condition` and `invalid_state_condition`) |
 | condition variable resolving to no producer | `verify-config.py` (`script_type_violation` / TS2304 — an ERROR there, where the same id in rich text is only a warning) |
 | action payload required fields | `verify-config.py` (`invalid_action_payload`, all eight action families) |

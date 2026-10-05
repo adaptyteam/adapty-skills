@@ -149,7 +149,7 @@ There is no `toggle` *element* — the group type is what makes it one — but t
  "propsByState": {"selected": {"fill": {…}}}}
 ```
 
-> **This section previously said `type: "stack"`, and that does not work.** `IStackElementProps`
+> **This section previously said `type: "stack"`, and that does not work.** `StackProps`
 > has no `groupId` and no `default`, so a stack carrying them is not a group member: the props are
 > ignored, it never receives the `selected` state, and **tapping it does nothing**. The failure is
 > silent — the config saves, passes a schema check, and renders — and it was shipped to a user
@@ -451,9 +451,9 @@ above and enforces the three things that turn a carousel back into the fake: few
 raises (that *is* the frozen slide), a dot-like `stack` passed as a slide raises (the dots are the
 element's own), and the slide geometry is a required number because a `hug` slide is dropped on
 device. All four of `color`, `activeColor`, `size` and `gap` are **required** by the schema's
-`IDots`, so the helper always writes them together — a partial `dots` object fails the schema
-check. Prefer a **theme colour id** for the dots (`dot_color='muted'`): `IDots.color` is an
-`IColor`, so it accepts a `color-style`, and the hardcoded white above is invisible on a light
+`Dots`, so the helper always writes them together — a partial `dots` object fails the schema
+check. Prefer a **theme colour id** for the dots (`dot_color='muted'`): `Dots.color` is an
+`Color`, so it accepts a `color-style`, and the hardcoded white above is invisible on a light
 screen. `tests/fixtures/reviews-carousel.json` is a rendered example — the dots draw, and the file
 contains no dot `stack` at all.
 
@@ -526,7 +526,7 @@ Three rules, each measured
    that sentence is the only part of this the user can act on.
 
 It publishes clean and reaches a device: an unset `video` returns `valid: true, issues: []`, and
-`IVideoElement` is `x-supported: true`, so unlike `old-price` it is not preview-only. Note the
+the transform service maps `video`, so unlike `old-price` it is not preview-only. Note the
 evidence tier — **0 of the 12 real exports carry a `video`**, so this shape is authored from the
 schema plus the measurements above rather than read off builder output.
 
@@ -655,8 +655,8 @@ Five rules follow. The first is a hard requirement and the local render cannot s
 **No gate but `verify-config.py` sees any of this.** Measured the same day: `flows config
 validate` returned `valid: true, issues: []` for the correct footer *and* for two footers, for the
 fake footer, and for the unfilled footer whose content shows through — and the shipped schema check
-passes them too, because `IFooterElementProps` is the **same property set** as
-`IStackElementProps`. So the schema cannot tell you a footer behaves differently from a stack, and
+passes them too, because `FooterProps` is the **same property set** as
+`StackProps`. So the schema cannot tell you a footer behaves differently from a stack, and
 the publish gate will not tell you that you should have used one. Read the catalog template and
 look at the render.
 
@@ -1017,7 +1017,7 @@ live `_meta.screens` after the flow has been saved in the builder once before re
 
 The sell lives on the screen, the picker lives in a sheet the CTA opens. `bottom-sheet` is a real
 element type with no catalog template, no fixture and no export in this corpus — the shape below is
-schema-derived (`IBottomSheetElement`) and **confirmed by render**, which is the weakest tier this
+schema-derived (`BottomSheetProps`) and **confirmed by render**, which is the weakest tier this
 file admits, so treat it as a starting point and look at your own screenshot.
 
 The sheet is a docked, initially hidden container with its own scrim:

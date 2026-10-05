@@ -28,6 +28,7 @@ Every install below gives you the whole toolkit — and it grows, so an update b
 | Skill | What it does | Needs |
 |---|---|---|
 | [`adapty-integration`](#integrating-the-sdk) | Sets up in-app purchases end to end — dashboard, SDK, paywall, store config — or moves you over from another purchase system | Adapty CLI |
+| [`adapty-attribution`](#reading-ad-attribution) | Reads your Adapty Attribution data: which channels, campaigns, ads and countries pay back, trial quality, weekly changes, predicted payback, and why an ad network's numbers differ from Adapty's | Adapty CLI, Adapty Attribution |
 | [`ads-manager`](#managing-apple-search-ads) | Runs your Apple Search Ads: performance across campaigns and keywords, bid and budget changes, search-term harvesting, campaigns on and off | Adapty CLI, Apple Ads account |
 | [`flow-audit`](#auditing-a-flow) | Answers "did I forget anything?" before you publish a flow — triggers, products, variables — with a verdict and ranked fixes | Adapty CLI |
 | [`flow-generator`](#building-flows-and-paywalls) | Builds a paywall or onboarding flow, or changes one you have: translate it, rewrite the copy, add or reorder screens, add tabs and plan pickers, wire quiz branching | Adapty CLI |
@@ -154,6 +155,20 @@ You'll be asked for your Adapty credentials and a few decisions along the way �
 - **Flow Builder** (recommended) — Adapty renders paywalls *and* onboarding in a no-code editor; nothing to build. On Unity and Capacitor this is Paywall Builder, the previous generation, which does paywalls only
 - **Custom paywall** — you build the UI; Adapty provides products and handles purchases
 - **Observer mode** — keep your existing StoreKit / Billing code; Adapty tracks events only
+
+## Reading ad attribution
+
+An analyst on your Adapty Attribution data, measured against the subscription revenue Adapty holds for every user.
+
+Open your terminal in any directory and ask for it:
+
+```
+/adapty-attribution
+```
+
+It carries ten playbooks: ranking channels and campaigns by payback and deciding where budget goes, judging a young campaign at a horizon it has actually reached, trial-to-paid quality by campaign, a weekly digest with week-over-week flags, countries and stores, the winning ads inside a campaign, refund-heavy traffic, predicted payback, reconciling an ad network's numbers with Adapty's, and diagnosing a drop in installs.
+
+**It only reads.** Every call goes through `adapty attribution`, which changes nothing. Apple Search Ads spend is not collected by Attribution, so the skill reads it through Ads Manager and reports it on its own line, in its own currency. Setup questions — connecting Meta, TikTok or Google Ads, tracking links, the web pixel, Stripe or Paddle — go to the docs pages that own them.
 
 ## Managing Apple Search Ads
 

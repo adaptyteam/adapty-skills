@@ -154,14 +154,29 @@ def facts(d):
             if isinstance(p, dict):
                 f[f'_meta.screens:{sid}/product:{p.get("id")}'] = canon(p.get('flowProductId'))
 
+    def is_localizable(vals):
+        return isinstance(vals, dict) and (not vals or set(vals) & locale_set or not locale_set)
+
+    def without_locales(node):
+        """The node with every localizable `values` map taken out. Those values are facts of
+        their own (below), so leaving them in the element's `props` fact as well would make a
+        new translation change `props` too -- and a real change to a colour beside it would
+        then be indistinguishable from the translation."""
+        if isinstance(node, dict):
+            return {k: without_locales(v) for k, v in node.items()
+                    if not (k == 'values' and is_localizable(v))}
+        if isinstance(node, list):
+            return [without_locales(v) for v in node]
+        return node
+
     def localizables(prefix, node):
         """Every per-locale value, addressed by locale, so dropping `de` from one field is a
         removal of that field's `de` and not a change to the field. A localizable wrapper is
-        recognised by a `values` dict whose keys are declared locale ids -- the schema types
-        `ILocalizable.values` as unconstrained, so its shape is all there is to go on."""
+        recognised by a `values` dict whose keys are declared locale ids -- the value type
+        differs per prop (rich text, a string, an image), so the shape is what to go on."""
         if isinstance(node, dict):
             vals = node.get('values')
-            if isinstance(vals, dict) and (not vals or set(vals) & locale_set or not locale_set):
+            if is_localizable(vals):
                 for loc, v in vals.items():
                     f[f'{prefix}.values:{loc}'] = canon(v)
                 if not vals:
@@ -198,7 +213,7 @@ def facts(d):
         for eid, e in ((s.get('elements') or {}).get('map') or {}).items():
             base = f'screen:{sid}/element:{eid}'
             f[base] = canon(e.get('type'))
-            f[f'{base}.props'] = canon(e.get('props'))
+            f[f'{base}.props'] = canon(without_locales(e.get('props')))
             f[f'{base}.interactions'] = canon(e.get('interactions'))
             localizables(f'{base}.props', e.get('props'))
 
@@ -292,10 +307,16 @@ def main(argv):
     fa, fb = facts(a), facts(b)
     ka, kb = set(fa), set(fb)
     removed, added = ka - kb, kb - ka
-    # A change under something already reported as removed or added is not news, so drop it:
-    # renaming an element id would otherwise print the rename twice and a value change beneath it.
-    moved = {container(x) for x in removed | added}
-    changed = {k for k in ka & kb if fa[k] != fb[k] and container(k) not in moved}
+    # A change under a screen or element that was itself wholly removed or added is not news, so
+    # drop it: renaming an element id would otherwise print the rename twice. Only a WHOLE
+    # container counts -- an element that merely gained or lost a sub-fact (a new locale's value)
+    # still reports every change beside it, or a text edit made alongside a translation vanishes.
+    moved = {x for x in removed | added if x == container(x)}
+    # `products` (absent or declared) restates the registry rows below it; when a row moved, the
+    # row is the news and the flag flipping with it is not.
+    reg_moved = {x.split('.registry-product:')[0] for x in removed | added if '.registry-product:' in x}
+    changed = {k for k in ka & kb if fa[k] != fb[k] and container(k) not in moved
+               and not (k.endswith('.products') and k[:-len('.products')] in reg_moved)}
 
     print(f'A (older / live):  {os.path.basename(argv[0])}   '
           f'{len(a.get("screens") or [])} screens, {len(fa)} facts')
