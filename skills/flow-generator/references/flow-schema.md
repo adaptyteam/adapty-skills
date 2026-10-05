@@ -1377,7 +1377,7 @@ nothing more; for anything about whether users see it, that surface does not qua
 
 ### What the schema settles
 
-- **35 element types**, not the handful these exports use: `bottom-sheet`, `carousel`,
+- **33 element types**, not the handful these exports use: `bottom-sheet`, `carousel`,
   `date-picker`, `date-time-picker`, `divider`, `email-input`, `footer` (**pinned** — see
   [patterns.md](patterns.md); its props are the plain container set, so the schema cannot tell you
   it behaves differently from a `stack`), `header` ⚠, `icon`, `image`,
