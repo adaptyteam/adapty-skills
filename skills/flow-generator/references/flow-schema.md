@@ -1124,7 +1124,7 @@ is one object and the schema wants an array — none of them yours. The baseline
 your edit caused. Without it, the output is background noise and will train you to ignore a real
 finding.
 
-It caches the schema at `$TMPDIR/adapty-flow.schema.json` for a day — the same file you grep.
+It caches the schema at `$TMPDIR/adapty-flow-schema.latest.json` for a day — the same file you grep.
 `--refresh` re-downloads; `--schema <path|url>` points elsewhere. Two things the script adjusts
 before validating, so neither reaches you as noise: `status` is not required (the CLI keeps it in
 the envelope, beside `config`), and every element, action, fill layer and colour is checked only

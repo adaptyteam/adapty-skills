@@ -10,7 +10,7 @@
  * props the server-side validator currently ignores, with a JSON path for each.
  *
  * The schema is the one the Flow Builder generates from its own types, fetched from SCHEMA_URL
- * and cached at $TMPDIR/adapty-flow.schema.json for a day — the same file the skill tells you to
+ * and cached at $TMPDIR/adapty-flow-schema.latest.json for a day — the same file the skill tells you to
  * grep. Pass --schema <path-or-url> to point elsewhere, or --refresh to re-download.
  *
  * Exits 0 when the config matches the schema, 1 when it does not, 2 on bad usage.
@@ -27,7 +27,9 @@ import {delimiter, join, resolve} from 'node:path'
 import {parseArgs} from 'node:util'
 
 const SCHEMA_URL = 'https://app.adapty.io/flow-schema/latest.json'
-const CACHE_PATH = join(tmpdir(), 'adapty-flow.schema.json')
+// Named after the schema it holds, so a copy cached from a different schema URL is never read
+// as this one.
+const CACHE_PATH = join(tmpdir(), 'adapty-flow-schema.latest.json')
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const MAX_REPORTED = 40
 
