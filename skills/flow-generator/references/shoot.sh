@@ -5,6 +5,10 @@
 #   shoot.sh draft.json scr_a scr_b scr_c                # three screens, one strip
 #   OUT=/tmp/x shoot.sh draft.json scr_a                 # choose the output dir
 #
+# Renders go next to the config, unless the config sits inside a git work tree -- an app repo,
+# usually -- in which case they go to $TMPDIR/adapty-flow-shots, so no PNG lands in the user's
+# working tree. OUT= always wins.
+#
 # Prints the path of the strip to open. That is the only thing you need from it -- read the path
 # it prints rather than guessing the name: every output carries an 8-char signature of the
 # CONFIG'S CONTENT (shot-<sig>-<screen>.png), so re-rendering after an edit writes a new file
@@ -22,7 +26,13 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${1:?usage: shoot.sh <config.json> [screen-id ...]}"; shift || true
 SCREENS="$*"
-OUT="${OUT:-$(dirname "$CFG")}"
+if [ -z "${OUT:-}" ]; then
+  if git -C "$(dirname "$CFG")" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    OUT="${TMPDIR:-/tmp}"; OUT="${OUT%/}/adapty-flow-shots"
+  else
+    OUT="$(dirname "$CFG")"
+  fi
+fi
 BUDGET="${BUDGET:-8000}"
 # 520 wide, not the phone's own 430: the render page centres its phone frame with a margin, so at
 # 430 the frame starts ~55px in and its right edge is cut off, which reads as a layout overflow.
