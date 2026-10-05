@@ -79,6 +79,7 @@ python3 tests/test-diff-config.py                                        # the d
 python3 tests/test-snippet.py                                            # extract/plan/graft
 python3 tests/test-audit-flow.py                                         # the audit's checks, both directions
 python3 tests/test-unmapped-elements.py                                  # old-price: the guarded set vs the corpus
+python3 tests/test-schema-baseline.py                                    # schema --baseline matches by screen id, not position
 python3 tests/test-legibility.py                                         # text-vs-background, both appearance variants
 python3 tests/test-price-literals.py                                     # placeholder + baseline-relative price literals
 python3 tests/test-product-fields.py                                     # the closed product-variable field set

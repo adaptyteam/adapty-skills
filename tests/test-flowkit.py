@@ -1230,6 +1230,10 @@ def main():
     check('from_catalog renames the group so two templates cannot share one',
           all(n['props']['groupId'] == 'plans' for n in _nodes[0]['_children']))
 
+    check('a screen that binds no product carries no `products` key (never an empty list)',
+          'products' not in fk.screen('scr_none', [fk.text('Hello')]),
+          str(fk.screen('scr_none', [fk.text('Hello')]).get('products')))
+
     # The catalog keeps pre-v12 shapes; flowkit stamps 12, so from_catalog() must not carry them.
     def _all(node):
         yield node

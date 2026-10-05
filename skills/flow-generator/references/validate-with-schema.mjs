@@ -218,7 +218,15 @@ const Ajv = loadAjv()
 const ajv = new (Ajv.default ?? Ajv)({allErrors: true, strict: false})
 const validate = ajv.compile(prepare(schema))
 
-const key = ({details, path}) => details.map((d) => `${path} :: ${d}`)
+// Compare against the baseline by screen ID, not screen position: inserting or reordering a screen
+// shifts every index after it, and a positional key would report the moved screen's old findings
+// as new ones.
+const byScreenId = (doc) => (path) =>
+  path.replace(/^\/screens\/(\d+)(?=\/|$)/, (whole, i) => {
+    const id = doc?.screens?.[Number(i)]?.id
+    return typeof id === 'string' ? `/screens/${id}` : whole
+  })
+const key = (stable) => ({details, path}) => details.map((d) => `${stable(path)} :: ${d}`)
 const found = validate(config) ? [] : summarize(validate.errors)
 
 // A flow older than the schema fails in hundreds of places that have nothing to do with the edit
@@ -233,11 +241,11 @@ if (args.baseline) {
   }
 
   const base = baseDoc && typeof baseDoc === 'object' && 'config' in baseDoc ? baseDoc.config : baseDoc
-  if (!validate(base)) preexisting = new Set(summarize(validate.errors).flatMap(key))
+  if (!validate(base)) preexisting = new Set(summarize(validate.errors).flatMap(key(byScreenId(base))))
 }
 
 const fresh = found
-  .map(({details, path}) => ({details: details.filter((d) => !preexisting.has(`${path} :: ${d}`)), path}))
+  .map(({details, path}) => ({details: details.filter((d) => !preexisting.has(`${byScreenId(config)(path)} :: ${d}`)), path}))
   .filter(({details}) => details.length > 0)
 
 const scope = args.baseline ? ' new since the baseline' : ''
