@@ -2225,8 +2225,11 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
 
     out = {'id': screen_id, 'props': props,
            'elements': {'map': node_map, 'hierarchy': hierarchy},
-           'selectableGroups': [dict(g) for g in selectable_groups],
-           'products': [_product_value(pid, offer) for pid, offer in pairs]}
+           'selectableGroups': [dict(g) for g in selectable_groups]}
+    # Absent, never empty, on a screen that binds no product: the builder reads `products: []`
+    # as a registry it was told is empty, which is not the same claim as no registry.
+    if pairs:
+        out['products'] = [_product_value(pid, offer) for pid, offer in pairs]
     if caption:
         out['caption'] = caption
     return out
