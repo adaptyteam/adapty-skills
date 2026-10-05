@@ -198,7 +198,7 @@ The registry is where `_meta` comes from:
 
 ```ts
 // catalog.ts — what reaches _meta.screens[].products[]
-function collectDeclaredBindingValues(screen: IScreen): IProductValue[] {
+function collectDeclaredBindingValues(screen: IScreen): ProductValue[] {
   return mergeProductBindingValues(normalizeScreenProducts(screen));
 }
 ```

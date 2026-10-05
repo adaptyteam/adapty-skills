@@ -70,11 +70,9 @@ else
   echo "   (validate-with-schema.mjs missing — skipped)"
 fi
 
-# Advisory on purpose: `validate` outranks the schema in both directions, and the schema has a
-# KNOWN unsatisfiable `oneOf` (IDynamicProductValue) that fails for EVERY `purchase` action — so
-# letting it decide the verdict would mark every real paywall red and teach you to ignore the
-# output. Read its findings; do not let them gate. Findings clustered on one element carrying a
-# `purchase` action are that artifact.
+# Advisory on purpose: `validate` outranks the schema in both directions, and configs the builder
+# itself saves still disagree with it in places (a `border.style`, an icon's `width`). Read its
+# findings — on an element you wrote they are usually real — but do not let them gate.
 echo "-- 3/3 publish gate (flows config validate)"
 if [ -z "$APP" ] || [ -z "$FLOW" ]; then
   echo "   SKIPPED — pass APP_UUID and FLOW_ID to run it. A green local pass is NOT a publish gate."

@@ -99,14 +99,21 @@ def eid(kind='S'):
 # --- primitives --------------------------------------------------------------------------
 
 def color(color_id):
-    """A reference to a theme colour by id."""
+    """A reference to a theme colour by id.
+
+    Takes the id string only. A dict passed here (a fill layer, a hex colour, a theme entry)
+    would be wrapped as `colorId` and emit a colour the Flow Builder crashes on, so it raises.
+    """
+    if not isinstance(color_id, str) or not color_id.strip():
+        raise TypeError(f'color() takes a theme colour id string, got {color_id!r}. For a literal '
+                        f'colour use hex_color(); a fill layer belongs only in `fill`.')
     return {'type': 'color-style', 'colorId': color_id}
 
 
 # A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
 # In `theme.colors[].light/dark`, a 3-digit (`#fff`), 8-digit (`#RRGGBBAA`),
 # 7-digit, unprefixed (`FFFFFF`) or EMPTY hex is refused — and refused with the
-# location-free `Generated JSON failed schema validation`, because `IColorHex` is typed as
+# location-free `Generated JSON failed schema validation`, because a colour `hex` is typed as
 # a bare string with no pattern, so neither the schema check nor `config preview` (which
 # draws light mode only) can see it. The cheapest possible defect to introduce and one of
 # the most expensive to diagnose.
@@ -281,8 +288,8 @@ def visible():
 # author needing one hand-wrote the tree. Finding 12 again — a missing helper is a missing
 # capability, and the hand-written version is what the service rejects.
 
-# The published schema's ExpressionType enum, verbatim
-# (schemastore.adaptybuilder.com/latest.json -> definitions.ExpressionType).
+# Every expression `type` the transform service's condition walker knows. The published schema
+# types a condition as an unconstrained value, so this list is the only check on it.
 EXPR_TYPES = ('const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
               'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
               'productRef')
@@ -290,9 +297,8 @@ EXPR_TYPES = ('const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty
 # ...and the one member the condition walker has NO case for, so it falls through to
 # `default: return `${path}.type`` and the flow is refused. `assign` is schema-legal and is
 # genuinely legal inside a `setVariable` payload — it is illegal only as a CONDITION, which
-# is why this set is applied here and never to expressions generally. The same class as
-# `IColorHex` being typed a bare string: an enum the schema declares and a consumer does not
-# honour, so neither the schema check nor `config preview` objects. 0 of 7 tracked fixtures
+# is why this set is applied here and never to expressions generally. Neither the schema check
+# (conditions are untyped there) nor `config preview` objects. 0 of 7 tracked fixtures
 # use it anywhere.
 COND_ILLEGAL_TYPES = ('assign',)
 
@@ -675,8 +681,9 @@ def stack(children=(), *, width='fill', height='hug', fixed_w=None, fixed_h=None
     if padding is not None:   props['padding'] = padding
     if margin is not None:    props['margin'] = margin
     if corner is not None:    props['borderRadius'] = corner
-    if border is not None:    props['border'] = {'color': color(border), 'style': 'solid',
-                                                 'width': border_width}
+    # No `style`: v9/v10 exports carry `style: "solid"`, the v12 schema has no such key, and the
+    # builder drops it on save — 85 of 85 borders in builder-saved v12 configs omit it.
+    if border is not None:    props['border'] = {'color': color(border), 'width': border_width}
     if effects is not None:   props['effects'] = effects
     if visibility is not None: props['visibility'] = visibility
     return _node('stack', props, children=list(children), **kw)
@@ -779,7 +786,7 @@ def _is_dotlike(node):
 def _dot_color(value, default):
     """A dot colour: a theme colour id, a literal '#hex', or an already-built colour dict.
 
-    `IDots.color`/`activeColor` are `IColor`, which accepts a `color-style` reference — so the
+    `Dots.color`/`activeColor` are `Color`, which accepts a `color-style` reference — so the
     dots CAN follow the theme, and usually should. Measured: the real export's hardcoded white
     dots are invisible on a light screen, and the preview draws light mode only, so a hex dot
     that looks fine in the export is a dot nobody sees. Pass a theme colour id.
@@ -804,9 +811,9 @@ def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width='fill',
     preview never swipes. Before this helper existed there was nothing here to reach for, which is
     the mechanical reason the fake got built: an author reaches for what the helper exposes.
 
-    **The dots are the element's own.** `props.dots` is schema-confirmed (`IDots`) and renders the
+    **The dots are the element's own.** `props.dots` is schema-confirmed (`Dots`) and renders the
     indicator row for you -- never add dot children. All four of `color`, `activeColor`, `size`
-    and `gap` are REQUIRED by `IDots`, so they are always emitted together; pass `dots=False` for
+    and `gap` are REQUIRED by `Dots`, so they are always emitted together; pass `dots=False` for
     the one-full-slide layout that shows none. `dot_color`/`dot_active_color` take a THEME COLOUR
     ID (preferred -- the dots then follow light/dark), a literal `'#hex'`, or a built colour; they
     default to the real export's white, which is invisible on a light screen.
@@ -816,7 +823,7 @@ def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width='fill',
     defaults to the slide height. The SDK supports exactly two layouts: adjacent-slide peek, or
     one full slide with neighbours invisible.
 
-    Note there is no `layout` prop on a carousel (schema-confirmed: `ICarouselElementProps` has
+    Note there is no `layout` prop on a carousel (schema-confirmed: `CarouselProps` has
     none) -- `gap` is the whole spacing story, and the slides are its `children`, one per slide.
     """
     slides = list(slides)
@@ -942,7 +949,7 @@ OBJECT_FIT = ('cover', 'fit')
 
 
 def _image_value(url, media_id, preview):
-    """One `IImage`: `{id, url, previewValue?}`, the shape the builder's own upload writes.
+    """One `Image`: `{id, url, previewValue?}`, the shape the builder's own upload writes.
 
     `previewValue` is the base64 thumbnail the renderer paints while the full asset downloads.
     Without it the renderer has nothing to paint, so it substitutes a transparent 1x1 and the
@@ -989,7 +996,7 @@ def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hex
     """A background image fill — `props.fill` on a screen or a stack.
 
     The SAME asset binds two different ways and this is the other one: an `image` element wraps
-    its value in a per-locale `values` map, while a fill takes the `IImage` FLAT. A fill is not
+    its value in a per-locale `values` map, while a fill takes the `Image` FLAT. A fill is not
     localizable, so a background that must change per language has to be an element instead.
 
     `preview` matters here for the same reason it does on an element, and more visibly: a
@@ -1013,7 +1020,7 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fil
 
     `url` is the CDN URL that `flows media upload` printed, `media_id` the id it printed
     alongside — passed through `str()`, because the command prints a number while the schema
-    declares `IImage.id` as a string — and `preview` the `preview_base64` string that only
+    declares `Image.id` as a string — and `preview` the `preview_base64` string that only
     `--json` returns. Take all three off the ONE invocation and keep its JSON: nothing else
     returns the preview, and re-uploading the file mints a second asset with a different URL
     rather than handing the value back. If you are rebinding an asset whose preview you no longer
@@ -1082,7 +1089,7 @@ def video(*, fixed_h, width='fill', fit='cover', loop=True, corner=None, border=
     Measured against the transform service and the render (`app_finance`, 2026-09-10):
 
     * an unset `video` is PUBLISHABLE -- `valid: true, issues: []`, in the styled, the empty
-      `values`-map and the bare forms alike -- and `IVideoElement` is `x-supported: true`, so
+      `values`-map and the bare forms alike -- and the transform service maps `video`, so
       unlike `old-price` it does reach a device.
     * `fixed_h` is REQUIRED, and that is the one constraint worth enforcing. With `height: hug`
       the placeholder draws an arbitrary **256pt** (the renderer's default, the same box an empty
@@ -1095,7 +1102,7 @@ def video(*, fixed_h, width='fill', fit='cover', loop=True, corner=None, border=
       unclipped rather than anything video-specific. Author the radius anyway: it is what the
       clip lands into, and do not "fix" the square corners you see in the preview.
 
-    The props here are the element's whole design surface. `IVideoElementProps` has no `fill`,
+    The props here are the element's whole design surface. `VideoProps` has no `fill`,
     no `align` and no `layout` -- to place it, position the PARENT stack.
 
     NOT observed in any real export: 0 `video` elements across the 12-config corpus, so this
@@ -1185,14 +1192,14 @@ def _input(kind, custom_id, *, placeholder=None, locale='en', width='fill', heig
         # `border` is a COLOUR ID and is wrapped here, exactly as `stack()` does it. The first
         # version of this helper passed the argument through verbatim, so `border='line'`
         # emitted the bare string `"border": "line"` while the same call on a stack produced a
-        # full IBorder -- two helpers, one parameter name, two meanings. That is the drift this
+        # full Border -- two helpers, one parameter name, two meanings. That is the drift this
         # module exists to prevent (see the rich-text note above); found by an agent in the
         # 2026-08-28 round, which had to repair it by hand.
         if not isinstance(border, str):
             raise TypeError(
                 f'{kind} border takes a THEME COLOUR ID like \'line\', not '
                 f'{type(border).__name__} — same as stack(). Use border_width for the width.')
-        props['border'] = {'color': color(border), 'style': 'solid', 'width': border_width}
+        props['border'] = {'color': color(border), 'width': border_width}
     if corner is not None:     props['borderRadius'] = corner
     if margin is not None:     props['margin'] = margin
     if visibility is not None: props['visibility'] = visibility
@@ -1370,7 +1377,7 @@ GROUP_MEMBER_TYPES = ('product', 'selectable', 'tab-item')
 def selectable(children=(), *, group_id, default=False, custom_id=None, **kw):
     """A member of a NON-product selectable group: `single_choice`, `multi_choice`, `toggle`.
 
-    The element type matters and a stack will not do. `IStackElementProps` has no `groupId` and
+    The element type matters and a stack will not do. `StackProps` has no `groupId` and
     no `default`, so a stack carrying them is not a group member -- the props are ignored, it
     never receives the `selected` state, and **tapping it does nothing**. Verified against real
     exports: members are `product` for a product group, `selectable` for single/multi/toggle,
@@ -1849,8 +1856,22 @@ def from_catalog(entry, *, group_id=None, fills=None, items=None):
     if fills or items:
         template = _fill_slots(template, slots, fills or {}, items)
 
+    def to_v12(props):
+        # The catalog keeps two pre-v12 shapes this module would otherwise stamp v12: a border's
+        # `style` (the v12 schema has none, and the builder drops it on save) and a `fill` as one
+        # object rather than an array of layers.
+        if not isinstance(props, dict):
+            return
+        if isinstance(props.get('border'), dict):
+            props['border'].pop('style', None)
+        if isinstance(props.get('fill'), dict):
+            props['fill'] = [props['fill']]
+
     def walk(node):
         out = {k: v for k, v in node.items() if k != 'children'}
+        to_v12(out.get('props'))
+        for state_props in (out.get('propsByState') or {}).values():
+            to_v12(state_props)
         kind = out.get('type', 'stack')
         out['id'] = eid('S' if kind == 'stack' else kind[:1].upper())
         out.setdefault('states', [])
@@ -2211,7 +2232,7 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
     return out
 
 
-# `IFontWeight` in the published schema, and every weight in every real export is one of these.
+# `FontWeight` in the published schema, and every weight in every real export is one of these.
 # A CSS NUMBER is the natural thing to write and it is not a weight here: the publish gate takes
 # `weight: 600` and returns `valid: true`, and the render page then throws
 # `Invalid font weight value: 600` and draws "Preview failed to render" — a blank screen whose

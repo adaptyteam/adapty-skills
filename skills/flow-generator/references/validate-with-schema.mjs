@@ -9,14 +9,15 @@
  * and `schemaVersion: 999` without complaint. This fills that gap — it reports the wrong-shaped
  * props the server-side validator currently ignores, with a JSON path for each.
  *
- * The schema is fetched from SCHEMA_URL and cached at $TMPDIR/adapty-flow.schema.json for a day —
- * the same file the skill tells you to grep. Pass --schema <path-or-url> to point elsewhere, or
- * --refresh to re-download.
+ * The schema is the one the Flow Builder generates from its own types, fetched from SCHEMA_URL
+ * and cached at $TMPDIR/adapty-flow-schema.latest.json for a day — the same file the skill tells you to
+ * grep. Pass --schema <path-or-url> to point elsewhere, or --refresh to re-download.
  *
  * Exits 0 when the config matches the schema, 1 when it does not, 2 on bad usage.
  *
- * NOTE the schema tracks the newest schemaVersion. On an older flow, expect real mismatches that
- * are version drift rather than mistakes — check `config.schemaVersion` before acting on them.
+ * NOTE the schema describes the newest schemaVersion only. On an older flow, expect real
+ * mismatches that are version drift rather than mistakes (a v9 `fill` is one object, the schema
+ * wants an array) — pass --baseline so only what your edit introduced is reported.
  */
 
 import {readFileSync, statSync, writeFileSync} from 'node:fs'
@@ -25,8 +26,10 @@ import {tmpdir} from 'node:os'
 import {delimiter, join, resolve} from 'node:path'
 import {parseArgs} from 'node:util'
 
-const SCHEMA_URL = 'https://schemastore.adaptybuilder.com/latest.json'
-const CACHE_PATH = join(tmpdir(), 'adapty-flow.schema.json')
+const SCHEMA_URL = 'https://app.adapty.io/flow-schema/latest.json'
+// Named after the schema it holds, so a copy cached from a different schema URL is never read
+// as this one.
+const CACHE_PATH = join(tmpdir(), 'adapty-flow-schema.latest.json')
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const MAX_REPORTED = 40
 
@@ -107,6 +110,53 @@ async function loadSchema(source, refresh) {
 }
 
 /**
+ * Two adjustments to the published schema before compiling, both about what the CLI hands you:
+ *
+ * 1. `status` is required at the root, but `flows config get` returns it in the ENVELOPE, beside
+ *    `config`, never inside it. Left required, every config the CLI produces fails at `/`.
+ *
+ * 2. Every element, action, fill layer and colour is a `oneOf` over branches told apart only by a
+ *    `type` const, so one bad prop on one element comes back as a failure of all ~30 branches
+ *    ("must be text", "must be old-price", ...) with the real error buried among them. Rewriting
+ *    each such union as if/then on `type` reports only the branch the node actually claims to be.
+ */
+function prepare(schema) {
+  const out = structuredClone(schema)
+  if (Array.isArray(out.required)) out.required = out.required.filter((key) => key !== 'status')
+
+  const defs = out.$defs ?? {}
+  const resolve = (node) =>
+    node?.$ref?.startsWith('#/$defs/') ? defs[node.$ref.slice('#/$defs/'.length)] : node
+  // Only a branch that REQUIRES `type` can be selected by it — the hierarchy node's `local`
+  // branch carries a `type` const but leaves it optional, and rewriting that union would demand a
+  // key real configs never write.
+  const typeConst = (branch) => {
+    const target = resolve(branch)
+    return target?.required?.includes('type') ? target.properties?.type?.const : undefined
+  }
+
+  const visit = (node) => {
+    if (Array.isArray(node)) return node.forEach(visit)
+    if (!node || typeof node !== 'object') return
+    for (const key of ['oneOf', 'anyOf']) {
+      const branches = node[key]
+      if (!Array.isArray(branches) || branches.length < 2) continue
+      const consts = branches.map(typeConst)
+      if (consts.some((c) => typeof c !== 'string') || new Set(consts).size !== consts.length) continue
+      delete node[key]
+      node.allOf = [
+        ...(node.allOf ?? []),
+        {properties: {type: {enum: consts}}, required: ['type']},
+        ...branches.map((branch, i) => ({if: {properties: {type: {const: consts[i]}}}, then: branch})),
+      ]
+    }
+    Object.values(node).forEach(visit)
+  }
+  visit(out)
+  return out
+}
+
+/**
  * ajv reports every branch of every failed union, so one bad prop can produce dozens of errors.
  * Keep the most specific error per location and drop the union wrappers that merely say
  * "nothing matched" — those repeat what the child errors already state, with less detail.
@@ -166,7 +216,7 @@ const config = doc && typeof doc === 'object' && 'config' in doc ? doc.config : 
 const schema = await loadSchema(args.schema, args.refresh)
 const Ajv = loadAjv()
 const ajv = new (Ajv.default ?? Ajv)({allErrors: true, strict: false})
-const validate = ajv.compile({...schema, $ref: '#/$defs/IFlow'})
+const validate = ajv.compile(prepare(schema))
 
 const key = ({details, path}) => details.map((d) => `${path} :: ${d}`)
 const found = validate(config) ? [] : summarize(validate.errors)

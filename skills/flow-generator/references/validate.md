@@ -162,6 +162,7 @@ A clean `validate` is a floor, not a proof. Every one of these passed with `vali
 | `schemaVersion: 999` | the schema check |
 | A top-level `status` / `id` on a file deliverable | `references/verify-config.py` |
 | An element with no `states` key — a config the builder cannot open | `references/verify-config.py` |
+| A colour that is not `{type: hex, hex}` or `{type: color-style, colorId}` — a theme entry `{id}` where a reference belongs, or a fill layer `{type: color, color}` in `border.color` or `props.color`. The Flow Builder crashes on open and the flow cannot be edited from the dashboard; the device renders it | `references/verify-config.py` (an error); the schema check too, but that one is advisory |
 | A missing `defaultLocale` | nothing — and the schema is wrong to call it required |
 | A hyphen in an element id, which breaks the generated runtime script | `references/verify-config.py` (added after this row; the render still cannot show it — see [flow-schema.md](flow-schema.md#element-and-screen-ids-become-identifiers)) |
 | A product id that does not exist in this app | nothing; no price on device and the purchase fails |

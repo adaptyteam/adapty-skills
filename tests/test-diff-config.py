@@ -179,6 +179,37 @@ def first_string(o):
 assert first_string(b['screens']), 'fixture drifted: no plain localizable string found'
 case('changes: one string rewritten (exit 0, no removal)', D, b, 0, 0, 1, 0)
 
+# A text edit and a new locale on the SAME element. The added locale value used to mark the whole
+# element as "moved", and every change under a moved container was dropped as rename noise -- so
+# the edit to the existing text vanished from CHANGES (found by a GREEN-round agent: an English
+# title rewritten while Spanish was added reported "0 changed").
+b = copy.deepcopy(D)
+b['locales'].append({'id': 'de', 'code': 'de', 'name': 'German'})
+def edit_and_translate(o):
+    if isinstance(o, dict):
+        v = o.get('values')
+        if isinstance(v, dict) and isinstance(v.get('en'), str):
+            v['de'] = 'NEU'; v['en'] = 'CHANGED'; return True
+        return any(edit_and_translate(x) for x in o.values())
+    if isinstance(o, list):
+        return any(edit_and_translate(x) for x in o)
+    return False
+assert edit_and_translate(b['screens']), 'fixture drifted: no plain localizable string found'
+case('changes: a text edited beside an added locale', D, b, 0, 0, 1, 2)
+
+# The non-text half of the same trap: a translation added to an element must not hide a
+# non-localizable prop changed beside it, so translations are kept out of the `props` fact.
+b = copy.deepcopy(D)
+b['locales'].append({'id': 'de', 'code': 'de', 'name': 'German'})
+def recolour_and_translate(m):
+    for e in m.values():
+        c = (e.get('props') or {}).get('content')
+        if isinstance(c, dict) and 'en' in (c.get('values') or {}):
+            c['values']['de'] = 'NEU'; e['props']['opacity'] = 42; return True
+    return False
+assert any(recolour_and_translate(sc['elements']['map']) for sc in b['screens']), 'fixture drifted'
+case('changes: a prop edited beside an added locale', D, b, 0, 0, 1, 2)
+
 # --- The same path twice must be refused, never reported as clean ------------------------
 r = subprocess.run([sys.executable, DIFF, SRC, SRC], capture_output=True, text=True)
 ok = r.returncode == 2 and 'same file' in r.stdout

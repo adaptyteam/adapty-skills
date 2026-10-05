@@ -5,6 +5,24 @@ description: Use when someone wants to move an app from paywall placements to Fl
 
 # migrate-placements
 
+## How you sound
+
+Every line the user reads, the fixed blocks included:
+
+- **"I" for what you do, "you" for what they do.** Lead with the result; end on one next step. No
+  opener, no recap of their request.
+- **Bold at most one thing per block.** A fixed block's heading is that one thing; labels such as
+  App, Flows or Permanent stay plain, and so do the route names in a list of options (Reuse,
+  Convert, Build, Stub) — a list of four bold lead-ins is four bolds, not one.
+- **Raw values only when the user will type them or see them elsewhere.** A placement's developer
+  ID goes in code formatting — they type it into their app. Name an app by its title and a flow by
+  its name, with its last-edited date when several share a name, and link the flows page; never
+  an app or flow UUID. Counts and statuses are plain words ("1, now published"), not code.
+- **Ask only what changes the plan.** If every answer to a question gives the same result, say so
+  in one line instead of asking it.
+- **Say each thing once.** What the approval gate said, the final report does not repeat.
+- **Full, clickable links.** Reply in the user's language, the fixed blocks too.
+
 ## What this does, and what it cannot do
 
 For an Adapty docs page this skill does not link — how placements, audiences or flows behave in the
@@ -258,6 +276,10 @@ deselect":
 | **All** | no filter | move the whole account, disabled placements included |
 | **A named list** | user-supplied ids | a staged migration, or one app area |
 
+**Ask it only when the options differ.** When every placement in the account is active (or
+`--scope active` leaves the same set as all), the answer changes nothing: say "all <n> are active,
+so I'll take all of them" in one line and ask only question 2.
+
 **Suggest active only, and say why:** a disabled placement serves nobody, so a flow for it is work
 whose result no user sees — and each extra distinct paywall in scope is another flow somebody fills
 in by hand. **Say what widening costs, and do not call it free:** a re-run with `--scope all` is a
@@ -419,23 +441,23 @@ not happened rather than claiming nothing has.
 
 > **No placements exist yet — that is what this yes authorises.**
 >
-> **App:** `<app title>` (`<app id>`)
-> **Placements to create:** `<n>` — the irreversible step
-> **Flows:** `<flow line — pick by path, below>`
+> App: <app title>
+> Placements to create: <n> — the irreversible step
+> Flows: <flow line — pick by path, below>
 >
 > | Existing paywall placement | New flow placement | Flow |
 > |---|---|---|
-> | `<developer_id>` | `<proposed developer_id>` | `<flow name>` |
+> | `<developer_id>` | `<proposed developer_id>` | <flow name> |
 >
-> **Permanent:** a placement cannot be deleted. If one of these IDs is wrong,
+> Permanent: a placement cannot be deleted. If one of these IDs is wrong,
 > it stays in the app forever — read the middle column before saying yes.
 >
-> **Your paywall placements are not touched.** They keep serving until your app
+> Your paywall placements are not touched. They keep serving until your app
 > ships the change below, which is also how you roll back: ship nothing.
 >
-> `<undo line — stub and build paths only, below>`
+> <undo line — stub and build paths only, below>
 >
-> **This does not reach users yet.** Your app must call
+> This does not reach users yet. Your app must call
 > `getFlow("<new developer_id>")` where it currently calls the old placement.
 
 **Those two slots turn on one fact: did *this run* create the flows?** Stub and build did;
@@ -445,16 +467,15 @@ what the run did.
 
 - **Stub or build.** Flow line, and the undo line verbatim:
 
-  > **Flows already created and published:** `<n>`, one per distinct paywall — on your
-  > account now, and removable only in the dashboard
+  > <n> already created and published, one per distinct paywall — on your account now, and
+  > removable only in the dashboard
 
-  > **Saying no does not undo the flows.** Those `<n>` rows stay either way; no CLI
-  > command deletes a flow.
+  > Saying no does not undo the flows. Those <n> stay either way; no CLI command deletes a flow.
 
 - **Existing.** Flow line, and the undo slot is **omitted entirely** — saying no leaves the account
   exactly as this run found it, and there is nothing to warn about:
 
-  > `<n>` you supplied, verified `published` — this run created none
+  > <n>, the one(s) you picked, now published — this run created none
 
 Everything else in the block is unconditional: the permanence line, the untouched-placements line
 and the call-change line hold on all three paths.
@@ -488,15 +509,15 @@ decides which, and nothing else does:
 > **A stub is a one-line placeholder screen** — once your app points at it, it
 > *is* the content: users see the placeholder and cannot purchase.
 >
-> **`<a>` of the `<n>` placements you are migrating are active.** Attaching a
+> <a> of the <n> placements you are migrating are active. Attaching a
 > stub to those stops purchases there the moment your app ships the call
 > change, until you fill the flow in. The other `<n-a>` are inactive and serve
 > nobody, so a stub on them costs nothing.
 >
 > Say yes only if you will fill the flows in before shipping the call change.
 > Otherwise say no — the flows are already published, so I stop here and create
-> no placement. Fill them in, **publish again**, then say yes whenever you are
-> ready — a placement can only be attached to a flow that reads `published`.
+> no placement. Fill them in, publish again, then say yes whenever you are
+> ready — a placement can only be attached to a published flow.
 
 **The NO-COUNT form.** When `exposure.status_readable` is false, the
 count cannot be stated and the acknowledgment is all there is. Use this wording verbatim, and do
@@ -507,8 +528,8 @@ not substitute a guess for the number:
 > placement nothing calls yet; a revenue stop for one you are about to ship.
 > Say yes only if you will fill the flow in before shipping the call change.
 > Otherwise say no — the flows are already published, so I stop here and create
-> no placement. Fill them in, **publish again**, then say yes whenever you are
-> ready — a placement can only be attached to a flow that reads `published`.
+> no placement. Fill them in, publish again, then say yes whenever you are
+> ready — a placement can only be attached to a published flow.
 
 **Keep "publish again" in both forms.** Filling the stub in marks the flow **`dirty`**, and whether
 a `dirty` flow can be attached is unverified
@@ -613,7 +634,8 @@ flow the run created **cannot be deleted from the CLI**, so name the count and w
 https://app.adapty.io/flows.
 
 Close by naming what is still outstanding, once: flows still holding a stub, placements that failed,
-flow rows to clean up, and the fact that nobody sees any of this until the app ships.
+and flows to clean up. That nobody sees any of this until the app ships is said once in the whole
+report — with the call change above — not again here.
 
 ## What you print
 

@@ -15,6 +15,21 @@ Open the reference a workflow names before running its commands:
 - `references/asa-metrics.md` — `metrics`, `metrics overview`, `search-terms list`,
   `competitors summary`.
 
+## How you sound
+
+Every line the user reads:
+
+- **"I" for what you do, "you" for what they do.** Lead with the answer — the number, the change —
+  and end on one next step. No opener, no recap of their request.
+- **Bold at most one thing per paragraph.** Table rows need no bold.
+- **Raw values only when the user will type them or see them elsewhere** — a campaign, ad group or
+  keyword name as Apple Ads shows it, an amount in its currency, a command they run. Entity UUIDs
+  only inside a command.
+- **Before a change, name exactly what moves and what does not** — the entity, the old and new
+  value — then ask once.
+- **Full, clickable links.** Reply in the user's language; names from Apple Ads stay as Apple Ads
+  shows them.
+
 ## The CLI
 
 **Resolve `$ADAPTY` once, before your first `asa` call, and use it for every command you run.** A

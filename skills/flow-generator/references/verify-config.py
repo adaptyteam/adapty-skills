@@ -79,17 +79,12 @@ GROUP_TYPES = {'single_choice', 'multi_choice', 'product', 'toggle'}
 REPORTING_INPUT_TYPES = {'text-input', 'email-input', 'number-input', 'phone-input',
                          'date-picker', 'time-picker', 'date-time-picker'}
 
-# Element types the published schema flags `"x-supported": false` AND that no real export uses.
-# The flag means the extractor found no per-element mapper handler in the transform service, so
-# the SDK payload may never carry the element even though the schema, `flows config validate`
-# and `config preview` all accept it — which is exactly the observed `old-price` behaviour: it
-# draws a struck price in the CLI preview and is simply absent on a device.
-#
-# This is deliberately NOT the whole `x-supported: false` set. The progress-bar family carries
-# the same flag and appears in REAL exports (`onboarding-quiz-paywall`, `vpn-timer-draft` — 2 of
-# the corpus's 7 distinct flows), because the transformer handles progress bars in a registry pass the
-# extractor cannot see. So the flag is a signal to verify, never a verdict — these are the
-# types where the flag and the corpus agree. See flow-schema.md, `x-supported`.
+# Element types the transform service has no mapper for AND that no real export uses. The SDK
+# payload never carries them even though the schema, `flows config validate` and `config
+# preview` all accept them — the observed `old-price` behaviour: it draws a struck price in the
+# CLI preview and is simply absent on a device. Only types where the corpus and a device check
+# agree belong here; the progress-bar family is real builder output and does not. See
+# flow-schema.md, "Being in the schema is not reaching a device".
 UNMAPPED_ELEMENT_TYPES = {
     'old-price': 'draws in `flows config preview` and NOT on a device — measured',
 }
@@ -168,7 +163,7 @@ COND_ILLEGAL_TYPES = {'assign'}
 # A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
 # In `theme.colors[].light/dark` a 3-digit, 8-digit, 7-digit, unprefixed or EMPTY
 # hex is refused -- and refused with the location-free `Generated JSON failed schema
-# validation`, which names no field, because `IColorHex` is a bare string with no pattern.
+# validation`, which names no field, because a colour `hex` is a bare string with no pattern.
 # The render cannot see it either: `config preview` draws light mode only.
 #
 # POSITION-SCOPED on purpose. In an element position the same service accepts a 3-digit hex,
@@ -337,6 +332,60 @@ def walk(o, fn):
         for v in o:
             walk(v, fn)
 
+# ---- colour shape. Every property the schema types as `Color`, by name. ------------------
+# Read off the published schema's `$ref: Color` sites: text/icon/loader/old-price `color`,
+# `border.color`, a fill layer's and a gradient stop's `color`, rich-text `attrs.color`,
+# shadow/animation colours, dots, the sheet overlay and the input buttons. A key-name walk
+# over an element reaches `propsByState` and rich-text spans too, which a props-path walk
+# would miss.
+ICOLOR_KEYS = frozenset({'color', 'activeColor', 'shadowColor', 'overlayColor',
+                         'clearButtonColor', 'passwordIconColor'})
+
+
+def iter_elements(d):
+    """(where, element id, element) for every element on every screen and in every component."""
+    for s in d.get('screens') or []:
+        for k, e in ((s.get('elements') or {}).get('map') or {}).items():
+            yield s.get('id'), k, e
+    for cid, c in (d.get('components') or {}).items():
+        for k, e in ((c or {}).get('map') or {}).items():
+            yield f'component {cid}', k, e
+
+
+def iter_color_values(o, path=''):
+    """(dotted key path, value) for every value held under an `Color` key, at any depth."""
+    if isinstance(o, dict):
+        for k, v in o.items():
+            p = f'{path}.{k}' if path else k
+            if k in ICOLOR_KEYS:
+                yield p, v
+            yield from iter_color_values(v, p)
+    elif isinstance(o, list):
+        for i, v in enumerate(o):
+            yield from iter_color_values(v, f'{path}[{i}]')
+
+
+def icolor_problem(v):
+    """None when `v` is a valid `Color`, else what is wrong with it, in words an author can act on."""
+    if isinstance(v, dict):
+        t = v.get('type')
+        if t == 'hex' and isinstance(v.get('hex'), str):
+            return None
+        if t == 'color-style' and isinstance(v.get('colorId'), str) and v['colorId'].strip():
+            return None
+        if t is None and 'id' in v:
+            return (f'{json.dumps(v)} is a theme colour entry, not a reference to one — write '
+                    f'{{"type": "color-style", "colorId": {json.dumps(v["id"])}}}')
+        if t == 'color' and isinstance(v.get('color'), dict):
+            return (f'{json.dumps(v)} is a fill layer, which belongs only inside `fill` — use '
+                    f'the colour inside it, {json.dumps(v["color"])}')
+        if t == 'hex':
+            return f'{json.dumps(v)} has no string `hex`'
+        if t == 'color-style':
+            return f'{json.dumps(v)} has no `colorId`'
+    return f'{json.dumps(v)} is not a colour object'
+
+
 # ---- colour resolution, for the legibility check. See MIN_LEGIBLE_CONTRAST above. --------
 
 def as_alpha(op):
@@ -380,7 +429,7 @@ def parse_hex(v):
     return rgb, a
 
 def resolve_color(c, pal):
-    """An `IColor` -> ((r, g, b), alpha), or None when it is not a resolvable solid colour.
+    """An `Color` -> ((r, g, b), alpha), or None when it is not a resolvable solid colour.
 
     Alpha multiplies three independent sources — an 8-digit hex's own alpha, the referencing
     colour's `opacity`, and (for a token) the token's `opacity`. All three occur in the corpus.
@@ -403,7 +452,7 @@ def resolve_color(c, pal):
     return rgb, max(0.0, min(1.0, ref_a * hex_a * tok_a))
 
 def solid_fill(fill):
-    """The `IColor` inside a solid fill, taking the v9 object and the v10 one-layer array alike.
+    """The `Color` inside a solid fill, taking the v9 object and the v10 one-layer array alike.
 
     A multi-layer array is deliberately unresolvable: 0 of the real exports contain one, and the
     one this project shipped reached a device with the tint missing (see flow-schema.md).
@@ -417,7 +466,7 @@ def solid_fill(fill):
     return None
 
 def gradient_stops(fill):
-    """Every `IColor` in a gradient fill, taking the v9 object and the v10 one-layer array alike.
+    """Every `Color` in a gradient fill, taking the v9 object and the v10 one-layer array alike.
 
     Same one-layer rule as `solid_fill`, and for the same reason.
     """
@@ -517,11 +566,11 @@ def iter_visible_text(d):
                     yield s.get('id'), eid, locale, joined
 
 def iter_bound_images(d):
-    """Every `IImage` in the document that is actually bound to an asset, both shapes.
+    """Every `Image` in the document that is actually bound to an asset, both shapes.
 
     An asset binds two different ways and a check that knows only one sees half the document:
     an `image` ELEMENT wraps its value in a per-locale `values` map, while a background FILL
-    carries the same `IImage` flat inside a `{type: "image", image: {...}}` layer. The fill walk
+    carries the same `Image` flat inside a `{type: "image", image: {...}}` layer. The fill walk
     is recursive on purpose -- a fill sits on a screen, on any stack, and inside `propsByState`.
 
     Keyed on the fill layer's own `type`, never on the presence of a `url`. That predicate is
@@ -749,6 +798,33 @@ def check(path, baseline_text=None, baseline_images=None):
                    + " — one generated script per flow, so the second declaration collides "
                      "with the first")
 
+    # Inside ONE screen a map is keyed by id, so a second element with an id the screen already
+    # holds does not sit beside the first — merging it into `map` replaces it, and the screen's
+    # hierarchy is left pointing at that id twice. That is how adding an element with a minted id
+    # silently rewrites an element someone else put there (an earlier run's additions use the
+    # same default sequence), and nothing else notices: the overwritten element is still a valid
+    # element, `diff-config.py` reports it as a change rather than a removal, and validate passes.
+    # The repeated hierarchy reference is the trace it leaves. 0 of 12 real configs contain one.
+    twice = []
+    def _hier_ids(n, out):
+        for c in n.get('children') or []:
+            if isinstance(c, dict):
+                out.append(c.get('id'))
+                _hier_ids(c, out)
+        return out
+    containers = [(s_['id'], s_.get('elements') or {}) for s_ in d.get('screens') or []]
+    containers += [(f'component {cid}', c or {}) for cid, c in (d.get('components') or {}).items()]
+    for where, c in containers:
+        ids = _hier_ids(c.get('hierarchy') or {}, [])
+        dup = sorted({i for i in ids if ids.count(i) > 1})
+        if dup:
+            twice.append(f"{where}: {', '.join(dup[:4])}{', …' if len(dup) > 4 else ''}")
+    if twice:
+        bad.append("element id(s) placed twice in one screen's hierarchy: " + '; '.join(twice[:4])
+                   + " — the map holds ONE element per id, so a second element added with an id "
+                     "the screen already had replaced the first. Restore it from the fetched "
+                     "config and give the new element an id the flow does not use")
+
     # The same script surface, one tier weaker: these are the heads of `<customId>.value`,
     # `<groupId>.selectedOptionId` and custom variables, so a malformed one lands in the
     # generated script too. Corpus-clean (0 off-charset across group ids, customIds and
@@ -803,11 +879,11 @@ def check(path, baseline_text=None, baseline_images=None):
         if pd:
             bad.append(f"_meta.screens.{sid}.products declares {', '.join(pd)} twice")
 
-    # Images are invisible to BOTH publish-time gates: `flows config validate` returned
-    # valid:true on an empty values map, a numeric id and a missing id alike, and the schema
-    # check passes them too, because `ILocalizable.values` is typed as an unconstrained
-    # `additionalProperties`. So an empty hero publishes an "Upload Image" checkerboard to real
-    # users, and this warning is the only mechanical slot that sees it. Measured.
+    # Images are invisible to the publish gate: `flows config validate` returned valid:true on an
+    # empty values map, a numeric id and a missing id alike. The schema step catches the id
+    # shapes but not an empty values map, which is a legal shape. So an empty hero publishes an
+    # "Upload Image" checkerboard to real users, and this warning is the only mechanical slot
+    # that sees it. Measured.
     empty_imgs, unstrung = [], []
     for _s, el in els():
         if el.get('type') != 'image':
@@ -843,7 +919,7 @@ def check(path, baseline_text=None, baseline_images=None):
     # or is a `flows config get` away in whatever flow already carries the asset. An image that
     # arrived WITH the config was bound by someone else, and adding a preview there means editing
     # their work -- a change to report and offer, not one to make on the way past. Repairable it
-    # often is: because a config stores the whole IImage, an asset bound anywhere carries its
+    # often is: because a config stores the whole Image, an asset bound anywhere carries its
     # preview there. What nothing recovers is a preview no binding ever had, since `preview_base64`
     # comes back from the upload alone and re-uploading mints a second asset rather than the value.
     #
@@ -879,7 +955,7 @@ def check(path, baseline_text=None, baseline_images=None):
     # gates are blind here exactly as they are for images -- measured 2026-09-10 against the real
     # transform service: an unset `video` returns `valid: true, issues: []` in the styled, the
     # empty-`values`-map and the bare forms alike -- so this warning is the only mechanical slot
-    # that puts the upload in the handover. `IVideoElement` is `x-supported: true`, so unlike
+    # that puts the upload in the handover. The transform service maps `video`, so unlike
     # `old-price` it does reach a device; the checkerboard is what real users would see.
     unset_vids, hug_vids = [], []
     for _s, el in els():
@@ -1340,7 +1416,7 @@ def check(path, baseline_text=None, baseline_images=None):
                        f'(builder reports "Unknown Product Id"). Wrap the price block in a '
                        f'`product` element, even if the design has no visible plan card.')
 
-        # A group member's ELEMENT TYPE is load-bearing. IStackElementProps has no groupId
+        # A group member's ELEMENT TYPE is load-bearing. StackProps has no groupId
         # and no default, so a stack carrying them is not a member: the props are ignored, it
         # never gets the `selected` state, and tapping it does nothing. Real exports use
         # `product` for product groups, `selectable` for single/multi/toggle, `tab-item` in tabs.
@@ -1429,6 +1505,27 @@ def check(path, baseline_text=None, baseline_images=None):
         bad.append(f'font.preset not in theme.typography: {sorted(up - presets)}')
     if uc - colors:
         bad.append(f'colorId not in theme.colors: {sorted(uc - colors)}')
+
+    # Every colour an element carries is an `Color`: `{type: hex, hex}` or
+    # `{type: color-style, colorId}`, nothing else. The Flow Builder's renderer throws on any
+    # other shape and takes the WHOLE editor down with a generic error screen, so the flow can
+    # no longer be opened or fixed from the dashboard. Every other gate passes it: `config update`
+    # stores it, `flows config validate` returns `valid: true`, and the device renders. Only the
+    # advisory schema check sees it. The two shapes an author actually writes are named, because
+    # each is a different mix-up: a theme colour ENTRY (`{id}`) where a reference belongs, and a
+    # fill LAYER (`{type: color, color}`) where a plain colour belongs.
+    bad_colors = []
+    for where, eid_, e in iter_elements(d):
+        for key, v in iter_color_values(e):
+            problem = icolor_problem(v)
+            if problem:
+                bad_colors.append(f'{where}/{eid_} {key}: {problem}')
+    if bad_colors:
+        bad.append(f'{len(bad_colors)} colour value(s) are not a valid colour — the Flow Builder '
+                   f'crashes on open, while validate and the device pass it. A colour is '
+                   f'{{"type": "hex", "hex": "#RRGGBB"}} or {{"type": "color-style", "colorId": '
+                   f'"<theme colour id>"}}: ' + '; '.join(bad_colors[:6])
+                   + (f'; and {len(bad_colors) - 6} more' if len(bad_colors) > 6 else ''))
 
     fonts = {x['id'] for x in d.get('_meta', {}).get('fonts', [])}
     uf = set()
@@ -2317,8 +2414,8 @@ def check(path, baseline_text=None, baseline_images=None):
         for eid, e in s['elements']['map'].items():
             why = UNMAPPED_ELEMENT_TYPES.get(e.get('type'))
             if why:
-                warn.append(f'{s["id"]}/{eid} is a `{e["type"]}` element, which the published '
-                            f'schema flags "x-supported": false and no real export uses — '
+                warn.append(f'{s["id"]}/{eid} is a `{e["type"]}` element, which the transform '
+                            f'service does not map and no real export uses — '
                             f'{why}. Do not lay out around it without a device check')
 
     # ---- money, discounts and durations written as literal text. See PLACEHOLDER_PRICE.

@@ -225,9 +225,9 @@ Two fields both marked `"_localizable": true`, two different value shapes:
 
 `text.props.content` holds an **array of paragraph blocks**. An input's `placeholder` —
 `text-input`, `number-input` and the rest of that family — holds a **bare string per locale**.
-The schema allows `anyOf: [string, rich-node array, ILocalizable]`, which reads as permissive
-and is not: handing paragraph blocks to a placeholder **kills the entire screen**, which renders
-as `Preview failed to render.` and takes every other element on it down.
+The schema now says so — a placeholder takes a string or inline nodes, never paragraph blocks —
+and the consequence is worth knowing: handing paragraph blocks to a placeholder **kills the entire
+screen**, which renders as `Preview failed to render.` and takes every other element on it down.
 
 Measured by bisection, holding everything else constant:
 
@@ -237,8 +237,8 @@ Measured by bisection, holding everything else constant:
 | `{"values": {"en": "Age"}}` | renders |
 | `"Age"` | renders |
 
-Neither `verify-config.py` nor the official v10 schema catches it — both pass the broken config.
-Only the render does, which is trap 10's lesson with a louder failure: **one wrong value shape on
+`verify-config.py` passes it; the schema step catches it, at
+`props/placeholder/values/<locale>`, and the render does — trap 10's lesson with a louder failure: **one wrong value shape on
 one prop is a screen-level outage**, not a local defect. So a helper that builds rich text is the
 wrong tool for a placeholder, and reusing one across both families is how this project broke two
 screens at once.
@@ -433,7 +433,7 @@ emoji had passed every check (2026-08-24). Emoji carry a second cost too: they a
 class with no preview-side tell at all (see [preview.md](preview.md)).
 
 **Style the placeholder element completely, so the upload lands styled.** The empty values map
-is only the *content* half; `IImageElementProps` carries the presentation — `borderRadius`,
+is only the *content* half; `ImageProps` carries the presentation — `borderRadius`,
 `objectFit` (`"fit"` | `"cover"`), `_aspect`, `border`, fixed `width`/`height` — and those are
 yours to author now, on the `image` element itself, not on a wrapper. A circular avatar is a
 92×92 image with `borderRadius` 46 and `objectFit: "cover"`; leave those off and the user who
@@ -616,7 +616,7 @@ about the format at all. When two sources disagree, the one that rendered wins.
 
 ### 10b. `layout.distribution` has FOUR modes, and only knowing one of them deforms every screen
 
-`ILayout` is `{alignH, alignV, direction, distribution}`, all four **required**. The trap is not
+`Layout` is `{alignH, alignV, direction, distribution}`, all four **required**. The trap is not
 the shape, it is the vocabulary:
 
 | Key | Values |
@@ -751,7 +751,7 @@ paths, so it is the name and not the markup — while `name: "X"`, `weight: regu
 immediately.
 
 Every gate is blind. `flows config validate` returns `valid: true`, the schema types `name` as a
-bare `string` with no enum (the `IColorHex` class again), and in a screenshot a missing glyph
+bare `string` with no enum (the colour-hex class again), and in a screenshot a missing glyph
 reads as a spacing bug. That combination — silent, total, and invisible to the loop — is why
 [`verify-config.py`](verify-config.py) makes it an **error** rather than a warning.
 
@@ -818,8 +818,8 @@ const  var  ==  !=  >  <  has  notHas  in  notIn  empty  notEmpty  size  &&  || 
 
 **Seventeen of them have a case in the condition walker. `assign` does not**, so it falls
 through to `default` and the flow is refused. It is schema-legal, and it is genuinely legal
-inside a `setVariable` payload — it is illegal only *as a condition*. Same class as `IColorHex`
-being typed a bare string: an enum the schema declares and a consumer does not honour, so
+inside a `setVariable` payload — it is illegal only *as a condition*. Same class as a colour
+hex being typed a bare string: a rule the consumer enforces and the schema does not state, so
 neither the schema check nor `config preview` objects. 0 of 8 real exports use it anywhere.
 
 Shape rules, all enforced by that walker:
@@ -929,7 +929,7 @@ refused there: `#fff`, `#FFFFFFD9`, `#FFFFFFF`, `FFFFFF`, and the empty string.
 
 It is refused with **`Generated JSON failed schema validation` and no path**, so the message
 names no field and you are bisecting a whole document to find one character. Two gates that
-would normally save you are both blind: `IColorHex` is typed as a bare `string` with no
+would normally save you are both blind: a colour's `hex` is typed as a bare `string` with no
 pattern, so the schema check passes it, and `config preview` **draws light mode only**, so a
 broken `dark` value renders perfectly.
 
@@ -1017,10 +1017,9 @@ the transformer compiles predicates into JavaScript and an unresolvable name yie
 So **a `toggle` group exposes nothing a condition can read.** This corrects the support-channel
 workaround recorded for driving plan selection from a switch: it cannot be keyed on the toggle.
 
-**`selectProduct` is the one action the schema flags `"x-supported": false`** — every other action
-type is `true` — and its payload takes `{element: <element id>}`, not a product id. Bisected: a
+**`selectProduct`'s payload takes `{element: <element id>}`, not a product id.** Bisected: a
 conditional containing only `nothing` actions failed too, so the gate was objecting to the
-predicate rather than to `selectProduct`; but the flag plus the unreadable toggle variable mean
+predicate rather than to `selectProduct`; but with the toggle variable unreadable,
 **a toggle cannot move a product group's selection**. Drive the visible difference with
 `propsByState` on the toggle's own element, and put the conditional where it reads a product
 group.
@@ -1068,55 +1067,27 @@ Three things to take from that, all observed on a real 422:
   config happily; the transform service refused it. So "it saved" never means "it will publish",
   which is the same lesson trap 10 teaches about rendering, one layer further out.
 
-### The schema tells you what the transformer handles: `x-supported`
+### Being in the schema is not reaching a device
 
-**47 definitions carry an `x-supported` boolean** — 15 `IAction*` and 34 `*Element` — each paired
-with an `x-type-literal` giving the `type` string you actually write. `true` means the transform
-service has a **mapper handler** for that variant. It is generated by a static extractor over the
-transformer source, which is what makes it cheap and what limits it (see the false negative
-below). Grep it with `jq`, never by reading the file:
-
-```bash
-jq -r '.["$defs"] | to_entries[] | select(.value["x-supported"] == false) | .value["x-type-literal"]' "$SCHEMA"
-```
-
-**Six are `false`.** One action and five elements:
-
-Corpus column = how many of the **7 distinct real flows** carry one (the 12 config files are those
-7 plus the 5 raw originals of the sanitized copies, so counting files would double them):
+The schema lists every element and action type the builder can save. It says nothing about which
+ones the transform service maps for the SDK, so a type's presence there is no evidence that users
+will see it. What is known, type by type, comes from real exports and device checks:
 
 | literal | family | in the corpus | read |
 |---|---|---|---|
 | `selectProduct` | action | 0 | see the toggle table above — a toggle cannot move a product group's selection |
-| `old-price` | element | 0 | **the mapper is why it draws in preview and not on device** — see its own section |
-| `header` | element | 0 | flagged and unused; no device evidence either way. Verify before relying on it |
-| `progress-bar` | element | **2** | **false negative** — see below |
-| `progress-bar-loader` | element | **2** | **false negative** |
-| `progress-bar-segment` | element | **1** | **false negative** |
+| `old-price` | element | 0 | **draws in preview and not on device** — see its own section |
+| `header` | element | 0 | unused in every real export; no device evidence either way. Verify before relying on it |
+| `progress-bar`, `progress-bar-loader`, `progress-bar-segment` | element | 2 of 7 flows | real builder output; a flow-level component, not a per-screen element |
 
-Everything else is `true`, actions included (`purchase`, `openUrl`, `restorePurchases`,
-`navigate`, `conditional`, `showElement`/`hideElement`, `alert`, `custom`, `setVariable`,
-`closeFlow`, `navigateBack`/`navigateNext`, `nothing`) and `footer` among the elements.
-
-> **The flag is a signal to verify, not a verdict — the progress-bar family proves it.** All three
-> progress-bar types are flagged `false` and all three appear in **real builder exports**:
-> `progress-bar` and `progress-bar-loader` in both `onboarding-quiz-paywall` and
-> `vpn-timer-draft`, `progress-bar-segment` in the former. The transformer handles progress bars in a
-> *registry* pass rather than a per-element mapper, and a static extractor cannot see that. So the
-> flag means "no per-element handler was detected", which is not the same claim as "unsupported".
-> Evidence ordering is unchanged and it is what saves you here: **a real export outranks a schema
-> annotation, and `validate` outranks both.** Use the flag to decide what to check, never as the
-> answer.
-
-`verify-config.py` warns on the one type where the flag and the corpus agree *and* the failure is
-measured — `old-price`. It deliberately does not warn on the whole `false` set, because that would
-fire on real builder output.
+`verify-config.py` warns on `old-price`, the one type where the corpus and a device measurement
+agree. When you reach for a type no real export uses, treat the device check as load-bearing.
 
 ## The schema, the catalog, and the two different validators
 
 | File | What it is | How to use it |
 | :--- | :--- | :--- |
-| **the JSON Schema** — *not bundled* | draft-2020-12, 196 definitions, rooted at `$defs.IFlow`. **Published and versioned**, so fetch it rather than shipping a copy that rots. | `curl -sSfL -o "$SCHEMA" https://schemastore.adaptybuilder.com/latest.json` once per session, then `grep -n '"purchase"' "$SCHEMA"` or `jq '.["$defs"].IFillLayer' "$SCHEMA"`. **Never read it whole** — 239KB. |
+| **the JSON Schema** — *not bundled* | draft-2020-12, generated by the Flow Builder from its own types, so it is the builder's current shape rather than a hand-maintained copy. The root is the flow object itself, with ~107 `$defs`. Describes the newest `schemaVersion` only. | `curl -sSfL -o "$SCHEMA" https://app.adapty.io/flow-schema/latest.json` once per session, then `grep -n '"purchase"' "$SCHEMA"` or `jq '.["$defs"].FillLayer' "$SCHEMA"`. A version-pinned copy lives beside it (`/flow-schema/v12.json`). **Never read it whole** — ~200KB. |
 | `component-catalog.json` | 36 ready-made component templates with named slots | `jq -r '.components[].id' component-catalog.json`, then `jq '.components[]\|select(.id=="footer")'` |
 | `validate-with-schema.mjs` | schema-validates a config — the gap `flows config validate` leaves | see below |
 | `preview-with-playwright.mjs` | headless screenshot via the render page's file input | `npx playwright install chromium` once; skip it if you already have a browser tool |
@@ -1140,19 +1111,25 @@ your flow), then `validate`, then look at a render. Full coverage both ways —
 and why `validate` needs a loop rather than a single call — in [validate.md](validate.md).
 
 ```bash
-npx --yes --package=ajv@8 node references/validate-with-schema.mjs \
-  --config flow.working.json --baseline flow.backup.json
+npm i --prefix ~/.cache/adapty-flow-schema ajv@8          # once, not per call
+(cd ~/.cache/adapty-flow-schema && node <skill>/references/validate-with-schema.mjs \
+  --config "$PWD/flow.working.json" --baseline "$PWD/flow.backup.json")
 ```
 
-**Always pass `--baseline`.** The schema tracks the newest `schemaVersion` while most live flows are
-older, so an unbaselined run on a v9 flow reports **hundreds** of pre-existing mismatches, none of
-them yours. The baseline is the pristine copy from `get`, and diffing against it leaves only what
+`gates.sh` runs exactly this, so you rarely call it by hand.
+
+**Always pass `--baseline`.** The schema describes the newest `schemaVersion` while most live flows
+are older, so an unbaselined run on a v9 or v10 flow reports pre-existing mismatches — a v9 `fill`
+is one object and the schema wants an array — none of them yours. The baseline is the pristine copy from `get`, and diffing against it leaves only what
 your edit caused. Without it, the output is background noise and will train you to ignore a real
 finding.
 
-It caches the schema at `$TMPDIR/adapty-flow.schema.json` for a day — the same file you grep.
-`--refresh` re-downloads; `--schema <path|url>` points elsewhere. Exit 0 clean, 1 with a JSON path
-per problem:
+It caches the schema at `$TMPDIR/adapty-flow-schema.latest.json` for a day — the same file you grep.
+`--refresh` re-downloads; `--schema <path|url>` points elsewhere. Two things the script adjusts
+before validating, so neither reaches you as noise: `status` is not required (the CLI keeps it in
+the envelope, beside `config`), and every element, action, fill layer and colour is checked only
+against the branch its own `type` names, so one bad prop is one finding rather than thirty. Exit 0
+clean, 1 with a JSON path per problem:
 
 ```
   /screens/0/elements/map/el_em3n23qPxZ/props/width/type
@@ -1164,15 +1141,12 @@ per problem:
 The schema is a **static snapshot and it is not the authority.** Three ways it misleads, all
 documented by its own publishers:
 
-- **It is v10, and it trails the builder by two migrations.** Check `config.schemaVersion` first.
-  A `config update` never migrates a flow, so a flow stays at its own version across any number of
-  CLI writes. Use the schema for *what fields exist*, not *how they are shaped* — and know which
-  fields it does not reach: the published copy models neither the structured product refs of
-  step 011 nor the `screens[].products` registry of step 012. `IScreen` lists five properties and
-  `products` is not among them. Nothing is rejected, because the screen object does not set
-  `additionalProperties: false`, so the registry passes through unmodelled: **a clean schema run
-  says nothing about it in either direction.** Verify the registry against
-  [`products.md`](products.md) and the live `validate`, never against this check.
+- **It describes the builder's newest version only.** Check `config.schemaVersion` first. A
+  `config update` never migrates a flow, so a flow stays at its own version across any number of
+  CLI writes, and on an older flow the schema reports version drift alongside real defects — which
+  is what `--baseline` separates. On a flow at the schema's own version it is exact: it models
+  structured product refs, the `screens[].products` registry and every screen key, and a screen
+  carrying a key it does not know is a finding.
 
   **But the Flow Builder does migrate, on save.** Measured: a flow written at `schemaVersion 9` came
   back as **10** after the user opened it in the builder and saved, with all of its fills rewritten
@@ -1186,20 +1160,18 @@ documented by its own publishers:
   whose shapes you emit.** "Keep the input's shape" has no input to point at, so the number is
   yours to choose, and the choice is decided by the document rather than by what looks current:
   `flowkit` writes array fills, structured product refs and a screen registry, which is **12**.
-  Measured: a new paywall authored at v9 out of habit collected 10 schema findings, every one of
-  them the `fill` object-versus-array difference and none a real defect; re-authoring the same
-  document at v10 came back clean. The mirror of that mistake is worse: stamp a version whose
-  shapes are absent and the steps that would have produced them are skipped, because the
-  document claims to have been through them. So the two move together — when this number rises,
-  it is because the emitter changed, never the other way round. This is *not* licence to convert
+  Stamp a version whose shapes are absent and the steps that would have produced them are skipped,
+  because the document claims to have been through them. So the two move together — when this
+  number rises, it is because the emitter changed, never the other way round. This is *not* licence to convert
   an existing flow — a flow you fetched stays at its own version.
-- **Its `required` lists are unreliable.** It marks `defaultLocale` required and the validator
-  accepts a config without it. **Never add a field just because the schema calls it required** —
-  match the config you fetched. (Omitting `status` and `id` is separately safe: measured across many
+- **Its `required` lists describe the builder's in-memory flow, not what the CLI writes.** It marks
+  `status` required, and `config get` returns status in the envelope instead — which is why the
+  script drops that one. **Never add a field just because the schema calls it required** — match
+  the config you fetched. (Omitting `status` and `id` from a config is safe: measured across many
   writes, not inferred from `required`.)
 ### Typography metrics: `lineHeight` and `letterSpacing` exist
 
-`IFont` carries **`lineHeight`** and **`letterSpacing`** alongside `family`, `preset`, `size` and
+`Font` carries **`lineHeight`** and **`letterSpacing`** alongside `family`, `preset`, `size` and
 `weight`. Both are absent from every real export and from every catalog template, so they are a
 *grep-zero* shape — declare them knowing the device may ignore them, and note that they **fail
 safe**: an ignored `lineHeight` gives looser leading, not a broken screen.
@@ -1246,19 +1218,6 @@ repo-only: it does not exist on an installed skill, so never write a check that 
 
 - **Where the schema and `validate` disagree, `validate` wins** — in both directions. And a clean
   `validate` is still not proof: it passes plenty of malformed props without complaint.
-- **It has at least one unsatisfiable definition, so some findings can never be cleared.**
-  `IDynamicProductValue` is a `oneOf` over **two branches that are byte-identical** — both
-  `{"type": "object", "properties": {"type": {"type": "string"}}, "required": ["type"]}`, one
-  commented `JSONVariable` and one `JSONConstant`, both marked "shape intentionally opaque,
-  validated by the transformer". Any value that matches one matches both, and `oneOf` demands
-  exactly one, so **every `purchase` action fails the schema check** — that is, every paywall
-  with a plan picker. Verified both ways: the reported errors vanish when the
-  `purchase` action alone is swapped out of an otherwise-clean 343-element config, and
-  `tests/fixtures/onboarding-quiz-paywall.json` — a real builder export that renders and sells —
-  carries the identical `{"type": "var", "variableId": "<group>.selectedProduct"}` payload and
-  fails the same way. **Do not "fix" this.** Recognise the signature: four findings clustered on
-  one element id, on `type`, `interactions/0/actions/0/type`, `.../payload` and `props/layout` —
-  the last two are ajv reporting sibling `oneOf` branches, not separate defects.
 
 ### The `fill` shapes are a version difference, with a live exception
 
@@ -1307,7 +1266,7 @@ elements. A drop shadow requires every one of `type`, `enabled`, `x`, `y`, `blur
 ```
 
 `opacity` here is the 0-100 percentage of trap 11, not a fraction — `6` is a 6% shadow.
-`inner-shadow` is the other `type`; there is also an `IBlurEffect`.
+`inner-shadow` is the other shadow `type`; `background-blur` and `layer-blur` take only `blur` and `enabled`.
 
 Worth stating because the evidence order says otherwise at first glance: `effects` appears in the
 schema but in **no** real export and **no** catalog template, which normally means treat it as
@@ -1378,11 +1337,11 @@ A dedicated element type for a struck-through original price. Built and rendered
   is the element's whole job, not a style you set. Confirmed in a render.
 - **No `content`, no product reference.** It takes its value from the product context it sits in,
   so place it inside the `product` element whose price it discounts. The schema lists it under
-  `IElement`, so it is not *structurally* confined there — but nothing else would give it a price.
+  `Element`, so it is not *structurally* confined there — but nothing else would give it a price.
 - **Unattached, it renders the literal words "Old price"**, struck through. That is a far kinder
   placeholder than a `text` element holding a price variable, which renders its whole 45-character
   variableId and detonates the layout.
-- **The official v10 schema accepts it** — checked with `tests/schema-check.py`.
+- **The schema accepts it**, which says nothing about whether it reaches a device — see below.
 - **Still unmeasured:** what `multiplier` actually multiplies, and whether it reads the enclosing
   product or the selected one. Preview has no store prices, so this needs a real attached product.
 
@@ -1401,26 +1360,15 @@ on screen where users are.**
 Do not author `old-price` expecting a visible strikethrough, and never lay out a price row around
 one you have only seen in the CLI preview.
 
-**The reason is in the schema we already fetch: `old-price` is flagged `"x-supported": false`** —
-the transform service has no mapper handler for it. That predicts exactly what was measured, and
-it predicts it for the whole element rather than for one prop: the CLI preview reads the config
-directly, so it draws the element; a device reads the *transformer's output*, which never carries
-it. Two further signals agree — **0 of the 12 real exports contain an `old-price`**, and no
+**The reason is that the transform service has no mapper for it.** That predicts exactly what was
+measured, for the whole element rather than one prop: the CLI preview reads the config directly,
+so it draws the element; a device reads the *transformer's output*, which never carries it. Two
+further signals agree — **0 of the 12 real exports contain an `old-price`**, and no
 component-catalog template uses one. `verify-config.py` warns when a config carries one.
 
-This supersedes the earlier hypothesis recorded here — that `multiplier` scales a prior price that
-has to exist independently, so a product with no intro or offer price has nothing to scale. That
-was never tested, and it is now unnecessary: a missing mapper explains the absence without
-requiring the multiplier to behave any particular way. It is not *disproved*, though, and one
-observation still belongs to it: unattached, the element renders the literal words "Old price" in
-the preview, so the preview-side renderer does something with the element that the multiplier
-hypothesis would also allow. Binding a product that really has an offer price and re-checking on
-device would settle whether anything reaches the SDK at all — but do not spend that round trip to
-decide whether to *use* the element. Do not use it.
-
-Same caveat as everywhere the flag appears: `x-supported: false` is a signal, not a verdict, and
-the progress-bar family is a live false negative. What makes `old-price` different is that the
-flag, the corpus and a device measurement all point the same way.
+It is not settled whether `multiplier` would do anything if the element did reach the SDK —
+unattached, it renders the literal words "Old price" in the preview. Do not spend a device round
+trip to find out whether to *use* the element. Do not use it.
 
 **The methodological lesson is the durable part.** This section said "measured" and "confirmed in a
 render", and the render was `flows config preview` — the *weakest* of the four preview surfaces. A
@@ -1433,17 +1381,15 @@ nothing more; for anything about whether users see it, that surface does not qua
   `date-picker`, `date-time-picker`, `divider`, `email-input`, `footer` (**pinned** — see
   [patterns.md](patterns.md); its props are the plain container set, so the schema cannot tell you
   it behaves differently from a `stack`), `header` ⚠, `icon`, `image`,
-  `loader`, `number-input`, `old-price` ⚠, `password-input`, `phone-input`, `product`, `progress-bar` ⚠,
-  `progress-bar-loader` ⚠, `progress-bar-segment` ⚠, `selectable`, `sliding-sheet` (a screen-root
+  `loader`, `number-input`, `old-price` ⚠, `password-input`, `phone-input`, `product`, `progress-bar`,
+  `progress-bar-loader`, `progress-bar-segment`, `selectable`, `sliding-sheet` (a screen-root
   panel that rides up over a fixed hero — see [patterns.md](patterns.md)), `spinner`, `stack`, `tab-bar`,
   `tab-content`, `tab-content-wrapper`, `tab-item`, `tabs`, `text`, `text-input`, `time-picker`,
   `timer`, `video`.
-  **⚠ = flagged `"x-supported": false`** — read [`x-supported`](#the-schema-tells-you-what-the-transformer-handles-x-supported)
-  before authoring one. Being listed here means the schema permits it, never that it reaches a
-  device: `old-price` is measured absent on device, while the three progress-bar types are a known
-  false negative and do appear in real exports.
-- **15 action types**, adding `selectProduct` to the list below — which is the one action flagged
-  `"x-supported": false`.
+  **⚠ = in the schema, never seen on a device** — read
+  [Being in the schema is not reaching a device](#being-in-the-schema-is-not-reaching-a-device)
+  before authoring one. Being listed here means the builder can save it, never that users see it.
+- **15 action types**, adding `selectProduct` to the list below.
 - **Group types are a closed enum**: `product`, `single_choice`, `multi_choice`, `toggle` — so trap
   10's rule is confirmed, not inferred.
 - `_meta.screens[].products[]` requires `flowProductId`, matching the publish 422 from the other
@@ -1592,13 +1538,9 @@ locally. A `states[].condition` is **not** evaluated; see
 Two things still cannot be checked locally, per the failure modes above: whether a variable
 reference resolves, and anything about the filled state.
 
-**The schema cannot check a condition at all.** `IDynamicProductValue` is a `oneOf` over two
-branches that both accept any `{"type": <string>}` and carry the comment *"shape intentionally
-opaque, validated by the transformer"*. Every real expression matches **both**, so `oneOf` always
-fails. `tests/schema-check.py` suppresses this class — and had to be widened to look for the
-opaque `oneOf` anywhere in the error tree, because a condition nested inside a state's own union
-pushes the real cause off the deepest path and reported four errors for one schema limitation.
-Never reshape a condition to satisfy the schema; it has no opinion worth having here.
+**The schema cannot check a condition at all.** Every condition, and a `conditional` action's
+payload, is typed as an unconstrained value, so a well-formed expression and a broken one both
+pass. Never reshape a condition to satisfy the schema; it has no opinion here.
 
 `flows config validate` reaches the transform service from `adapty/0.8.0` and does check the
 *references* inside a condition — a `const` compared against an undeclared product, or a `groupId`
