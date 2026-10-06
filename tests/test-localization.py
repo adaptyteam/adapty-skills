@@ -210,6 +210,44 @@ check('an untranslated locale is a WARNING (it falls back), never an ERROR',
           for l in out.splitlines())
       and not any('locale sr' in l and 'ERROR' in l for l in out.splitlines()), out[-400:])
 
+print('\nthe Open URL address is a catalog entry')
+tabs = json.load(open(os.path.join(HERE, 'fixtures', 'tabs-paywall.json')))
+tabs = tabs.get('config', tabs)
+
+
+def url_entries(d):
+    out = []
+    for s in d['screens']:
+        for e in s['elements']['map'].values():
+            for it in e.get('interactions') or []:
+                for a in it.get('actions') or []:
+                    if a.get('type') == 'openUrl':
+                        out.append(a['payload']['url'])
+    return out
+
+
+check('the stored links are refs to rich-string entries',
+      url_entries(tabs) and all(L.is_ref(u) and L.entry_for(tabs, u)['kind'] == 'rich-string'
+                                for u in url_entries(tabs)))
+check('resolve() inlines every link per locale',
+      all(isinstance(u, dict) and u.get('_localizable') and isinstance(u['values'].get('en'), str)
+          for u in url_entries(L.resolve(tabs))))
+out = verify(tabs)
+check('verify-config takes a link stored as a ref', 'openUrl' not in out, out[-400:])
+
+d = copy.deepcopy(tabs)
+d['localization']['content'][url_entries(d)[0]['_lid']]['values'] = {}
+fires('a link with no default-locale address', d, 'has no en address')
+
+d = copy.deepcopy(tabs)
+d['localization']['content'][url_entries(d)[0]['_lid']]['values'] = {'en': P('https://x')}
+fires('paragraphs where a link takes an address', d, 'is not an address')
+
+d = copy.deepcopy(tabs)
+d['localization']['content'][url_entries(d)[0]['_lid']]['values'] = {
+    'en': [{'type': 'text', 'text': 'https://x/'}, {'type': 'text', 'text': 'terms'}]}
+check('text nodes are an address', 'openUrl' not in verify(d) and 'address' not in verify(d))
+
 print('\ncopies')
 a, b = open(GEN, 'rb').read(), open(AUD, 'rb').read()
 check('flow-generator and flow-audit ship byte-identical localization.py', a == b,

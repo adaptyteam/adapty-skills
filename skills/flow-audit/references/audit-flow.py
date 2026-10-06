@@ -264,7 +264,9 @@ def check_triggers(config):
                     'nothing happens.',
                     'Give it a real action, or remove the On Tap interaction.',
                     s['id'], eid))
-            if a.get('type') == 'openUrl' and not (a.get('payload') or {}).get('url'):
+            url = (a.get('payload') or {}).get('url') if a.get('type') == 'openUrl' else None
+            if a.get('type') == 'openUrl' and not (
+                    url if isinstance(url, str) else flat_text(url, default_locale(config))):
                 out.append(finding(
                     'blocker', 'triggers', 'openurl-no-url',
                     'An "Open URL" action has no web address, so the tap goes nowhere.',

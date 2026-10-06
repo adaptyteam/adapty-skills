@@ -700,6 +700,14 @@ def catalog_findings(raw):
             used.setdefault(lid, []).append(f'{where}.{key}')
             if e.get('kind') != kind:
                 wrong_kind.append(f'{lid} is {e.get("kind")!r}, used as {kind} at {where}.{key}')
+            elif key == 'url':
+                # An Open URL address: a string, or text / variable / token nodes. Paragraphs are
+                # legal in other rich-string entries and refused here (invalid_localization_entry).
+                for loc, val in (e.get('values') or {}).items():
+                    if not _is_url_value(val):
+                        bad.append(f'catalog entry {lid}[{loc}] ({where}.{key}) is not an '
+                                   f'address: a url is a string or a list of text, variable and '
+                                   f'token nodes, never paragraphs')
     if inline:
         bad.append(f'{len(inline)} localizable value(s) still inline in a catalogued document '
                    f'({", ".join(inline[:4])}{", …" if len(inline) > 4 else ""}) — a fragment '
@@ -805,6 +813,21 @@ def catalog_findings(raw):
             f'media value only where that locale gets a DIFFERENT file. If this run wrote the '
             f'copies, delete them; if they came with the fetched config, report them and ask')
     return bad, warn
+
+
+def _is_url_value(v):
+    def node(n):
+        if not isinstance(n, dict):
+            return False
+        t, attrs = n.get('type'), n.get('attrs')
+        if t == 'text':
+            return isinstance(n.get('text'), str)
+        if t == 'variable':
+            return isinstance(attrs, dict) and isinstance(attrs.get('variableId'), str)
+        if t == 'token':
+            return isinstance(attrs, dict) and isinstance(attrs.get('token'), str)
+        return False
+    return isinstance(v, str) or (isinstance(v, list) and all(node(n) for n in v))
 
 
 def _var_ids(v):
@@ -2136,12 +2159,26 @@ def check(path, baseline_text=None, baseline_images=None):
 
     # ---- action payloads. One code, sixteen required-field checks in the service; these are
     # the ones a config can be read for. The schema is looser than the service on every row.
+    dflt_locale = d.get('defaultLocale')
     for s in d.get('screens', []):
         for eid, e in s['elements']['map'].items():
             for it in (e.get('interactions') or []):
                 for a in (it.get('actions') or []):
                     t, pl = a.get('type'), a.get('payload')
-                    if t in ACTION_REQUIRED:
+                    if t == 'openUrl' and isinstance(pl, dict) and isinstance(pl.get('url'), dict):
+                        # A catalogued url, read here per locale. The default locale's value is
+                        # the one every other locale falls back to, so it has to hold an address.
+                        vals = pl['url'].get('values') or {}
+                        if _loc.is_empty('rich-string', vals.get(dflt_locale)):
+                            other = sorted(l for l, v in vals.items()
+                                           if not _loc.is_empty('rich-string', v))
+                            bad.append(f'{eid}: openUrl action {a.get("id")!r} has no '
+                                       f'{dflt_locale} address'
+                                       + (f' (only {", ".join(other)})' if other else '')
+                                       + ' — the default locale is the fallback for every other '
+                                       'one (missing_default_locale_content / '
+                                       'invalid_action_payload)')
+                    elif t in ACTION_REQUIRED:
                         field, human = ACTION_REQUIRED[t]
                         if not isinstance(pl, dict):
                             bad.append(f'{eid}: {t} action {a.get("id")!r} has no object '

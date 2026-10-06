@@ -183,6 +183,21 @@ first[tgt]['interactions'] = [{'id': 'int_z', 'trigger': 'tap',
                                             'payload': {'external': True}}]}]
 check('openUrl with no url FIRES', len(of(run(c)[1], 'openurl-no-url')) == 1)
 
+# The address is a catalog entry; the stored form holds a `{_lid}` ref. A ref is not an
+# address -- only the default locale's value is.
+_tabs = json.load(open(os.path.join(FIX, 'tabs-paywall.json')))
+_f = run(_tabs)[1]
+check('links stored as refs are SILENT on no-terms-link / no-privacy-link',
+      not of(_f, 'no-terms-link') and not of(_f, 'no-privacy-link'),
+      f'got {[x["check"] for x in _f or []]}')
+_lid = next(a['payload']['url']['_lid']
+            for e in _tabs['screens'][0]['elements']['map'].values()
+            for it in e.get('interactions') or [] for a in it.get('actions') or []
+            if a.get('type') == 'openUrl')
+_tabs['localization']['content'][_lid]['values'] = {}
+check('a link whose entry has no default-locale address FIRES openurl-no-url',
+      len(of(run(_tabs)[1], 'openurl-no-url')) == 1)
+
 print('\ntriggers: corpus calibration (ancestor walk + 1+-word threshold)')
 # comparison-paywall.json: "Restore" / "Terms" / "Privacy" are each standalone one-word
 # labels with no interaction on themselves OR on any ancestor -- and the whole flow has
