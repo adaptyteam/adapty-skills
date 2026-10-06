@@ -13,7 +13,7 @@ import sys
 sys.dont_write_bytecode = True
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-MIGRATE = ROOT / 'skills' / 'migrate-placements' / 'references' / 'migrate.py'
+MIGRATE = ROOT / 'plugin' / 'skills' / 'migrate-placements' / 'references' / 'migrate.py'
 TMP = ROOT / 'tests' / '_migrate_cli_tmp'
 
 failures = []

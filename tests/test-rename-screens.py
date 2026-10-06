@@ -28,7 +28,7 @@ Usage: python3 tests/test-rename-screens.py     # 0 all pass, 1 a case regressed
 import copy, glob, json, os, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REFS = os.path.join(ROOT, 'skills', 'flow-generator', 'references')
+REFS = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references')
 RENAME = os.path.join(REFS, 'rename-screens.py')
 VERIFY = os.path.join(REFS, 'verify-config.py')
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')

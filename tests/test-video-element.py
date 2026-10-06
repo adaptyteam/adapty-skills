@@ -40,10 +40,10 @@ Usage: python3 tests/test-video-element.py    # 0 all pass, 1 a case regressed
 import glob, json, os, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
-CATALOG = os.path.join(ROOT, 'skills', 'flow-generator', 'references',
+CATALOG = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references',
                        'component-catalog.json')
 
 NO_SOURCE = 'video element(s) with NO source'

@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from v13 import values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 SRC = os.path.join(CORPUS, 'onboarding-quiz-paywall.json')

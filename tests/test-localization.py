@@ -24,9 +24,9 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from v13 import localization as L  # noqa: E402
 
-GEN = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'localization.py')
-AUD = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'localization.py')
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
+GEN = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'localization.py')
+AUD = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'localization.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 
 fails = []
 
@@ -251,7 +251,7 @@ check('text nodes are an address', 'openUrl' not in verify(d) and 'address' not 
 print('\ncopies')
 a, b = open(GEN, 'rb').read(), open(AUD, 'rb').read()
 check('flow-generator and flow-audit ship byte-identical localization.py', a == b,
-      'cp skills/flow-generator/references/localization.py skills/flow-audit/references/')
+      'cp plugin/skills/flow-generator/references/localization.py plugin/skills/flow-audit/references/')
 
 print()
 if fails:

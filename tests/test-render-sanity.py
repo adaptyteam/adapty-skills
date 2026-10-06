@@ -32,7 +32,7 @@ Usage: python3 tests/test-render-sanity.py       # 0 all pass, 1 a case regresse
 import os, struct, subprocess, sys, tempfile, zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RM = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'render-measure.py')
+RM = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'render-measure.py')
 W, H = 430, 900
 BG, INK = (255, 255, 255), (32, 33, 36)
 

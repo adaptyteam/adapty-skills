@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-AUDIT = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
+AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
 FIX = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
