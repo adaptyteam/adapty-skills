@@ -12,6 +12,8 @@ Every case asserts a direction, because both halves matter equally:
 Usage: python3 tests/test-audit-flow.py     # 0 all pass, 1 a case regressed
 """
 import copy, json, os, re, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIT = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
@@ -57,8 +59,22 @@ def of(findings, checkname):
     return [f for f in (findings or []) if f['check'] == checkname]
 
 
+def _load_audit_module():
+    import importlib.util
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location('audit_flow', AUDIT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+audit_mod = _load_audit_module()
+
+
 def load(path=FLOW):
-    return json.load(open(path))
+    # The READ VIEW (refs inlined), which is what audit-flow.py itself reads -- so a suite can
+    # mutate a value where it is used. resolve() of a view returns it unchanged.
+    return localization.resolve(json.load(open(path)))
 
 
 print('contract')
@@ -965,36 +981,41 @@ check('untranslated FIRES once, grouped, for the brand name', len(unt) == 1, f'g
 check('untranslated is a risk, never a blocker', bool(unt) and unt[0]['severity'] == 'risk')
 check('untranslated names its examples', bool(unt) and 'Nimbus' in unt[0]['message'])
 
-# FIRES: empty a translation -- find the first `values` map carrying both `en` and
-# `sr`, and replace its `sr` value with a paragraph holding an empty `text` node. An
-# empty text node is NOT substantive (see `SUBSTANTIVE_NODES`), so this must count as
-# empty rather than as present-with-no-text.
-c = load()
-done = False
-
-
-def _empty(o):
-    global done
-    if done:
-        return
+# An EMPTIED translation -- a paragraph holding only an empty `text` node, which is what an
+# emptied editor emits -- is the catalog's "missing": it falls back to the default locale's
+# text, so the field is NOT blank there. It counts as missing and is never a blank-field
+# blocker. A value that is not empty by that rule and still shows nothing (whitespace only)
+# IS blank, and that is what empty-translation is for.
+def _set_first_sr(o, value):
     if isinstance(o, dict):
         if 'values' in o and isinstance(o['values'], dict) and {'en', 'sr'} <= set(o['values']):
-            o['values']['sr'] = [{'type': 'paragraph',
-                                  'content': [{'type': 'text', 'text': ''}]}]
-            done = True
-            return
-        for v in o.values():
-            _empty(v)
-    elif isinstance(o, list):
-        for v in o:
-            _empty(v)
+            o['values']['sr'] = value
+            return True
+        return any(_set_first_sr(v, value) for v in o.values())
+    if isinstance(o, list):
+        return any(_set_first_sr(v, value) for v in o)
+    return False
 
 
-_empty(c)
-check('fixture setup: an empty translation was actually injected', done)
-empty_findings = run(c)[1]
-_empty_tr = of(empty_findings, 'empty-translation')
-check('empty-translation FIRES on an emptied value',
+def _para(text):
+    return [{'type': 'paragraph', 'content': [{'type': 'text', 'text': text}]}]
+
+
+c = load()
+check('fixture setup: an emptied translation was actually injected',
+      _set_first_sr(c, _para('')))
+_before = audit_mod.locale_coverage(load())[0]['sr']['missing']
+_after = audit_mod.locale_coverage(c)[0]['sr']['missing']
+check('an emptied value counts as MISSING, because it falls back to the default locale',
+      _after == _before + 1, f'{_before} -> {_after}')
+check('...and is not reported as a blank field',
+      len(of(run(c)[1], 'empty-translation')) == 0)
+
+c = load()
+check('fixture setup: a whitespace-only translation was actually injected',
+      _set_first_sr(c, _para('   ')))
+_empty_tr = of(run(c)[1], 'empty-translation')
+check('empty-translation FIRES on a value that is present and shows nothing',
       len(_empty_tr) == 1,
       f'got {len(_empty_tr)}')
 check('empty-translation is a blocker',
@@ -1059,28 +1080,15 @@ print('\nlocalization: delegation to verify-config.py (Step 5)')
 # that would duplicate verify-config.py's report.
 VERIFY_CONFIG = os.path.join(ROOT, 'skills', 'flow-generator', 'references',
                              'verify-config.py')
-c = load()
+# Dropped in the STORED document (a catalog entry loses its `sr`), since verify-config.py
+# checks what is stored.
+c = json.load(open(FLOW))
 done = False
-
-
-def _drop_key(o):
-    global done
-    if done:
-        return
-    if isinstance(o, dict):
-        v = o.get('values')
-        if isinstance(v, dict) and 'sr' in v and 'en' in v:
-            del v['sr']
-            done = True
-            return
-        for x in o.values():
-            _drop_key(x)
-    elif isinstance(o, list):
-        for x in o:
-            _drop_key(x)
-
-
-_drop_key(c)
+for _e in c['localization']['content'].values():
+    if {'en', 'sr'} <= set(_e.get('values') or {}) and _e.get('kind') == 'rich-text':
+        del _e['values']['sr']
+        done = True
+        break
 check('fixture setup: a locale key was actually dropped', done)
 with tempfile.TemporaryDirectory() as tmp:
     missing_key_path = os.path.join(tmp, 'missing-key.json')
@@ -1089,7 +1097,7 @@ with tempfile.TemporaryDirectory() as tmp:
         [sys.executable, VERIFY_CONFIG, missing_key_path],
         capture_output=True, text=True)
 check('verify-config.py reports the missing key itself',
-      'no value for' in (verify_out.stdout + verify_out.stderr),
+      'untranslated' in (verify_out.stdout + verify_out.stderr),
       (verify_out.stdout + verify_out.stderr)[:300])
 loc_findings = [f for f in (run(c)[1] or []) if f['family'] == 'localization']
 check('audit-flow.py does not duplicate a missing-key finding of its own '
@@ -1559,7 +1567,7 @@ check('a flow with only open questions reads "Almost ready: 1 thing I could not 
       rq.stdout[:300])
 check('a questions-only run still exits 0 -- no blocker fired', rq.returncode == 0)
 
-single = {'screens': [], 'locales': [{'code': 'en'}], 'defaultLocale': 'en'}
+single = {'screens': [], 'locales': [{'id': 'en', 'code': 'en'}], 'defaultLocale': 'en'}
 with tempfile.TemporaryDirectory() as tmp:
     s_path = os.path.join(tmp, 's.json')
     json.dump(single, open(s_path, 'w'))

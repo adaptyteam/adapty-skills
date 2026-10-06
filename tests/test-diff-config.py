@@ -85,21 +85,23 @@ case('silent: key order permuted inside every props', D, b, 0, 0, 0, 0)
 # The v9 -> v10 fill migration is deliberately NOT silent -- it changes a value's shape. Pinned
 # so the number stays honest in merge.md: a block of props changes is the signature to recognise,
 # not something the diff hides.
-b = copy.deepcopy(D)
+# The fixture is stored post-migration (array fills), so the pre-migration side is rebuilt by
+# folding each one-layer array back into the object form v9 wrote.
+a = copy.deepcopy(D)
 rewritten = 0
-def to_array(o):
+def to_object(o):
     global rewritten
     if isinstance(o, dict):
-        if isinstance(o.get('fill'), dict):
-            o['fill'] = [o['fill']]; rewritten += 1
+        if isinstance(o.get('fill'), list) and len(o['fill']) == 1:
+            o['fill'] = o['fill'][0]; rewritten += 1
         for v in o.values():
-            to_array(v)
+            to_object(v)
     elif isinstance(o, list):
         for v in o:
-            to_array(v)
-to_array(b['screens'])
-assert rewritten == 29, f'fixture drifted: {rewritten} object fills, expected 29'
-case('reported: 29 fills object -> array (a builder save)', D, b, 0, 0, 25, 0)
+            to_object(v)
+to_object(a['screens'])
+assert rewritten == 29, f'fixture drifted: {rewritten} one-layer fills, expected 29'
+case('reported: 29 fills object -> array (a builder save)', a, D, 0, 0, 25, 0)
 
 # --- FIRES: a loss must be named, and collapsed to the thing a user recognises ------------
 b = copy.deepcopy(D); b['screens'].pop(2)
@@ -124,7 +126,7 @@ case('fires: element id renamed (1 removed + 1 added)', D, b, 1, 1, 0, 1)
 # nothing in the render loop can see this one (preview.md). Synthesised, since every tracked
 # fixture is single-locale.
 two = copy.deepcopy(D)
-two['locales'].append({'id': 'de', 'code': 'de', 'name': 'German'})
+two['localization']['locales'].append({'id': 'de', 'code': 'de', 'name': 'German'})
 added = 0
 def sprinkle(o):
     global added
@@ -137,12 +139,13 @@ def sprinkle(o):
     elif isinstance(o, list):
         for x in o:
             sprinkle(x)
-sprinkle(two['screens'])
+sprinkle(two['localization']['content'])
 assert added == 40, f'fixture drifted: only {added} localizable fields found'
 case('fires: the de locale dropped (locale + 40 fields)', two, D, 1, 41, 0, 0)
 
 # --- The screen product registry (schemaVersion 12) --------------------------------------
-# The tracked fixtures are v9 and carry no `products` key, so the registry is synthesised here.
+# The tracked fixtures carry the registry migration 012 materialized (empty on this one), so a
+# populated registry is synthesised here.
 # All three directions matter: dropping it is the loss preserve-builder-state.py exists to stop,
 # writing `[]` over an absent key is the trap that silently declares a screen product-free, and a
 # reorder is the Android offer-price defect, which no other check in this repo can see.
@@ -156,8 +159,9 @@ case('fires: screens[].products dropped by a rebuild', live_reg, b, 1, 1, 0, 0)
 b = copy.deepcopy(live_reg); b['screens'][0]['products'] = []
 case('fires: screens[].products emptied over a live one', live_reg, b, 1, 1, 0, 0)
 
-b = copy.deepcopy(D); b['screens'][0]['products'] = []
-case('reported: absent -> [] (opposite meanings)', D, b, 0, 0, 1, 0)
+a = copy.deepcopy(D); a['screens'][0].pop('products', None)
+b = copy.deepcopy(a); b['screens'][0]['products'] = []
+case('reported: absent -> [] (opposite meanings)', a, b, 0, 0, 1, 0)
 
 b = copy.deepcopy(live_reg); b['screens'][0]['products'] = [REG[1], REG[0], REG[2]]
 case('reported: registry reordered (Android offer trap)', live_reg, b, 0, 0, 1, 0)
@@ -176,7 +180,7 @@ def first_string(o):
     if isinstance(o, list):
         return any(first_string(x) for x in o)
     return False
-assert first_string(b['screens']), 'fixture drifted: no plain localizable string found'
+assert first_string(b['localization']['content']), 'fixture drifted: no plain localizable string found'
 case('changes: one string rewritten (exit 0, no removal)', D, b, 0, 0, 1, 0)
 
 # A text edit and a new locale on the SAME element. The added locale value used to mark the whole
@@ -184,7 +188,7 @@ case('changes: one string rewritten (exit 0, no removal)', D, b, 0, 0, 1, 0)
 # the edit to the existing text vanished from CHANGES (found by a GREEN-round agent: an English
 # title rewritten while Spanish was added reported "0 changed").
 b = copy.deepcopy(D)
-b['locales'].append({'id': 'de', 'code': 'de', 'name': 'German'})
+b['localization']['locales'].append({'id': 'de', 'code': 'de', 'name': 'German'})
 def edit_and_translate(o):
     if isinstance(o, dict):
         v = o.get('values')
@@ -194,20 +198,22 @@ def edit_and_translate(o):
     if isinstance(o, list):
         return any(edit_and_translate(x) for x in o)
     return False
-assert edit_and_translate(b['screens']), 'fixture drifted: no plain localizable string found'
+assert edit_and_translate(b['localization']['content']), 'fixture drifted: no plain localizable string found'
 case('changes: a text edited beside an added locale', D, b, 0, 0, 1, 2)
 
 # The non-text half of the same trap: a translation added to an element must not hide a
 # non-localizable prop changed beside it, so translations are kept out of the `props` fact.
 b = copy.deepcopy(D)
-b['locales'].append({'id': 'de', 'code': 'de', 'name': 'German'})
-def recolour_and_translate(m):
+b['localization']['locales'].append({'id': 'de', 'code': 'de', 'name': 'German'})
+def recolour_and_translate(m, catalog):
     for e in m.values():
-        c = (e.get('props') or {}).get('content')
-        if isinstance(c, dict) and 'en' in (c.get('values') or {}):
-            c['values']['de'] = 'NEU'; e['props']['opacity'] = 42; return True
+        ref = (e.get('props') or {}).get('content')
+        entry = catalog.get(ref.get('_lid')) if isinstance(ref, dict) else None
+        if entry and 'en' in (entry.get('values') or {}):
+            entry['values']['de'] = 'NEU'; e['props']['opacity'] = 42; return True
     return False
-assert any(recolour_and_translate(sc['elements']['map']) for sc in b['screens']), 'fixture drifted'
+assert any(recolour_and_translate(sc['elements']['map'], b['localization']['content'])
+           for sc in b['screens']), 'fixture drifted'
 case('changes: a prop edited beside an added locale', D, b, 0, 0, 1, 2)
 
 # --- The same path twice must be refused, never reported as clean ------------------------

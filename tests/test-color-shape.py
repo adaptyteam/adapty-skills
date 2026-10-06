@@ -152,8 +152,14 @@ fires('theme colour entry in a gradient stop',
       injected(QUIZ, 'el_XKEBYBDCuP', bad_stop), 'el_XKEBYBDCuP props.fill')
 
 
-def bad_span(e):
-    # No real export carries a span colour, so this attaches one to the first text node.
+def with_span_colour(path, eid):
+    """No real export carries a span colour, so this attaches one to the first text node of the
+    element's own content. In IFlow v13 the element holds only a `{_lid}` ref, so the node lives
+    in that ref's catalog entry, not under the element."""
+    d = copy.deepcopy(load(path))
+    ref = element(d, eid)['props']['content']
+    entry = d['localization']['content'][ref['_lid']]
+
     def walk(o):
         if isinstance(o, dict):
             if o.get('type') == 'text' and 'text' in o:
@@ -163,12 +169,13 @@ def bad_span(e):
         if isinstance(o, list):
             return any(walk(v) for v in o)
         return False
-    if not walk(e['props']['content']):
+    if not walk(entry['values']):
         raise AssertionError('fixture text element has no text node to attach a span colour to')
+    return d
 
 
 fires('theme colour entry in a rich-text span attribute',
-      injected(QUIZ, 'el_0TmKwWPBxP', bad_span), 'el_0TmKwWPBxP props.content')
+      with_span_colour(QUIZ, 'el_0TmKwWPBxP'), 'el_0TmKwWPBxP props.content')
 
 
 def bad_component():

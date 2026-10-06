@@ -32,12 +32,18 @@ skill supports; doing it without saying so is not. Never "fix" a 1 by reverting 
 
 WHAT IT COMPARES (identity in brackets -- a fact whose identity changes reads as one removal
 plus one addition, which is the honest reading of an id rewrite):
-  screens [id], elements per screen [id], components [id], locales [code], theme colours and
+  screens [id], elements per screen [id], components [id], locales [id], theme colours and
   typography presets [id], variables [id], `_meta.icons` [name+weight], `_meta.fonts` [family],
   `_meta.screens[].products[]` [product id] and `screens[].products` [product id + offer id] --
   the builder-owned attachments and the registry they derive from, both of which a rebuilt config
   wipes -- element `type`, `props`, `interactions` and screen `caption`, plus every localizable
   value BY LOCALE, so a dropped translation is a removal rather than a change.
+
+  Localizable values are compared WHERE THEY ARE USED, not where they are stored. Both sides
+  are read through the localization catalog, so a translation dropped from an entry is a
+  removal on every element that shows it, and an edit to an entry shared by three elements is
+  a change on all three -- which is what the user will see. The content ids themselves are not
+  compared: re-minting `lc_7` as `lc_12` for the same text changes nothing on screen.
 
 WHAT IT DOES NOT SEE, and each of these is a real way to lose work invisibly to this check:
   * rendering. Two configs can differ everywhere here and draw the same screen, and vice versa
@@ -55,6 +61,14 @@ WHAT IT DOES NOT SEE, and each of these is a real way to lose work invisibly to 
 """
 import json, os, sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_bytecode = sys.dont_write_bytecode
+sys.dont_write_bytecode = True
+try:
+    import localization as _loc
+finally:
+    sys.dont_write_bytecode = _bytecode
+
 LIMIT = 12                      # lines printed per group before the tail is summarised
 
 
@@ -65,8 +79,19 @@ def load(path):
     d = json.load(open(path))
     if isinstance(d, dict) and 'config' in d and isinstance(d['config'], dict) \
             and 'screens' in d['config']:
-        return d['config']
-    return d
+        d = d['config']
+    return _strip_ids(_loc.resolve(d)) if isinstance(d, dict) else d
+
+
+def _strip_ids(node):
+    """Drop the content-id markers `resolve()` leaves on each inlined value, and the stored
+    catalog itself: values are compared where they are used (see the header)."""
+    if isinstance(node, dict):
+        return {k: _strip_ids(v) for k, v in node.items()
+                if k not in ('_ref', '_refs', 'localization')}
+    if isinstance(node, list):
+        return [_strip_ids(v) for v in node]
+    return node
 
 
 def canon(v):
@@ -98,15 +123,15 @@ def facts(d):
     array index -- reordering screens is not a removal, and a config whose facts were keyed
     by position would report every reorder as wholesale destruction."""
     f = {}
-    locales = [l.get('code') for l in (d.get('locales') or []) if isinstance(l, dict)]
+    locales = [l.get('id') for l in (d.get('locales') or []) if isinstance(l, dict)]
     locale_set = set(locales)
 
     for k in ('schemaVersion', 'defaultLocale', 'status', 'id'):
         if k in d:
             f[f'top:{k}'] = canon(d[k])
 
-    for code, val in by_id(d.get('locales'), ('code',)):
-        f[f'locale:{code}'] = canon(val)
+    for lid, val in by_id(d.get('locales'), ('id',)):
+        f[f'locale:{lid}'] = canon(val)
 
     for kind in ('colors', 'typography'):
         for tid, val in by_id((d.get('theme') or {}).get(kind)):
@@ -147,7 +172,7 @@ def facts(d):
     def localizables(prefix, node):
         """Every per-locale value, addressed by locale, so dropping `de` from one field is a
         removal of that field's `de` and not a change to the field. A localizable wrapper is
-        recognised by a `values` dict whose keys are declared locale codes -- the value type
+        recognised by a `values` dict whose keys are declared locale ids -- the value type
         differs per prop (rich text, a string, an image), so the shape is what to go on."""
         if isinstance(node, dict):
             vals = node.get('values')
