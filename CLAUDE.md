@@ -267,9 +267,9 @@ bug, a trial string whose `%@` is never filled.
 
 ### Finding 47 (2026-09-30): a standalone run on an already-migrated app keeps RevenueCat unless told a fallback exists — one GREEN round, separated on that row alone
 
-The RevenueCat catalog migration (`adapty migrations`, ADP-7768) leaves the Adapty app holding the
+The RevenueCat catalog migration (`adapty migrations`) leaves the Adapty app holding the
 catalog, including a **paywall** placement on the offering's own ID, and hands the code to the agent
-with a guide (`code_migration.py` in `revenue-cat-migrator`) that overrides this skill in two ways:
+with a guide (from the internal migration service) that overrides this skill in two ways:
 the flow goes on `<developer_id>_flow`, and RevenueCat is removed at once because the existing
 paywall placement is the fallback. A standalone `adapty-integration` run never sees that guide.
 `migration-flow-rebuild.md` §1 and §7 now carry both rules, keyed to what `placements list` shows,
