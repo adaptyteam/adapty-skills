@@ -8,13 +8,15 @@
           "id": "el_6Ih6yx6hFR",
           "type": "progress-bar-loader",
           "props": {
-            "fill": {
-              "type": "color",
-              "color": {
-                "type": "color-style",
-                "colorId": "gray-200"
+            "fill": [
+              {
+                "type": "color",
+                "color": {
+                  "type": "color-style",
+                  "colorId": "gray-200"
+                }
               }
-            },
+            ],
             "color": {
               "type": "color-style",
               "colorId": "accent"
@@ -43,13 +45,15 @@
           "id": "el_wDGlf6bAl8",
           "type": "progress-bar",
           "props": {
-            "fill": {
-              "type": "color",
-              "color": {
-                "hex": "#FFFFFF",
-                "type": "hex"
+            "fill": [
+              {
+                "type": "color",
+                "color": {
+                  "hex": "#FFFFFF",
+                  "type": "hex"
+                }
               }
-            },
+            ],
             "type": "multiple-segments",
             "width": {
               "type": "fill"
@@ -102,17 +106,19 @@
           "right": 24,
           "bottom": 10
         },
-        "fill": {
-          "type": "image",
-          "color": {
-            "hex": "#FFFFFF",
-            "type": "hex"
-          },
-          "image": {
-            "id": "900000",
-            "url": "https://example.invalid/fixture-asset-5.png"
+        "fill": [
+          {
+            "type": "image",
+            "color": {
+              "hex": "#FFFFFF",
+              "type": "hex"
+            },
+            "image": {
+              "id": "900000",
+              "url": "https://example.invalid/fixture-asset-5.png"
+            }
           }
-        },
+        ],
         "layout": {
           "alignH": "center",
           "alignV": "start",
@@ -155,26 +161,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Continue",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_0"
               },
               "position": {
                 "top": 0,
@@ -239,26 +226,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "We missed you!",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_1"
               },
               "position": {
                 "type": "relative"
@@ -273,13 +241,15 @@
             "id": "el_KGZ2AWzLqD",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "auto"
               },
@@ -333,13 +303,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900001",
-                    "url": "https://example.invalid/fixture-asset-6.png"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_2"
               },
               "width": {
                 "type": "fixed",
@@ -442,41 +406,7 @@
               "layout": "auto-height",
               "margin": {},
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Welcome back, ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Alex 👋  ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_3"
               },
               "position": {
                 "type": "relative"
@@ -524,7 +454,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_9SBidp9r",
@@ -538,17 +469,19 @@
           "right": 24,
           "bottom": 10
         },
-        "fill": {
-          "type": "image",
-          "color": {
-            "hex": "#FFFFFF",
-            "type": "hex"
-          },
-          "image": {
-            "id": "900000",
-            "url": "https://example.invalid/fixture-asset-5.png"
+        "fill": [
+          {
+            "type": "image",
+            "color": {
+              "hex": "#FFFFFF",
+              "type": "hex"
+            },
+            "image": {
+              "id": "900000",
+              "url": "https://example.invalid/fixture-asset-5.png"
+            }
           }
-        },
+        ],
         "layout": {
           "alignH": "center",
           "alignV": "start",
@@ -619,13 +552,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900002",
-                    "url": "https://example.invalid/fixture-asset-11.png"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_4"
               },
               "width": {
                 "type": "fixed",
@@ -668,26 +595,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Unblock streaming and gaming worldwide ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_5"
               },
               "position": {
                 "type": "relative"
@@ -727,13 +635,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900003",
-                    "url": "https://example.invalid/fixture-asset-10.png"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_6"
               },
               "width": {
                 "type": "fixed",
@@ -784,26 +686,7 @@
               "layout": "auto-height",
               "margin": {},
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "We've saved ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_7"
               },
               "position": {
                 "type": "relative"
@@ -898,13 +781,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900004",
-                    "url": "https://example.invalid/fixture-asset-1.png"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_8"
               },
               "width": {
                 "type": "fixed",
@@ -959,13 +836,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900005",
-                    "url": "https://example.invalid/fixture-asset-4.png"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_9"
               },
               "width": {
                 "type": "fixed",
@@ -1057,26 +928,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Strict no-logs policy",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_10"
               },
               "position": {
                 "type": "relative"
@@ -1113,26 +965,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "See my offer",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_11"
               },
               "position": {
                 "top": 0,
@@ -1224,26 +1057,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Private browsing on any network ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_12"
               },
               "position": {
                 "type": "relative"
@@ -1273,26 +1087,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Unblock streaming and gaming worldwide ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_13"
               },
               "position": {
                 "type": "relative"
@@ -1308,13 +1103,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900002",
-                    "url": "https://example.invalid/fixture-asset-11.png"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_14"
               },
               "width": {
                 "type": "fixed",
@@ -1342,13 +1131,15 @@
             "id": "el_stIlynqT0q",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "auto"
               },
@@ -1450,26 +1241,7 @@
               "layout": "auto-height",
               "margin": {},
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "a special deal for you",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_15"
               },
               "position": {
                 "type": "relative"
@@ -1591,7 +1363,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_eOp9rcKz",
@@ -1605,17 +1378,19 @@
           "right": 24,
           "bottom": 10
         },
-        "fill": {
-          "type": "image",
-          "color": {
-            "hex": "#FFFFFF",
-            "type": "hex"
-          },
-          "image": {
-            "id": "900000",
-            "url": "https://example.invalid/fixture-asset-5.png"
+        "fill": [
+          {
+            "type": "image",
+            "color": {
+              "hex": "#FFFFFF",
+              "type": "hex"
+            },
+            "image": {
+              "id": "900000",
+              "url": "https://example.invalid/fixture-asset-5.png"
+            }
           }
-        },
+        ],
         "layout": {
           "alignH": "center",
           "alignV": "start",
@@ -1636,13 +1411,15 @@
             "id": "el_0YB1xkH3rp",
             "type": "timer",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "clr_2MZWrBUc"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "clr_2MZWrBUc"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "hug",
                 "value": 152
@@ -1700,13 +1477,15 @@
             "id": "el_3CLrldc2T7",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "auto"
               },
@@ -1774,26 +1553,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Only $1.15 / week",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_16"
               },
               "position": {
                 "type": "relative"
@@ -1823,26 +1583,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Just $59.99 / year",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_17"
               },
               "position": {
                 "type": "relative"
@@ -1872,26 +1613,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "instead of $79.99 / year",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_18"
               },
               "position": {
                 "type": "relative"
@@ -1927,38 +1649,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "token",
-                          "attrs": {
-                            "token": "timer_minutes"
-                          }
-                        },
-                        {
-                          "text": ":",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        },
-                        {
-                          "type": "token",
-                          "attrs": {
-                            "token": "timer_seconds"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_19"
               },
               "position": {
                 "type": "relative"
@@ -2020,26 +1711,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Claim my offer",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_20"
               },
               "position": {
                 "top": 0,
@@ -2057,13 +1729,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900006",
-                    "url": "https://example.invalid/fixture-asset-3.png"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_21"
               },
               "width": {
                 "type": "fixed",
@@ -2122,41 +1788,7 @@
                 "bottom": 10
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Claim Premium ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "before it's gone",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_22"
               },
               "position": {
                 "type": "relative"
@@ -2288,17 +1920,10 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     }
   ],
-  "locales": [
-    {
-      "id": "en",
-      "code": "en",
-      "name": "English"
-    }
-  ],
-  "defaultLocale": "en",
   "variables": [],
   "theme": {
     "typography": [
@@ -2527,5 +2152,474 @@
     ],
     "screens": {}
   },
-  "schemaVersion": 9
+  "schemaVersion": 13,
+  "localization": {
+    "locales": [
+      {
+        "id": "en",
+        "code": "en",
+        "name": "English"
+      }
+    ],
+    "defaultLocale": "en",
+    "content": {
+      "lc_0": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Continue",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_1": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We missed you!",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_2": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900001",
+            "url": "https://example.invalid/fixture-asset-6.png"
+          }
+        }
+      },
+      "lc_3": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Welcome back, ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Alex 👋  ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_4": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900002",
+            "url": "https://example.invalid/fixture-asset-11.png"
+          }
+        }
+      },
+      "lc_5": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Unblock streaming and gaming worldwide ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_6": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900003",
+            "url": "https://example.invalid/fixture-asset-10.png"
+          }
+        }
+      },
+      "lc_7": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We've saved ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_8": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900004",
+            "url": "https://example.invalid/fixture-asset-1.png"
+          }
+        }
+      },
+      "lc_9": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900005",
+            "url": "https://example.invalid/fixture-asset-4.png"
+          }
+        }
+      },
+      "lc_10": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Strict no-logs policy",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_11": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "See my offer",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_12": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Private browsing on any network ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_13": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Unblock streaming and gaming worldwide ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_14": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900002",
+            "url": "https://example.invalid/fixture-asset-11.png"
+          }
+        }
+      },
+      "lc_15": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "a special deal for you",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_16": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Only $1.15 / week",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_17": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Just $59.99 / year",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_18": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "instead of $79.99 / year",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_19": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "token",
+                  "attrs": {
+                    "token": "timer_minutes"
+                  }
+                },
+                {
+                  "text": ":",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                },
+                {
+                  "type": "token",
+                  "attrs": {
+                    "token": "timer_seconds"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_20": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Claim my offer",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_21": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900006",
+            "url": "https://example.invalid/fixture-asset-3.png"
+          }
+        }
+      },
+      "lc_22": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Claim Premium ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "before it's gone",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
 }

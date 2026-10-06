@@ -15,7 +15,7 @@ tests/.render/
 
 __pycache__/
 
-# skills.sh install artifacts. An install run INSIDE the repo replaces skills/<name>/ with
+# skills.sh install artifacts. An install run INSIDE the repo replaces plugin/skills/<name>/ with
 # symlinks into .agents/, which git reads as "source deleted, symlink added" — committing that
 # would swap the real skill directories for links to an install cache.
 .agents/
@@ -35,3 +35,6 @@ skills-lock.json
 # own docstring says never commit one. Ignored rather than trusted to discipline, because
 # 534b16c already committed test-round output through a `git add -A`.
 flow-preview-qr-*.png
+
+# Scratch output tests/test-existing-flows.py writes while it runs.
+tests/_existing_flows_tmp/

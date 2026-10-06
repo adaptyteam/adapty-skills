@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Link lint: every URL ANY skill tells an agent (or a human) to open must
- * work, the way an AGENT would fetch it. Walks all of `skills/`.
+ * work, the way an AGENT would fetch it. Walks all of `plugin/skills/`.
  *
  * - adapty.io/docs pages are verified via their agent-fetchable variant
  *   (<slug>.md, or as-is for *-llms*.txt aggregates). A dead docs link is a
@@ -35,7 +35,7 @@ const isForeignDocs = (url) => FOREIGN_DOCS_BASES.some((base) => url.startsWith(
 // Every skill, not just one. This lint covered `adapty-integration` alone until 2026-08-28,
 // which meant a green run said nothing about four of the five skills that ship -- and the
 // runtime agent is instructed to fetch URLs from all of them.
-const SKILLS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'skills')
+const SKILLS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'plugin', 'skills')
 const REPO_ROOT = join(SKILLS_DIR, '..')
 const FETCH_CONCURRENCY = 3
 

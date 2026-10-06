@@ -31,7 +31,7 @@ Usage: python3 tests/test-sliding-sheet.py    # 0 all pass, 1 a case regressed
 import copy, glob, json, os, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 BASE = os.path.join(ROOT, 'tests', 'fixtures', 'onboarding-multilocale.json')
 
 MINE = ('sliding sheet', 'is nested inside another element', 'cover band above the sliding sheet')

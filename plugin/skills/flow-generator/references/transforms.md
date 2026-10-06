@@ -1,0 +1,340 @@
+# Flow transforms — what each one endangers
+
+Nothing here tells you how to walk the JSON — measured runs already did that correctly, down
+to a `navigate` buried two levels deep in a `conditional`'s `default`. What the JSON does not
+contain is **Adapty's rules**: which edits stop a publish, and which choices are not yours to
+make silently. That is all this file carries.
+
+Structure, shapes, and the twelve referential invariants each row names below live in
+[`flow-schema.md`](flow-schema.md), under `## Invariants`; positioning and layout are its
+trap 9. Product ids and product binding live in [`products.md`](products.md), which is the
+authority on both. Do not re-derive any of it here.
+
+## Risk table
+
+| Transform | What it endangers | Publish blocker it trips | What to check |
+| :--- | :--- | :--- | :--- |
+| **Add a locale** | Invariant 11. Adding a locale is one entry in `localization.locales` plus one value per **text and placeholder** entry in `localization.content` — every `rich-text` and `rich-string` entry, conditional branches and alert titles included, since each is its own entry. **Images go the other way: add no image value for the new locale** unless it gets a different file. The locale already shows the default's image, and a copy repeats its base64 preview in the published config once per locale (trap 1). | **One, and it is the code itself** — see decision 8. An entry with no value for the new locale is not a blocker: it falls back to the default locale's text, invisible at publish and visible to users. | Edit values in place — `content[id].values[<newLocaleId>]` — and keep every id (rule 3 of [Localization: the catalog](flow-schema.md#localization-the-catalog)). The new locale's `id` is the key; say which `id` and `code` you declared. **`localization.defaultLocale` is unchanged** — adding a locale is additive, and flipping the default changes what every existing user sees with nothing failing. Shared entries are translated once and show everywhere they are used (decision 1). `references/verify-config.py` warns per locale on every untranslated field, warns on a copied image, and errors when a translated value's `variableId`s differ from the default locale's, which is the failure that silently costs a locale its prices. |
+| **Rewrite copy** | Invariants 5 and 11, plus trap 2 — inline `variable` and `token` nodes survive a rewrite only if you edit around them, never through them. The value's shape must survive the edit. **The text lives in the catalog entry the field's ref names**, and that entry may be shared by other fields. | None — and that is the danger. A paragraph rebuilt from its rendered text publishes cleanly and passes every referential check; trap 2 in [`flow-schema.md`](flow-schema.md) states what it costs. | Every translated locale of the entry got the same edit, or your report says which did not. Every other field that names the same entry was meant to change too, or it got an entry of its own first (decision 1). |
+| **Add / remove / reorder screens** | Invariants 3 and 12, which break in **opposite directions**. Invariant 3: the target dies and the reference survives. Invariant 12: **the consumer survives and the producer dies** — deleting a screen can strand a variable consumer on a screen you never opened. Verified in `quiz`: the `text-input` with `customId: "name"` lives on **Quiz**, and `name.value` is read on **Rock**, **Hip hop** and **Paywall After**. Delete Quiz and all three references stay intact with nothing to resolve against, so nothing on the edited screen looks wrong and three untouched screens render an empty name. Also: `screens[0]` is the entry screen, so a reorder silently moves where the flow starts; and `_meta.screens` is keyed by screen id, so a deleted screen's product declarations leave with it (invariant 4). | Three, all on the [Common issues](https://adapty.io/docs/flow-common-issues.md) list: a dangling `navigate` (invariant 3), a screen with no elements, and — on any screen you add that carries a `product` element — a product element with no product attached, which no edit of yours can clear (see [`products.md`](products.md)). A stranded variable consumer is **not** a blocker; it publishes and renders empty. | Every `<inputCustomId>.value`, `<groupId>.selectedOptionId` and `<productUUID>.prod_*` reference still has a producer. Search `screens` **and** `components`: no component in the corpus holds a reference, but a component is a screen-shaped `{map, hierarchy}` that can, so it is inside the search space. A new screen matches `flow-schema.md`'s `root`-wrapper and `scr_`-id rules. `screens[0]` is still the screen you mean. Orphans and widenings are in your report (decisions 2 and 3). |
+| **Branching and conditions** | Also: **conditions cannot compare numbers.** `<` and `>` are in the schema's `ExpressionType` and are not honoured at runtime, so a threshold must be enumerated as `==` cases against **strings** — see [flow-schema.md](flow-schema.md). Invariants 6 and 7. Renaming a selectable option changes its `customId`; every `const` compared against `<groupId>.selectedOptionId` must change with it, or the case stops matching and **every user takes the `default` branch** — routing changes with nothing failing. | A `conditional` with no operator or value. A `const` that matches nothing is not a blocker; it silently reroutes everyone. | For each predicate `const`, a member of that group carries that `customId`. Each `selectableGroups[]` entry has at least one member, and each `groupId` in use is declared. You know where `default` sends users, because a mismatch sends everyone there. Read `default` as a live route, not a fallback: in `quiz` the switch has one case (`rock`) and `hiphop` is routed **only** by `default`. And a group member may legitimately carry no `customId` at all — `quiz`'s continue button is a `quiz` member and holds the conditional itself — so an absent `customId` is not a gap to fill. |
+
+## Editing ONE screen of a many-screen flow: patch in place, never extract
+
+The instinct is to slice the screen out, iterate on something small, and stitch it back. **Do not.**
+Measured on a real 7-screen, 187 KB flow:
+
+| | |
+|---|---|
+| Extracting one screen (+ all flow-level keys) | 187 KB → 27 KB, **14%** |
+| `flows config validate`, full 187 KB | 9.6 s |
+| `flows config validate`, 27 KB extract | 8.5 s — **not size-bound**, that is network latency |
+| `flows config validate`, mid-flow extract | **`valid: false`** — `Navigate action targets unknown screen "scr_experience"` |
+| `flows config preview` | 0.08 s either way; the screenshot is Chrome cold start |
+| In-place patch of the 187 KB file with a script | **0.01 s** |
+
+Three conclusions, and they all point the same way:
+
+- **Isolation buys nothing on the gates.** Validate is latency-bound, not payload-bound, and preview
+  already isolates rendering with `--screen`. There is no speed to win here.
+- **An isolated mid-flow screen cannot pass the publish gate at all.** Any screen that navigates out
+  now dangles, and `validate` refuses it — correctly. Only a terminal screen (a paywall with no
+  outbound `navigate`) extracts cleanly, which is the minority case.
+- **Patching in place is already surgical.** One script edit changed the target screen and left
+  `theme`, `_meta`, `components`, `variables`, `localization` and all six other screens **byte-identical**
+  (md5 per key). There is nothing to stitch because nothing was ever split — which also avoids
+  silently reverting a flow-level normalisation the builder made, such as the `_meta.icons`
+  re-ordering it applies on save.
+
+**So the recipe for a big flow is:** keep the fetched config as the single working document; reach
+the screen programmatically (`jq`, or a short Python patch) rather than reading the whole file into
+context; render just that screen with `--screen`; run the gates over the whole document. The win
+that *is* real is context and blast radius — you never hold 187 KB to change one headline, and an
+edit scoped by a script cannot wander into a screen you were not asked to touch.
+
+**Everything shared stays shared, and that is the point.** Product ids, `_meta.screens`
+declarations, price variables, `theme` colours and typography presets, `_meta.icons`, `components`
+and `variables` are all flow-level. Patching in place means the screen you edit keeps resolving
+against the real ones; an extract would have to carry copies and a splice would have to prove it
+put them back unchanged.
+
+## Decisions you must disclose
+
+Six of the seven items below are points where two answers are both defensible and Adapty has
+not settled which is correct; item 4 has no choice in it, only a fact the user must hear before
+they publish. The deliverable is not the JSON alone — it is the JSON **plus a report
+that names what happened.** A correct file with a silent choice inside it is an incomplete
+delivery.
+
+For each item your transform encountered, your report states the trigger you hit, which option
+you took, how many fields or screens it covered, and what the user will see because of it. If a
+transform encountered none of them, say so — an absent disclosure and an unencountered decision
+look identical to the user.
+
+### 1. An entry several fields share
+
+**Trigger:** you are rewriting or translating a value, and its catalog entry is named by more than
+one ref — the same `{_lid}` on two elements, on an element and an alert, or on two screens. Find
+them before you edit: every field whose stored value is that ref, and every conditional branch that
+names it.
+
+Editing the entry changes every one of those fields. Both exits are legitimate:
+
+- **Edit the shared entry.** Right when the fields are meant to say the same thing — a "Continue"
+  label on every screen, one legal line in two footers. One edit, one translation, and they cannot
+  drift apart.
+- **Give the field you were asked about its own entry** (`localization.copy_entry()`, then point
+  that field's ref at the copy) and edit the copy. Right when only that field should change. The
+  others keep the old text.
+
+Never edit a shared entry to change one field. That rewrites the others silently, and nothing
+downstream can tell: the document is well-formed and every render is correct for what it holds.
+
+**Your report states** which exit you took, how many fields the entry covered, and — if you split
+it — which fields kept the old text.
+
+**The localization panel and import/export do not cover variables or conditional text**
+(team-confirmed): an exported translation file will not round-trip a variable tag — "you
+have to fix the variable by hand in those fields" — and conditional text is edited per locale only,
+by switching the locale in the builder's preview zone. Two working consequences: when a flow will
+be translated through export, **keep each variable in its own text element** rather than inline in
+a sentence, so the tag never enters the translated string; and a house pattern that avoids
+conditional text entirely is **two plain-text elements swapped by visibility condition** (a "Try
+for Free" and a "Continue" button, one shown when the trial is available) — plain text localizes
+through the normal tooling.
+
+**A conditional text costs more than a field, and the field count hides it.** Where a value is a
+`switch` ([flow-schema.md](flow-schema.md)), every branch is its own catalog entry, and the locale
+you are adding needs a value in **every one** of them. So the field count is not the work count —
+say how many fields were conditional and how many branches that added — and note that a field with
+one branch untranslated is **worse than an untranslated field**: it looks finished, and it only
+surfaces for whichever plan the user did not pick. Rewriting copy has the same shape: rewrite every
+branch in every locale, or the screen contradicts itself depending on the selection.
+
+**Your report lists every field you left untranslated**, by the text it shows, because it will
+show that text in the source language. A report that says *"translated every localizable field"*
+while three labels still show English is literally true about the fields it touched and materially
+misleading about the screen.
+
+### 2. Deleting a screen that other screens depend on
+
+**Trigger:** the screen you are deleting produces something another screen consumes — a
+`text-input` `customId` read as `.value`, a `selectableGroups` id read as
+`.selectedOptionId`, or a product declared in its `_meta.screens` entry and read as
+`<productUUID>.prod_*`.
+
+Three exits, all defensible:
+
+- **Repair the consumer.** Rewrite the consuming screens so they stop referencing the dead
+  producer — drop the name from the greeting. The flow is self-consistent, and copy on
+  screens the user never mentioned has changed.
+- **Keep the producer.** Move the producing element onto a surviving screen: a `text-input`
+  travels with its `customId`, but a `product` element has no `customId` and its declaration
+  is builder-owned bookkeeping you do not hand-author — so relocating one leaves the product
+  unattached on the destination screen and trips the publish blocker unless the user attaches
+  it there. [`products.md`](products.md) is the rule. Either way, a screen the user never
+  mentioned gained an element.
+- **Report the break.** Leave the references dangling. Nothing blocks publishing; the
+  consuming screens render an empty value until the user fixes them in the builder.
+
+**Your report states** which producer died, the exact reference, every screen that reads it,
+which of the three exits you took — and, for the third, that the flow still publishes in that
+state.
+
+In the baseline, one run rewrote the consumer and one left it dangling. Both were defensible.
+The choice is invisible in the output file unless the report names it.
+
+### 3. Widening a destructive request
+
+**Trigger:** the deletion you were asked for makes other screens unreachable — no `navigate`,
+in any branch, still points at them.
+
+- **Delete the newly unreachable screens too.** No dead branches remain. You also deleted
+  screens the user did not name; if they had work in progress on those branches, it is gone.
+- **Delete only what was asked and name the orphans.** The requested change is exactly what
+  happened. The flow carries screens no path reaches — legal, publishable, and the user
+  decides their fate.
+
+**Your report states** the screens you deleted, split into *asked for* and *deleted as a
+consequence*, and every screen now unreachable that you left in place. Deleting a consequence
+may well be the right call; it is still a widening of the request, and it is reported as one.
+
+Measured: asked to "drop the quiz step", one baseline run deleted **three** screens — Quiz
+plus both genre branches, which become unreachable once the branching conditional goes — and
+another flagged the orphans and left them standing.
+
+### 4. A `product` element the user still has to attach
+
+**Trigger:** the transform leaves a screen carrying a `product` element that no
+`_meta.screens` entry attaches — because you added the screen, or because the source's
+declaration block did not travel with it.
+
+No option and nothing to weigh: product binding belongs to the Flow Builder, and the flow will
+not publish until the user does that pass in the dashboard. [`products.md`](products.md) is the
+authority on why, and on everything else about product ids.
+
+**Your report states** every screen that needs an attachment pass, and that publishing fails
+until the user completes it.
+
+### 5. A source config that names products which do not exist
+
+**Trigger:** a `const` purchase payload, or a `_meta.screens` declaration, references a product
+UUID that `adapty products get` answers with `Adapty product does not exist`. Real configs carry
+these — a flow copied between apps, or one whose products were deleted, or a sanitized fixture.
+
+Both exits are defensible, and two measured runs on the same seed split cleanly between them:
+
+- **Carry the dead id through.** The transform stays a transform: you changed what was asked and
+  nothing else, and the broken binding is a pre-existing defect you are reporting rather than
+  quietly editing. The cost is that the CTA still cannot complete a purchase.
+- **Rebind to a real product** from `products list`. The flow becomes usable, and you have made a
+  content decision the user did not ask for — the mapping is inferred from titles, which is a
+  guess about their catalog.
+
+Neither is wrong. **What is wrong is doing either one silently**, because both leave the user with
+a belief that does not match the flow: that the paywall works, or that you changed nothing.
+
+**Your report states** which you did, the exact id-to-id mapping either way, that
+`products get` is what established the ids are dead, and — if you carried them through — that
+those CTAs cannot complete a purchase until someone swaps them. Say whether the defect is also
+present in the source flow, because it usually is and fixing only the copy leaves it live.
+
+### 6. Which way a threshold gate fails
+
+**Trigger:** the transform builds a gate on a value that has no numeric comparison available — an
+age check, a spend tier, anything with a cutoff — so the threshold is spelled out as equality cases.
+
+Enumerating one side puts everything else in `default`, and that choice decides what happens to
+input nobody anticipated:
+
+- **Enumerate the blocked values** (`"0"`…`"17"` → blocked, default → allowed). Fewer cases, reads
+  naturally. **Fails open**: `"07"`, `" 17"`, an empty field or letters are let through.
+- **Enumerate the allowed values** (`"18"`…`"120"` → allowed, default → blocked). Many more cases.
+  **Fails closed**: anything unexpected is stopped.
+
+Neither is wrong and the skill does not pick for you — but on a gate that exists for a legal or
+safety reason, failing open is a real consequence and the user is the one who gets to accept it.
+
+**Your report states** which side you enumerated, which way it therefore fails, and one concrete
+example of an input that slips through. If a picker would have avoided the problem entirely, say
+that too.
+
+
+### 7. Which script a digraphic language gets
+
+"Add Serbian" does not name a script. Serbian is digraphic — `sr` conventionally means Cyrillic,
+`sr-Latn` is Latin, and a consumer app in the region may want either or both. The same question
+arrives with Uzbek, Kazakh, and Simplified versus Traditional Chinese. Picking one silently
+decides what a whole market reads.
+
+**Trigger:** the requested language is written in more than one script and the user named only the
+language.
+
+**Options:** one script, or both as separate locales. Say which code you used (`sr` versus
+`sr-Latn`) rather than just "Serbian", because the code is what the SDK matches against.
+
+**And when you ship both, derive the second by transliteration, not by translating twice.** The
+scripts are a strict 1:1 mapping, so a transliteration cannot say something different from its
+source, whereas two independent translations drift apart on the next copy edit. Three mechanics
+make it correct: replace **digraphs before single letters** (`љ њ џ` → `lj nj dž`, or `л`/`н` eat
+them first); map **only the source script's codepoints**, so Latin already in the copy survives
+untouched — a brand name, `·` separators, an em dash; then **assert nothing from the source script
+remains**, which is the one check that catches a letter missing from the table.
+
+
+### 8. The exact code you wrote, because its casing is load-bearing
+
+The locale code is the string the SDK matches a device's language against, and its pattern is
+**case-sensitive per subtag**: `language[-Script][-REGION]`, with the region in UPPERCASE and a
+script subtag in four letters of Title case. `pt-BR` is right and **`pt-br` is refused at
+publish** — an output-schema violation on `/localizations/N/id`, from a document that saved without
+complaint. This is the one way an add-a-locale run can produce something unpublishable.
+
+Two things make it worth a decision rather than a footnote:
+
+- **The repair is expensive once the translations exist.** When the locale's `id` is the same
+  string as its code, renaming means the entry in `localization.locales`, the key in every catalog
+  `values` map, and `remote_configs` — so getting it right
+  costs nothing now and a full pass later.
+- **A code that arrives in a config you FETCHED is not yours to rewrite in passing.** Report it
+  and ask. `verify-config.py` warns for exactly that case; `flowkit.config()` refuses to emit one,
+  because a code you are writing now has no excuse.
+
+**Your report names the code, not the language** — `pt-BR`, not "Brazilian Portuguese" — which is
+the same reason decision 7 asks for `sr` versus `sr-Latn`: the code is what gets matched, and it
+is the only part of "add Portuguese" that can be wrong.
+
+**Report:** the language, the locale codes you added, which is the source and which is derived,
+and — if derived — that it is a transliteration, so the user knows a copy edit must be re-derived
+rather than re-translated.
+
+
+### 9. Renaming a screen id, because it breaks analytics continuity
+
+A screen id is the only analytics-visible id in a flow the Flow Builder cannot set. It reaches
+the app as `instanceId` on both `flow_screen_showed` and `flow_user_input`
+(read from the transformer's source), so a customer
+forwarding events to their own analytics reads `scr_oAPBHPa7 → scr_03lOfpai` and keeps an
+id→name mapping by hand. That is a good reason to rename, and it is why the transform is in
+scope. Two things make it a decision rather than an edit.
+
+**It splits every funnel that spans it.** Historical events stay under the old id — in Adapty's
+own flow metrics *and* in whatever external tool the customer forwards to — so a chart covering
+the change shows two half-populated screens rather than one. Nothing migrates them. That makes
+this a rename-at-creation feature far more than a rename-anytime one, and on a **published**
+flow the user has to weigh it themselves. Say it before the write, not after.
+
+**It is a three-site edit and the forgotten site is fatal.** `screens[].id`, every
+`navigate.payload.screen` (including ones nested in a `conditional`'s `cases`/`default`), and the
+`_meta.screens` key — which *is* the screen id. Leave that key behind and the flow will not
+publish: measured against production, `flows config validate` refuses it with
+`_meta.screens["<new-id>"].products is missing flowProductId`. Run
+`references/rename-screens.py`, which does all three and refuses a collision, an unknown source
+id or two screens renaming onto one target rather than half-applying. `verify-config.py` errors
+on an orphaned key as the backstop for an edit made by hand anyway.
+
+**Do not extend it to element ids.** `el_XXXX` map keys reach no analytics at all, and they
+compile into the generated runtime script, where a character outside `[A-Za-z0-9_]` is a black
+screen on device. The id a customer actually sees for an input or a quiz option is
+`props.customId`, which they can already set in the builder — see `flow-schema.md` trap 7b, which
+also owns the silent-drop hazard when one is blank or duplicated.
+
+**Report:** each old → new pair, the three sites and how many references moved in each, that
+analytics continuity breaks, and — for a published flow — that the split is not reversible by
+renaming back, because the events under the old id stay there either way.
+
+### 10. Terms and Privacy when you have no real URL
+
+**Trigger:** the screen needs legal links — both stores require them — and nobody gave you the
+URLs. Measured across twelve builds, agents split almost evenly on this and neither half explained
+the consequence, which is the part that decides it.
+
+**"Leave the action off" is not one of the options.** `openUrl` with an empty `payload.url` is
+refused by the transform service (`invalid_action_payload` at `.payload.url`), and
+`flowkit.open_url('')` raises rather than emitting it. So the choice is between a link that points
+somewhere fake and a row that is not a link at all.
+
+**The two shapes are NOT equivalent, and the difference is who catches the omission.** Measured
+against `flow-audit`'s own checker on the same screen:
+
+| what you author | `flows config validate` | `flow-audit` |
+| :--- | :--- | :--- |
+| `openUrl` → `example.com/terms` (any reserved placeholder) | `valid: true` | **no findings, exit 0** |
+| a styled row with no action | `valid: true` | **`dead-affordance`, BLOCKER, exit 1** |
+| a plain `text` reading "Terms", no action | `valid: true` | **`dead-affordance`, BLOCKER, exit 1** |
+
+So the placeholder URL is the shape that **passes every gate and still ships a wrong link to
+paying users**, while the inert row is the shape the auditor **stops**. That inverts the intuition
+the reserved-domain argument gives you — `example.com` and `.example` are reserved by RFC 2606 and
+can never resolve, so a placeholder cannot land on someone else's page, and it reads as obviously
+unfinished *to a human reading the config*. It does not read as unfinished to any check.
+
+**So: default to the inert row and ask for the URLs.** This is the standing preference for the
+failure that is *visible* over the one that renders clean. A placeholder URL is still defensible when the
+user is mid-build and wants the wiring in place, but only with the asymmetry disclosed, because
+otherwise a clean `flow-audit` run is exactly the evidence that convinces someone to ship it.
+
+**Your report states** which shape you chose; that the URLs are outstanding and store review
+requires functioning links; and — if you used a placeholder — **that `flow-audit` will not flag
+it**, so a clean audit is not evidence the links are done. Never present a placeholder domain as
+though it were the user's own.

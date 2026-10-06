@@ -42,9 +42,11 @@ The pinned SILENT case for `sr-Latn` is what stops that regression.
 Usage: python3 tests/test-id-hygiene.py    # 0 all pass, 1 a case regressed
 """
 import glob, json, os, re, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import catalogued, values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 
@@ -52,6 +54,7 @@ RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 # findings (`timeline-anchored.json` fires legibility, for one) and matching loosely would
 # turn those into failures of this file.
 MINE = re.compile(r'element id\(s\)|more than one screen|identifier\(s\) outside|locale code'
+                  r'|placed twice'
                   r'|defaultLocale is')
 
 fails = []
@@ -60,7 +63,7 @@ fails = []
 def run(doc):
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, 'c.json')
-        json.dump(doc, open(path, 'w'))
+        json.dump(catalogued(doc), open(path, 'w'))
         result = subprocess.run([sys.executable, VERIFY, path], capture_output=True, text=True)
     if 'Traceback' in result.stderr or 'CHECKER ERROR' in result.stdout:
         raise AssertionError(f'verify-config.py crashed on this document:\n{result.stdout}\n'
@@ -135,6 +138,24 @@ fires('the same id on two screens',
       doc([screen('scr_1', [text_el('el_cta')]), screen('scr_2', [text_el('el_cta')])]),
       'more than one screen')
 
+def nested(sid, parent, kids, extra_refs=()):
+    """A screen whose hierarchy nests `kids` under `parent`, plus any extra root references."""
+    sc = screen(sid, [parent] + kids)
+    sc['elements']['hierarchy'] = {'id': 'root', 'children': [
+        {'id': parent['id'], 'children': [{'id': k['id'], 'children': []} for k in kids]}]
+        + [{'id': r, 'children': []} for r in extra_refs]}
+    return sc
+
+
+print()
+print('FIRES on an id placed twice in one screen (a map entry overwritten):')
+fires('a merge that reused an id the screen already held',
+      doc([nested('scr_1', text_el('el_010S'), [text_el('el_002T')], extra_refs=['el_002T'])]),
+      'placed twice')
+_root_twice = screen('scr_1', [text_el('el_b')])
+_root_twice['elements']['hierarchy']['children'].append({'id': 'el_b', 'children': []})
+fires('the same id twice at the root of one screen', doc([_root_twice]), 'scr_1: el_b')
+
 print()
 print('FIRES (warning) on the softer identifier family:')
 fires('an off-charset customId',
@@ -189,6 +210,8 @@ silent('an id that is all underscores and digits',
 silent('a defaultLocale that names a declared locale',
        doc([screen('scr_1', [text_el('el_t')])],
            locales=(('en', 'en', 'English'), ('fr', 'fr', 'French')), default='fr'))
+silent('a nested hierarchy with every id once',
+       doc([nested('scr_1', text_el('el_p1'), [text_el('el_k1'), text_el('el_k2')])]))
 silent('the same id on ONE screen twice is unrepresentable in JSON — one element, no finding',
        doc([screen('scr_1', [text_el('el_t')])]))
 
