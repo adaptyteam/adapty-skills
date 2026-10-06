@@ -127,60 +127,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nimbus",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nimbus",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nimbus",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_0"
               },
               "position": {
                 "type": "relative"
@@ -215,60 +162,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Find room to breathe",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Пронађите простор да дишете",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Pronađite prostor da dišete",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_1"
               },
               "position": {
                 "type": "relative"
@@ -303,60 +197,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Stays with space, in places worth staying. Set up your account in about a minute.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Смештај са простором, на местима вредним останка. Направите налог за око минут.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Smeštaj sa prostorom, na mestima vrednim ostanka. Napravite nalog za oko minut.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_2"
               },
               "position": {
                 "type": "relative"
@@ -417,60 +258,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Get started",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Почнимо",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Počnimo",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_3"
               },
               "position": {
                 "type": "relative"
@@ -560,60 +348,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "I already have an account",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Већ имам налог",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Već imam nalog",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_4"
               },
               "position": {
                 "type": "relative"
@@ -732,7 +467,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_signup",
@@ -881,60 +617,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Create your account",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Направите налог",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Napravite nalog",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_5"
               },
               "position": {
                 "type": "relative"
@@ -969,60 +652,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "We'll send your booking confirmations here.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Овде ћемо вам слати потврде резервација.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Ovde ćemo vam slati potvrde rezervacija.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_6"
               },
               "position": {
                 "type": "relative"
@@ -1079,12 +709,7 @@
                 "type": "relative"
               },
               "placeholder": {
-                "values": {
-                  "en": "Email",
-                  "sr": "Имејл",
-                  "sr-Latn": "Imejl"
-                },
-                "_localizable": true
+                "_lid": "lc_7"
               },
               "borderRadius": {
                 "bl": 14,
@@ -1145,12 +770,7 @@
                 "type": "relative"
               },
               "placeholder": {
-                "values": {
-                  "en": "Password",
-                  "sr": "Лозинка",
-                  "sr-Latn": "Lozinka"
-                },
-                "_localizable": true
+                "_lid": "lc_8"
               },
               "borderRadius": {
                 "bl": 14,
@@ -1194,60 +814,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "At least 8 characters, including a number.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Најмање 8 знакова, укључујући цифру.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Najmanje 8 znakova, uključujući cifru.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_9"
               },
               "position": {
                 "type": "relative"
@@ -1308,60 +875,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Continue",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Настави",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nastavi",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_10"
               },
               "position": {
                 "type": "relative"
@@ -1496,7 +1010,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_profile",
@@ -1649,60 +1164,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Tell us about you",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Реците нам нешто о себи",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Recite nam nešto o sebi",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_11"
               },
               "position": {
                 "type": "relative"
@@ -1759,12 +1221,7 @@
                 "type": "relative"
               },
               "placeholder": {
-                "values": {
-                  "en": "First name",
-                  "sr": "Име",
-                  "sr-Latn": "Ime"
-                },
-                "_localizable": true
+                "_lid": "lc_12"
               },
               "borderRadius": {
                 "bl": 14,
@@ -1827,12 +1284,7 @@
               },
               "dateFormat": "mm-dd-yyyy",
               "placeholder": {
-                "values": {
-                  "en": "Birthday",
-                  "sr": "Датум рођења",
-                  "sr-Latn": "Datum rođenja"
-                },
-                "_localizable": true
+                "_lid": "lc_13"
               },
               "borderRadius": {
                 "bl": 14,
@@ -1870,60 +1322,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "You need to be 18 or older to book. Your birthday stays private.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Морате имати 18 или више година да резервишете. Датум рођења остаје приватан.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Morate imati 18 ili više godina da rezervišete. Datum rođenja ostaje privatan.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_14"
               },
               "position": {
                 "type": "relative"
@@ -1984,60 +1383,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Continue",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Настави",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nastavi",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_15"
               },
               "position": {
                 "type": "relative"
@@ -2162,7 +1508,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_values",
@@ -2291,60 +1638,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Our house rule",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Наше правило",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Naše pravilo",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_16"
               },
               "position": {
                 "type": "relative"
@@ -2379,60 +1673,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nimbus is for everyone",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nimbus је за све",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nimbus je za sve",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_17"
               },
               "position": {
                 "type": "relative"
@@ -2467,60 +1708,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Hosts and guests here come from everywhere. To use Nimbus, please agree to treat every person you meet through it with respect, and without judgement.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Домаћини и гости долазе са свих страна. Да бисте користили Nimbus, прихватите да се према свакој особи коју преко њега сретнете односите с уважавањем и без осуђивања.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Domaćini i gosti dolaze sa svih strana. Da biste koristili Nimbus, prihvatite da se prema svakoj osobi koju preko njega sretnete odnosite s uvažavanjem i bez osuđivanja.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_18"
               },
               "position": {
                 "type": "relative"
@@ -2555,60 +1743,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "This applies to messages, reviews and stays.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Ово се односи на поруке, оцене и боравке.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Ovo se odnosi na poruke, ocene i boravke.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_19"
               },
               "position": {
                 "type": "relative"
@@ -2669,60 +1804,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Agree and continue",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Прихватам и настављам",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Prihvatam i nastavljam",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_20"
               },
               "position": {
                 "type": "relative"
@@ -2812,60 +1894,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Decline",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Не прихватам",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Ne prihvatam",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_21"
               },
               "position": {
                 "type": "relative"
@@ -2991,7 +2020,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_declined",
@@ -3144,60 +2174,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "You can't continue without agreeing",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Без прихватања не можете наставити",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Bez prihvatanja ne možete nastaviti",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_22"
               },
               "position": {
                 "type": "relative"
@@ -3232,60 +2209,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "The house rule is what keeps Nimbus usable for the people hosting and the people staying. Without it we can't set up your account — but you can go back and take another look.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Ово правило је оно што Nimbus чини употребљивим и за домаћине и за госте. Без њега не можемо направити ваш налог — али можете се вратити и поново га погледати.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Ovo pravilo je ono što Nimbus čini upotrebljivim i za domaćine i za goste. Bez njega ne možemo napraviti vaš nalog — ali možete se vratiti i ponovo ga pogledati.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_23"
               },
               "position": {
                 "type": "relative"
@@ -3346,60 +2270,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Back to the house rule",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Врати се на правило",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Vrati se na pravilo",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_24"
               },
               "position": {
                 "type": "relative"
@@ -3489,60 +2360,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Leave for now",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Изађи за сада",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Izađi za sada",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_25"
               },
               "position": {
                 "type": "relative"
@@ -3658,7 +2476,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_notify",
@@ -3718,60 +2537,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Trip updates and deals",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Обавештења о путовању и понуде",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Obaveštenja o putovanju i ponude",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_26"
               },
               "position": {
                 "type": "relative"
@@ -3806,60 +2572,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Check-in details, price drops, nothing else.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Детаљи о пријави, снижења цена, ништа друго.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Detalji o prijavi, sniženja cena, ništa drugo.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_27"
               },
               "position": {
                 "type": "relative"
@@ -4172,60 +2885,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Turn on notifications?",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Да укључимо обавештења?",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Da uključimo obaveštenja?",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_28"
               },
               "position": {
                 "type": "relative"
@@ -4260,60 +2920,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "So you don't miss a check-in detail or a price drop on a place you saved.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Да не пропустите детаљ о пријави или снижење за смештај који сте сачували.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Da ne propustite detalj o prijavi ili sniženje za smeštaj koji ste sačuvali.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_29"
               },
               "position": {
                 "type": "relative"
@@ -4406,60 +3013,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Yes, notify me",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Да, обавести ме",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Da, obavesti me",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_30"
               },
               "position": {
                 "type": "relative"
@@ -4549,60 +3103,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Skip",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Прескочи",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Preskoči",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_31"
               },
               "position": {
                 "type": "relative"
@@ -4756,7 +3257,8 @@
           "id": "notify",
           "type": "toggle"
         }
-      ]
+      ],
+      "products": []
     },
     {
       "id": "scr_paywall",
@@ -4816,60 +3318,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nimbus Plus",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nimbus Plus",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nimbus Plus",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_32"
               },
               "position": {
                 "type": "relative"
@@ -4904,60 +3353,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Better places, fewer fees",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Бољи смештај, мање накнада",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Bolji smeštaj, manje naknada",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_33"
               },
               "position": {
                 "type": "relative"
@@ -4992,60 +3388,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "No booking fee, free changes, and early access to new stays.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Без накнаде за резервацију, бесплатне промене и ранији приступ новом смештају.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Bez naknade za rezervaciju, besplatne promene i raniji pristup novom smeštaju.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_34"
               },
               "position": {
                 "type": "relative"
@@ -5074,60 +3417,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Yearly",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Годишње",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Godišnje",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_35"
               },
               "position": {
                 "type": "relative"
@@ -5162,60 +3452,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Best value — 12 months",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Најбоља вредност — 12 месеци",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Najbolja vrednost — 12 meseci",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_36"
               },
               "position": {
                 "type": "relative"
@@ -5375,48 +3612,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408.prod_price_per_month"
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408.prod_price_per_month"
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408.prod_price_per_month"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_37"
               },
               "position": {
                 "type": "relative"
@@ -5531,60 +3727,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Monthly",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Месечно",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Mesečno",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_38"
               },
               "position": {
                 "type": "relative"
@@ -5619,60 +3762,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Cancel any time",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Откажите било кад",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Otkažite bilo kad",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_39"
               },
               "position": {
                 "type": "relative"
@@ -5832,48 +3922,7 @@
                 "bottom": 0
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a.prod_price"
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a.prod_price"
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a.prod_price"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_40"
               },
               "position": {
                 "type": "relative"
@@ -6052,60 +4101,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Start Nimbus Plus",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Покрени Nimbus Plus",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Pokreni Nimbus Plus",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_41"
               },
               "position": {
                 "type": "relative"
@@ -6197,60 +4193,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Restore purchase   ·   Terms   ·   Privacy",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Обнови куповину   ·   Услови   ·   Приватност",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  "sr-Latn": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Obnovi kupovinu   ·   Uslovi   ·   Privatnost",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_42"
               },
               "position": {
                 "left": 20,
@@ -6368,27 +4311,17 @@
           "id": "plans",
           "type": "product"
         }
+      ],
+      "products": [
+        {
+          "id": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408"
+        },
+        {
+          "id": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a"
+        }
       ]
     }
   ],
-  "locales": [
-    {
-      "id": "en",
-      "code": "en",
-      "name": "English"
-    },
-    {
-      "id": "sr",
-      "code": "sr",
-      "name": "Serbian"
-    },
-    {
-      "id": "sr-Latn",
-      "code": "sr-Latn",
-      "name": "Serbian (Latin)"
-    }
-  ],
-  "defaultLocale": "en",
   "variables": [],
   "theme": {
     "colors": [
@@ -6577,5 +4510,2261 @@
       }
     }
   },
-  "schemaVersion": 10
+  "schemaVersion": 13,
+  "localization": {
+    "locales": [
+      {
+        "id": "en",
+        "code": "en",
+        "name": "English"
+      },
+      {
+        "id": "sr",
+        "code": "sr",
+        "name": "Serbian"
+      },
+      {
+        "id": "sr-Latn",
+        "code": "sr-Latn",
+        "name": "Serbian (Latin)"
+      }
+    ],
+    "defaultLocale": "en",
+    "content": {
+      "lc_0": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nimbus",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nimbus",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nimbus",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_1": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Find room to breathe",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Пронађите простор да дишете",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Pronađite prostor da dišete",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_2": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Stays with space, in places worth staying. Set up your account in about a minute.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Смештај са простором, на местима вредним останка. Направите налог за око минут.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Smeštaj sa prostorom, na mestima vrednim ostanka. Napravite nalog za oko minut.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_3": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Get started",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Почнимо",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Počnimo",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_4": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "I already have an account",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Већ имам налог",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Već imam nalog",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_5": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Create your account",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Направите налог",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Napravite nalog",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_6": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We'll send your booking confirmations here.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Овде ћемо вам слати потврде резервација.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Ovde ćemo vam slati potvrde rezervacija.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_7": {
+        "kind": "rich-string",
+        "values": {
+          "en": "Email",
+          "sr": "Имејл",
+          "sr-Latn": "Imejl"
+        }
+      },
+      "lc_8": {
+        "kind": "rich-string",
+        "values": {
+          "en": "Password",
+          "sr": "Лозинка",
+          "sr-Latn": "Lozinka"
+        }
+      },
+      "lc_9": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "At least 8 characters, including a number.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Најмање 8 знакова, укључујући цифру.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Najmanje 8 znakova, uključujući cifru.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_10": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Continue",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Настави",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nastavi",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_11": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Tell us about you",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Реците нам нешто о себи",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Recite nam nešto o sebi",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_12": {
+        "kind": "rich-string",
+        "values": {
+          "en": "First name",
+          "sr": "Име",
+          "sr-Latn": "Ime"
+        }
+      },
+      "lc_13": {
+        "kind": "rich-string",
+        "values": {
+          "en": "Birthday",
+          "sr": "Датум рођења",
+          "sr-Latn": "Datum rođenja"
+        }
+      },
+      "lc_14": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You need to be 18 or older to book. Your birthday stays private.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Морате имати 18 или више година да резервишете. Датум рођења остаје приватан.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Morate imati 18 ili više godina da rezervišete. Datum rođenja ostaje privatan.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_15": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Continue",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Настави",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nastavi",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_16": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Our house rule",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Наше правило",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Naše pravilo",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_17": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nimbus is for everyone",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nimbus је за све",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nimbus je za sve",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_18": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Hosts and guests here come from everywhere. To use Nimbus, please agree to treat every person you meet through it with respect, and without judgement.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Домаћини и гости долазе са свих страна. Да бисте користили Nimbus, прихватите да се према свакој особи коју преко њега сретнете односите с уважавањем и без осуђивања.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Domaćini i gosti dolaze sa svih strana. Da biste koristili Nimbus, prihvatite da se prema svakoj osobi koju preko njega sretnete odnosite s uvažavanjem i bez osuđivanja.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_19": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "This applies to messages, reviews and stays.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Ово се односи на поруке, оцене и боравке.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Ovo se odnosi na poruke, ocene i boravke.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_20": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Agree and continue",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Прихватам и настављам",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Prihvatam i nastavljam",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_21": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Decline",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Не прихватам",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Ne prihvatam",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_22": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You can't continue without agreeing",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Без прихватања не можете наставити",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Bez prihvatanja ne možete nastaviti",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_23": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The house rule is what keeps Nimbus usable for the people hosting and the people staying. Without it we can't set up your account — but you can go back and take another look.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Ово правило је оно што Nimbus чини употребљивим и за домаћине и за госте. Без њега не можемо направити ваш налог — али можете се вратити и поново га погледати.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Ovo pravilo je ono što Nimbus čini upotrebljivim i za domaćine i za goste. Bez njega ne možemo napraviti vaš nalog — ali možete se vratiti i ponovo ga pogledati.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_24": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Back to the house rule",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Врати се на правило",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Vrati se na pravilo",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_25": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Leave for now",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Изађи за сада",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Izađi za sada",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_26": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Trip updates and deals",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Обавештења о путовању и понуде",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Obaveštenja o putovanju i ponude",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_27": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Check-in details, price drops, nothing else.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Детаљи о пријави, снижења цена, ништа друго.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Detalji o prijavi, sniženja cena, ništa drugo.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_28": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Turn on notifications?",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Да укључимо обавештења?",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Da uključimo obaveštenja?",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_29": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "So you don't miss a check-in detail or a price drop on a place you saved.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Да не пропустите детаљ о пријави или снижење за смештај који сте сачували.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Da ne propustite detalj o prijavi ili sniženje za smeštaj koji ste sačuvali.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_30": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Yes, notify me",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Да, обавести ме",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Da, obavesti me",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_31": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Skip",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Прескочи",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Preskoči",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_32": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nimbus Plus",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nimbus Plus",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nimbus Plus",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_33": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Better places, fewer fees",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Бољи смештај, мање накнада",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Bolji smeštaj, manje naknada",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_34": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "No booking fee, free changes, and early access to new stays.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Без накнаде за резервацију, бесплатне промене и ранији приступ новом смештају.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Bez naknade za rezervaciju, besplatne promene i raniji pristup novom smeštaju.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_35": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Yearly",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Годишње",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Godišnje",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_36": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Best value — 12 months",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Најбоља вредност — 12 месеци",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Najbolja vrednost — 12 meseci",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_37": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408.prod_price_per_month",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408"
+                      },
+                      "field": "prod_price_per_month"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408.prod_price_per_month",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408"
+                      },
+                      "field": "prod_price_per_month"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408.prod_price_per_month",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "6cdd73d5-bdb2-4b2e-c207-784fbcb2f408"
+                      },
+                      "field": "prod_price_per_month"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_38": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Monthly",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Месечно",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Mesečno",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_39": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Cancel any time",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Откажите било кад",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Otkažite bilo kad",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_40": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a.prod_price",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a"
+                      },
+                      "field": "prod_price"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a.prod_price",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a"
+                      },
+                      "field": "prod_price"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a.prod_price",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "fbc63856-bf3a-45d1-7bee-dd4bcb54b10a"
+                      },
+                      "field": "prod_price"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_41": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Start Nimbus Plus",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Покрени Nimbus Plus",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Pokreni Nimbus Plus",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_42": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Restore purchase   ·   Terms   ·   Privacy",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Обнови куповину   ·   Услови   ·   Приватност",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ],
+          "sr-Latn": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Obnovi kupovinu   ·   Uslovi   ·   Privatnost",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
 }

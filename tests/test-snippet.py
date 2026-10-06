@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Calibration for `skills/flow-generator/references/snippet.py`.
+"""Calibration for `plugin/skills/flow-generator/references/snippet.py`.
 
 Repo-only. Most cases run the shipped script as a subprocess. A few properties (object
 identity across a mutation) cannot be observed through a subprocess boundary -- JSON
@@ -11,13 +11,15 @@ nothing writes a `__pycache__` into `references/`, which the copy-install path w
 Usage: python3 tests/test-snippet.py      # 0 all pass, 1 a case regressed
 """
 import json, os, re, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SNIP = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'snippet.py')
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
+SNIP = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'snippet.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 # a skills dir installs by plain copy, so a __pycache__ under references/ would SHIP with it
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(ROOT, 'skills', 'flow-generator', 'references'))
+sys.path.insert(0, os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references'))
 
 import snippet as sn  # noqa: E402
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
@@ -416,30 +418,24 @@ case("ids: variableId inside `default`'s executed action IS rewritten",
 
 # --- Task 6: locales ------------------------------------------------------------
 # Build a two-locale destination out of the quiz fixture: `en` plus `de`, where every
-# localizable value has a German entry. The snippet is single-locale `en`.
+# catalog entry has a German value. The snippet is single-locale `en`.
 dest2 = json.load(open(QUIZ))
-dest2['locales'] = [{'id': 'en', 'code': 'en', 'name': 'English'},
-                    {'id': 'de', 'code': 'de', 'name': 'German'}]
-def add_de(o):
-    if isinstance(o, dict):
-        if o.get('_localizable') is True and isinstance(o.get('values'), dict) \
-                and 'en' in o['values']:
-            o['values']['de'] = o['values']['en']
-        for v in o.values():
-            add_de(v)
-    elif isinstance(o, list):
-        for v in o:
-            add_de(v)
-add_de(dest2)
+dest2['localization']['locales'] = [{'id': 'en', 'code': 'en', 'name': 'English'},
+                                    {'id': 'de', 'code': 'de', 'name': 'German'}]
+for _entry in dest2['localization']['content'].values():
+    if 'en' in _entry['values']:
+        _entry['values']['de'] = _entry['values']['en']
 DEST2 = os.path.join(TMP, 'quiz-en-de.json')
 json.dump(dest2, open(DEST2, 'w'))
 
 _rc, pl = plan_json(DEST2, p2, QUIZ_S0)
-case('locales: de is reported as filled from the default', pl['locales']['filled'], ['de'])
+# An absent translation falls back to the default locale, so the graft must NOT copy the
+# English text in under `de`: that would turn "not translated yet" into an explicit German
+# value nobody translated. It is reported instead.
+case('locales: de is reported as untranslated', pl['locales']['untranslated'], ['de'])
+case('locales: nothing is filled when the default locale is present', pl['locales']['filled'], [])
 case('locales: nothing dropped when the snippet has fewer', pl['locales']['dropped'], [])
 
-# The fill must actually be in the payload, and must be a COPY -- an alias means
-# editing one locale silently edits the other.
 lv = []
 def collect(o):
     if isinstance(o, dict):
@@ -451,19 +447,28 @@ def collect(o):
         for v in o:
             collect(v)
 collect(pl['_payload'])
-case('locales: every localizable value now carries de',
-     all('de' in v for v in lv) if lv else None, True if lv else None)
+case('locales: no localizable value gets a copied de',
+     not any('de' in v for v in lv) if lv else None, True if lv else None)
 
-# The subprocess assertion above cannot see object identity: `plan_json` parses
-# `_payload` out of `json.loads(stdout)`, and JSON decoding always mints fresh
-# objects regardless of what resolve_locales did -- so "the fill is a copy, not an
-# alias" has to be checked IN-PROCESS, calling resolve_locales directly.
+# The one fill: a destination whose DEFAULT locale the snippet lacks. Every other locale falls
+# back to the default, so without it the grafted text would show nowhere the snippet has no
+# translation. Filled from the snippet's own default, and it must be a COPY -- an alias means
+# editing one locale silently edits the other. `plan_json` round-trips through JSON, which
+# always mints fresh objects, so identity is checked IN-PROCESS.
+dest_de = json.loads(json.dumps(dest2))
+dest_de['localization']['defaultLocale'] = 'de'
+DEST_DE = os.path.join(TMP, 'quiz-de-default.json')
+json.dump(dest_de, open(DEST_DE, 'w'))
+_rc, pl_de = plan_json(DEST_DE, p2, QUIZ_S0)
+case('locales: the missing DEFAULT locale is filled and reported', pl_de['locales']['filled'],
+     ['de'])
+
 _snip_p2 = sn.read_snippet(p2)
-_cfg_dest2 = sn.load(DEST2)
+_cfg_de = sn.load(DEST_DE)
 _payload_ip = json.loads(json.dumps(_snip_p2['payload']))
-sn.resolve_locales(_snip_p2, _cfg_dest2, _payload_ip)
-
+sn.resolve_locales(_snip_p2, _cfg_de, _payload_ip)
 _lv_ip = []
+collect_into = _lv_ip
 def _collect_ip(o):
     if isinstance(o, dict):
         if o.get('_localizable') is True and isinstance(o.get('values'), dict):
@@ -474,16 +479,11 @@ def _collect_ip(o):
         for v in o:
             _collect_ip(v)
 _collect_ip(_payload_ip)
-case('locales (in-process): the fill is a copy, not an alias',
+case('locales (in-process): the default fill is a copy, not an alias',
      all(v['de'] is not v['en'] for v in _lv_ip) if _lv_ip else None,
      True if _lv_ip else None)
-
-# Invariant 11: after resolve_locales, every localizable `values` map carries
-# EXACTLY the destination's declared locale set -- no more, no less.
-_dest_locale_set = {l['id'] for l in _cfg_dest2['locales']}
-case('locales (in-process): invariant 11 -- every values map matches the '
-     'destination locale set exactly',
-     all(set(v) == _dest_locale_set for v in _lv_ip) if _lv_ip else None,
+case('locales (in-process): every values map holds only declared locales and the default',
+     all(set(v) <= {'en', 'de'} and 'de' in v for v in _lv_ip) if _lv_ip else None,
      True if _lv_ip else None)
 
 # The reverse: a two-locale snippet into a one-locale flow drops the extra.
@@ -1008,7 +1008,27 @@ _expect_group_rename = pl_xa['renames']['groups'].get('products', 'products')
 
 o_xa, _rc_xa2, needs_xa, vrc_xa, vout_xa = graft_checked(
     COMP, pp_any, COMP_S0, 'cross-app-screen', extra=('--catalog', DEST_CAT))
-gxa = json.load(open(o_xa))
+gxa_stored = json.load(open(o_xa))
+# The graft is written in the stored catalog form; it is read here through the same view the
+# checkers use, so a price variable is found where it renders rather than in the catalog.
+gxa = localization.resolve(gxa_stored)
+
+# The catalog contract of a graft (rule: carry the entries, never reuse or renumber the
+# destination's). Every entry the destination already had survives under its own id with its
+# own values, nothing is left inline, and every ref resolves.
+_dest_xa = json.load(open(COMP))
+_dest_entries = _dest_xa['localization']['content']
+_out_entries = gxa_stored['localization']['content']
+case('graft: every destination catalog entry survives under its own id, unchanged',
+     all(_out_entries.get(k) == v for k, v in _dest_entries.items()), True)
+case('graft: the grafted values got NEW entries, past the destination ids',
+     len(_out_entries) > len(_dest_entries), True)
+_inline_xa, _dangling_xa = [], []
+for _w, _k, _h, _key in localization.iter_fields(gxa_stored):
+    if localization.is_inline(_h[_key]):
+        _inline_xa.append(_w)
+    _dangling_xa += [l for l in localization.refs_in(_h[_key]) if l not in _out_entries]
+case('graft: nothing is left inline and every ref resolves', (_inline_xa, _dangling_xa), ([], []))
 # A `screen`-kind graft INSERTS a whole new screen -- it does not merge into
 # `COMP_S0` -- so look up the freshly-inserted screen by the id the plan itself
 # names (`_payload.screen.id`, post-rename), not by the destination screen the

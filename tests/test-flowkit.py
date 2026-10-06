@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for skills/flow-generator/references/flowkit.py.
+"""Tests for plugin/skills/flow-generator/references/flowkit.py.
 
 A shape helper that has drifted from the format is worse than no helper, because it is
 confidently wrong at scale. So this asserts the invariants flowkit exists to guarantee, and
@@ -20,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 # a skills dir installs by plain copy, so a __pycache__ under references/ would SHIP with it
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(ROOT, 'skills', 'flow-generator', 'references'))
+sys.path.insert(0, os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references'))
 
 import flowkit as fk  # noqa: E402
 
@@ -143,7 +143,24 @@ def main():
     # The stamped version and the shapes that entitle the module to stamp it. These belong
     # together: the number is a claim about the document, so a test that pins it without
     # pinning the shapes would go green on a flow the builder then refuses to migrate.
-    check('schemaVersion is 12', cfg['schemaVersion'] == 12)
+    check('schemaVersion is 13', cfg['schemaVersion'] == 13)
+    lz = cfg.get('localization') or {}
+    check('locales and defaultLocale live under localization (013)',
+          'locales' not in cfg and 'defaultLocale' not in cfg
+          and isinstance(lz.get('locales'), list) and lz.get('defaultLocale') == 'en')
+    inline = []
+
+    def _inline(o):
+        if isinstance(o, dict):
+            if o.get('_localizable'):
+                inline.append(o)
+            for v in o.values():
+                _inline(v)
+        elif isinstance(o, list):
+            for v in o:
+                _inline(v)
+    _inline(cfg['screens'])
+    check('no inline localizable value survives config() (013)', not inline, f'{len(inline)} left')
     fills = [n['props']['fill'] for n in node_map.values() if 'fill' in n['props']]
     fills.append(scr['props']['fill'])
     check('every fill is an array (010)', all(isinstance(f, list) for f in fills),
@@ -153,10 +170,12 @@ def main():
 
     # the divergence this module was built to kill
     spans = None
+    catalog_content = lz.get('content') or {}
     for n in node_map.values():
         c = n['props'].get('content')
-        if isinstance(c, dict) and len(c.get('values', {}).get('en', [])) == 1:
-            content = c['values']['en'][0]['content']
+        entry = catalog_content.get(c['_lid']) if isinstance(c, dict) and '_lid' in c else None
+        if entry and len(entry.get('values', {}).get('en', [])) == 1:
+            content = entry['values']['en'][0]['content']
             if any(s.get('type') == 'variable' for s in content):
                 spans = content
     check('rich() produced a span list containing a variable', spans is not None)
@@ -522,8 +541,21 @@ def main():
     check('a timer carries states, like every other element', fk.timer()['states'] == [])
 
     # and finally: does the published schema accept it? Through the validator the skill ships,
+    # run from the ajv cache dir the way gates.sh runs it. While the published schema still
+    # describes the pre-catalog flow it cannot pass a v13 document -- skip, and say so, rather
+    # than pinning a red row on a file this repo does not own.
+    def _schema_lacks_catalog():
+        cache = os.path.join(tempfile.gettempdir(), 'adapty-flow-schema.latest.json')
+        try:
+            with open(cache) as fh:
+                sch = json.load(fh)
+        except (OSError, ValueError):
+            return False
+        return 'localization' not in (sch.get('properties') or {})
+
+    # and finally: does the published schema accept it? Through the validator the skill ships,
     # run from the ajv cache dir the way gates.sh runs it.
-    validator = os.path.join(HERE, '..', 'skills', 'flow-generator', 'references',
+    validator = os.path.join(HERE, '..', 'plugin', 'skills', 'flow-generator', 'references',
                              'validate-with-schema.mjs')
     ajv_dir = os.path.expanduser(os.environ.get('AJV_DIR', '~/.cache/adapty-flow-schema'))
     if not os.path.isdir(os.path.join(ajv_dir, 'node_modules', 'ajv')):
@@ -538,6 +570,8 @@ def main():
             out = (res.stdout + res.stderr).strip()
             if res.returncode == 2:
                 print(f'  SKIP  schema gate unavailable: {out.splitlines()[0] if out else ""}')
+            elif res.returncode != 0 and _schema_lacks_catalog():
+                print('  SKIP  schema gate: the published schema has no `localization` yet')
             else:
                 check('flowkit output passes the schema gate', res.returncode == 0, out[:1500])
         except (subprocess.TimeoutExpired, OSError) as exc:
@@ -908,7 +942,7 @@ def main():
 
     # --- switch_rich: conditional copy, the mechanism behind a personalization payoff.
     # Shape asserted against the real export tests/fixtures do not carry one of, so the
-    # reference is bf5d731e ("Language onboarding — quizzes + branching") in app_finance:
+    # reference is bf5d731e ("Language onboarding — quizzes + branching") in the sandbox app:
     # the switch nests INSIDE the locale, cases are [cond, const] PAIRS, default is a const.
     _sw = fk.switch_rich(
         [(fk.eq(fk.ref('goal.selectedOptionId'), 'sleep'), ['Sleep plan'])],
@@ -1218,7 +1252,7 @@ def main():
     # A catalog template is the builder's own output, in the EXPORT shape. Until from_catalog()
     # existed there was no way to feed one to screen(), so the templates the skill tells agents
     # to prefer were unreachable from the module that assembles the document.
-    _cat = json.load(open(os.path.join(ROOT, 'skills', 'flow-generator', 'references',
+    _cat = json.load(open(os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references',
                                        'component-catalog.json')))
     _by_id = {c['id']: c for c in _cat['components']}
 

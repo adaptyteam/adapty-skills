@@ -13,7 +13,7 @@ import sys
 sys.dont_write_bytecode = True
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-MIGRATE = ROOT / 'skills' / 'migrate-placements' / 'references' / 'migrate.py'
+MIGRATE = ROOT / 'plugin' / 'skills' / 'migrate-placements' / 'references' / 'migrate.py'
 TMP = ROOT / 'tests' / '_migrate_cli_tmp'
 
 failures = []
@@ -621,7 +621,7 @@ SHAPE_SHIM_SRC = '#!/usr/bin/env python3\n"""Prints whatever raw `placements lis
 
 # --- ROUND 4: the legacy multi-segment audience, end to end through `plan` ---
 #
-# Source: adapty-dashboard-api!13221 @ d0b878cb. Readable (the read factories
+# Source: the backend's audience validation code. Readable (the read factories
 # bypass the 1-segment cap with `model_construct` for legacy rows) and unwritable
 # (the DTO validator refuses >1 on write). So the failure this prevents is a plan
 # that passes every gate and dies at `placements create`.

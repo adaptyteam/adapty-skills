@@ -15,13 +15,15 @@
           "right": 30,
           "bottom": 8
         },
-        "fill": {
-          "type": "color",
-          "color": {
-            "type": "color-style",
-            "colorId": "clr_Ehk7FZwe"
+        "fill": [
+          {
+            "type": "color",
+            "color": {
+              "type": "color-style",
+              "colorId": "clr_Ehk7FZwe"
+            }
           }
-        },
+        ],
         "layout": {
           "alignH": "start",
           "alignV": "start",
@@ -109,26 +111,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "∙",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_0"
               },
               "position": {
                 "type": "relative"
@@ -220,26 +203,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Priority support",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_1"
               },
               "position": {
                 "type": "relative"
@@ -270,26 +234,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "PREMIUM",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_2"
               },
               "position": {
                 "type": "relative"
@@ -303,14 +248,16 @@
             "id": "el_3ECCnVFwmk",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "hex": "#E8553C",
-                  "type": "hex",
-                  "opacity": 20
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "hex": "#E8553C",
+                    "type": "hex",
+                    "opacity": 20
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fixed",
                 "value": 88
@@ -374,26 +321,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Premium",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_3"
               },
               "position": {
                 "type": "relative"
@@ -461,26 +389,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "4.9",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_4"
               },
               "position": {
                 "type": "relative"
@@ -510,26 +419,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Advanced filters",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_5"
               },
               "position": {
                 "type": "relative"
@@ -586,26 +476,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Auto backup",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_6"
               },
               "position": {
                 "type": "relative"
@@ -669,26 +540,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "See what Premium unlocks.",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_7"
               },
               "position": {
                 "type": "relative"
@@ -718,26 +570,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Restore",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_8"
               },
               "position": {
                 "type": "relative"
@@ -872,13 +705,15 @@
             "caption": "Product",
             "propsByState": {
               "selected": {
-                "fill": {
-                  "type": "color",
-                  "color": {
-                    "type": "color-style",
-                    "colorId": "clr_Ehk7FZwe"
+                "fill": [
+                  {
+                    "type": "color",
+                    "color": {
+                      "type": "color-style",
+                      "colorId": "clr_Ehk7FZwe"
+                    }
                   }
-                },
+                ],
                 "border": {
                   "color": {
                     "type": "color-style",
@@ -905,13 +740,15 @@
             "id": "el_F0vCURJIk3",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "accent"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "accent"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -1017,26 +854,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Cross-device sync",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_9"
               },
               "position": {
                 "type": "relative"
@@ -1260,26 +1078,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "200,000+ users",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_10"
               },
               "position": {
                 "type": "relative"
@@ -1548,26 +1347,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Terms",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_11"
               },
               "position": {
                 "type": "relative"
@@ -1618,26 +1398,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "FEATURE",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_12"
               },
               "position": {
                 "type": "relative"
@@ -1706,26 +1467,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Real-time alerts",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_13"
               },
               "position": {
                 "type": "relative"
@@ -1782,26 +1524,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "FREE",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_14"
               },
               "position": {
                 "type": "relative"
@@ -1905,26 +1628,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Continue with Premium",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_15"
               },
               "position": {
                 "type": "relative"
@@ -2089,26 +1793,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "$0.00 / year",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_16"
               },
               "position": {
                 "type": "relative"
@@ -2151,26 +1836,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Cancel anytime",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_17"
               },
               "position": {
                 "type": "relative"
@@ -2305,26 +1971,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Get the full experience",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_18"
               },
               "position": {
                 "type": "relative"
@@ -2354,26 +2001,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Billed annually",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_19"
               },
               "position": {
                 "type": "relative"
@@ -2448,26 +2076,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Basic protection",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_20"
               },
               "position": {
                 "type": "relative"
@@ -2747,26 +2356,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Privacy",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_21"
               },
               "position": {
                 "type": "relative"
@@ -3108,17 +2698,14 @@
           "id": "products",
           "type": "product"
         }
+      ],
+      "products": [
+        {
+          "id": "5c86bbb7-833f-4db7-5696-c607863276dd"
+        }
       ]
     }
   ],
-  "locales": [
-    {
-      "id": "en",
-      "code": "en",
-      "name": "English"
-    }
-  ],
-  "defaultLocale": "en",
   "variables": [],
   "theme": {
     "typography": [
@@ -3341,5 +2928,501 @@
       }
     }
   },
-  "schemaVersion": 9
+  "schemaVersion": 13,
+  "localization": {
+    "locales": [
+      {
+        "id": "en",
+        "code": "en",
+        "name": "English"
+      }
+    ],
+    "defaultLocale": "en",
+    "content": {
+      "lc_0": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "∙",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_1": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Priority support",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_2": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "PREMIUM",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_3": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Premium",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_4": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "4.9",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_5": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Advanced filters",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_6": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Auto backup",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_7": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "See what Premium unlocks.",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_8": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Restore",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_9": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Cross-device sync",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_10": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "200,000+ users",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_11": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Terms",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_12": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "FEATURE",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_13": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Real-time alerts",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_14": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "FREE",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_15": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Continue with Premium",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_16": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "$0.00 / year",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_17": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Cancel anytime",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_18": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Get the full experience",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_19": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Billed annually",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_20": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Basic protection",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_21": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Privacy",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
 }

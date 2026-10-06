@@ -1,6 +1,6 @@
 """Audience normalization, both directions.
 
-Prod (pre-!13221) returns audiences WITHOUT content_type; the pod returns them
+Prod (before the audience change) returns audiences WITHOUT content_type; the pod returns them
 WITH it; and the CLI REQUIRES it on write (exit 2, no request). So a read must
 be normalized before it can be written back, and the normalizer has to be a
 no-op on an already-normalized entry.
@@ -10,7 +10,7 @@ import sys
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent
-                       / 'skills' / 'migrate-placements' / 'references'))
+                       / 'plugin' / 'skills' / 'migrate-placements' / 'references'))
 import migrate as m
 
 failures = []
@@ -189,7 +189,7 @@ check('emission refuses an empty audience array',
 # ---------- Task 12: is_active as the scope filter ----------
 #
 # `is_active` is owner-confirmed as the placement's own enabled/disabled status on
-# both `list` and `get`, and was measured ABSENT in prod AND on the MR !13221 pod.
+# both `list` and `get`, and was measured ABSENT in prod AND on the pre-release pod.
 # So the shape that matters most is the one where NO row carries it, and the rule
 # that must not be softened is that absence is UNKNOWN, never False.
 
@@ -349,7 +349,7 @@ check('an entry with no derivable type is a problem, reusing normalize_audience\
       'cannot be derived' in (m._audience_problem({'priority': 0}) or ''))
 check('an unknown content_type is a problem',
       'unknown content_type' in (m._audience_problem({'content_type': 'onboarding'}) or ''))
-check('a VALID pre-!13221 entry is NOT a problem -- the check must not fire on the '
+check('a VALID pre-change entry is NOT a problem -- the check must not fire on the '
       'shape it exists to protect',
       m._audience_problem({'paywall_id': 'pw-1', 'segment_ids': [], 'priority': 0}) is None)
 check('a VALID pod-shaped entry is not a problem either',
@@ -365,7 +365,7 @@ check('the problem is a one-line string, never a raise -- the caller turns it in
 
 # ---------- Round 4: the legacy multi-segment audience (readable, unwritable) ----------
 #
-# Source: adapty-dashboard-api!13221 @ d0b878cb. The audience DTO's field_validator
+# Source: the backend's audience validation code. The audience DTO's field_validator
 # caps segment_ids at ONE entry, and both read factories bypass it with
 # `model_construct` so legacy multi-segment rows survive a read round-trip. So such
 # an audience READS fine and CANNOT be written back -- and `to_flow_audience` carries

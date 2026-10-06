@@ -26,7 +26,7 @@ Usage: python3 tests/test-custom-tags.py    # 0 all pass, 1 a case regressed
 import copy, glob, json, os, re, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REFS = os.path.join(ROOT, 'skills', 'flow-generator', 'references')
+REFS = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references')
 VERIFY = os.path.join(REFS, 'verify-config.py')
 sys.dont_write_bytecode = True
 sys.path.insert(0, REFS)
@@ -179,6 +179,16 @@ def main():
         m = c['screens'][0]['elements']['map']
         return next(e for e in m.values() if e['type'] == 'text')
 
+    # Stored configs keep localizable values in the catalog: the element holds a `{_lid}` ref
+    # and the per-locale values live in `localization.content[<lid>]['values']`.
+    def text_values(c):
+        return c['localization']['content'][first_text(c)['props']['content']['_lid']]['values']
+
+    def add_entry(c, value):
+        lid = f'lc_test_{len(c["localization"]["content"])}'
+        c['localization']['content'][lid] = {'kind': 'rich-text', 'values': {'en': value}}
+        return {'type': 'const', 'value': {'_lid': lid}}
+
     vis = copy.deepcopy(good)
     first_text(vis)['props']['visibility'] = {
         'type': 'conditional',
@@ -187,14 +197,14 @@ def main():
     fires('a tag in a visibility condition', vis, 'in logic')
 
     sw = copy.deepcopy(good)
-    first_text(sw)['props']['content']['values']['en'] = {
+    first_text(sw)['props']['content'] = {
         'type': 'switch',
         'cases': [[{'type': '>', 'left': {'type': 'var', 'variableId': 'var_app_coins_balance'},
                     'right': {'type': 'const', 'value': 100}},
-                   {'type': 'const', 'value': [{'type': 'paragraph', 'content': [
-                       {'type': 'text', 'text': 'Rich!', 'attrs': {}}]}]}]],
-        'default': {'type': 'const', 'value': [{'type': 'paragraph', 'content': [
-            {'type': 'text', 'text': 'Hi', 'attrs': {}}]}]}}
+                   add_entry(sw, [{'type': 'paragraph', 'content': [
+                       {'type': 'text', 'text': 'Rich!', 'attrs': {}}]}])]],
+        'default': add_entry(sw, [{'type': 'paragraph', 'content': [
+            {'type': 'text', 'text': 'Hi', 'attrs': {}}]}])}
     fires('a tag in conditional text', sw, 'in logic')
 
     sv = copy.deepcopy(good)
@@ -209,16 +219,16 @@ def main():
 
     # --- fallbacks a multi-locale flow cannot show ---------------------------------------------
     multi = copy.deepcopy(good)
-    multi['locales'].append({'id': 'sr', 'code': 'sr', 'name': 'Serbian'})
+    multi['localization']['locales'].append({'id': 'sr', 'code': 'sr', 'name': 'Serbian'})
     fires('a word fallback on a multi-locale flow', multi, 'untranslated')
     neutral = copy.deepcopy(multi)
     neutral['variables'][0]['value'] = ''
     silent('an empty or numeric fallback on a multi-locale flow', neutral)
     gap = copy.deepcopy(neutral)
-    para = first_text(gap)['props']['content']['values']['en'][0]['content']
+    para = text_values(gap)['en'][0]['content']
     para[0]['text'] = 'Hi '
     para.insert(2, {'type': 'text', 'text': ' there', 'attrs': {}})
-    vals = first_text(gap)['props']['content']['values']
+    vals = text_values(gap)
     vals['sr'] = copy.deepcopy(vals['en'])     # two locales, one element: one warning, not two
     fires('an empty fallback between two spaces', gap, 'double space')
     check('the double-space warning is reported once per element',

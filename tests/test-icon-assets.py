@@ -36,7 +36,7 @@ import glob, json, os, re, subprocess, sys, tempfile
 
 sys.dont_write_bytecode = True
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REFS = os.path.join(ROOT, 'skills', 'flow-generator', 'references')
+REFS = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references')
 VERIFY = os.path.join(REFS, 'verify-config.py')
 CATALOG = os.path.join(REFS, 'component-catalog.json')
 sys.path.insert(0, REFS)
