@@ -2949,13 +2949,13 @@
               }
             },
             "states": [],
-            "caption": "Buy Metal",
+            "caption": "Buy Plus",
             "interactions": [
               {
-                "id": "int_Rvmetal",
+                "id": "int_Rvplus",
                 "actions": [
                   {
-                    "id": "act_Rvmetal",
+                    "id": "act_Rvplus",
                     "type": "purchase",
                     "payload": {
                       "product": {
@@ -3205,7 +3205,7 @@
               }
             },
             "states": [],
-            "caption": "Panel Metal"
+            "caption": "Panel Plus"
           },
           "el_RvTabcon037": {
             "id": "el_RvTabcon037",
@@ -3319,7 +3319,7 @@
                 "type": "system"
               }
             ],
-            "caption": "Tab Metal",
+            "caption": "Tab Plus",
             "propsByState": {
               "selected": {
                 "fill": [
@@ -4249,7 +4249,7 @@
               "type": "paragraph",
               "content": [
                 {
-                  "text": "Metal",
+                  "text": "Plus",
                   "type": "text",
                   "attrs": {
                     "bold": false,
@@ -4271,7 +4271,7 @@
               "type": "paragraph",
               "content": [
                 {
-                  "text": "Metal",
+                  "text": "Plus",
                   "type": "text",
                   "attrs": {
                     "bold": false,
@@ -4293,7 +4293,7 @@
               "type": "paragraph",
               "content": [
                 {
-                  "text": "Premium metal card",
+                  "text": "Premium card",
                   "type": "text",
                   "attrs": {
                     "bold": false,
@@ -4491,7 +4491,7 @@
               "type": "paragraph",
               "content": [
                 {
-                  "text": "Get Metal",
+                  "text": "Get Plus",
                   "type": "text",
                   "attrs": {
                     "bold": false,
@@ -4997,7 +4997,7 @@
               "type": "paragraph",
               "content": [
                 {
-                  "text": "Revolut <18 account",
+                  "text": "Acme <18 account",
                   "type": "text",
                   "attrs": {
                     "bold": false,
@@ -5019,7 +5019,7 @@
               "type": "paragraph",
               "content": [
                 {
-                  "text": "Create a Revolut <18 account, for a family member aged 6-17",
+                  "text": "Create an Acme <18 account, for a family member aged 6-17",
                   "type": "text",
                   "attrs": {
                     "bold": false,

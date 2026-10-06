@@ -35,3 +35,6 @@ skills-lock.json
 # own docstring says never commit one. Ignored rather than trusted to discipline, because
 # 534b16c already committed test-round output through a `git add -A`.
 flow-preview-qr-*.png
+
+# Scratch output tests/test-existing-flows.py writes while it runs.
+tests/_existing_flows_tmp/

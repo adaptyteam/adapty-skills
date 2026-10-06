@@ -167,8 +167,8 @@ So the division of labour is:
 | The builder also does | materialize `screens[].products` on open — carry it forward, never author it from scratch |
 
 `flowProductId` is a UUIDv5 over `screenId:productId` — or `screenId:productId:offerId` when the
-binding carries an offer — hashed with an **empty namespace**. The builder mints it in
-`buildFlowMeta.ts` → `collectProducts`, marked *"FROZEN (ADP-7398 E4)"*:
+binding carries an offer — hashed with an **empty namespace**. The builder mints it in a
+code path it marks frozen:
 
 ```js
 flowProductId: getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}`)
@@ -180,7 +180,7 @@ prefixes nothing, so it returns a different id.
 
 ### The screen registry owns the declaration
 
-> Read in the builder source (`adapty-dashboard-interface`, `packages/unified-builder`), not
+> Read in the builder source, not
 > measured against a live flow. The three exports this skill is pinned to are v9 and carry no
 > registry, so nothing here contradicts what they show.
 
@@ -414,7 +414,7 @@ without the offer, hidden on the screen**. It works, and it carries a measured t
 `offerId` is ignored** (team-read from SDK source, `FlowStateFactory.kt`). Two Product elements for
 the same store product therefore both resolve to whichever comes **first in the config's product
 list**, and if the base product is first, `offer_price` silently renders empty or undiscounted.
-Three facts that follow, all team-stated (2026-08-17, ADP-7541 tracks the real fix):
+Three facts that follow, all team-stated, with a real fix tracked by the team:
 
 - **The order is the `screens[].products` array's own**, and on a screen with no registry of its
   own it is the order the usage walk finds — effectively the creation order of the Product

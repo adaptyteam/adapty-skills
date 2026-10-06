@@ -10,7 +10,7 @@ So a video source can never be bound from the CLI, and the correct artifact is a
 element with no source, styled to the box the user's clip will land in, plus a spoken handoff:
 open the flow in the builder and upload it there. Two things then need a mechanical slot,
 because every publish-time gate is blind to both (measured 2026-09-10 against the real transform
-service in `app_finance` -- an unset `video` returns `valid: true, issues: []` in the styled, the
+service in the sandbox app -- an unset `video` returns `valid: true, issues: []` in the styled, the
 empty-`values`-map and the bare forms alike, and the JSON-schema check passes them too):
 
     FIRES   -- a `video` with no source at all (the upload the user still owes)

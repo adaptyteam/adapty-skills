@@ -6,10 +6,10 @@ a `__pycache__` into `references/`.
 
 Why this file exists. A screen id is the one analytics-visible id in a flow that the Flow
 Builder cannot set: it reaches the app as `instanceId` on both `flow_screen_showed` and
-`flow_user_input` (`generate-handlers.ts:489,716,824`,
-unified-builder-transformer@dcf2df4). Renaming it by hand is a three-site edit, and the site
+`flow_user_input` (read from
+the transformer's source). Renaming it by hand is a three-site edit, and the site
 everyone forgets is `_meta.screens`, whose key IS the screen id. Measured against production
-(adapty 0.8.2, a real flow in app_finance): rename the paywall screen, leave the key, and
+(adapty 0.8.2, a real flow in the sandbox app): rename the paywall screen, leave the key, and
 `flows config validate` refuses the flow --
 
     _meta.screens["paywall_final"].products is missing flowProductId for product "<uuid>"

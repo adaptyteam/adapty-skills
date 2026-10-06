@@ -942,7 +942,7 @@ def main():
 
     # --- switch_rich: conditional copy, the mechanism behind a personalization payoff.
     # Shape asserted against the real export tests/fixtures do not carry one of, so the
-    # reference is bf5d731e ("Language onboarding — quizzes + branching") in app_finance:
+    # reference is bf5d731e ("Language onboarding — quizzes + branching") in the sandbox app:
     # the switch nests INSIDE the locale, cases are [cond, const] PAIRS, default is a const.
     _sw = fk.switch_rich(
         [(fk.eq(fk.ref('goal.selectedOptionId'), 'sleep'), ['Sleep plan'])],
