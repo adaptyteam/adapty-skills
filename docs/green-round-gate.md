@@ -182,6 +182,18 @@ Write it to disk **before** any agent runs, together with the scorer.
       (output-file mtime minus a dispatch marker), and treat minutes as indicative only. If the
       claim under test IS speed, run the arms alone, not inside a 6-agent round.
 
+- [ ] **A stub on PATH is not isolation if the real CLI is authenticated.** *post-migration-green2*:
+      the harness relied on each agent prefixing `export PATH=<stub>:$PATH`. One agent mistyped the
+      path once and two calls reached the real, logged-in `adapty`; one printed real SDK keys into the
+      transcript. Isolate by environment the agent cannot mistype — a throwaway `HOME`/config dir, or
+      log the real CLI out for the round — and grep the run dirs for real identifiers afterwards.
+      What stops a mistyped call reaching a real account? ______
+
+- [ ] **A row that greps CODE must strip comments first.** *post-migration-green2*: the partial-swap
+      row matched `Purchases.` and failed a run whose only hits were `/// Replaces Purchases.logIn`
+      doc comments — a correct full migration that explained itself. Agents comment what they
+      replaced; that is the commonest place the old name survives.
+
 ## 4. The prediction, and what happens after
 
 - [ ] **Write the prediction down, and do not let it shape the rubric.** Predicting control failure
