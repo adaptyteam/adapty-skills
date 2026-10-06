@@ -24,9 +24,13 @@ CFG="$(cd "$(dirname "$CFG")" && pwd)/$(basename "$CFG")"
 [ -n "${BASELINE:-}" ] && [ -f "$BASELINE" ] && \
   BASELINE="$(cd "$(dirname "$BASELINE")" && pwd)/$(basename "$BASELINE")"
 
+# The CLI is the one SKILL.md phase 1 resolved: pass it as ADAPTY, or have `adapty` on PATH. This
+# script never launches a package itself, so what runs is always the CLI the run already chose.
 ADAPTY_BIN=${ADAPTY:-}
-if [ -z "$ADAPTY_BIN" ]; then
-  if command -v adapty >/dev/null 2>&1; then ADAPTY_BIN="adapty"; else ADAPTY_BIN="npx --yes adapty@latest"; fi
+if [ -z "$ADAPTY_BIN" ] && command -v adapty >/dev/null 2>&1; then ADAPTY_BIN="adapty"; fi
+if [ -z "$ADAPTY_BIN" ] && [ -n "$APP" ]; then
+  echo "gates: no Adapty CLI. Install it (npm install -g adapty) or pass the command as ADAPTY=..." >&2
+  exit 2
 fi
 
 fail=0

@@ -46,7 +46,7 @@ in one line — "**Part 3 of 5 · The code**":
 | 2 · Your Adapty account | what exists, what you set up | 3 |
 | 3 · The code | each stage and its check | 4 |
 | 4 · Your first test purchase | handed to the test-purchase walk, which numbers its own steps | — |
-| 5 · Before you ship | the closing message | closing review, 5 |
+| 5 · Before you ship | the closing message | closing review |
 
 Say "part", never "step": the test-purchase walk counts its own steps, and two "Step N of 5"
 lines in one conversation read as one count going backwards.
@@ -106,7 +106,6 @@ Maintain these variables in your context throughout the session. Update them as 
 
 | Variable | Type | Initial value | Set when |
 |---|---|---|---|
-| `feedbackEnabled` | boolean | `false` | Phase 5 consent ask |
 | `sessionToken` | string | `""` | Phase 0 setup |
 | `platform` | string | `""` | Phase 1 project analysis |
 | `migrationSource` | string | `""` | Phase 1 project analysis (`""` = greenfield) |
@@ -115,11 +114,6 @@ Maintain these variables in your context throughout the session. Update them as 
 | `integrations` | array | `[]` | Phase 2 questions |
 | `appPreference` | string | `""` | Phase 2 questions (`existing` or `new`) |
 | `appId` | string | `""` | Phase 3 app selection |
-| `phasesCompleted` | number | `0` | End of each phase |
-| `checkpointsPassed` | number | `0` | Each passing Phase 4 checkpoint |
-| `frictionRounds` | number | `0` | Each time Troubleshooting section is invoked |
-| `rating` | number or null | `null` | End-of-Phase-4 rating ask |
-| `sentiment` | string | `""` | Inferred at delivery time |
 
 ## Phase 0: Setup
 
@@ -138,22 +132,6 @@ If a docs page leaves you unable to tell how the pieces fit together in a real a
 Pick a short random `sessionToken` once at the very start — 8 lowercase letters and digits — and reuse the **same** one for the whole session. Mint it yourself: if you have a shell, run `openssl rand -hex 4` and use its output; only invent one by hand when no shell is available, and never copy a token you've seen in an example or a previous session (reused tokens merge unrelated sessions in the docs analytics). **Append it to every Adapty docs URL you open this session** — whether you fetch with `curl` or read the page directly (e.g. WebFetch), at any stage — as `?ref=skill-<sessionToken>` (or `&ref=skill-<sessionToken>` if the URL already has a `?`). So every `https://adapty.io/docs/...` you read becomes `https://adapty.io/docs/<page>?ref=skill-<sessionToken>` (with your minted token substituted). The explicit `curl` examples in the references already show this tag; do the same for every other docs page you open, with the **same** token, so the whole run's reading stays grouped.
 
 The `ref` tag is a plain docs-analytics marker: it lets Adapty see which docs pages get read together during an integration and improve them. It carries no user or project data — just the random token. There's no need to announce it, but it's not a secret: if the user asks, just say so.
-
-### Feedback consent
-
-**Asked at the end, never at the start** — in Phase 5, together with the rating, once there is something to rate. Nothing is sent before then, so asking first only delays the work the user came for. Until then `feedbackEnabled` stays `false`.
-
-**Only on an integration run.** When the request is a single dashboard change for an app that already ships the SDK — connecting a store, or creating a product, access level or placement — never ask, and skip Phase 5: the payload describes an integration, and there is none to rate. Otherwise, in Phase 5, call `AskUserQuestion` with the following:
-
-> "Mind if I share quick feedback with the Adapty team? Just a rating, a few signals (platform, steps completed), and your Adapty app ID — no code or project details. The app ID just lets the team help you faster if you ever need a hand. Sound good?"
-
-- If yes → set `feedbackEnabled = true`
-- If no → set `feedbackEnabled = false`
-- **If there is no interactive user to ask → set `feedbackEnabled = false` and skip Phase 5.** This is the one question in this skill you may never answer on the user's behalf. A headless run — cron, CI, `-p`, a subagent — often carries a blanket instruction like "there is no user, answer the skill's questions yourself"; that instruction does not extend to consent. Absence of a person is not agreement, and Phase 5 sends their Adapty app ID to a third-party endpoint. Say in your closing summary that feedback was skipped for lack of consent, so nobody mistakes silence for a decision.
-
-Do not pre-approve or allowlist the feedback request in the user's permission settings. The single feedback POST in Phase 5 may trigger a standard approval prompt at delivery time — that is expected and fine.
-
-If `feedbackEnabled` is false, skip all feedback steps throughout the skill. The integration proceeds identically either way.
 
 ## Phase 1: Analyze the project
 
@@ -180,7 +158,7 @@ On a hit, load `references/migration.md` in addition to the platform reference a
 
 If a launcher (for example the Adapty CLI) already told you the source, take it and skip the detection grep — but still load `references/migration.md` and still resolve `migrationSourceVersion` from the project, since a launcher never supplies the version.
 
-**State update:** Set `platform` to the detected platform (`ios`, `android`, `flutter`, `react-native`, `unity`, `kmp`, or `capacitor`). Set `migrationSource` and `migrationSourceVersion` as above, or leave both empty for a greenfield project. Set `phasesCompleted = 1`.
+**State update:** Set `platform` to the detected platform (`ios`, `android`, `flutter`, `react-native`, `unity`, `kmp`, or `capacitor`). Set `migrationSource` and `migrationSourceVersion` as above, or leave both empty for a greenfield project.
 
 Load the platform-specific reference file from the `references/` subdirectory (`references/ios.md`, `references/android.md`, etc.).
 
@@ -211,7 +189,7 @@ Use `AskUserQuestion` for all three together in one call:
 
 **Some apps show no paywall at all.** If the app only ever *reads* entitlement state — access is bought on the user's website, granted by their backend, or sold through a channel outside the app — then none of the three approaches applies, and forcing one produces a placement and paywall nobody will ever fetch. Set `paywallApproach` to `none` in that case, skip the paywall and placement work in Phase 3 (Steps 4 and 5) and the paywall stage in Phase 4, and record in `ADAPTY_SETUP.md` that no paywall was set up and why. Everything else still applies — activation, identity, entitlement checks, and the store connections. Confirm it with the user before concluding it rather than inferring it from an absent paywall screen, since a paywall that simply has not been built yet is a different situation. On a migration run this is also a signal to read `references/migration.md` section 5 subsection 8: an app that sells outside the stores usually has a backend granting access through the source's API, and that path does not move itself.
 
-**State update:** Set `paywallApproach` to `flow_builder` (the value on every platform for the builder-rendered choice; `paywall_builder` survives only as the state value a run that predates Flow Builder support may still carry), `custom`, `observer`, or `none`. Set `integrations` to the array of selected integration keys (e.g. `["amplitude", "appsflyer"]`), or `[]` if none. Set `appPreference` to `existing` or `new`. Set `phasesCompleted = 2`.
+**State update:** Set `paywallApproach` to `flow_builder` (the value on every platform for the builder-rendered choice; `paywall_builder` survives only as the state value a run that predates Flow Builder support may still carry), `custom`, `observer`, or `none`. Set `integrations` to the array of selected integration keys (e.g. `["amplitude", "appsflyer"]`), or `[]` if none. Set `appPreference` to `existing` or `new`.
 
 Use `AskUserQuestion` for any other quick clarifications throughout the integration (e.g., "Did the build succeed?", "What's your App Store product ID?"). Never ask for values that can be retrieved via CLI.
 
@@ -560,8 +538,6 @@ If the user says they'd rather do it manually, walk them through these five step
 
 Full dashboard walkthrough: `https://adapty.io/docs/quickstart.md`
 
-**State update:** Set `phasesCompleted = 3`.
-
 Proceed to Phase 4 with the values you collected from the CLI output above.
 
 ## Phase 4: Implement — stage by stage
@@ -586,7 +562,6 @@ Follow the platform-specific file for the exact doc URLs and implementation orde
 3. **Verify the checkpoint:**
    - **Build checks** — run yourself via the build tool (xcodebuild, etc.); do not ask the user to build
    - **Visual/functional checks** (e.g. "paywall appears on screen", "purchase dialog triggers") — ask the user to confirm via `AskUserQuestion`
-   - **State update:** If the checkpoint passes, increment `checkpointsPassed` by 1. When all stages in Phase 4 are complete, set `phasesCompleted = 4`.
 4. Only then move to the next stage
 
 Never skip a checkpoint. A failed checkpoint means something is wrong that will cascade.
@@ -594,8 +569,6 @@ Never skip a checkpoint. A failed checkpoint means something is wrong that will 
 **When the last stage's checkpoint passes, the first sandbox purchase is not yours to run — invoke the `purchase-testing` skill.** It preflights the dashboard and the app code through the CLI before anyone opens a browser, so nobody is sent to App Store Connect or Play Console over a placement developer ID that does not match, a placement that is Inactive, or a flow still sitting in `dirty`. Creating store products and connecting the store to Adapty stay here (`references/store-setup-*.md`); that skill routes back when its preflight lands on one of them.
 
 ## Troubleshooting
-
-**State update:** Each time this section is entered, increment `frictionRounds` by 1.
 
 When a checkpoint fails:
 1. Check the stage's **Gotcha** first — covers the most common cause
@@ -625,52 +598,3 @@ curl -s "https://adapty.io/docs/release-checklist.md?ref=skill-<sessionToken>"
 Treat it as a pointer list, not a script — don't narrate it or walk through it line by line, and don't re-verify things already done. Skim it only to pick out a few still-relevant items and their links (e.g. server notifications, privacy policy, going to production), and offer those to the user as a brief "before you ship" list of suggested next steps. Keep it to a few bullets.
 
 **If `migrationSource` is not empty:** before you wrap up, re-read `references/migration.md` section 5 and check the `ADAPTY_SETUP.md` you wrote against it subsection by subsection — every one is mandatory, including the ones whose answer is "nothing to do". The two most often dropped: reconnecting the stores and re-pointing App Store Server Notifications / Google Play RTDN, and the historical data import decision. Add anything missing, with that section's plain `https://adapty.io/docs/<page>` links — no `.md`, no `?ref=` tag, since a human with no copy of this skill reads that document.
-
-Then continue to the feedback step below (if enabled).
-
-## Phase 5: Feedback Delivery
-
-**Ask for consent first**, per Phase 0's Feedback consent rules. Run the rest of this phase only if `feedbackEnabled` is then true.
-
-### Step 1: Ask for rating (only if Phase 4 completed)
-
-If `phasesCompleted` equals 4, call `AskUserQuestion` — in the same message as the consent ask when you can, so it is one question round, not two:
-
-> "How was the integration experience overall?
-> 1 — Painful · 2 — Bumpy · 3 — Okay · 4 — Smooth · 5 — Excellent"
-
-Store the numeric response as `rating`. If `phasesCompleted` is less than 4 (user abandoned early), leave `rating` as `null` and skip this question.
-
-### Step 2: Infer sentiment
-
-Review the conversation history. Classify the overall tone as one of:
-- `positive` — user was cooperative, things went smoothly, no signs of frustration
-- `neutral` — mixed signals, some friction but no strong negative tone
-- `frustrated` — repeated failures, expressions of frustration, many back-and-forth rounds
-
-Set `sentiment` to the result.
-
-### Steps 3 & 4: Send feedback
-
-POST all fields in a single request to Adapty's feedback endpoint. Replace uppercase placeholders with actual collected values:
-
-```bash
-curl -s -X POST "https://feedback-endpoint-eandreeva-twrs-projects.vercel.app/api/sdk-integration-feedback" \
-  -H "Content-Type: application/json" \
-  -d "{\"platform\": \"PLATFORM\", \"paywall_approach\": \"PAYWALL_APPROACH\", \"integrations\": \"INTEGRATIONS_STRING\", \"phases_completed\": PHASES_COMPLETED, \"checkpoints_passed\": CHECKPOINTS_PASSED, \"friction_rounds\": FRICTION_ROUNDS, \"sentiment\": \"SENTIMENT\", \"rating\": RATING_OR_NULL, \"app_id\": APP_ID_OR_NULL, \"migration_source\": MIGRATION_SOURCE_OR_NULL, \"slack_text\": \"[PLATFORM · PAYWALL_APPROACH] Phase PHASES_COMPLETED ✓ · Rating: RATING/5 · Sentiment: SENTIMENT · FRICTION_ROUNDS friction rounds · App: APP_ID\"}"
-```
-
-`INTEGRATIONS_STRING` is a comma-separated string of integration keys, e.g. `amplitude, appsflyer` or left empty.
-`RATING_OR_NULL` is the numeric rating (e.g. `4`) or `null` if not collected.
-If `rating` is null, omit `· Rating: RATING/5` from `slack_text`.
-`APP_ID_OR_NULL` is the `appId` state value as a quoted string (e.g. `"a1b2c3d4"`), or `null` if it was never captured (user abandoned before Phase 3).
-If `appId` is empty/null, send `"app_id": null` and omit ` · App: APP_ID` from `slack_text`.
-`MIGRATION_SOURCE_OR_NULL` is the `migrationSource` state value as a quoted string (e.g. `"revenuecat"`), or `null` for a greenfield integration.
-If `migrationSource` is set, add ` · from MIGRATION_SOURCE` inside the bracketed prefix of `slack_text` — e.g. `[ios · flow_builder · from revenuecat]`; omit it when it is null.
-
-Example with real values:
-```bash
-curl -s -X POST "https://feedback-endpoint-eandreeva-twrs-projects.vercel.app/api/sdk-integration-feedback" \
-  -H "Content-Type: application/json" \
-  -d '{"platform": "ios", "paywall_approach": "flow_builder", "integrations": "amplitude, appsflyer", "phases_completed": 4, "checkpoints_passed": 5, "friction_rounds": 0, "sentiment": "positive", "rating": 4, "app_id": "a1b2c3d4", "migration_source": null, "slack_text": "[ios · flow_builder] Phase 4 ✓ · Rating: 4/5 · Sentiment: positive · 0 friction rounds · App: a1b2c3d4"}'
-```

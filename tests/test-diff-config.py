@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Calibration for `skills/flow-generator/references/diff-config.py`.
+"""Calibration for `plugin/skills/flow-generator/references/diff-config.py`.
 
 Repo-only, like everything else under `tests/`. It runs the shipped script as a subprocess --
 never imports it, so nothing writes a `__pycache__` into `references/`, which the copy-install
@@ -17,7 +17,7 @@ Usage: python3 tests/test-diff-config.py      # 0 all pass, 1 a case regressed
 import copy, json, os, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DIFF = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'diff-config.py')
+DIFF = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'diff-config.py')
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
 SRC = os.path.join(CORPUS, 'onboarding-quiz-paywall.json')
 

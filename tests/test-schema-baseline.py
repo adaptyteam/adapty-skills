@@ -16,7 +16,7 @@ Usage: python3 tests/test-schema-baseline.py    # 0 all pass, 1 a case regressed
 import copy, json, os, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VALIDATOR = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'validate-with-schema.mjs')
+VALIDATOR = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'validate-with-schema.mjs')
 AJV_DIR = os.path.expanduser(os.environ.get('AJV_DIR', '~/.cache/adapty-flow-schema'))
 FIXTURE = os.path.join(ROOT, 'tests', 'fixtures', 'reviews-carousel.json')
 

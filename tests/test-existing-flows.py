@@ -23,7 +23,7 @@ import sys
 
 sys.dont_write_bytecode = True
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-REFS = ROOT / 'skills' / 'migrate-placements' / 'references'
+REFS = ROOT / 'plugin' / 'skills' / 'migrate-placements' / 'references'
 sys.path.insert(0, str(REFS))
 import migrate as m
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for skills/flow-generator/references/flowkit.py.
+"""Tests for plugin/skills/flow-generator/references/flowkit.py.
 
 A shape helper that has drifted from the format is worse than no helper, because it is
 confidently wrong at scale. So this asserts the invariants flowkit exists to guarantee, and
@@ -20,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 # a skills dir installs by plain copy, so a __pycache__ under references/ would SHIP with it
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(ROOT, 'skills', 'flow-generator', 'references'))
+sys.path.insert(0, os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references'))
 
 import flowkit as fk  # noqa: E402
 
@@ -555,7 +555,7 @@ def main():
 
     # and finally: does the published schema accept it? Through the validator the skill ships,
     # run from the ajv cache dir the way gates.sh runs it.
-    validator = os.path.join(HERE, '..', 'skills', 'flow-generator', 'references',
+    validator = os.path.join(HERE, '..', 'plugin', 'skills', 'flow-generator', 'references',
                              'validate-with-schema.mjs')
     ajv_dir = os.path.expanduser(os.environ.get('AJV_DIR', '~/.cache/adapty-flow-schema'))
     if not os.path.isdir(os.path.join(ajv_dir, 'node_modules', 'ajv')):
@@ -1252,7 +1252,7 @@ def main():
     # A catalog template is the builder's own output, in the EXPORT shape. Until from_catalog()
     # existed there was no way to feed one to screen(), so the templates the skill tells agents
     # to prefer were unreachable from the module that assembles the document.
-    _cat = json.load(open(os.path.join(ROOT, 'skills', 'flow-generator', 'references',
+    _cat = json.load(open(os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references',
                                        'component-catalog.json')))
     _by_id = {c['id']: c for c in _cat['components']}
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Calibration for `skills/flow-audit/references/audit-flow.py`.
+"""Calibration for `plugin/skills/flow-audit/references/audit-flow.py`.
 
 Repo-only. Runs the shipped script as a subprocess -- never imports it, so nothing
 writes a `__pycache__` into `references/`, which the copy-install path would ship.
@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-AUDIT = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
+AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
 FIX = os.path.join(ROOT, 'tests', 'fixtures')
 FLOW = os.path.join(FIX, 'onboarding-multilocale.json')
 CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
@@ -1093,7 +1093,7 @@ print('\nlocalization: delegation to verify-config.py (Step 5)')
 # already reported by verify-config.py, per field. `locale_coverage` may COUNT it for
 # the table, but `check_localization` must NOT turn it into a finding of its own --
 # that would duplicate verify-config.py's report.
-VERIFY_CONFIG = os.path.join(ROOT, 'skills', 'flow-generator', 'references',
+VERIFY_CONFIG = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references',
                              'verify-config.py')
 # Dropped in the STORED document (a catalog entry loses its `sr`), since verify-config.py
 # checks what is stored.
@@ -1138,7 +1138,7 @@ for _name in ('comparison-paywall.json', 'onboarding-quiz-paywall.json',
           f'got {len(of(_findings, "locale-entirely-empty"))}')
 
 print('\nperiod vocabulary (direct)')
-VOCAB = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
+VOCAB = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
 for text, want, why in CASES:
     got = subprocess.run(
         [sys.executable, '-c',

@@ -15,7 +15,7 @@ tests/.render/
 
 __pycache__/
 
-# skills.sh install artifacts. An install run INSIDE the repo replaces skills/<name>/ with
+# skills.sh install artifacts. An install run INSIDE the repo replaces plugin/skills/<name>/ with
 # symlinks into .agents/, which git reads as "source deleted, symlink added" — committing that
 # would swap the real skill directories for links to an install cache.
 .agents/

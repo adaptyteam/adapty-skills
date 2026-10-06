@@ -4,7 +4,7 @@
 #      skill (typo'd SDK symbol, dead docs link, new wrapper name outside
 #      the allowlist). Red blocks the merge.
 #
-#      SCOPE: the link lint walks ALL of skills/ (widened 2026-08-28 - it
+#      SCOPE: the link lint walks ALL of plugin/skills/ (widened 2026-08-28 - it
 #      covered adapty-integration alone before, so a green run said nothing
 #      about four of the five skills that ship). The symbol lint verifies
 #      adapty-integration, which is where every SDK symbol lives, and

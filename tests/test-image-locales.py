@@ -36,8 +36,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from v13 import catalogued, localization, values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
-AUDIT = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
+AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
 FLOW = os.path.join(ROOT, 'tests', 'fixtures', 'onboarding-multilocale.json')
 
 URL = 'https://public-media.adapty.io/public/ef/9b/ef9b995d/hero.png'

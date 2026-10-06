@@ -56,9 +56,13 @@ if [ -z "$CHROME" ]; then
 fi
 [ -n "$CHROME" ] || { echo "shoot: no Chrome/Chromium found — set CHROME=/path" >&2; exit 2; }
 
+# The CLI is the one SKILL.md phase 1 resolved: pass it as ADAPTY, or have `adapty` on PATH. This
+# script never launches a package itself, so what runs is always the CLI the run already chose.
 ADAPTY_BIN=${ADAPTY:-}
+if [ -z "$ADAPTY_BIN" ] && command -v adapty >/dev/null 2>&1; then ADAPTY_BIN="adapty"; fi
 if [ -z "$ADAPTY_BIN" ]; then
-  if command -v adapty >/dev/null 2>&1; then ADAPTY_BIN="adapty"; else ADAPTY_BIN="npx --yes adapty@latest"; fi
+  echo "shoot: no Adapty CLI. Install it (npm install -g adapty) or pass the command as ADAPTY=..." >&2
+  exit 2
 fi
 
 # One launch, watchdogged — and it returns the moment the PNG is complete rather than waiting for

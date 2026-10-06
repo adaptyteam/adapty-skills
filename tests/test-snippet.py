@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Calibration for `skills/flow-generator/references/snippet.py`.
+"""Calibration for `plugin/skills/flow-generator/references/snippet.py`.
 
 Repo-only. Most cases run the shipped script as a subprocess. A few properties (object
 identity across a mutation) cannot be observed through a subprocess boundary -- JSON
@@ -15,11 +15,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SNIP = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'snippet.py')
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
+SNIP = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'snippet.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 # a skills dir installs by plain copy, so a __pycache__ under references/ would SHIP with it
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(ROOT, 'skills', 'flow-generator', 'references'))
+sys.path.insert(0, os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references'))
 
 import snippet as sn  # noqa: E402
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')

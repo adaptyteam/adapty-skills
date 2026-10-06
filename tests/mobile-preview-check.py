@@ -31,7 +31,7 @@ from urllib.parse import urlsplit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-SCRIPT = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'mobile-preview.mjs')
+SCRIPT = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'mobile-preview.mjs')
 FIXTURES = os.path.join(HERE, 'fixtures')
 
 APP = '550e8400-e29b-41d4-a716-446655440000'

@@ -30,7 +30,7 @@ import {fileURLToPath} from 'node:url'
 import {DOCS_BASE, fetchLlmsTxt, fetchText, mapLimit} from './shared.mjs'
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url))
-const REFERENCES_DIR = join(SCRIPTS_DIR, '..', 'skills', 'adapty-integration', 'references')
+const REFERENCES_DIR = join(SCRIPTS_DIR, '..', 'plugin', 'skills', 'adapty-integration', 'references')
 const FETCH_CONCURRENCY = 3
 
 /** Non-platform references are linted against the platform they belong to. */
@@ -257,7 +257,7 @@ for (const reference of references) {
 // (`AdaptyPaywall`, `Adapty.getPaywall`) from the domain (`adapty.io`) and the CLI (`adapty asa`).
 const OTHER_SKILLS = ['adapty-attribution', 'adapty-docs', 'ads-manager', 'flow-audit', 'flow-generator', 'migrate-placements', 'onboarding-teardown', 'paywall-teardown', 'purchase-testing']
 const SDK_SYMBOL = /\bAdapty[A-Z][A-Za-z0-9_]+|\bAdapty\.[a-z][A-Za-z0-9_]*/g
-const SKILLS_ROOT = join(SCRIPTS_DIR, '..', 'skills')
+const SKILLS_ROOT = join(SCRIPTS_DIR, '..', 'plugin', 'skills')
 
 async function mdFiles(dir) {
   const out = []
