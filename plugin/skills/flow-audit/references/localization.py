@@ -499,8 +499,13 @@ def resolve(flow):
     # that walks the whole document must not meet each one a second time in the catalog.
     lz = view.pop('localization')
     content = lz.get('content') if _rec(lz.get('content')) else {}
-    view.setdefault('locales', lz.get('locales'))
-    view.setdefault('defaultLocale', lz.get('defaultLocale'))
+    # The catalog is authoritative. A saved document also carries the legacy top-level fields,
+    # echoed by the server as `locales: []` and a bare `defaultLocale`; letting those win reads
+    # every declared locale as gone. Fall back to them only where the catalog says nothing.
+    if lz.get('locales') is not None:
+        view['locales'] = lz.get('locales')
+    if lz.get('defaultLocale') is not None:
+        view['defaultLocale'] = lz.get('defaultLocale')
 
     def inline(ref):
         e = content.get(ref['_lid'])

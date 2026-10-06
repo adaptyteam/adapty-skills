@@ -170,6 +170,23 @@ d['defaultLocale'] = d['localization'].pop('defaultLocale')
 del d['localization']
 fires('a pre-catalog document is refused, with the way through', d, 'pre-catalog document')
 
+# `config update` echoes the legacy top-level fields back on every saved document: an empty
+# `locales` and the catalog's own default. The transform service ignores both, so that shape is
+# every fetched config and must not fail the gate; a top-level copy that says more is a defect.
+d = copy.deepcopy(multi)
+d['locales'] = []
+d['defaultLocale'] = d['localization']['defaultLocale']
+check('the server echo of the legacy locale fields is silent',
+      'top-level' not in verify(d), verify(d)[-400:])
+
+d = copy.deepcopy(multi)
+d['locales'] = [{'id': 'de', 'code': 'de', 'name': 'German'}]
+fires('a locale written to the top-level copy, where nothing reads it', d, 'top-level `locales`')
+
+d = copy.deepcopy(multi)
+d['defaultLocale'] = 'zz'
+fires('a top-level defaultLocale disagreeing with the catalog', d, 'top-level `defaultLocale`')
+
 d = copy.deepcopy(multi)
 first_text(d)['props']['content'] = {'_localizable': True, 'values': {'en': P('graft')}}
 fires('an inline value left in a catalogued document', d, 'still inline')

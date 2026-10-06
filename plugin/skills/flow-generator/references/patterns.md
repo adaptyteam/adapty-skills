@@ -826,7 +826,7 @@ nodes = fk.from_catalog(entry, group_id='plans', items=[
 ```
 
 Read the rest of this section when the catalog shape does not fit — a comparison layout, a single
-hidden attach point, cards that are not a vertical list. This is the commonest paywall shape there
+plan written as plain copy, cards that are not a vertical list. This is the commonest paywall shape there
 is and the one most likely to be rebuilt from scratch, and rebuilding it is where the dead
 selected state comes from. Radio and product-card shapes below are lifted from
 `tests/fixtures/onboarding-quiz-paywall.json` (a real export); the assembly is **verified by
@@ -967,51 +967,49 @@ The rule generalises: **`propsByState` restyles an element, it does not suppress
 it.** Anything with children needs `visibility` — and hiding collapses the layout, so reserve the
 space deliberately (trap 14 in [flow-schema.md](flow-schema.md)).
 
-### A single-plan screen: hide the product element, buy with `const`
+### A single-plan screen: the plan's text block is the product
 
-One product means there is nothing to pick, and a lone `product` card is worse than no card: it
-carries a permanent `selected` look the user cannot change, so the styling says "choice" while the
-screen offers none.
-
-The shape that avoids it uses each mechanism for the one thing it is for:
+A screen that sells one plan usually shows no card at all — just copy: the plan's name, the
+price, the period, a trial line. **That text block is the product.** Recognize it as one even
+when nothing about it looks like a card, and wrap it in the `product` element:
 
 ```json
-{ "id": "el_attachPoint", "type": "product", "caption": "Product attach point (hidden)",
-  "props": {"width": {"type": "hug"}, "height": {"type": "hug"},
-            "visibility": {"type": "hidden"},
+{ "id": "el_plan", "type": "product", "caption": "Plan",
+  "props": {"width": {"type": "fill"}, "height": {"type": "hug"},
             "groupId": "plans", "default": true,
             "product": {"id": "<product-uuid>"}, "layout": {…}, "position": {"type": "relative"}},
   "states": [{"id": "selected", "type": "system"}] }
 ```
+
+Its children are the text elements the reference shows — `Premium`, `<uuid>.prod_price / year`,
+and so on — laid out and styled exactly as the reference has them. `flowkit.single_plan(children,
+product_id=…, group_id=…)` emits it and refuses an empty block.
+
+The CTA buys the element's selection, exactly as on a multi-plan screen — `flowkit.purchase("plans")`:
+
 ```json
 "interactions": [{"id": "int_buy", "trigger": "tap", "actions": [
   {"id": "act_buy", "type": "purchase",
-   "payload": {"product": {"type": "const", "value": {"id": "<product-uuid>"}}}}]}]
+   "payload": {"product": {"type": "var", "variableId": "plans.selectedProduct"}}}]}]
 ```
 
-- The **hidden `product` element is the attach point**, and it exists for one reason: a price
-  variable resolves only against a declared product, and only a `product` element can be
-  attached to. Hidden costs nothing — hiding collapses the space (trap 14) — and the price then
-  lives in ordinary copy anywhere on the screen.
-- **`height` is `hug`, never `fixed: 0`.** A `{"type": "fixed", "value": 0}` saves fine and kills
-  the element on device; `verify-config.py` **errors** on it under trap 15. `visibility: hidden`
-  already collapses the space, so a zero height buys nothing and trips a real gate.
-- The **CTA buys with `const`**, which names the product directly and needs no group and no
-  selection. Both facts, with their evidence, are
-  [products.md → a price variable REQUIRES a `product` element](products.md) and
-  [→ a purchase can bind a product with no `product` element](products.md).
+- **Never an empty or hidden `product` beside the copy.** The builder draws a childless `product`
+  as a 1x1 box that breaks the layout around it and is hard to find and delete, while
+  `config preview` collapses it — so the screen looks right until the user opens the builder.
+  `verify-config.py` warns on one.
+- **No `propsByState.selected`.** The element starts selected and there is nothing to pick, so
+  it must not look pickable: style it in its base props and it draws exactly like the plain
+  stack it replaces.
+- The price variables sit **inside** the element's subtree, which is where every price variable
+  sits in the real export that uses them ([products.md](products.md)).
+- **The CTA buys `<group>.selectedProduct`, never a `const` id.** `default: true` makes the one
+  card the selection, so the product is named in one place: swap it on the card in the builder
+  and the button follows. A `const` names it twice, and the button keeps buying the old one. The
+  one real single-card export does exactly this, and no real export pairs a `const` purchase with
+  a `product` element on the same screen — `const` is for a screen with no `product` element at
+  all ([products.md](products.md)). `verify-config.py` warns on the mix.
 - Keep the `selectableGroups` entry and the element's `groupId` in agreement even though nothing
   reads the selection — the invariant is bidirectional and a stray `groupId` fails verify.
-
-**Verified by render**, and it is what a reviewer asked for over a visible single card. Evidence
-tier, stated plainly because this file's own ordering demands it: **no real export contains a
-hidden attach point at all** — every `product` element across the corpus is a visible plan card
-(`hug` height, `fill` width, no `visibility`), so this composition is authored, not observed. The
-two halves it is built from *are* attested separately: `hug` is what every real `product` element
-uses, and `visibility: hidden` appears on real builder output elsewhere in the corpus. What is
-*not* yet verified: whether the builder declares a product on a **hidden** element when it saves.
-Declare it with `flowkit.predeclare()` to cover device preview meanwhile, and check the
-live `_meta.screens` after the flow has been saved in the builder once before relying on it.
 
 ### Plans in a `bottom-sheet`
 
