@@ -44,7 +44,7 @@ Resolve `$ADAPTY` once:
 
 ```bash
 ADAPTY="npx --yes adapty@latest"
-$ADAPTY auth status
+$ADAPTY auth whoami
 ```
 
 **This skill installs nothing, which is the one place it differs from every other skill
@@ -60,9 +60,14 @@ says so.** If
 without it npx asks permission to install an uncached package, and a headless run has
 nobody to answer. In `zsh` a multi-word `$ADAPTY` is not word-split, so run
 `setopt shwordsplit` once in the same shell; `command not found: npx --yes adapty@latest`
-is that shell problem, never a missing CLI. If `auth status` shows no
-session, stop and tell the user to run `adapty auth login` — this skill cannot
-authenticate for them.
+is that shell problem, never a missing CLI.
+
+**Gate on `auth whoami`, never on `auth status`.** `whoami` hits the server, so a clean
+answer proves the token works. `status` reads local state and verifies nothing — it has
+reported `Not authenticated`, at exit 0, for a session authenticated through
+`ADAPTY_TOKEN`, which stops a headless run that every command below it would have
+served. If `whoami` fails, stop and tell the user to run `adapty auth login` — this
+skill cannot authenticate for them.
 
 Resolve the app:
 

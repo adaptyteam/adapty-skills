@@ -16,7 +16,7 @@ returns — **the same namespace, verified**: a UUID taken out of a real flow ex
 through `adapty products get`, returning that product's title, period and store bindings.
 
 ```
-$ADAPTY auth status                             # local only, no network
+$ADAPTY auth whoami                             # verifies the token server-side
 $ADAPTY apps list --json
 $ADAPTY products list --app <UUID> --json       # --page-size max 100, default 20
 $ADAPTY products get <PRODUCT_UUID> --app <UUID> --json
