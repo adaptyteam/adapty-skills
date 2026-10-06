@@ -216,6 +216,14 @@ assert any(recolour_and_translate(sc['elements']['map'], b['localization']['cont
            for sc in b['screens']), 'fixture drifted'
 case('changes: a prop edited beside an added locale', D, b, 0, 0, 1, 2)
 
+# A saved catalog document also carries the legacy top-level fields, echoed by the server as an
+# empty `locales: []` beside `defaultLocale`. The catalog's own locales are authoritative; when
+# the empty legacy list won, every declared locale read as removed on the round trip.
+b = copy.deepcopy(D)
+b['locales'] = []
+b['defaultLocale'] = D['localization']['defaultLocale']
+case('silent: server-echoed empty legacy locales after a save', D, b, 0, 0, 0, 0)
+
 # --- The same path twice must be refused, never reported as clean ------------------------
 r = subprocess.run([sys.executable, DIFF, SRC, SRC], capture_output=True, text=True)
 ok = r.returncode == 2 and 'same file' in r.stdout

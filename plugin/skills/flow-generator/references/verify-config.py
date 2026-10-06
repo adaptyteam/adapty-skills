@@ -664,10 +664,19 @@ def catalog_findings(raw):
         bad.append(f'schemaVersion is {raw.get("schemaVersion")!r} on a catalogued document — '
                    f'it must be the number {_loc.SCHEMA_VERSION}. A lower number makes the builder '
                    f're-run migrations over shapes it has already produced')
-    for k in ('locales', 'defaultLocale'):
-        if k in raw:
-            bad.append(f'top-level `{k}` beside `localization` — it lives under '
-                       f'`localization.{k}` only; delete the top-level copy')
+    # The top-level `locales`/`defaultLocale` are legacy fields the transform service does not read
+    # on a catalogued document. `config update` echoes them back itself as `locales: []` and the
+    # catalog's default, so that shape is every saved document, not a defect. A top-level copy
+    # that says something the catalog does not is one: a locale written there is read by nothing.
+    lz_ = raw.get('localization') if isinstance(raw.get('localization'), dict) else {}
+    if raw.get('locales') not in (None, []):
+        bad.append('top-level `locales` beside `localization` carries entries, and nothing reads '
+                   'it — locales live under `localization.locales` only. Move any locale you '
+                   'meant to add there and empty the top-level copy')
+    if 'defaultLocale' in raw and raw['defaultLocale'] != lz_.get('defaultLocale'):
+        bad.append(f'top-level `defaultLocale` is {raw["defaultLocale"]!r} but '
+                   f'`localization.defaultLocale` is {lz_.get("defaultLocale")!r} — only the '
+                   f'latter is read. Set the default there')
 
     locs = [l for l in (lz.get('locales') or []) if isinstance(l, dict)]
     ids = [l.get('id') for l in locs if isinstance(l.get('id'), str)]
@@ -2127,6 +2136,61 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'identical and nothing carries `propsByState.selected`, so a user cannot '
                     f'tell which one is selected. If the design marks selection some other way '
                     f'(a radio dot with its own state) this is fine. Members: {names}')
+    # A `product` ELEMENT WITH NOTHING IN IT. The single-plan shape where the plan's name and price
+    # are loose text beside an empty (often hidden) `product` "attach point". The builder draws the
+    # empty element as a 1x1 box the user has to find and delete by hand, and it breaks the layout
+    # around it — while `config preview` collapses it and draws the screen clean. The text that
+    # describes the plan IS the product: wrap it in the `product` element. Zero real exports and
+    # zero catalog templates contain a childless `product`, so this is never builder output.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+
+        def _empty_products(n):
+            if (m.get(n.get('id'), {}).get('type') == 'product'
+                    and not n.get('children')):
+                warn.append(
+                    f'screen {s["id"]}: {n["id"]} is a `product` element with no children. The '
+                    f'builder shows it as a 1x1 box that breaks the layout, and the preview hides '
+                    f'it. Move the text that names and prices the plan INSIDE this element and '
+                    f'delete the empty one — on a single-plan screen that text block is the '
+                    f'product. See patterns.md, "A single-plan screen"')
+            for c in n.get('children') or []:
+                _empty_products(c)
+        _empty_products(s['elements']['hierarchy'])
+
+    # A `const` PURCHASE OF A PRODUCT A `product` ELEMENT ON THE SAME SCREEN ALREADY BINDS. The
+    # product is then named twice: swap it on the card in the builder and the button keeps buying
+    # the old one, with nothing on screen to show it. A screen with a `product` element buys
+    # `<group>.selectedProduct` -- the one real single-card export does, even with one card -- and
+    # `const` is for a screen with no `product` element. Zero real exports mix the two.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+        bound = {}
+        for k, e in m.items():
+            if e.get('type') == 'product':
+                pid = ((e.get('props') or {}).get('product') or {}).get('id')
+                if pid:
+                    bound[pid] = (e.get('props') or {}).get('groupId')
+
+        def _const_buys(o, eid=None):
+            if isinstance(o, dict):
+                if o.get('type') == 'purchase':
+                    p = (o.get('payload') or {}).get('product') or {}
+                    pid = (p.get('value') or {}).get('id') if p.get('type') == 'const' else None
+                    if pid in bound:
+                        warn.append(
+                            f'screen {s["id"]}: {eid} buys product {pid} by `const` while a '
+                            f'`product` element on this screen binds the same product. Buy '
+                            f'`{bound[pid]}.selectedProduct` instead — named twice, swapping the '
+                            f'product on the card in the builder leaves this button buying the '
+                            f'old one. See patterns.md, "A single-plan screen"')
+                for v in o.values():
+                    _const_buys(v, eid)
+            elif isinstance(o, list):
+                for v in o:
+                    _const_buys(v, eid)
+        for k, e in m.items():
+            _const_buys(e.get('interactions'), k)
     # ---- conditions the transform service compiles: shape, then variable resolution.
     # Both are hard 422s and neither is visible to any other gate — the schema types a
     # condition loosely and `config preview` renders the element in whichever state it draws.

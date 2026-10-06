@@ -1013,23 +1013,38 @@ def main():
     check('...while a childless timer with NO action stays legal (a decorative countdown)',
           fk.timer([], custom_id='d', seconds=3)['type'] == 'timer')
 
-    # ---- attach_point(): the single-plan hidden product element.
-    # patterns.md spelled this skeleton with `height: fixed 0` until 2026-09-02 -- the exact shape
-    # verify-config.py errors on under trap 15 -- and flowkit exposed no helper, so it was
-    # hand-assembled from that skeleton every time. Both halves of finding 12 in one place.
-    _ap = fk.attach_point(product_id='p-uuid', group_id='plans')
-    check('attach_point is a product element',
-          _ap['type'] == 'product')
-    check('attach_point height is hug, NEVER fixed 0 (trap 15)',
-          _ap['props']['height'] == {'type': 'hug'})
-    check('attach_point is hidden — that is what collapses the space',
-          _ap['props']['visibility'] == {'type': 'hidden'})
-    check('attach_point binds the product and the group',
-          _ap['props']['product'] == {'id': 'p-uuid'} and _ap['props']['groupId'] == 'plans')
-    check('attach_point is the group default — a lone member must be selected',
-          _ap['props']['default'] is True)
-    check('attach_point carries the selected system state like any group member',
-          _ap['states'] == [{'id': 'selected', 'type': 'system'}])
+    # ---- single_plan(): on a one-plan screen the plan's text block IS the product element.
+    # The old attach_point() emitted an empty hidden `product` beside loose price text; the
+    # builder draws that as a 1x1 box that breaks the layout, and the preview collapses it.
+    _name = fk.text(fk.rich('Premium'))
+    _sp = fk.single_plan([_name], product_id='p-uuid', group_id='plans')
+    check('single_plan is a product element',
+          _sp['type'] == 'product')
+    check('single_plan holds the plan text as its children',
+          _sp['_children'] == [_name])
+    check('single_plan binds the product and the group, and starts selected',
+          _sp['props']['product'] == {'id': 'p-uuid'} and _sp['props']['groupId'] == 'plans'
+          and _sp['props']['default'] is True)
+    check('single_plan carries no selected look — there is nothing to pick',
+          'propsByState' not in _sp)
+    _e = None
+    try:
+        fk.single_plan([], product_id='p-uuid', group_id='plans')
+    except ValueError as e:
+        _e = str(e)
+    check('single_plan refuses an empty block, naming the 1x1 box', _e and '1x1' in _e)
+    _e = None
+    try:
+        fk.single_plan([_name], product_id='p-uuid', group_id='plans', visibility=fk.hidden())
+    except ValueError as e:
+        _e = str(e)
+    check('single_plan refuses to be hidden', _e and 'visibility' in _e)
+    _e = None
+    try:
+        fk.attach_point(product_id='p-uuid', group_id='plans')
+    except ValueError as e:
+        _e = str(e)
+    check('attach_point raises and points at single_plan', _e and 'single_plan' in _e)
 
     # --- id hygiene: the ids that become identifiers in the generated script ---------------
     #

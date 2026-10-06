@@ -1347,31 +1347,42 @@ def product(children=(), *, product_id, group_id, default=False, offer_id=None, 
     return node
 
 
-def attach_point(*, product_id, group_id, element_id=None):
-    """The hidden `product` element a single-plan screen attaches its product to.
+def single_plan(children, *, product_id, group_id, offer_id=None, **kw):
+    """A single-plan screen's product: the block of text that names and prices the plan.
 
-    One product means there is nothing to pick, and a visible lone card carries a permanent
-    `selected` look the user cannot change. But a price variable resolves only against a declared
-    product and only a `product` element can be attached to -- so the element exists, hidden, and
-    the price lives in ordinary copy. See patterns.md, "A single-plan screen".
+    On a screen that sells one plan, the copy describing it -- name, price, period, trial line --
+    IS the product. Wrap it in the `product` element so the price variables resolve against a
+    product the element itself declares. Never put an empty or hidden `product` beside that copy:
+    the builder draws a childless one as a 1x1 box that breaks the layout, and `config preview`
+    collapses it, so the screen looks right until the user opens it in the builder.
 
-    `height` is `hug`, never `fixed: 0`. `visibility: hidden` already collapses the space, and a
-    zero height is the shape `verify-config.py` errors on (trap 15: it saves fine and kills the
-    element on device). patterns.md spelled this skeleton with `fixed: 0` until 2026-09-02, and an
-    agent following it hit that error -- which is also why this helper exists at all: the shape was
-    hand-assembled every time because nothing emitted it.
+    The element starts selected (`default: True`) and carries no `propsByState.selected`, so it
+    looks exactly like the plain stack it replaces: there is nothing to pick, so it must not look
+    pickable. Style it in its base props, as the reference shows it.
 
-    Evidence tier, since this file's callers rely on it: the composition is AUTHORED, not observed.
-    No real export contains a hidden attach point. Its two halves are attested separately -- `hug`
-    is what every real `product` element uses, and `visibility: hidden` occurs on real builder
-    output elsewhere in the corpus.
+    The CTA buys `purchase(group_id)` -- the selection, which this element is by default -- never
+    a `const` id. A `const` names the product a second time, so swapping it on the card in the
+    builder leaves the button buying the old one. See patterns.md, "A single-plan screen".
     """
-    node = product((), product_id=product_id, group_id=group_id, default=True,
-                   width='hug', height='hug', visibility=hidden())
-    node['props']['caption'] = 'Product attach point (hidden)'
-    if element_id:
-        node['id'] = element_id
-    return node
+    if not children:
+        raise ValueError(
+            'single_plan() needs the text that describes the plan as its children -- the name, '
+            'the price, the period. An empty `product` element is a 1x1 box in the builder that '
+            'breaks the layout around it.')
+    if kw.get('visibility') is not None:
+        raise ValueError(
+            'single_plan() is the visible plan block, so it takes no `visibility`. Hiding it hides '
+            'the plan copy with it.')
+    return product(children, product_id=product_id, group_id=group_id, default=True,
+                   offer_id=offer_id, **kw)
+
+
+def attach_point(**_):
+    """Removed: an empty hidden `product` element breaks the builder layout. Use `single_plan()`."""
+    raise ValueError(
+        'attach_point() is gone. A childless `product` element is a 1x1 box in the builder that '
+        'breaks the layout around it. Wrap the plan text instead: '
+        'single_plan([name, price, ...], product_id=..., group_id=...).')
 
 
 # The only group types real exports declare. A tab group is `single_choice`; there is no
