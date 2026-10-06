@@ -315,6 +315,46 @@ def expr_var_ids(o, out):
     return out
 
 
+def rich_var_ids(o, out):
+    """Every rich-text `variable` node's id in a subtree (not expression `var` operands)."""
+    if isinstance(o, dict):
+        if (o.get('type') == 'variable' and isinstance(o.get('attrs'), dict)
+                and isinstance(o['attrs'].get('variableId'), str)
+                and o['attrs'].get('productRef') is None):
+            out.add(o['attrs']['variableId'])
+        for v in o.values():
+            rich_var_ids(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            rich_var_ids(v, out)
+    return out
+
+
+# Custom tag names. Kept identical to `flowkit.RESERVED_TAG_NAMES` -- a test ties the two.
+RESERVED_TAG_NAMES = frozenset({
+    'TITLE', 'DESCRIPTION', 'PRICE', 'PRICE_AMOUNT', 'PRICE_AMOUNT_INTEGER',
+    'PRICE_AMOUNT_FRACTION', 'CURRENCY_CODE', 'CURRENCY_SYMBOL', 'PRICE_PER_DAY',
+    'PRICE_PER_WEEK', 'PRICE_PER_MONTH', 'PRICE_PER_YEAR', 'SUBSCRIPTION_PERIOD', 'OFFER_PRICE',
+    'OFFER_PERIOD', 'OFFER_NUMBER_OF_PERIOD', 'OFFER_PRICE_PER_DAY', 'OFFER_PRICE_PER_WEEK',
+    'OFFER_PRICE_PER_MONTH', 'OFFER_PRICE_PER_YEAR', 'PERCENT', 'TIMER', 'VALUE', 'PROD_TITLE',
+    'PROD_PRICE', 'PROD_PRICE_PER_DAY', 'PROD_PRICE_PER_WEEK', 'PROD_PRICE_PER_MONTH',
+    'PROD_PRICE_PER_YEAR', 'OFFER_BILLING_PERIOD', 'OFFER_FULL_DURATION',
+})
+TAG_NAME_RE = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
+TAG_VALUE_TYPES = ('string', 'number', 'boolean')
+
+
+def tag_name_issue(name):
+    if not name:
+        return 'empty'
+    if not (isinstance(name, str) and TAG_NAME_RE.fullmatch(name)):
+        return 'invalid'
+    upper = name.upper()
+    if upper in RESERVED_TAG_NAMES or upper.startswith('TIMER_'):
+        return 'reserved'
+    return None
+
+
 # Required payload fields per action type, read off the transform service's own error
 # messages in `compile-actions.ts` rather than from the schema, which is looser than the
 # service on every row. `invalid_action_payload` is one code covering all of them.
@@ -2156,6 +2196,89 @@ def check(path, baseline_text=None, baseline_images=None):
                    f'selectableGroup, bound product or variables[] entry produces it. The '
                    f'generated script emits it as a bare identifier and fails to compile '
                    f'(script_type_violation, TS2304)')
+
+    # ---- custom tags: `variables[]` entries with `external: true`, whose value the app supplies.
+    # The name is the contract with the app's code and publishes as an SDK tag, so the two
+    # errors mirror the transform service's own (`custom_tag_invalid_name`,
+    # `custom_tag_duplicate_name`). The two warnings mirror its `external_variable_in_logic` and
+    # `custom_tag_in_script_context`: both publish, and both are wrong for every user on a device.
+    tag_vars = [v for v in (d.get('variables') or [])
+                if isinstance(v, dict) and v.get('external') is True]
+    tag_name = {v.get('id'): v.get('name') for v in tag_vars
+                if v.get('valueType') in TAG_VALUE_TYPES}
+    for v in tag_vars:
+        if v.get('valueType') not in TAG_VALUE_TYPES:
+            warn.append(f'variable {v.get("name")!r} carries external: true but is a '
+                        f'{v.get("valueType")!r}; only string, number and boolean variables can '
+                        f'come from the app, so the flag is ignored and the app cannot set it')
+            continue
+        issue = tag_name_issue(v.get('name'))
+        if issue:
+            bad.append(f'custom tag name {v.get("name")!r} is {issue} (custom_tag_invalid_name): '
+                       f'letters, digits, `_`, `-` and dots between parts, and not a tag the SDK '
+                       f'resolves itself (PRICE, TITLE, PERCENT, VALUE, TIMER_*, ...)')
+    all_names = [v.get('name') for v in (d.get('variables') or []) if isinstance(v, dict)]
+    for n in sorted({n for n in tag_name.values() if all_names.count(n) > 1}):
+        bad.append(f'custom tag name {n!r} is also used by another variable '
+                   f'(custom_tag_duplicate_name): both publish as the same SDK tag, so the app '
+                   f'value overrides the other one wherever it is used')
+    locs = [l.get('code') if isinstance(l, dict) else l for l in (d.get('locales') or [])]
+    if len(locs) > 1:
+        for v in tag_vars:
+            if (v.get('valueType') == 'string' and isinstance(v.get('value'), str)
+                    and re.search(r'[^\W\d_]', v['value'])):
+                warn.append(f'custom tag {v.get("name")!r} has the fallback {v["value"]!r} on a flow '
+                            f'with {len(locs)} locales. The fallback is one per variable, so every '
+                            f'locale shows these words untranslated — use an empty string or a number '
+                            f'and build the sentence to read without it')
+    empty_tags = {v.get('id') for v in tag_vars if v.get('value') in ('', None)}
+    gapped = set()
+
+    def _gap(content, eid, where):
+        for i, node in enumerate(content or []):
+            if not (isinstance(node, dict) and node.get('type') == 'variable'
+                    and (node.get('attrs') or {}).get('variableId') in empty_tags):
+                continue
+            prev = content[i - 1] if i else None
+            nxt = content[i + 1] if i + 1 < len(content) else None
+            if ((where, eid) not in gapped and isinstance(prev, dict)
+                    and str(prev.get('text', '')).endswith(' ')
+                    and isinstance(nxt, dict) and str(nxt.get('text', '')).startswith(' ')):
+                gapped.add((where, eid))
+                warn.append(f'{where}: {eid} puts custom tag '
+                            f'{tag_name.get(node["attrs"]["variableId"])!r}, whose fallback is empty, '
+                            f'between two spaces — without the app value the line shows a double '
+                            f'space. Move the tag to the start of the line or after a colon')
+                return
+
+    def _paragraphs(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'paragraph' and isinstance(o.get('content'), list):
+                yield o['content']
+            for x in o.values():
+                yield from _paragraphs(x)
+        elif isinstance(o, list):
+            for x in o:
+                yield from _paragraphs(x)
+    if empty_tags:
+        for where, eid, e in iter_elements(d):
+            for para in _paragraphs(e.get('props') or {}):
+                _gap(para, eid, where)
+    if tag_name:
+        for where, eid, e in iter_elements(d):
+            logic = expr_var_ids(e, set()) & tag_name.keys()
+            script = rich_var_ids(e.get('interactions') or [], set()) & tag_name.keys()
+            if logic:
+                warn.append(f'{where}: {eid} reads custom tag(s) '
+                            f'{sorted(tag_name[i] for i in logic)} in logic (a condition, '
+                            f'conditional text or setVariable). Logic sees only the Initial value, '
+                            f'never the app value, so on a device it goes the same way for every '
+                            f'user. A custom tag can only be shown in text')
+            if script:
+                warn.append(f'{where}: {eid} puts custom tag(s) '
+                            f'{sorted(tag_name[i] for i in script)} inside an interaction (an '
+                            f'alert, a URL), where the app value is unavailable and the SDK '
+                            f'writes an empty string')
 
     # ---- action payloads. One code, sixteen required-field checks in the service; these are
     # the ones a config can be read for. The schema is looser than the service on every row.

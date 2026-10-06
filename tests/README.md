@@ -102,6 +102,7 @@ python3 tests/test-id-hygiene.py                                         # id ch
 python3 tests/test-color-shape.py                                        # every IColor is hex or color-style
 python3 tests/test-customid-analytics.py                                 # the customId an input/option reports under
 python3 tests/test-video-element.py                                      # the unset video + its fixed height, and the catalog contract
+python3 tests/test-custom-tags.py                                        # custom tags: names, duplicates, logic and script-context use
 python3 tests/test-sliding-sheet.py                                      # the sheet's root/singleton placement, startPosition, footer placement, taps in the cover band
 python3 tests/test-image-preview.py                                      # previewValue on an image this draft added, both binding shapes
 python3 tests/test-product-template.py                                   # the plan-card catalog entry, and from_catalog

@@ -220,7 +220,7 @@ invariants above, and is still wrong. This table is the index into them.
 
 The numbers are this file's addressing scheme: other files, and two checker messages in
 `verify-config.py` and `render-check.py`, cite them as **trap N**. They are therefore stable — a
-trap is never renumbered, a new one takes the next free number (**25**), and a new trap with no
+trap is never renumbered, a new one takes the next free number (**26**), and a new trap with no
 row here is unreachable, because the number is the only address anyone cites.
 
 | trap | the thing that parses and is still wrong |
@@ -254,6 +254,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 22 | Which group types a conditional can read — and the one action that does not work |
 | 23 | A `phosphor` icon resolves from the renderer's own bundle, and `raw` does not override it |
 | 24 | A `{_lid}` names an entry of THIS flow's catalog — never copy a ref between flows |
+| 25 | A value only the app knows is a custom tag — shown in text, never read by logic |
 
 ### 1. A localizable field is a ref, and its entry's `kind` decides the value shape
 
@@ -382,8 +383,9 @@ Do not add a `preset` to the second form to make it look like the first.
 
 ### 4. Built-in variables are referenced but never declared
 
-`variables[]` holds custom app-supplied variables only. These four families are used by
-`variableId` and appear in no declaration anywhere in the file:
+`variables[]` holds only the variables the author created: flow-owned ones, and custom tags
+(`external: true`, [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
+These four families are used by `variableId` and appear in no declaration anywhere in the file:
 
 | Reference | Produced by |
 | :--- | :--- |
@@ -426,12 +428,10 @@ The group id is not fixed at `products` — it is whatever that screen's `select
 declares. The corpus uses `products`; a live builder screen used `products2`. Read it from the
 file.
 
-**Unknown:** how a *custom* `variables[]` entry is referenced from a `variableId` — by its `id`
-(`var_ddvg4jeg`) or by its `name` (`app.permission.location.allowed`). The corpus cannot
-settle it: the one declared custom variable is read nowhere — that is the second warning under
-[Invariants](#invariants), and it is why this is unobservable. Do
-not introduce a reference to a custom variable on a guess; if a transform needs one, say the
-form is unverified and let the user wire it in the Flow Builder.
+**A `variables[]` entry is referenced by its `id`, never its `name`** — in a rich-text
+`variable` node (`attrs.variableId: "var_user_name"`) and in a condition operand
+(`{"type": "var", "variableId": "var_is_vip"}`) alike. The `name` is what the builder shows and,
+for a custom tag, what the app's code passes; the document never points at it.
 
 The JSON's names are not the dashboard's names. [Element
 variables](https://adapty.io/docs/onboarding-variables.md) documents the UI as offering
@@ -889,6 +889,107 @@ value into the destination, and run `localization.py catalog` over it. That mint
 destination's own. The same holds inside one flow when you duplicate an element: the copy shares
 the original's entry until you give it one of its own (`localization.copy_entry()`), and editing
 either then edits both.
+
+
+### 25. A value only the app knows is a custom tag — shown in text, never read by logic
+
+**Before reaching for one, check the flow does not already know the value.** A name the user typed
+on an earlier screen is `<inputCustomId>.value`, an answer is `<groupId>.selectedOptionId` (trap 4)
+— both readable on any later screen with no app code. A custom tag is for what only the app has.
+
+Users rarely say "custom tag". They say *greet them by name*, *show their coin balance*, *how many
+days are left on their streak*, *their level*, *the plan they are on*, *the city we detected* —
+anything the **app** knows and the flow cannot work out by itself. That is one construct: a
+`variables[]` entry with `external: true`, shown through an ordinary rich-text `variable` node.
+
+```json
+"variables": [
+  {"id": "var_user_name", "name": "user_name", "valueType": "string",
+   "value": "there", "external": true}
+]
+```
+
+```json
+{"type": "paragraph", "content": [
+  {"type": "text", "text": "Hi, ", "attrs": {}},
+  {"type": "variable", "attrs": {"variableId": "var_user_name"}},
+  {"type": "text", "text": "!", "attrs": {}}
+]}
+```
+
+| Field | What it is |
+| :--- | :--- |
+| `name` | **The contract with the app's code.** The SDK looks the value up by this exact, case-sensitive string. Letters, digits, `_`, `-`, and dots between parts (`user.coins`). Not a name the SDK resolves itself — `PRICE`, `TITLE`, `PERCENT`, `VALUE`, `TIMER_*` and the rest of the product tags are refused (`custom_tag_invalid_name`). Unique across **all** variables, flow-owned ones included (`custom_tag_duplicate_name`) |
+| `valueType` | `string`, `number` or `boolean` only. On an array or product variable `external` is ignored |
+| `value` | **The fallback.** Every string carrying the tag ships with a copy that has the tag replaced by this value, and the SDK shows that copy whenever the app does not supply one — an older app build, a missing attribute, a resolver not wired yet. It is also what the builder preview draws |
+| `external` | `true`. Absent means a flow-owned variable |
+| `description` | Optional, builder-only note for the author |
+
+Three things that parse and are still wrong:
+
+- **Logic sees the fallback, never the app's value.** A condition, conditional text, a
+  `setVariable` — any `{"type": "var"}` operand naming a custom tag compiles against the
+  Initial value, so on a device the branch goes the same way for every user. The service warns
+  (`external_variable_in_logic`) and publishes. So *show the VIP block when the app says they are
+  VIP*, *skip the notifications screen if permission is already granted*, *a different paywall
+  for users from the US* are **not** buildable with a custom tag: say so, and offer what works
+  today — a separate flow per segment behind the placement's audiences, or a `custom` action the
+  app handles. Never wire it and let it look done.
+- **Inside an interaction it is empty.** A tag in an `alert` title or message, or in a URL, is
+  written as an empty string (`custom_tag_in_script_context`). Text elements only.
+- **A fallback that does not read as copy ships as broken copy.** An empty fallback renders
+  "Hi, !" for everyone the app does not cover. Write the fallback inside the sentence around it
+  ("Hi, there!", "You have your coins to spend" is wrong — "You have coins to spend" is right,
+  so restructure the sentence rather than force a noun in). Show the line with the fallback in
+  the preview, because that is exactly what those users will see.
+
+**Every locale carries its own `variable` node.** Translating the sentence keeps the node; a
+locale that dropped it shows no value at all there.
+
+**On a flow with more than one locale, the fallback is shown in every one of them, so it holds no
+words** — an empty string or a number, never "Traveler" or "travel credits", which reach a Serbian
+user as English in the middle of a Serbian sentence. An empty fallback then needs a sentence built
+for it: put the tag where nothing is left dangling — the start of a line that still reads without
+it, or after a colon — because mid-sentence it leaves a double space ("You have  credits"). A
+string tag that has to start a sentence ("Maria, better places…") gets its own text element, or
+the punctuation moves into the value the app passes. `verify-config.py` warns on both: a word
+fallback on a multi-locale flow, and an empty fallback between two spaces.
+
+**Keep the copy in the flow and pass only the bare value** — the city, the number — so the words
+stay translatable in the builder. Have the app pass a whole phrase only when the language changes
+the value's own form (a case ending on the city, a plural on the noun), and say so: that copy then
+lives in the app's code, in every locale, and the builder can no longer edit it.
+
+**The app has to pass the value, and nothing in the config makes it.** Until the app's code
+supplies each tag by name when it creates the flow view, every user sees the fallback. Values are
+strings, read once at creation — nothing updates them while the flow is open — and one missing tag
+swaps its whole line for the fallback text. So a run that adds a custom tag ends by offering to
+write that code, and on a yes writes it ([SKILL.md](../SKILL.md), end of phase 5). This table is
+where the exact parameter comes from — read the page, then edit the call site; never hand the user
+a link in place of the change.
+
+| Platform | Where the values go | Docs | Source |
+| :--- | :--- | :--- | :--- |
+| iOS | `tagResolver` on the flow configuration call | https://adapty.io/docs/get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-iOS |
+| Android | `tagResolver` on the flow view | https://adapty.io/docs/android-present-paywalls.md | https://github.com/adaptyteam/AdaptySDK-Android |
+| Flutter | `customTags` on create flow view | https://adapty.io/docs/flutter-get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-Flutter |
+| React Native | `customTags` in the create flow view params | https://adapty.io/docs/react-native-get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-React-Native |
+| Unity | `CustomTags` on the create flow view parameters | https://adapty.io/docs/unity-get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-Unity |
+| Kotlin Multiplatform | `customTags` on create flow view | https://adapty.io/docs/kmp-present-paywalls.md | https://github.com/adaptyteam/AdaptySDK-KMP |
+| Capacitor | `customTags` in the create flow view params | https://adapty.io/docs/capacitor-get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-Capacitor |
+
+Read the docs page first. When it does not show the parameter, read the SDK source at the release
+tag the app depends on — search it for the parameter name — rather than guessing a signature.
+
+Read the list off the config rather than from memory:
+
+```bash
+jq -r '.variables[]? | select(.external == true) | "\(.name)\t\(.valueType)\tfallback: \(.value)"' flow.json
+```
+
+`flowkit.app_value()` builds the entry and refuses every shape above that it can see; it raises
+if a custom tag reaches a condition, conditional text, `setVariable` or an interaction.
+`verify-config.py` reports the same four on a fetched config.
 
 ### 14b. A condition is an expression tree, and `assign` is the one type it may not use
 
@@ -1778,6 +1879,8 @@ style error: you will search for an element type that does not exist, or invent 
 | a divider, a rule | A `divider` element exists. Both real exports instead use a `stack` with `height: {type: "fixed", value: 1}` and a `fill` — either is valid; prefer whichever the input already uses. |
 | a text field, email, phone, a date picker | `text-input`, or one of `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker`. Its `customId` becomes the variable `<customId>.value`. |
 | a price | Never literal text. A rich-text `variable` node — see invariant 5 for the two forms. |
+| the user's name, their coin balance, streak, level, days left, current plan, "something the app knows" | A **custom tag**: a `variables[]` entry with `external: true` whose `name` the app's code passes, shown by a rich-text `variable` node. Text only, and it needs app code — [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic). |
+| show, hide or skip something based on what the app knows (VIP status, a permission already granted, country) | **Not buildable from a custom tag** — logic sees only its fallback. A separate flow per segment behind the placement's audiences, or a `custom` action the app handles. Say so rather than wiring a condition that never fires. |
 | a close button, "dismiss" | A tappable `stack` whose action is `{"type": "closeFlow"}` (no payload). |
 | a hero image the content slides up over, an overlay hero, a panel over a background | A **`sliding-sheet`** at the screen root holding the content, with the hero as the screen `fill` or as a root sibling of the sheet (the cover band). **Not a `bottom-sheet`**: that one is a hidden modal an action opens. See [`patterns.md`](patterns.md). |
 | an image, a background | An `image` element for content; `props.fill` with `{"type": "image"}` for a screen or element background. **Different shapes** — see trap 1. |
