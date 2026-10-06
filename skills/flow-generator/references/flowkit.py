@@ -1094,7 +1094,7 @@ def video(*, fixed_h, width='fill', fit='cover', loop=True, corner=None, border=
     element type (the same mistake as the fake footer and the fake spinner), it forces the user
     to delete-and-recreate instead of just binding a file, and no gate flags it.
 
-    Measured against the transform service and the render (`app_finance`, 2026-09-10):
+    Measured against the transform service and the render:
 
     * an unset `video` is PUBLISHABLE -- `valid: true, issues: []`, in the styled, the empty
       `values`-map and the bare forms alike -- and the transform service maps `video`, so
@@ -2287,7 +2287,7 @@ def flow_product_id(screen_id, product_id, offer_id=None):
     which is why this hashes by hand. Pass `offer_id` whenever the binding has one: it is part of
     the hash, so the same product with and without an offer are two different ids.
 
-    Matches the builder's `buildFlowMeta.ts` (`collectProducts`, "FROZEN (ADP-7398 E4)"):
+    Matches how the builder mints it (a code path the builder marks frozen):
 
         getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}`)
 

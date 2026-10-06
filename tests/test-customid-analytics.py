@@ -7,26 +7,17 @@ Repo-only. Runs the shipped script as a subprocess -- never imports it, so nothi
 Why this file exists. An input or a selectable option reports what the user entered to the
 app through `flow_user_input`, and the id in that payload is NOT the element's `el_XXXX` map
 key -- it is the author-supplied `props.customId` (a group reports its `selectableGroups[].id`
-instead). Read from source, `unified-builder-transformer@dcf2df4`:
-
-    generate-handlers.ts:717,825   elementId: ${JSON.stringify(trackedInput.customId)}
-    generate-handlers.ts:849       ... JSON.stringify(selectable.groupId) ...
-    generate-meta.ts:245           analyticsId: ${JSON.stringify(el.optionCustomId ?? '')}
+instead). Read from the transformer's source: an input's event carries its `customId` as
+`elementId`, a group's carries its `groupId`, and each chosen option carries its own
+`customId` in `item_ids`.
 
 `customId` is OPTIONAL in the published schema (`required` is absent on all eleven input and
-selectable props types), and when it is missing the transformer silently declines to track:
-
-    user-input-analytics.ts:98     if (!EDITABLE_INPUT_TYPES.has(element.type) || !customId) return
+selectable props types), and when it is missing the transformer silently declines to track.
 
 For a selectable group the same gate is GROUP-WIDE rather than per option, which is what makes
 this worth a mechanical check rather than a note -- one blank or one duplicate takes every
-answer in the group with it (collect-variables.ts:1246-1252):
-
-    if (groupType !== 'toggle' &&
-        (!allUniqueNonEmpty(groupElements.map(e => e.optionCustomId)) ||
-         !allUniqueNonEmpty(groupElements.map(e => e.optionId)))) {
-      continue        // analyticsEnabled stays false for EVERY member
-    }
+answer in the group with it. Unless the group is a toggle, it is tracked only when every
+option has a non-empty, unique id (whitespace counts as empty).
 
 Nothing else catches it. `flows config validate` returns valid (the document is well formed),
 the schema passes it (the field is optional), and `config preview` draws a working quiz. The

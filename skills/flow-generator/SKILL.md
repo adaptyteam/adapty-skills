@@ -358,7 +358,7 @@ image, a screen to copy, or a layout they spelled out means *they* chose it — 
 compare against the file rather than your memory of it (phase 4). **Follow the reference for style,
 colour, typography, icon style and hierarchy, but keep Adapty's fluid layout discipline**
 (`width: fill`, `height: hug`, `position: relative`): never hardcode fixed dimensions or offsets to
-match a screenshot's pixels, because fixed geometry breaks across devices (ADP-7117). **No
+match a screenshot's pixels, because fixed geometry breaks across devices (team-diagnosed). **No
 reference means you are choosing it** — "build me a paywall", "build me an onboarding", "make one
 that converts" — and the request map only turns nouns into element types; it says nothing about
 what sells.

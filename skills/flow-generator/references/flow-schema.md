@@ -554,25 +554,20 @@ custom variables `var_`.
 
 An `el_XXXX` map key never leaves the config. What the SDK delivers to the app in a
 `flow_user_input` event is the **author-supplied** id, and the three sources disagree in a way
-worth stating explicitly (read from `unified-builder-transformer@dcf2df4`, not inferred):
+worth stating explicitly (read from the transformer's source, not inferred):
 
-| Payload field | Comes from | Emitted at |
-|---|---|---|
-| `element_id`, an input | `props.customId` | `generate-handlers.ts:717,825` |
-| `element_id`, a selectable group | `selectableGroups[].id` | `generate-handlers.ts:849` |
-| `item_ids`, the chosen options | each option's `props.customId` | `generate-meta.ts:245` |
-| `instanceId` | the screen id | — |
+| Payload field | Comes from |
+|---|---|
+| `element_id`, an input | `props.customId` |
+| `element_id`, a selectable group | `selectableGroups[].id` |
+| `item_ids`, the chosen options | each option's `props.customId` |
+| `instanceId` | the screen id |
 
 `customId` is **optional in the schema** — `required` is absent on all eleven input and
 selectable props types — and the transformer's response to a missing one is to stop tracking
-without saying so. For a group the gate is **group-wide, not per option**
-(`collect-variables.ts:1246-1252`, and its `allUniqueNonEmpty` trims first, so `"  "` is
-blank):
-
-```ts
-if (groupType !== 'toggle' &&
-    (!allUniqueNonEmpty(groupElements.map(e => e.optionCustomId)) || …)) continue
-```
+without saying so. For a group the gate is **group-wide, not per option**: unless the group is a toggle, it is
+tracked only when every option has an id and all of them are unique, and the check trims
+first, so `"  "` counts as blank.
 
 So **one blank or one duplicate option id takes every answer in that group with it**, and no
 gate reachable from here objects: `flows config validate` returns valid, the schema permits
@@ -587,7 +582,7 @@ sets one is the weakest case and warns most softly, because a branching-only gro
 analytics: `<groupId>.selectedOptionId` keys on the option id, not the customId.
 
 Product groups and tab bars are exempt — product selections and tab switches raise no event —
-and so is `password-input`, which the transformer's `INPUT_TYPES` map omits by name.
+and so is `password-input`, which the transformer's input-type map omits by name.
 
 ### 8. Custom fonts do not ship with the flow
 
@@ -973,7 +968,7 @@ untouched, and why a check that demands `.id` unconditionally is a false positiv
 
 The editor does not clear a numeric size when its mode changes, so a fetched config can carry
 `{"type": "hug", "value": 8008}` — and the transformer turns that into `min: 8008` on device,
-producing an 8008pt-minimum screen with the content invisibly far down (team-diagnosed, ADP-7308;
+producing an 8008pt-minimum screen with the content invisibly far down (team-diagnosed;
 the recovery on an already-poisoned screen was *recreating* it, not re-saving). `width.fixed: 0`
 also saves, and kills the element on device. Rules:
 
@@ -998,7 +993,7 @@ user taps *instead* of buying — the close button is the standing pattern.
 
 A `propsByState` override written as **manual values** is deep-merged with the base state, and the
 merge leaks: a selected border colour inherited the *default's* opacity and rendered invisible on
-device while the preview showed it (ADP-6967); a manually-set selected font weight rendered wrong
+device while the preview showed it (team-diagnosed); a manually-set selected font weight rendered wrong
 the same way. A **reference** — a typography `preset` or a colour *style* — propagates wholesale
 and overrides cleanly ("the Selected override contains its own preset and overwrites the Default",
 team-verified, reporter-confirmed). Rule: **in `propsByState`, prefer preset and style references

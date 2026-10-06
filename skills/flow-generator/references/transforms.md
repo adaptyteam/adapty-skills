@@ -94,7 +94,7 @@ downstream can tell: the document is well-formed and every render is correct for
 it — which fields kept the old text.
 
 **The localization panel and import/export do not cover variables or conditional text**
-(team-confirmed, ADP-7487): an exported translation file will not round-trip a variable tag — "you
+(team-confirmed): an exported translation file will not round-trip a variable tag — "you
 have to fix the variable by hand in those fields" — and conditional text is edited per locale only,
 by switching the locale in the builder's preview zone. Two working consequences: when a flow will
 be translated through export, **keep each variable in its own text element** rather than inline in
@@ -273,7 +273,7 @@ rather than re-translated.
 
 A screen id is the only analytics-visible id in a flow the Flow Builder cannot set. It reaches
 the app as `instanceId` on both `flow_screen_showed` and `flow_user_input`
-(`generate-handlers.ts:489,716,824`, unified-builder-transformer@dcf2df4), so a customer
+(read from the transformer's source), so a customer
 forwarding events to their own analytics reads `scr_oAPBHPa7 → scr_03lOfpai` and keeps an
 id→name mapping by hand. That is a good reason to rename, and it is why the transform is in
 scope. Two things make it a decision rather than an edit.

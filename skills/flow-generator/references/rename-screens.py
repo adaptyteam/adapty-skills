@@ -3,7 +3,7 @@
 
 Why this exists. A screen id is the ONE analytics-visible id in a flow that cannot be set in
 the Flow Builder. It rides out to the app as `instanceId` on both `flow_screen_showed` and
-`flow_user_input` (`generate-handlers.ts:489,716,824`, unified-builder-transformer@dcf2df4),
+`flow_user_input` (read from the transformer's source),
 so a customer forwarding events to Amplitude or Mixpanel reads `scr_oAPBHPa7 -> scr_03lOfpai`
 instead of `welcome -> signup`, and has to keep an id->name mapping by hand. Everything else
 in that payload is already author-supplied and already settable in the builder: an input and

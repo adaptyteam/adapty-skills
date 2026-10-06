@@ -1,0 +1,29 @@
+{
+  "app": "app-1",
+  "scope": {
+    "requested": "all",
+    "applied": "all",
+    "active": 0,
+    "inactive": 0,
+    "unknown": 1,
+    "status_readable": false,
+    "fallback": false,
+    "unknown_withheld": false,
+    "kept": 1,
+    "filtered_out": 0
+  },
+  "placements": [
+    {
+      "id": "pl-a",
+      "developer_id": "main",
+      "title": "Main",
+      "audiences": [
+        {
+          "paywall_id": "pw-1",
+          "priority": 0,
+          "segment_ids": []
+        }
+      ]
+    }
+  ]
+}

@@ -406,9 +406,9 @@ see prices; `billed-amount-not-shown` is the one that reads them.
 **Calibration — fires, on a real export, and it is a TRUE finding.** It fires on
 `tests/fixtures/tabs-paywall.json` (and its raw counterpart), on `scr_RvSel001`. This
 was investigated rather than silenced. Every one of that screen's 41 text elements was
-dumped and read: the visible strings are "Skip", "Select plan", "Metal", "Premium metal
+dumped and read: the visible strings are "Skip", "Select plan", "Plus", "Premium
 card", "Top features", "Commodities", "Safer online shopping", "Concierge & lounges",
-"Get Metal", "Premium", "Most popular", "Standard", "Terms", "Restore", "Privacy" and
+"Get Plus", "Premium", "Most popular", "Standard", "Terms", "Restore", "Privacy" and
 their feature blurbs. **No word matching `PERIOD_RULES` appears anywhere** — not in a
 card, not in a footnote, not under the CTA. There are also **zero price variables
 anywhere in the whole document** and **no `propsByState` content override**, so there is

@@ -77,7 +77,7 @@ finally:
 GROUP_TYPES = {'single_choice', 'multi_choice', 'product', 'toggle'}
 
 # The seven element types the transform service reports through `flow_user_input`, taken from
-# its own INPUT_TYPES map (`user-input-analytics.ts:42-50`, unified-builder-transformer@dcf2df4).
+# its own input-type map (read from the transformer's source).
 # `password-input` is deliberately NOT here: the transformer omits it and the docs say a
 # password field sends no event.
 REPORTING_INPUT_TYPES = {'text-input', 'email-input', 'number-input', 'phone-input',
@@ -1244,7 +1244,7 @@ def check(path, baseline_text=None, baseline_images=None):
                     f"`values` key and `remote_configs`")
 
     # Stale sizing values persist through the editor and the transformer BELIEVES them:
-    # hug carrying value -> min:<value> on device (ADP-7308, team-diagnosed; content vanished at
+    # hug carrying value -> min:<value> on device (team-diagnosed; content vanished at
     # 8008). Real exports carry small ones routinely (16 in one rendering fixture), so warning,
     # not error. fixed:0 kills the element on device.
     for s, e in els():
@@ -2375,15 +2375,12 @@ def check(path, baseline_text=None, baseline_images=None):
                        f'has no single selected option. Declare the group single_choice')
 
     # ---- the id a `flow_user_input` event carries is `props.customId`, NEVER the element's
-    # `el_XXXX` map key, and it is OPTIONAL in the schema. Read from source,
-    # `unified-builder-transformer@dcf2df4`: `generate-handlers.ts:717,825` emit
-    # `elementId: <trackedInput.customId>`, `generate-meta.ts:245` emits an option's
-    # `analyticsId: <el.optionCustomId>`. When it is missing the transformer declines to
+    # `el_XXXX` map key, and it is OPTIONAL in the schema. Read from the transformer's source:
+    # an input's event carries `elementId: <customId>`, and an option's carries
+    # `analyticsId: <optionCustomId>`. When it is missing the transformer declines to
     # track, silently -- and for a selectable group the gate is GROUP-WIDE, so one blank or
-    # one duplicate takes every answer in the group with it
-    # (`collect-variables.ts:1246-1252`, whose `allUniqueNonEmpty` trims before testing):
-    #
-    #     if (groupType !== 'toggle' && (!allUniqueNonEmpty(...optionCustomId) || ...)) continue
+    # one duplicate takes every answer in the group with it (the check trims before testing,
+    # so whitespace counts as blank; toggles are exempt).
     #
     # Nothing else sees it: `flows config validate` returns valid, the schema marks the field
     # optional on all eleven input and selectable props types, and the preview draws a working
@@ -2446,7 +2443,7 @@ def check(path, baseline_text=None, baseline_images=None):
 
     # An input reports under its own customId, so without one it is untracked; the same string
     # is the producer for `<customId>.value`, so no condition can read it either. Scoped to the
-    # seven types the transformer's INPUT_TYPES map actually reports: `password-input` is
+    # seven types the transformer's input-type map actually reports: `password-input` is
     # deliberately absent there ("Password fields send no event"), so it is excluded here too
     # rather than warned about on a claim that would be false.
     for s in d.get('screens', []):
