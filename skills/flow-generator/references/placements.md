@@ -81,7 +81,7 @@ From the server:
 
 ## The dashboard URLs
 
-Read from the dashboard's own route table (`apps/web/src/app/Routes.tsx`) rather than from the
+Read from the dashboard's own route table rather than from the
 address bar, so the params are named rather than guessed:
 
 | Route | Page |
@@ -96,7 +96,7 @@ Two things the route names but a URL does not.
 
 **`:placementId` is the placement UUID, not the developer ID.** The list row type carries both as
 separate fields — `placementId` *and* `developerId` — and the navigation uses `placementId`
-(`PlacementFlowList.tsx`, `cell.row.original.placementId`). So the developer ID, the string the app
+(read from the dashboard's placement list code). So the developer ID, the string the app
 fetches with, does **not** route: substituting it gives a page that cannot resolve. `placements
 create` prints the UUID as `id`.
 

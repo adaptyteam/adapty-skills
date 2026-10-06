@@ -431,8 +431,8 @@ for path in corpus():
           str(of(findings, 'no-period-disclosed')))
 
 # tabs-paywall.json's scr_RvSel001 is a real, shipped card-tier subscription screen
-# (Revolut Metal/Premium/Standard). Its full text dump was read directly: "Metal",
-# "Premium metal card", every feature row, "Get Metal" / "Get Premium" / "Get Standard
+# (three tiers: Plus/Premium/Standard). Its full text dump was read directly: "Plus",
+# "Premium card", every feature row, "Get Plus" / "Get Premium" / "Get Standard
 # on us", "Terms", "Restore", "Privacy" -- no period word ("month", "year", "annual",
 # "/mo", "/yr", ...) appears anywhere on the screen. This is a TRUE finding, not a
 # defect in the check: a real screen selling recurring subscriptions with no

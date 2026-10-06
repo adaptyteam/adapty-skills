@@ -66,7 +66,7 @@ A reference with a device frame needs its screen bounds located before any measu
 - **Colour** — sample it; never name it from memory.
 - **Size and spacing** — match the reference's *proportions* with relative layout
   (`fill`/`hug`/`relative`). Never hardcode fixed container widths or heights to match image
-  pixels; fixed geometry breaks across devices (ADP-7117).
+  pixels; fixed geometry breaks across devices (team-diagnosed).
 - **Layout** — reach for the layout props before padding or docking. A bar the content scrolls
   past is the `footer` element, not something you position ([patterns.md](patterns.md));
   `distribution` has four modes, and `space-between` on the screen root spreads a short screen's

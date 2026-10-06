@@ -20,8 +20,9 @@
 # "works but not in llms.txt" and flaky external links are warnings in the
 # job log only - llms.txt completeness is the docs repo's responsibility.
 #
-# All three lints also run locally: node scripts/lint-frontmatter.mjs,
-# node scripts/lint-symbols.mjs [platform], node scripts/lint-links.mjs
+# All four lints also run locally: node scripts/lint-frontmatter.mjs,
+# node scripts/lint-symbols.mjs [platform], node scripts/lint-links.mjs,
+# node scripts/lint-anonymity.mjs
 
 name: skill-lints
 
@@ -66,6 +67,11 @@ jobs:
         if: always()
         run: node scripts/lint-links.mjs 2>&1 | tee /tmp/lint-links.out
 
+      - name: Anonymity lint (no tracked file points into Adapty's internal systems)
+        id: anonymity
+        if: always()
+        run: node scripts/lint-anonymity.mjs 2>&1 | tee /tmp/lint-anonymity.out
+
       # Cron failures have no PR to turn red - file an issue so drift is
       # never silent. One open issue at a time; repeats become comments.
       - name: File a drift issue on scheduled failure
@@ -78,7 +84,7 @@ jobs:
             echo "The daily skill lints failed on \`main\` - the docs or SDK moved underneath the skill (no skill commit involved)."
             echo
             echo '```'
-            tail -n 60 /tmp/lint-frontmatter.out /tmp/lint-symbols.out /tmp/lint-links.out 2>/dev/null
+            tail -n 60 /tmp/lint-frontmatter.out /tmp/lint-symbols.out /tmp/lint-links.out /tmp/lint-anonymity.out 2>/dev/null
             echo '```'
             echo
             echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

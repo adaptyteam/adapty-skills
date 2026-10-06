@@ -218,7 +218,7 @@ here before you trust it, since that is how this one was confirmed.
 
 **Two tab facts from the support channel:** if **no `tab-item` carries `default: true`, no tab
 renders at all** — always mark one. And conditioning on the selected tab is possible despite the
-UI exposing no tab-item id field (ADP-7611): use the tab element's **id from the builder URL** in
+UI exposing no tab-item id field: use the tab element's **id from the builder URL** in
 the condition — team-verified in preview, unconfirmed on device.
 
 ### A progress bar
@@ -461,10 +461,10 @@ Now the SDK limitations, which shape the *geometry* of a real carousel — not w
 Support-channel distilled (2026-08, team-stated and device-verified). The carousel supports exactly
 **two layouts**: adjacent-slide peek (the standard Apple layout), or one full slide with neighbours
 invisible. Anything else is an SDK limitation, not a config error, and a true infinite loop is
-impossible — the approximation is duplicating slides (ADP-7615).
+impossible — the approximation is duplicating slides (team-diagnosed).
 
 **`hug` does not survive the trip to the device here.** `Slide Width = Hug` is dropped by the
-transformer (Android stretches the slide full-width, the peek disappears, ADP-6653), and a hugged
+transformer (Android stretches the slide full-width, the peek disappears; team-diagnosed), and a hugged
 footer under a carousel collapses to zero when Android measures a flat+scrollable layout. The
 working recipe is all-fixed geometry — the team's own verified numbers for a centered 3-card
 layout: card width **245**, carousel **402**, symmetric padding **66.5**, gap **12**, footer
@@ -536,7 +536,7 @@ schema plus the measurements above rather than read off builder output.
   team's own fix for one was "images to fixed, everything else to fill-hug", nothing more.
 - **Containers only grow downward in relative layout.** For expanding content, pre-size the
   container for the expanded state and toggle `visibility` — "less pretty, but no jumping".
-- **Fixed widths overflow the right edge on narrow iOS screens (≤375pt, ADP-7117)** — any fixed
+- **Fixed widths overflow the right edge on narrow iOS screens (≤375pt, team-diagnosed)** — any fixed
   number needs an SE / 13-mini sanity check, and the builder previews only 402×874 (no Pro Max
   preset either, so `Fill` heights absorb 82 extra points on a 440×956 device).
 - **After restructuring a screen, hunt for orphaned fixed buttons**: two stacked CTAs render as
@@ -549,7 +549,7 @@ schema plus the measurements above rather than read off builder output.
   in both scroll modes, so believing the render is what made this look retired.
 - **The Android height/void report is HISTORICAL — device-tested 2026-08-26 and it did not
   reproduce** (channel, to 2026-08-22: Android computed the footer's height separately, leaving a
-  void). Retired against a **device** result, which is the standard ADP-6828 set and the standard
+  void). Retired against a **device** result, the standard every historical device defect here is held to, and the standard
   a render does not meet. A footer on a short scrollable screen sat flush to the physical bottom
   with the gap above it, as designed. If a void ever comes back, this is what it is, and docking
   is the fallback. The pre-2026-08-26 version of this bullet said "prefer a pinned container over
@@ -705,7 +705,7 @@ close button, a corner badge — and the fallback if a device shows one of the t
 
 **One historical device defect to know before blaming your config:** `fixed` + `left`/`right` +
 `width: auto` once collapsed to content width on device while the preview showed full width
-(ADP-6828); the era workaround was a sandwich — outer Stack `fixed`/`auto` with no states, inner
+(team-diagnosed); the era workaround was a sandwich — outer Stack `fixed`/`auto` with no states, inner
 CTA `relative`/`fill` carrying the states and actions. A 2026-08-22 device screenshot from this
 project shows the plain form rendering full-width, so treat it as fixed — but if a docked CTA comes
 back narrow on a device, this is what it is, and the sandwich is the fallback.

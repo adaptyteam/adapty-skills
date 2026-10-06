@@ -432,8 +432,7 @@ spacing bug rather than as an image, so prefer `cover` unless the whole asset mu
 
 ## The video placeholder
 
-Everything here was measured on 2026-09-10 against the real transform service and the render
-(`app_finance`, `adapty` 0.8.2), because a video is the one asset whose upload is **never** the
+Everything here was measured against the real transform service and the render, because a video is the one asset whose upload is **never** the
 agent's — so the placeholder is not a provisional state to be cleared later in the same run, it
 is what gets handed over.
 

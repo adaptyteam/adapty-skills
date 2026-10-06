@@ -10,8 +10,8 @@ same way a 1pt element does. The standing advice was therefore "take the name AN
 a real export", which limits an author to the dozen glyphs the corpus happens to contain. This
 module replaces that with the bundle itself: 4,536 variants over 1,512 names, three weights.
 
-The pack is vendored VERBATIM from `adapty/adapty-agents`, which generates it and ships it in
-production (`src/share/generated/phosphor-icons.json.gz`). Verbatim is the point: re-vendoring is
+The pack is vendored VERBATIM from the icon pack Adapty's own flow tooling generates and ships in
+production. Verbatim is the point: re-vendoring is
 a plain copy and a diff against upstream stays meaningful. Everything this skill adds — the
 builder's serialization of `raw`, the `_meta.icons` entry shape — lives here in code, never in
 the data.
