@@ -1460,7 +1460,9 @@
                     "id": "act_RvTerms",
                     "type": "openUrl",
                     "payload": {
-                      "url": "https://example.com/terms"
+                      "url": {
+                        "_lid": "lc_42"
+                      }
                     }
                   }
                 ],
@@ -1539,7 +1541,9 @@
                     "id": "act_RvPriv",
                     "type": "openUrl",
                     "payload": {
-                      "url": "https://example.com/privacy"
+                      "url": {
+                        "_lid": "lc_43"
+                      }
                     }
                   }
                 ],
@@ -5115,6 +5119,18 @@
               ]
             }
           ]
+        }
+      },
+      "lc_42": {
+        "kind": "rich-string",
+        "values": {
+          "en": "https://example.com/terms"
+        }
+      },
+      "lc_43": {
+        "kind": "rich-string",
+        "values": {
+          "en": "https://example.com/privacy"
         }
       }
     }

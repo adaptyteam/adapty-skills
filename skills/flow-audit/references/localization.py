@@ -11,10 +11,12 @@ field stores only a reference to it:
       "content": {"lc_0": {"kind": "rich-text", "values": {"en": [...], "fr": [...]}}}
     }
 
-The localizable fields, and nothing else (names, ids, action URLs, fills and geometry are never
-catalogued): text `content`, every input and picker `placeholder`, image `image`, video `video`,
-and alert `title` / `message` -- including alerts nested in conditional actions, and elements
-inside `components`. `LOCALIZABLE` below is that list, read off the published schema.
+The localizable fields, and nothing else (names, ids, fills and geometry are never catalogued):
+text `content`, every input and picker `placeholder`, image `image`, video `video`, alert
+`title` / `message`, and the Open URL action's `url` (a `rich-string` entry, so each locale can
+open its own page) -- including actions nested in conditional actions, and elements inside
+`components`. `LOCALIZABLE` and `LOCALIZABLE_ACTION_FIELDS` below are that list, read off the
+schema.
 
 Three jobs, one per public function:
 
@@ -78,9 +80,11 @@ LOCALIZABLE = {
     **{t: {'placeholder': 'rich-string'} for t in _PLACEHOLDER_TYPES},
 }
 
-#: action type -> {payload field: kind}.
+#: action type -> {payload field: kind}. A `url` is stored as a `rich-string`: its value is a
+#: string or a list of text, variable and token nodes, never paragraphs.
 LOCALIZABLE_ACTION_FIELDS = {
     'alert': {'title': 'rich-string', 'message': 'rich-string'},
+    'openUrl': {'url': 'rich-string'},
 }
 
 _CONTENT_ID = re.compile(r'^lc_(\d+)$')
@@ -597,7 +601,7 @@ def iter_fields(flow):
             yield from result(p.get('default'), where)
         elif a.get('type') in LOCALIZABLE_ACTION_FIELDS and _rec(a.get('payload')):
             yield from fields(a['payload'], LOCALIZABLE_ACTION_FIELDS[a['type']],
-                              f'{where} alert {a.get("id") or ""}'.rstrip())
+                              f'{where} {a["type"]} {a.get("id") or ""}'.rstrip())
 
     def result(r, where):
         if _is_const(r):
