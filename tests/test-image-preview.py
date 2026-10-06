@@ -32,6 +32,8 @@ comes from, and that is the half an agent turns into "well, the field must be op
 Usage: python3 tests/test-image-preview.py    # 0 all pass, 1 a case regressed
 """
 import copy, glob, json, os, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import catalogued, values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
@@ -48,11 +50,11 @@ fails = []
 def run(doc, baseline=None):
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, 'c.json')
-        json.dump(doc, open(path, 'w'))
+        json.dump(catalogued(doc), open(path, 'w'))
         argv = [sys.executable, VERIFY]
         if baseline is not None:
             base = os.path.join(tmp, 'b.json')
-            json.dump(baseline, open(base, 'w'))
+            json.dump(catalogued(baseline), open(base, 'w'))
             argv += ['--baseline', base]
         result = subprocess.run(argv + [path], capture_output=True, text=True)
     if 'Traceback' in result.stderr:

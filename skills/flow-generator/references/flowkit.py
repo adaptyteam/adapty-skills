@@ -5,9 +5,13 @@ Scope is deliberately narrow. This owns the parts that are *error-prone but not 
   * the `hierarchy` / `map` split — every node declared twice, in two structures that must
     agree exactly; an id in one and not the other is a broken config. `flatten()` makes that
     unrepresentable, and it is the reason this module exists. No JSON skeleton can help here.
-  * the envelope, stamped at the `schemaVersion` whose shapes it emits — **array** fills, dotted
-    product variables, no screen registry, which is v10. Authoring is the one case with no input
-    form to preserve, so the number is chosen; see `SCHEMA_VERSION` for why it is not the latest.
+  * the envelope, stamped at the `schemaVersion` whose shapes it emits — see `SCHEMA_VERSION`.
+  * the localization catalog. Every helper here returns the INLINE authoring form
+    (`{"_localizable": true, "values": {...}}`), which is easy to build and to read; `config()`
+    moves every such value into `localization.content` and leaves a `{"_lid": ...}` ref in its
+    place, through `localization.catalog()`, a port of the builder's own migration 013. A
+    fragment you graft into a FETCHED config is still inline: run `localization.py catalog` over
+    the document before you validate or write it.
   * one canonical rich-text builder, with the span kinds named instead of guessed.
 
 Not in scope: anything with a design opinion. Element shapes, card recipes, spacing — those are
@@ -55,15 +59,17 @@ try:
     except ImportError:  # pragma: no cover - importing flowkit from another directory
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import icons
+    import localization
 finally:
     sys.dont_write_bytecode = _bytecode
 
 #: The version whose shapes this module emits, which is the builder's own latest: array fills
-#: (010), structured product refs (011) and the screen product registry (012). The number
-#: declares which migrations a document has already been through, so it may only be raised in
-#: step with what the module actually writes -- stamping a version whose shapes are absent makes
-#: the builder SKIP the migration that would have produced them. A FETCHED flow keeps its own.
-SCHEMA_VERSION = 12
+#: (010), structured product refs (011), the screen product registry (012) and the localization
+#: catalog (013). The number declares which migrations a document has already been through, so
+#: it may only be raised in step with what the module actually writes -- stamping a version
+#: whose shapes are absent makes the builder SKIP the migration that would have produced them.
+#: `config()` builds the v12 shapes itself and gets 013 from `localization.catalog()`.
+SCHEMA_VERSION = localization.SCHEMA_VERSION
 
 # --- ids ---------------------------------------------------------------------------------
 
@@ -570,8 +576,9 @@ def _span(part):
 def rich(*parts, locale='en'):
     """Localizable rich text: `rich("Save ", Span("40%", bold=True), " on ", Var(vid))`.
 
-    Localizable props are keyed by locale code and hold an array of blocks. Note `_localizable`
-    does NOT imply this shape everywhere — a placeholder takes a plain string (trap 1b).
+    Localizable props are keyed by locale ID and hold an array of blocks. This is the inline
+    authoring form; `config()` moves it into the catalog. Note `_localizable` does NOT imply
+    this shape everywhere — a placeholder takes a plain string (trap 1b).
     """
     return {'values': {locale: [{'type': 'paragraph',
                                  'content': [_span(p) for p in parts]}]},
@@ -590,9 +597,10 @@ def switch_rich(cases, default, *, locale='en'):
     own answer back at them. Without it the only way to "personalize" is a stack of elements
     with `visibility` conditions, which duplicates the layout per branch and drifts.
 
-    Shape taken from a real builder export, not from the schema: the `switch` nests INSIDE each
-    locale, so every locale carries a full copy of the expression and **parity is per branch** --
-    a field with a `ru` value can still be English in the branch the other choice shows.
+    Authoring form: the `switch` nests INSIDE each locale. `config()` turns it into the stored
+    form -- ONE switch on the property, each branch `{"type": "const", "value": {"_lid": ...}}`
+    with its own catalog entry -- so **parity is per branch**: a field with a `ru` value can
+    still be English in the branch the other choice shows.
 
         switch_rich([(eq(ref('goal.selectedOptionId'), 'sleep'),
                       ['Your plan for ', Span('falling asleep faster', bold=True)])],
@@ -2509,8 +2517,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
 
     meta_icons = _resolve_icons(screens, components, icons)
 
-    return {
-        'schemaVersion': SCHEMA_VERSION,
+    doc = {
+        'schemaVersion': localization.MIN_SOURCE_VERSION,
         'locales': [{'id': c, 'code': c, 'name': n} for c, n in locales],
         'defaultLocale': default_locale,
         'variables': list(variables),
@@ -2526,6 +2534,13 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                   'screens': dict(meta_screens) if meta_screens else {}},
         'screens': list(screens),
     }
+    out, dropped = localization.catalog(doc)
+    if dropped:
+        raise ValueError(
+            'the localization catalog would DROP values you wrote: '
+            + '; '.join(f'{w["path"]}: {w["message"]}' for w in dropped)
+            + ' Give every locale of a conditional text the same cases, in the same order.')
+    return out
 
 
 def _used_icons(screens, components):

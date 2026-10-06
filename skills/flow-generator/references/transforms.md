@@ -14,8 +14,8 @@ authority on both. Do not re-derive any of it here.
 
 | Transform | What it endangers | Publish blocker it trips | What to check |
 | :--- | :--- | :--- | :--- |
-| **Add a locale** | Invariant 11, across **three** localizable families — `text.props.content`, `image.props.image`, `text-input.props.placeholder` — not text alone. A bare-string `content` has no locale slot and cannot hold the translation at all. **Images go the other way: add no image entry for the new locale** unless it gets a different file. The locale already shows the default's image, and a copy repeats its base64 preview in the published config once per locale (trap 1). | **One, and it is the code itself** — see decision 8. A locale missing from a `values` map is not a blocker: it falls back or renders empty, invisible at publish and visible to users. | Every bare-string `content` you met appears in your report under decision 1. **`defaultLocale` is unchanged** — adding a locale is additive, and flipping the default changes what every existing user sees with nothing failing. And every *declared* locale carries every text and placeholder field, while image maps gained no copies: `references/verify-config.py` checks parity, warns on a copied image, and errors when a translated block's `variableId`s differ from the default locale's, which is the failure that silently costs a locale its prices. |
-| **Rewrite copy** | Invariants 5 and 11, plus trap 2 — inline `variable` and `token` nodes survive a rewrite only if you edit around them, never through them. Field shape is per field and must survive the edit. | None — and that is the danger. A paragraph rebuilt from its rendered text publishes cleanly and passes every referential check; trap 2 in [`flow-schema.md`](flow-schema.md) states what it costs. | Every locale in `locales[]` got the same edit, or your report says which did not. No field changed shape (decision 1). |
+| **Add a locale** | Invariant 11. Adding a locale is one entry in `localization.locales` plus one value per **text and placeholder** entry in `localization.content` — every `rich-text` and `rich-string` entry, conditional branches and alert titles included, since each is its own entry. **Images go the other way: add no image value for the new locale** unless it gets a different file. The locale already shows the default's image, and a copy repeats its base64 preview in the published config once per locale (trap 1). | **One, and it is the code itself** — see decision 8. An entry with no value for the new locale is not a blocker: it falls back to the default locale's text, invisible at publish and visible to users. | Edit values in place — `content[id].values[<newLocaleId>]` — and keep every id (rule 3 of [Localization: the catalog](flow-schema.md#localization-the-catalog)). The new locale's `id` is the key; say which `id` and `code` you declared. **`localization.defaultLocale` is unchanged** — adding a locale is additive, and flipping the default changes what every existing user sees with nothing failing. Shared entries are translated once and show everywhere they are used (decision 1). `references/verify-config.py` warns per locale on every untranslated field, warns on a copied image, and errors when a translated value's `variableId`s differ from the default locale's, which is the failure that silently costs a locale its prices. |
+| **Rewrite copy** | Invariants 5 and 11, plus trap 2 — inline `variable` and `token` nodes survive a rewrite only if you edit around them, never through them. The value's shape must survive the edit. **The text lives in the catalog entry the field's ref names**, and that entry may be shared by other fields. | None — and that is the danger. A paragraph rebuilt from its rendered text publishes cleanly and passes every referential check; trap 2 in [`flow-schema.md`](flow-schema.md) states what it costs. | Every translated locale of the entry got the same edit, or your report says which did not. Every other field that names the same entry was meant to change too, or it got an entry of its own first (decision 1). |
 | **Add / remove / reorder screens** | Invariants 3 and 12, which break in **opposite directions**. Invariant 3: the target dies and the reference survives. Invariant 12: **the consumer survives and the producer dies** — deleting a screen can strand a variable consumer on a screen you never opened. Verified in `quiz`: the `text-input` with `customId: "name"` lives on **Quiz**, and `name.value` is read on **Rock**, **Hip hop** and **Paywall After**. Delete Quiz and all three references stay intact with nothing to resolve against, so nothing on the edited screen looks wrong and three untouched screens render an empty name. Also: `screens[0]` is the entry screen, so a reorder silently moves where the flow starts; and `_meta.screens` is keyed by screen id, so a deleted screen's product declarations leave with it (invariant 4). | Three, all on the [Common issues](https://adapty.io/docs/flow-common-issues.md) list: a dangling `navigate` (invariant 3), a screen with no elements, and — on any screen you add that carries a `product` element — a product element with no product attached, which no edit of yours can clear (see [`products.md`](products.md)). A stranded variable consumer is **not** a blocker; it publishes and renders empty. | Every `<inputCustomId>.value`, `<groupId>.selectedOptionId` and `<productUUID>.prod_*` reference still has a producer. Search `screens` **and** `components`: no component in the corpus holds a reference, but a component is a screen-shaped `{map, hierarchy}` that can, so it is inside the search space. A new screen matches `flow-schema.md`'s `root`-wrapper and `scr_`-id rules. `screens[0]` is still the screen you mean. Orphans and widenings are in your report (decisions 2 and 3). |
 | **Branching and conditions** | Also: **conditions cannot compare numbers.** `<` and `>` are in the schema's `ExpressionType` and are not honoured at runtime, so a threshold must be enumerated as `==` cases against **strings** — see [flow-schema.md](flow-schema.md). Invariants 6 and 7. Renaming a selectable option changes its `customId`; every `const` compared against `<groupId>.selectedOptionId` must change with it, or the case stops matching and **every user takes the `default` branch** — routing changes with nothing failing. | A `conditional` with no operator or value. A `const` that matches nothing is not a blocker; it silently reroutes everyone. | For each predicate `const`, a member of that group carries that `customId`. Each `selectableGroups[]` entry has at least one member, and each `groupId` in use is declared. You know where `default` sends users, because a mismatch sends everyone there. Read `default` as a live route, not a fallback: in `quiz` the switch has one case (`rock`) and `hiphop` is routed **only** by `default`. And a group member may legitimately carry no `customId` at all — `quiz`'s continue button is a `quiz` member and holds the conditional itself — so an absent `customId` is not a gap to fill. |
 
@@ -41,7 +41,7 @@ Three conclusions, and they all point the same way:
   now dangles, and `validate` refuses it — correctly. Only a terminal screen (a paywall with no
   outbound `navigate`) extracts cleanly, which is the minority case.
 - **Patching in place is already surgical.** One script edit changed the target screen and left
-  `theme`, `_meta`, `components`, `variables`, `locales` and all six other screens **byte-identical**
+  `theme`, `_meta`, `components`, `variables`, `localization` and all six other screens **byte-identical**
   (md5 per key). There is nothing to stitch because nothing was ever split — which also avoids
   silently reverting a flow-level normalisation the builder made, such as the `_meta.icons`
   re-ordering it applies on save.
@@ -63,38 +63,35 @@ put them back unchanged.
 Six of the seven items below are points where two answers are both defensible and Adapty has
 not settled which is correct; item 4 has no choice in it, only a fact the user must hear before
 they publish. The deliverable is not the JSON alone — it is the JSON **plus a report
-that names what happened.** Four baseline locale runs reached decision 1, split 2–2 on it, and
-zero mentioned it: a correct file with a silent choice inside it is an incomplete delivery.
+that names what happened.** A correct file with a silent choice inside it is an incomplete
+delivery.
 
 For each item your transform encountered, your report states the trigger you hit, which option
 you took, how many fields or screens it covered, and what the user will see because of it. If a
 transform encountered none of them, say so — an absent disclosure and an unencountered decision
 look identical to the user.
 
-### 1. A bare-string `content` during a locale transform
+### 1. An entry several fields share
 
-**Trigger:** you are adding a locale, and a `text.props.content` you would otherwise translate
-is a bare string — `"content": "Next"` — with no `values` map and no `_localizable`.
+**Trigger:** you are rewriting or translating a value, and its catalog entry is named by more than
+one ref — the same `{_lid}` on two elements, on an element and an alert, or on two screens. Find
+them before you edit: every field whose stored value is that ref, and every conditional branch that
+names it.
 
-It cannot hold a translation as it stands. Both exits are legitimate:
+Editing the entry changes every one of those fields. Both exits are legitimate:
 
-- **Leave it bare.** The field keeps a shape real exports carry, and that label renders in
-  the source language for **every** locale you added. In `quiz` there are 6 such fields:
-  `"Next"` four times, plus `"Yearly"` and `"Monthly"` on the paywall — all user-visible.
-- **Convert it to `{values, _localizable}`** and fill every locale. The label translates, and
-  the field's shape has changed. Both shapes exist in real exports, and `flows config update`
-  preserves nested shapes verbatim — so the save will succeed. The local **preview** also draws
-  converted fields correctly (measured: six converted labels rendered pixel-identically to the
-  bare-string source). What remains **UNVERIFIED** is whether the *Flow Builder's editor* renders
-  them — nobody has opened one, and the preview page is a different renderer
-  ([flow-schema.md trap 10](flow-schema.md)). So converting is defensible, but if you convert:
-  say so, name the fields, and tell the user to check those labels first.
+- **Edit the shared entry.** Right when the fields are meant to say the same thing — a "Continue"
+  label on every screen, one legal line in two footers. One edit, one translation, and they cannot
+  drift apart.
+- **Give the field you were asked about its own entry** (`localization.copy_entry()`, then point
+  that field's ref at the copy) and edit the copy. Right when only that field should change. The
+  others keep the old text.
 
-**Leaving it bare is safe at the transform service.** A Flow Builder screen carrying bare-string
-`content` on both its text elements went through device preview, and the service's issue list named
-only the font preset and `verticalAlign` — nothing about content shape. So a bare string is not a
-publish blocker and there is no pressure to convert one for validity's sake; convert only when the
-field genuinely needs to translate.
+Never edit a shared entry to change one field. That rewrites the others silently, and nothing
+downstream can tell: the document is well-formed and every render is correct for what it holds.
+
+**Your report states** which exit you took, how many fields the entry covered, and — if you split
+it — which fields kept the old text.
 
 **The localization panel and import/export do not cover variables or conditional text**
 (team-confirmed, ADP-7487): an exported translation file will not round-trip a variable tag — "you
@@ -107,21 +104,17 @@ for Free" and a "Continue" button, one shown when the trial is available) — pl
 through the normal tooling.
 
 **A conditional text costs more than a field, and the field count hides it.** Where a value is a
-`switch` rather than blocks ([flow-schema.md](flow-schema.md)), the locale you are adding needs the
-**whole expression** replicated and **every branch** translated, predicates included. So the field
-count is not the work count — say how many fields were conditional and how many branches that
-added — and note that a field carrying the switch with one branch untranslated is **worse than an
-untranslated field**: it looks finished, and it only surfaces for whichever plan the user did not
-pick. Rewriting copy has the same shape: rewrite every branch in every locale, or the screen
-contradicts itself depending on the selection.
+`switch` ([flow-schema.md](flow-schema.md)), every branch is its own catalog entry, and the locale
+you are adding needs a value in **every one** of them. So the field count is not the work count —
+say how many fields were conditional and how many branches that added — and note that a field with
+one branch untranslated is **worse than an untranslated field**: it looks finished, and it only
+surfaces for whichever plan the user did not pick. Rewriting copy has the same shape: rewrite every
+branch in every locale, or the screen contradicts itself depending on the selection.
 
-**Your report states** which option you took and how many fields it covered — and if you left
-them bare, it lists the literal strings that stay in the source language.
-
-The case to beat, verbatim from a baseline run that left them bare: it reported *"Spanish
-translations for every remaining localizable field"* while `"Next"`, `"Yearly"` and
-`"Monthly"` stayed English and it never said so. Literally true, materially misleading.
-Listing those three strings is the whole difference.
+**Your report lists every field you left untranslated**, by the text it shows, because it will
+show that text in the source language. A report that says *"translated every localizable field"*
+while three labels still show English is literally true about the fields it touched and materially
+misleading about the screen.
 
 ### 2. Deleting a screen that other screens depend on
 
@@ -259,8 +252,9 @@ complaint. This is the one way an add-a-locale run can produce something unpubli
 
 Two things make it worth a decision rather than a footnote:
 
-- **The repair is expensive once the translations exist.** Renaming means the key in `locales`,
-  every `values` map in the document that carries it, and `remote_configs` — so getting it right
+- **The repair is expensive once the translations exist.** When the locale's `id` is the same
+  string as its code, renaming means the entry in `localization.locales`, the key in every catalog
+  `values` map, and `remote_configs` — so getting it right
   costs nothing now and a full pass later.
 - **A code that arrives in a config you FETCHED is not yours to rewrite in passing.** Report it
   and ask. `verify-config.py` warns for exactly that case; `flowkit.config()` refuses to emit one,

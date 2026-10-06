@@ -18,23 +18,22 @@ That is the evidence that `id` names the flow, not the document — which is als
 takes the flow id as an argument and not from the file. See
 [Browser export versus CLI config](#browser-export-versus-cli-config) below.
 
-All three carry exactly one locale (`en`). A `values` map with two or more keys is therefore
-inferred from the field's shape, not observed.
+All three carry exactly one locale (`en`). Like every flow, they keep their localizable values
+in the localization catalog, [below](#localization-the-catalog).
 
 ## The envelope
 
-Ten top-level keys. All ten are present in all three exports, and no eleventh key was
+Nine top-level keys. All nine are present in all three exports, and no tenth key was
 observed.
 
 | Key | Shape | Notes |
 | :--- | :--- | :--- |
 | `id` | UUID | Identifies the **flow**, not the document. Two exports in the corpus share one. The CLI takes the flow id as a command argument, so this is not what routes a write. |
 | `status` | `"draft"` \| `"dirty"` \| `"publication_failed"` \| `"published"` | **Present in a browser export, and not part of the CLI config document — see below.** Four values observed on the envelope: `draft`, `dirty` (a save over a flow that already has a published version — the draft has diverged from what users see), `publication_failed` (a publish attempt that the transform service rejected), and `published`. The dashboard shows six statuses (Draft, Dirty, Publishing, Failed, Published, Archived); a saved-but-unpublished edit over a live flow is the "Dirty" state, not a third JSON value. |
-| `schemaVersion` | `9` in every export here; **also seen absent, `2`, `6`, and `8.0`**; the builder's latest is **12** | Not a constant, and not always an integer — the transformer's own front-format fixtures omit it in 21 of 30 files and carry `8.0` as a float in another. **The number declares which migrations the document has already been through**, and the builder acts on that declaration alone: on load it applies every registered step whose version is greater than the flow's, then stamps its own latest. So the number is a claim about the shapes inside, not a label. Three consequences, and they are the whole rule. **Carry the input's number unchanged** — a flow you fetched stays at its own version, and `config update` never migrates it. **Never raise it to look current**: a flow stamped 12 has steps 11 and 12 skipped, so dotted product variables are never converted to structured refs and offer-bound products fail to publish. **Never stamp past 12** either — a version ahead of the builder's latest throws `Downgrade is not supported` and the flow will not open. Authoring is the one case with no input to preserve: stamp the version whose shapes you actually emit. `flowkit` emits all three of array fills (010), structured product refs (011) and the screen registry (012), so it stamps **12**. |
+| `schemaVersion` | the number **13**, the builder's latest | **The number declares which migrations the document has already been through**, and the builder acts on that declaration alone: on load it applies every registered step whose version is greater than the flow's, then stamps its own latest. So the number is a claim about the shapes inside, not a label. Three consequences, and they are the whole rule. **Never raise it by hand**: a document stamped 13 has every step up to 13 skipped, so an inline value stamped 13 is never moved into the catalog and the transform service refuses the flow. The only ways a document reaches 13 are the builder saving it and `localization.py catalog`, which does the 013 conversion and stamps the number together. **Never stamp past 13** — a version ahead of the builder's latest throws `Downgrade is not supported` and the flow will not open. **A fetched flow below 13 is converted before anything else**: at 12, `localization.py catalog` over it; below 12, migrations 011 and 012 are the builder's alone, so the user opens the flow in the Flow Builder and saves it, and you fetch it again. `flowkit` emits array fills (010), structured product refs (011) and the screen registry (012) itself and gets 013 from `localization.catalog()`, so it stamps **13**. |
 | `components` | `{}` or `{"pb_XXXXXXXX": {map, hierarchy}}` | Reusable blocks with the same `{map, hierarchy}` shape as a screen's `elements`. Referenced from a screen hierarchy as `{"id": "pb_XXXXXXXX", "type": "global"}` — a hierarchy node with no entry in that screen's `map`. Empty object in `comparison`. May be present and referenced by nobody. |
 | `screens` | `[{id, props, caption, elements: {map, hierarchy}, selectableGroups, products}]` | Array order is flow order; `screens[0]` is the entry screen. `selectableGroups` is `[]` on screens with no groups, never omitted. `hierarchy` is a single rooted node — see below. **`products` is the screen's Product + Offer registry, and it is what `_meta.screens[].products[]` is derived from** — [`products.md`](products.md) owns the rules, including the one that matters most here: absent and `[]` mean opposite things, so omit the key rather than emptying it. The three exports in this corpus are v9 and carry the other five keys only; a screen you did not export yourself has six. |
-| `locales` | `[{id, code, name}]` | e.g. `{"id": "en", "code": "en", "name": "English"}`. The `id` is the key used in every `values` map. |
-| `defaultLocale` | a locale `id` | Must name an entry in `locales`. |
+| `localization` | `{locales, defaultLocale, content}` | `locales`: `[{id, code, name}]`, e.g. `{"id": "en", "code": "en", "name": "English"}`. `defaultLocale`: a locale **id**, and it must name an entry in `locales`. `content`: the catalog, one entry per localizable value. There is no top-level `locales` or `defaultLocale`. [Localization: the catalog](#localization-the-catalog) owns the rules. |
 | `variables` | `[{id, name, valueType}]` | **Custom, app-supplied variables only** — `{"id": "var_ddvg4jeg", "name": "app.permission.location.allowed", "valueType": "boolean"}`. Built-ins are never declared here. `[]` in `timer` and `comparison`. |
 | `theme` | `{typography: [{id, name, settings}], colors: [{id, name, light, dark?}]}` | Per-project design system. **Not a fixed vocabulary** — see [Shape traps](#shape-traps). `colors[].dark` is present only where dark mode was configured (`quiz` only). |
 | `_meta` | `{icons, fonts, screens}` | `icons`: `[{name, weight, raw}]`, `raw` being literal SVG markup. `fonts`: `[{id, name, url, iosName, androidName}]`, `[]` in `quiz`. `screens`: an object keyed by screen id, holding that screen's declared products — `{"<screen-id>": {"products": [{"id": "<product-uuid>", "flowProductId": "<flow-product-uuid>"}]}}`. An entry also carries `offerId` when the binding has one, between `id` and `flowProductId`. Screens with no products have no entry at all. **Rewriting a flow: carry `screens[].products[]` through untouched. Authoring one: derive it with `flowkit.predeclare()`.** [`products.md`](products.md) owns the rules and the reasoning. |
@@ -57,6 +56,81 @@ render.
 An element inside `elements.map` has at most seven keys: `id`, `type`, `props` always;
 `states` on every screen element in all three exports and on no element inside `components`;
 and `caption`, `interactions`, `propsByState` optionally. `props` content varies by `type`.
+
+## Localization: the catalog
+
+Every localizable value lives in `localization.content`, and the field that shows it holds only
+a reference:
+
+```json
+"content": {"_lid": "lc_0"}
+```
+```json
+"localization": {
+  "locales": [{"id": "en", "code": "en", "name": "English"},
+              {"id": "fr", "code": "fr", "name": "French"}],
+  "defaultLocale": "en",
+  "content": {"lc_0": {"kind": "rich-text",
+                       "values": {"en": [{"type": "paragraph", "content": [ … ]}],
+                                  "fr": [{"type": "paragraph", "content": [ … ]}]}}}}
+```
+
+**Which fields are localizable, and nothing else.** A field is a ref if and only if it is one of
+these, on a screen element or inside `components`:
+
+| Field | Entry `kind` | A value holds |
+| :--- | :--- | :--- |
+| `text` `props.content` | `rich-text` | an array of paragraph blocks, or a plain string |
+| `props.placeholder` on the eight inputs and pickers | `rich-string` | a plain string, or an inline-node array |
+| `image` `props.image` | `image` | the whole `{id, url, previewValue?}` object |
+| `video` `props.video` | `video` | the whole video object |
+| `alert` action `payload.title` / `payload.message`, including alerts nested in a `conditional` action | `rich-string` | a plain string |
+
+Names, ids, action URLs, fills, geometry and a background image inside a `fill` are never
+catalogued.
+
+**Six rules, and every edit has to keep all of them.**
+
+1. **`values` is keyed by locale ID**, `localization.locales[].id`, not by language code. The two
+   are often equal and nothing guarantees it; the device link and the SDK match on the code.
+2. **An absent or empty value falls back to the default locale.** `""`, `[]`, a paragraph holding
+   only empty text, and an empty media url all count as absent. So an untranslated field shows
+   the default-language text, never a blank. **Never copy the default value into other locales
+   to fill them**: that turns "not translated yet" into an explicit value nobody translated, and
+   for media it puts the base64 preview into the published config once per locale.
+3. **Edit a translation in place**: change `content[id].values[localeId]` and keep the id, the
+   ref and every other locale. Do not delete and re-add an entry to change it.
+4. **An entry is shared by every ref that names it.** Editing its values changes every field
+   that shows it. When one use must change and the others must not, give that field its own entry
+   (`localization.copy_entry()`) and point its ref at the copy.
+5. **Conditional text keeps its `switch` on the property.** Each branch is
+   `{"type": "const", "value": {"_lid": "…"}}` with an entry of its own, so the predicates exist
+   once and are translated per branch. A whole switch is never an entry's value.
+6. **An id names an entry of THIS flow.** Ids are opaque (`lc_N`), minted past every id the flow
+   already uses. A ref copied from another flow names that flow's entry, or nothing (trap 24).
+
+**Write inline, then catalogue.** Every `flowkit` helper, every template in
+`component-catalog.json` and every saved snippet uses the inline authoring form,
+`{"_localizable": true, "values": {"<localeId>": …}}` — easy to build, easy to read, and not
+what is stored. `flowkit.config()` catalogues its own output. Anything you put into a **fetched**
+config yourself stays inline until you run:
+
+```bash
+python3 references/localization.py catalog draft.json
+```
+
+It moves every inline value into the catalog under fresh ids, leaves every existing ref and
+translation exactly as it was, and stamps 13. It is a port of the builder's own migration 013,
+so the result is the document the builder would have stored. It prints `DROPPED` and exits 1
+when a value could not be carried: one under a locale the flow does not declare, or a branch of
+conditional text whose locale does not match the default locale's cases. Report each one.
+`verify-config.py` refuses a catalogued document that still holds an inline value, so a
+forgotten run is caught before the write.
+
+**To read a document, read it through the catalog.** `localization.resolve()` returns a view
+with every ref inlined where it is used; `verify-config.py`, `diff-config.py`, `snippet.py` and
+`flow-audit`'s checker all read that. The view is for reading: it duplicates shared entries and
+drops the catalog, so writing it back would split every shared entry.
 
 `flowProductId` is a UUIDv5 over `screenId:productId[:offerId]`, hashed with an empty namespace.
 Derive it with `flowkit.flow_product_id()` ([products.md](products.md)). Never invent one, and
@@ -104,10 +178,11 @@ the one invariant on this list that a real multi-locale export has never exercis
 | 8 | Every `colorId` and every `font.preset` resolves in **that file's own** `theme` | pasting a screen from another flow | **A hard 422, confirmed.** A screen pasted in from another flow kept `font.preset: "button-label"`, a preset the destination theme does not define; device preview returned `unknown_font_preset` as **severity `error`**, once per text element, blocking the whole flow. `config update` had saved it without complaint. So this is a publish blocker, not a cosmetic drift — and `references/verify-config.py` catches it, which is the check earning its place. Fix by repointing to a preset the destination theme has, not by adding the source's name to the theme. Never validate these against a remembered list of built-in names — see [Shape traps](#shape-traps). |
 | 9 | Every `family.id` resolves in `_meta.fonts` — via **both** reference paths: an element's `props.font.family.id`, and `theme.typography[].settings.family.id` | pasting a screen from another flow, editing or deleting a typography preset | Unresolvable font reference. **Check both paths or you check nothing**: element-level refs number 7 in `timer` and 0 in both `quiz` and `comparison`, so in `comparison` all three declared fonts are reached only through theme presets, and in `timer` the two paths together are what reach all four. A check that reads only element props would find `comparison`'s `_meta.fonts` entirely unreferenced and could license deleting them. Resolving here also does not mean the font ships — trap 7. |
 | 10 | Every `(name, weight)` icon pair used by an `icon` element appears in `_meta.icons` | adding an icon | `_meta.icons[].raw` carries the literal SVG markup the renderer draws, so an unlisted pair has nothing to draw. The markup is **no longer unobtainable**: [`icons.py`](icons.py) resolves any `phosphor` name+weight and the five Builder spinners, byte-identically to a real export — and `flowkit.config()` derives the whole list from the tree, which makes this invariant unrepresentable to violate from the module. A `custom` icon nobody has markup for is still yours to supply. Note the harder sibling: for a `phosphor` icon, being declared is not enough, because the renderer resolves the NAME from its own bundle — trap 23. |
-| 11 | Every locale in `locales[]` has an entry in every **text and placeholder** `_localizable` `values` map. An **image or video** map holds the default locale plus only the locales that get a different file | adding a locale | A missing text value falls back or renders empty for that locale. A missing image value shows the default's file, which is what you want; a copy of it duplicates the preview once per locale. Three localizable families, not one — trap 1. |
+| 11 | Every **text and placeholder** entry has a value for the default locale, and a translated value for each locale the flow is translated into. An **image or video** entry holds the default locale plus only the locales that get a different file | adding a locale | A missing text value falls back to the default locale's text, so the field shows in the wrong language; `verify-config.py` warns per locale. A missing default value leaves every locale with nothing to fall back to. A missing image value shows the default's file, which is what you want; a copy of it duplicates the preview once per locale. |
 | 12 | Every variable **consumer** still has a **producer**, and *which* producer depends on the form: `<inputCustomId>.value` needs the `text-input` carrying that `customId`; `<groupId>.selectedOptionId` needs a group with that id; `<productUUID>.prod_*` needs that product declared; `<groupId>.selectedProduct.<field>` needs a `product`-typed **group** — resolve it against `selectableGroups`, never against the product list, or you repeat invariant 5's false positive | **screen deletion**, moving an element between screens | Breaks the **opposite way** from invariant 3: the reference survives and its producer dies, so nothing on the screen you edited looks wrong. In `quiz`, the `text-input` with `customId: "name"` lives on the Quiz screen while `name.value` is read on three *other* screens (both genre branches and the paywall) — deleting Quiz strands all three, and none of them is the screen that was touched. |
+| 13 | Every localizable field holds a `{_lid}` ref (or a `switch` whose branches are refs), and every ref names an entry of the field's `kind` in `localization.content` | grafting a fragment without cataloguing it; copying a ref from another flow; deleting an entry | An inline value is refused by the transform service; a ref naming no entry renders nothing. `verify-config.py` errors on both. See [Localization: the catalog](#localization-the-catalog). |
 
-Invariants 3 and 4 are the two whose violation blocks publishing. The other publish
+Invariants 3, 4 and 13 are the ones whose violation blocks publishing. The other publish
 blockers in [Common issues](https://adapty.io/docs/flow-common-issues.md) are not
 referential and so are not invariants: any incomplete interaction (a `purchase` with no
 product, a `conditional` with no operator or value), a screen with no elements, and invalid
@@ -140,17 +215,17 @@ invariants above, and is still wrong. This table is the index into them.
 
 The numbers are this file's addressing scheme: other files, and two checker messages in
 `verify-config.py` and `render-check.py`, cite them as **trap N**. They are therefore stable — a
-trap is never renumbered, a new one takes the next free number (**24**), and a new trap with no
+trap is never renumbered, a new one takes the next free number (**25**), and a new trap with no
 row here is unreachable, because the number is the only address anyone cites.
 
 | trap | the thing that parses and is still wrong |
 | :--- | :--- |
-| 1 | `text.props.content` has two shapes, and there are three localizable families |
-| 1b | `_localizable` does not mean one value shape — a placeholder takes a plain string |
+| 1 | A localizable field is a ref, and its entry's `kind` decides the value shape |
+| 1b | `rich-text` and `rich-string` are different shapes — a placeholder takes a plain string |
 | 2 | Rich text is two levels of node, and two of the three inline types carry no text |
 | 3 | `theme` is per-file, and a `font` override may carry no preset at all |
 | 4 | Built-in variables are referenced but never declared |
-| 5 | An asset you have no file for is an EMPTY `values` map, never a made-up URL |
+| 5 | An asset you have no file for is an entry with EMPTY `values`, never a made-up URL |
 | 6 | Optional keys are inconsistently present and must not be normalized |
 | 7 | Both screen id forms are legal |
 | 7b | The id analytics sees is `customId`, and leaving it blank is silent |
@@ -173,68 +248,62 @@ row here is unreachable, because the number is the only address anyone cites.
 | 21 | `theme.colors` and `theme.typography` share ONE id namespace |
 | 22 | Which group types a conditional can read — and the one action that does not work |
 | 23 | A `phosphor` icon resolves from the renderer's own bundle, and `raw` does not override it |
+| 24 | A `{_lid}` names an entry of THIS flow's catalog — never copy a ref between flows |
 
-### 1. `text.props.content` has two shapes, and there are three localizable families
+### 1. A localizable field is a ref, and its entry's `kind` decides the value shape
 
-A bare string, or a localizable object. Both are legal. `quiz` has 6 bare and 37 localized;
-`timer` and `comparison` have none bare.
-
-```json
-"content": "Next"
-```
-```json
-"content": {"values": {"en": [{"type": "paragraph", "content": [ … ]}]}, "_localizable": true}
-```
-
-A bare string has no locale and cannot be translated in place. Preserve whichever shape you
-found. Both shapes exist in real exports and `flows config update` saves either, but whether the
-builder **renders** a field converted from bare to localizable is unverified — nobody has opened
-one. So a conversion is a decision to disclose, not to make quietly.
-
-Localizable fields are marked by `"_localizable": true`, and the marked key is not always
-`content`:
-
-| Family | Key | `values.<locale>` holds | Count in `quiz` |
-| :--- | :--- | :--- | :-- |
-| `text` | `props.content` | an array of block nodes | 37 |
-| `image` | `props.image` | `{"id": "…", "url": "<asset-url>"}` | 4 |
-| `text-input` | `props.placeholder` | a plain string | 1 |
-
-42 localizable fields in `quiz`, of which 5 are not text. Note that `image` also appears as a
-**non-localizable** key: a `fill` of `"type": "image"` carries a bare
-`"image": {"id": …, "url": …}` with no `values` and no `_localizable`. Same key name,
-different position, different shape.
-
-**The image family is the exception to "every locale gets a value".** A locale with no entry in
-an image or video `values` map shows the **default locale's** file: the SDK resolves a locale's
-assets on top of the default's. So adding a locale adds **no** image entries. Write one only for
-a locale that gets a **different file**, such as a lockup with translated words baked in. A copy
-of the default's `{id, url, previewValue}` changes nothing on screen, and each copy puts the
-whole base64 preview into the published config again. With many locales and several images that
-adds up to megabytes, and a large enough config times out at publish. `verify-config.py` warns on
-every copy.
-
-### 1b. `_localizable` does NOT mean one value shape — a placeholder takes a plain string
-
-Two fields both marked `"_localizable": true`, two different value shapes:
+`text.props.content`, an input's `placeholder`, `image.props.image`, `video.props.video` and an
+alert's `title` / `message` each hold a `{_lid}` ref, whatever they say. A label that reads
+"Next" is stored like a translated paragraph:
 
 ```json
-"content":     {"values": {"en": [{"type": "paragraph", "content": [ … ]}]}, "_localizable": true}
-"placeholder": {"values": {"en": "Age"}, "_localizable": true}
+"content": {"_lid": "lc_4"}
+```
+```json
+"lc_4": {"kind": "rich-text", "values": {"en": "Next"}}
 ```
 
-`text.props.content` holds an **array of paragraph blocks**. An input's `placeholder` —
-`text-input`, `number-input` and the rest of that family — holds a **bare string per locale**.
-The schema now says so — a placeholder takes a string or inline nodes, never paragraph blocks —
-and the consequence is worth knowing: handing paragraph blocks to a placeholder **kills the entire
-screen**, which renders as `Preview failed to render.` and takes every other element on it down.
+The shape of a value is set by the entry's `kind`, not by the field:
+
+| `kind` | Used by | `values.<localeId>` holds |
+| :--- | :--- | :--- |
+| `rich-text` | `text` `content`, and each branch of conditional text | an array of block nodes, or a plain string |
+| `rich-string` | input and picker `placeholder`, alert `title` / `message` | a plain string, or an inline-node array |
+| `image` | `image` `image` | `{"id": "…", "url": "<asset-url>", "previewValue"?: "…"}` |
+| `video` | `video` `video` | the video object |
+
+`image` also appears as a **non-localizable** key: a `fill` of `"type": "image"` carries a bare
+`"image": {"id": …, "url": …}` inline, with no ref. Same key name, different position, different
+shape.
+
+**The image family is the exception to "every locale gets a value".** A locale with no value in
+an image or video entry shows the **default locale's** file. So adding a locale adds **no** image
+values. Write one only for a locale that gets a **different file**, such as a lockup with
+translated words baked in. A copy of the default's `{id, url, previewValue}` changes nothing on
+screen, and each copy puts the whole base64 preview into the published config again. With many
+locales and several images that adds up to megabytes, and a large enough config times out at
+publish. `verify-config.py` warns on every copy.
+
+### 1b. `rich-text` and `rich-string` are different shapes — a placeholder takes a plain string
+
+Two entries, two kinds, two value shapes:
+
+```json
+"lc_2": {"kind": "rich-text",   "values": {"en": [{"type": "paragraph", "content": [ … ]}]}}
+"lc_3": {"kind": "rich-string", "values": {"en": "Age"}}
+```
+
+A `text` element's content holds **paragraph blocks**. An input's `placeholder` — `text-input`,
+`number-input` and the rest of that family — holds a **bare string per locale**. The schema
+says so — a placeholder takes a string or inline nodes, never paragraph blocks — and handing
+paragraph blocks to a placeholder **kills the entire screen**, which renders as `Preview failed
+to render.` and takes every other element on it down.
 
 Measured by bisection, holding everything else constant:
 
-| `placeholder` | result |
+| placeholder entry `values.en` | result |
 | :--- | :--- |
-| `{"values": {"en": [{"type":"paragraph", …}]}}` | **whole screen fails to render** |
-| `{"values": {"en": "Age"}}` | renders |
+| `[{"type":"paragraph", …}]` | **whole screen fails to render** |
 | `"Age"` | renders |
 
 `verify-config.py` passes it; the schema step catches it, at
@@ -245,7 +314,7 @@ screens at once.
 
 ### 2. Rich text is two levels of node, and two of the three inline types carry no text
 
-`values.<locale>` for a `text` element is an array of **block** nodes. Only `paragraph` was
+A `text` element's value is an array of **block** nodes. Only `paragraph` was
 observed (38 in `quiz`, 18 in `timer`, 22 in `comparison`). Each block's `content` is an
 array of **inline** nodes, of which exactly three types exist:
 
@@ -364,31 +433,34 @@ variables](https://adapty.io/docs/onboarding-variables.md) documents the UI as o
 `selected_id` and `selected_title`; the JSON writes `selectedOptionId`. Take the string from
 the file, never from a docs table.
 
-### 5. An asset you have no FILE for is an EMPTY values map, never a made-up URL
+### 5. An asset you have no FILE for is an entry with EMPTY values, never a made-up URL
 
 **If you were given a file, upload it** — `flows media upload` returns a live CDN URL to bind, and
-the shapes it binds into (per-locale `values` map on an element, flat inside a `fill`), the
+the shapes it binds into (a catalog entry for an element, flat inside a `fill`), the
 `id`-is-a-string rule and the third field to carry across, `previewValue`, all live in
 [media.md](media.md). This trap governs what is left after that: an
 image nobody has a file for, an SVG (upload returns `http_500`), or a video (no path at all).
 
-You still cannot *create* media. An `image` whose asset does not exist is written with the
-localizable wrapper intact and **nothing in it**:
+You still cannot *create* media. An `image` whose asset does not exist keeps its ref, and its
+entry holds **nothing**:
 
 ```json
-"image": {"_localizable": true, "values": {}}
+"image": {"_lid": "lc_9"}
+```
+```json
+"lc_9": {"kind": "image", "values": {}}
 ```
 
 Not a placeholder URL, not `example.com`, not a plausible-looking
 `public-media.adapty.io` path — and that last one matters more now that real uploads live on
 exactly that host: a `public-media.adapty.io` URL is legitimate **only** if `flows media upload`
 printed it in this session. Copying one from another flow, from a fixture, or from the shape of
-one you saw is an invented URL wearing the right costume. An invented URL is worse than an empty map three ways: it looks
+one you saw is an invented URL wearing the right costume. An invented URL is worse than empty values three ways: it looks
 resolved so nobody uploads anything, it silently fails at runtime rather than showing as
 unset in the builder, and a fabricated `id` collides with the real asset namespace.
 
 The same holds for the asset `id` — omit the whole entry rather than inventing a number.
-Report every element left with an empty `values` map in your handover, so the user knows
+Report every element whose entry has empty `values` in your handover, so the user knows
 exactly what to upload.
 
 **A video is the same story one element type over — a real `video` element with its source unset,
@@ -432,7 +504,7 @@ because a substitute is structurally valid. This was the user's own call on a bu
 emoji had passed every check (2026-08-24). Emoji carry a second cost too: they are the one defect
 class with no preview-side tell at all (see [preview.md](preview.md)).
 
-**Style the placeholder element completely, so the upload lands styled.** The empty values map
+**Style the placeholder element completely, so the upload lands styled.** The empty entry
 is only the *content* half; `ImageProps` carries the presentation — `borderRadius`,
 `objectFit` (`"fit"` | `"cover"`), `_aspect`, `border`, fixed `width`/`height` — and those are
 yours to author now, on the `image` element itself, not on a wrapper. A circular avatar is a
@@ -802,6 +874,22 @@ Three things to take from that, all observed on a real 422:
   config happily; the transform service refused it. So "it saved" never means "it will publish",
   which is the same lesson trap 10 teaches about rendering, one layer further out.
 
+
+### 24. A `{_lid}` names an entry of THIS flow's catalog — never copy a ref between flows
+
+Content ids are minted per flow (`lc_0`, `lc_1`, …), so every flow has an `lc_0`. A ref copied
+from another flow, from a fixture or from a template lands on whatever this flow keeps under that
+id — a different string, or nothing — and every gate but one passes it: the document is
+well-formed, and the render draws the wrong text as confidently as the right one.
+`verify-config.py` catches only the dangling half.
+
+Move content between flows as **values**, never as refs: resolve the source through the catalog
+(`localization.resolve()`, or `snippet.py extract`, which saves the inline form), put the inline
+value into the destination, and run `localization.py catalog` over it. That mints ids past the
+destination's own. The same holds inside one flow when you duplicate an element: the copy shares
+the original's entry until you give it one of its own (`localization.copy_entry()`), and editing
+either then edits both.
+
 ### 14b. A condition is an expression tree, and `assign` is the one type it may not use
 
 The `conditional` form above carries a JSON expression, and the transform service validates it
@@ -990,7 +1078,7 @@ apart — colours are `accent`, `gray-200`, `clr_RvBg`; presets are `body`, `cap
 So **name presets and colours in separate spaces** (`legal` for the preset, `footer` for the
 colour). `references/verify-config.py` is the only gate that will tell you, and it now covers the
 whole class rather than this one instance: it **errors** on a repeated id in any id-keyed
-collection — `theme.colors`, `theme.typography`, `locales[].code`/`.id`, `screens[].id`,
+collection — `theme.colors`, `theme.typography`, `localization.locales[].code`/`.id`, `screens[].id`,
 `variables[].id`, `_meta.fonts[].id`, `_meta.icons` by name+weight, a screen's
 `selectableGroups`, an element's `states` and `interactions`, action ids within an element, and
 `_meta.screens[].products` — plus the colour/preset cross-collision above. It **warns** where the
@@ -1024,17 +1112,17 @@ predicate rather than to `selectProduct`; but with the toggle variable unreadabl
 `propsByState` on the toggle's own element, and put the conditional where it reads a product
 group.
 
-**Conditional rich text validates, and the `switch` nests INSIDE the locale value**, with each
-branch a `const` holding that locale's paragraph array:
+**Conditional rich text validates, and the `switch` sits on the property**, with each branch a
+`const` holding a ref to that branch's own catalog entry:
 
 ```json
-"content": {"_localizable": true, "values": {"en": {
+"content": {
   "type": "switch",
   "cases": [[ {"type": "&&", "predicates": [
                 {"left": {"type": "var", "variableId": "plans.selectedProduct"},
                  "type": "==", "right": {"type": "const", "value": "<product-uuid>"}}]},
-              {"type": "const", "value": [ …paragraph runs… ]} ]],
-  "default": {"type": "const", "value": [ …paragraph runs… ]}}}}
+              {"type": "const", "value": {"_lid": "lc_11"}} ]],
+  "default": {"type": "const", "value": {"_lid": "lc_12"}}}
 ```
 
 The render draws **one branch of one locale with no tell in the PNG**, so read it, do not look at
@@ -1277,42 +1365,44 @@ on a drop-shadow of `y: 6, blur: 18, #000000 at 8% opacity`, so this one is not 
 artifact the way `old-price` turned out to be. So it is usable; it just has no precedent to copy
 from, which means keeping a border underneath it is still the conservative choice.
 
-### A localizable value can be a `switch`, not just blocks — and the switch is INSIDE each locale
+### Conditional text: one `switch` on the property, one catalog entry per branch
 
-From a real builder export. A `content` value is normally an array of paragraph blocks per locale.
-It may instead be a **`switch` expression** whose every branch yields its own block array:
+From a real builder export. A `content` value is normally a single ref. It may instead be a
+**`switch` expression** whose every branch is a ref of its own:
 
 ```json
-"content": {"_localizable": true, "values": {
-  "en": {"type": "switch",
-         "cases": [[{"type": "&&", "predicates": [
-                      {"type": "==",
-                       "left":  {"type": "var",   "variableId": "plans.selectedProduct"},
-                       "right": {"type": "const", "value": "<product-uuid>"}}]},
-                    {"type": "const", "value": [ …blocks… ]}]],
-         "default": {"type": "const", "value": [ …blocks… ]}},
-  "ru": {"type": "switch", "cases": [[ …the same predicate… ]], "default": { … }}}}
+"content": {"type": "switch",
+            "cases": [[{"type": "&&", "predicates": [
+                         {"type": "==",
+                          "left":  {"type": "var",   "variableId": "plans.selectedProduct"},
+                          "right": {"type": "const", "value": "<product-uuid>"}}]},
+                       {"type": "const", "value": {"_lid": "lc_20"}}]],
+            "default": {"type": "const", "value": {"_lid": "lc_21"}}}
+```
+```json
+"lc_20": {"kind": "rich-text", "values": {"en": [ …blocks… ], "ru": [ …blocks… ]}},
+"lc_21": {"kind": "rich-text", "values": {"en": [ …blocks… ], "ru": [ …blocks… ]}}
 ```
 
-**Emit it with [`flowkit.switch_rich()`](flowkit.py)**, which builds this shape and checks each
-predicate against the service's own walker. Two facts that make hand-authoring it a bad trade, both
-measured against the live service: the predicate is **compiled**, so an unresolved
-variable here is `valid: false` — *"Generated scripts failed validation"*, with `code` and `path`
-both `null`, naming neither the element nor the variable — while a `variable` **span** in the very
-same `props.content` merely renders its literal token and publishes. Same property, opposite
-severity. `flowkit.config()` refuses the fatal half locally.
+**Emit it with [`flowkit.switch_rich()`](flowkit.py)**, which builds the inline authoring form
+and checks each predicate against the service's own walker; `config()` catalogues it into this
+shape. Two facts that make hand-authoring it a bad trade, both measured against the live
+service: the predicate is **compiled**, so an unresolved variable here is `valid: false` —
+*"Generated scripts failed validation"*, with `code` and `path` both `null`, naming neither the
+element nor the variable — while a `variable` **span** in an ordinary text value merely renders
+its literal token and publishes. Same property, opposite severity. `flowkit.config()` refuses the
+fatal half locally.
 
-Four consequences, and the nesting order is the reason for all of them:
+Consequences:
 
-- **The conditional sits inside the locale, not outside it.** Every locale carries its own complete
-  copy of the switch — the same predicates, duplicated. Adding a locale to a conditional text is
-  not translating a string, it is **replicating the whole expression** and translating each branch.
-  Editing a predicate means editing it in every locale, and a config where `en` and `ru` disagree
-  about a product id is silently two different screens.
-- **Locale parity is per branch, not per field.** A field that "has a `ru` value" can still be
-  half-translated: the case in Russian, the default in English. Whoever sees it is the user who
-  picked the *other* plan. `references/verify-config.py` compares branch counts across locales for
-  exactly this, and crashed on this shape until it was taught about it.
+- **The predicates exist once.** Adding a locale to conditional text means adding a value to
+  each branch's entry; the switch itself does not change. Editing a predicate is one edit.
+- **Locale parity is per branch, not per field.** Each branch is its own entry, so a field can be
+  translated in one branch and not the other: the case in Russian, the default showing the
+  English text. Whoever sees it is the user who picked the *other* plan. `verify-config.py`
+  checks every entry, so it names the untranslated branch.
+- **A whole switch is never an entry's value.** The switch belongs on the property;
+  `verify-config.py` errors on an entry holding one.
 - **`<groupId>.selectedProduct` compares against a product UUID**, the product-group analogue of
   `<groupId>.selectedOptionId == "<customId>"`. Invariant 5's rule applies from the other
   direction: check the `const` against the form of the head. A product id here must be one **bound
@@ -1665,7 +1755,7 @@ never treat its absence here as evidence the file is invalid.
 | typography `weight` | `regular`, `medium`, `semibold`, `bold` | `medium` in `comparison` only |
 | `text.props.layout` | `auto-height` | the only value observed |
 | `timer.props.behavior` | `start_at_every_appear` | `timer` only |
-| locale `id` | `en` | the only locale in all three. A multi-locale export has not been observed; for how locales are added in the builder, see [Add locale](https://adapty.io/docs/add-paywall-locale-in-adapty-paywall-builder.md) |
+| locale `id` | `en` | the only locale in all three; `localization.locales[].id`, and the key of every catalog `values` map. For how locales are added in the builder, see [Add locale](https://adapty.io/docs/add-paywall-locale-in-adapty-paywall-builder.md) |
 
 ### From what the user asks for to what the JSON calls it
 

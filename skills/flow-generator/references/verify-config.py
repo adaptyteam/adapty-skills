@@ -65,6 +65,10 @@ try:
     import icons as _icons
 except Exception:                                        # noqa: BLE001 - any import failure degrades
     _icons = None
+try:
+    # The catalog reader. Not optional like `icons`: without it every localizable value is an
+    # opaque `{_lid}` and half the checks below would pass by seeing nothing.
+    import localization as _loc
 finally:
     sys.dont_write_bytecode = _bytecode
 
@@ -548,6 +552,10 @@ def iter_visible_text(d):
                 continue
             values = content.get('values') if content.get('_localizable') else {None: content}
             for locale, value in (values or {}).items():
+                if isinstance(value, str):        # a plain value, stored as the entry's string
+                    if value.strip():
+                        yield s.get('id'), eid, locale, value.strip()
+                    continue
                 chars = []
 
                 def grab(o):
@@ -612,9 +620,215 @@ def unwrap(d):
         return d['config']
     return d
 
-def check(path, baseline_text=None, baseline_images=None):
-    d = unwrap(json.load(open(path)))
+def _plain(v):
+    """Visible characters of a text value, for labels."""
+    if isinstance(v, str):
+        return v
+    out = []
+
+    def grab(o):
+        if isinstance(o, dict):
+            if isinstance(o.get('text'), str):
+                out.append(o['text'])
+            for x in o.values():
+                grab(x)
+        elif isinstance(o, list):
+            for x in o:
+                grab(x)
+    grab(v)
+    return ''.join(out)
+
+
+def catalog_findings(raw):
+    """The localization catalog's own invariants, read off the STORED document.
+
+    Every localizable value lives in `localization.content` and each field holds a `{_lid}`
+    ref, so the failures are new ones: a ref that names no entry, an entry of the wrong kind,
+    an inline value left behind by a graft, a value keyed by a locale nobody declared. None of
+    them is visible in a render, and `validate` stops at the first fatal.
+    """
     bad, warn = [], []
+    lz = raw.get('localization')
+    if not isinstance(lz, dict):
+        where = 'top-level `locales`/`defaultLocale`' if ('locales' in raw or 'defaultLocale'
+                                                         in raw) else 'no `localization`'
+        v = raw.get('schemaVersion')
+        route = ('run `localization.py catalog` over it' if v == _loc.MIN_SOURCE_VERSION else
+                 f'it is schemaVersion {v!r}, so have the user open the flow in the Flow Builder '
+                 f'and save it, then fetch it again')
+        bad.append(f'pre-catalog document ({where}, inline localizable values): the transform '
+                   f'service refuses it. To convert it, {route}')
+        return bad, warn
+
+    if raw.get('schemaVersion') != _loc.SCHEMA_VERSION:
+        bad.append(f'schemaVersion is {raw.get("schemaVersion")!r} on a catalogued document — '
+                   f'it must be the number {_loc.SCHEMA_VERSION}. A lower number makes the builder '
+                   f're-run migrations over shapes it has already produced')
+    for k in ('locales', 'defaultLocale'):
+        if k in raw:
+            bad.append(f'top-level `{k}` beside `localization` — it lives under '
+                       f'`localization.{k}` only; delete the top-level copy')
+
+    locs = [l for l in (lz.get('locales') or []) if isinstance(l, dict)]
+    ids = [l.get('id') for l in locs if isinstance(l.get('id'), str)]
+    id_by_code = {l.get('code'): l.get('id') for l in locs}
+    dflt = lz.get('defaultLocale')
+    content = lz.get('content') if isinstance(lz.get('content'), dict) else {}
+    if not isinstance(lz.get('content'), dict):
+        bad.append('`localization.content` is missing or not an object')
+    if not isinstance(dflt, str) or (ids and dflt not in ids):
+        hint = (f" — {dflt!r} is the CODE of locale {id_by_code[dflt]!r}; defaultLocale takes "
+                f"the id" if dflt in id_by_code and id_by_code[dflt] != dflt else '')
+        bad.append(f'localization.defaultLocale is {dflt!r}, which is not one of the declared '
+                   f'locale ids ({", ".join(ids) or "none"}){hint} — the flow will not publish, '
+                   f'and every translation is compared against a locale that does not exist')
+
+    inline, dangling, wrong_kind, used = [], [], [], {}
+    for where, kind, holder, key in _loc.iter_fields(raw):
+        v = holder[key]
+        if _loc.is_inline(v):
+            inline.append(f'{where}.{key}')
+            continue
+        if isinstance(v, dict) and v.get('type') == 'switch' and kind != 'rich-text':
+            bad.append(f'{where}.{key}: a conditional switch on a {kind} field — only text '
+                       f'content can be conditional')
+        for lid in _loc.refs_in(v):
+            e = content.get(lid)
+            if not isinstance(e, dict):
+                dangling.append(f'{where}.{key} -> {lid}')
+                continue
+            used.setdefault(lid, []).append(f'{where}.{key}')
+            if e.get('kind') != kind:
+                wrong_kind.append(f'{lid} is {e.get("kind")!r}, used as {kind} at {where}.{key}')
+    if inline:
+        bad.append(f'{len(inline)} localizable value(s) still inline in a catalogued document '
+                   f'({", ".join(inline[:4])}{", …" if len(inline) > 4 else ""}) — a fragment '
+                   f'was grafted without cataloguing it. Run `localization.py catalog` over the '
+                   f'document; it moves them and leaves every existing ref alone')
+    if dangling:
+        bad.append(f'{len(dangling)} ref(s) naming no catalog entry '
+                   f'({", ".join(dangling[:4])}{", …" if len(dangling) > 4 else ""}) — the field '
+                   f'renders nothing. An entry was dropped, or a ref was copied from another flow '
+                   f'without its entry')
+    if wrong_kind:
+        bad.append('catalog entry kind does not match the field: ' + '; '.join(wrong_kind[:4]))
+
+    stray, code_keyed = {}, {}
+    for lid, e in content.items():
+        if not isinstance(e, dict):
+            bad.append(f'catalog entry {lid} is not an object')
+            continue
+        kind, vals = e.get('kind'), e.get('values')
+        if kind not in _loc.KINDS:
+            bad.append(f'catalog entry {lid} has kind {kind!r}; the kinds are '
+                       f'{", ".join(_loc.KINDS)}')
+            continue
+        if not isinstance(vals, dict):
+            bad.append(f'catalog entry {lid} has no `values` object')
+            continue
+        for loc, val in vals.items():
+            if isinstance(val, dict) and val.get('type') == 'switch':
+                bad.append(f'catalog entry {lid}[{loc}] holds a whole switch — the switch stays '
+                           f'on the property and each branch gets its own entry')
+            elif not _loc.is_value_of_kind(kind, val):
+                bad.append(f'catalog entry {lid}[{loc}] is a {type(val).__name__}, not a '
+                           f'{kind} value')
+            if ids and loc not in ids:
+                if loc in id_by_code:
+                    code_keyed.setdefault(loc, []).append(lid)
+                else:
+                    stray.setdefault(loc, []).append(lid)
+    for code, lids in code_keyed.items():
+        bad.append(f'{len(lids)} catalog value(s) keyed by the locale CODE {code!r}; `values` '
+                   f'is keyed by the locale ID {id_by_code[code]!r}, so nothing renders them. '
+                   f'Re-key them')
+    if stray:
+        warn.append(f"catalog value(s) for {', '.join(sorted(stray))} on "
+                    f"{sum(len(v) for v in stray.values())} entr(ies), but "
+                    f"{'none of them is' if len(stray) > 1 else 'it is not'} a declared locale "
+                    f"id — nothing renders them. If this run wrote them, declaring the locale is "
+                    f"the fix; if they were already in the fetched config, report and ask")
+
+    # Translation parity, per ENTRY. A missing value is not a defect in this format: it falls
+    # back to the default locale, which is also why nobody may copy the default into other
+    # locales to fill the gap. So an untranslated field is a WARNING (it shows default-language
+    # text), and the errors are the shapes that break: a translation whose variable nodes differ
+    # from the default loses its price. Every branch of a conditional text is its own entry, so
+    # parity is per branch without any extra machinery.
+    others = [i for i in ids if i != dflt]
+    untranslated = {}
+    copies, copied_bytes = {}, 0
+    for lid in used:
+        e = content.get(lid) or {}
+        vals, kind = e.get('values') or {}, e.get('kind')
+        src = vals.get(dflt)
+        if kind in ('image', 'video'):
+            key = 'url' if kind == 'image' else 'videoUrl'
+            asset = src.get(key) if isinstance(src, dict) else None
+            for loc in others:
+                v = vals.get(loc)
+                if asset and isinstance(v, dict) and v.get(key) == asset:
+                    copies[loc] = copies.get(loc, 0) + 1
+                    copied_bytes += len(v.get('previewValue') or '')
+            continue
+        if _loc.is_empty(kind, src):
+            if any(not _loc.is_empty(kind, vals.get(l)) for l in others):
+                warn.append(f'catalog entry {lid} ({used[lid][0]}) has no {dflt} value but has '
+                            f'translations — the default locale is the fallback for every '
+                            f'other one, so a missing default leaves those locales nothing to '
+                            f'fall back to')
+            continue
+        label = _plain(src)[:40]
+        src_vars = _var_ids(src)
+        for loc in others:
+            v = vals.get(loc)
+            if _loc.is_empty(kind, v):
+                untranslated.setdefault(loc, []).append(label)
+            elif _var_ids(v) != src_vars:
+                bad.append(f'locale {loc}: variable nodes differ from {dflt} on {label!r} '
+                           f'({lid}) — a translated block must be a structural copy, or the '
+                           f'locale loses its price')
+    for loc, labels in untranslated.items():
+        warn.append(f'locale {loc}: {len(labels)} field(s) untranslated, so they show the {dflt} '
+                    f'text ({", ".join(repr(x) for x in labels[:3])}{", …" if len(labels) > 3 else ""}). '
+                    f'If this run is adding {loc}, translate them; never copy the {dflt} value in '
+                    f'to fill the gap')
+    if copies:
+        n = sum(copies.values())
+        weight = (f', about {copied_bytes // 1024} KB of duplicated previewValue'
+                  if copied_bytes >= 1024 else '')
+        warn.append(
+            f'{n} image/video value(s) in {len(copies)} non-default locale(s) '
+            f'({", ".join(sorted(copies))}) repeat the {dflt} asset{weight} — a locale with no '
+            f'media value already shows the {dflt} file, so each copy changes nothing on screen '
+            f'and adds its preview to the published config once per locale. Keep a per-locale '
+            f'media value only where that locale gets a DIFFERENT file. If this run wrote the '
+            f'copies, delete them; if they came with the fetched config, report them and ask')
+    return bad, warn
+
+
+def _var_ids(v):
+    out = []
+
+    def grab(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'variable':
+                out.append((o.get('attrs') or {}).get('variableId'))
+            for x in o.values():
+                grab(x)
+        elif isinstance(o, list):
+            for x in o:
+                grab(x)
+    grab(v)
+    return out
+
+
+def check(path, baseline_text=None, baseline_images=None):
+    raw = unwrap(json.load(open(path)))
+    bad, warn = catalog_findings(raw)
+    # Every check below reads THIS: the same document with each `{_lid}` ref inlined, so a check
+    # written against a localizable value sees its per-locale values. Read-only by construction.
+    d = _loc.resolve(raw)
     els = lambda: ((s, e) for s in d.get('screens', [])
                    for e in s.get('elements', {}).get('map', {}).values())
 
@@ -681,23 +895,9 @@ def check(path, baseline_text=None, baseline_images=None):
     # an input the config does not contain), so a config an agent produced is EXPECTED to look
     # like this and calling it an error just teaches you to ignore findings.
 
-    # A locale transform is the one change with NO render check — `config preview` ignores locale
-    # entirely — so structural parity is the only gate there is. Checks every DECLARED locale,
-    # not merely the ones that happen to be present on a field.
-    declared = [l.get('code') for l in d.get('locales', []) if l.get('code')]
-    loc_vals = []
-
-    def _collect(o):
-        if isinstance(o, dict):
-            if o.get('_localizable') and isinstance(o.get('values'), dict):
-                loc_vals.append(o['values'])
-            for v in o.values():
-                _collect(v)
-        elif isinstance(o, list):
-            for v in o:
-                _collect(v)
-
-    _collect(d)
+    # Locale ids and codes. `values` everywhere are keyed by ID; the SDK matches on the CODE.
+    declared = [l.get('id') for l in d.get('locales', []) if isinstance(l, dict) and l.get('id')]
+    codes = [l.get('code') for l in d.get('locales', []) if isinstance(l, dict) and l.get('code')]
 
     # A browser export carries top-level `status` and `id`; a stored fixture keeping them is
     # fine, but a FILE DELIVERABLE that ships status:"published" imports as live-looking content,
@@ -1003,20 +1203,6 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"measurement.) If you FETCHED this config, report it rather than "
                         f"rewriting someone else's height silently")
 
-    # A value under a code that `locales[]` does not declare renders nowhere. It is usually half a
-    # locale run — the values written, the declaration forgotten — and the parity check above
-    # cannot see it, because that walks DECLARED locales only. Runs even for a single-locale flow,
-    # which is exactly where a stray hides.
-    seen_codes = {code for vals in loc_vals for code in vals}
-    stray = sorted(seen_codes - set(declared))
-    if stray:
-        n = sum(1 for vals in loc_vals if seen_codes.intersection(vals) & set(stray))
-        warn.append(f"locale value(s) for {', '.join(stray)} on {n} field(s), but "
-                    f"{'none of them are' if len(stray) > 1 else 'it is not'} in locales[] — "
-                    f"nothing renders them. If this run wrote them, declaring the locale is the "
-                    f"fix, not this warning; if they were already in the fetched config, report "
-                    f"and ask")
-
     # Locale code SHAPE, which is separate from whether the code is declared. The SDK matches on
     # this string and its pattern is case-sensitive per subtag, so `pt-br` publishes nothing: the
     # transform service refuses the flow with `/localizations/N/id … must match pattern`. It is a
@@ -1025,129 +1211,15 @@ def check(path, baseline_text=None, baseline_images=None):
     # (the key has to be renamed in `locales`, in every `values` map in the document, and in
     # `remote_configs`), so it is a report-and-ask rather than something to rewrite in passing.
     # If THIS run wrote the code, fix the code; `flowkit.config()` refuses to emit one.
-    misshapen = [c for c in declared if not LOCALE_CODE.fullmatch(str(c))]
+    misshapen = [c for c in codes if not LOCALE_CODE.fullmatch(str(c))]
     if misshapen:
         warn.append(f"locale code(s) {', '.join(misshapen)} are not `language[-Script][-REGION]` "
                     f"with the SDK's casing (`pt-BR`, `zh-Hans`, `sr-Latn`) — the transform "
                     f"service refuses the flow at publish with a pattern violation on "
-                    f"`/localizations/N/id`. Renaming means the key in `locales`, every `values` "
-                    f"map that carries it, and `remote_configs`")
+                    f"`/localizations/N/id`. Renaming a code whose locale id is the same string "
+                    f"means the id too: the entry in `localization.locales`, every catalog "
+                    f"`values` key and `remote_configs`")
 
-    # `defaultLocale` has to name one of the declared locales. The transform service refuses a
-    # stray one, but leaning on that is not enough twice over: a stray value silently corrupts
-    # the parity walk below, which takes it as the base every other locale is compared against,
-    # and `validate` does not reach locales at all while a product binding is unsettled — it
-    # stops at the first fatal and binding fails earlier.
-    dflt = d.get('defaultLocale')
-    if dflt is not None and declared and dflt not in declared:
-        bad.append(f'defaultLocale is {dflt!r}, which is not one of the declared locales '
-                   f'({", ".join(str(c) for c in declared)}) — the flow will not publish, and '
-                   f'the locale parity check above compares every field against a locale that '
-                   f'does not exist')
-
-    if len(declared) > 1:
-        base = dflt or declared[0]
-
-        def _blocks(v):
-            """Block arrays out of a localizable value.
-
-            A value is normally a list of blocks, but it may also be a `switch` expression whose
-            cases and default each yield their own block array (a real builder export does this
-            for copy that changes with the selected product). Flatten in a stable order so two
-            locales are compared branch for branch.
-            """
-            if isinstance(v, list):
-                return [v]
-            if isinstance(v, dict) and v.get('type') == 'switch':
-                out = []
-                for case in v.get('cases') or []:
-                    result = case[1] if isinstance(case, list) and len(case) > 1 else None
-                    if isinstance(result, dict) and isinstance(result.get('value'), list):
-                        out.append(result['value'])
-                dflt = v.get('default')
-                if isinstance(dflt, dict) and isinstance(dflt.get('value'), list):
-                    out.append(dflt['value'])
-                return out
-            return []
-
-        def _spans(v):
-            return [s for blocks in _blocks(v) for b in blocks for s in (b.get('content') or [])]
-
-        def _kinds(v):
-            return ([s.get('type') for s in _spans(v)]
-                    if not isinstance(v, str) else ['<plain-string>'])
-
-        def _varids(v):
-            return [s.get('attrs', {}).get('variableId') for s in _spans(v)
-                    if s.get('type') == 'variable'] if not isinstance(v, str) else []
-
-        def _branches(v):
-            return len(_blocks(v))
-
-        def _media_key(v):
-            """The asset an image or video value points at, or None if `v` is not media.
-
-            An image value is `{id, url, previewValue?}` and a video value `{videoUrl, ...}`; the
-            asset is the URL, so two values naming one URL are one asset whatever their preview.
-            """
-            if isinstance(v, dict):
-                for k in ('url', 'videoUrl'):
-                    if isinstance(v.get(k), str) and v[k].strip():
-                        return v[k].strip()
-            return None
-
-        # Media does NOT need a value in every locale, which is the opposite of text. The SDK
-        # resolves a locale's assets on top of the default locale's (iOS merges the default's
-        # asset map under the locale's own; Android loads the default's first and lets the locale
-        # override), so a locale with no entry shows the default's file. A copy of the default's
-        # asset in another locale therefore changes nothing on screen, and it is not free: every
-        # copy carries the whole `previewValue`, so N locales x P images puts the same base64 into
-        # the published config N x P times. That is how a flow of a few small images reaches tens
-        # of megabytes and times out at publish. So: parity is skipped for media, and a copy of
-        # the default's asset is reported.
-        copies = {}
-        copied_bytes = 0
-        for vals in loc_vals:
-            src = vals.get(base)
-            if src is None:
-                continue
-            src_asset = _media_key(src)
-            if src_asset is not None:
-                for code in declared:
-                    if code != base and _media_key(vals.get(code)) == src_asset:
-                        copies[code] = copies.get(code, 0) + 1
-                        copied_bytes += len(vals[code].get('previewValue') or '')
-                continue
-            label = (src if isinstance(src, str) else ''.join(
-                s.get('text', '') for s in _spans(src)))[:40]
-            for code in declared:
-                if code == base:
-                    continue
-                if code not in vals:
-                    bad.append(f'locale {code}: no value for {label!r}')
-                elif _branches(vals[code]) != _branches(src):
-                    bad.append(f'locale {code}: {_branches(vals[code])} conditional branch(es) '
-                               f'against {_branches(src)} in {base} on {label!r} — a conditional '
-                               f'text is translated per branch, and a missing branch falls back '
-                               f'to the wrong language')
-                elif _varids(vals[code]) != _varids(src):
-                    bad.append(f'locale {code}: variable nodes differ from {base} on {label!r} — '
-                               f'a translated block must be a structural copy, or the locale '
-                               f'loses its price')
-                elif _kinds(vals[code]) != _kinds(src):
-                    warn.append(f'locale {code}: span kinds differ from {base} on {label!r}')
-        if copies:
-            n = sum(copies.values())
-            weight = (f', about {copied_bytes // 1024} KB of duplicated previewValue'
-                      if copied_bytes >= 1024 else '')
-            warn.append(
-                f'{n} image/video value(s) in {len(copies)} non-default locale(s) '
-                f'({", ".join(sorted(copies))}) repeat the {base} asset{weight} — a locale with '
-                f'no media entry already shows the {base} file, so each copy changes nothing on '
-                f'screen and adds its preview to the published config once per locale. Keep a '
-                f'per-locale media value only where that locale gets a DIFFERENT file. If this '
-                f'run wrote the copies, delete them; if they came with the fetched config, '
-                f'report them and ask')
     # Stale sizing values persist through the editor and the transformer BELIEVES them:
     # hug carrying value -> min:<value> on device (ADP-7308, team-diagnosed; content vanished at
     # 8008). Real exports carry small ones routinely (16 in one rendering fixture), so warning,
@@ -2507,7 +2579,7 @@ if '--baseline' in args:
     i = args.index('--baseline')
     if i + 1 >= len(args):
         sys.exit('verify-config.py: --baseline needs a config path')
-    base = unwrap(json.load(open(args[i + 1])))
+    base = _loc.resolve(unwrap(json.load(open(args[i + 1]))))
     baseline_text = {t for _, _, _, t in iter_visible_text(base)}
     # url -> did the baseline already carry a preview for it. False means the flow arrived
     # without one, which is not this draft's doing and cannot be repaired from the CLI.

@@ -73,8 +73,8 @@ So resolve every asset to a path, in this order:
    fetching and from where, and get a yes before you fetch. Then upload the downloaded file.
 4. **Pasted or attached only, with no path** — **ask for one.** "I can see the hero but I can't
    upload what I can't read from disk — save it anywhere and give me the path." One ask, batched
-   with your other asks; until it arrives the element is an empty `values` map, exactly as if no
-   asset existed.
+   with your other asks; until it arrives the element's catalog entry has empty `values`, exactly
+   as if no asset existed.
 
 **Never guess a path, and never substitute a file that merely looks right.** A guess that misses
 fails loudly and safely — exit 2, `Cannot read file: ./hero.png`. The damaging version is the guess
@@ -208,9 +208,8 @@ that is the case for the missing-assets block's third route, *design around it*
 > text, it is a composition, not an asset — build it, and crop only the graphic inside it.
 
 > **The bar is text-or-data, not *any* text.** A **designed lockup** may be an image: an `image`
-> element's `values` map is keyed by **locale**, so a per-locale lockup is expressible, and
-> `verify-config.py`'s parity walk collects *every* `_localizable` node regardless of key, image
-> maps included. Do not downgrade a lockup to a solid-colour `text` lookalike to avoid baking
+> element's catalog entry is keyed by **locale**, so a per-locale lockup is expressible, and
+> `verify-config.py`'s parity walk checks every catalog entry, image entries included. Do not downgrade a lockup to a solid-colour `text` lookalike to avoid baking
 > words. See [fidelity.md](fidelity.md) for lettering whose treatment is unreachable.
 
 **Lettering that carries a variable or a price stays a `text`, always** — an image cannot carry
@@ -221,8 +220,8 @@ correct, and it ships disclosed.
 `image` carrying a `groupId` is inert. So plan cards, toggles and tab bars cannot be pictures of
 themselves, however much easier the picture looks.
 
-**Anything whose colour must follow the theme.** An image has **no** appearance variant — the
-`values` map is keyed by *locale*, and `ImageProps` has no light/dark hook anywhere. A themed
+**Anything whose colour must follow the theme.** An image has **no** appearance variant — its
+catalog entry is keyed by *locale*, and `ImageProps` has no light/dark hook anywhere. A themed
 colour does (`light`/`dark` per entry in `theme.colors`), and this is not hypothetical: two of the
 four corpus fixtures define a dark variant for **every** colour they declare (14/14 and 11/11). A
 bitmap with a baked-in background is the thing that breaks, which is why:
@@ -246,18 +245,27 @@ bitmap with a baked-in background is the thing that breaks, which is why:
 An uploaded URL has two consumers, and they take **different shapes**. Getting this wrong is a
 silent defect — no gate catches it (see below).
 
-**An `image` element** wraps the value in the per-locale localizable map:
+**An `image` element** holds a ref, and the `IImage` goes into its catalog entry, per locale:
 
 ```json
 {"id": "el_PSJTQ6QeQt", "type": "image", "props": {
-  "image": {"_localizable": true, "values": {"en": {
-    "id": "516395", "url": "https://…/hero.png", "previewValue": "UklGRhQJAABXRUJQVlA4…"}}},
+  "image": {"_lid": "lc_9"},
   "width": {"type": "fixed", "value": 242}, "height": {"type": "hug"},
   "objectFit": "cover", "borderRadius": {"tl": 20, "tr": 20, "bl": 20, "br": 20}}}
 ```
+```json
+"lc_9": {"kind": "image", "values": {"en": {
+  "id": "516395", "url": "https://…/hero.png", "previewValue": "UklGRhQJAABXRUJQVlA4…"}}}
+```
+
+To bind an upload to an element that already exists, write the `IImage` into that entry's
+`values[<defaultLocaleId>]` and keep the ref. To bind it to a new element, write the element in
+the inline form — `"image": {"_localizable": true, "values": {"<defaultLocaleId>": {…}}}`, which
+is also what `flowkit.image()` emits — and run `localization.py catalog` over the document
+([flow-schema.md](flow-schema.md#localization-the-catalog)).
 
 **A background fill** on a screen's or stack's `props.fill` takes the image **flat**, with no
-`values` map and no `_localizable`:
+ref and no catalog entry:
 
 ```json
 "fill": {"type": "image",
@@ -267,7 +275,7 @@ silent defect — no gate catches it (see below).
 ```
 
 Because the element form is localizable, **a different asset per locale is expressible** — the
-`values` map is keyed by locale code exactly like copy. A fill is not localizable, so a background
+entry's `values` is keyed by locale id exactly like copy. A fill is not localizable, so a background
 that must change per language has to be an element.
 
 **Write the `id` as a string.** The command prints a number and `--json` returns a JSON integer
@@ -292,10 +300,10 @@ Bind it exactly as the upload returned it:
   `null` or `""` to fill the slot, and never reach for this bullet to cover a value you had and
   lost: *the upload gave me none* and *I did not capture it* are different situations that produce
   the same JSON, and only the first one is finished work. Say which one it was.
-- **It rides with the asset, not with the element.** The same three-field `Image` goes into a
-  per-locale `values` entry on an element and flat inside a fill, so a background needs it just
+- **It rides with the asset, not with the element.** The same three-field `Image` goes into an
+  element's catalog entry and flat inside a fill, so a background needs it just
   as much — more visibly, since a background is usually the largest thing on the screen.
-- **Bind it once per asset, never once per locale.** An image element's `values` map holds the
+- **Bind it once per asset, never once per locale.** An image element's catalog entry holds the
   default locale, plus a locale only when that locale gets a different file. Every other locale
   already shows the default's file. Copying the `Image` into each locale repeats the preview in
   the published config for every locale, which is how a flow of a few images grows to tens of
@@ -346,7 +354,7 @@ report and offer rather than to make silently.
 ## No publish gate catches an image defect. Only the render does.
 
 Measured on one config, five ways — real URL with a string `id`, with a numeric `id`, with no
-`id` at all, with no `previewValue`, and with an empty `values` map:
+`id` at all, with no `previewValue`, and with an empty entry:
 
 - **`flows config validate` returned `valid: true` for all four.** An image is not part of the
   publish gate, so **a flow whose hero is still an empty placeholder publishes cleanly** and ships
@@ -430,7 +438,7 @@ agent's — so the placeholder is not a provisional state to be cleared later in
 is what gets handed over.
 
 **It is publishable, and it reaches a device.** An unset `video` returned `valid: true, issues:
-[]` in three forms — fully styled, with an empty `values` map, and bare with nothing but a
+[]` in three forms — fully styled, with an empty entry, and bare with nothing but a
 `position`. The transform service maps `video`, so unlike [`old-price`](flow-schema.md) it is not
 a preview-only element.
 

@@ -13,10 +13,27 @@ fetched, never as a call from here.
 
 `plan` and `graft` take identical flags: committing means changing one word.
 
+LOCALIZATION. A flow stores its localizable values in a catalog (`localization.content`) and
+each field holds a `{_lid}` ref into it, so a piece lifted out of one flow cannot carry refs:
+they name entries of THAT flow, and the ids collide with the next one's. A snippet is therefore
+saved in the INLINE form -- every value resolved to `{"_localizable": true, "values": ...}`
+where it is used -- which is self-contained and names no id at all. `graft` writes it into the
+destination as it is stored and then runs `localization.catalog()` over the result: that mints
+fresh ids past every id the destination already uses, promotes only the grafted values, and
+leaves every existing ref, shared entry and translation exactly as it was.
+
 Exit 0 clean, 1 the run produced findings a human must act on, 2 usage or unreadable input.
 Exit 1 is a DISCLOSURE OBLIGATION, not a defect -- the same call `diff-config.py` makes.
 """
 import argparse, json, os, re, sys, time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_bytecode = sys.dont_write_bytecode
+sys.dont_write_bytecode = True
+try:
+    import localization as _loc
+finally:
+    sys.dont_write_bytecode = _bytecode
 
 FORMAT_VERSION = 1
 
@@ -26,8 +43,23 @@ def die(msg, code=2):
     sys.exit(code)
 
 
+def _strip_refs(node):
+    """Drop the `_ref`/`_refs` markers a read view carries, so a snippet names no content id."""
+    if isinstance(node, dict):
+        return {k: _strip_refs(v) for k, v in node.items() if k not in ('_ref', '_refs')}
+    if isinstance(node, list):
+        return [_strip_refs(v) for v in node]
+    return node
+
+
 def load(path):
-    """Read a flow config. Accepts the bare config or the `config get` envelope."""
+    """Read a flow config as the INLINE view (see LOCALIZATION above): every catalog ref
+    resolved where it is used, `locales`/`defaultLocale` at the top level."""
+    return _strip_refs(_loc.resolve(load_stored(path)))
+
+
+def load_stored(path):
+    """Read a flow config exactly as stored. Accepts the bare config or the envelope."""
     try:
         with open(path) as fh:
             doc = json.load(fh)
@@ -721,13 +753,21 @@ def rewrite_ids(payload, el_renames, group_renames):
 
 def resolve_locales(snippet, config, payload):
     """Intersect the snippet's localizable `values` maps against the destination's
-    declared locales, mutating `payload` in place. A locale the destination does not
-    declare is dropped; a destination locale the snippet lacks is filled from the
-    snippet's own `defaultLocale` (or, failing that, the destination's first locale)
-    and reported -- the fill is a translation ask, not a translation."""
+    declared locales, mutating `payload` in place.
+
+    A locale the destination does not declare is dropped: nothing would render it. A
+    destination locale the snippet lacks is LEFT absent, because an absent value falls back
+    to the default locale -- copying the default text in would turn "not translated yet" into
+    an explicit value nobody translated. It is reported (`untranslated`) as a translation ask.
+
+    The one fill is the destination's DEFAULT locale: every other locale falls back to it, so
+    a value without it shows nothing anywhere the snippet lacks a translation. It is filled
+    from the snippet's own default and reported (`filled`), because that text is in the wrong
+    language until someone translates it."""
     dest = [l['id'] for l in config.get('locales') or []]
-    src_default = snippet['dependencies'].get('defaultLocale') or (dest[0] if dest else None)
-    dropped, filled = set(), set()
+    dest_default = config.get('defaultLocale') or (dest[0] if dest else None)
+    src_default = snippet['dependencies'].get('defaultLocale') or dest_default
+    dropped, filled, untranslated = set(), set(), set()
 
     def visit(o):
         if not (isinstance(o, dict) and o.get('_localizable') is True):
@@ -741,14 +781,17 @@ def resolve_locales(snippet, config, payload):
                 del vals[code]
         if not vals:
             return
-        base = vals.get(src_default) or vals[sorted(vals)[0]]
+        if dest_default and dest_default not in vals:
+            base = vals.get(src_default) or vals[sorted(vals)[0]]
+            vals[dest_default] = json.loads(json.dumps(base))
+            filled.add(dest_default)
         for code in dest:
             if code not in vals:
-                vals[code] = json.loads(json.dumps(base))
-                filled.add(code)
+                untranslated.add(code)
 
     walk(payload, visit)
-    return {'dropped': sorted(dropped), 'filled': sorted(filled)}
+    return {'dropped': sorted(dropped), 'filled': sorted(filled),
+            'untranslated': sorted(untranslated)}
 
 
 def _producers_in(config):
@@ -1209,6 +1252,10 @@ def render_plan(plan, snippet, config, screen_id):
     for kind in ('elements', 'groups', 'screens'):
         for old, new in sorted(plan['renames'].get(kind, {}).items()):
             L.append(f'WILL RENAME   {old} → {new}')
+    if plan['locales'].get('untranslated'):
+        L.append(f'UNTRANSLATED  locales {", ".join(plan["locales"]["untranslated"])} '
+                 f'-- no text in the snippet; they show the default locale\'s text until '
+                 f'translated')
     if plan['locales']['filled']:
         L.append(f'WILL FILL     locales {", ".join(plan["locales"]["filled"])} '
                  f'from the snippet default')
@@ -1459,7 +1506,8 @@ def main(argv):
         if args.cmd == 'graft':
             ap2.add_argument('--out', required=True)
         a2 = ap2.parse_args(argv[1:])
-        cfg = load(a2.config)
+        stored = load_stored(a2.config)
+        cfg = _strip_refs(_loc.resolve(stored))
         snip = read_snippet(a2.snippet)
         snip['_path'] = a2.snippet
         # Only an `element` snippet attaches to an existing screen -- a `screen`
@@ -1484,7 +1532,14 @@ def main(argv):
             print(render_plan(pl, snip, cfg, a2.screen))
         if args.cmd == 'plan':
             return 1 if pl['needs'] else 0
-        out = apply_plan(cfg, snip, pl)
+        # Written into the STORED destination, then catalogued: only the grafted values are
+        # promoted, under fresh ids, and every existing ref and translation stays as it was.
+        try:
+            out, lost = _loc.catalog(apply_plan(stored, snip, pl))
+        except _loc.MigrationError as exc:
+            die(f'cannot graft into {a2.config}: {exc}')
+        for w in lost:
+            print(f'DROPPED  {w["path"]}: {w["message"]}')
         with open(a2.out, 'w') as fh:
             json.dump(out, fh, indent=2)
             fh.write('\n')

@@ -27,7 +27,19 @@ from `flows list`, not the config, and feed `render()`'s header and the
 `flow-untitled` check. `--placements` is a JSON array of `placements get` bodies; with
 `--flow-id` it answers whether any placement shows this flow.
 """
-import ast, json, re, sys
+import ast, json, os, re, sys
+
+# The localization catalog reader, shipped beside this file (a byte-identical copy of
+# flow-generator's, so a directory-copy install of this skill alone still has it). Every check
+# below reads the resolved view it produces: a stored flow holds `{_lid}` refs, and a check
+# that read those directly would see no text anywhere and report a clean flow.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_bytecode = sys.dont_write_bytecode
+sys.dont_write_bytecode = True
+try:
+    import localization as _loc
+finally:
+    sys.dont_write_bytecode = _bytecode
 
 SEVERITIES = ('blocker', 'risk', 'question')
 FAMILIES = ('triggers', 'compliance', 'products', 'variables', 'localization',
@@ -63,9 +75,11 @@ def _tag(f, **report_only):
 
 
 def load_config(path):
-    """Accept either the `config get` envelope or a bare config."""
+    """Accept either the `config get` envelope or a bare config, and return the READ VIEW:
+    every catalog ref inlined, `locales`/`defaultLocale` copied to the top level."""
     doc = json.load(open(path))
-    return doc['config'] if isinstance(doc, dict) and 'config' in doc else doc
+    doc = doc['config'] if isinstance(doc, dict) and 'config' in doc else doc
+    return _loc.resolve(doc) if isinstance(doc, dict) else doc
 
 
 def elements(config):
@@ -173,7 +187,18 @@ def node_kinds(value, locale=None):
 
 def default_locale(config):
     return config.get('defaultLocale') or next(
-        (l.get('code') for l in (config.get('locales') or [])), None)
+        (l.get('id') for l in (config.get('locales') or [])), None)
+
+
+def locale_ids(config):
+    """Declared locale ids -- what every `values` map is keyed by."""
+    return [l.get('id') for l in (config.get('locales') or []) if l.get('id')]
+
+
+def locale_names(config):
+    """id -> the name the builder shows ("Serbian (Latin)"), never the id or code."""
+    return {l.get('id'): l.get('name') or l.get('code') or l.get('id')
+            for l in (config.get('locales') or []) if l.get('id')}
 
 
 def actions_of(element):
@@ -1509,20 +1534,26 @@ def _is_media_field(vals, base):
         isinstance(v.get(k), str) and v[k].strip() for k in ('url', 'videoUrl'))
 
 
+def _is_empty_value(v):
+    """The catalog's emptiness rule, for either value family: text or media."""
+    if isinstance(v, dict) and v.get('type') != 'switch' and ('url' in v or 'videoUrl' in v):
+        return _loc.is_empty('image' if 'url' in v else 'video', v)
+    return _loc.is_empty('rich-text', v)
+
+
 def locale_coverage(config):
     """Per-locale coverage stats and examples, over every localizable value in the flow.
 
-    `stat[code]` is `{'missing', 'empty', 'same'}` int counts: `missing` is the value
-    has no key for this locale at all (already reported, per-field, by
-    `verify-config.py` -- counted here only so Task 10's report can build the coverage
-    table, never turned into a finding of its own by `check_localization`); `empty` is
-    the key exists but carries no substantive content (`_has_content` says no); `same`
+    `stat[code]` is `{'missing', 'empty', 'same'}` int counts, keyed by locale ID:
+    `missing` is the field has no value for this locale, or an empty one -- both fall back
+    to the default locale's text; `empty` is a value that is NOT empty by the catalog's rule
+    and still shows nothing (whitespace only), so the field is blank there; `same`
     is the value is identical to the base locale's text (a proper noun, or a missed
     translation -- `check_localization` cannot tell which, so it is a risk, not a
     blocker). `examples[code]` holds up to 4 sample base-locale strings behind a
     `same` hit, for the report to show.
     """
-    locales = [l.get('code') for l in (config.get('locales') or []) if l.get('code')]
+    locales = locale_ids(config)
     base = default_locale(config)
     stat = {l: {'missing': 0, 'empty': 0, 'same': 0} for l in locales}
     examples = {l: [] for l in locales}
@@ -1530,7 +1561,10 @@ def locale_coverage(config):
         base_text = flat_text(vals.get(base), base) if base in vals else ''
         media = _is_media_field(vals, base)
         for code in locales:
-            if code not in vals:
+            # An EMPTY value ('' , [], an emptied paragraph) is the same as no value: both
+            # fall back to the default locale's text. So both count as missing, never as a
+            # blank field.
+            if code not in vals or _is_empty_value(vals[code]):
                 # A locale with no media entry shows the default locale's file (the SDK
                 # resolves a locale's assets on top of the default's), so it is not missing --
                 # and counting it would push a copy of the default's image, preview and all,
@@ -1564,13 +1598,12 @@ def check_localization(config):
     per-locale breakdown -- a second, per-locale finding would just restate it.
     """
     out = []
-    locales = [l.get('code') for l in (config.get('locales') or []) if l.get('code')]
+    locales = locale_ids(config)
     if not locales:
         return out
     base = default_locale(config)
     # The builder shows a language by its name ("Serbian (Latin)"), not its code.
-    name = {l.get('code'): l.get('name') or l.get('code')
-            for l in (config.get('locales') or []) if l.get('code')}
+    name = locale_names(config)
     nm = lambda c: name.get(c) or c
     stat, examples = locale_coverage(config)
     total = sum(1 for vals in _localizable_values(config, locales)
@@ -2048,6 +2081,7 @@ def check_sibling_locales(config, siblings):
         return []
     names = {l.get('code'): l.get('name') or l.get('code')
              for l in config.get('locales') or [] if l.get('code')}
+    # Sibling flows are compared by language CODE: ids are per-flow and need not agree.
     mine = set(names)
     have = {}
     for flow, entries in siblings.items():
@@ -2773,7 +2807,7 @@ def render(findings, config, meta=None, stores=None):
     else:
         lines.append('**Ready to publish.**')
 
-    locales = [l.get('code') for l in (config.get('locales') or []) if l.get('code')]
+    locales = locale_ids(config)
     n_products = len({pid for _, _, pid in bound_products(config)})
     n_screens = len(config.get('screens') or [])
     bits = []
@@ -2821,8 +2855,7 @@ def render(findings, config, meta=None, stores=None):
             emit(f)
 
     if len(locales) > 1:
-        lname = {l.get('code'): l.get('name') or l.get('code')
-                 for l in (config.get('locales') or []) if l.get('code')}
+        lname = locale_names(config)
         stat, examples = locale_coverage(config)
         base = default_locale(config)
         total = len(_localizable_values(config, locales))

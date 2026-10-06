@@ -143,7 +143,24 @@ def main():
     # The stamped version and the shapes that entitle the module to stamp it. These belong
     # together: the number is a claim about the document, so a test that pins it without
     # pinning the shapes would go green on a flow the builder then refuses to migrate.
-    check('schemaVersion is 12', cfg['schemaVersion'] == 12)
+    check('schemaVersion is 13', cfg['schemaVersion'] == 13)
+    lz = cfg.get('localization') or {}
+    check('locales and defaultLocale live under localization (013)',
+          'locales' not in cfg and 'defaultLocale' not in cfg
+          and isinstance(lz.get('locales'), list) and lz.get('defaultLocale') == 'en')
+    inline = []
+
+    def _inline(o):
+        if isinstance(o, dict):
+            if o.get('_localizable'):
+                inline.append(o)
+            for v in o.values():
+                _inline(v)
+        elif isinstance(o, list):
+            for v in o:
+                _inline(v)
+    _inline(cfg['screens'])
+    check('no inline localizable value survives config() (013)', not inline, f'{len(inline)} left')
     fills = [n['props']['fill'] for n in node_map.values() if 'fill' in n['props']]
     fills.append(scr['props']['fill'])
     check('every fill is an array (010)', all(isinstance(f, list) for f in fills),
@@ -153,10 +170,12 @@ def main():
 
     # the divergence this module was built to kill
     spans = None
+    catalog_content = lz.get('content') or {}
     for n in node_map.values():
         c = n['props'].get('content')
-        if isinstance(c, dict) and len(c.get('values', {}).get('en', [])) == 1:
-            content = c['values']['en'][0]['content']
+        entry = catalog_content.get(c['_lid']) if isinstance(c, dict) and '_lid' in c else None
+        if entry and len(entry.get('values', {}).get('en', [])) == 1:
+            content = entry['values']['en'][0]['content']
             if any(s.get('type') == 'variable' for s in content):
                 spans = content
     check('rich() produced a span list containing a variable', spans is not None)
@@ -522,6 +541,19 @@ def main():
     check('a timer carries states, like every other element', fk.timer()['states'] == [])
 
     # and finally: does the published schema accept it? Through the validator the skill ships,
+    # run from the ajv cache dir the way gates.sh runs it. While the published schema still
+    # describes the pre-catalog flow it cannot pass a v13 document -- skip, and say so, rather
+    # than pinning a red row on a file this repo does not own.
+    def _schema_lacks_catalog():
+        cache = os.path.join(tempfile.gettempdir(), 'adapty-flow-schema.latest.json')
+        try:
+            with open(cache) as fh:
+                sch = json.load(fh)
+        except (OSError, ValueError):
+            return False
+        return 'localization' not in (sch.get('properties') or {})
+
+    # and finally: does the published schema accept it? Through the validator the skill ships,
     # run from the ajv cache dir the way gates.sh runs it.
     validator = os.path.join(HERE, '..', 'skills', 'flow-generator', 'references',
                              'validate-with-schema.mjs')
@@ -538,6 +570,8 @@ def main():
             out = (res.stdout + res.stderr).strip()
             if res.returncode == 2:
                 print(f'  SKIP  schema gate unavailable: {out.splitlines()[0] if out else ""}')
+            elif res.returncode != 0 and _schema_lacks_catalog():
+                print('  SKIP  schema gate: the published schema has no `localization` yet')
             else:
                 check('flowkit output passes the schema gate', res.returncode == 0, out[:1500])
         except (subprocess.TimeoutExpired, OSError) as exc:
