@@ -30,7 +30,7 @@ Usage: python3 tests/test-theme-styles.py    # 0 all pass, 1 a case regressed
 import copy, glob, json, os, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REFS = os.path.join(ROOT, 'skills', 'flow-generator', 'references')
+REFS = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references')
 VERIFY = os.environ.get('VERIFY_CONFIG') or os.path.join(REFS, 'verify-config.py')  # mutation runs
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')

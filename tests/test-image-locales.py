@@ -32,10 +32,12 @@ copying the image into every locale as the only way to clear it.
 Usage: python3 tests/test-image-locales.py    # 0 all pass, 1 a case regressed
 """
 import copy, glob, importlib.util, json, os, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import catalogued, localization, values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
-AUDIT = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
+AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
 FLOW = os.path.join(ROOT, 'tests', 'fixtures', 'onboarding-multilocale.json')
 
 URL = 'https://public-media.adapty.io/public/ef/9b/ef9b995d/hero.png'
@@ -53,8 +55,10 @@ def check(name, cond, detail=''):
 
 
 def base_flow():
+    # The read view (refs inlined, locales at the top level): suites add elements to it in the
+    # readable inline form, and `verify()` catalogues whatever it is handed.
     d = json.load(open(FLOW))
-    return d.get('config', d)
+    return localization.resolve(d.get('config', d))
 
 
 def with_media(values, kind='image'):
@@ -82,7 +86,7 @@ def img(url=URL, preview=PREVIEW):
 def verify(doc):
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, 'c.json')
-        json.dump(doc, open(path, 'w'))
+        json.dump(catalogued(doc), open(path, 'w'))
         r = subprocess.run([sys.executable, VERIFY, path], capture_output=True, text=True)
     if 'Traceback' in r.stderr or r.returncode == 2:
         raise AssertionError(f'verify-config.py failed to run:\n{r.stdout}\n{r.stderr}')
@@ -134,14 +138,20 @@ corpus = sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures', '*.json')) +
 noisy = [os.path.basename(p) for p in corpus if copy_lines(verify(json.load(open(p))))]
 check(f'SILENT on all {len(corpus)} real exports', not noisy, noisy)
 
-text_gap = base_flow()
+text_gap = catalogued(base_flow())
 for el in text_gap['screens'][0]['elements']['map'].values():
-    vals = ((el.get('props') or {}).get('content') or {}).get('values')
+    stored = (el.get('props') or {}).get('content')
+    vals = values_of(text_gap, stored) if isinstance(stored, dict) and '_lid' in stored else None
     if isinstance(vals, dict) and 'sr' in vals:
         del vals['sr']
         break
-check('KEEPS: a text field missing a locale still errors',
-      any('locale sr: no value for' in l for l in verify(text_gap)))
+# A missing text value falls back to the default locale, so it is reported -- as untranslated,
+# a warning -- rather than refused.
+gap_lines = verify(text_gap)
+check('KEEPS: a text field missing a locale is still reported, as untranslated',
+      any('locale sr:' in l and 'untranslated' in l for l in gap_lines), gap_lines)
+check('and it is a WARNING, because the field falls back to the default locale',
+      not any('ERROR' in l and 'locale sr' in l for l in gap_lines), gap_lines)
 
 
 print('audit-flow.py')
@@ -157,7 +167,7 @@ check('SILENT: a default-only image adds nothing to missing coverage',
       all(media_stat[c]['missing'] == plain_stat[c]['missing'] for c in plain_stat),
       f'{plain_stat} vs {media_stat}')
 
-gap_stat, _ = audit.locale_coverage(text_gap)
+gap_stat, _ = audit.locale_coverage(localization.resolve(text_gap))
 check('KEEPS: a text field missing a locale still counts as missing',
       gap_stat['sr']['missing'] == plain_stat['sr']['missing'] + 1, gap_stat)
 

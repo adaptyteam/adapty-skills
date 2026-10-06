@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for skills/flow-generator/references/flowkit.py.
+"""Tests for plugin/skills/flow-generator/references/flowkit.py.
 
 A shape helper that has drifted from the format is worse than no helper, because it is
 confidently wrong at scale. So this asserts the invariants flowkit exists to guarantee, and
@@ -20,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 # a skills dir installs by plain copy, so a __pycache__ under references/ would SHIP with it
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(ROOT, 'skills', 'flow-generator', 'references'))
+sys.path.insert(0, os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references'))
 
 import flowkit as fk  # noqa: E402
 
@@ -143,7 +143,24 @@ def main():
     # The stamped version and the shapes that entitle the module to stamp it. These belong
     # together: the number is a claim about the document, so a test that pins it without
     # pinning the shapes would go green on a flow the builder then refuses to migrate.
-    check('schemaVersion is 12', cfg['schemaVersion'] == 12)
+    check('schemaVersion is 13', cfg['schemaVersion'] == 13)
+    lz = cfg.get('localization') or {}
+    check('locales and defaultLocale live under localization (013)',
+          'locales' not in cfg and 'defaultLocale' not in cfg
+          and isinstance(lz.get('locales'), list) and lz.get('defaultLocale') == 'en')
+    inline = []
+
+    def _inline(o):
+        if isinstance(o, dict):
+            if o.get('_localizable'):
+                inline.append(o)
+            for v in o.values():
+                _inline(v)
+        elif isinstance(o, list):
+            for v in o:
+                _inline(v)
+    _inline(cfg['screens'])
+    check('no inline localizable value survives config() (013)', not inline, f'{len(inline)} left')
     fills = [n['props']['fill'] for n in node_map.values() if 'fill' in n['props']]
     fills.append(scr['props']['fill'])
     check('every fill is an array (010)', all(isinstance(f, list) for f in fills),
@@ -153,10 +170,12 @@ def main():
 
     # the divergence this module was built to kill
     spans = None
+    catalog_content = lz.get('content') or {}
     for n in node_map.values():
         c = n['props'].get('content')
-        if isinstance(c, dict) and len(c.get('values', {}).get('en', [])) == 1:
-            content = c['values']['en'][0]['content']
+        entry = catalog_content.get(c['_lid']) if isinstance(c, dict) and '_lid' in c else None
+        if entry and len(entry.get('values', {}).get('en', [])) == 1:
+            content = entry['values']['en'][0]['content']
             if any(s.get('type') == 'variable' for s in content):
                 spans = content
     check('rich() produced a span list containing a variable', spans is not None)
@@ -521,45 +540,47 @@ def main():
           == {'days': 1, 'hours': 2, 'minutes': 3, 'seconds': 4})
     check('a timer carries states, like every other element', fk.timer()['states'] == [])
 
-    # and finally: does the real schema gate accept it?
-    checker = os.path.join(HERE, 'schema-check.py')
-    if not os.path.exists(checker):
-        print('  SKIP  schema gate (tests/schema-check.py missing)')
+    # and finally: does the published schema accept it? Through the validator the skill ships,
+    # run from the ajv cache dir the way gates.sh runs it. While the published schema still
+    # describes the pre-catalog flow it cannot pass a v13 document -- skip, and say so, rather
+    # than pinning a red row on a file this repo does not own.
+    def _schema_lacks_catalog():
+        cache = os.path.join(tempfile.gettempdir(), 'adapty-flow-schema.latest.json')
+        try:
+            with open(cache) as fh:
+                sch = json.load(fh)
+        except (OSError, ValueError):
+            return False
+        return 'localization' not in (sch.get('properties') or {})
+
+    # and finally: does the published schema accept it? Through the validator the skill ships,
+    # run from the ajv cache dir the way gates.sh runs it.
+    validator = os.path.join(HERE, '..', 'plugin', 'skills', 'flow-generator', 'references',
+                             'validate-with-schema.mjs')
+    ajv_dir = os.path.expanduser(os.environ.get('AJV_DIR', '~/.cache/adapty-flow-schema'))
+    if not os.path.isdir(os.path.join(ajv_dir, 'node_modules', 'ajv')):
+        print(f'  SKIP  schema gate (no ajv in {ajv_dir} — `npm i --prefix {ajv_dir} ajv@8`)')
     else:
         with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as fh:
             json.dump(cfg, fh)
             path = fh.name
         try:
-            res = subprocess.run([sys.executable, checker, path],
-                                 capture_output=True, text=True, timeout=180)
-            out = (res.stdout + res.stderr).strip().splitlines()
-            line = out[0] if out else '(no output)'
+            res = subprocess.run(['node', os.path.abspath(validator), '--config', path],
+                                 cwd=ajv_dir, capture_output=True, text=True, timeout=180)
+            out = (res.stdout + res.stderr).strip()
             if res.returncode == 2:
-                print(f'  SKIP  schema gate unavailable: {line}')
+                print(f'  SKIP  schema gate unavailable: {out.splitlines()[0] if out else ""}')
+            elif res.returncode != 0 and _schema_lacks_catalog():
+                print('  SKIP  schema gate: the published schema has no `localization` yet')
             else:
-                check('flowkit output passes the schema gate', ' OK ' in f' {line} ', line)
+                check('flowkit output passes the schema gate', res.returncode == 0, out[:1500])
         except (subprocess.TimeoutExpired, OSError) as exc:
             print(f'  SKIP  schema gate could not run: {exc}')
         finally:
             os.unlink(path)
 
-    # The token vocabulary is the schema's, not ours: `ETimerToken` is the ground truth, so if
-    # the builder ever adds a unit, TIMER_UNITS has to move with it. The gate above warms this
-    # cache. Note the schema does NOT constrain a token node's own `attrs.token` (it is typed a
-    # bare string and never $refs ETimerToken), which is why the bad name has to be caught here
-    # and in verify-config.py rather than by the schema check.
-    schema_cache = os.path.join(tempfile.gettempdir(), 'adapty-flow.schema.json')
-    enum = None
-    if os.path.exists(schema_cache):
-        try:
-            enum = json.load(open(schema_cache)).get('$defs', {}).get('ETimerToken', {}).get('enum')
-        except (ValueError, OSError):
-            enum = None
-    if not enum:
-        print('  SKIP  TIMER_UNITS vs schema enum (no cached schema, or no ETimerToken in it)')
-    else:
-        check('TIMER_UNITS matches the schema ETimerToken enum',
-              sorted(enum) == sorted(f'timer_{u}' for u in fk.TIMER_UNITS), str(enum))
+    # The timer token vocabulary is not in the published schema (a token node's `attrs.token` is
+    # a bare string), so TIMER_UNITS and verify-config.py are the only check on it.
 
     # footer() — the pinned bottom bar. Before this existed, an author reaching for a bar that
     # stays put found only docked(), and the documented steer was AWAY from the native element;
@@ -921,7 +942,7 @@ def main():
 
     # --- switch_rich: conditional copy, the mechanism behind a personalization payoff.
     # Shape asserted against the real export tests/fixtures do not carry one of, so the
-    # reference is bf5d731e ("Language onboarding — quizzes + branching") in app_finance:
+    # reference is bf5d731e ("Language onboarding — quizzes + branching") in the sandbox app:
     # the switch nests INSIDE the locale, cases are [cond, const] PAIRS, default is a const.
     _sw = fk.switch_rich(
         [(fk.eq(fk.ref('goal.selectedOptionId'), 'sleep'), ['Sleep plan'])],
@@ -1231,7 +1252,7 @@ def main():
     # A catalog template is the builder's own output, in the EXPORT shape. Until from_catalog()
     # existed there was no way to feed one to screen(), so the templates the skill tells agents
     # to prefer were unreachable from the module that assembles the document.
-    _cat = json.load(open(os.path.join(ROOT, 'skills', 'flow-generator', 'references',
+    _cat = json.load(open(os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references',
                                        'component-catalog.json')))
     _by_id = {c['id']: c for c in _cat['components']}
 
@@ -1242,6 +1263,33 @@ def main():
           _tpl == _by_id['prod-vertical-list']['template'])
     check('from_catalog renames the group so two templates cannot share one',
           all(n['props']['groupId'] == 'plans' for n in _nodes[0]['_children']))
+
+    check('a screen that binds no product carries no `products` key (never an empty list)',
+          'products' not in fk.screen('scr_none', [fk.text('Hello')]),
+          str(fk.screen('scr_none', [fk.text('Hello')]).get('products')))
+
+    # The catalog keeps pre-v12 shapes; flowkit stamps 12, so from_catalog() must not carry them.
+    def _all(node):
+        yield node
+        for kid in node.get('_children', []):
+            yield from _all(kid)
+    def _props_sets(node):
+        yield node.get('props') or {}
+        yield from (node.get('propsByState') or {}).values()
+    _converted = [n for c in _cat['components'] if c.get('agent_allowed')
+                  for root in fk.from_catalog(c) for n in _all(root)]
+    check('from_catalog drops the pre-v12 border `style` (the catalog carries it on 123 borders)',
+          not any('style' in (p.get('border') or {}) for n in _converted for p in _props_sets(n)))
+    check('from_catalog wraps a v9 object fill into a one-layer array',
+          not any(isinstance(p.get('fill'), dict) for n in _converted for p in _props_sets(n)))
+    check('the catalog still carries the old shapes, so the two rows above test the conversion',
+          '"style": "solid"' in json.dumps(_cat) and any(
+              isinstance((n.get('props') or {}).get('fill'), dict)
+              for n in _all(json.loads(json.dumps(_by_id['timer-blocks']['template'])
+                                       .replace('"children"', '"_children"')))))
+    check('every text align in an agent-allowed template is one the schema allows',
+          all((n.get('props') or {}).get('align', 'left') in ('left', 'center', 'right')
+              for n in _converted if n.get('type') == 'text'))
 
     def _walk_nodes(node):
         yield node

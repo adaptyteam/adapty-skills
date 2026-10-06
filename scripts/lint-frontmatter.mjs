@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Frontmatter lint: every skills/<name>/SKILL.md opens with frontmatter that a
+ * Frontmatter lint: every plugin/skills/<name>/SKILL.md opens with frontmatter that a
  * STRICT YAML parser accepts and that meets the Agent Skills spec.
  *
  * Why strict: harnesses differ in how forgiving their YAML parser is. An
@@ -23,8 +23,13 @@
  *   - `name` matches its directory, lowercase letters/digits/hyphens, <= 64 chars
  *   - `description` non-empty, <= 1024 chars once parsed
  *
+ * Also, when run with no arguments: `.claude-plugin/plugin.json` and
+ * `.codex-plugin/plugin.json` agree on `name`, `version` and `description`.
+ * The two directories read different files, and a release that bumps one
+ * leaves the other listing stale.
+ *
  * Usage:  node scripts/lint-frontmatter.mjs [path/to/SKILL.md ...]
- *         (no arguments = every skills/<name>/SKILL.md)
+ *         (no arguments = every plugin/skills/<name>/SKILL.md)
  * Exit codes: 0 = clean, 1 = findings, 2 = infra error (unreadable file).
  */
 
@@ -33,7 +38,7 @@ import {basename, dirname, join, relative} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const SKILLS_DIR = join(REPO_ROOT, 'skills')
+const SKILLS_DIR = join(REPO_ROOT, 'plugin', 'skills')
 
 // Top-level keys the spec defines. `metadata` is a map, which this subset
 // does not parse -- it is listed so the refusal names the real reason.
@@ -149,6 +154,24 @@ async function main() {
     findings += errors.length
   }
   console.log(`${files.length} SKILL.md file(s) -> ${findings} frontmatter finding(s)`)
+  if (!process.argv.slice(2).length) {
+    const manifests = {}
+    for (const m of ['plugin/.claude-plugin/plugin.json', 'plugin/.codex-plugin/plugin.json']) {
+      try { manifests[m] = JSON.parse(await readFile(join(REPO_ROOT, m), 'utf8')) } catch (e) {
+        console.error(`${m}: cannot read or parse (${e.code || e.message})`)
+        process.exitCode = 2
+      }
+    }
+    const [a, b] = Object.values(manifests)
+    if (a && b) {
+      for (const key of ['name', 'version', 'description']) {
+        if (a[key] !== b[key]) {
+          console.log(`plugin/.codex-plugin/plugin.json: \`${key}\` differs from plugin/.claude-plugin/plugin.json`)
+          findings++
+        }
+      }
+    }
+  }
   if (findings && process.exitCode !== 2) process.exitCode = 1
 }
 

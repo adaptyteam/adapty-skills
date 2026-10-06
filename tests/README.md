@@ -10,6 +10,17 @@ check it. The skills themselves are prose; testing those means running agents ag
 stay gitignored in `fixtures-raw/` because they carry real product UUIDs and real
 `public-media.adapty.io` URLs.
 
+**Every fixture is stored at `schemaVersion` 13, in the localization-catalog form** — converted by
+the builder's own migration chain, so it is the document the builder stores. Suites that build a
+synthetic document write it in the readable inline form and pass it through `v13.catalogued()`
+before handing it to a shipped script; suites that mutate a fixture's text either edit its
+`localization.content` entries or work on `localization.resolve()`'s read view, which is what the
+checkers read. `localization-oracle/` holds one shared input document (`base-input.json`),
+each case's locale fields, and the output the builder's TypeScript migration 013 produced for
+it; `test-localization.py` holds the Python port to them byte for byte. The oracle files are
+stored minified, one document per line; pretty-print a copy with `jq .` to read one.
+
+
 | Fixture | What it exercises |
 | :--- | :--- |
 | `onboarding-quiz-paywall.json` | 5 screens, branching, a component, cross-screen variables, 42 localizable fields |
@@ -66,19 +77,21 @@ crash, so it is evidence rather than just coverage. Sanitizing it does **not** c
 
 ```bash
 python3 tests/sanitize-fixture.py fixtures-raw/x.json fixtures/x.json   # regenerate a fixture
-python3 skills/flow-generator/references/verify-config.py tests/fixtures/*.json                   # structural checks
-python3 skills/flow-generator/references/diff-config.py old.json new.json                           # what the newer one destroys
+python3 plugin/skills/flow-generator/references/verify-config.py tests/fixtures/*.json                   # structural checks
+python3 plugin/skills/flow-generator/references/diff-config.py old.json new.json                           # what the newer one destroys
 python3 tests/render-check.py                                           # does it draw?
 python3 tests/render-check.py --baseline                                # record references
 python3 tests/render-check.py --keep                                    # keep PNGs to look at
-python3 skills/flow-generator/references/render-measure.py shot.png --column 23:68                 # is a column continuous?
-python3 skills/flow-generator/references/render-measure.py shot.png --row 343                       # how wide is it, really?
-python3 skills/flow-generator/references/crop.py ref.png out.png --box 872,543,918,579 --key       # cut a graphic out of a reference
+python3 plugin/skills/flow-generator/references/render-measure.py shot.png --column 23:68                 # is a column continuous?
+python3 plugin/skills/flow-generator/references/render-measure.py shot.png --row 343                       # how wide is it, really?
+python3 plugin/skills/flow-generator/references/crop.py ref.png out.png --box 872,543,918,579 --key       # cut a graphic out of a reference
+python3 tests/test-localization.py                                       # the catalog port vs the builder migration, the read view, the catalog checks
 python3 tests/test-flowkit.py                                            # the authoring helpers
 python3 tests/test-diff-config.py                                        # the diff's two directions
 python3 tests/test-snippet.py                                            # extract/plan/graft
 python3 tests/test-audit-flow.py                                         # the audit's checks, both directions
-python3 tests/test-unmapped-elements.py                                  # x-supported: the guarded set vs the corpus
+python3 tests/test-unmapped-elements.py                                  # old-price: the guarded set vs the corpus
+python3 tests/test-schema-baseline.py                                    # schema --baseline matches by screen id, not position
 python3 tests/test-legibility.py                                         # text-vs-background, both appearance variants
 python3 tests/test-price-literals.py                                     # placeholder + baseline-relative price literals
 python3 tests/test-product-fields.py                                     # the closed product-variable field set
@@ -106,7 +119,7 @@ Exit codes match the repo's lint convention: `0` clean, `1` findings, `2` infras
 problem (CLI or Chrome missing — fix the tooling, not the fixture). `diff-config.py` is the one
 whose `1` is not a finding about the document: it means *this write removes something*, which may
 be exactly what was asked for. Its calibration table lives in
-[merge.md](../skills/flow-generator/references/merge.md).
+[merge.md](../plugin/skills/flow-generator/references/merge.md).
 
 `render-check.py` needs `adapty@beta` (for `flows config preview`, which is local-only and needs
 no auth) and Chrome or Chromium.
@@ -140,7 +153,7 @@ means "this looked right at this size", never "the flow opens".
 
 ## `render-measure.py` — measure a render instead of eyeballing it
 
-*(Lives in `skills/flow-generator/references/` so it ships with the skill; the skill instructs agents to run it.)*
+*(Lives in `plugin/skills/flow-generator/references/` so it ships with the skill; the skill instructs agents to run it.)*
 
 `render-check.py` answers *did it draw*. This answers *where and how big*, which is the question
 you actually have when matching a screenshot.
@@ -172,7 +185,7 @@ at the user's reference screenshot as readily as at your own render, and compare
 
 ## `test-audit-flow.py` — the calibration suite for `flow-audit`
 
-Runs `skills/flow-audit/references/audit-flow.py` as a **subprocess**, never as an import, so
+Runs `plugin/skills/flow-audit/references/audit-flow.py` as a **subprocess**, never as an import, so
 nothing writes a `__pycache__` into `references/` — the copy-install path would ship it.
 
 Every case asserts a direction, because a check that only ever stays quiet is not a check:
@@ -187,7 +200,7 @@ assuming that. Putting the catalog there broke three of them.
 
 Calibration state per check — including which are proven to fire on real data and which are
 only proven silent — lives in
-[checks.md](../skills/flow-audit/references/checks.md), along with every false-positive trap
+[checks.md](../plugin/skills/flow-audit/references/checks.md), along with every false-positive trap
 the checks were written against.
 
 ## `test-id-hygiene.py` — the black-screen class, and the scope that is the finding
@@ -215,7 +228,7 @@ else. `flowkit` refuses to build any of these shapes, with matching checks in `t
 
 ## `test-flowkit.py` — the guardrail on the authoring helpers
 
-`skills/flow-generator/references/flowkit.py` is shipped skill content: the mechanical half of
+`plugin/skills/flow-generator/references/flowkit.py` is shipped skill content: the mechanical half of
 authoring a config. A shape helper that has drifted from the format is worse than no helper,
 because it is confidently wrong at scale — so it does not ship without this.
 
@@ -241,8 +254,8 @@ because it is confidently wrong at scale — so it does not ship without this.
   wrong node type silently and still published. So the test asserts `Var` becomes a variable node,
   `Span` becomes a text node, and a **bare tuple raises**.
 
-Then it puts the whole document through `schema-check.py`, and skips rather than fails if that
-gate is unavailable. Beyond this test, flowkit's output has been rendered through
+Then it puts the whole document through the shipped `validate-with-schema.mjs`, from the ajv
+cache dir `gates.sh` uses, and skips rather than fails if ajv is not installed there. Beyond this test, flowkit's output has been rendered through
 `flows config preview` and looked at — a schema pass is not proof that anything draws.
 
 ## `test-icon-assets.py` — the bundle against real builder output
@@ -275,7 +288,7 @@ one row.
 
 ## `test-snippet.py` — the guardrail on save/reuse
 
-`skills/flow-generator/references/snippet.py` (`extract`/`plan`/`graft`) is shipped skill
+`plugin/skills/flow-generator/references/snippet.py` (`extract`/`plan`/`graft`) is shipped skill
 content, same standing as `flowkit.py`. 187 cases, mostly run against the script as a
 subprocess (a few object-identity properties are unobservable across a subprocess boundary and
 are checked in-process instead, guarded the way `test-flowkit.py` guards its own import).
@@ -284,7 +297,7 @@ What it calibrates: the three-way dependency resolution (reuse / adopt / carry) 
 typography presets, fonts, icons and custom variables; the path-keyed-not-value-keyed rewrite
 (`tabs-paywall.json`'s group named `tabs` next to an element *typed* `tabs`); id collision
 re-minting; and all four snippet kinds. The last case in the suite is the graft's actual oracle:
-it runs a real `graft` output through `skills/flow-generator/references/verify-config.py` as a
+it runs a real `graft` output through `plugin/skills/flow-generator/references/verify-config.py` as a
 subprocess and asserts the result is verify-clean, or every remaining `ERROR` was already named
 in the plan's `NEEDS YOU`. Red means either a resolution rule regressed, or a graft introduced
 breakage `plan` did not predict.
@@ -293,40 +306,9 @@ breakage `plan` did not predict.
 python3 tests/test-snippet.py
 ```
 
-## `schema-check.py` — validating against the published schema
-
-```bash
-python3 tests/schema-check.py tests/fixtures/*.json                    # summary per file
-python3 tests/schema-check.py --baseline live.json edited.json         # only what YOUR edit caused
-python3 tests/schema-check.py --verbose --refresh config.json          # every error, re-fetch schema
-```
-
-Fetches the schema from `https://schemastore.adaptybuilder.com/latest.json` and caches it for a day
-at `$TMPDIR/adapty-flow.schema.json` — the same path and lifetime the official
-`validate-with-schema.mjs` uses, so both share one download. Needs `jsonschema`. (A default
-`Python-urllib` User-Agent gets a 403 from that host, hence the explicit one.)
-
-**Pass `--baseline` whenever you are checking an edit.** The schema tracks the newest
-`schemaVersion` and most live flows are older, so an unbaselined run on a v9 flow reports every
-pre-existing mismatch. Measured on `onboarding-quiz-paywall.json`: **28 errors unbaselined, 0
-baselined against itself**, and a single deliberately broken `width.type` surfaces as exactly one
-finding. Without the baseline that finding would have been one line in twenty-nine.
-
-**Two checks, not one.** `flows config validate` (stable from `adapty` 0.8.0, endpoint live in
-production) answers *is this publishable* — it runs the real transform service, so it sees stranded
-references — and skips most prop shapes: it accepts `fill: "banana"`. This answers *are the props
-well-formed* and knows nothing about publishability. Neither is evidence about the other. Coverage
-both ways: [validate.md](../skills/flow-generator/references/validate.md).
-
-It suppresses one class of error the schema creates by construction: expression nodes
-(`JSONVariable` / `JSONConstant`) are a `oneOf` over two **identical** permissive branches, commented
-*"shape intentionally opaque, validated by the transformer"*, so every value matches both and `oneOf`
-always fails. That fires on every `purchase` payload in real builder exports too. The count is still
-reported.
-
 ## `mobile-preview-check.py` — the device-preview link
 
-Runs [`mobile-preview.mjs`](../skills/flow-generator/references/mobile-preview.mjs) over every
+Runs [`mobile-preview.mjs`](../plugin/skills/flow-generator/references/mobile-preview.mjs) over every
 fixture and asserts the URL the Adapty app receives. The link is pure string construction, so
 unlike the rest of phase 5 it is completely checkable locally — no network, no auth, no device.
 
@@ -337,7 +319,7 @@ It also guards the output shape. The markdown image path must be **relative** to
 absolute one is what a client refuses to render — and **no path may print half-block characters**,
 with `--terminal` staying rejected. A character-art QR was built twice and removed twice; the
 findings that settled it are in
-[preview.md](../skills/flow-generator/references/preview.md#why-there-is-no-terminal-qr-after-two-attempts-at-one).
+[preview.md](../plugin/skills/flow-generator/references/preview.md#why-there-is-no-terminal-qr-after-two-attempts-at-one).
 
 Two regressions are the reason it exists, both invisible against real data:
 

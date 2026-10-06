@@ -33,7 +33,7 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-REFS = os.path.join(ROOT, 'skills', 'flow-generator', 'references')
+REFS = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references')
 sys.dont_write_bytecode = True
 sys.path.insert(0, REFS)
 
