@@ -207,7 +207,7 @@ First fetch the full installation docs for reference:
 ```bash
 # Fetch both — you'll need both for Expo vs bare RN detection
 curl -s "https://adapty.io/docs/sdk-installation-react-native-pure.md?ref=skill-<sessionToken>"
-curl -s https://adapty.io/docs/sdk-installation-react-native-expo.md
+curl -s "https://adapty.io/docs/sdk-installation-react-native-expo.md?ref=skill-<sessionToken>"
 ```
 
 Then guide the user through each step based on their project type.
@@ -370,11 +370,11 @@ Choose the section matching the user's paywall approach.
 
 Read before writing code:
 ```bash
-curl -s https://adapty.io/docs/react-native-quickstart-paywalls.md
-curl -s https://adapty.io/docs/react-native-get-pb-paywalls.md
-curl -s https://adapty.io/docs/react-native-present-paywalls.md
-curl -s https://adapty.io/docs/react-native-handling-events-1.md
-curl -s https://adapty.io/docs/react-native-handle-paywall-actions.md
+curl -s "https://adapty.io/docs/react-native-quickstart-paywalls.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/react-native-get-pb-paywalls.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/react-native-present-paywalls.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/react-native-handling-events-1.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/react-native-handle-paywall-actions.md?ref=skill-<sessionToken>"
 ```
 
 **v4 API names:** Flow Builder uses the new `getFlow` / `AdaptyFlow` / `createFlowView` / `AdaptyFlowView` / `FlowEventHandlers` family. The same APIs also render existing Paywall Builder paywalls — no dashboard changes are required for users migrating from Paywall Builder. `getFlow` takes no `locale` parameter — it **moves to `createFlowView`** as `{ locale }` in its params. `locale` is optional: omit it and the view renders in `en`, or in the flow's default localization if it has one — so a multi-locale app that never passes it silently ships English. Also, `hasViewConfiguration` was removed from the model in 4.0 and **restored on `AdaptyFlow` in 4.1**, which is what a fresh install now resolves — so the check is available; drop it only on a project pinned to 4.0.x. It is an alternative to catching, not a replacement: `createFlowView` still throws an `AdaptyError` for a flow with no view configuration on both versions. The lifecycle handlers `onPaywallShown` / `onPaywallClosed` are now `onAppeared` / `onDisappeared`, and `onRenderingFailed` is now `onError`; the other event handlers keep their v3 names, and products are still `AdaptyPaywallProduct`.
@@ -422,11 +422,11 @@ await view.present(); // Each view is single-use; call createFlowView again to r
 
 Read before writing code:
 ```bash
-curl -s https://adapty.io/docs/react-native-quickstart-manual.md
-curl -s https://adapty.io/docs/fetch-paywalls-and-products-react-native.md
-curl -s https://adapty.io/docs/present-remote-config-paywalls-react-native.md
-curl -s https://adapty.io/docs/react-native-making-purchases.md
-curl -s https://adapty.io/docs/react-native-restore-purchase.md
+curl -s "https://adapty.io/docs/react-native-quickstart-manual.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/fetch-paywalls-and-products-react-native.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/present-remote-config-paywalls-react-native.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/react-native-making-purchases.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/react-native-restore-purchase.md?ref=skill-<sessionToken>"
 ```
 
 **Fetch products, make purchase, restore pattern:**
@@ -474,9 +474,9 @@ try {
 
 Read before writing code:
 ```bash
-curl -s https://adapty.io/docs/observer-vs-full-mode.md
-curl -s https://adapty.io/docs/implement-observer-mode-react-native.md
-curl -s https://adapty.io/docs/report-transactions-observer-mode-react-native.md
+curl -s "https://adapty.io/docs/observer-vs-full-mode.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/implement-observer-mode-react-native.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/report-transactions-observer-mode-react-native.md?ref=skill-<sessionToken>"
 ```
 
 **Checkpoint:** After a sandbox purchase through the existing purchase flow, the transaction appears in the Adapty dashboard **Event Feed**.
@@ -489,8 +489,8 @@ curl -s https://adapty.io/docs/report-transactions-observer-mode-react-native.md
 
 Read before writing code:
 ```bash
-curl -s https://adapty.io/docs/react-native-check-subscription-status.md
-curl -s https://adapty.io/docs/react-native-listen-subscription-changes.md
+curl -s "https://adapty.io/docs/react-native-check-subscription-status.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/react-native-listen-subscription-changes.md?ref=skill-<sessionToken>"
 ```
 
 **What to do:** After a purchase, check `profile.accessLevels['premium']?.isActive` to grant or deny access to paid features. For real-time updates, listen for `onLatestProfileLoad` events instead of polling.
@@ -537,7 +537,7 @@ For each integration the user selected in Phase 2, fetch the doc and implement b
 | PostHog | `posthog` |
 
 ```bash
-curl -s https://adapty.io/docs/<slug>.md
+curl -s "https://adapty.io/docs/<slug>.md?ref=skill-<sessionToken>"
 ```
 
 ### Attribution integrations
@@ -552,7 +552,7 @@ curl -s https://adapty.io/docs/<slug>.md
 | Singular | `singular` |
 
 ```bash
-curl -s https://adapty.io/docs/<slug>.md
+curl -s "https://adapty.io/docs/<slug>.md?ref=skill-<sessionToken>"
 ```
 
 **On an upgrade run only:** 4.1 renamed the external-attribution APIs with no deprecated aliases, so a 4.0.x or 3.x call site stops type-checking — `adapty.updateAttribution(attribution, source)` → `adapty.updateExternalAttribution(attribution, provider)`, the `AttributionSource` type → `AdaptyExternalAttributionProvider` (an open union, with a new `'custom'` for providers Adapty does not integrate with directly), and `AdaptyProfile.appliedAttributionSources` → `AdaptyProfile.appliedExternalAttributionProviders`. Attribution was also automatic on 4.0 and below, so an upgrade that skips the Stage 1 opt-in silently loses install registration it used to have. Details in [Migrate to v4.1](https://adapty.io/docs/migration-to-react-native-sdk-41.md).
@@ -566,14 +566,14 @@ curl -s https://adapty.io/docs/<slug>.md
 | Pushwoosh | `pushwoosh` |
 
 ```bash
-curl -s https://adapty.io/docs/<slug>.md
+curl -s "https://adapty.io/docs/<slug>.md?ref=skill-<sessionToken>"
 ```
 
 ### Webhook / data export
 
 ```bash
-curl -s https://adapty.io/docs/set-up-webhook-integration.md
-curl -s https://adapty.io/docs/webhook-event-types-and-fields.md
+curl -s "https://adapty.io/docs/set-up-webhook-integration.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/webhook-event-types-and-fields.md?ref=skill-<sessionToken>"
 ```
 
 ---
@@ -591,8 +591,8 @@ If the user says no, skip the rest of this stage.
 
 Read before writing code:
 ```bash
-curl -s https://adapty.io/docs/react-native-quickstart-identify.md
-curl -s https://adapty.io/docs/react-native-identifying-users.md
+curl -s "https://adapty.io/docs/react-native-quickstart-identify.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/react-native-identifying-users.md?ref=skill-<sessionToken>"
 ```
 
 **What to do:**
@@ -697,7 +697,7 @@ Read and follow the iOS sandbox testing setup. Required steps:
 6. Make a test purchase, verify it appears in Adapty dashboard **Event Feed**
 
 ```bash
-curl -s https://adapty.io/docs/test-purchases-in-sandbox.md
+curl -s "https://adapty.io/docs/test-purchases-in-sandbox.md?ref=skill-<sessionToken>"
 ```
 
 **Android testing:**
@@ -720,7 +720,7 @@ Run through this before submitting to App Store or Google Play review.
 
 Read before releasing:
 ```bash
-curl -s https://adapty.io/docs/release-checklist.md
+curl -s "https://adapty.io/docs/release-checklist.md?ref=skill-<sessionToken>"
 ```
 
 **Checkpoint:** All items confirmed:
@@ -771,7 +771,7 @@ For each item the user picks, fetch the relevant doc and implement it:
 | ATT | `react-native-deal-with-att` |
 
 ```bash
-curl -s https://adapty.io/docs/<slug>.md
+curl -s "https://adapty.io/docs/<slug>.md?ref=skill-<sessionToken>"
 ```
 
 **If you set up fallback paywalls on an upgrade from 4.0.x, download the file again.** The [fallback file](https://adapty.io/docs/fallback-flows.md) format changed in 4.1, and a file downloaded for 4.0 is rejected by `setFallback` — every placement silently loses its fallback. There is no build error, so this is only caught by testing offline.
