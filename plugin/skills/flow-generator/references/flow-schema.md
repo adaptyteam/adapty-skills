@@ -220,7 +220,7 @@ invariants above, and is still wrong. This table is the index into them.
 
 The numbers are this file's addressing scheme: other files, and two checker messages in
 `verify-config.py` and `render-check.py`, cite them as **trap N**. They are therefore stable — a
-trap is never renumbered, a new one takes the next free number (**25**), and a new trap with no
+trap is never renumbered, a new one takes the next free number (**27**), and a new trap with no
 row here is unreachable, because the number is the only address anyone cites.
 
 | trap | the thing that parses and is still wrong |
@@ -254,6 +254,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 22 | Which group types a conditional can read — and the one action that does not work |
 | 23 | A `phosphor` icon resolves from the renderer's own bundle, and `raw` does not override it |
 | 24 | A `{_lid}` names an entry of THIS flow's catalog — never copy a ref between flows |
+| 26 | A theme colour can be a layer stack — and only a fill reads all of it |
 
 ### 1. A localizable field is a ref, and its entry's `kind` decides the value shape
 
@@ -847,6 +848,75 @@ from the module.
 Three weights ship, not Phosphor's six: `thin`, `light` and `duotone` exist upstream and resolve
 to nothing here.
 
+### 24. A `{_lid}` names an entry of THIS flow's catalog — never copy a ref between flows
+
+Content ids are minted per flow (`lc_0`, `lc_1`, …), so every flow has an `lc_0`. A ref copied
+from another flow, from a fixture or from a template lands on whatever this flow keeps under that
+id — a different string, or nothing — and every gate but one passes it: the document is
+well-formed, and the render draws the wrong text as confidently as the right one.
+`verify-config.py` catches only the dangling half.
+
+Move content between flows as **values**, never as refs: resolve the source through the catalog
+(`localization.resolve()`, or `snippet.py extract`, which saves the inline form), put the inline
+value into the destination, and run `localization.py catalog` over it. That mints ids past the
+destination's own. The same holds inside one flow when you duplicate an element: the copy shares
+the original's entry until you give it one of its own (`localization.copy_entry()`), and editing
+either then edits both.
+
+
+### 26. A theme colour can be a layer stack — and only a fill reads all of it
+
+A `theme.colors[]` entry's `light` and `dark` each take one of two forms: the `{hex, opacity}`
+object, or an **array of fill layers**, bottom to top — `color`, `gradient`, `image` (and
+`video`, which this skill does not author). Every fill that references the style with
+`{"type": "color-style", "colorId": …}` then follows the appearance, so one style can be a
+gradient in light mode and a photo under a scrim in dark:
+
+```json
+{"id": "hero_bg", "name": "Hero background",
+ "light": [{"type": "gradient", "angle": 180, "stops": [
+             {"color": {"type": "hex", "hex": "#FFFFFF"}, "position": 0},
+             {"color": {"type": "hex", "hex": "#EEF0FF"}, "position": 1}]}],
+ "dark":  [{"type": "image", "image": {"id": "4211", "url": "https://…/hero-dark.png",
+                                       "previewValue": "UklGR…"}},
+           {"type": "color", "color": {"type": "hex", "hex": "#000000", "opacity": 40}}]}
+```
+
+The two sides need not match in length or kind; either may be omitted, and the missing one shows
+the other. **The layers are literal.** The transform service refuses the flow when a stack is
+empty, when a style has neither side, when a layer references another style (a `color-style`
+inside a stack or a gradient stop), when an image layer has no `url`, and when a gradient stop
+is anything but `#RRGGBB` — `#RGB`, `#RRGGBBAA` and an unprefixed hex all fail there, so put
+alpha in `opacity`. An image layer wants its `previewValue` exactly as an image fill does
+([media.md](media.md)).
+
+**Where you bind a layered style decides what draws:**
+
+| position | what it gets |
+| :--- | :--- |
+| `fill` (screen, stack, card) | the whole stack, per appearance — what the form is for |
+| `border.color` | the solid and gradient layers only; an **input's** border takes at most one, and a second is refused (`unsupported_input_border_layers`) |
+| text `color`, an input's text | the **blend of the solid layers only** — gradient and image layers contribute nothing |
+| any other colour (icon, carousel dots, spinner) | the style's first layer used as a plain colour, which a device is not obliged to draw |
+
+The text row is the trap. **Text bound to a style with no solid layer — a gradient-only or
+image-only one — draws fully transparent**, and the service accepts it without a word: the
+document is valid, `flows config validate` passes it, and the render shows a missing heading,
+which reads as a layout bug. So keep text, icons and dots on single-colour styles, and make a
+layered style for the surfaces behind them.
+
+**One id rule comes with it.** The service mints asset ids from a layered style's id —
+`<id>_fill_1`, `<id>_fill_2`, … for the layers above the first, `<id>_border_<n>` and
+`<id>_text_color` when a border or text uses it — and a theme colour or typography preset
+already named that way is refused (`duplicate_appearance_asset_id`). Do not name a colour
+`surface_fill_1` beside a layered `surface`.
+
+`flowkit.config(colors=...)` takes a stack as `light`/`dark` — `gradient(...)`,
+`image_fill(...)`, `fill(hexval=..., opacity=...)`, concatenated — and raises on every refusal
+above and on text bound to a no-solid style. [`verify-config.py`](verify-config.py) reports the
+same on a fetched config, and resolves a layered style the way the service does in its legibility
+check: as text, the blend of the solids; as a background, only when every layer is a solid.
+
 ## The transform service is the authoritative validator
 
 Publishing runs the config through a **transform service**, and that is the only checker in this
@@ -873,22 +943,6 @@ Three things to take from that, all observed on a real 422:
 - **This is a different and stricter gate than anything local.** `config update` saved this exact
   config happily; the transform service refused it. So "it saved" never means "it will publish",
   which is the same lesson trap 10 teaches about rendering, one layer further out.
-
-
-### 24. A `{_lid}` names an entry of THIS flow's catalog — never copy a ref between flows
-
-Content ids are minted per flow (`lc_0`, `lc_1`, …), so every flow has an `lc_0`. A ref copied
-from another flow, from a fixture or from a template lands on whatever this flow keeps under that
-id — a different string, or nothing — and every gate but one passes it: the document is
-well-formed, and the render draws the wrong text as confidently as the right one.
-`verify-config.py` catches only the dangling half.
-
-Move content between flows as **values**, never as refs: resolve the source through the catalog
-(`localization.resolve()`, or `snippet.py extract`, which saves the inline form), put the inline
-value into the destination, and run `localization.py catalog` over it. That mints ids past the
-destination's own. The same holds inside one flow when you duplicate an element: the copy shares
-the original's entry until you give it one of its own (`localization.copy_entry()`), and editing
-either then edits both.
 
 ### 14b. A condition is an expression tree, and `assign` is the one type it may not use
 
@@ -1030,6 +1084,10 @@ validate clean, and `tests/fixtures/onboarding-quiz-paywall.json` (which holds b
 
 `flowkit.config()` raises on a bad theme hex and leaves element colours alone;
 `verify-config.py` errors on the same thing, calibrated silent on all 12 real configs.
+
+A theme colour written as a **layer stack** (trap 26) carries hexes inside its layers, and the
+rule follows them there: write `#RRGGBB` everywhere, with alpha in `opacity`. A gradient stop is
+refused in any other form, and so is an 8-digit or empty solid.
 
 ### 20. A screen background is bound to a token in every real export — never a literal hex
 
@@ -1270,10 +1328,10 @@ headline leading against a reference's 41 pt and filing it as unreachable. Line 
 the few reference properties that is otherwise genuinely out of reach, so getting this wrong turns
 a fixable gap into an ask.
 
-**Gradients cannot carry an appearance variant.** Gradient stops are literal hex in every real
-export — there is no `color-style` reference and so no light/dark pair. On a screen whose
-`theme.colors` all declare dark variants, the gradients stay light while everything around them
-flips. Bake the appearance you want, or use a flat themed colour where the theme has to win.
+**A gradient follows the appearance only through a theme colour.** Gradient stops are literal
+hex, so a gradient written straight into a `fill` stays the same in dark mode while everything
+around it flips. To make it switch, put the gradient in a theme colour as a layer stack and fill
+with a reference to that colour — trap 26.
 
 ### Before authoring a shape you have not seen produced: grep for it
 
@@ -1340,6 +1398,11 @@ bottom-to-top stack you can rely on to express a tint over an image.
 **So express a tint one of two ways:** bake it into the asset and upload the result (one `image`
 layer — see [media.md](media.md)), or put the second visual on its own element. **One visual
 layer per fill.**
+
+**A theme colour is the one place a stack is the form.** When the layers must switch between
+light and dark — a photo under a scrim in one, a gradient in the other — write them as a layer
+stack in `theme.colors` and fill with a single reference to it (trap 26). The fill itself still
+holds one layer: the reference.
 
 ### `effects` renders — a drop shadow is available, and measured
 
@@ -1781,6 +1844,7 @@ style error: you will search for an element type that does not exist, or invent 
 | a close button, "dismiss" | A tappable `stack` whose action is `{"type": "closeFlow"}` (no payload). |
 | a hero image the content slides up over, an overlay hero, a panel over a background | A **`sliding-sheet`** at the screen root holding the content, with the hero as the screen `fill` or as a root sibling of the sheet (the cover band). **Not a `bottom-sheet`**: that one is a hidden modal an action opens. See [`patterns.md`](patterns.md). |
 | an image, a background | An `image` element for content; `props.fill` with `{"type": "image"}` for a screen or element background. **Different shapes** — see trap 1. |
+| a background or card that changes with dark mode — a gradient in one, an image or a scrimmed photo in the other | A **layered theme colour** (trap 26): the layers go in `theme.colors[].light` / `.dark`, and the fill holds one `color-style` reference to it. `flowkit.config(colors=...)` takes the stack. Keep the text on it bound to a single-colour style — text on a style with no solid layer draws transparent. |
 | a video, a looping banner | A `video` element (`loop`, `objectFit`). No CLI upload for the source — the command refuses a clip — so leave `customMediaID`/`video` unset: it renders a styled **"Upload Video"** placeholder and publishes clean. Give it a **fixed** height (a `hug` one draws an arbitrary 256pt, measured) plus the radius and margins of the design around it, then tell the user in words to upload it in the builder. `flowkit.video()`, or the catalog's `video-hero` / `video-card`. **Never** fake it with a `stack` + Play icon — trap 5. |
 | a carousel, reviews/testimonials, a slider, swipeable cards, cards with dots | A `carousel` element, one child `stack` per slide. It is swipeable and **renders its own indicator dots** from `props.dots` (`{size, color, activeColor}`) — you never build the dots by hand. Fixed geometry only (`slideWidth`/`slideHeight`/`height`; `hug` is dropped on device). **Never** fake it with a static card plus decorative dot `stack`s — that ships one frozen slide and dots that do nothing, the same lookalike mistake as the fake footer/spinner/video (trap 5). If the seed flow has one, copy it; otherwise take `component-catalog.json`'s filled **`reviews-carousel`** template, never the single-card `ue-review` — [`patterns.md`](patterns.md). |
 

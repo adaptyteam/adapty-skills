@@ -226,6 +226,12 @@ colour does (`light`/`dark` per entry in `theme.colors`), and this is not hypoth
 four corpus fixtures define a dark variant for **every** colour they declare (14/14 and 11/11). A
 bitmap with a baked-in background is the thing that breaks, which is why:
 
+> A **background** image can follow the appearance: put it in a theme colour as a layer stack —
+> one image for light, another (or a gradient) for dark — and fill the screen or card with a
+> reference to that colour ([flow-schema.md](flow-schema.md), trap 26). Upload both files; the
+> image layer inside the style takes the same `{id, url, previewValue}` as an image fill, and
+> `flowkit.image_fill()` emits it. This is a fill, so it does not localize.
+
 ### If you do rasterize
 
 - **Transparent background, no baked surface.** Measured: alpha survives the upload — the CDN
