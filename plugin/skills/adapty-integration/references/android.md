@@ -1,0 +1,647 @@
+# Android SDK Integration Reference
+
+Platform: Android · Language: Kotlin / Java · UI: Jetpack Compose or XML Views
+
+## Prerequisites
+
+- `minSdkVersion 21` (Android 5.0+)
+- Android Studio with Gradle build system
+- Google Play Developer account with app registered
+
+---
+
+## Build verification
+
+After each stage that writes code, run a build to catch errors immediately rather than letting them pile up. Use this helper — run it yourself via Bash, do not ask the user to build in Android Studio.
+
+### Discover project info
+
+```bash
+# Find the root build.gradle and module structure
+find . -maxdepth 3 \( -name "build.gradle" -o -name "build.gradle.kts" \) ! -path "*/.gradle/*" ! -path "*/build/*" | head -20
+ls -1 . | head -20   # list top-level dirs to identify module names
+```
+
+The app module is typically named `app`. Confirm by looking for `apply plugin: 'com.android.application'` or `id("com.android.application")` in `build.gradle` / `build.gradle.kts`.
+
+### Run a build
+
+```bash
+# From the project root directory
+./gradlew assembleDebug 2>&1 | grep -E "error:|warning:|BUILD SUCCESSFUL|BUILD FAILED|FAILURE:" | head -50
+```
+
+For a faster check that skips APK packaging:
+
+```bash
+./gradlew compileDebugKotlin 2>&1 | grep -E "error:|warning:|BUILD SUCCESSFUL|BUILD FAILED" | head -40
+```
+
+### Handle the output
+
+**BUILD SUCCESSFUL** → proceed to next stage.
+
+**BUILD FAILED with errors:**
+- Errors in files you wrote → fix them directly and rebuild
+- Errors in files you didn't write → explain the error to the user with a concrete fix
+- `Unresolved reference: Adapty` or `Cannot access class 'com.adapty'` → the Gradle dependency wasn't synced; ask user to do **File → Sync Project with Gradle Files** in Android Studio, then rebuild
+- `Could not resolve io.adapty:android-sdk` → `mavenCentral()` is missing from the repository block (see Stage 1 troubleshooting)
+- `Manifest merger failed` → see the backup rules troubleshooting section in the installation doc
+
+Rebuild after each fix. Do not move to the next stage until the build is clean.
+
+---
+
+## Recommended architecture
+
+Before writing any Adapty code, create these files. They establish patterns the rest of the integration builds on.
+
+### AppConstants.kt
+
+Centralizes all Adapty config values. The `error()` call in the init block causes a runtime crash in debug builds if placeholders are not replaced — a safety net against shipping with wrong keys.
+
+```kotlin
+object AppConstants {
+    // Replace these before building — the debug check below will crash if you don't
+    const val ADAPTY_PUBLIC_KEY = "YOUR_PUBLIC_SDK_KEY"  // from Adapty Dashboard → App settings → API keys
+    const val PLACEMENT_ID = "YOUR_PLACEMENT_ID"          // from Adapty Dashboard → Placements
+    const val ACCESS_LEVEL_ID = "premium"                  // default access level; change if you use custom ones
+
+    init {
+        if (ADAPTY_PUBLIC_KEY == "YOUR_PUBLIC_SDK_KEY") {
+            error("Replace AppConstants.ADAPTY_PUBLIC_KEY with your real SDK key before building")
+        }
+    }
+}
+```
+
+Replace the placeholder strings with real values from Phase 3 output immediately.
+
+### UserManager.kt (skip if app has no authentication)
+
+Lightweight SharedPreferences wrapper for the customer user ID. Pass this to `AdaptyConfig.Builder` on launch so purchases are always attributed to the right profile.
+
+```kotlin
+object UserManager {
+    private const val KEY = "app.adapty.userId"
+
+    fun getCurrentUserId(context: Context): String? {
+        return context.getSharedPreferences("adapty_prefs", Context.MODE_PRIVATE)
+            .getString(KEY, null)
+    }
+
+    fun login(context: Context, userId: String) {
+        context.getSharedPreferences("adapty_prefs", Context.MODE_PRIVATE)
+            .edit().putString(KEY, userId).apply()
+    }
+
+    fun logout(context: Context) {
+        context.getSharedPreferences("adapty_prefs", Context.MODE_PRIVATE)
+            .edit().remove(KEY).apply()
+    }
+}
+```
+
+### AdaptyService.kt (ViewModel/Repository pattern)
+
+Central ViewModel that:
+- Holds the current profile as `StateFlow` for reactive UI updates
+- Sets up `Adapty.setOnProfileUpdatedListener` for real-time subscription updates (no polling needed)
+- Exposes a clean `isPremiumUser` property for gating content
+
+```kotlin
+class AdaptyService : ViewModel() {
+
+    private val _profile = MutableStateFlow<AdaptyProfile?>(null)
+    val profile: StateFlow<AdaptyProfile?> = _profile.asStateFlow()
+
+    val isPremiumUser: Boolean
+        get() = _profile.value?.accessLevels?.get(AppConstants.ACCESS_LEVEL_ID)?.isActive == true
+
+    init {
+        // Called automatically on app start with cached data, and whenever subscription changes
+        Adapty.setOnProfileUpdatedListener { updatedProfile ->
+            _profile.value = updatedProfile
+        }
+    }
+
+    fun reloadProfile() {
+        viewModelScope.launch {
+            Adapty.getProfile { result ->
+                if (result is AdaptyResult.Success) {
+                    _profile.value = result.value
+                }
+            }
+        }
+    }
+}
+```
+
+If the project uses Hilt or another DI framework, inject `AdaptyService` as a singleton-scoped ViewModel. If not using a ViewModel, a plain `object` with a `MutableStateFlow` works too.
+
+---
+
+## Stage 1: Install and configure the SDK
+
+First fetch the full installation doc for reference:
+```bash
+curl -s "https://adapty.io/docs/sdk-installation-android.md?ref=skill-<sessionToken>"
+```
+
+Then guide the user through each step explicitly.
+
+### Step 1: Add Gradle dependencies
+
+The user needs to add dependencies to their **module-level** `build.gradle` (or `build.gradle.kts`). Ask which file format they use, then write the correct block.
+
+**The floor is v4 and it is not conditional on the paywall approach.** Stage 2 fetches with `getFlow` on every approach — Flow Builder, custom paywall and Observer mode alike — and the flow APIs do not exist below v4, so a 3.x BOM produces code that does not compile. The BOM resolves the matching `android-sdk` and `android-ui` versions for you.
+
+**Resolve the version — do not write one from memory, and do not reuse a number from this page.** Run this and use exactly what it prints; `<release>` is the newest *stable* release, so it skips betas on its own:
+```bash
+curl -s https://repo1.maven.org/maven2/io/adapty/adapty-bom/maven-metadata.xml | grep -o '<release>[^<]*' | cut -c10-
+```
+
+It must print `4.` or higher. If the command prints nothing — no network, a proxy, no `curl` — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-Android/releases). An SDK version you remember is the one value on this page you cannot verify, and a wrong one either fails the build or silently installs an API set Stage 2 was not written against. If it prints a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
+
+If the project is already on a 3.x BOM, it is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-android-sdk-v4.md) for the paywall-to-flow API rename, then [Migrate to v4.1](https://adapty.io/docs/migration-to-android-sdk-41.md) for the attribution changes below.
+
+**Groovy DSL (`build.gradle`):**
+```groovy
+dependencies {
+    implementation platform('io.adapty:adapty-bom:<version-printed-by-the-command-above>')
+    implementation 'io.adapty:android-sdk'
+
+    // Only add if using Flow Builder or Paywall Builder:
+    implementation 'io.adapty:android-ui'
+}
+```
+
+**Kotlin DSL (`build.gradle.kts`):**
+```kotlin
+dependencies {
+    implementation(platform("io.adapty:adapty-bom:<version-printed-by-the-command-above>"))
+    implementation("io.adapty:android-sdk")
+
+    // Only add if using Flow Builder or Paywall Builder:
+    implementation("io.adapty:android-ui")
+}
+```
+
+**Version catalog (`libs.versions.toml`)** — use this when the project already has one:
+```toml
+[versions]
+adaptyBom = "<version-printed-by-the-command-above>"
+
+[libraries]
+adapty-bom = { module = "io.adapty:adapty-bom", version.ref = "adaptyBom" }
+adapty = { module = "io.adapty:android-sdk" }
+# Only add if using Flow Builder or Paywall Builder:
+adapty-ui = { module = "io.adapty:android-ui" }
+```
+Then in the module-level `build.gradle.kts`:
+```kotlin
+dependencies {
+    implementation(platform(libs.adapty.bom))
+    implementation(libs.adapty)
+    implementation(libs.adapty.ui)   // only with the builder
+}
+```
+
+**If dependency doesn't resolve** — ensure `mavenCentral()` is in the repositories block.
+
+For projects using `dependencyResolutionManagement` in `settings.gradle`:
+```groovy
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()  // add this if missing
+    }
+}
+```
+
+For older projects using `allprojects` in root `build.gradle`:
+```groovy
+allprojects {
+    repositories {
+        google()
+        mavenCentral()  // add this if missing
+    }
+}
+```
+
+After editing Gradle files, ask the user to sync: **File → Sync Project with Gradle Files** in Android Studio.
+
+### Step 2: Add activation code in Application class
+
+The SDK must be activated in `Application.onCreate()`. Ask the user if they already have an `Application` subclass; if not, they need to create one.
+
+**Create or update the Application class:**
+
+```kotlin
+// MyApplication.kt
+import android.app.Application
+import com.adapty.Adapty
+import com.adapty.models.AdaptyConfig
+
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+
+        // Set log level before activation (recommended for development)
+        Adapty.logLevel = AdaptyLogLevel.INFO
+
+        Adapty.activate(
+            applicationContext,
+            AdaptyConfig.Builder(AppConstants.ADAPTY_PUBLIC_KEY)
+                .withCustomerUserId(UserManager.getCurrentUserId(this)) // remove if no auth
+                .build()
+        )
+    }
+}
+```
+
+**Register the Application class in AndroidManifest.xml** (if the user created a new one):
+```xml
+<application
+    android:name=".MyApplication"
+    ... >
+```
+
+**Proguard rule** — add this to `proguard-rules.pro` before any production build:
+```
+-keep class com.adapty.** { *; }
+```
+
+The SDK key comes from `AppConstants` — already set in the recommended architecture step above.
+
+**Checkpoint:** App builds and runs without errors. Logcat shows an Adapty activation log line (`Adapty activated`).
+
+**Gotcha:** "Public API key is missing" or silent failure → the placeholder wasn't replaced with the real key from App settings → General → API keys.
+
+**Gotcha:** `Manifest merger failed` involving `android:fullBackupContent` → another SDK also defines backup rules. See the [Troubleshooting section in the installation doc](https://adapty.io/docs/sdk-installation-android.md) for the merge fix.
+
+---
+
+## Stage 2: Show paywalls and handle purchases
+
+Choose the section matching the user's paywall approach.
+
+### Flow Builder
+
+Read before writing code:
+```
+https://adapty.io/docs/android-quickstart-paywalls.md
+https://adapty.io/docs/android-get-pb-paywalls.md
+https://adapty.io/docs/android-present-paywalls.md
+https://adapty.io/docs/android-handling-events.md
+https://adapty.io/docs/android-handle-paywall-actions.md
+```
+
+**v4 API names:** Flow Builder uses the new `getFlow` / `AdaptyFlow` / `getFlowConfiguration` / `AdaptyFlowView` / `AdaptyFlowScreen` family. The same APIs also render existing Paywall Builder paywalls — no dashboard changes are required for users migrating from Paywall Builder.
+
+**Required call signature** — pass `locale` to `getFlowConfiguration` (not to `getFlow`):
+```kotlin
+Adapty.getFlow(AppConstants.PLACEMENT_ID) { result ->
+    if (result is AdaptyResult.Success) {
+        val flow = result.value
+
+        // false = a custom paywall with no Builder UI, not an error. Render your own
+        // screen from flow.remoteConfigs: https://adapty.io/docs/present-remote-config-paywalls-android.md
+        if (!flow.hasViewConfiguration) return@getFlow
+
+        AdaptyUI.getFlowConfiguration(flow, locale = "en") { configResult ->
+            if (configResult is AdaptyResult.Success) {
+                val flowConfiguration = configResult.value
+                // display the flow
+                val flowView = AdaptyUI.getFlowView(
+                    activity,
+                    flowConfiguration,
+                    null, // null = auto-fetch products
+                    eventListener,
+                )
+                setContentView(flowView)
+            }
+        }
+    }
+}
+```
+
+**Renamed callbacks:** the event listener is now `AdaptyFlowEventListener` (was `AdaptyUiEventListener`) — extend `AdaptyFlowDefaultEventListener` for no-op defaults. Its lifecycle callbacks `onPaywallShown` / `onPaywallClosed` are now `onFlowShown` / `onFlowClosed`, and `onRenderingError` is now `onError`. The other callbacks are unchanged, and products are still `AdaptyPaywallProduct`.
+
+**Checkpoint:** Flow appears on screen with configured products. Tapping a product triggers the Google Play sandbox purchase dialog.
+
+**Gotcha:** Blank flow or `getFlow` returns error → placement ID doesn't match the dashboard exactly (case-sensitive), or the placement has no audience assigned.
+
+**Gotcha:** `hasViewConfiguration` is `false` → not a misconfiguration. The flag tells a Builder-designed placement (`true`, Adapty renders it) from a custom paywall with no Builder UI (`false`, you render it). If the user chose the Custom paywall approach, `false` is the expected value and the branch is where their own screen goes.
+
+### Custom paywall (manual)
+
+Read before writing code:
+```
+https://adapty.io/docs/android-quickstart-manual.md
+https://adapty.io/docs/fetch-paywalls-and-products-android.md
+https://adapty.io/docs/present-remote-config-paywalls-android.md
+https://adapty.io/docs/android-making-purchases.md
+https://adapty.io/docs/android-restore-purchase.md
+```
+
+**Required call signature:**
+```kotlin
+Adapty.getFlow(AppConstants.PLACEMENT_ID) { result ->
+    if (result is AdaptyResult.Success) {
+        val flow = result.value
+        Adapty.getPaywallProducts(flow) { productResult ->
+            if (productResult is AdaptyResult.Success) {
+                val products = productResult.value
+                // build your custom paywall UI with products
+            }
+        }
+    }
+}
+```
+
+**v4 note:** Even for custom paywalls, the v4 SDK uses `getFlow` / `AdaptyFlow` for the fetch — but products are still `AdaptyPaywallProduct`, and `getPaywallProducts(flow)` is the right call to fetch them.
+
+**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the Google Play sandbox purchase dialog. A restore button calls `Adapty.restorePurchases()`.
+
+**Gotcha:** Empty products array → paywall in the dashboard has no products assigned, or placement has no audience.
+
+### Observer mode *(not recommended)*
+
+> **When to use:** Only if replacing the existing Google Play Billing infrastructure is not feasible (e.g., deeply embedded legacy code). Observer mode gives you analytics and integrations, but you lose paywall management, A/B testing, and Adapty-driven paywalls entirely. For new projects or projects where purchases aren't yet implemented, use Flow Builder or Custom paywall instead.
+>
+> **Limitations:**
+> - No paywall management, Flow Builder, or Paywall Builder support
+> - No A/B testing on paywalls or offers
+> - Transactions must be manually reported to Adapty after each purchase
+> - Subscription events depend on Google Play Real-Time Developer Notifications (RTDN) being configured
+
+Read before writing code:
+```
+https://adapty.io/docs/observer-vs-full-mode.md
+https://adapty.io/docs/implement-observer-mode-android.md
+https://adapty.io/docs/report-transactions-observer-mode-android.md
+```
+
+**Checkpoint:** After a sandbox purchase through the existing purchase flow, the transaction appears in the Adapty dashboard **Event Feed**.
+
+**Gotcha:** No events in the dashboard → transactions aren't being reported to Adapty, or Google Play RTDN isn't configured in App settings → Android SDK.
+
+---
+
+## Stage 3: Check subscription status
+
+Read before writing code:
+```
+https://adapty.io/docs/android-check-subscription-status.md
+```
+
+**What to do:** After a purchase, check `profile.accessLevels["premium"]?.isActive` to grant or deny access to paid features. For real-time updates, use `setOnProfileUpdatedListener` instead of polling.
+
+The `AdaptyService` ViewModel set up in the recommended architecture already handles this via `StateFlow`. In a Composable or Activity/Fragment, collect the flow:
+
+```kotlin
+// In a Composable
+val profile by adaptyService.profile.collectAsStateWithLifecycle()
+val isPremium = profile?.accessLevels?.get(AppConstants.ACCESS_LEVEL_ID)?.isActive == true
+```
+
+```kotlin
+// In an Activity/Fragment (non-Compose)
+lifecycleScope.launch {
+    adaptyService.profile.collect { profile ->
+        val isPremium = profile?.accessLevels?.get(AppConstants.ACCESS_LEVEL_ID)?.isActive == true
+        updateUI(isPremium)
+    }
+}
+```
+
+**Checkpoint:** After a sandbox purchase, checking `profile.accessLevels["premium"]?.isActive` returns `true`. Revoking the sandbox entitlement returns `false`.
+
+**Gotcha:** `accessLevels` is empty after purchase → product has no access level assigned in the dashboard (Products page → select product → access levels).
+
+---
+
+## Stage 3.5: Third-party integrations (skip if user said "none")
+
+For each integration the user selected in Phase 2, fetch the doc and implement both the dashboard configuration and the SDK code. Do them one at a time — dashboard side first, then code.
+
+### Analytics integrations
+
+| Tool | Doc slug |
+|---|---|
+| Amplitude | `amplitude` |
+| Firebase / Google Analytics | `firebase-and-google-analytics` |
+| Mixpanel | `mixpanel` |
+| AppMetrica | `appmetrica` |
+| PostHog | `posthog` |
+
+```bash
+curl -s "https://adapty.io/docs/<slug>.md?ref=skill-<sessionToken>"
+```
+
+### Attribution integrations
+
+| Tool | Doc slug |
+|---|---|
+| AppsFlyer | `appsflyer` |
+| Adjust | `adjust` |
+| Branch | `branch` |
+| Airbridge | `airbridge` |
+| Singular | `singular` |
+
+```bash
+curl -s "https://adapty.io/docs/<slug>.md?ref=skill-<sessionToken>"
+```
+
+Note: Apple Search Ads is iOS-only and does not apply to Android.
+
+**Adapty Attribution is opt-in and the floor here is 4.1, so it is off unless you turn it on.** If the user wants Adapty's own install attribution, add `.withAdaptyAttributionEnabled(true)` to the configuration builder in Stage 1 — without it the SDK registers no installs, the `setOnInstallationDetailsListener` listener never fires, and `getCurrentInstallationStatus` reports not-available, all silently and with no compiler signal either way. Ask rather than leaving the default, because both outcomes look identical from the code.
+
+**On an upgrade run only:** attribution was automatic on 4.0 and below, so an upgrade that skips the opt-in above silently loses install registration it used to have. 4.1 also renamed the external-attribution APIs with no deprecated aliases, so a 4.0.x or 3.x call site stops compiling: `Adapty.updateAttribution(attribution, source)` → `Adapty.updateExternalAttribution(attribution, provider)`, `AdaptyAttributionSource` → `AdaptyExternalAttributionProvider` (predefined values keep their names, plus a new `CUSTOM`), and `AdaptyProfile.appliedAttributionSources` → `appliedExternalAttributionProviders`. Details in [Migrate to v4.1](https://adapty.io/docs/migration-to-android-sdk-41.md).
+
+### Messaging / CRM integrations
+
+| Tool | Doc slug |
+|---|---|
+| Braze | `braze` |
+| OneSignal | `onesignal` |
+| Pushwoosh | `pushwoosh` |
+
+```bash
+curl -s "https://adapty.io/docs/<slug>.md?ref=skill-<sessionToken>"
+```
+
+### Webhook / data export
+
+```bash
+curl -s "https://adapty.io/docs/set-up-webhook-integration.md?ref=skill-<sessionToken>"
+curl -s "https://adapty.io/docs/webhook-event-types-and-fields.md?ref=skill-<sessionToken>"
+```
+
+---
+
+## Stage 4: Identify users
+
+Use `AskUserQuestion` before deciding to skip:
+
+> "This app has no login system, but you can still identify users with a stable ID tied to the device or installation. This gives each user a consistent Adapty profile across sessions, which helps with analytics accuracy, A/B test consistency, and avoiding duplicate profiles after reinstall. Do you have an ID you'd like to use, or would you like to discuss options?"
+> - **Yes, I have an ID in mind** — tell me what it is and I'll implement identification
+> - **Let's discuss** — I'll ask a few questions to help you decide
+> - **No, skip** — anonymous profiles are fine for this app
+
+If the user says no, skip the rest of this stage.
+
+Read before writing code:
+```
+https://adapty.io/docs/android-quickstart-identify.md
+```
+
+**What to do:**
+- Call `Adapty.identify("your-user-id")` after `activate()` and before `getFlow()`
+- For apps where users can purchase before logging in, call `identify()` at login — Adapty handles profile merging automatically
+- Call `Adapty.logout()` when users log out
+
+```kotlin
+// At login
+Adapty.identify("YOUR_USER_ID") { error ->
+    if (error == null) {
+        UserManager.login(context, "YOUR_USER_ID")
+        // proceed with app flow
+    }
+}
+
+// At logout
+Adapty.logout { error ->
+    if (error == null) {
+        UserManager.logout(context)
+    }
+}
+```
+
+Alternatively, if the user ID is known at app launch, pass it directly in `AdaptyConfig.Builder`:
+
+```kotlin
+AdaptyConfig.Builder(AppConstants.ADAPTY_PUBLIC_KEY)
+    .withCustomerUserId(UserManager.getCurrentUserId(this))
+    .build()
+```
+
+**Checkpoint:** After calling `identify("your-user-id")`, the Adapty dashboard **Profiles** section shows the custom user ID on the profile.
+
+**Gotcha:** Profile shows anonymous ID even after `identify()` → `identify()` was called after `getFlow()`, so the purchase was attributed to the anonymous profile. Order: `activate()` → `identify()` → `getFlow()`.
+
+---
+
+## Build verification
+
+All code is written. **Run the build yourself now via Bash — do not tell the user to build. Do not say "try building and let me know". Execute the Gradle commands below and handle the output yourself.**
+
+### Discover project info
+
+```bash
+find . -maxdepth 3 \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+  ! -path "*/.gradle/*" ! -path "*/build/*" | head -20
+ls -1 .
+```
+
+Confirm the app module name (usually `app`) and that `./gradlew` is present at the project root.
+
+### Build
+
+```bash
+./gradlew assembleDebug 2>&1 | grep -E "error:|warning:|BUILD SUCCESSFUL|BUILD FAILED|FAILURE:" | head -50
+```
+
+### Handle output
+
+**BUILD SUCCESSFUL** → proceed to the manual checklist below.
+
+**BUILD FAILED:**
+- Errors in files you wrote → fix them directly and rebuild — do not ask the user
+- `Unresolved reference: Adapty` → dependency not resolved; ask user to do **File → Sync Project with Gradle Files** in Android Studio, then rebuild
+- `Could not resolve io.adapty:android-sdk` → `mavenCentral()` missing from repository block; add it and sync
+- `Manifest merger failed` → see backup rules fix in the installation doc — do not hand this off to the user, apply the fix directly
+- Signing errors → not blocking for debug builds; can ignore until release
+
+Do not proceed to the manual checklist until the build is clean. Do not hand off build errors to the user except for cases that require Android Studio UI interaction (dependency sync).
+
+---
+
+## Before you can test: manual steps
+
+Read and follow `references/store-setup-android.md` (in this skill directory). It contains the store-side checklist — the three things that must be true before a purchase can work:
+1. Creating products in Google Play Console (subscriptions or one-time products)
+2. Connecting Google Play to Adapty (Service Account key, Real-Time Developer Notifications)
+3. Giving the flow a design — via the `flow-generator` skill, a template, Figma, from scratch, or converted from a legacy paywall *(Flow Builder only)*
+
+Once those three hold, **the purchase itself belongs to the `purchase-testing` skill** — test accounts, device state, running it, confirming it reached Adapty, and diagnosing it when it does not. Invoke it rather than working through a store console here.
+
+If you received this playbook on its own, without this skill's directory, that checklist file is not available to you — fetch https://adapty.io/docs/google-play-store-connection-configuration.md, https://adapty.io/docs/enable-real-time-developer-notifications-rtdn.md and https://adapty.io/docs/testing-on-android.md instead. They cover the connection, notification and sandbox-testing steps; designing the flow is https://adapty.io/docs/paywall-builder-templates.md. Creating the store products is console work with no docs substitute.
+
+Present the checklist to the user with the exact product IDs from Phase 3 already filled in.
+
+---
+
+## Stage 5: Release checklist
+
+Run through this before submitting to Google Play review.
+
+Read before releasing:
+```
+https://adapty.io/docs/release-checklist.md
+```
+
+**Checkpoint:** All items confirmed:
+- Google Play connected in App settings → Android SDK
+- Real-Time Developer Notifications (RTDN) configured in App settings → Android SDK
+- Proguard rule added: `-keep class com.adapty.** { *; }`
+- Sandbox purchase flow works end-to-end on a real device
+- Premium content is gated on access level check (not just purchase callback)
+- Restore purchases button present (Google Play requirement)
+- `AdaptyLogLevel` set to `AdaptyLogLevel.ERROR` or `AdaptyLogLevel.NONE` for production builds
+- Privacy policy URL set in Google Play Console
+
+**Gotcha:** Missing Real-Time Developer Notifications → subscription events (renewal, cancellation, billing retry) won't appear in the Adapty dashboard or reach integrations. This must be configured in **App settings → Android SDK** in the Adapty Dashboard and in the Google Play Console pubsub topic settings.
+
+---
+
+## Want to go further?
+
+After the basics are working, use `AskUserQuestion` to present this menu. Keep it casual — the user can pick one, several, or nothing.
+
+> "Your integration is complete! Here are some things you might want to set up next. Which ones interest you? (or say 'done' to wrap up)"
+>
+> 1. **Fallback paywalls** — show a cached paywall if the user is offline or Adapty is unreachable
+> 2. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
+> 3. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
+> 4. **Kids mode** — complies with Google Play Families policy by disabling GAID and ad data collection
+> 5. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
+> 6. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
+> 7. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
+
+For each item the user picks, fetch the relevant doc and implement it:
+
+| Feature | Doc slug(s) |
+|---|---|
+| Fallback paywalls | `android-use-fallback-paywalls` |
+| Custom user attributes | `android-setting-user-attributes` |
+| Onboardings | `android-get-onboardings`, `android-present-onboardings`, `android-handle-onboarding-events` |
+| Kids mode | `kids-mode-android` |
+| A/B testing | `ab-tests`, `run_stop_ab_tests` |
+| Custom access levels | `create-access-level`, `assigning-access-level-to-a-product` |
+| Promotional offers | `create-offer` |
+
+```bash
+curl -s "https://adapty.io/docs/<slug>.md?ref=skill-<sessionToken>"
+```
+
+---
+
+## Android-specific index files
+
+For broader context when the LLM needs more coverage:
+- Android docs index: `https://adapty.io/docs/android-llms.txt`
+- Android full docs (large): `https://adapty.io/docs/android-llms-full.txt`
+- All Adapty docs index: `https://adapty.io/docs/llms.txt`
+- Sample app (SDK-team maintained, close to real usage — open it when a docs page doesn't show how the pieces fit together in a real app; take API usage from it, not the sample's app architecture): https://github.com/adaptyteam/AdaptySDK-Android/tree/master/app
