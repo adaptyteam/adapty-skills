@@ -14,8 +14,8 @@ import sys
 sys.dont_write_bytecode = True
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-STUB = ROOT / 'skills' / 'migrate-placements' / 'references' / 'stub-flow.json'
-VERIFY = ROOT / 'skills' / 'flow-generator' / 'references' / 'verify-config.py'
+STUB = ROOT / 'plugin' / 'skills' / 'migrate-placements' / 'references' / 'stub-flow.json'
+VERIFY = ROOT / 'plugin' / 'skills' / 'flow-generator' / 'references' / 'verify-config.py'
 
 failures = []
 

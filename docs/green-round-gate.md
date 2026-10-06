@@ -86,6 +86,14 @@ agent, given this wording, behave differently?** Three things masquerade as that
 - [ ] **The arms differ only in the thing that changes the decision.** Everything else byte-
       identical, and paired in time so machine contention cannot favour an arm.
 
+- [ ] **...and nothing ELSE in the arm supplies the same capability.** *btn-green* removed the
+      nine `btn-*` catalog entries from the control arm and left `footer` in both — and `footer`
+      ships a CTA button *and* the Terms/Restore/Privacy row, i.e. four of the five affordances
+      the task asked for. **6 of 6 runs in both arms solved it with the footer**, so the round
+      could only speak to the one affordance the footer does not supply. Removing the named
+      thing is not the same as removing the capability: list what else in the arm could answer
+      the task, and say why it cannot. ______
+
 - [ ] **Overlay only what SHIPS.** *video-green*: the first arm build overlaid the whole working
       tree, which put the change's own CLAUDE.md finding — every measurement, spelled out — into
       the treatment arm, where **CLAUDE.md is auto-loaded as project instructions**. Maintainer
@@ -238,3 +246,41 @@ the pattern to copy: when the classification says convenience, **do not cancel t
 its question** to one a single pooled number can answer (here: do agents produce the bad shape at
 all?). A base rate of zero over twelve runs closed an open item that no amount of arm comparison
 could have.
+
+- [ ] **When a row's distinction is SEMANTIC, stop writing regexes and score by reading — but fix
+      the criterion in writing first.** *ios-defer-green2*: four scorers were written and each
+      validated against real artifacts, each wrong differently — a bare match counted a *price
+      aside* as an offer (6/6 both arms), requiring choice-phrases missed a blockquoted options list
+      (1/3 and 1/3), and counting list lines swept in control's bulleted list of CLI *limitations*
+      (3/3 both). A fifth attempt would have been fitting the scorer to the hypothesis. The round
+      was scored by reading against a criterion written before dispatch, with **every call recorded
+      beside the span it rests on**, and it separated 0/3 vs 3/3. Reading is weaker evidence than a
+      machine row and must be labelled so — but it beats a regex tuned until it agrees with you.
+      Which spans did you quote? ______
+
+- [ ] **A prediction grounded in an observed pilot is a different animal from a prior — say which
+      you are making.** Control-failure predictions were 1 for 8 until *ios-defer-green2*, which
+      predicted control 0–1/3 from a re-read of the previous round's artifacts and was right. Record
+      the basis, not just the number, so a miss tells you whether the prior or the pilot was wrong.
+
+- [ ] **A row keying on a WORD must be checked against that word's other senses in real output.**
+      *ios-defer-green*: R3 flagged an iOS defer described as forced by matching `blocked`, and
+      separated 1/3 vs 3/3 — until the matched spans were read. Two of three control hits used the
+      word for something else: one placement id *"permanently blocking"* another, and a flow
+      *"blocked anyway"* on missing products, which is **true**. The separation evaporated. **Grep
+      the matched span, not the boolean**, before reporting any row that fired.
+
+- [ ] **A row asking "was an alternative offered" cannot see "was the RIGHT SET offered."**
+      *ios-defer-green*: R2 went 3/3 in both arms and was recorded null — but reading the six runs
+      showed control named one route and treatment named all three. The row tested cardinality > 0
+      where the change was about the *set*. When a change adds an option to a question that already
+      had options, **count the set**.
+
+- [ ] **"Not reachable from the index" is a SEMANTIC claim, and a keyword grep does not test it.**
+      *adapty-docs round 2*: the scenario was pre-registered as unreachable from any docs index,
+      verified by grepping the index files for the answer's key terms — which passed, and measured
+      the wrong thing. The hosting article's description matched the user's symptom *semantically
+      while sharing no keyword with it* ("behaving the way you built it"), so control routed
+      straight to it and the round was null. **Read the candidate descriptions the way an agent
+      would and name the one you would open.** Which description did you read, and why would an
+      agent not pick it? ______

@@ -1,0 +1,2605 @@
+"""flowkit — the mechanical half of authoring an Adapty flow config.
+
+Scope is deliberately narrow. This owns the parts that are *error-prone but not creative*:
+
+  * the `hierarchy` / `map` split — every node declared twice, in two structures that must
+    agree exactly; an id in one and not the other is a broken config. `flatten()` makes that
+    unrepresentable, and it is the reason this module exists. No JSON skeleton can help here.
+  * the envelope, stamped at the `schemaVersion` whose shapes it emits — see `SCHEMA_VERSION`.
+  * the localization catalog. Every helper here returns the INLINE authoring form
+    (`{"_localizable": true, "values": {...}}`), which is easy to build and to read; `config()`
+    moves every such value into `localization.content` and leaves a `{"_lid": ...}` ref in its
+    place, through `localization.catalog()`, a port of the builder's own migration 013. A
+    fragment you graft into a FETCHED config is still inline: run `localization.py catalog` over
+    the document before you validate or write it.
+  * one canonical rich-text builder, with the span kinds named instead of guessed.
+
+Not in scope: anything with a design opinion. Element shapes, card recipes, spacing — those are
+`patterns.md`, and they are judgement, not shape. This module will happily build an ugly screen.
+
+Trust order is unchanged: the live `validate` outranks a schema check, which outranks this file.
+Run `tests/test-flowkit.py` after touching it.
+
+    import flowkit as fk
+
+    body = fk.stack([
+        fk.text(fk.rich("Save "), preset="h1", color="ink"),
+        fk.text(fk.rich("from ", fk.Var("<uuid>.prod_price")), preset="body", color="muted"),
+    ], gap=8, padding=fk.pad(16, 16, 16, 16))
+
+    cfg = fk.config(
+        screens=[fk.screen("scr_main", [body], fill="bg", padding=fk.pad(0, 0, 0, 120))],
+        colors=[("bg", "Background", "#FFFFFF", "#101014"),
+                ("ink", "Ink", "#111114", "#F5F5F7")],
+        typography=[("h1", "H1", 28, "bold"), ("body", "Body", 16, "regular")],
+    )
+"""
+import copy
+import hashlib
+import os
+import re
+import sys
+import uuid
+
+# `icons` sits beside this file and owns the one thing an author cannot invent: the Phosphor
+# bundle's markup. It is imported at module scope, because `icon()` must be unable to emit a name
+# the renderer resolves to nothing. The path fallback is for the ordinary
+# case of importing flowkit from somewhere else — a directory-copy install has no package to
+# import through, and `sys.path` is only touched when the plain import has already failed.
+#
+# Bytecode writing is suppressed across the import and then restored: a skill directory installs
+# by plain COPY, so a `__pycache__` written into `references/` here would ship inside the next
+# install — the defect `skill-validator` flagged once already. `.gitignore` hides it from git,
+# which is exactly why it has to be prevented rather than noticed.
+_bytecode = sys.dont_write_bytecode
+sys.dont_write_bytecode = True
+try:
+    try:
+        import icons
+    except ImportError:  # pragma: no cover - importing flowkit from another directory
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import icons
+    import localization
+finally:
+    sys.dont_write_bytecode = _bytecode
+
+#: The version whose shapes this module emits, which is the builder's own latest: array fills
+#: (010), structured product refs (011), the screen product registry (012) and the localization
+#: catalog (013). The number declares which migrations a document has already been through, so
+#: it may only be raised in step with what the module actually writes -- stamping a version
+#: whose shapes are absent makes the builder SKIP the migration that would have produced them.
+#: `config()` builds the v12 shapes itself and gets 013 from `localization.catalog()`.
+SCHEMA_VERSION = localization.SCHEMA_VERSION
+
+# --- ids ---------------------------------------------------------------------------------
+
+class Ids:
+    """Sequential element ids. One instance per document, so ids are stable across a rebuild."""
+
+    def __init__(self, prefix='el'):
+        self.prefix, self.n = prefix, 0
+
+    def __call__(self, kind='S'):
+        self.n += 1
+        return f'{self.prefix}_{self.n:03d}{kind}'
+
+
+_ids = Ids()
+
+# An id that reaches the generated runtime script as an identifier: element ids, group ids,
+# input customIds, custom variable ids. Screen ids are excluded -- real published exports use
+# bare UUIDs for the entry screen. Same pattern as `verify-config.py`'s `_ID_RE`.
+_IDENT = re.compile(r'[A-Za-z0-9_]+')
+
+# `language[-Script][-REGION]`. The naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong: a script subtag is
+# four letters in Title case and `sr-Latn` is a real code in a real export. Same pattern as
+# `verify-config.py`'s `LOCALE_CODE`.
+LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?\Z')
+
+
+def eid(kind='S'):
+    """Mint an id from the module-level counter. Use your own `Ids()` for several documents."""
+    return _ids(kind)
+
+
+# --- primitives --------------------------------------------------------------------------
+
+def color(color_id):
+    """A reference to a theme colour by id.
+
+    Takes the id string only. A dict passed here (a fill layer, a hex colour, a theme entry)
+    would be wrapped as `colorId` and emit a colour the Flow Builder crashes on, so it raises.
+    """
+    if not isinstance(color_id, str) or not color_id.strip():
+        raise TypeError(f'color() takes a theme colour id string, got {color_id!r}. For a literal '
+                        f'colour use hex_color(); a fill layer belongs only in `fill`.')
+    return {'type': 'color-style', 'colorId': color_id}
+
+
+# A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
+# In `theme.colors[].light/dark`, a 3-digit (`#fff`), 8-digit (`#RRGGBBAA`),
+# 7-digit, unprefixed (`FFFFFF`) or EMPTY hex is refused — and refused with the
+# location-free `Generated JSON failed schema validation`, because a colour `hex` is typed as
+# a bare string with no pattern, so neither the schema check nor `config preview` (which
+# draws light mode only) can see it. The cheapest possible defect to introduce and one of
+# the most expensive to diagnose.
+#
+# The constraint is POSITION-SCOPED and this is not a detail: in an ELEMENT position
+# (`props.fill.color`, `props.color`) the same service accepts a 3-digit hex, an 8-digit
+# one and an empty string — real exports carry 8 eight-digit and 16 empty values there and
+# validate clean. So this is checked for theme colours only; a blanket rule would reject
+# documents the builder itself produces.
+THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
+
+
+def check_theme_hex(value, where):
+    if not (isinstance(value, str) and THEME_HEX.match(value)):
+        raise ValueError(
+            f'{where}: theme colour {value!r} must be exactly #RRGGBB (6 hex digits). The '
+            f'transform service refuses anything else here — including #RGB, #RRGGBBAA and an '
+            f'empty string — with the location-free "Generated JSON failed schema validation", '
+            f'which names no field. Element colours are laxer; theme colours are not.')
+    return value
+
+
+def hex_color(hexval, opacity=None):
+    """A literal colour. `opacity` is a 0-100 PERCENTAGE, not a fraction (trap 11)."""
+    out = {'type': 'hex', 'hex': hexval}
+    if opacity is not None:
+        out['opacity'] = opacity
+    return out
+
+
+def fill(color_id=None, *, hexval=None, layers=None):
+    """A fill. v10 spells this as an ARRAY -- but pass ONE layer.
+
+    A two-layer fill draws in `config preview` and is IGNORED on device (measured: an
+    image+gradient screen fill shipped with the tint missing, after validate, the schema check
+    and the render all passed). No real export has a multi-layer fill. Bake a tint into the
+    asset instead, or give it its own element.
+    """
+    if layers is not None:
+        return list(layers)
+    c = color(color_id) if color_id is not None else hex_color(hexval)
+    return [{'type': 'color', 'color': c}]
+
+
+def gradient(angle, *stops):
+    """`gradient(180, ('#E1D6EB', 0), ('#EDE9F0', 1))`, or with a per-stop alpha as a third
+    item: `gradient(180, ('#0E9F6E', 0, 100), ('#0E9F6E', 1, 22))`.
+
+    A fade whose last stop IS the page colour makes the element's tail invisible, so it renders
+    shorter than it is — see trap 12. Stop one step short of the background, or better, fade
+    ONE hex toward transparency with the opacity form: that survives a change of background,
+    where a hardcoded near-background stop silently stops matching.
+    """
+    out = []
+    for stop in stops:
+        h, p, *alpha = stop
+        out.append({'color': hex_color(h, alpha[0] if alpha else None), 'position': p})
+    return [{'type': 'gradient', 'angle': angle, 'stops': out}]
+
+
+def pad(top, left, right, bottom):
+    return {'top': top, 'left': left, 'right': right, 'bottom': bottom}
+
+
+def radius(value=None, *, tl=0, tr=0, bl=0, br=0):
+    if value is not None:
+        return {'tl': value, 'tr': value, 'bl': value, 'br': value}
+    return {'tl': tl, 'tr': tr, 'bl': bl, 'br': br}
+
+
+SPREAD_MODES = ('space-between', 'space-around', 'space-evenly')
+
+
+def layout(direction='vertical', gap=0, align_h='start', align_v='start',
+           distribution=None):
+    """`distribution` is FOUR modes, not one.
+
+    Default is the `gap` form. Pass `distribution='space-between'` (or
+    `space-around` / `space-evenly`) to let the container spread its children over
+    the free space instead — which is how a footer reaches the bottom of a screen
+    without docking or padding arithmetic.
+
+    A spread mode needs free space to distribute, so the container must have a
+    definite height — on a screen that means `scrollable: False`. On a scrollable
+    screen the root is content-height and a spread behaves like `gap: 0`.
+    """
+    if distribution is not None and distribution not in SPREAD_MODES:
+        raise ValueError(
+            f'distribution must be one of {SPREAD_MODES} or None for the gap form, '
+            f'not {distribution!r}')
+    dist = {'type': distribution} if distribution else {'gap': gap, 'type': 'gap'}
+    return {'alignH': align_h, 'alignV': align_v, 'direction': direction,
+            'distribution': dist}
+
+
+SIZE_KINDS = ('fill', 'hug', 'fixed', 'auto')
+
+
+def size(kind='fill', value=None):
+    """`fill`, `hug`, `fixed` with a value, or `auto`.
+
+    `fill` height collapses inside a hug-height parent (trap 13) — inside a hug row, a stretch
+    has to be an explicit number, or the element has to leave the flow: see `absolute()`.
+
+    `auto` is the stretch-between-anchors height, and it is meaningless without them. `stack()`
+    enforces the pairing in both directions.
+    """
+    if kind not in SIZE_KINDS:
+        raise ValueError(f'size kind must be one of {SIZE_KINDS}, not {kind!r}')
+    return {'type': 'fixed', 'value': value} if kind == 'fixed' else {'type': kind}
+
+
+def relative(z=None):
+    p = {'type': 'relative'}
+    if z is not None:
+        p['zIndex'] = z
+    return p
+
+
+def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
+    """An element pulled out of flow, offset against its PARENT (`fixed` pins to the screen).
+
+    Supply an offset for whichever axis the parent does not settle, or the element falls back
+    into flow order and lands wherever the flow carries it (trap 9).
+
+    Give it **both** `top` and `bottom` — with `height='auto'` — and it stretches between the
+    anchors instead, following its parent's height however the content grows. A negative
+    `bottom` overshoots past the parent's edge, which is how a timeline rail reaches into the
+    next row. Measured, all three parts load-bearing: drop `bottom` and the element collapses to
+    nothing; swap `auto` for `fill` and it stops 2px short; drop a negative `z` and it paints
+    OVER its siblings rather than behind them.
+    """
+    p = {'type': 'absolute'}
+    for k, v in (('top', top), ('left', left), ('right', right), ('bottom', bottom),
+                 ('zIndex', z)):
+        if v is not None:
+            p[k] = v
+    return p
+
+
+def docked(*, bottom, left=None, right=None, top=None, z=None):
+    """A `fixed` element, pinned to the screen rather than the flow.
+
+    Each docked item must be its OWN fixed element with its own action — a fixed container
+    holding relative children swallows the taps. And never set both `left` and `right` on one
+    of a side-by-side pair, or it stretches full width and they overlap (patterns.md).
+    """
+    p = {'type': 'fixed', 'bottom': bottom}
+    for k, v in (('left', left), ('right', right), ('top', top), ('zIndex', z)):
+        if v is not None:
+            p[k] = v
+    return p
+
+
+def hidden():
+    """Hiding COLLAPSES the space rather than reserving it (trap 14). If two state-varying
+    siblings must stay the same size, wrap this in a fixed-height parent."""
+    return {'type': 'hidden'}
+
+
+def visible():
+    return {'type': 'visible'}
+
+
+# --- conditions --------------------------------------------------------------------------
+# A condition is a JSON expression tree, and the transform service validates it with ONE
+# walker (`findInvalidExpressionPath`) shared by `props.visibility.condition` and
+# `states[].condition` — which is why the two codes it raises, `invalid_visibility_condition`
+# and `invalid_state_condition`, are one construct here. Between them they were the 3rd most
+# common transformer refusal in production over the 40 days to 2026-08-28 (362 failed
+# requests), and before this section flowkit had NO way to express a condition at all: an
+# author needing one hand-wrote the tree. Finding 12 again — a missing helper is a missing
+# capability, and the hand-written version is what the service rejects.
+
+# Every expression `type` the transform service's condition walker knows. The published schema
+# types a condition as an unconstrained value, so this list is the only check on it.
+EXPR_TYPES = ('const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
+              'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
+              'productRef')
+
+# ...and the one member the condition walker has NO case for, so it falls through to
+# `default: return `${path}.type`` and the flow is refused. `assign` is schema-legal and is
+# genuinely legal inside a `setVariable` payload — it is illegal only as a CONDITION, which
+# is why this set is applied here and never to expressions generally. Neither the schema check
+# (conditions are untyped there) nor `config preview` objects. 0 of 7 tracked fixtures
+# use it anywhere.
+COND_ILLEGAL_TYPES = ('assign',)
+
+_BINARY = ('==', '!=', '>', '<', 'has', 'notHas', 'in', 'notIn')
+_UNARY = ('empty', 'notEmpty', 'size')
+
+
+def _as_expr(v, what):
+    """Bare Python values become `const` nodes; a dict must already be a valid expression.
+
+    Auto-wrapping is deliberate: `eq(ref('plan'), 'gold')` is the natural way to write it, and
+    the un-wrapped string is exactly what the walker rejects (`isExpression` wants an object
+    with a string `type`). Wrapping here makes that mistake unrepresentable rather than
+    merely detectable.
+    """
+    if isinstance(v, dict):
+        _check_expr(v, what)
+        return v
+    if isinstance(v, (list, tuple)):
+        raise TypeError(f'{what}: a list is not an expression — use lit([...]) if you mean a '
+                        f'constant list, or in_(...) if you mean membership')
+    return lit(v)
+
+
+def _check_expr(e, what='condition'):
+    """Raise unless `e` is a tree the transform service's walker accepts.
+
+    A faithful port of `findInvalidExpressionPath`, including the three places where an
+    ABSENT collection is legal (`&&`/`||` predicates, `concat` operands, `switch` cases) —
+    inventing a stricter rule here would refuse documents the service accepts.
+    """
+    bad = _bad_expr_path(e, what)
+    if bad:
+        raise ValueError(
+            f'invalid condition expression at {bad} — the transform service refuses this with '
+            f'invalid_visibility_condition / invalid_state_condition (a hard 422). Legal types '
+            f'are {", ".join(t for t in EXPR_TYPES if t not in COND_ILLEGAL_TYPES)}; build the '
+            f'tree with ref/lit/eq/neq/all_/any_/not_empty rather than by hand.')
+
+
+def _bad_expr_path(v, path):
+    """Return the path of the first invalid node, or None. Port of the service's own walker."""
+    if not (isinstance(v, dict) and isinstance(v.get('type'), str)):
+        return path
+    t = v['type']
+    if t in COND_ILLEGAL_TYPES:
+        return f'{path}.type ({t!r} is schema-legal but has no case in the condition walker)'
+    if t == 'const':
+        return None
+    if t == 'var':
+        vid = v.get('variableId')
+        return None if isinstance(vid, str) and vid else f'{path}.variableId'
+    if t == 'productRef':
+        # Normally this module writes these itself, after a condition has been validated --
+        # see `_apply_product_refs`. The case is here for a hand-built one, and it is
+        # deliberately shallow: `verify-config.py` owns the full target check and runs on the
+        # finished document, which is where a malformed target has to be caught anyway.
+        target = v.get('target')
+        return None if isinstance(target, dict) and target.get('kind') in (
+            'product', 'selected') else f'{path}.target'
+    if t in _BINARY:
+        return (_bad_expr_path(v.get('left'), f'{path}.left')
+                or _bad_expr_path(v.get('right'), f'{path}.right'))
+    if t in _UNARY:
+        return _bad_expr_path(v.get('left'), f'{path}.left')
+    if t in ('&&', '||'):
+        if 'predicates' not in v:
+            return None
+        ps = v['predicates']
+        if not isinstance(ps, list):
+            return f'{path}.predicates'
+        for i, p in enumerate(ps):
+            r = _bad_expr_path(p, f'{path}.predicates[{i}]')
+            if r:
+                return r
+        return None
+    if t == 'concat':
+        if 'operands' not in v:
+            return None
+        ops = v['operands']
+        if not isinstance(ops, list):
+            return f'{path}.operands'
+        for i, o in enumerate(ops):
+            r = _bad_expr_path(o, f'{path}.operands[{i}]')
+            if r:
+                return r
+        return None
+    if t == 'switch':
+        if 'cases' not in v:
+            return None
+        cs = v['cases']
+        if not isinstance(cs, list):
+            return f'{path}.cases'
+        for i, c in enumerate(cs):
+            if not (isinstance(c, list) and len(c) == 2):
+                return f'{path}.cases[{i}]'
+            r = (_bad_expr_path(c[0], f'{path}.cases[{i}][0]')
+                 or _bad_expr_path(c[1], f'{path}.cases[{i}][1]'))
+            if r:
+                return r
+        if 'default' in v:
+            return _bad_expr_path(v['default'], f'{path}.default')
+        return None
+    return f'{path}.type'
+
+
+def ref(variable_id):
+    """A variable operand: `{"type": "var", "variableId": …}`.
+
+    Deliberately NOT named `var`, because `Var` is the rich-text span and the two are
+    different nodes — this module already carries one scar from helpers whose names agreed
+    and whose meanings did not.
+
+    The id is the same vocabulary the rest of the document uses: `<inputCustomId>.value`,
+    `<groupId>.selectedOptionId`, `<groupId>.selectedProduct`, a `variables[]` id. An id
+    naming nothing is emitted into the generated script as a bare identifier and fails type
+    checking there (`script_type_violation`, TS2304), so `config()` resolves every condition
+    variable against the document it is building.
+    """
+    if not (isinstance(variable_id, str) and variable_id):
+        raise ValueError(f'ref() needs a non-empty variable id, got {variable_id!r}')
+    return {'type': 'var', 'variableId': variable_id}
+
+
+def lit(value):
+    """A constant operand: `{"type": "const", "value": …}`."""
+    return {'type': 'const', 'value': value}
+
+
+def eq(left, right, *, loose=None):
+    node = {'type': '==', 'left': _as_expr(left, 'eq() left'),
+            'right': _as_expr(right, 'eq() right')}
+    if loose is not None:
+        node['loose'] = loose
+    return node
+
+
+def neq(left, right):
+    return {'type': '!=', 'left': _as_expr(left, 'neq() left'),
+            'right': _as_expr(right, 'neq() right')}
+
+
+def gt(left, right):
+    return {'type': '>', 'left': _as_expr(left, 'gt() left'),
+            'right': _as_expr(right, 'gt() right')}
+
+
+def lt(left, right):
+    return {'type': '<', 'left': _as_expr(left, 'lt() left'),
+            'right': _as_expr(right, 'lt() right')}
+
+
+def has(left, right):
+    return {'type': 'has', 'left': _as_expr(left, 'has() left'),
+            'right': _as_expr(right, 'has() right')}
+
+
+def has_not(left, right):
+    return {'type': 'notHas', 'left': _as_expr(left, 'has_not() left'),
+            'right': _as_expr(right, 'has_not() right')}
+
+
+def in_(left, right):
+    return {'type': 'in', 'left': _as_expr(left, 'in_() left'),
+            'right': _as_expr(right, 'in_() right')}
+
+
+def not_in(left, right):
+    return {'type': 'notIn', 'left': _as_expr(left, 'not_in() left'),
+            'right': _as_expr(right, 'not_in() right')}
+
+
+def empty(left):
+    return {'type': 'empty', 'left': _as_expr(left, 'empty() operand')}
+
+
+def not_empty(left):
+    """The predicate a real export uses to gate a Continue button on a filled input:
+    `not_empty(ref('email.value'))`."""
+    return {'type': 'notEmpty', 'left': _as_expr(left, 'not_empty() operand')}
+
+
+def size_of(left):
+    """Named `size_of` because `size()` is the sizing helper — different construct entirely."""
+    return {'type': 'size', 'left': _as_expr(left, 'size_of() operand')}
+
+
+def all_(*predicates):
+    """`&&`. The real-export shape for "every field is filled"."""
+    return {'type': '&&', 'predicates': [_as_expr(p, f'all_() predicate {i}')
+                                         for i, p in enumerate(predicates)]}
+
+
+def any_(*predicates):
+    return {'type': '||', 'predicates': [_as_expr(p, f'any_() predicate {i}')
+                                         for i, p in enumerate(predicates)]}
+
+
+def when(condition):
+    """Conditional visibility: show the element only while `condition` holds.
+
+    The third form of `props.visibility`, alongside `visible()` and `hidden()` — and the one
+    with a publish gate behind it. Hiding COLLAPSES the space rather than reserving it
+    (trap 14), exactly as `hidden()` does.
+
+    This is also the only way to make a field mandatory: there is no `disabled` mechanism to
+    drive, so gate the button's visibility on the input instead —
+    `when(not_empty(ref('email.value')))`.
+    """
+    _check_expr(condition, 'when() condition')
+    return {'type': 'conditional', 'condition': condition}
+
+
+def _condition_var_ids(o, out):
+    """Every `variableId` reachable inside a condition tree."""
+    if isinstance(o, dict):
+        if o.get('type') == 'var' and isinstance(o.get('variableId'), str):
+            out.add(o['variableId'])
+        for v in o.values():
+            _condition_var_ids(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            _condition_var_ids(v, out)
+    return out
+
+
+# --- rich text ---------------------------------------------------------------------------
+# Three build scripts once had three `runs()` helpers agreeing on the name and disagreeing on
+# what a tuple meant: one read ('var', id) as a VARIABLE node, one read (text, colorId) as a
+# coloured span, one crashed. Copying a call between them silently produced the wrong node and
+# still published. So the span kinds are named types here, and a bare tuple is rejected.
+
+class Var:
+    """A variable span: renders the variable's value, or its literal token if unresolved."""
+
+    __slots__ = ('variable_id',)
+
+    def __init__(self, variable_id):
+        self.variable_id = variable_id
+
+
+class Span:
+    """A styled text span. `color` is a theme colour id."""
+
+    __slots__ = ('text', 'bold', 'italic', 'underline', 'strikethrough', 'color')
+
+    def __init__(self, text, *, bold=False, italic=False, underline=False,
+                 strikethrough=False, color=None):
+        self.text, self.bold, self.italic = text, bold, italic
+        self.underline, self.strikethrough, self.color = underline, strikethrough, color
+
+
+def _span(part):
+    if isinstance(part, str):
+        part = Span(part)
+    if isinstance(part, Var):
+        return {'type': 'variable', 'attrs': {'variableId': part.variable_id}}
+    if isinstance(part, Span):
+        attrs = {'bold': part.bold, 'italic': part.italic,
+                 'underline': part.underline, 'strikethrough': part.strikethrough}
+        if part.color is not None:
+            attrs['color'] = color(part.color)
+        return {'text': part.text, 'type': 'text', 'attrs': attrs}
+    raise TypeError(
+        f'rich() takes str, Span or Var, not {type(part).__name__}. A bare tuple is rejected '
+        'on purpose — say Span(text, color=...) or Var(id) so the span kind is explicit.')
+
+
+def rich(*parts, locale='en'):
+    """Localizable rich text: `rich("Save ", Span("40%", bold=True), " on ", Var(vid))`.
+
+    Localizable props are keyed by locale ID and hold an array of blocks. This is the inline
+    authoring form; `config()` moves it into the catalog. Note `_localizable` does NOT imply
+    this shape everywhere — a placeholder takes a plain string (trap 1b).
+    """
+    return {'values': {locale: [{'type': 'paragraph',
+                                 'content': [_span(p) for p in parts]}]},
+            '_localizable': True}
+
+
+def localized(value, locale='en'):
+    """A localizable prop whose value is a plain scalar rather than rich text (trap 1b)."""
+    return {'values': {locale: value}, '_localizable': True}
+
+
+def switch_rich(cases, default, *, locale='en'):
+    """Conditional rich text: ONE element whose copy depends on what the user chose.
+
+    This is the mechanism behind an onboarding's personalization payoff -- echoing the user's
+    own answer back at them. Without it the only way to "personalize" is a stack of elements
+    with `visibility` conditions, which duplicates the layout per branch and drifts.
+
+    Authoring form: the `switch` nests INSIDE each locale. `config()` turns it into the stored
+    form -- ONE switch on the property, each branch `{"type": "const", "value": {"_lid": ...}}`
+    with its own catalog entry -- so **parity is per branch**: a field with a `ru` value can
+    still be English in the branch the other choice shows.
+
+        switch_rich([(eq(ref('goal.selectedOptionId'), 'sleep'),
+                      ['Your plan for ', Span('falling asleep faster', bold=True)])],
+                    default=['Your personalized plan'])
+
+    `cases` is a sequence of `(condition, parts)`; `parts` is what `rich()` takes. The condition
+    is checked against the transform service's own walker here, because a bad one is a hard 422
+    (`invalid_conditional_text_predicate`), not a render defect.
+    """
+    def _blocks(parts, what):
+        if isinstance(parts, (str, Span, Var)):
+            parts = [parts]
+        if isinstance(parts, dict):
+            raise TypeError(
+                f'{what}: pass the parts, not a built localizable — switch_rich() wraps them '
+                'itself, so `rich(...)` here would nest a values map inside a switch branch.')
+        return [{'type': 'paragraph', 'content': [_span(p) for p in parts]}]
+
+    cases = list(cases)
+    if not cases:
+        raise ValueError(
+            'switch_rich() with no cases renders the default and nothing else — use rich() '
+            'if the copy does not depend on anything.')
+    out = []
+    for i, case in enumerate(cases):
+        if not (isinstance(case, (list, tuple)) and len(case) == 2):
+            raise TypeError(f'switch_rich() case {i} must be (condition, parts), got {case!r}')
+        cond, parts = case
+        _check_expr(cond, f'switch_rich() case {i} condition')
+        out.append([cond, {'type': 'const', 'value': _blocks(parts, f'case {i} parts')}])
+    return {'values': {locale: {
+        'type': 'switch', 'cases': out,
+        'default': {'type': 'const', 'value': _blocks(default, 'default parts')}}},
+        '_localizable': True}
+
+
+# --- nodes -------------------------------------------------------------------------------
+
+def _node(kind, props, *, children=None, caption=None, states=None,
+          props_by_state=None, actions=None, node_id=None):
+    node = {'id': node_id or eid('S' if kind == 'stack' else kind[:1].upper()),
+            'type': kind, 'props': props, 'states': states or []}
+    if caption:
+        node['caption'] = caption
+    if props_by_state:
+        node['propsByState'] = props_by_state
+    if actions:
+        node['interactions'] = [{'id': 'int' + node['id'][2:], 'trigger': 'tap',
+                                 'actions': actions}]
+    node['_children'] = children or []
+    return node
+
+
+def _check_stretch(props):
+    """`height: auto` and a top+bottom anchor pair are one construct, so neither half is
+    representable alone. Both halves were measured on a rendered timeline row: anchors without
+    `auto` (a `fill` height) stopped 2px short of the next chip, and `auto` without the `bottom`
+    anchor collapsed the rail to nothing and left 108px of white.
+    """
+    pos, h = props['position'], props['height']
+    anchored = (pos.get('type') == 'absolute'
+                and pos.get('top') is not None and pos.get('bottom') is not None)
+    if anchored and h.get('type') != 'auto':
+        raise ValueError(
+            f"an absolute element anchored top AND bottom needs height='auto' to stretch "
+            f"between them, not {h.get('type')!r} — a fill height stops 2px short")
+    if h.get('type') == 'auto' and not anchored:
+        raise ValueError(
+            "height='auto' only means anything on an absolute element carrying BOTH a top and "
+            "a bottom offset; on its own it collapses to nothing. Use absolute(top=…, bottom=…)")
+
+
+def stack(children=(), *, width='fill', height='hug', fixed_w=None, fixed_h=None,
+          direction='vertical', gap=0, align_h='start', align_v='start',
+          distribution=None, fill_=None, padding=None, margin=None, corner=None,
+          border=None, border_width=1, effects=None, position=None,
+          visibility=None, **kw):
+    props = {
+        'width': size('fixed', fixed_w) if fixed_w is not None else size(width),
+        'height': size('fixed', fixed_h) if fixed_h is not None else size(height),
+        'layout': layout(direction, gap, align_h, align_v, distribution),
+        'position': position or relative(),
+    }
+    _check_stretch(props)
+    if fill_ is not None:     props['fill'] = fill_
+    if padding is not None:   props['padding'] = padding
+    if margin is not None:    props['margin'] = margin
+    if corner is not None:    props['borderRadius'] = corner
+    # No `style`: v9/v10 exports carry `style: "solid"`, the v12 schema has no such key, and the
+    # builder drops it on save — 85 of 85 borders in builder-saved v12 configs omit it.
+    if border is not None:    props['border'] = {'color': color(border), 'width': border_width}
+    if effects is not None:   props['effects'] = effects
+    if visibility is not None: props['visibility'] = visibility
+    return _node('stack', props, children=list(children), **kw)
+
+
+def footer(children=(), *, fill_=None, padding=None, gap=16, direction='vertical',
+           align_h='center', align_v='end', height='hug', **kw):
+    """The screen's pinned bottom bar. NOT a stack you position yourself.
+
+    A `footer` is lifted out of the layout flow and pinned to the bottom of the viewport while
+    the content scrolls past it. **It requires the screen to be `scrollable`** -- device-confirmed,
+    with the scroll off it does not render at all, and the preview cannot show you that
+    (`screen()` refuses the pair). Measured, one variable at a time: the same props under
+    `type: "stack"` put the bar below the fold; the pinned band is identical whether the screen is
+    `scrollable` or not, and whether the footer is declared first or last.
+
+    Three measured constraints are enforced here rather than left to the caller, because each one
+    produced a real defect:
+
+    * `fill_` is REQUIRED. The footer overlays the scrolling content, so without an opaque fill
+      the content passes visibly behind the CTA — which is the symptom that gets misread as
+      "docking is broken" and answered with an invented backing plate.
+    * a `position` cannot be passed. Docking a footer is the fake-footer shape; the pinning is
+      the element's own behaviour.
+    * one per screen. A second `footer` drew ZERO pixels, so `screen()` refuses two.
+
+    Take the geometry from the builder's own template rather than inventing it:
+    `jq '.components[]|select(.id=="footer")|.template' component-catalog.json`.
+    """
+    if fill_ is None:
+        raise ValueError(
+            'footer(fill_=...) is required: a footer overlays the scrolling content, so without '
+            'an opaque fill the content shows through the bar. Pass fill_=fill("surface") (or a '
+            'hex). If you genuinely want content visible behind it, say so and use a stack.')
+    if 'position' in kw:
+        raise ValueError(
+            'a footer is already pinned — do not give it a position. An empty fixed stack with a '
+            'fill behind separately docked elements is the FAKE FOOTER this helper exists to '
+            'replace; use footer(children=[...]) and put the CTA inside it.')
+    node = stack(children, height=height, fill_=fill_, padding=padding, gap=gap,
+                 direction=direction, align_h=align_h, align_v=align_v, **kw)
+    node['type'] = 'footer'
+    return node
+
+
+def sliding_sheet(children=(), *, fill_=None, start=55, padding=None, gap=16,
+                  direction='vertical', align_h='center', align_v='start', corner=None, **kw):
+    """The panel of an "Overlay" hero: it starts `start`% up from the bottom of the screen and
+    rides up over the fixed hero as the screen scrolls. Pass the screen's content as `children`;
+    a `footer()` may be its last child.
+
+    Placement is the element's meaning, so `screen()` enforces it: a DIRECT child of the screen
+    root, at most one per screen. Every other root element becomes the cover band above it.
+
+    * `start` is the sheet's share of the screen at rest, measured from the BOTTOM: 55 means the
+      sheet covers the bottom 55% and the cover band is the top 45%. Not "how much background
+      shows", which is the inverse layout.
+    * `fill_` is REQUIRED: the sheet rides over the cover, so a missing fill shows the hero
+      straight through the content.
+    * a `position` cannot be passed: the sheet is placed by `start`, not by offsets.
+    """
+    if fill_ is None:
+        raise ValueError(
+            'sliding_sheet(fill_=...) is required: the sheet rides up over the cover, so without '
+            'an opaque fill the hero shows through the content. Pass fill_=fill("surface").')
+    if isinstance(start, bool) or not isinstance(start, (int, float)) or not 0 <= start <= 100:
+        raise ValueError(
+            f'sliding_sheet(start={start!r}): startPosition is a percentage from 0 to 100 -- the '
+            f'share of the screen the sheet covers at rest, measured from the bottom.')
+    if 'position' in kw:
+        raise ValueError(
+            'a sliding sheet is placed by start=, not by a position. Put it at the screen root '
+            'and set start= to the share of the screen it covers at rest.')
+    node = stack(children, height='hug', fill_=fill_,
+                 padding=padding if padding is not None else pad(24, 16, 16, 16), gap=gap,
+                 direction=direction, align_h=align_h, align_v=align_v,
+                 corner=corner if corner is not None else radius(tl=20, tr=20), **kw)
+    node['type'] = 'sliding-sheet'
+    node['props']['startPosition'] = start
+    node['props'].pop('position', None)
+    return node
+
+
+def _is_dotlike(node):
+    """The hand-built indicator dot: a tiny childless square `stack` with a corner radius.
+
+    Deliberately the same predicate `verify-config.py` warns on, so the helper refuses at author
+    time what the checker would flag afterwards.
+    """
+    if node.get('type') != 'stack' or node.get('_children'):
+        return False
+    pr = node.get('props') or {}
+    w, h = pr.get('width') or {}, pr.get('height') or {}
+    wv, hv = w.get('value'), h.get('value')
+    return (w.get('type') == 'fixed' and h.get('type') == 'fixed'
+            and wv == hv and isinstance(wv, (int, float)) and wv <= 12
+            and bool(pr.get('borderRadius')))
+
+
+def _dot_color(value, default):
+    """A dot colour: a theme colour id, a literal '#hex', or an already-built colour dict.
+
+    `Dots.color`/`activeColor` are `Color`, which accepts a `color-style` reference — so the
+    dots CAN follow the theme, and usually should. Measured: the real export's hardcoded white
+    dots are invisible on a light screen, and the preview draws light mode only, so a hex dot
+    that looks fine in the export is a dot nobody sees. Pass a theme colour id.
+    """
+    if value is None:
+        return default
+    if isinstance(value, dict):
+        return value
+    return hex_color(value) if value.startswith('#') else color(value)
+
+
+def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width='fill',
+             dots=True, dot_size=6, dot_gap=6, dot_color=None, dot_active_color=None,
+             fill_=None, padding=None, margin=None, corner=None, position=None,
+             visibility=None, node_id=None, **kw):
+    """A swipeable `carousel`. Reviews, testimonials, sliders, swipeable cards, cards with dots.
+
+    Reach for this whenever the design shows more than one card the user is meant to move
+    between. The lookalike -- one static card plus a row of decorative dot `stack`s -- screenshots
+    identically and ships **one frozen slide with dead dots**, the same class of defect as the
+    fake footer and the fake spinner, and `config preview` cannot tell you apart because the
+    preview never swipes. Before this helper existed there was nothing here to reach for, which is
+    the mechanical reason the fake got built: an author reaches for what the helper exposes.
+
+    **The dots are the element's own.** `props.dots` is schema-confirmed (`Dots`) and renders the
+    indicator row for you -- never add dot children. All four of `color`, `activeColor`, `size`
+    and `gap` are REQUIRED by `Dots`, so they are always emitted together; pass `dots=False` for
+    the one-full-slide layout that shows none. `dot_color`/`dot_active_color` take a THEME COLOUR
+    ID (preferred -- the dots then follow light/dark), a literal `'#hex'`, or a built colour; they
+    default to the real export's white, which is invisible on a light screen.
+
+    **Fixed geometry or nothing.** `slide_w`/`slide_h` are required numbers because a `hug` slide
+    is dropped on device (support-channel, device-verified -- see `patterns.md`). `height`
+    defaults to the slide height. The SDK supports exactly two layouts: adjacent-slide peek, or
+    one full slide with neighbours invisible.
+
+    Note there is no `layout` prop on a carousel (schema-confirmed: `CarouselProps` has
+    none) -- `gap` is the whole spacing story, and the slides are its `children`, one per slide.
+    """
+    slides = list(slides)
+    if len(slides) < 2:
+        raise ValueError(
+            f'carousel() needs at least 2 slides, got {len(slides)}. A single slide is the FROZEN '
+            'SLIDE this helper exists to replace — it renders in the preview and never moves. If '
+            'you genuinely want one static card, use stack() and do not draw dots under it.')
+    dotty = sorted(s['id'] for s in slides if _is_dotlike(s))
+    if dotty:
+        raise ValueError(
+            f'carousel() was passed {len(dotty)} dot-like stack(s) as slides ({", ".join(dotty)}). '
+            'The indicator dots are the element\'s own — they come from props.dots. Pass one '
+            'stack per SLIDE (the card itself) and let the carousel draw the dots.')
+    props = {
+        'gap': gap,
+        'width': size(width),
+        'height': size('fixed', slide_h if height is None else height),
+        'slideWidth': size('fixed', slide_w),
+        'slideHeight': size('fixed', slide_h),
+    }
+    if dots:
+        props['dots'] = {
+            'gap': dot_gap, 'size': dot_size,
+            'color': _dot_color(dot_color, hex_color('#FFFFFF', 30)),
+            'activeColor': _dot_color(dot_active_color, hex_color('#FFFFFF', 95))}
+    if fill_ is not None:      props['fill'] = fill_
+    if padding is not None:    props['padding'] = padding
+    # The dot band is the last few px of the carousel's OWN box and the next element begins
+    # immediately after it, so clearance from what follows is a margin -- there is nowhere else
+    # to put it. Without this parameter it had to be assigned onto the node by hand.
+    if margin is not None:     props['margin'] = margin
+    if corner is not None:     props['borderRadius'] = corner
+    if position is not None:   props['position'] = position
+    if visibility is not None: props['visibility'] = visibility
+    return _node('carousel', props, children=slides, node_id=node_id, **kw)
+
+def text(content, *, preset='body', color_id=None, align='left', width='fill',
+         margin=None, position=None, **kw):
+    props = {'font': {'preset': preset}, 'align': align,
+             'width': size(width), 'height': size('hug'), 'layout': 'auto-height',
+             'content': content, 'position': position or relative(), 'decoration': 'none'}
+    if color_id is not None:
+        props['color'] = color(color_id)
+    if margin is not None:
+        props['margin'] = margin
+    return _node('text', props, **kw)
+
+
+def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None, **kw):
+    """A `phosphor` glyph. The name is resolved against the renderer's OWN bundle here, and an
+    unknown one raises with suggestions.
+
+    That guard is the whole point. A phosphor icon resolves by name from the bundle, so an
+    invented name draws NOTHING — measured: correct hand-authored markup under `name: "CloseX"`
+    rendered as empty space twice, `name: "X"` drew immediately. `validate` returns `valid:true`,
+    the schema types the name as a bare string, and a blank in a screenshot looks like a spacing
+    bug. `config()` then declares whatever you used in `_meta.icons`, so the used-but-undeclared
+    error is unreachable from here too.
+
+    `icons.py` is the search surface: `python3 icons.py --search arrow`.
+    """
+    icons.icon_meta(name, weight)          # raises on a name or weight the bundle lacks
+    props = {'icon': {'name': name, 'size': size_pt, 'type': 'phosphor', 'weight': weight},
+             'position': position or relative()}
+    if color_id is not None:
+        props['icon']['color'] = color(color_id)
+    return _node('icon', props, **kw)
+
+
+def spinner(icon_name, *, size_pt=32, color_id=None, hexval=None, duration_ms=1000,
+            position=None, **kw):
+    """A rotating loading indicator. `icon_name` must name a `_meta.icons` entry you declared.
+
+    Two things this exists to stop, both from `patterns.md`. **The icon type must be `custom`**:
+    the publish gate refuses a phosphor spinner with a 422 (`Spinner element only supports custom
+    icons`), so the type is not a parameter here. And **a static `icon` is not a substitute** —
+    a ring glyph renders in `flows config preview` and reads as a spinner in a screenshot, but it
+    does not animate on a device; that is the fake-footer mistake wearing a loader.
+
+    `duration_ms` is the ROTATION PERIOD, not a delay. A spinner has no completion trigger and
+    fires nothing — the invisible `timer()` beside it is what moves the flow on. Say which is
+    which in the handoff, because the field reads exactly like a delay.
+
+    The spinner draws blank in `config preview`; that is a render blindness, not a broken
+    element. Verify it on a device.
+    """
+    if not (isinstance(icon_name, str) and icon_name):
+        raise ValueError('spinner() needs the name of a _meta.icons entry')
+    # Deliberately NOT restricted to the five spinners the Builder publishes. A `custom` icon
+    # renders from the `raw` in `_meta.icons`, so any name works as long as that entry exists —
+    # unlike a `phosphor` name, which the renderer resolves from its own bundle and where an
+    # authored `raw` is ignored. `config()` declares the five for you and raises on a name it
+    # cannot resolve that you did not pass in `icons=`.
+    ic = {'name': icon_name, 'size': size_pt, 'type': 'custom'}
+    if color_id is not None and hexval is not None:
+        raise TypeError('spinner(): pass color_id or hexval, not both')
+    if color_id is not None:
+        ic['color'] = color(color_id)
+    elif hexval is not None:
+        ic['color'] = hex_color(hexval)
+    return _node('spinner', {'icon': ic, 'duration': duration_ms,
+                             'position': position or relative()}, **kw)
+
+
+#: The deliberate "no asset exists" content for `image()`. Spelled as a constant so an empty
+#: values map is something you *asked* for and a reader can grep, never something you forgot.
+PLACEHOLDER = object()
+
+#: `preview=` has no default ON PURPOSE. `previewValue` is the base64 thumbnail the renderer
+#: paints while the asset downloads, and without it the screen ships with a hole in it -- a defect
+#: no gate sees, because the document is well formed either way. A default would collapse the two
+#: situations that produce the same JSON: the upload returned no preview, and the author never
+#: captured one. Only the first is finished work, so it is the one with a name.
+NO_PREVIEW = object()
+
+#: Distinct from NO_PREVIEW: the caller passed nothing at all. Keeping the two apart is the whole
+#: mechanism -- a default of None would let a forgotten preview and a genuinely absent one write
+#: the same document.
+_PREVIEW_UNSET = object()
+
+OBJECT_FIT = ('cover', 'fit')
+
+
+def _image_value(url, media_id, preview):
+    """One `Image`: `{id, url, previewValue?}`, the shape the builder's own upload writes.
+
+    `previewValue` is the base64 thumbnail the renderer paints while the full asset downloads.
+    Without it the renderer has nothing to paint, so it substitutes a transparent 1x1 and the
+    screen shows a HOLE until the image arrives — on a slow connection, for seconds. Nothing
+    catches this: `flows config validate` returns valid:true either way, the schema declares
+    `previewValue` optional, and `config preview` renders off a local file where there is no
+    download to wait for.
+
+    The value is bare base64 with NO `data:` prefix, exactly as `flows media upload --json`
+    returns it in `preview_base64` (a half-size WEBP; the renderer's own fallback is a bare
+    base64 PNG). The key is OMITTED when the upload generated no preview, matching the builder,
+    rather than written as null or an empty string — and that case is spelled
+    `flowkit.NO_PREVIEW`, so a document missing the field says which situation produced it.
+    """
+    entry = {'url': url}
+    if media_id is not None:
+        entry['id'] = str(media_id)
+    if preview is _PREVIEW_UNSET:
+        raise TypeError(
+            'image(preview=...) / image_fill(preview=...) is required: pass the '
+            '`preview_base64` string from the `flows media upload --json` that gave you this '
+            'URL, the value lifted out of a config that already binds this asset, or '
+            'flowkit.NO_PREVIEW when that upload returned none. Without it the renderer paints '
+            'a transparent 1x1 and the screen ships with a hole in it, and no gate sees it — so '
+            'this is not a field to leave to a default. If you no longer have the value, go and '
+            'find it: media.md, "When you have a URL and no preview"')
+    if preview is not NO_PREVIEW and preview is not None:
+        if not isinstance(preview, str) or not preview.strip():
+            raise TypeError(
+                'preview= wants the `preview_base64` string from `flows media upload --json`, '
+                'the value lifted out of a config that already binds this asset, or '
+                f'flowkit.NO_PREVIEW when that upload returned none — never {preview!r}. A '
+                'preview you no longer have is one to go and find, not one to drop: see '
+                'media.md, "When you have a URL and no preview"')
+        if preview.startswith('data:'):
+            raise ValueError(
+                'preview= wants BARE base64, not a data URI: pass `preview_base64` through '
+                'unchanged, exactly as the upload returned it')
+        entry['previewValue'] = preview
+    return entry
+
+
+def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hexval=None):
+    """A background image fill — `props.fill` on a screen or a stack.
+
+    The SAME asset binds two different ways and this is the other one: an `image` element wraps
+    its value in a per-locale `values` map, while a fill takes the `Image` FLAT. A fill is not
+    localizable, so a background that must change per language has to be an element instead.
+
+    `preview` matters here for the same reason it does on an element, and more visibly: a
+    background is usually the largest asset on the screen, so it is the one whose absence reads
+    as a broken screen rather than a missing picture.
+    """
+    layer = {'type': 'image', 'image': _image_value(url, media_id, preview)}
+    if color_id is not None and hexval is not None:
+        raise TypeError('image_fill(): pass color_id or hexval, not both')
+    if color_id is not None:
+        layer['color'] = color(color_id)
+    elif hexval is not None:
+        layer['color'] = hex_color(hexval)
+    return [layer]
+
+
+def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fill', height='hug',
+          fixed_w=None, fixed_h=None, corner=None, margin=None, position=None,
+          locale='en', **kw):
+    """An `image` element bound to an uploaded asset.
+
+    `url` is the CDN URL that `flows media upload` printed, `media_id` the id it printed
+    alongside — passed through `str()`, because the command prints a number while the schema
+    declares `Image.id` as a string — and `preview` the `preview_base64` string that only
+    `--json` returns. Take all three off the ONE invocation and keep its JSON: nothing else
+    returns the preview, and re-uploading the file mints a second asset with a different URL
+    rather than handing the value back. If you are rebinding an asset whose preview you no longer
+    have, lift it out of a config that already binds it (media.md) rather than dropping the
+    field. Pass `flowkit.PLACEHOLDER` as the url for the no-asset case; anything else falsy is an
+    error rather than a silent empty map.
+
+    Geometry, measured (media.md): with `height='hug'` the drawn height comes from the ASSET's
+    aspect ratio, so the screen re-flows if the file is swapped and `fit` has no visible effect.
+    With a fixed height the box wins and the asset absorbs the mismatch — `cover` crops it,
+    `fit` letterboxes it and leaves a dead band.
+    """
+    if fit not in OBJECT_FIT:
+        raise ValueError(f'objectFit must be one of {OBJECT_FIT}, not {fit!r}')
+    if url is PLACEHOLDER:
+        if preview is not _PREVIEW_UNSET and preview is not NO_PREVIEW:
+            raise TypeError(
+                'image(flowkit.PLACEHOLDER, preview=...) is a contradiction: a placeholder binds '
+                'no asset, so there is nothing for a preview to be a preview OF. Drop the '
+                'preview, or pass the URL the upload printed')
+        content = {'values': {}, '_localizable': True}
+    elif isinstance(url, str) and url.strip():
+        content = {'values': {locale: _image_value(url, media_id, preview)},
+                   '_localizable': True}
+    else:
+        raise TypeError(
+            'image(url=...) wants the URL that `flows media upload` printed, or '
+            'flowkit.PLACEHOLDER for an image no file exists for — never an invented URL, and '
+            f'never {url!r}')
+    props = {
+        'image': content,
+        'width': size('fixed', fixed_w) if fixed_w is not None else size(width),
+        'height': size('fixed', fixed_h) if fixed_h is not None else size(height),
+        'objectFit': fit,
+        'position': position or relative(),
+    }
+    if corner is not None:  props['borderRadius'] = corner
+    if margin is not None:  props['margin'] = margin
+    return _node('image', props, **kw)
+
+
+#: `video` takes no source argument ON PURPOSE, so these names raise instead of being accepted.
+#: `flows media upload` refuses a clip outright -- `validation_error: target_format: value is not
+#: a valid enumeration member; permitted: 'JPEG', 'JPEG2000', 'WEBP', 'PNG', 'SVG'` -- so any URL
+#: reaching this helper could only have been invented, which is worse than an empty box three
+#: ways (flow-schema.md trap 5): it looks resolved so nobody uploads anything, it fails at
+#: runtime instead of showing as unset in the builder, and it collides with the real asset
+#: namespace.
+_VIDEO_SOURCE_ARGS = ('url', 'video', 'src', 'source', 'media_id', 'customMediaID',
+                      'custom_media_id', 'video_url', 'videoUrl', 'preview_url', 'previewUrl')
+
+
+def video(*, fixed_h, width='fill', fit='cover', loop=True, corner=None, border=None,
+          margin=None, opacity=None, position=None, **kw):
+    """A `video` element with NO source, styled to the box the user's clip will land in.
+
+    There is no CLI upload path for a clip, so this helper cannot bind one and deliberately
+    refuses to be handed one. What it emits is the whole correct answer: a real `video` element
+    the user opens in the Flow Builder and drops a file into. Say that to them in words --
+    the element alone is not the handoff.
+
+    NEVER stand a `stack` with a Play icon in for this. That is a lookalike of a different
+    element type (the same mistake as the fake footer and the fake spinner), it forces the user
+    to delete-and-recreate instead of just binding a file, and no gate flags it.
+
+    Measured against the transform service and the render:
+
+    * an unset `video` is PUBLISHABLE -- `valid: true, issues: []`, in the styled, the empty
+      `values`-map and the bare forms alike -- and the transform service maps `video`, so
+      unlike `old-price` it does reach a device.
+    * `fixed_h` is REQUIRED, and that is the one constraint worth enforcing. With `height: hug`
+      the placeholder draws an arbitrary **256pt** (the renderer's default, the same box an empty
+      `image` draws) with no relationship to the clip, so the layout you approve is not the
+      layout that ships -- everything below the video moves when the file lands. A fixed height
+      holds the box and the clip absorbs the mismatch, `cover` cropping it and `fit` leaving
+      bands. Measured: `fixed_h=200` drew exactly 200pt.
+    * the checkerboard IGNORES `borderRadius` in `config preview` -- corner profiles measured
+      flat -- and so does an empty `image`'s, byte for byte, so this is the placeholder drawing
+      unclipped rather than anything video-specific. Author the radius anyway: it is what the
+      clip lands into, and do not "fix" the square corners you see in the preview.
+
+    The props here are the element's whole design surface. `VideoProps` has no `fill`,
+    no `align` and no `layout` -- to place it, position the PARENT stack.
+
+    NOT observed in any real export: 0 `video` elements across the 12-config corpus, so this
+    shape is authored from the schema plus the measurements above, not read off builder output.
+    """
+    hit = [k for k in kw if k in _VIDEO_SOURCE_ARGS]
+    if hit:
+        raise TypeError(
+            f'video() takes no source ({", ".join(hit)}): `flows media upload` refuses a clip '
+            "(permitted formats are JPEG/JPEG2000/WEBP/PNG/SVG), so a URL here could only be "
+            'invented — and an invented URL looks resolved, so nobody ever uploads the real '
+            'one. Emit the element empty, style it to the box you want, and tell the user to '
+            'open the flow in the builder and upload the clip there.')
+    if fit not in OBJECT_FIT:
+        raise ValueError(f'objectFit must be one of {OBJECT_FIT}, not {fit!r}')
+    if fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float)):
+        raise TypeError(
+            f'video(fixed_h=...) wants a height in points, not {fixed_h!r}. A hug-height '
+            'placeholder draws an arbitrary 256pt box (measured) that the real clip will not '
+            'match, so the layout you preview and approve is not the one that ships.')
+    props = {
+        'width': size(width),
+        'height': size('fixed', fixed_h),
+        'objectFit': fit,
+        'loop': loop,
+        'position': position or relative(),
+    }
+    if corner is not None:   props['borderRadius'] = corner
+    if border is not None:   props['border'] = border
+    if margin is not None:   props['margin'] = margin
+    if opacity is not None:  props['opacity'] = opacity
+    return _node('video', props, **kw)
+
+
+# --- the input family ---------------------------------------------------------------------
+# Eight element types, and flowkit had a helper for NONE of them, so every authored input was
+# hand-assembled from an export — including in all six runs of the 2026-08-28 GREEN round, one
+# of which said so in its own build script ("flowkit has no helper for the input family, so the
+# props are assembled here"). Finding 12 once more.
+#
+# The stakes are not cosmetic. An input's `customId` is the PRODUCER for `<customId>.value`,
+# which is what every conditional-visibility gate reads. Get it wrong or leave it out and the
+# condition compiles to a bare identifier and the flow is refused (`script_type_violation`,
+# TS2304) — so `custom_id` is positional and required here, and `config()` resolves every
+# condition variable against the inputs this module emits.
+
+INPUT_TYPES = ('text-input', 'email-input', 'password-input', 'number-input', 'phone-input',
+               'date-picker', 'time-picker', 'date-time-picker')
+DATE_FORMATS = ('dd-mm-yyyy', 'mm-dd-yyyy', 'yyyy-mm-dd')
+TIME_FORMATS = ('12h', '24h')
+NUMBER_FORMATS = ('integer', 'decimal-point', 'decimal-comma')
+PASSWORD_RULES = ('lowercase', 'uppercase', 'number', 'specialChar', 'minLength', 'maxLength')
+
+
+def _input(kind, custom_id, *, placeholder=None, locale='en', width='fill', height_pt=56,
+           preset='body', fill_=None, border=None, border_width=1, corner=None, padding=None,
+           margin=None, position=None, visibility=None, node_id=None, extra=None, **kw):
+    """Shared shape for all eight. Every default below is the real export's own value."""
+    if kind not in INPUT_TYPES:
+        raise ValueError(f'input kind must be one of {INPUT_TYPES}, not {kind!r}')
+    if not (isinstance(custom_id, str) and custom_id):
+        raise ValueError(
+            f'{kind} needs a non-empty custom_id, got {custom_id!r}. It is the producer for '
+            f'"{custom_id}.value" — the handle a conditional-visibility gate reads. Without it '
+            f'any condition naming this field compiles to a bare identifier and the flow is '
+            f'refused with script_type_violation.')
+    props = {
+        'width': size(width),
+        'height': size('fixed', height_pt),
+        'font': {'preset': preset},
+        'customId': custom_id,
+        'position': position if position is not None else relative(),
+        'padding': padding if padding is not None else pad(0, 16, 16, 0),
+    }
+    if placeholder is not None:
+        # A placeholder is a localizable BARE STRING, not rich text: that is what all four
+        # input elements in the real multi-locale export carry. `localized()` wraps a plain
+        # value; `rich()` would put paragraph blocks in here, which is a different shape.
+        if isinstance(placeholder, (list, dict)):
+            raise TypeError(
+                f'{kind} placeholder must be a plain string, got {type(placeholder).__name__}. '
+                f'It is a bare localizable string in every real export — not rich text, so do '
+                f'not pass rich(...) or a block list.')
+        props['placeholder'] = localized(placeholder, locale=locale)
+    if fill_ is not None:      props['fill'] = fill_
+    if border is not None:
+        # `border` is a COLOUR ID and is wrapped here, exactly as `stack()` does it. The first
+        # version of this helper passed the argument through verbatim, so `border='line'`
+        # emitted the bare string `"border": "line"` while the same call on a stack produced a
+        # full Border -- two helpers, one parameter name, two meanings. That is the drift this
+        # module exists to prevent (see the rich-text note above); found by an agent in the
+        # 2026-08-28 round, which had to repair it by hand.
+        if not isinstance(border, str):
+            raise TypeError(
+                f'{kind} border takes a THEME COLOUR ID like \'line\', not '
+                f'{type(border).__name__} — same as stack(). Use border_width for the width.')
+        props['border'] = {'color': color(border), 'width': border_width}
+    if corner is not None:     props['borderRadius'] = corner
+    if margin is not None:     props['margin'] = margin
+    if visibility is not None: props['visibility'] = visibility
+    props.update(extra or {})
+    return _node(kind, props, node_id=node_id, **kw)
+
+
+def text_input(custom_id, **kw):
+    """A free-text field. Exposes `<custom_id>.value`."""
+    return _input('text-input', custom_id, **kw)
+
+
+def email_input(custom_id, *, validate_format=True, **kw):
+    """An email field. `validate_format` drives the field's own `invalid` styling.
+
+    It does NOT gate anything: there is no validity predicate, so a Continue button can only be
+    conditioned on `not_empty(ref('<custom_id>.value'))`, never on the address being well-formed.
+    """
+    return _input('email-input', custom_id,
+                  extra={'validateEmailFormat': bool(validate_format)}, **kw)
+
+
+def password_input(custom_id, *, requirements=None, show_toggle=None, **kw):
+    """A password field. `requirements` is a dict over
+    lowercase / uppercase / number / specialChar / minLength / maxLength."""
+    extra = {}
+    if requirements is not None:
+        bad = sorted(set(requirements) - set(PASSWORD_RULES))
+        if bad:
+            raise ValueError(f'unknown password requirement(s) {bad}; '
+                             f'the schema allows {list(PASSWORD_RULES)}')
+        extra['passwordRequirements'] = dict(requirements)
+    if show_toggle is not None:
+        extra['showPasswordToggle'] = bool(show_toggle)
+    return _input('password-input', custom_id, extra=extra, **kw)
+
+
+def number_input(custom_id, *, number_format='integer', **kw):
+    if number_format not in NUMBER_FORMATS:
+        raise ValueError(f'number_format must be one of {NUMBER_FORMATS}, not {number_format!r}')
+    return _input('number-input', custom_id, extra={'numberFormat': number_format}, **kw)
+
+
+def phone_input(custom_id, **kw):
+    return _input('phone-input', custom_id, **kw)
+
+
+def _dates(date_format, min_date, max_date):
+    if date_format is not None and date_format not in DATE_FORMATS:
+        raise ValueError(f'date_format must be one of {DATE_FORMATS}, not {date_format!r}')
+    out = {}
+    if date_format is not None: out['dateFormat'] = date_format
+    if min_date is not None:    out['minDate'] = min_date
+    if max_date is not None:    out['maxDate'] = max_date
+    return out
+
+
+def date_picker(custom_id, *, date_format='yyyy-mm-dd', min_date=None, max_date=None, **kw):
+    """A date field. `min_date`/`max_date` are `YYYY-MM-DD` strings — the export bounds a
+    birthday picker that way rather than validating age after the fact."""
+    return _input('date-picker', custom_id,
+                  extra=_dates(date_format, min_date, max_date), **kw)
+
+
+def time_picker(custom_id, *, time_format='24h', **kw):
+    if time_format not in TIME_FORMATS:
+        raise ValueError(f'time_format must be one of {TIME_FORMATS}, not {time_format!r}')
+    return _input('time-picker', custom_id, extra={'timeFormat': time_format}, **kw)
+
+
+def date_time_picker(custom_id, *, date_format='yyyy-mm-dd', time_format='24h',
+                     min_date=None, max_date=None, **kw):
+    if time_format not in TIME_FORMATS:
+        raise ValueError(f'time_format must be one of {TIME_FORMATS}, not {time_format!r}')
+    extra = _dates(date_format, min_date, max_date)
+    extra['timeFormat'] = time_format
+    return _input('date-time-picker', custom_id, extra=extra, **kw)
+
+
+#: The one system state a group member receives on tap. Declared on the MEMBER; the visual
+#: overrides may sit on the member, on any descendant, or both -- real exports do all three.
+SELECTED_STATE = [{'id': 'selected', 'type': 'system'}]
+
+
+def on_selected(node, **props):
+    """Give `node` a different look while its group member is selected.
+
+    THE reason this exists: without it there is no way to express "selected" from this module,
+    so an author styles the card that starts selected differently in its BASE props -- and that
+    look is then stuck on that card forever. Tapping flips the internal selection and nothing on
+    screen moves, which reads to a user as "it blinks and nothing changes". Shipped to a real
+    user on 2026-08-28 from a build that had `patterns.md`'s rule in front of it; the words were
+    there and the helper was not, which is the difference this closes.
+
+    Use it on the member AND on every descendant whose colour or font should follow:
+
+        card = on_selected(product([...], product_id=P, group_id='plans', default=True),
+                           fill=fill('planOn'), padding=pad(16, 16, 16, 16),
+                           borderRadius=radius(16))
+        name = on_selected(text(rich('Annual'), preset='plan', color_id='inkMuted'),
+                           color=color('ink'), font={'preset': 'plan'})
+
+    Give every member the SAME base look; `default=True` picks which one starts selected, never
+    how it looks. A real export repeats the props it touches (fill, padding, borderRadius)
+    rather than sending a delta, so pass the full set you want applied in that state.
+    """
+    if not props:
+        raise ValueError('on_selected() with no props does nothing — pass the overrides that '
+                         'should apply while selected, e.g. fill=fill("planOn").')
+    if node.get('type') in ('product', 'selectable', 'tab-item'):
+        node['states'] = list(SELECTED_STATE)
+    node.setdefault('propsByState', {})['selected'] = props
+    return node
+
+
+def product(children=(), *, product_id, group_id, default=False, offer_id=None, **kw):
+    """A selectable plan card — the member type for a `product` group. For any other group
+    type (`single_choice`, `multi_choice`, `toggle`) use `selectable()` instead.
+
+    The `selectableGroups` entry on the screen must use `group_id`.
+
+    A price variable resolves only against a screen's DECLARED products, and the declaration is
+    built from the bindings on the screen — so bind the product here and put the price in the
+    copy.
+
+    `offer_id` names an offer on this binding. It is part of the product's identity everywhere:
+    the same product with and without an offer is two bindings, two registry entries and two
+    `flowProductId`s. Binding an offer is also the reason the structured product ref exists —
+    a dotted `<productId>.offer_price` cannot say which offer it means.
+    """
+    value = {'id': product_id} if not offer_id else {'id': product_id, 'offerId': offer_id}
+    node = stack(children, **kw)
+    node['type'] = 'product'
+    node['props'].update({'groupId': group_id, 'default': default, 'product': value})
+    if not node['states']:
+        node['states'] = [{'id': 'selected', 'type': 'system'}]
+    return node
+
+
+def attach_point(*, product_id, group_id, element_id=None):
+    """The hidden `product` element a single-plan screen attaches its product to.
+
+    One product means there is nothing to pick, and a visible lone card carries a permanent
+    `selected` look the user cannot change. But a price variable resolves only against a declared
+    product and only a `product` element can be attached to -- so the element exists, hidden, and
+    the price lives in ordinary copy. See patterns.md, "A single-plan screen".
+
+    `height` is `hug`, never `fixed: 0`. `visibility: hidden` already collapses the space, and a
+    zero height is the shape `verify-config.py` errors on (trap 15: it saves fine and kills the
+    element on device). patterns.md spelled this skeleton with `fixed: 0` until 2026-09-02, and an
+    agent following it hit that error -- which is also why this helper exists at all: the shape was
+    hand-assembled every time because nothing emitted it.
+
+    Evidence tier, since this file's callers rely on it: the composition is AUTHORED, not observed.
+    No real export contains a hidden attach point. Its two halves are attested separately -- `hug`
+    is what every real `product` element uses, and `visibility: hidden` occurs on real builder
+    output elsewhere in the corpus.
+    """
+    node = product((), product_id=product_id, group_id=group_id, default=True,
+                   width='hug', height='hug', visibility=hidden())
+    node['props']['caption'] = 'Product attach point (hidden)'
+    if element_id:
+        node['id'] = element_id
+    return node
+
+
+# The only group types real exports declare. A tab group is `single_choice`; there is no
+# `tabs` group type, and the service refuses one that is not single_choice under a tab bar
+# with `wrong_tab_selectable_group_type`.
+GROUP_TYPES = ('single_choice', 'multi_choice', 'product', 'toggle')
+
+GROUP_MEMBER_TYPES = ('product', 'selectable', 'tab-item')
+
+
+def selectable(children=(), *, group_id, default=False, custom_id=None, **kw):
+    """A member of a NON-product selectable group: `single_choice`, `multi_choice`, `toggle`.
+
+    The element type matters and a stack will not do. `StackProps` has no `groupId` and
+    no `default`, so a stack carrying them is not a group member -- the props are ignored, it
+    never receives the `selected` state, and **tapping it does nothing**. Verified against real
+    exports: members are `product` for a product group, `selectable` for single/multi/toggle,
+    `tab-item` inside tabs. Nothing else.
+
+    `custom_id` is the handle the choice is reported under (a real quiz uses "rock", "hiphop").
+    """
+    node = stack(children, **kw)
+    node['type'] = 'selectable'
+    node['props'].update({'groupId': group_id, 'default': default})
+    if custom_id is not None:
+        node['props']['customId'] = custom_id
+    if not node['states']:
+        node['states'] = [{'id': 'selected', 'type': 'system'}]
+    return node
+
+
+def tab(label, content, *, default=False, custom_id=None):
+    """One tab: the `label` shown in the bar, and the `content` panel shown below it.
+
+    Both halves are given together because the builder links them by ORDINAL POSITION — a
+    `tab-content` carries no groupId and no back-reference, so the Nth panel belongs to the
+    Nth tab and nothing in the document says so. Pairing them here is the only way that
+    ordering cannot drift.
+    """
+    return {'_tab': True, 'label': list(label), 'content': list(content),
+            'default': default, 'custom_id': custom_id}
+
+
+def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
+         bar_fill=None, bar_gap=0, bar_padding=None, item_height=44, item_corner=None,
+         content_height='hug', node_id=None, **kw):
+    """A tab bar and its panels, built as the FIVE element types a real export uses.
+
+    The tree the builder emits, and the only one the SDK renders:
+
+        tabs
+        ├── tab-bar             -- the strip
+        │   └── tab-item × N    -- each carrying the shared groupId and its label
+        └── tab-content-wrapper
+            └── tab-content × N -- one panel per tab, matched BY POSITION
+
+    An earlier draft of this helper hung `tab-item`s straight off `tabs` and skipped the
+    other three types. Every gate passed it — and it is a shape the builder never emits,
+    which is this repo's most expensive recurring class. The schema check caught it here
+    only because the schema happens to disagree with `tabs` for unrelated reasons.
+
+    The screen must declare `group_id` as **`single_choice`**; the service refuses any other
+    type with `wrong_tab_selectable_group_type`, and there is no `tabs` group type however
+    much the name suggests one. `screen()` checks that for you.
+
+    **`item_selected` is required, and that is finding 21 in this element.** Until 2026-09-11
+    this helper declared `states: [selected]` on each `tab-item` and emitted **no
+    `propsByState`** — so the state existed, the tap moved the selection, and nothing on screen
+    changed. A pill that never moves. Both sources of truth carry the override: the real export
+    `tests/fixtures/tabs-paywall.json` puts `fill` + `borderRadius` in
+    `propsByState.selected`, and the catalog's `tabs-segmented` puts `fill` there. Two agents
+    building a tab bar from this helper had to patch it in by hand before the bar worked. Pass
+    the props the selected pill should carry:
+
+        tabs([...], group_id='sections', item_selected={'fill': fill('pillOn'),
+                                                        'borderRadius': radius(12)})
+
+    Which look is design and belongs to you; that there IS one is mechanics and belongs here.
+
+    **Heights default to `hug`, and the two sources disagree, so read this before changing it.**
+    The real export uses `fill` on `tabs`, the wrapper and every panel — correct there, because
+    it sits on a non-scrollable screen whose chain is `fill` the whole way down. The builder's
+    own insertable `tabs-segmented` template uses `hug`, which is what survives being dropped
+    into an arbitrary screen: **`fill` inside a hug-height parent collapses to nothing**
+    (trap 13), which is the case an authored screen usually is. `hug` works in both directions,
+    so it is the default; pass `height='fill'` and `content_height='fill'` when the whole chain
+    above is `fill` and you want the panel to take the remaining space.
+
+    `layout.clipContent` is set on the `tabs` element because both sources set it — without it
+    a panel's content draws outside the switcher's box.
+    """
+    entries = [t for t in tabs_]
+    if len(entries) < 2:
+        raise ValueError(f'tabs() needs at least 2 tab()s, got {len(entries)}')
+    if not (isinstance(group_id, str) and group_id):
+        raise ValueError(f'tabs() needs a non-empty group_id, got {group_id!r} — the service '
+                         f'refuses an empty one with mixed_tab_group_ids')
+    bad = [t for t in entries if not (isinstance(t, dict) and t.get('_tab'))]
+    if bad:
+        raise ValueError(
+            f'tabs() takes tab(label, content) entries, got {len(bad)} other value(s). A stack '
+            f'carrying a groupId is NOT a group member — it never receives the selected state '
+            f'and tapping it does nothing.')
+    if sum(1 for t in entries if t['default']) > 1:
+        raise ValueError('tabs() got more than one default tab')
+    if not (isinstance(item_selected, dict) and item_selected):
+        raise ValueError(
+            'tabs() needs item_selected — the props the pill carries while its tab is selected. '
+            'Without it the tab-item declares the state and overrides nothing, so tapping moves '
+            'the selection and NOTHING ON SCREEN CHANGES. Both the real export and the catalog '
+            "template put a fill there, e.g. item_selected={'fill': fill('pillOn')}.")
+
+    items, panels = [], []
+    for t in entries:
+        it = stack(t['label'], width='fill', height='fixed', fixed_h=item_height,
+                   direction='horizontal', align_h='center', align_v='center',
+                   corner=item_corner)
+        it['type'] = 'tab-item'
+        it['props'].update({'groupId': group_id, 'default': t['default']})
+        if t['custom_id'] is not None:
+            it['props']['customId'] = t['custom_id']
+        on_selected(it, **item_selected)      # declares states AND the override, together
+        items.append(it)
+        panel = stack(t['content'], width='fill', height=content_height, gap=gap)
+        panel['type'] = 'tab-content'
+        panels.append(panel)
+
+    bar = stack(items, width='fill', height='hug', direction='horizontal', gap=bar_gap,
+                align_h='center', align_v='center', fill_=bar_fill, padding=bar_padding)
+    bar['type'] = 'tab-bar'
+    wrapper = stack(panels, width='fill', height=content_height)
+    wrapper['type'] = 'tab-content-wrapper'
+
+    lay = layout('vertical', gap, 'start', 'start')
+    lay['clipContent'] = True                # both sources set it; without it panels bleed out
+    props = {'width': size(width), 'height': size(height),
+             'layout': lay, 'position': relative()}
+    return _node('tabs', props, children=[bar, wrapper], node_id=node_id, **kw)
+
+
+def purchase(group_id, action_id='act_buy'):
+    """Buy the group's selection, never a hardcoded product."""
+    return {'id': action_id, 'type': 'purchase',
+            'payload': {'product': {'type': 'var',
+                                    'variableId': f'{group_id}.selectedProduct'}}}
+
+
+def navigate(screen_id, action_id='act_nav'):
+    """Payload shape verified against two real exports: `{"type": "screen", "screen": "<id>"}`.
+
+    NOT `{"screenId": …}`, which is the obvious guess and what this helper shipped with for one
+    commit. The config API accepts either without complaint, so the wrong one is silent.
+    """
+    return {'id': action_id, 'type': 'navigate',
+            'payload': {'type': 'screen', 'screen': screen_id}}
+
+
+def close(action_id='act_close'):
+    return {'id': action_id, 'type': 'closeFlow'}
+
+
+# --- the rest of the action vocabulary ----------------------------------------------------
+# `invalid_action_payload` was the 5th most common transformer refusal in the 40 days to
+# 2026-08-28 (208 failed requests), and it is one code covering sixteen distinct required-field
+# checks. Until now flowkit exposed three action types out of fourteen — purchase, navigate,
+# closeFlow — so ANY other action had to be hand-written, `openUrl` included, which store
+# compliance requires on every paywall (terms and privacy). Finding 12: an author reaches for
+# what the helper exposes, and what is not exposed gets hand-written into a 422.
+#
+# Every required field below is the transform service's own, read off its error messages in
+# `compile-actions.ts` rather than inferred from the schema — the schema is looser than the
+# service in each case.
+
+
+def restore(action_id='act_restore'):
+    """`restorePurchases`. Takes no payload — and a paywall without it is rejected by both
+    stores, so this is a compliance element, not a nicety."""
+    return {'id': action_id, 'type': 'restorePurchases'}
+
+
+def open_url(url, *, external=None, action_id='act_url'):
+    """`openUrl`. The service requires a non-empty `payload.url`.
+
+    A `mailto:` URL crashes iOS unless it opens in the external browser — pass
+    `external=True` for one.
+    """
+    if not (isinstance(url, str) and url):
+        raise ValueError(
+            f'open_url() needs a non-empty url, got {url!r} — the transform service refuses an '
+            f'empty one with invalid_action_payload at .payload.url')
+    payload = {'url': url}
+    if external is not None:
+        payload['external'] = external
+    return {'id': action_id, 'type': 'openUrl', 'payload': payload}
+
+
+def select_product(element_id, action_id='act_select'):
+    """`selectProduct`. The service requires `payload.element` — the id of the product
+    element to select, NOT a product id and NOT a group id."""
+    if not (isinstance(element_id, str) and element_id):
+        raise ValueError(
+            f'select_product() needs the target ELEMENT id, got {element_id!r} '
+            f'(invalid_action_payload at .payload.element)')
+    return {'id': action_id, 'type': 'selectProduct', 'payload': {'element': element_id}}
+
+
+def set_variable(assignments, action_id='act_set'):
+    """`setVariable`. The payload is an ARRAY of assignments, each `left` naming a variable.
+
+    `assignments` is a sequence of `(variable_id, value)` pairs. This is the one place an
+    `assign` expression is legal — it is refused inside a condition, where it has no case in
+    the service's walker.
+    """
+    pairs = list(assignments)
+    if not pairs:
+        raise ValueError('set_variable() needs at least one (variable_id, value) pair — the '
+                         'service refuses a non-array payload with invalid_action_payload')
+    payload = []
+    for i, pair in enumerate(pairs):
+        if not (isinstance(pair, (tuple, list)) and len(pair) == 2):
+            raise TypeError(f'set_variable() assignment {i} must be a (variable_id, value) '
+                            f'pair, got {pair!r}')
+        vid, value = pair
+        if not (isinstance(vid, str) and vid):
+            raise ValueError(f'set_variable() assignment {i} has no target variable id '
+                             f'(invalid_action_payload at .payload[{i}].left.variableId)')
+        payload.append({'type': 'assign', 'left': ref(vid), 'right': _as_expr(
+            value, f'set_variable() assignment {i} value')})
+    return {'id': action_id, 'type': 'setVariable', 'payload': payload}
+
+
+def custom_action(custom_id, action_id='act_custom'):
+    """`custom`. The service requires `payload.id` — the handle your app code switches on."""
+    if not (isinstance(custom_id, str) and custom_id):
+        raise ValueError(f'custom_action() needs a non-empty payload id, got {custom_id!r} '
+                         f'(invalid_action_payload at .payload.id)')
+    return {'id': action_id, 'type': 'custom', 'payload': {'id': custom_id}}
+
+
+def alert(*, title=None, message=None, action_id='act_alert'):
+    """`alert`. The service requires a title OR a message — an alert with neither is refused."""
+    if not title and not message:
+        raise ValueError('alert() needs a title or a message (invalid_action_payload: "Alert '
+                         'action requires a title or message value")')
+    payload = {}
+    if title is not None:
+        payload['title'] = title
+    if message is not None:
+        payload['message'] = message
+    return {'id': action_id, 'type': 'alert', 'payload': payload}
+
+
+def navigate_back(action_id='act_back'):
+    return {'id': action_id, 'type': 'navigateBack'}
+
+
+def navigate_next(action_id='act_next'):
+    """`navigateNext` resolves against the flow's screen ORDER, so it is refused on a screen
+    the order does not contain. It also makes the graph implicit and order-dependent: an
+    explicit `navigate(screen_id)` is preferred wherever the target is known, and a previous
+    build reverted `navigateNext` after `verify-config.py` reported five screens unreachable.
+    """
+    return {'id': action_id, 'type': 'navigateNext'}
+
+
+def conditional_action(cases, *, default=(), action_id='act_cond'):
+    """`conditional`. Branch between action lists on a predicate.
+
+    `cases` is a sequence of `(predicate, [actions])`; `default` is the fallback action list.
+    The service requires an object payload carrying a `cases` ARRAY whose entries are
+    `[predicate, value]` tuples — the shape is easy to get subtly wrong by hand, and each way
+    of getting it wrong is a separate `invalid_action_payload`.
+
+    A branch that should do nothing is an empty list, which is emitted as the real export's
+    own no-op (`{"type": "nothing"}`) rather than as an omitted branch.
+    """
+    def _branch(actions, what):
+        acts = list(actions)
+        for a in acts:
+            if not (isinstance(a, dict) and isinstance(a.get('type'), str)):
+                raise TypeError(f'conditional_action() {what} must contain actions, got {a!r}')
+        return lit(acts or [{'id': '', 'type': 'nothing'}])
+
+    entries = list(cases)
+    if not entries:
+        raise ValueError('conditional_action() needs at least one (predicate, actions) case — '
+                         'the service refuses a payload with no cases array')
+    payload_cases = []
+    for i, case in enumerate(entries):
+        if not (isinstance(case, (tuple, list)) and len(case) == 2):
+            raise TypeError(f'conditional_action() case {i} must be a (predicate, actions) '
+                            f'pair, got {case!r} — the service checks for [predicate, value] '
+                            f'tuples by shape')
+        predicate, actions = case
+        _check_expr(predicate, f'conditional_action() case {i} predicate')
+        payload_cases.append([predicate, _branch(actions, f'case {i}')])
+    return {'id': action_id, 'type': 'conditional',
+            'payload': {'type': 'switch', 'cases': payload_cases,
+                        'default': _branch(default, 'default')}}
+
+
+# --- timer -------------------------------------------------------------------------------
+# A countdown's digits are `token` nodes, and the token ids carry a `timer_` PREFIX:
+# `timer_days`, `timer_hours`, `timer_minutes`, `timer_seconds`. Builder- and device-confirmed
+# (the builder shows a recognised chip and renders live `23:59:59`). The bare names
+# `days`/`hours`/`minutes`/`seconds` do NOT resolve: the Flow Builder paints them red `Unknown`
+# and the device/preview renders the literal `%hours%`. `config validate` accepts either, so the
+# wrong one is silent — which is exactly why this is a helper and not something you hand-author.
+# `component-catalog.json`'s timer templates carried the bare names until 2026-08-25; if you lift
+# a timer shape from anywhere, run it through here or fix the prefix by hand.
+
+TIMER_UNITS = ('days', 'hours', 'minutes', 'seconds')
+
+
+def timer_digits(units=('hours', 'minutes', 'seconds'), *, sep=':', preset='h2',
+                 color_id=None, align='center', width='hug', locale='en', node_id=None, **kw):
+    """The digit `text` that goes INSIDE a `timer` element, as `HH:MM:SS`.
+
+    `units` is any ordered subset of `TIMER_UNITS`; each becomes a `timer_<unit>` token, joined by
+    `sep`. Never write the bare token name — see the note above.
+    """
+    bad = [u for u in units if u not in TIMER_UNITS]
+    if bad:
+        raise ValueError(f'timer units must be a subset of {TIMER_UNITS}, not {bad}')
+    content = []
+    for i, u in enumerate(units):
+        if i:
+            content.append({'type': 'text', 'text': sep,
+                            'attrs': {'bold': False, 'italic': False,
+                                      'underline': False, 'strikethrough': False}})
+        content.append({'type': 'token', 'attrs': {'token': f'timer_{u}'}})
+    value = {'values': {locale: [{'type': 'paragraph', 'content': content}]},
+             '_localizable': True}
+    return text(value, preset=preset, color_id=color_id, align=align, width=width,
+                node_id=node_id, **kw)
+
+
+def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds=0,
+          behavior='start_at_every_appear', width='hug', height='hug', fixed_w=None,
+          fixed_h=None, fill_=None, padding=None, corner=None, align_h='center',
+          align_v='center', visibility=None, position=None, actions=None, node_id=None,
+          **kw):
+    """A countdown `timer` element. Pass `timer_digits(...)` as one of its `children` to show the
+    running digits.
+
+    **A timer carrying a `timer-end` action MUST have at least one child.** Device-measured,
+    two writes differing in nothing else: the childless form **did not advance**, the
+    same timer with one child text **did**, and an isolating probe with two exits to different
+    destinations confirmed it on a third trip. So the "purely invisible delay" this docstring used
+    to recommend does not fire at all — an element with nothing to lay out is one the renderer
+    skips, timer included. `config preview` cannot see any of this: it never navigates for any
+    reason, so both forms look identical locally and `validate` passes both.
+
+    Raised rather than warned because the failure is silent, terminal and remote: the flow stops
+    dead on that screen, and the only surface that can show it is a device.
+
+    `duration` is `{days, hours, minutes, seconds}`. `behavior='start_at_every_appear'` restarts
+    the countdown each time the screen appears.
+    """
+    if actions and not list(children):
+        raise ValueError(
+            'a timer with a `timer-end` action and NO children does not fire on a device '
+            '— the flow stops dead on that screen, and neither '
+            '`config preview` nor `flows config validate` can see it. Give it a child: '
+            'timer_digits(...) if a visible countdown suits the screen, or the loader copy '
+            'itself. See patterns.md -> the auto-advancing screen.')
+    props = {
+        'customId': custom_id, 'behavior': behavior,
+        'duration': {'days': days, 'hours': hours, 'minutes': minutes, 'seconds': seconds},
+        'width': size('fixed', fixed_w) if fixed_w is not None else size(width),
+        'height': size('fixed', fixed_h) if fixed_h is not None else size(height),
+        'layout': layout('horizontal', 0, align_h, align_v),
+        'position': position or relative(),
+    }
+    if fill_ is not None:     props['fill'] = fill_
+    if padding is not None:   props['padding'] = padding
+    if corner is not None:    props['borderRadius'] = corner
+    if visibility is not None: props['visibility'] = visibility
+    node = _node('timer', props, children=list(children), node_id=node_id, **kw)
+    if actions:
+        # a timer's own interaction fires on `timer-end`, not `tap`
+        node['interactions'] = [{'id': 'int' + node['id'][2:], 'trigger': 'timer-end',
+                                 'actions': actions}]
+    return node
+
+
+def _slot_write(node, path, value):
+    target = node
+    for step in path[:-1]:
+        target = target[step]
+    target[path[-1]] = value
+
+
+def _fill_slots(template, slots, fills, items):
+    """Write through a catalog entry's declared slots, on the export-shaped template."""
+    for name, value in fills.items():
+        if name not in slots:
+            raise KeyError(f'no slot {name!r} on this component -- it has '
+                           f'{sorted(slots) or "none"}')
+        slot = slots[name]
+        if slot.get('kind') == 'items':
+            raise TypeError(f'slot {name!r} repeats -- pass it as items=[{{...}}, ...]')
+        _slot_write(template, slot['path'], value)
+    if items is None:
+        return template
+    repeats = [s for s in slots.values() if s.get('kind') == 'items']
+    if not repeats:
+        raise TypeError('this component has no repeating slot, so items= means nothing')
+    slot = repeats[0]
+    container = template
+    for step in slot['path']:
+        container = container[step]
+    unit_index = slot.get('item_index', 0)
+    unit = container[unit_index]
+    lo, hi = slot.get('min', 1), slot.get('max', len(items))
+    if not lo <= len(items) <= hi:
+        raise ValueError(f'this component takes {lo}-{hi} items, got {len(items)}')
+    filled = []
+    for values in items:
+        one = copy.deepcopy(unit)
+        for name, value in values.items():
+            if name not in slot['item_slots']:
+                raise KeyError(f'no item slot {name!r} -- it has '
+                               f'{sorted(slot["item_slots"])}')
+            _slot_write(one, slot['item_slots'][name]['path'], value)
+        filled.append(one)
+    # Every repeat is a copy of the unit, so a unit that starts selected would make EVERY card
+    # the default one -- a group with three defaults, which is the dead-selected-state defect
+    # arriving through the helper instead of through hand assembly.
+    for position, one in enumerate(filled):
+        def mark(node, first=position == 0):
+            if isinstance((node.get('props') or {}).get('default'), bool):
+                node['props']['default'] = first
+            for child in node.get('children') or []:
+                mark(child, first)
+        mark(one)
+    # The repeats are the TRAILING entries: anything before `item_index` is a header the
+    # template keeps (a comparison table's column titles, for instance).
+    container[unit_index:] = filled
+    return template
+
+
+# --- catalog templates -------------------------------------------------------------------
+
+def from_catalog(entry, *, group_id=None, fills=None, items=None):
+    """Turn a `component-catalog.json` entry into nodes this module can assemble.
+
+    A catalog template is the builder's own output, so its internal wiring is already right --
+    but it is written in the EXPORT shape (`children`, no ids) while everything here is written
+    in the AUTHORING shape (`_children`, minted ids). So a template cannot be handed to
+    `screen()` as it stands. Without this conversion a template gets retyped as a hand-built
+    skeleton instead of lifted, which is where its correct wiring is lost on the way in.
+
+        entry = json.load(open('component-catalog.json'))['components']
+        tpl   = next(c for c in entry if c['id'] == 'prod-vertical-list')['template']
+        nodes = fk.from_catalog(tpl, group_id='plans')
+
+    Mints an id for every element, and for every interaction and action the template carries --
+    the shipped templates leave those `""`, which is the builder's placeholder rather than a
+    value. `group_id` renames the template's own group so it matches the `selectableGroups`
+    entry you declare on the screen: the catalog ships generic ids (`products`, `quiz`, `tabs`),
+    so two templates of the same family on one screen would otherwise share one group and move
+    together.
+
+    Pass the whole ENTRY to fill its slots on the way through:
+
+        fk.from_catalog(entry, fills={'label': 'Continue'})
+        fk.from_catalog(entry, group_id='plans',
+                        items=[{'title': 'Annual', 'product_id': uuid}, {...}])
+
+    `fills` writes a top-level slot, `items` writes one dict per repeat of an `items` slot and
+    truncates the template to that many. Both run BEFORE the conversion, which is the only point
+    where they can: a slot path addresses the template's own `children`, and the authoring shape
+    this returns uses `_children`. Passing a bare `template` still works, without slot filling.
+
+    Deep-copies, so the catalog entry itself is never mutated.
+    """
+    template, slots = entry, {}
+    if isinstance(entry, dict) and 'template' in entry:
+        template, slots = entry['template'], entry.get('slots') or {}
+    elif fills or items:
+        raise TypeError(
+            'from_catalog(fills=/items=) needs the whole catalog entry, not just its '
+            "`template` -- the slot paths live on the entry.")
+    if not isinstance(template, dict) or 'type' not in template:
+        raise TypeError(
+            "from_catalog() takes a catalog entry (or its `template`) -- got something with no "
+            "`type`.")
+    template = copy.deepcopy(template)
+    if fills or items:
+        template = _fill_slots(template, slots, fills or {}, items)
+
+    def to_v12(props):
+        # The catalog keeps two pre-v12 shapes this module would otherwise stamp v12: a border's
+        # `style` (the v12 schema has none, and the builder drops it on save) and a `fill` as one
+        # object rather than an array of layers.
+        if not isinstance(props, dict):
+            return
+        if isinstance(props.get('border'), dict):
+            props['border'].pop('style', None)
+        if isinstance(props.get('fill'), dict):
+            props['fill'] = [props['fill']]
+
+    def walk(node):
+        out = {k: v for k, v in node.items() if k != 'children'}
+        to_v12(out.get('props'))
+        for state_props in (out.get('propsByState') or {}).values():
+            to_v12(state_props)
+        kind = out.get('type', 'stack')
+        out['id'] = eid('S' if kind == 'stack' else kind[:1].upper())
+        out.setdefault('states', [])
+        props = out.get('props')
+        if group_id and isinstance(props, dict) and 'groupId' in props:
+            props['groupId'] = group_id
+        for i, inter in enumerate(out.get('interactions') or []):
+            inter['id'] = 'int' + out['id'][2:] + ('' if i == 0 else f'_{i}')
+            for j, act in enumerate(inter.get('actions') or []):
+                act['id'] = f'act_{act.get("type", "x")}' + ('' if j == 0 else f'_{j}')
+        out['_children'] = [walk(k) for k in node.get('children') or []]
+        return out
+
+    return [walk(template)]
+
+
+# --- assembly ----------------------------------------------------------------------------
+
+def flatten(nodes):
+    """Split a nested tree into the (`map`, `hierarchy`) pair the format requires.
+
+    This is the whole point of the module. Every element is declared in `map` keyed by id and
+    again in `hierarchy` as nesting; the two must agree exactly. Building both by hand is where
+    a broken config comes from.
+    """
+    node_map, roots = {}, []
+
+    def walk(node):
+        kids = node.pop('_children', [])
+        if node['id'] in node_map:
+            raise ValueError(f'duplicate element id {node["id"]} — use one Ids() per document')
+        node_map[node['id']] = node
+        out = {'id': node['id']}
+        children = [walk(k) for k in kids]
+        if children:
+            out['children'] = children
+        return out
+
+    for n in nodes:
+        roots.append(walk(n))
+    return node_map, {'id': 'root', 'children': roots}
+
+
+# --- structured product refs, and the screen registry -------------------------------------
+#
+# Two shapes the builder's own migrations produce, emitted here at authoring time so the
+# document matches the `SCHEMA_VERSION` it is stamped with. Both are derived from the screen
+# being built -- never from what the caller remembered to declare -- which is the same source
+# the builder walks, so the two agree.
+#
+# The rules below mirror `011-product-refs-structured` and `012-screen-products`. Where a ref
+# cannot be resolved with certainty the legacy dotted string is LEFT ALONE, exactly as the
+# migration leaves it: a half-converted ref is worse than an unconverted one, and the builder
+# resolves the rest the first time a human opens the flow.
+
+#: The product sub-variable vocabulary, addressed as `<productId>.<name>` or
+#: `<groupId>.selectedProduct.<name>`. A dotted id whose tail is not in here is an ordinary
+#: variable and is never touched.
+PRODUCT_VAR_NAMES = (
+    'prod_title', 'prod_price', 'prod_price_per_day', 'prod_price_per_week',
+    'prod_price_per_month', 'prod_price_per_year', 'is_free_trial', 'is_pay_up_front',
+    'is_pay_as_you_go', 'offer_price', 'offer_billing_period', 'offer_full_duration')
+
+_SELECTED_PRODUCT = 'selectedProduct'
+
+
+def _binding(pid, offer_id):
+    """One `{kind: 'product'}` target. `offerId` is OMITTED rather than null for a base
+    binding -- the transformer rejects an empty string outright (`empty_offer_id`) and reads a
+    missing key as the base."""
+    return {'kind': 'product', 'id': pid} if not offer_id else {
+        'kind': 'product', 'id': pid, 'offerId': offer_id}
+
+
+def _product_value(pid, offer_id):
+    """One registry entry. Same omit-don't-null rule as `_binding`, and the same key order the
+    builder writes: `id`, then `offerId` when there is one."""
+    return {'id': pid} if not offer_id else {'id': pid, 'offerId': offer_id}
+
+
+def screen_products(node_map):
+    """Every Product + Offer pair this screen binds, in first-seen order, deduplicated.
+
+    Two sources, because they are the two ways a screen names a product: a `product` element's
+    `props.product`, and a `const` purchase payload -- which products.md documents as binding
+    perfectly well with no element behind it, and which therefore still has to be declared.
+
+    Pass a screen's `elements.map`. `screen()` calls this for you; it is public so an author
+    can hand the same pairs to `predeclare()` instead of listing them twice:
+
+        scr = fk.screen('scr_x', nodes, selectable_groups=[...])
+        meta = fk.predeclare('scr_x', [(p['id'], p.get('offerId')) for p in scr['products']])
+    """
+    pairs, seen = [], set()
+
+    def add(value):
+        if not isinstance(value, dict):
+            return
+        pid = value.get('id')
+        if not isinstance(pid, str) or not pid:
+            return
+        offer = value.get('offerId') or None
+        if (pid, offer) in seen:
+            return
+        seen.add((pid, offer))
+        pairs.append((pid, offer))
+
+    def purchases(obj):
+        if isinstance(obj, list):
+            for item in obj:
+                purchases(item)
+        elif isinstance(obj, dict):
+            if obj.get('type') == 'purchase':
+                payload = (obj.get('payload') or {}).get('product')
+                if isinstance(payload, dict) and payload.get('type') == 'const':
+                    add(payload.get('value'))
+            for v in obj.values():
+                purchases(v)
+
+    for el in node_map.values():
+        if el.get('type') == 'product':
+            add((el.get('props') or {}).get('product'))
+    for el in node_map.values():
+        purchases(el.get('interactions'))
+    return pairs
+
+
+def _split_product_var(variable_id):
+    """`(prefix, field)` when a dotted id ends in a product field name, else None."""
+    if not isinstance(variable_id, str):
+        return None
+    prefix, _, field = variable_id.rpartition('.')
+    return (prefix, field) if prefix and field in PRODUCT_VAR_NAMES else None
+
+
+def _ref_target(prefix, pairs, product_groups):
+    """The target a dotted prefix denotes, or None to leave the id legacy.
+
+    None covers migration 011's whole leftovers taxonomy, and each case is a real document:
+    a product id bound twice on one screen with different offers (the offer cannot be chosen
+    for the author), one bound nowhere (nothing to resolve against), and a group id that is
+    not a `product` selectable group of this screen (the transformer refuses that target with
+    `unknown_product_group`, so emitting it would turn a silent legacy ref into a hard error).
+    """
+    group, sep, tail = prefix.rpartition('.')
+    if sep and tail == _SELECTED_PRODUCT:
+        return {'kind': 'selected', 'groupId': group} if group in product_groups else None
+    matches = [p for p in pairs if p[0] == prefix]
+    return _binding(*matches[0]) if len(matches) == 1 else None
+
+
+def _identity_target(node, pairs, product_groups):
+    """The FIELDLESS target of one operand of an identity comparison, or None.
+
+    `var(<group>.selectedProduct) == const(<productId>)` is the shape, and it converts as a
+    unit or not at all -- a pair with one structured side and one legacy side compares a ref
+    against a raw string and is always false.
+    """
+    if not isinstance(node, dict):
+        return None
+    if node.get('type') == 'var':
+        vid = node.get('variableId')
+        if isinstance(vid, str):
+            group, sep, tail = vid.rpartition('.')
+            if sep and tail == _SELECTED_PRODUCT and group in product_groups:
+                return {'kind': 'selected', 'groupId': group}
+        return None
+    if node.get('type') == 'const':
+        value = node.get('value')
+        matches = [p for p in pairs if p[0] == value] if isinstance(value, str) else []
+        return _binding(*matches[0]) if len(matches) == 1 else None
+    return None
+
+
+def _apply_product_refs(obj, pairs, product_groups):
+    """Rewrite one screen's product references in place.
+
+    Rich-text spans are DUAL-written: `attrs.productRef` is added beside `attrs.variableId`
+    and the string stays, because readers that resolve through the string catalog still need
+    it. DSL nodes are REPLACED, because an expression has one type.
+    """
+    if isinstance(obj, list):
+        for item in obj:
+            _apply_product_refs(item, pairs, product_groups)
+        return
+    if not isinstance(obj, dict):
+        return
+
+    node_type = obj.get('type')
+
+    # A purchase action keeps its own `dynamicProduct` contract: whatever its payload names,
+    # the product slot stays a `var`/`const` node and a productRef must never flow into it.
+    #
+    # NOTHING CURRENTLY REACHES THIS, and it is kept anyway. The payload's var is the fieldless
+    # `<group>.selectedProduct`, which the resolver below already declines, so removing this
+    # branch reddens no test -- stated rather than left for someone to discover while trusting
+    # a green suite. It stays because the exclusion is the transform service's own (A6), and
+    # the day the resolver widens by one line this is what keeps a productRef out of a payload
+    # that would refuse it.
+    if node_type == 'purchase':
+        for key, value in obj.items():
+            if key != 'payload':
+                _apply_product_refs(value, pairs, product_groups)
+        for key, value in (obj.get('payload') or {}).items():
+            if key != 'product':
+                _apply_product_refs(value, pairs, product_groups)
+        return
+
+    # `assign.left` must stay a var node per the JSONAssign contract. `setVariable` entries are
+    # recognised by the OWNING action rather than their own tag, and real converter output omits
+    # `type: 'assign'` entirely, so key on the shape: a dict with `left` and `right` and no
+    # operator type. Only the right side is a value slot.
+    if 'left' in obj and 'right' in obj and node_type in (None, 'assign'):
+        for key, value in obj.items():
+            if key != 'left':
+                _apply_product_refs(value, pairs, product_groups)
+        return
+
+    if node_type in ('==', '!='):
+        left = _identity_target(obj.get('left'), pairs, product_groups)
+        right = _identity_target(obj.get('right'), pairs, product_groups)
+        if left is not None and right is not None:
+            obj['left'] = {'type': 'productRef', 'target': left}
+            obj['right'] = {'type': 'productRef', 'target': right}
+            for key, value in obj.items():
+                if key not in ('left', 'right'):
+                    _apply_product_refs(value, pairs, product_groups)
+            return
+
+    if node_type == 'variable':
+        attrs = obj.get('attrs')
+        if isinstance(attrs, dict) and 'productRef' not in attrs:
+            split = _split_product_var(attrs.get('variableId'))
+            if split:
+                target = _ref_target(split[0], pairs, product_groups)
+                if target is not None:
+                    attrs['productRef'] = {'target': target, 'field': split[1]}
+
+    # Only the FIELD-BEARING form converts here. The fieldless `<group>.selectedProduct`
+    # denotes product identity rather than a value, and it has exactly one safe destination:
+    # the identity pair above, where the other operand fixes what it is being compared to.
+    # Converting it anywhere else produced a mixed pair -- a ref against a raw string, always
+    # false -- which is the shape migration 011 calls impossible in its output.
+    if node_type == 'var':
+        split = _split_product_var(obj.get('variableId'))
+        if split:
+            target = _ref_target(split[0], pairs, product_groups)
+            if target is not None:
+                obj.clear()
+                obj.update({'type': 'productRef', 'target': target, 'field': split[1]})
+                return
+
+    for value in obj.values():
+        _apply_product_refs(value, pairs, product_groups)
+
+
+def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
+           direction='vertical', gap=0, align_h='start', align_v='start',
+           distribution=None, scrollable=True, status_bar=False,
+           status_bar_theme='light', safe_area=False, selectable_groups=(),
+           progress_bar=False):
+    """A bar that must stay put while content scrolls past it is `footer()`, not a
+    distribution — the pinning is that element's own behaviour.
+
+    `distribution='space-between'` with `scrollable=False` is the different job: a SHORT
+    screen whose content should spread to fill the height, with the bar as the second of two
+    children. It does not pin anything, and `scrollable=False` clips content taller than the
+    viewport. See `layout()` for why a spread needs it anyway."""
+    node_map, hierarchy = flatten(list(nodes))
+    feet = [k for k, v in node_map.items() if v.get('type') == 'footer']
+    # Where a sheet and a footer may sit. A sheet is a root singleton: the transform service reads
+    # only the root for one, so a nested sheet is drawn as a plain box and the hero never happens.
+    # A footer may sit at the root or directly inside the sheet, nowhere else.
+    root_ids = [c['id'] for c in hierarchy['children']]
+    sheets = [k for k, v in node_map.items() if v.get('type') == 'sliding-sheet']
+    nested = [k for k in sheets if k not in root_ids]
+    if nested:
+        raise ValueError(
+            f'screen {screen_id!r}: sliding sheet {nested[0]} is not a direct child of the screen '
+            'root. A sheet nested anywhere else is drawn as an ordinary box and the hero never '
+            'happens. Pass it in the screen\'s own node list.')
+    if len(sheets) > 1:
+        raise ValueError(
+            f'screen {screen_id!r}: {len(sheets)} sliding sheets ({", ".join(sorted(sheets))}) -- '
+            'a screen takes at most one. Put all the content inside one sheet.')
+    sheet_kids = {kid['id'] for top in hierarchy['children'] if top['id'] in sheets
+                  for kid in top.get('children', [])}
+    for k in feet:
+        if k not in root_ids and k not in sheet_kids:
+            raise ValueError(
+                f'screen {screen_id!r}: footer {k} is nested inside another element. A footer '
+                'sits at the screen root, or directly inside the sliding sheet as its last child.')
+    if feet and not scrollable:
+        raise ValueError(
+            f'screen {screen_id!r} pairs a footer ({feet[0]}) with scrollable=False. '
+            'DEVICE-CONFIRMED: with the scroll off the footer does not render at all, and every '
+            'child goes with it -- a CTA in the footer takes the screen\'s navigation with it. '
+            'The preview draws it in both modes, so no local check can see this. Either '
+            'scrollable=True, or drop the footer and put the bar at the bottom with '
+            "distribution='space-between'.")
+    if len(feet) > 1:
+        raise ValueError(
+            f'{len(feet)} footer elements on screen {screen_id!r} ({", ".join(sorted(feet))}) — '
+            'measured, a second footer draws ZERO pixels. Put the CTA and the legal row inside '
+            'ONE footer as children.')
+    # Selectable groups, both directions. `verify-config.py` errors on each of these in a
+    # finished document; raising here is the finding-12 half — the screen that cannot be
+    # built wrong beats the one whose defect is reported afterwards.
+    groups = {g['id']: g for g in selectable_groups}
+    for gid, g in groups.items():
+        if g.get('type') not in GROUP_TYPES:
+            raise ValueError(f'screen {screen_id!r}: group {gid!r} has type {g.get("type")!r}; '
+                             f'the only types real exports use are {", ".join(GROUP_TYPES)}. '
+                             f'A tab group is declared single_choice — there is no `tabs` type.')
+    members = {}
+    for k, v in node_map.items():
+        gid = (v.get('props') or {}).get('groupId')
+        if gid:
+            members.setdefault(gid, []).append((k, v.get('type')))
+    undeclared = sorted(set(members) - set(groups))
+    if undeclared:
+        raise ValueError(
+            f'screen {screen_id!r}: element(s) carry groupId {undeclared} with no matching entry '
+            f'in selectable_groups. An unresolved group means the members never receive the '
+            f'selected state and tapping them does nothing; for a tab bar the service refuses '
+            f'the flow outright (missing_tab_selectable_group).')
+    empty_groups = sorted(set(groups) - set(members))
+    if empty_groups:
+        raise ValueError(f'screen {screen_id!r}: group(s) {empty_groups} declared with no member '
+                         f'element carrying that groupId')
+    for gid, mem in members.items():
+        if any(t == 'tab-item' for _, t in mem) and groups[gid].get('type') != 'single_choice':
+            raise ValueError(
+                f'screen {screen_id!r}: group {gid!r} has tab-item members but is declared '
+                f'{groups[gid].get("type")!r}. The service requires single_choice here and '
+                f'refuses anything else with wrong_tab_selectable_group_type.')
+    props = {
+        'layout': layout(direction, gap, align_h, align_v, distribution),
+        'safeArea': safe_area, 'statusBar': status_bar, 'scrollable': scrollable,
+        'progressBar': {'enabled': progress_bar}, 'statusBarTheme': status_bar_theme,
+    }
+    if fill_ is not None:
+        props['fill'] = fill_
+    if padding is not None:
+        props['padding'] = padding
+    # Product refs and the registry, from the screen just built. Order matters only in that
+    # both read the same bindings: the refs resolve against them and the registry IS them.
+    pairs = screen_products(node_map)
+    product_groups = {gid for gid, g in groups.items() if g.get('type') == 'product'}
+    _apply_product_refs(node_map, pairs, product_groups)
+
+    out = {'id': screen_id, 'props': props,
+           'elements': {'map': node_map, 'hierarchy': hierarchy},
+           'selectableGroups': [dict(g) for g in selectable_groups]}
+    # Absent, never empty, on a screen that binds no product: the builder reads `products: []`
+    # as a registry it was told is empty, which is not the same claim as no registry.
+    if pairs:
+        out['products'] = [_product_value(pid, offer) for pid, offer in pairs]
+    if caption:
+        out['caption'] = caption
+    return out
+
+
+# `FontWeight` in the published schema, and every weight in every real export is one of these.
+# A CSS NUMBER is the natural thing to write and it is not a weight here: the publish gate takes
+# `weight: 600` and returns `valid: true`, and the render page then throws
+# `Invalid font weight value: 600` and draws "Preview failed to render" — a blank screen whose
+# only explanation is in the browser console. The schema check names the enum, but it is the one
+# gate that is advisory, so the value is refused here where it is written.
+FONT_WEIGHTS = ('thin', 'light', 'regular', 'medium', 'semibold', 'bold')
+
+
+def _typo(entry):
+    """`(id, name, size, weight)`, optionally extended with `lineHeight` and `letterSpacing`.
+
+    `weight` is a NAME from `FONT_WEIGHTS`, never a number.
+
+    Both extras are plain numbers inside `settings`, verified against a real export that carries
+    them on 6 of its 7 presets. Leading is a design lever, not a nicety: at the default the
+    renderer gives a 30pt heading noticeably loose line spacing, and there is nowhere else to
+    set it — a `text` element cannot override what the preset does not carry.
+    """
+    i, n, s, w, *rest = entry
+    if w not in FONT_WEIGHTS:
+        raise ValueError(
+            f'typography {i!r}: weight {w!r} is not a font weight here — use one of '
+            f'{", ".join(FONT_WEIGHTS)}. A CSS number passes `flows config validate` and then '
+            f'kills the render with "Invalid font weight value", which draws as a blank screen.')
+    settings = {'size': s, 'weight': w}
+    if len(rest) > 0 and rest[0] is not None:
+        settings['lineHeight'] = rest[0]
+    if len(rest) > 1 and rest[1] is not None:
+        settings['letterSpacing'] = rest[1]
+    return {'id': i, 'name': n, 'settings': settings}
+
+
+def flow_product_id(screen_id, product_id, offer_id=None):
+    """The builder's `flowProductId` for one Product + optional Offer pair on one screen.
+
+    An RFC-4122 v5 UUID over the UTF-8 bytes of `screenId:productId[:offerId]`, with an EMPTY
+    namespace -- a zero-LENGTH prefix, not sixteen zero bytes. So do not reach for
+
+        uuid.uuid5(uuid.UUID(int=0), name)   # prefixes 16 zero bytes, returns a different id
+
+    which is why this hashes by hand. Pass `offer_id` whenever the binding has one: it is part of
+    the hash, so the same product with and without an offer are two different ids.
+
+    Matches how the builder mints it (a code path the builder marks frozen):
+
+        getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}`)
+
+    Nine vectors from real builder output are pinned in `tests/test-flowkit.py` -- run it if you
+    touch this.
+    """
+    name = f'{screen_id}:{product_id}:{offer_id}' if offer_id else f'{screen_id}:{product_id}'
+    digest = bytearray(hashlib.sha1(name.encode('utf-8')).digest()[:16])
+    digest[6] = (digest[6] & 0x0F) | 0x50   # version 5
+    digest[8] = (digest[8] & 0x3F) | 0x80   # RFC-4122 variant
+    return str(uuid.UUID(bytes=bytes(digest)))
+
+
+def predeclare(screen_id, products):
+    """The `_meta.screens` declaration for a NEW flow, so it previews on a device immediately
+    instead of only after the builder has saved it.
+
+    Why this exists: the transform service (which device preview and publish run, and
+    `config update` does not) rejects a bound product with no declaration --
+    `missing_flow_product_id` -- and every price variable pointing at it with
+    `unknown_product_id`. Without a declaration the first successful device preview comes only
+    after someone opens the flow in the builder and saves it. "Publish it to preview it" is not
+    a workflow you can hand a user.
+
+    Pass `products` as exact Product + optional Offer pairs: each item is either a bare product id
+    or a `(product_id, offer_id)` tuple.
+
+        predeclare('scr_x', ['annual', ('annual', 'trial')])
+
+    The emitted ids are the ones the builder mints, so a draft carrying them previews on a real
+    device with no publish and no builder visit, and the builder's next save rewrites them to the
+    same values. Entry key order matches the builder's: `id`, `offerId` when there is one, then
+    `flowProductId`.
+
+    When REWRITING a flow, carry the live `_meta.screens` forward instead of calling this. A live
+    declaration can hold pairs your rewrite does not know about -- component-owned bindings among
+    them -- and regenerating drops them.
+    """
+    entries = []
+    for item in products:
+        pid, offer_id = item if isinstance(item, (tuple, list)) else (item, None)
+        entry = {'id': pid}
+        if offer_id:
+            entry['offerId'] = offer_id
+        entry['flowProductId'] = flow_product_id(screen_id, pid, offer_id)
+        entries.append(entry)
+    return {screen_id: {'products': entries}}
+
+
+def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'English'),),
+           default_locale='en', variables=(), components=None, meta_screens=None):
+    """The document.
+
+    `_meta.icons` is DERIVED, not authored: every icon the tree uses is declared here from the
+    trusted markup in `icons.py`. Used-here-declared-there is a two-place binding whose second
+    place is invisible to every gate this skill can run, which is exactly what this module exists
+    to make unrepresentable. Pass `icons=` only for an entry that cannot be derived — a custom
+    icon of your own; an explicit entry wins over a derived one.
+
+    `_meta.screens` defaults to EMPTY, which is correct when rewriting a flow -- it is
+    builder-owned bookkeeping and you should merge the live value in rather than inventing one.
+    For a NEW flow, pass `meta_screens=predeclare(screen_id, [product_ids])` so it previews on a
+    device without being published first.
+    """
+    declared = [c for c, _ in locales]
+    written = set()
+
+    def _codes(o):
+        if isinstance(o, dict):
+            if o.get('_localizable') and isinstance(o.get('values'), dict):
+                written.update(o['values'])
+            for v in o.values():
+                _codes(v)
+        elif isinstance(o, list):
+            for v in o:
+                _codes(v)
+
+    _codes(list(screens))
+    _codes(components if components is not None else {})
+    stray = sorted(written - set(declared))
+    if stray:
+        raise ValueError(
+            f'locale value(s) written for {", ".join(stray)} but only {declared} declared. '
+            'A value under an undeclared code renders nowhere. You wrote it, so declare it: '
+            'pass locales=(("en", "English"), ("ru", "Russian"), …) — do not ship it as a '
+            'warning for someone else to clear up.')
+
+    # The locale code is what the SDK matches against, and its pattern is case-sensitive per
+    # subtag: `language[-Script][-REGION]`, script four letters in Title case, region two
+    # uppercase letters or three digits. `pt-br` saves fine and is refused at publish with an
+    # output-schema violation on `/localizations/N/id`, and the repair is heavy by then (the key
+    # has to be renamed in `locales`, in every `values` map, and in `remote_configs`) -- so it is
+    # unrepresentable here rather than a warning after the fact. `verify-config.py` warns on the
+    # same shape, for codes that arrive in a config you fetched rather than one you wrote.
+    for code in declared:
+        if not LOCALE_CODE.fullmatch(str(code)):
+            raise ValueError(
+                f'locale code {code!r} is not `language[-Script][-REGION]` with the SDK\'s '
+                f'casing. Region is UPPERCASE (`pt-BR`, not `pt-br`) and a script subtag is '
+                f'four letters in Title case (`zh-Hans`, `sr-Latn`). The transform service '
+                f'refuses the flow at publish with a pattern violation on '
+                f'`/localizations/N/id`.')
+
+    # An element id becomes an IDENTIFIER in the generated runtime script -- the same code path
+    # the condition-variable check below documents. A character outside [A-Za-z0-9_] breaks the
+    # script and the flow draws a BLACK SCREEN on device, with `flows config validate`, the
+    # schema check and `config preview` all green: the preview renders the config, not the
+    # transformer's output. One script per flow, so a reused id collides in it too.
+    #
+    # SCREEN ids are not checked, and that is measured rather than overlooked: 4 of 36 screen
+    # ids in the corpus are bare UUIDs, each the entry screen of a published flow.
+    seen_ids = {}
+    for s_ in screens:
+        for eid in (s_.get('elements') or {}).get('map', {}):
+            if not _IDENT.fullmatch(str(eid)):
+                raise ValueError(
+                    f'element id {eid!r} on screen {s_.get("id")!r} has a character outside '
+                    f'[A-Za-z0-9_]. The id is emitted as an identifier in the generated runtime '
+                    f'script, so this renders a BLACK SCREEN on device while every local gate '
+                    f'stays green. Use `eid()` or an `Ids()` instance.')
+            if eid in seen_ids:
+                raise ValueError(
+                    f'element id {eid!r} is used on both {seen_ids[eid]!r} and '
+                    f'{s_.get("id")!r}. There is one generated script per flow, so the second '
+                    f'declaration collides with the first — use ONE Ids() instance for the '
+                    f'whole document.')
+            seen_ids[eid] = s_.get('id')
+
+    # Same script surface, one tier down: these are the heads of `<customId>.value` and
+    # `<groupId>.selectedOptionId`, and they are the ids an author actually types.
+    for s_ in screens:
+        for g in s_.get('selectableGroups') or []:
+            if g.get('id') and not _IDENT.fullmatch(str(g['id'])):
+                raise ValueError(
+                    f'groupId {g["id"]!r} has a character outside [A-Za-z0-9_]; it is the head '
+                    f'of `{g["id"]}.selectedOptionId` in the generated script.')
+        for eid, e in ((s_.get('elements') or {}).get('map') or {}).items():
+            cid = (e.get('props') or {}).get('customId')
+            if cid and not _IDENT.fullmatch(str(cid)):
+                raise ValueError(
+                    f'customId {cid!r} on {eid} has a character outside [A-Za-z0-9_]; it is the '
+                    f'head of `{cid}.value` in the generated script.')
+    for v in variables:
+        vid = v.get('id') if isinstance(v, dict) else None
+        if vid and not _IDENT.fullmatch(str(vid)):
+            raise ValueError(f'variable id {vid!r} has a character outside [A-Za-z0-9_]; it is '
+                             f'emitted as an identifier in the generated script.')
+
+    # Every condition variable must resolve to something this document produces. An id that
+    # resolves to nothing is not dropped: the code generator emits it as a BARE IDENTIFIER into
+    # the generated TypeScript, which then fails to compile — `script_type_violation`,
+    # `TS2304: Cannot find name 'email'`, the 4th most common transformer refusal in the 40 days
+    # to 2026-08-28 (253 failed requests). It is checked here rather than in `when()` because
+    # only the whole document knows what produces what.
+    #
+    # The same id in RICH TEXT is a different severity and is deliberately left alone: an
+    # unresolved variable there renders as its literal token, which is wrong but publishes.
+    # In a condition it is compiled, so it is fatal.
+    INPUT_TYPES = ('text-input', 'email-input', 'password-input', 'number-input',
+                   'phone-input', 'date-picker', 'time-picker', 'date-time-picker')
+    produced, group_ids, product_ids = set(), set(), set()
+    for s in screens:
+        for e in s.get('elements', {}).get('map', {}).values():
+            p = e.get('props') or {}
+            if e.get('type') in INPUT_TYPES and p.get('customId'):
+                produced.add(p['customId'])
+            if p.get('customId'):
+                produced.add(p['customId'])
+            if isinstance(p.get('product'), dict) and p['product'].get('id'):
+                product_ids.add(p['product']['id'])
+        for g in s.get('selectableGroups') or []:
+            group_ids.add(g['id'])
+    custom_vars = {v['id'] for v in variables if isinstance(v, dict) and v.get('id')}
+
+    # Two inputs answering to one customId make `<id>.value` ambiguous: the codegen emits one
+    # variable name for both, so whichever is declared second silently wins and a gate reads a
+    # field the user is not looking at. No gate downstream sees this -- the document is
+    # perfectly well-formed.
+    dupes, seen_cids = set(), set()
+    for s in screens:
+        for e in s.get('elements', {}).get('map', {}).values():
+            cid = (e.get('props') or {}).get('customId')
+            if cid and e.get('type') in INPUT_TYPES:
+                if cid in seen_cids:
+                    dupes.add(cid)
+                seen_cids.add(cid)
+    if dupes:
+        raise ValueError(
+            f'customId {sorted(dupes)} is on more than one input element. `<customId>.value` '
+            f'is one variable, so the fields collide and a condition reads whichever the '
+            f'generator emitted last — give each input its own id.')
+
+    unresolved = set()
+    for s in screens:
+        for e in s.get('elements', {}).get('map', {}).values():
+            trees = []
+            vis = (e.get('props') or {}).get('visibility')
+            if isinstance(vis, dict) and vis.get('type') == 'conditional' and vis.get('condition'):
+                trees.append(vis['condition'])
+            for st in e.get('states') or []:
+                if isinstance(st, dict) and st.get('condition'):
+                    trees.append(st['condition'])
+            # A conditional-text `switch` (switch_rich) is COMPILED, not rendered, so an
+            # unresolved id there is fatal exactly like a visibility condition -- measured
+            # against the live service: `valid: false`, "Generated scripts failed
+            # validation", with `code` and `path` both null, so the refusal names neither the
+            # element nor the variable. This is the opposite severity from a `variable` SPAN in
+            # rich text, which renders its literal token and publishes; the two shapes sit in
+            # the same `props.content` and only this one compiles.
+            for prop in (e.get('props') or {}).values():
+                if not (isinstance(prop, dict) and prop.get('_localizable')):
+                    continue
+                for lv in (prop.get('values') or {}).values():
+                    if isinstance(lv, dict) and lv.get('type') == 'switch':
+                        trees.append(lv)
+            for tree in trees:
+                for vid in _condition_var_ids(tree, set()):
+                    head = vid.split('.')[0]
+                    if (vid in custom_vars or head in produced or head in group_ids
+                            or head in product_ids):
+                        continue
+                    unresolved.add(vid)
+    if unresolved:
+        raise ValueError(
+            f'condition variable(s) {sorted(unresolved)} resolve to nothing in this document. '
+            f'The generated script emits an unresolved id as a bare identifier and fails to '
+            f'compile (script_type_violation, TS2304 "Cannot find name"). Produce it — an input '
+            f'element with that customId, a selectableGroup with that id, a bound product — or '
+            f'declare it in variables=(...).')
+
+    meta_icons = _resolve_icons(screens, components, icons)
+
+    doc = {
+        'schemaVersion': localization.MIN_SOURCE_VERSION,
+        'locales': [{'id': c, 'code': c, 'name': n} for c, n in locales],
+        'defaultLocale': default_locale,
+        'variables': list(variables),
+        'components': components if components is not None else {},
+        'theme': {
+            'colors': [{'id': i, 'name': n,
+                        'light': {'hex': check_theme_hex(lt, f'colors[{i!r}].light')},
+                        'dark': {'hex': check_theme_hex(dk, f'colors[{i!r}].dark')}}
+                       for i, n, lt, dk in colors],
+            'typography': [_typo(t) for t in typography],
+        },
+        '_meta': {'icons': meta_icons, 'fonts': [],
+                  'screens': dict(meta_screens) if meta_screens else {}},
+        'screens': list(screens),
+    }
+    out, dropped = localization.catalog(doc)
+    if dropped:
+        raise ValueError(
+            'the localization catalog would DROP values you wrote: '
+            + '; '.join(f'{w["path"]}: {w["message"]}' for w in dropped)
+            + ' Give every locale of a conditional text the same cases, in the same order.')
+    return out
+
+
+def _used_icons(screens, components):
+    """Every `(name, weight, type)` the tree actually draws, in first-seen order.
+
+    Walks whole documents rather than element props alone: an icon rides on a `text` element's
+    `leadingIcon` and inside a `component` global just as legitimately as on an `icon` element,
+    and a declaration that covers only the obvious site is the two-place binding failing quietly.
+    """
+    seen, out = set(), []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for key in ('icon', 'leadingIcon'):
+                ic = node.get(key)
+                if isinstance(ic, dict) and isinstance(ic.get('name'), str) and ic['name']:
+                    key3 = (ic['name'], ic.get('weight', 'regular'), ic.get('type', 'phosphor'))
+                    if key3 not in seen:
+                        seen.add(key3)
+                        out.append(key3)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(list(screens))
+    walk(components if components is not None else {})
+    return out
+
+
+def _resolve_icons(screens, components, declared):
+    """`_meta.icons` for what the tree uses, with the author's own entries taking precedence."""
+    entries, by_key = [], {}
+    for entry in declared:
+        if isinstance(entry, str):
+            entry = icons.icon_meta(entry)
+        elif isinstance(entry, tuple):
+            entry = icons.icon_meta(*entry)
+        by_key[(entry['name'], entry.get('weight', 'regular'))] = entry
+        entries.append(entry)
+    for name, weight, kind in _used_icons(screens, components):
+        if (name, weight) in by_key:
+            continue
+        if kind == 'custom':
+            # Any name can be custom as long as an entry carries its markup; the five the
+            # Builder publishes resolve here, and anything else is the author's to supply.
+            try:
+                entry = icons.custom_icon_meta(name)
+            except ValueError as exc:
+                raise ValueError(
+                    f'custom icon {name!r} is used but has no markup to declare — {exc}. Pass '
+                    f'the entry yourself: config(icons=[{{"name": {name!r}, "weight": '
+                    f'"regular", "raw": "<svg…>"}}]).') from None
+        else:
+            entry = icons.icon_meta(name, weight)
+        by_key[(name, weight)] = entry
+        entries.append(entry)
+    return entries

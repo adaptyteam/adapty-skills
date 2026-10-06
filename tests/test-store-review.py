@@ -16,9 +16,11 @@ stay clean when store-review findings are the only ones that fired.
 Usage: python3 tests/test-store-review.py     # 0 all pass, 1 a case regressed
 """
 import copy, glob, json, os, re, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-AUDIT = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
+AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
 FIX = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
@@ -61,7 +63,8 @@ def of(findings, checkname):
 
 def load(path=MULTI):
     doc = json.load(open(path))
-    return doc.get('config', doc)
+    # The read view (refs inlined), which is what audit-flow.py reads; see test-audit-flow.py.
+    return localization.resolve(doc.get('config', doc))
 
 
 def corpus():
@@ -82,7 +85,8 @@ def _section(text, heading):
     if start == -1:
         return ''
     start += len(heading) + 2
-    end = text.find('\n\n\n', start)
+    # A section runs to the next bold heading line.
+    end = text.find('\n**', start)
     return text[start:end if end != -1 else len(text)]
 
 
@@ -148,7 +152,7 @@ try:
     check('degrades to a question when a CATALOGUED product states no period',
           bans and all(f['severity'] == 'question' for f in bans), str(bans))
     check('...and says so, rather than claiming the product is missing',
-          bans and 'states no billing period' in bans[0]['message'], str(bans))
+          bans and 'no billing period set' in bans[0]['message'], str(bans))
 finally:
     os.unlink(NOPERIOD_CAT)
 
@@ -178,7 +182,7 @@ check('...naming the id rather than claiming a catalog entry it does not have',
       bans and GHOST in bans[0]['message']
       and 'catalog entry' not in bans[0]['message'], str(bans))
 check('...and says it is bound nowhere, which is the actionable half',
-      bans and 'not bound anywhere' in bans[0]['message'], str(bans))
+      bans and 'not sold anywhere in this flow' in bans[0]['message'], str(bans))
 check('...while no product-not-in-catalog blocker covers it (that check walks bound '
       'products, so this id is invisible to it)',
       not any(GHOST in f['message'] for f in of(findings, 'product-not-in-catalog')),
@@ -245,7 +249,7 @@ try:
     check('...as a risk', all(f['severity'] == 'risk' for f in of(findings, 'derived-price-louder')))
     check('...and the message names the SIZE difference, with both numbers',
           of(findings, 'derived-price-louder')
-          and 'set larger than the billed amount (13pt against 9pt)'
+          and 'is bigger than the billed amount (13 pt against 9 pt)'
           in of(findings, 'derived-price-louder')[0]['message'],
           str(of(findings, 'derived-price-louder')))
 
@@ -279,10 +283,10 @@ try:
     dpl = of(findings, 'derived-price-louder')
     check('fires on a weight-only difference at equal size', len(dpl) == 1, str(dpl))
     check('...and the message names the WEIGHT, not two identical point sizes',
-          dpl and 'set in a heavier weight than the billed amount, both at 13pt'
+          dpl and 'is bolder than the billed amount, both at 13 pt'
           in dpl[0]['message'], str(dpl))
     check('...and never claims it is larger when the sizes match',
-          dpl and 'larger' not in dpl[0]['message'], str(dpl))
+          dpl and 'bigger' not in dpl[0]['message'], str(dpl))
 
     # SILENT, but discriminating this time: the mutation pair's other half. Same
     # fixture, same catalog, same two elements as `louder` above -- only now the
@@ -344,7 +348,8 @@ rc, findings = run(doc)
 tt = of(findings, 'trial-toggle')
 check('fires on the catalog trial-toggle shape', len(tt) == 1, str(tt))
 check('...as a risk, never a blocker', tt and all(f['severity'] == 'risk' for f in tt), str(tt))
-check('...naming the January 2026 wave', tt and '2026' in tt[0]['message'], str(tt))
+check('...saying Apple has been rejecting it', tt and 'rejecting' in tt[0]['message'],
+      str(tt))
 
 # SILENT under --stores android: the wave is iOS-only. Android and web were unaffected.
 rc, findings = run(doc, stores='android')
@@ -426,8 +431,8 @@ for path in corpus():
           str(of(findings, 'no-period-disclosed')))
 
 # tabs-paywall.json's scr_RvSel001 is a real, shipped card-tier subscription screen
-# (Revolut Metal/Premium/Standard). Its full text dump was read directly: "Metal",
-# "Premium metal card", every feature row, "Get Metal" / "Get Premium" / "Get Standard
+# (three tiers: Plus/Premium/Standard). Its full text dump was read directly: "Plus",
+# "Premium card", every feature row, "Get Plus" / "Get Premium" / "Get Standard
 # on us", "Terms", "Restore", "Privacy" -- no period word ("month", "year", "annual",
 # "/mo", "/yr", ...) appears anywhere on the screen. This is a TRUE finding, not a
 # defect in the check: a real screen selling recurring subscriptions with no
@@ -459,8 +464,8 @@ rc, findings = run(stripped)
 npd = of(findings, 'no-period-disclosed')
 check('fires when no period is stated anywhere on a selling screen', len(npd) >= 1, str(npd))
 check('...as a risk', npd and all(f['severity'] == 'risk' for f in npd))
-check('...citing the length requirement',
-      npd and 'length' in npd[0]['fix'].lower(), str(npd))
+check('...asking for the billing period in the text',
+      npd and 'billing period' in npd[0]['fix'], str(npd))
 
 # ONE finding per screen, not one per card -- a screen with four plan cards and no
 # period anywhere is one omission, and four identical rows would bury the report.
@@ -600,28 +605,30 @@ check('a screen with neither period nor trial terms produces both findings',
 # first. Same mechanism as the dead-affordance collapse -- `_collapse_for_report`,
 # report-only, which is why the `--json` assertion above still sees both.
 rc, bare_out = run(bare, report=True)
-bare_store = _section(bare_out, 'STORE REVIEW — ADVISORY')
+bare_store = _section(bare_out, "**Store review (advisory, doesn't block publishing)**")
 bare_rows = [l for l in bare_store.splitlines() if re.match(r'^\d+\. ', l)]
 check('the report collapses the two disclosure findings into one row',
       len(bare_rows) == 1, str(bare_rows))
 check('...and that one row names BOTH gaps, so nothing is dropped by merging',
-      bare_rows and 'how often the subscription bills' in bare_rows[0]
+      bare_rows and 'how often it bills' in bare_rows[0]
       and 'when the trial ends' in bare_rows[0], str(bare_rows))
 check('...and neither original message survives alongside it',
-      'A user sees a price and a button' not in bare_store
-      and 'never says what happens when it ends' not in bare_store, bare_store)
-bare_nxt = (bare_out.split('WHAT TO DO NEXT', 1)[1]
-            if 'WHAT TO DO NEXT' in bare_out else '')
-check('...and the merged row is still routed in WHAT TO DO NEXT, exactly once',
-      bare_nxt.count('State both next to the offer') == 1, bare_nxt[:600])
+      'never says how often they will be billed' not in bare_store
+      and 'does not say what happens when it' not in bare_store, bare_store)
+bare_nxt = (bare_out.split('**What happens next**', 1)[1]
+            if '**What happens next**' in bare_out else '')
+_merged_num = (re.match(r'^(\d+)\. ', bare_rows[0]).group(1) if bare_rows else None)
+check('...and the merged row is still routed in What happens next, by its number',
+      bool(_merged_num) and re.search(rf'\b{_merged_num}\b', bare_nxt) is not None
+      and bare_out.count('Say both next to the offer') == 1, bare_nxt[:600])
 
 # The collapse requires BOTH halves on the same screen: a screen firing only
 # `no-period-disclosed` keeps its own row, unmerged. `tabs-paywall.json` is the real
 # export that fires exactly that one (see the FIRES case in task 4).
 rc, tabs_out = run(os.path.join(FIX, 'tabs-paywall.json'), report=True)
-tabs_store = _section(tabs_out, 'STORE REVIEW — ADVISORY')
+tabs_store = _section(tabs_out, "**Store review (advisory, doesn't block publishing)**")
 check('a screen firing only no-period-disclosed keeps its own unmerged row',
-      'nothing on this selling screen states how often' in tabs_store, tabs_store)
+      'never says how often they will be billed' in tabs_store, tabs_store)
 
 print('task 6 — external purchase link')
 
@@ -752,9 +759,9 @@ STORE_REVIEW_CHECK_NAMES = {
 # A flow whose ONLY findings are store-review ones must still read READY.
 rc, out = run(MULTI, report=True)
 rc, findings = run(MULTI)
-check('the store-review section is printed', 'STORE REVIEW — ADVISORY' in out, out[:400])
-check('the disclaimer is printed verbatim',
-      'not guarantee' in out or 'not a guarantee' in out, out[:400])
+check('the store-review section is printed', "**Store review (advisory, doesn't block publishing)**" in out, out[:400])
+check('the section heading itself says it does not block publishing',
+      "advisory, doesn't block publishing" in out, out[:400])
 
 # Fix round 1: the previous form of this check (`out.index('STORE REVIEW') >
 # out.index('BLOCKERS')`) only proved ORDER -- it would hold even if a store-review
@@ -769,7 +776,7 @@ check('MULTI has at least one store-review finding to check placement for -- the
       'guard that stops the next assertion passing on an empty list',
       bool(store_msgs), str(findings))
 check("no store-review finding's message is printed a second time inside RISKS",
-      bool(store_msgs) and all(m not in _section(out, 'RISKS') for m in store_msgs),
+      bool(store_msgs) and all(m not in _section(out, '**Worth fixing**') for m in store_msgs),
       str(findings))
 
 # Numbering continues into the section rather than restarting.
@@ -902,14 +909,15 @@ check('...and includes a QUESTION-severity finding -- a risk-only config cannot 
       any(f['severity'] == 'question' for f in so_findings), str(so_findings))
 
 rc, so_out = run(store_only_config, stores='ios', report=True)
-check('a store-review-only flow still reads READY FOR PRODUCTION',
-      'READY FOR PRODUCTION' in so_out and 'NOT READY' not in so_out, so_out[:400])
-check('...and is not downgraded to READY, PENDING', 'PENDING' not in so_out, so_out[:400])
+check('a store-review-only flow still reads "Ready to publish"',
+      so_out.startswith('**Ready to publish.**'), so_out[:400])
+check('...and is not downgraded to "Almost ready"', 'Almost ready' not in so_out,
+      so_out[:400])
 check('...and exits 0', rc == 0, f'rc={rc}')
-check('...and the STORE REVIEW — ADVISORY section is present with at least one '
+check('...and the store-review section is present with at least one '
       'finding in it -- the conjunct that stops this passing on a report with '
       'nothing in it at all',
-      'STORE REVIEW — ADVISORY' in so_out and '1. ' in so_out.split('STORE REVIEW', 1)[1],
+      "**Store review (advisory, doesn't block publishing)**" in so_out and '1. ' in so_out.split('**Store review', 1)[1],
       so_out)
 
 # Fix round 1: the previous discriminator here (`'storefront' not in
@@ -923,61 +931,68 @@ check('...and the STORE REVIEW — ADVISORY section is present with at least one
 # `question` (`external-purchase-link`) is a store-review check and therefore (per
 # `VERDICT_CONDITIONAL`, which names none of the six) can never produce an Answer
 # line -- so `'Answer these'` must be absent from this report outright.
-so_nxt = so_out.split('WHAT TO DO NEXT', 1)[1] if 'WHAT TO DO NEXT' in so_out else ''
+so_nxt = (so_out.split('**What happens next**', 1)[1]
+          if '**What happens next**' in so_out else '')
 check('the store-only config has a question-severity finding to test the Answer '
       'group against', bool(so_nxt), so_out)
 check('no store-review finding lands in the Answer group -- its only question is a '
       'store-review check, so "Answer these" must not appear at all',
       bool(so_nxt) and 'Answer these' not in so_nxt, so_nxt[:400])
 
-# Every store-review finding must still be routed by WHAT TO DO NEXT -- the guarantee
-# that no numbered finding is silently dropped from the plan.
-nxt = out.split('WHAT TO DO NEXT', 1)[1] if 'WHAT TO DO NEXT' in out else ''
+# Every store-review finding must still be routed by What happens next -- the
+# guarantee that no numbered finding is silently dropped from the plan. The section
+# points back at numbers, so find each finding's number from its printed row.
+nxt = (out.split('**What happens next**', 1)[1].split('**Check these', 1)[0]
+       if '**What happens next**' in out else '')
+_row_num = {m.group(2)[:40]: m.group(1)
+            for m in re.finditer(r'^(\d+)\. (.*)$', out, re.M)}
 check('MULTI has at least one store-review finding to route -- the guard that stops '
       'this loop passing vacuously if MULTI ever stops firing one',
       any(f['check'] in STORE_REVIEW_CHECK_NAMES for f in findings), str(findings))
 for f in findings:
     if f['check'] in STORE_REVIEW_CHECK_NAMES:
-        check(f'{f["check"]} is routed in WHAT TO DO NEXT',
-              f['fix'].rstrip('.')[:40] in nxt, nxt[:400])
+        _n = _row_num.get(f['message'][:40])
+        check(f'{f["check"]} is routed in What happens next',
+              bool(_n) and re.search(rf'\b{_n}\b', nxt) is not None, nxt[:400])
 
-print('task 8 — before you ship')
-bys = out.split('BEFORE YOU SHIP', 1)[1].split('WHAT TO DO NEXT')[0]
-check('names the unapproved-products trap', 'App Store Connect' in bys, bys)
-check('names the metadata link requirement', 'metadata' in bys.lower(), bys)
-check('still names the placement gap', 'placement' in bys, bys)
+print('task 8 — check these yourself')
+# The list prints only once nothing blocks: while there are blockers, it is advice for
+# later that the reader would have to scroll past now. MULTI has blockers.
+check('a flow with blockers holds the check-it-yourself list back',
+      '**Check these yourself' not in out, out[-600:])
 
-# The Play new-account bullet was CUT, not gated. It is about the developer ACCOUNT
-# rather than the flow, the app or the store; it applies only to a first-time PERSONAL
-# account, which excludes nearly every Adapty customer; and it printed on every audit
-# forever. Asserted as an absence so nobody re-adds it from the guideline text.
+# `store_only_config` has no blockers, binds a product and sells: the list's home case.
+rc, so_default = run(store_only_config, report=True)
+bys = so_default.split('**Check these yourself', 1)[1] if '**Check these yourself' in so_default else ''
+check('names the unapproved-products trap', 'Ready to Submit' in bys, so_default[-800:])
+check('names the store-listing link requirement', 'App Store listing' in bys, bys)
+check('names the placement check, with where to look',
+      'https://app.adapty.io/placements' in bys, bys)
+
+# The Play new-account bullet was CUT, not gated. It is about the developer ACCOUNT,
+# applies only to a first-time PERSONAL account, and printed on every audit forever.
+# Asserted as an absence so nobody re-adds it from the guideline text.
 check('the Play 12-testers/14-days account bullet is GONE (cut, not gated)',
       '12 testers' not in bys and '14 consecutive' not in bys, bys)
 
-# The remaining reminders are gated, because unverifiable is not the same as always
-# relevant. `vpn-timer-draft.json`: three screens, no bound products, zero findings --
-# measured at 21 report lines before this gate and 16 after, the removed 5 being
-# boilerplate telling a non-selling flow to get its products approved.
+# Gated reminders: a flow that sells nothing is not told to get products approved.
 rc, nosell = run(os.path.join(FIX, 'vpn-timer-draft.json'), catalog=None, report=True)
-nosell_bys = nosell.split('BEFORE YOU SHIP', 1)[1].split('WHAT TO DO NEXT')[0]
+nosell_bys = nosell.split('**Check these yourself', 1)[1] if '**Check these yourself' in nosell else ''
 check('a flow that binds no products gets no App Store Connect products reminder',
-      'products are approved' not in nosell_bys, nosell_bys)
-check('...but still gets the placement reminder, which is unconditional',
-      'placement' in nosell_bys, nosell_bys)
+      'Ready to Submit' not in nosell_bys, nosell)
+check('...but still gets the placement check', 'placements' in nosell_bys, nosell)
 
-# `render(stores=...)` -- the reminders are fixed report text, not findings, so store
-# scoping needs its own route. Measured before: `--stores android` printed both App
-# Store Connect bullets.
-rc, ios_out = run(MULTI, stores='ios', report=True)
-rc, and_out = run(MULTI, stores='android', report=True)
-ios_bys = ios_out.split('BEFORE YOU SHIP', 1)[1].split('WHAT TO DO NEXT')[0]
-and_bys = and_out.split('BEFORE YOU SHIP', 1)[1].split('WHAT TO DO NEXT')[0]
-check('the App Store Connect metadata reminder prints for an iOS app',
-      'metadata' in ios_bys.lower(), ios_bys)
+# Store scoping: the reminders are fixed text, not findings, so they need their own
+# route. Measured before it existed: `--stores android` printed both App Store bullets.
+rc, ios_out = run(store_only_config, stores='ios', report=True)
+rc, and_out = run(store_only_config, stores='android', report=True)
+ios_bys = ios_out.split('**Check these yourself', 1)[1] if '**Check these yourself' in ios_out else ''
+and_bys = and_out.split('**Check these yourself', 1)[1] if '**Check these yourself' in and_out else ''
+check('the App Store listing reminder prints for an iOS app',
+      'App Store listing' in ios_bys, ios_out[-600:])
 check('...and is skipped for an app that does not ship on iOS',
-      'metadata' not in and_bys.lower(), and_bys)
-check('...and still prints when the stores are UNKNOWN (default None keeps the old '
-      'behaviour)', 'metadata' in bys.lower(), bys)
+      'App Store listing' not in and_bys, and_out[-600:])
+check('...and still prints when the stores are UNKNOWN', 'App Store listing' in bys, bys)
 
 if fails:
     print(f'\n{len(fails)} FAILED')

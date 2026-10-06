@@ -24,8 +24,8 @@ Usage: python3 tests/test-fake-carousel.py     # 0 all pass, 1 a case regressed
 import copy, glob, json, os, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
-AUDIT = os.path.join(ROOT, 'skills', 'flow-audit', 'references', 'audit-flow.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
+AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 CAROUSEL = os.path.join(CORPUS, 'reviews-carousel.json')
@@ -213,12 +213,15 @@ def audits(name, doc, expect=True):
     with tempfile.TemporaryDirectory() as tmp:
         p = os.path.join(tmp, 'c.json')
         json.dump(doc, open(p, 'w'))
-        r = subprocess.run([sys.executable, AUDIT, p], capture_output=True, text=True)
+        r = subprocess.run([sys.executable, AUDIT, p, '--json'], capture_output=True,
+                           text=True)
     if 'Traceback' in r.stderr:
         fails.append(f'{name}: audit-flow.py crashed:\n{r.stderr}')
         print(f'  FAIL  {name}')
         return
-    hit = 'frozen slide' in r.stdout or 'swipeable row' in r.stdout
+    # Keyed on the CHECK NAME, never on the message wording: the wording is written
+    # for the person reading the report and is free to change.
+    hit = any(f['check'] == 'fake-carousel' for f in json.loads(r.stdout)['findings'])
     if hit is not expect:
         fails.append(f'{name}: expected fired={expect}, got {hit}')
         print(f'  FAIL  {name}')
@@ -234,6 +237,32 @@ audits('three 300pt cards wider than the screen', fake(keep_slides=3, card_w=300
 audits('a real carousel is NOT flagged', json.load(open(CAROUSEL)), expect=False)
 for _p in sorted(glob.glob(os.path.join(CORPUS, '*.json'))):
     audits(f'silent on {os.path.basename(_p)}', json.load(open(_p)), expect=False)
+
+print('\na step indicator is not a fake slider:')
+def stepper(positions):
+    """One screen per entry in `positions`, each with the same three-marker row and the
+    wide active marker at that index -- Lingua Pro's "Progress dots", screen by screen."""
+    base = fake([dot(0), dot(1), dot(2)])
+    screens = []
+    for k, pos in enumerate(positions):
+        row = [dot(i, w=26 if i == pos else 8, h=4, r=999) for i in range(3)]
+        doc = fake(row)
+        blob = json.dumps(doc['screens'][0]).replace('"el_', f'"el_s{k}')
+        scr = json.loads(blob)
+        scr['id'] = f'scr_step{k}'
+        scr['caption'] = f'Step {k + 1}'
+        screens.append(scr)
+    base['screens'] = screens
+    return base
+
+silent('a row whose active marker moves across three screens (a step indicator)',
+       stepper([0, 1, 2]))
+audits('...and flow-audit agrees', stepper([0, 1, 2]), expect=False)
+fires('the same row copied unchanged onto two screens still fires (a copied fake slider)',
+      stepper([0, 0]), FAKE)
+audits('...and flow-audit agrees', stepper([0, 0]))
+fires('one screen with an active pill still fires (nothing to compare it with)',
+      stepper([1]), FAKE)
 
 print()
 if fails:

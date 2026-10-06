@@ -8,13 +8,15 @@
           "id": "el_KWdWDGK9md",
           "type": "progress-bar-loader",
           "props": {
-            "fill": {
-              "type": "color",
-              "color": {
-                "type": "color-style",
-                "colorId": "gray-200"
+            "fill": [
+              {
+                "type": "color",
+                "color": {
+                  "type": "color-style",
+                  "colorId": "gray-200"
+                }
               }
-            },
+            ],
             "color": {
               "type": "color-style",
               "colorId": "accent"
@@ -43,36 +45,38 @@
           "id": "el_P6zW0Xfzjx",
           "type": "progress-bar",
           "props": {
-            "fill": {
-              "type": "image",
-              "angle": 45,
-              "color": {
-                "hex": "#FFFFFF",
-                "type": "hex"
-              },
-              "image": {
-                "id": "900000",
-                "url": "https://example.invalid/fixture-asset-1.png"
-              },
-              "stops": [
-                {
-                  "color": {
-                    "hex": "#f0f0f0",
-                    "type": "hex",
-                    "opacity": 100
-                  },
-                  "position": 0
+            "fill": [
+              {
+                "type": "image",
+                "angle": 45,
+                "color": {
+                  "hex": "#FFFFFF",
+                  "type": "hex"
                 },
-                {
-                  "color": {
-                    "hex": "#BFBFBF",
-                    "type": "hex",
-                    "opacity": 100
+                "image": {
+                  "id": "900000",
+                  "url": "https://example.invalid/fixture-asset-1.png"
+                },
+                "stops": [
+                  {
+                    "color": {
+                      "hex": "#f0f0f0",
+                      "type": "hex",
+                      "opacity": 100
+                    },
+                    "position": 0
                   },
-                  "position": 1
-                }
-              ]
-            },
+                  {
+                    "color": {
+                      "hex": "#BFBFBF",
+                      "type": "hex",
+                      "opacity": 100
+                    },
+                    "position": 1
+                  }
+                ]
+              }
+            ],
             "type": "single-segment",
             "width": {
               "type": "fill"
@@ -182,36 +186,38 @@
           "right": 12,
           "bottom": 12
         },
-        "fill": {
-          "type": "image",
-          "angle": 45,
-          "color": {
-            "hex": "#FFFFFF",
-            "type": "hex"
-          },
-          "image": {
-            "id": "900000",
-            "url": "https://example.invalid/fixture-asset-1.png"
-          },
-          "stops": [
-            {
-              "color": {
-                "hex": "#f0f0f0",
-                "type": "hex",
-                "opacity": 100
-              },
-              "position": 0
+        "fill": [
+          {
+            "type": "image",
+            "angle": 45,
+            "color": {
+              "hex": "#FFFFFF",
+              "type": "hex"
             },
-            {
-              "color": {
-                "hex": "#BFBFBF",
-                "type": "hex",
-                "opacity": 100
+            "image": {
+              "id": "900000",
+              "url": "https://example.invalid/fixture-asset-1.png"
+            },
+            "stops": [
+              {
+                "color": {
+                  "hex": "#f0f0f0",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 0
               },
-              "position": 1
-            }
-          ]
-        },
+              {
+                "color": {
+                  "hex": "#BFBFBF",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 1
+              }
+            ]
+          }
+        ],
         "layout": {
           "alignH": "center",
           "alignV": "start",
@@ -248,26 +254,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Exclusive events",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_0"
               },
               "position": {
                 "type": "relative"
@@ -327,13 +314,15 @@
             "id": "el_BmIBa16w7n",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "hex": "#FFFFFFD9",
-                  "type": "hex"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "hex": "#FFFFFFD9",
+                    "type": "hex"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -426,26 +415,7 @@
                 "bottom": 4
               },
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Your music, elevated",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_1"
               },
               "position": {
                 "type": "relative"
@@ -474,7 +444,9 @@
                 "type": "hug"
               },
               "layout": "auto-height",
-              "content": "Next",
+              "content": {
+                "_lid": "lc_2"
+              },
               "position": {
                 "type": "relative"
               },
@@ -487,13 +459,15 @@
             "id": "el_SlmszwhDgp",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "hex": "#FFFFFFD9",
-                  "type": "hex"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "hex": "#FFFFFFD9",
+                    "type": "hex"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -539,13 +513,15 @@
             "id": "el_T7YEjUuhmn",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "hex": "#FFFFFFD9",
-                  "type": "hex"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "hex": "#FFFFFFD9",
+                    "type": "hex"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -636,26 +612,28 @@
             "id": "el_XKEBYBDCuP",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "gradient",
-                "angle": 135,
-                "stops": [
-                  {
-                    "color": {
-                      "hex": "#6C63FF",
-                      "type": "hex"
+              "fill": [
+                {
+                  "type": "gradient",
+                  "angle": 135,
+                  "stops": [
+                    {
+                      "color": {
+                        "hex": "#6C63FF",
+                        "type": "hex"
+                      },
+                      "position": 0
                     },
-                    "position": 0
-                  },
-                  {
-                    "color": {
-                      "hex": "#9B59B6",
-                      "type": "hex"
-                    },
-                    "position": 1
-                  }
-                ]
-              },
+                    {
+                      "color": {
+                        "hex": "#9B59B6",
+                        "type": "hex"
+                      },
+                      "position": 1
+                    }
+                  ]
+                }
+              ],
               "width": {
                 "type": "fill"
               },
@@ -820,26 +798,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Listen without interruptions",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_3"
               },
               "position": {
                 "type": "relative"
@@ -853,13 +812,15 @@
             "id": "el_fcXG0yUoiX",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "hex": "#FFFFFFD9",
-                  "type": "hex"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "hex": "#FFFFFFD9",
+                    "type": "hex"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -921,26 +882,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Ad-free",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_4"
               },
               "position": {
                 "type": "relative"
@@ -1040,26 +982,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Studio-quality audio up to 24-bit/192 kHz",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_5"
               },
               "position": {
                 "type": "relative"
@@ -1109,26 +1032,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Hear new releases before anyone else",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_6"
               },
               "position": {
                 "type": "relative"
@@ -1158,26 +1062,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Early access",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_7"
               },
               "position": {
                 "type": "relative"
@@ -1207,26 +1092,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Lossless & Hi-Res",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_8"
               },
               "position": {
                 "type": "relative"
@@ -1241,13 +1107,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900001",
-                    "url": "https://example.invalid/fixture-asset-5.jpeg"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_9"
               },
               "width": {
                 "type": "fill"
@@ -1295,26 +1155,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Concert presales and artist Q&As",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_10"
               },
               "position": {
                 "type": "relative"
@@ -1475,7 +1316,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_oAPBHPa7",
@@ -1489,36 +1331,38 @@
           "right": 12,
           "bottom": 12
         },
-        "fill": {
-          "type": "image",
-          "angle": 45,
-          "color": {
-            "hex": "#FFFFFF",
-            "type": "hex"
-          },
-          "image": {
-            "id": "900000",
-            "url": "https://example.invalid/fixture-asset-1.png"
-          },
-          "stops": [
-            {
-              "color": {
-                "hex": "#f0f0f0",
-                "type": "hex",
-                "opacity": 100
-              },
-              "position": 0
+        "fill": [
+          {
+            "type": "image",
+            "angle": 45,
+            "color": {
+              "hex": "#FFFFFF",
+              "type": "hex"
             },
-            {
-              "color": {
-                "hex": "#BFBFBF",
-                "type": "hex",
-                "opacity": 100
+            "image": {
+              "id": "900000",
+              "url": "https://example.invalid/fixture-asset-1.png"
+            },
+            "stops": [
+              {
+                "color": {
+                  "hex": "#f0f0f0",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 0
               },
-              "position": 1
-            }
-          ]
-        },
+              {
+                "color": {
+                  "hex": "#BFBFBF",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 1
+              }
+            ]
+          }
+        ],
         "layout": {
           "alignH": "start",
           "alignV": "start",
@@ -1535,13 +1379,15 @@
             "id": "el_0tS7XBBROs",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fixed",
                 "value": 24
@@ -1581,13 +1427,15 @@
             "caption": "Checkbox",
             "propsByState": {
               "selected": {
-                "fill": {
-                  "type": "color",
-                  "color": {
-                    "type": "color-style",
-                    "colorId": "gray-800"
+                "fill": [
+                  {
+                    "type": "color",
+                    "color": {
+                      "type": "color-style",
+                      "colorId": "gray-800"
+                    }
                   }
-                },
+                ],
                 "border": {
                   "color": {
                     "type": "color-style",
@@ -1644,13 +1492,15 @@
             "id": "el_7xR3X1HUGD",
             "type": "selectable",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -1736,26 +1586,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Rap",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_11"
               },
               "position": {
                 "type": "relative"
@@ -1811,7 +1642,9 @@
                 "type": "hug"
               },
               "layout": "auto-height",
-              "content": "Next",
+              "content": {
+                "_lid": "lc_12"
+              },
               "position": {
                 "type": "relative"
               },
@@ -1824,13 +1657,15 @@
             "id": "el_MNAYinLoBf",
             "type": "selectable",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -1918,13 +1753,15 @@
             "id": "el_S549a7b2KM",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fixed",
                 "value": 24
@@ -1964,13 +1801,15 @@
             "caption": "Checkbox",
             "propsByState": {
               "selected": {
-                "fill": {
-                  "type": "color",
-                  "color": {
-                    "type": "color-style",
-                    "colorId": "gray-800"
+                "fill": [
+                  {
+                    "type": "color",
+                    "color": {
+                      "type": "color-style",
+                      "colorId": "gray-800"
+                    }
                   }
-                },
+                ],
                 "border": {
                   "color": {
                     "type": "color-style",
@@ -2003,26 +1842,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "What do you like more?",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_13"
               },
               "position": {
                 "type": "relative"
@@ -2036,13 +1856,15 @@
             "id": "el_TyXZ9eIxZo",
             "type": "selectable",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "gray-700"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "gray-700"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -2190,26 +2012,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Let's get to know you",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_14"
               },
               "position": {
                 "type": "relative"
@@ -2265,26 +2068,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Answer a few questions to personalize your experience with our app",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_15"
               },
               "position": {
                 "type": "relative"
@@ -2348,14 +2132,16 @@
             "id": "el_iQi8QWgbOM",
             "type": "text-input",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "hex": "#ffffff",
-                  "type": "hex",
-                  "opacity": 100
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "hex": "#ffffff",
+                    "type": "hex",
+                    "opacity": 100
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -2382,10 +2168,7 @@
                 "type": "relative"
               },
               "placeholder": {
-                "values": {
-                  "en": "Your name"
-                },
-                "_localizable": true
+                "_lid": "lc_16"
               },
               "borderRadius": {
                 "bl": 12,
@@ -2488,26 +2271,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Rock",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_17"
               },
               "position": {
                 "type": "relative"
@@ -2558,26 +2322,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "What's your name?",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_18"
               },
               "position": {
                 "type": "relative"
@@ -2713,7 +2458,8 @@
           "id": "quiz",
           "type": "single_choice"
         }
-      ]
+      ],
+      "products": []
     },
     {
       "id": "scr_03lOfpai",
@@ -2727,36 +2473,38 @@
           "right": 12,
           "bottom": 12
         },
-        "fill": {
-          "type": "image",
-          "angle": 45,
-          "color": {
-            "hex": "#FFFFFF",
-            "type": "hex"
-          },
-          "image": {
-            "id": "900000",
-            "url": "https://example.invalid/fixture-asset-1.png"
-          },
-          "stops": [
-            {
-              "color": {
-                "hex": "#f0f0f0",
-                "type": "hex",
-                "opacity": 100
-              },
-              "position": 0
+        "fill": [
+          {
+            "type": "image",
+            "angle": 45,
+            "color": {
+              "hex": "#FFFFFF",
+              "type": "hex"
             },
-            {
-              "color": {
-                "hex": "#BFBFBF",
-                "type": "hex",
-                "opacity": 100
+            "image": {
+              "id": "900000",
+              "url": "https://example.invalid/fixture-asset-1.png"
+            },
+            "stops": [
+              {
+                "color": {
+                  "hex": "#f0f0f0",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 0
               },
-              "position": 1
-            }
-          ]
-        },
+              {
+                "color": {
+                  "hex": "#BFBFBF",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 1
+              }
+            ]
+          }
+        ],
         "layout": {
           "alignH": "center",
           "alignV": "start",
@@ -2799,13 +2547,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900002",
-                    "url": "https://example.invalid/fixture-asset-4.jpeg"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_19"
               },
               "width": {
                 "type": "fill"
@@ -2841,7 +2583,9 @@
                 "type": "hug"
               },
               "layout": "auto-height",
-              "content": "Next",
+              "content": {
+                "_lid": "lc_20"
+              },
               "position": {
                 "type": "relative"
               },
@@ -2897,26 +2641,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Curated journeys through '70s, '80s, '90s rock",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_21"
               },
               "position": {
                 "type": "relative"
@@ -2968,26 +2693,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Get notified when your bands hit the road",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_22"
               },
               "position": {
                 "type": "relative"
@@ -3001,13 +2707,15 @@
             "id": "el_P9W4raTmIO",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "gray-700"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "gray-700"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -3075,26 +2783,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Tour radar",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_23"
               },
               "position": {
                 "type": "relative"
@@ -3177,26 +2866,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Decade dives",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_24"
               },
               "position": {
                 "type": "relative"
@@ -3248,26 +2918,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Deep cuts",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_25"
               },
               "position": {
                 "type": "relative"
@@ -3299,26 +2950,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "B-sides, demos, and rare live takes",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_26"
               },
               "position": {
                 "type": "relative"
@@ -3419,32 +3051,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nice to meet you, ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        },
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "name.value"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_27"
               },
               "position": {
                 "type": "relative"
@@ -3586,7 +3193,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_Lpfvqycr",
@@ -3600,36 +3208,38 @@
           "right": 12,
           "bottom": 12
         },
-        "fill": {
-          "type": "image",
-          "angle": 45,
-          "color": {
-            "hex": "#FFFFFF",
-            "type": "hex"
-          },
-          "image": {
-            "id": "900000",
-            "url": "https://example.invalid/fixture-asset-1.png"
-          },
-          "stops": [
-            {
-              "color": {
-                "hex": "#f0f0f0",
-                "type": "hex",
-                "opacity": 100
-              },
-              "position": 0
+        "fill": [
+          {
+            "type": "image",
+            "angle": 45,
+            "color": {
+              "hex": "#FFFFFF",
+              "type": "hex"
             },
-            {
-              "color": {
-                "hex": "#BFBFBF",
-                "type": "hex",
-                "opacity": 100
+            "image": {
+              "id": "900000",
+              "url": "https://example.invalid/fixture-asset-1.png"
+            },
+            "stops": [
+              {
+                "color": {
+                  "hex": "#f0f0f0",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 0
               },
-              "position": 1
-            }
-          ]
-        },
+              {
+                "color": {
+                  "hex": "#BFBFBF",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 1
+              }
+            ]
+          }
+        ],
         "layout": {
           "alignH": "center",
           "alignV": "start",
@@ -3685,7 +3295,9 @@
                 "type": "hug"
               },
               "layout": "auto-height",
-              "content": "Next",
+              "content": {
+                "_lid": "lc_28"
+              },
               "position": {
                 "type": "relative"
               },
@@ -3799,13 +3411,15 @@
             "id": "el_S3zYA8TzaC",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "gray-700"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "gray-700"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -3873,26 +3487,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Classic and rare mixtapes you can't find elsewhere",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_29"
               },
               "position": {
                 "type": "relative"
@@ -3972,26 +3567,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Annotations and stories behind the bars",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_30"
               },
               "position": {
                 "type": "relative"
@@ -4024,26 +3600,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Daily drops from emerging artists",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_31"
               },
               "position": {
                 "type": "relative"
@@ -4076,26 +3633,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Freestyle radio",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_32"
               },
               "position": {
                 "type": "relative"
@@ -4163,13 +3701,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900003",
-                    "url": "https://example.invalid/fixture-asset-2.jpeg"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_33"
               },
               "width": {
                 "type": "fill"
@@ -4227,32 +3759,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Nice to meet you, ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        },
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "name.value"
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_34"
               },
               "position": {
                 "type": "relative"
@@ -4285,26 +3792,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Mixtape vault",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_35"
               },
               "position": {
                 "type": "relative"
@@ -4363,26 +3851,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Lyric breakdowns",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_36"
               },
               "position": {
                 "type": "relative"
@@ -4479,7 +3948,8 @@
           ]
         }
       },
-      "selectableGroups": []
+      "selectableGroups": [],
+      "products": []
     },
     {
       "id": "scr_QXcVa3FZ",
@@ -4493,36 +3963,38 @@
           "right": 12,
           "bottom": 12
         },
-        "fill": {
-          "type": "image",
-          "angle": 45,
-          "color": {
-            "hex": "#FFFFFF",
-            "type": "hex"
-          },
-          "image": {
-            "id": "900000",
-            "url": "https://example.invalid/fixture-asset-1.png"
-          },
-          "stops": [
-            {
-              "color": {
-                "hex": "#f0f0f0",
-                "type": "hex",
-                "opacity": 100
-              },
-              "position": 0
+        "fill": [
+          {
+            "type": "image",
+            "angle": 45,
+            "color": {
+              "hex": "#FFFFFF",
+              "type": "hex"
             },
-            {
-              "color": {
-                "hex": "#BFBFBF",
-                "type": "hex",
-                "opacity": 100
+            "image": {
+              "id": "900000",
+              "url": "https://example.invalid/fixture-asset-1.png"
+            },
+            "stops": [
+              {
+                "color": {
+                  "hex": "#f0f0f0",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 0
               },
-              "position": 1
-            }
-          ]
-        },
+              {
+                "color": {
+                  "hex": "#BFBFBF",
+                  "type": "hex",
+                  "opacity": 100
+                },
+                "position": 1
+              }
+            ]
+          }
+        ],
         "layout": {
           "alignH": "center",
           "alignV": "start",
@@ -4557,32 +4029,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "7658234e-f95b-474e-bf5c-4b9ae634029e.prod_price_per_month"
-                          }
-                        },
-                        {
-                          "text": "/month",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_37"
               },
               "position": {
                 "type": "relative"
@@ -4614,26 +4061,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Save 75%",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_38"
               },
               "position": {
                 "type": "relative"
@@ -4665,32 +4093,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "8fb58c50-7c05-42f9-a8e3-8d0fde19505a.prod_price_per_year"
-                          }
-                        },
-                        {
-                          "text": "/year",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_39"
               },
               "position": {
                 "type": "relative"
@@ -4730,32 +4133,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "8fb58c50-7c05-42f9-a8e3-8d0fde19505a.prod_price_per_month"
-                          }
-                        },
-                        {
-                          "text": "/month",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_40"
               },
               "position": {
                 "type": "relative"
@@ -4777,13 +4155,15 @@
             "id": "el_8rfwhBiXQL",
             "type": "product",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -4880,13 +4260,15 @@
             "id": "el_BTyjC22KYh",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fixed",
                 "value": 24
@@ -4941,13 +4323,15 @@
             "id": "el_DnQrboHhqE",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "gray-700"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "gray-700"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -5048,13 +4432,15 @@
             "id": "el_I8LQv1PynO",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "gray-800"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "gray-800"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "hug"
               },
@@ -5094,13 +4480,15 @@
             "id": "el_PSQnMd8wx3",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fixed",
                 "value": 24
@@ -5172,7 +4560,9 @@
                 "type": "hug"
               },
               "layout": "auto-height",
-              "content": "Yearly",
+              "content": {
+                "_lid": "lc_41"
+              },
               "position": {
                 "type": "relative"
               },
@@ -5185,13 +4575,15 @@
             "id": "el_RWLmhMxca2",
             "type": "product",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fill"
               },
@@ -5278,26 +4670,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Subscribe",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_42"
               },
               "position": {
                 "type": "relative"
@@ -5331,13 +4704,15 @@
             "id": "el_WaTCB9iWLJ",
             "type": "stack",
             "props": {
-              "fill": {
-                "type": "color",
-                "color": {
-                  "type": "color-style",
-                  "colorId": "white"
+              "fill": [
+                {
+                  "type": "color",
+                  "color": {
+                    "type": "color-style",
+                    "colorId": "white"
+                  }
                 }
-              },
+              ],
               "width": {
                 "type": "fixed",
                 "value": 48
@@ -5410,32 +4785,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "7658234e-f95b-474e-bf5c-4b9ae634029e.prod_price_per_month"
-                          }
-                        },
-                        {
-                          "text": "/month",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_43"
               },
               "position": {
                 "type": "relative"
@@ -5488,13 +4838,15 @@
             "caption": "Dot",
             "propsByState": {
               "selected": {
-                "fill": {
-                  "type": "color",
-                  "color": {
-                    "type": "color-style",
-                    "colorId": "gray-800"
+                "fill": [
+                  {
+                    "type": "color",
+                    "color": {
+                      "type": "color-style",
+                      "colorId": "gray-800"
+                    }
                   }
-                }
+                ]
               }
             }
           },
@@ -5544,7 +4896,9 @@
                 "type": "hug"
               },
               "layout": "auto-height",
-              "content": "Monthly",
+              "content": {
+                "_lid": "lc_44"
+              },
               "position": {
                 "type": "relative"
               },
@@ -5573,26 +4927,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Elevate your music experience right now!",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_45"
               },
               "position": {
                 "type": "relative"
@@ -5636,13 +4971,7 @@
             "type": "image",
             "props": {
               "image": {
-                "values": {
-                  "en": {
-                    "id": "900004",
-                    "url": "https://example.invalid/fixture-asset-3.jpeg"
-                  }
-                },
-                "_localizable": true
+                "_lid": "lc_46"
               },
               "width": {
                 "type": "fill"
@@ -5678,47 +5007,7 @@
               },
               "layout": "auto-height",
               "content": {
-                "values": {
-                  "en": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "text": "Are you ready, ",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "variable",
-                          "attrs": {
-                            "variableId": "name.value"
-                          }
-                        },
-                        {
-                          "text": "?",
-                          "type": "text",
-                          "attrs": {
-                            "bold": false,
-                            "italic": false,
-                            "underline": false,
-                            "strikethrough": false
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "_localizable": true
+                "_lid": "lc_47"
               },
               "position": {
                 "type": "relative"
@@ -5763,13 +5052,15 @@
             "caption": "Dot",
             "propsByState": {
               "selected": {
-                "fill": {
-                  "type": "color",
-                  "color": {
-                    "type": "color-style",
-                    "colorId": "gray-800"
+                "fill": [
+                  {
+                    "type": "color",
+                    "color": {
+                      "type": "color-style",
+                      "colorId": "gray-800"
+                    }
                   }
-                }
+                ]
               }
             }
           }
@@ -5887,17 +5178,17 @@
           "id": "products",
           "type": "product"
         }
+      ],
+      "products": [
+        {
+          "id": "7658234e-f95b-474e-bf5c-4b9ae634029e"
+        },
+        {
+          "id": "8fb58c50-7c05-42f9-a8e3-8d0fde19505a"
+        }
       ]
     }
   ],
-  "locales": [
-    {
-      "id": "en",
-      "code": "en",
-      "name": "English"
-    }
-  ],
-  "defaultLocale": "en",
   "variables": [
     {
       "id": "var_ddvg4jeg",
@@ -6126,5 +5417,994 @@
       }
     }
   },
-  "schemaVersion": 9
+  "schemaVersion": 13,
+  "localization": {
+    "locales": [
+      {
+        "id": "en",
+        "code": "en",
+        "name": "English"
+      }
+    ],
+    "defaultLocale": "en",
+    "content": {
+      "lc_0": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Exclusive events",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_1": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Your music, elevated",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_2": {
+        "kind": "rich-text",
+        "values": {
+          "en": "Next"
+        }
+      },
+      "lc_3": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Listen without interruptions",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_4": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Ad-free",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_5": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Studio-quality audio up to 24-bit/192 kHz",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_6": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Hear new releases before anyone else",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_7": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Early access",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_8": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Lossless & Hi-Res",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_9": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900001",
+            "url": "https://example.invalid/fixture-asset-5.jpeg"
+          }
+        }
+      },
+      "lc_10": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Concert presales and artist Q&As",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_11": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Rap",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_12": {
+        "kind": "rich-text",
+        "values": {
+          "en": "Next"
+        }
+      },
+      "lc_13": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "What do you like more?",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_14": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Let's get to know you",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_15": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Answer a few questions to personalize your experience with our app",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_16": {
+        "kind": "rich-string",
+        "values": {
+          "en": "Your name"
+        }
+      },
+      "lc_17": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Rock",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_18": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "What's your name?",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_19": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900002",
+            "url": "https://example.invalid/fixture-asset-4.jpeg"
+          }
+        }
+      },
+      "lc_20": {
+        "kind": "rich-text",
+        "values": {
+          "en": "Next"
+        }
+      },
+      "lc_21": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Curated journeys through '70s, '80s, '90s rock",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_22": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Get notified when your bands hit the road",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_23": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Tour radar",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_24": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Decade dives",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_25": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Deep cuts",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_26": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "B-sides, demos, and rare live takes",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_27": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nice to meet you, ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                },
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "name.value"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_28": {
+        "kind": "rich-text",
+        "values": {
+          "en": "Next"
+        }
+      },
+      "lc_29": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Classic and rare mixtapes you can't find elsewhere",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_30": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Annotations and stories behind the bars",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_31": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Daily drops from emerging artists",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_32": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Freestyle radio",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_33": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900003",
+            "url": "https://example.invalid/fixture-asset-2.jpeg"
+          }
+        }
+      },
+      "lc_34": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nice to meet you, ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                },
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "name.value"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_35": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Mixtape vault",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_36": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Lyric breakdowns",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_37": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "7658234e-f95b-474e-bf5c-4b9ae634029e.prod_price_per_month",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "7658234e-f95b-474e-bf5c-4b9ae634029e"
+                      },
+                      "field": "prod_price_per_month"
+                    }
+                  }
+                },
+                {
+                  "text": "/month",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_38": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Save 75%",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_39": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "8fb58c50-7c05-42f9-a8e3-8d0fde19505a.prod_price_per_year",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "8fb58c50-7c05-42f9-a8e3-8d0fde19505a"
+                      },
+                      "field": "prod_price_per_year"
+                    }
+                  }
+                },
+                {
+                  "text": "/year",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_40": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "8fb58c50-7c05-42f9-a8e3-8d0fde19505a.prod_price_per_month",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "8fb58c50-7c05-42f9-a8e3-8d0fde19505a"
+                      },
+                      "field": "prod_price_per_month"
+                    }
+                  }
+                },
+                {
+                  "text": "/month",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_41": {
+        "kind": "rich-text",
+        "values": {
+          "en": "Yearly"
+        }
+      },
+      "lc_42": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Subscribe",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_43": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "7658234e-f95b-474e-bf5c-4b9ae634029e.prod_price_per_month",
+                    "productRef": {
+                      "target": {
+                        "kind": "product",
+                        "id": "7658234e-f95b-474e-bf5c-4b9ae634029e"
+                      },
+                      "field": "prod_price_per_month"
+                    }
+                  }
+                },
+                {
+                  "text": "/month",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_44": {
+        "kind": "rich-text",
+        "values": {
+          "en": "Monthly"
+        }
+      },
+      "lc_45": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Elevate your music experience right now!",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "lc_46": {
+        "kind": "image",
+        "values": {
+          "en": {
+            "id": "900004",
+            "url": "https://example.invalid/fixture-asset-3.jpeg"
+          }
+        }
+      },
+      "lc_47": {
+        "kind": "rich-text",
+        "values": {
+          "en": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Are you ready, ",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "variable",
+                  "attrs": {
+                    "variableId": "name.value"
+                  }
+                },
+                {
+                  "text": "?",
+                  "type": "text",
+                  "attrs": {
+                    "bold": false,
+                    "italic": false,
+                    "underline": false,
+                    "strikethrough": false
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
 }

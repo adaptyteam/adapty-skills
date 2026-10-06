@@ -30,9 +30,11 @@ their own case below because both were found by running the originals over real 
 Usage: python3 tests/test-price-literals.py     # 0 all pass, 1 a case regressed
 """
 import glob, json, os, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import catalogued, values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 
@@ -45,11 +47,11 @@ fails = []
 def run(doc, baseline=None):
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, 'c.json')
-        json.dump(doc, open(path, 'w'))
+        json.dump(catalogued(doc), open(path, 'w'))
         cmd = [sys.executable, VERIFY]
         if baseline is not None:
             base = os.path.join(tmp, 'base.json')
-            json.dump(baseline, open(base, 'w'))
+            json.dump(catalogued(baseline), open(base, 'w'))
             cmd += ['--baseline', base]
         result = subprocess.run(cmd + [path], capture_output=True, text=True)
     if 'Traceback' in result.stderr:

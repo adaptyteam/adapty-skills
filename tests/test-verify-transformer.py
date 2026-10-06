@@ -20,9 +20,11 @@ its defect too. So every case asserts a direction:
 Usage: python3 tests/test-verify-transformer.py    # 0 all pass, 1 a case regressed
 """
 import copy, glob, json, os, subprocess, sys, tempfile
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from v13 import values_of  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERIFY = os.path.join(ROOT, 'skills', 'flow-generator', 'references', 'verify-config.py')
+VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 SRC = os.path.join(CORPUS, 'onboarding-quiz-paywall.json')
@@ -107,6 +109,44 @@ fires('condition: a switch case that is not a [predicate, value] pair',
       with_visibility({'type': 'switch', 'cases': [['only-one']]}), '.cases[0]')
 fires('condition: a bare string where an expression belongs',
       with_visibility('email.value'), 'invalid condition expression')
+
+# --- productRef, the structured product reference. The service validates the target itself
+# and names the part it rejected, so the port mirrors its two shapes rather than waving the
+# node through. Both directions: a valid ref must NOT be reported (it is what flowkit now
+# writes, so a false positive here reddens every authored flow).
+silent('productRef: a product target with an offer',
+       with_visibility({'type': 'productRef',
+                        'target': {'kind': 'product', 'id': 'p', 'offerId': 'intro'},
+                        'field': 'offer_price'}))
+silent('productRef: a base binding, offerId omitted',
+       with_visibility({'type': 'productRef', 'target': {'kind': 'product', 'id': 'p'},
+                        'field': 'is_free_trial'}))
+# `is_free_trial` above rather than `prod_price` on purpose: the unattachable-screen check
+# scans the screen's JSON for the substring, so it sees a structured ref as readily as a
+# dotted one. That is the correct behaviour and is worth its own case rather than a footnote
+# in someone's debugging session.
+fires('productRef: a price ref still trips the unattachable-screen check',
+      with_visibility({'type': 'productRef', 'target': {'kind': 'product', 'id': 'p'},
+                       'field': 'prod_price'}),
+      'no `product` element')
+silent('productRef: a selected target, fieldless (identity)',
+       with_visibility({'type': 'productRef', 'target': {'kind': 'selected', 'groupId': 'g'}}))
+fires('productRef: no target',
+      with_visibility({'type': 'productRef', 'field': 'prod_price'}), '.target')
+fires('productRef: unknown target kind',
+      with_visibility({'type': 'productRef', 'target': {'kind': 'group', 'id': 'p'}}),
+      '.target.kind')
+fires('productRef: empty offerId, which is not the base binding',
+      with_visibility({'type': 'productRef',
+                       'target': {'kind': 'product', 'id': 'p', 'offerId': ''}}),
+      'omit the key for a base binding')
+fires('productRef: a groupId on a product target',
+      with_visibility({'type': 'productRef',
+                       'target': {'kind': 'product', 'id': 'p', 'groupId': 'g'}}),
+      'not allowed on this target')
+fires('productRef: a field outside the product vocabulary',
+      with_visibility({'type': 'productRef', 'target': {'kind': 'product', 'id': 'p'},
+                       'field': 'prod_colour'}), 'is not a product variable')
 
 # The three collections whose ABSENCE the service accepts -- a stricter port would fire here.
 silent('condition: `&&` with predicates absent (service accepts)',
@@ -221,8 +261,9 @@ fires('tab group declared something other than single_choice',
 # --- invalid_localized_rich_text
 d = load()
 _s, _eid, _e = first_element(d, lambda e: isinstance((e.get('props') or {}).get('content'), dict))
-_e['props']['content']['values'] = {k: {'oops': True}
-                                    for k in _e['props']['content']['values']}
+_v = values_of(d, _e['props']['content'])
+for k in list(_v):
+    _v[k] = {'oops': True}
 fires('a localizable content value that is neither string, array nor switch',
       d, 'invalid_localized_rich_text')
 
@@ -236,8 +277,9 @@ if len(prods) > 1:
     node = {'type': 'paragraph', 'content': [
         {'type': 'variable', 'variableId': f'{prods[0]}.prod_price'},
         {'type': 'variable', 'variableId': f'{prods[1]}.prod_price'}]}
-    _e['props']['content']['values'] = {k: [node]
-                                        for k in _e['props']['content']['values']}
+    _v = values_of(d, _e['props']['content'])
+    for k in list(_v):
+        _v[k] = [node]
     fires('one text referencing two distinct products', d,
           'mixed_product_targets_in_text')
 else:
