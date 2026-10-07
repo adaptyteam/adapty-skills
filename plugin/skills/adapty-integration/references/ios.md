@@ -42,7 +42,7 @@ xcodebuild \
 **BUILD FAILED with errors:**
 - Errors in files you wrote → fix them directly and rebuild
 - Errors in files you didn't write → explain the error to the user with a concrete fix
-- "Missing package product" errors → the Adapty package wasn't added in Xcode yet; use `AskUserQuestion` to walk the user through adding it (Stage 1, Step 1)
+- "Missing package product" errors → the Adapty package wasn't added in Xcode yet; walk the user through adding it (Stage 1, Step 1)
 - Signing errors → not blocking for simulator builds; can ignore until device testing
 - Module not found (`import Adapty` fails) → package not resolved; ask user to do **File → Packages → Resolve Package Versions** in Xcode
 
@@ -163,7 +163,7 @@ Tell the user to do this in Xcode:
 
 If the project is already on a 3.x package, this is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-ios-sdk-v4.md) for the paywall-to-flow API rename, then [Migrate to v4.1](https://adapty.io/docs/migration-to-ios-sdk-41.md) for the attribution changes below.
 
-Use `AskUserQuestion` to confirm the package was added successfully before proceeding.
+Ask the user to confirm the package was added successfully before proceeding.
 
 ### Step 2: Add activation code
 
@@ -320,7 +320,7 @@ https://adapty.io/docs/ios-check-subscription-status.md
 
 ## Stage 4: Identify users
 
-Use `AskUserQuestion` before deciding to skip:
+Ask before deciding to skip. When nobody can answer, take **No, skip** and say in the closing message that identification is still open:
 
 > "This app has no login system, but you can still identify users with a stable ID tied to the device or installation. This gives each user a consistent Adapty profile across sessions, which helps with analytics accuracy, A/B test consistency, and avoiding duplicate profiles after reinstall. Do you have an ID you'd like to use, or would you like to discuss options?"
 > - **Yes, I have an ID in mind** — tell me what it is and I'll implement identification
@@ -480,7 +480,7 @@ https://adapty.io/docs/release-checklist.md
 
 ## Want to go further?
 
-After the basics are working, use `AskUserQuestion` to present this menu. Keep it casual — the user can pick one, several, or nothing.
+After the basics are working, present this menu. Keep it casual — the user can pick one, several, or nothing.
 
 > "Your integration is complete! Here are some things you might want to set up next. Which ones interest you? (or say 'done' to wrap up)"
 >

@@ -98,7 +98,7 @@ written list is:
 > 1. Turn on App Store server notifications so renewals reach Adapty: <link>
 > 2. Check that restore works after a reinstall.
 >
-> All of this is in `ADAPTY_SETUP.md` in your project.
+> `<only if you wrote ADAPTY_SETUP.md:>` All of this is in `ADAPTY_SETUP.md` in your project.
 
 ## State Tracking
 
@@ -164,7 +164,7 @@ Load the platform-specific reference file from the `references/` subdirectory (`
 
 ## Phase 2: Ask three questions
 
-Use `AskUserQuestion` for all three together in one call:
+Ask all three together, in one message:
 
 1. **Paywall approach** — which do they want?
    - **Flow Builder** (recommended): Adapty renders paywalls and onboarding flows from a no-code visual editor; no paywall UI to build. It is the v4 successor to Paywall Builder — present it by this name on every platform. The `paywallApproach` state value for this choice is `flow_builder`. **Every platform installs SDK v4 and only v4 — the floor is not conditional on this answer**, because Stage 2 fetches with `getFlow` on all three approaches. See Stage 1 in `references/<platform>.md` for that platform's resolve command and its build requirements, which on Unity and Capacitor changed in v4 (Swift Package Manager instead of CocoaPods on iOS).
@@ -191,7 +191,7 @@ Use `AskUserQuestion` for all three together in one call:
 
 **State update:** Set `paywallApproach` to `flow_builder` (the value on every platform for the builder-rendered choice; `paywall_builder` survives only as the state value a run that predates Flow Builder support may still carry), `custom`, `observer`, or `none`. Set `integrations` to the array of selected integration keys (e.g. `["amplitude", "appsflyer"]`), or `[]` if none. Set `appPreference` to `existing` or `new`.
 
-Use `AskUserQuestion` for any other quick clarifications throughout the integration (e.g., "Did the build succeed?", "What's your App Store product ID?"). Never ask for values that can be retrieved via CLI.
+Ask the user directly for any other quick clarifications throughout the integration (e.g., "Did the build succeed?", "What's your App Store product ID?"). Never ask for values that can be retrieved via CLI.
 
 ## Phase 3: Dashboard setup
 
@@ -242,7 +242,7 @@ Then act based on `appPreference` (from Phase 2) and what the list returns:
 | `appPreference` | List result | Action |
 |---|---|---|
 | `existing` | One app | Use it — note its **app ID** and **Public SDK key**. Set `appId`. |
-| `existing` | Multiple apps | Present the list to the user. Call `AskUserQuestion` asking which app to use. Note the chosen app's **app ID** and **Public SDK key**. Set `appId`. |
+| `existing` | Multiple apps | Present the list to the user. Ask which app to use. Note the chosen app's **app ID** and **Public SDK key**. Set `appId`. |
 | `existing` | Empty | Inform the user no apps were found. Create one (see below). Set `appId`. |
 | `new` | Any | Create a new app (see below). Set `appId`. |
 
@@ -279,7 +279,7 @@ Note the **ID** from the output.
 
 **If `appPreference` is `new`:** Skip this step entirely — the app is brand new, nothing exists yet.
 
-**If `appPreference` is `existing`:** Before creating anything, use `AskUserQuestion`:
+**If `appPreference` is `existing`:** Before creating anything, ask:
 
 > "Do you already have products, paywalls, or placements configured in your Adapty dashboard?"
 > - **No, starting fresh** — I'll create everything needed
@@ -352,7 +352,7 @@ On C, route the user to store connection now (`references/store-setup-ios.md` Pa
 
 **Collecting store product IDs — a staged conversation, skippable at every step:**
 
-1. **Which stores?** This runs on path A only — the user has said the products exist, and you are finding out where. Use `AskUserQuestion` with mutually exclusive options built from the app's target stores — never show an irrelevant store (iOS-only app → no Google Play option), and never mix a multi-select with a "No" option:
+1. **Which stores?** This runs on path A only — the user has said the products exist, and you are finding out where. Ask, with mutually exclusive options built from the app's target stores — never show an irrelevant store (iOS-only app → no Google Play option), and never mix a multi-select with a "No" option:
    - Cross-platform: "Yes, in both stores" / "Yes, in the App Store only" / "Yes, in Google Play only" / "Actually, not yet"
    - Single-store app: "Yes, in the App Store" / "Actually, not yet" (or the Google Play pair)
    **"Actually, not yet" goes back to the A/B/C choice above — it does not mean defer.** The products can still be made now, in the console or from the dashboard; deferring without offering that leaves the user stuck for no reason.
@@ -404,7 +404,7 @@ First, analyze the project to identify natural locations to show the paywall/flo
 - Settings screens (upgrade/subscription management)
 - Content screens with locked sections
 
-Then use `AskUserQuestion` to present your findings and confirm. Example:
+Then present your findings and ask the user to confirm. Example:
 
 > "I found a few natural spots for your paywall:
 > 1. **Onboarding** — `OnboardingViewController.swift` (shown on first launch)
@@ -477,13 +477,13 @@ $ADAPTY flows get <FLOW_ID> --app <APP_ID>                             # poll un
 
 Validate runs on the **local file before the write**, never after it — afterwards it would be checking bytes that are already saved. Record in `ADAPTY_SETUP.md` that this placement points at a placeholder and needs designing before release, because nothing in the dashboard distinguishes it from a finished flow at a glance.
 
-**Route D — the dashboard.** This is also where routes A-C land when the CLI refuses for want of the deployment. Guide the user through these steps, confirming each with `AskUserQuestion` before moving on:
+**Route D — the dashboard.** This is also where routes A-C land when the CLI refuses for want of the deployment. Guide the user through these steps, confirming each with the user before moving on:
 
 1. **Create the flow** at [Adapty Dashboard → Flows](https://app.adapty.io/flows) — **Create flow** from a template, a Figma import, from scratch, or converted from a legacy paywall; add the products from Step 4; **Save & publish**. Skip this when a published flow already exists and only the placement was refused.
 2. **Create the placement** at [Adapty Dashboard → Placements](https://app.adapty.io/placements) — **Create placement** (or open an existing one if it fits the location), set a **Developer ID** (e.g. `main`, `onboarding`, `settings` — the exact string the SDK uses in `Adapty.getFlow`), attach the flow under the **All Users** audience, save.
 3. Repeat for each confirmed location.
 
-**If `flow-generator` is not among your available skills, install it — never hand-author the config instead.** It ships in the same package as this skill, so it is usually already present, possibly namespaced (`adapty-skills:flow-generator`); check both names before concluding it is missing. If it really is absent, get the user's yes via `AskUserQuestion` — this writes to their agent's skill directory — and then run one:
+**If `flow-generator` is not among your available skills, install it — never hand-author the config instead.** It ships in the same package as this skill, so it is usually already present, possibly namespaced (`adapty-skills:flow-generator`); check both names before concluding it is missing. If it really is absent, get the user's yes — this writes to their agent's skill directory — and then run one:
 
 ```bash
 # any agentic CLI (Claude Code, Cursor, Copilot, Codex, Gemini CLI, Zed, Amp)
@@ -496,13 +496,13 @@ claude plugin install adapty-skills@adapty
 
 The flow config carries traps that cost real money when they are got wrong — a plan card whose selected state is baked in, a footer that vanishes on device, a carousel that does not swipe — and that skill is where every one of them is checked. If the user declines the install, say so plainly and take route C or D instead.
 
-**Publishing.** On Route B, `flow-generator` offers the publish itself, so check `flows get` before offering it again: publish here only when the flow is still a draft because the user said "not yet" there. On Route C the stub is yours to publish. Each publish is a write the user agrees to first — confirm with `AskUserQuestion`, and never run the publish and the placement off one yes. Run it yourself: `$ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes`. Publication is asynchronous, so the response reads `publishing`: report that, and re-read `flows get` before treating the flow as published — the command prints that poll itself, and if the status lands on `publication_failed`, `flows config get` carries the reason in `transform_error`. On an `http_404` the route is not live for any account — hand it back to the user, who publishes with the button at the **top right of the builder**. Until it is published, the SDK gets nothing and the placement below is refused.
+**Publishing.** On Route B, `flow-generator` offers the publish itself, so check `flows get` before offering it again: publish here only when the flow is still a draft because the user said "not yet" there. On Route C the stub is yours to publish. Each publish is a write the user agrees to first — confirm with the user, and never run the publish and the placement off one yes. Run it yourself: `$ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes`. Publication is asynchronous, so the response reads `publishing`: report that, and re-read `flows get` before treating the flow as published — the command prints that poll itself, and if the status lands on `publication_failed`, `flows config get` carries the reason in `transform_error`. On an `http_404` the route is not live for any account — hand it back to the user, who publishes with the button at the **top right of the builder**. Until it is published, the SDK gets nothing and the placement below is refused.
 
 **Then the placement, once per location.** When `flow-generator` handed back a developer ID, the placement already exists — confirm it with `placements list` (that developer ID, pointing at `<FLOW_ID>`) and take the ID from there; a second `placements create` with that developer ID is refused, since IDs are unique across the app. Otherwise, with the go-ahead and all five preconditions met, run the `placements create` command above with the resolved `<FLOW_ID>` and the confirmed developer ID. If the audience is refused, take Route D step 2.
 
 **If the user already has placements set up:** they find each developer ID at [Adapty Dashboard → Placements](https://app.adapty.io/placements), in the **Developer ID** column.
 
-Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion` — these are the values Phase 4 uses — and continue to Phase 4.
+Whichever route, ask for the **placement developer ID(s)** — these are the values Phase 4 uses — and continue to Phase 4.
 
 #### `paywallApproach == "paywall_builder"`, `"custom"`, or `"observer"` — CLI path
 
@@ -526,7 +526,7 @@ After all commands succeed, you will have collected from CLI output:
 
 ### Fallback: manual dashboard steps (only if user explicitly declines the CLI)
 
-If the user says they'd rather do it manually, walk them through these five steps. Use `AskUserQuestion` to collect each value.
+If the user says they'd rather do it manually, walk them through these five steps. Ask for each value.
 
 | Step | Where | What you need |
 |---|---|---|
@@ -561,7 +561,7 @@ Follow the platform-specific file for the exact doc URLs and implementation orde
 2. **Implement** the stage
 3. **Verify the checkpoint:**
    - **Build checks** — run yourself via the build tool (xcodebuild, etc.); do not ask the user to build
-   - **Visual/functional checks** (e.g. "paywall appears on screen", "purchase dialog triggers") — ask the user to confirm via `AskUserQuestion`
+   - **Visual/functional checks** (e.g. "paywall appears on screen", "purchase dialog triggers") — ask the user to confirm
 4. Only then move to the next stage
 
 Never skip a checkpoint. A failed checkpoint means something is wrong that will cascade.
