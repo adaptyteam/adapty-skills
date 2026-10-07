@@ -162,9 +162,9 @@ def custom_icon_meta(name):
 # ---------------------------------------- cli ----------------------------------------
 
 def _main(argv):
-    if not argv:
+    if not argv or argv[0] in ('-h', '--help'):
         print(__doc__.strip().split('\n\n')[-2], file=sys.stderr)
-        return 2
+        return 0 if argv else 2
     if argv[0] == '--search':
         needle = ' '.join(argv[1:]).lower()
         if not needle:
@@ -174,6 +174,9 @@ def _main(argv):
         # `spinner1`, and leaving them out sends it to `Spinner`, a static glyph that does not
         # rotate — the substitution `spinner()` exists to refuse.
         hits = [n for n in phosphor_names() + custom_names() if needle in n.lower()]
+        # Exact name first, then names that start with it: `Lock` and `X` are real icons that an
+        # alphabetical list buries under ArrowClockwise and AirplaneTaxiing.
+        hits.sort(key=lambda n: (n.lower() != needle, not n.lower().startswith(needle)))
         print('\n'.join(hits) if hits else f'no icon matches {needle!r}')
         return 0 if hits else 1
     try:

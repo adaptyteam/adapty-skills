@@ -274,38 +274,65 @@ not a drawing** — never fake it with a static filled `stack` (a partial bar) o
 step `stack`s. A lookalike renders in the preview but **does not advance** across screens and is not
 wired to `props.progressBar`, so it silently ships a dead indicator — the same mistake as the
 [fake carousel](#a-carousel--the-real-carousel-element-never-a-static-card-with-dots) and the fake
-footer. If step dots are what the design shows, that is still this component (segmented template),
-not a row of dot stacks. `verify-config.py` warns on the dot-row shape.
+footer. If step dots are what the design shows, that is still this component, not a row of dot
+stacks — but only the linear shape below has been verified on a device. `verify-config.py` warns on the dot-row shape.
+
+**One bar per flow.** `components` holds a single progress bar, and every screen that shows it
+points at the same segment. It advances on its own as the user moves through the screens that
+have it switched on; nothing per screen says how far along they are. Device-verified shape:
 
 ```json
 "components": {"pb_…": {
   "map": {
     "el_bar":  {"id": "el_bar",  "type": "progress-bar",
                 "props": {"type": "single-segment", "template": "linear",
-                          "oneSegmentPerScreen": false, "width": {…}, "height": {…}}},
+                          "oneSegmentPerScreen": false,
+                          "width": {"type": "fill"}, "height": {"type": "fixed", "value": 20},
+                          "padding": {"left": 12, "right": 12, "top": 0, "bottom": 0}, "layout": {…}}},
     "el_seg":  {"id": "el_seg",  "type": "progress-bar-segment",
-                "props": {"customId": "progress", …},
-                "propsByState": {"current": {…}, "upcoming": {…}, "completed": {…}}},
+                "props": {"customId": "progress", "width": {"type": "fill"},
+                          "height": {"type": "hug"}, "layout": {…}},
+                "propsByState": {"completed": {"width": {"type": "fill"}, "height": {"type": "hug"}},
+                                 "current":   {"width": {"type": "fill"}, "height": {"type": "hug"}},
+                                 "upcoming":  {"width": {"type": "fill"}, "height": {"type": "hug"}}}},
     "el_load": {"id": "el_load", "type": "progress-bar-loader",
-                "props": {"color": {…}, "fill": {…}, "duration": 320, "easing": "ease-in-out"}}},
+                "props": {"fill":  [{"type": "color", "color": {"type": "color-style", "colorId": "<TRACK>"}}],
+                          "color": {"type": "color-style", "colorId": "<PROGRESS>"},
+                          "width": {"type": "fill"}, "height": {"type": "fixed", "value": 8},
+                          "borderRadius": {"tl": 9999, "tr": 9999, "bl": 9999, "br": 9999},
+                          "duration": 300, "easing": "ease-in-out", "position": {"type": "relative"}}}},
   "hierarchy": {"id": "root", "children": [
     {"id": "el_bar", "children": [{"id": "el_seg", "children": [{"id": "el_load"}]}]}]}}}
 ```
 
 Then, per screen: reference it in `hierarchy` as `{"id": "pb_…", "type": "global"}`, and set
-`props.progressBar: {"enabled": true, "segment": "progress"}` — `segment` matches the
-`progress-bar-segment`'s `customId`. Screens that should not show it set `{"enabled": false}`.
+`props.progressBar: {"enabled": true, "segment": "progress"}` — `segment` matches the segment's
+`customId`. Screens that should not show it set `{"enabled": false}`.
 
-`template` is `linear` or `segmented`; `type` is `single-segment` or `multiple-segments`; pair
-`segmented` + `multiple-segments` + `oneSegmentPerScreen: true` for one dot per screen.
+- **On the loader, `fill` is the empty track and `color` is the progress.** Set both to the same
+  colour and the bar looks full on every screen. `verify-config.py` warns on that.
+- **The segment carries no colour.** Its states hold sizes only; colouring the segment paints over
+  the loader.
+- **More segments do not make it advance.** One segment per screen, each screen pointing at its
+  own, never moved on a device; nor did `multiple-segments` with `oneSegmentPerScreen`.
+- **The preview cannot show the fill.** It draws the track only, so whether the bar advances is a
+  device check.
 
 ### A countdown
 
-**The invisible Countdown is the flow's only delay primitive.** A Spinner has no completion
-trigger, and `On Screen Appear → Navigate Next` fires instantly — so a timed screen is a Countdown
-with `Opacity 0`, `Position Absolute`, top/left 0, and `On Timer End → Navigate Next`
-(team-recipe). And when a loader must be pinned, the `fixed` position goes on a **container**, not
-on the Loader element itself. Details of the visible countdown below.
+**The Countdown is the flow's only delay primitive.** A Spinner has no completion trigger, and
+`On Screen Appear → Navigate Next` fires instantly — so a timed screen is a `timer` with a
+`timer-end` interaction. Build it in the [device-verified shape](#device-verified-the-json-an-auto-advancing-screen-actually-needs):
+a direct child of the screen root, `hug` with padding, **at least one child**, no `opacity: 0`,
+and an explicit `navigate`. The builder's own wording ("Opacity 0, Navigate Next") describes the
+dropdown, not the JSON, and followed literally it gives a screen that never advances. When a
+loader must be pinned, the `fixed` position goes on a **container**, not on the Loader element
+itself.
+
+**Under `safeArea: true`, check where an absolute element lands.** In the render, an absolute
+`top` was measured from the top of the full screen rather than from below the status bar, so a
+timer or back button at `top: 0` sat under the clock. Look for it in the render and move the
+element down rather than trusting the number.
 
 **A `spinner`'s `duration` is its ROTATION PERIOD, not a completion time.** It loops forever and
 fires nothing, on every surface. The field reads exactly like a delay — a user looking at
@@ -345,7 +372,7 @@ to the device check. `verify-config.py` cannot see this, so it is on you.
 
 ### DEVICE-VERIFIED: the JSON an auto-advancing screen actually needs
 
-The recipe above is written in the builder's vocabulary, and translating it to JSON left three
+The builder's recipe is written in its own vocabulary, and translating it to JSON left three
 gaps that together produced a screen that spun forever on a real device while `validate` returned
 `valid: true`. This is the shape that **worked on a real device** — the project's
 first confirmed `timer-end`, since no export in the corpus carries one:
@@ -376,7 +403,7 @@ first confirmed `timer-end`, since no export in the corpus carries one:
 > added visible countdown digits to diagnose the failure, then wrote the shape down without
 > them.** The instrumentation *was* the fix, and it was removed from the record as noise. If you
 > add instrumentation to make a remote failure observable, the shape you verified is the
-> instrumented one — strip it and re-verify, or document it as required. See CLAUDE.md finding 29.
+> instrumented one — strip it and re-verify, or document it as required.
 >
 > `flowkit.timer()` now raises on the pair and `verify-config.py` errors on it, because no other
 > gate can see it: `validate` returns `valid: true` for both forms and `config preview` never
@@ -769,6 +796,18 @@ two non-relative elements, so this has precedent; a fixed container does not.
 The one honest exception is a row of several small links (Restore · Terms · Privacy): the row is a
 fixed container because each link is separately tappable and carries its own action.
 
+### A timeline — start from `list-timeline`
+
+**A timeline, a trial timeline, a list of steps: fill the catalog's `list-timeline`** (up to six
+rows, each `title` + `description` beside an icon) with `flowkit.from_catalog()`, and restyle the
+icons and copy. Each row is an in-flow horizontal stack, so the copy sets the height and nothing
+can break. **Connect the steps with a thin line, not a track:** in each row but the last, add a
+2pt `stack` with `position: absolute`, `top` just below the icon, `bottom` just short of the next
+icon (a negative value about half the list gap), `left` centred under the icon, `height: auto`,
+`zIndex: -10`, filled with the done colour for completed steps and a muted one after. A rail as
+wide as the icon reads as a row of pills; a hairline reads as one timeline. The anchoring rules
+below still apply to it.
+
 ### A connected timeline, where a rail must reach the next chip
 
 A row is `[chip, rail, text]` where **only the text is in flow**. The chip and the rail are
@@ -844,6 +883,13 @@ Derive the offsets rather than copying the numbers, since they follow from the c
   chip rather than below it.
 - **rail `bottom`** = −(the list's row gap + a few px of overlap), so the tail passes *under* the
   next chip instead of stopping at its edge — −18 against a `gap: 12` list.
+
+**When the rail is as wide as the chip — a track, not a hairline — round only its outer ends.**
+Each row's rail is its own element, so rounding every corner draws a separate pill per row: the
+tail of one cap and the head of the next show as a notch at every join, and the track reads as
+broken. Give the first row's rail rounded top corners only, the middle rows' none, and the last
+drawn rail rounded bottom corners only; where a row changes colour (done → upcoming), the join is
+still square. A hairline rail is too thin for this to show.
 
 **Fade the rail on alpha, not toward the page colour.** The gradient above runs one hex from
 `opacity: 100` to `26`; a fade whose last stop *is* the background renders the tail invisible and
