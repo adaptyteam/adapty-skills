@@ -326,7 +326,8 @@ python3 references/diff-config.py <the-old-local-copy>.json flow.working.json
 ```
 
 **New flow** — `flows create`, then seed its config from one the user already has
-(`flows list` → `config get`) so theme, fonts, locales and products are real. Its first
+(`flows list` → `config get`) so theme, fonts, locales and products are real — in **Rebuild** mode
+(below) the reference's style then replaces the seed's theme. Its first
 `config update` omits `--expected-updated-at`. **A new flow is the safe default for anything the
 user calls new**, because `config update` replaces everything and generating over a flow with
 content discards that content.
@@ -353,15 +354,40 @@ bad one compiles into the runtime script as a black screen, and it buys nothing 
 customer's analytics sees is `props.customId`
 ([flow-schema.md trap 7b](references/flow-schema.md#7b-the-id-analytics-sees-is-customid-and-leaving-it-blank-is-silent)).
 
-**Were you given a design to follow?** Answer it out loud: it decides who is choosing. A reference
-image, a screen to copy, or a layout they spelled out means *they* chose it — follow it, and
-compare against the file rather than your memory of it (phase 4). **Follow the reference for style,
-colour, typography, icon style and hierarchy, but keep Adapty's fluid layout discipline**
-(`width: fill`, `height: hug`, `position: relative`): never hardcode fixed dimensions or offsets to
-match a screenshot's pixels, because fixed geometry breaks across devices (team-diagnosed). **No
-reference means you are choosing it** — "build me a paywall", "build me an onboarding", "make one
-that converts" — and the request map only turns nouns into element types; it says nothing about
-what sells.
+**Were you given a design, and whose is it?** Answer it out loud: it decides where each part of
+the screen comes from.
+
+| What you were given | Mode | Structure from | Style and copy from |
+| :--- | :--- | :--- | :--- |
+| Their own design: their Figma, a screenshot of their own app, or an explicit "rebuild / match / copy this exactly" | **Rebuild** | the reference | the reference |
+| Someone else's design with the mode said: "in my style", "inspired by", "adapt this for my app" | **Adapt** | the reference | **the app** |
+| No design | **You choose** | a teardown skill (below) | the app |
+
+**When the request names neither mode — "build the same onboarding", "something like this" — ask
+before you build**, one question, and wait:
+
+> Do you want an exact copy of this, or the same structure in your app's own style and words?
+
+A wrong guess costs a whole build and a flow that cannot be deleted; the question costs one turn.
+**Only when nobody can answer** (an unattended run, or the user said not to wait) take **Adapt**
+and say so in one line.
+
+**In Adapt, the reference gives the shape and the app gives everything else.** Take the sequence,
+the sections, the component patterns and the hierarchy from the reference. Take the palette, type
+scale and weights, corner radii, button and card treatment, icon style and spacing rhythm from the
+app, and **write the copy for the app**: its name, its products, its voice. Never ship another
+brand's name, its claims, its offers or its social proof.
+
+**Take the app's style from its code** when the session is in its repo (theme, colour assets,
+button and card components, strings), **else from its own flows** — the ones its placements show
+first. With neither, ask once; with no answer, use the reference's style and say so.
+
+**In every mode, keep Adapty's fluid layout discipline** (`width: fill`, `height: hug`,
+`position: relative`): never hardcode fixed dimensions or offsets to match a screenshot's pixels,
+because fixed geometry breaks across devices (team-diagnosed). In **Rebuild**, compare against the
+reference file rather than your memory of it (phase 4). **No design means you are choosing it** —
+"build me a paywall", "build me an onboarding", "make one that converts" — and the request map only
+turns nouns into element types; it says nothing about what sells.
 
 **When you are the one choosing, a teardown skill is the reference, and which one is decided by
 what you are building — not by which you reached for last time.**
