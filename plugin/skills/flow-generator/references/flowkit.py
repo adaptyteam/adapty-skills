@@ -1417,13 +1417,24 @@ def selectable(children=(), *, group_id, default=False, custom_id=None, **kw):
 def tab(label, content, *, default=False, custom_id=None):
     """One tab: the `label` shown in the bar, and the `content` panel shown below it.
 
+    To recolour the label when its tab is selected, wrap the text in `on_selected()`:
+    `tab([on_selected(text(rich('Yearly'), color_id='ink'), color=color('onAccent'))], …)`.
+    The override on a descendant of the tab-item follows the tab's selected state.
+
+    There is no `customId` on a tab: the schema has none for a tab-item, and switching tabs
+    raises no analytics event, so a tab switch is not something an app can read.
+
     Both halves are given together because the builder links them by ORDINAL POSITION — a
     `tab-content` carries no groupId and no back-reference, so the Nth panel belongs to the
     Nth tab and nothing in the document says so. Pairing them here is the only way that
     ordering cannot drift.
     """
+    if custom_id is not None:
+        raise TypeError('tab() takes no custom_id: a tab-item has no customId in the schema and a '
+                        'tab switch raises no event. Read the selection some other way, e.g. a '
+                        'per-panel button with its own action.')
     return {'_tab': True, 'label': list(label), 'content': list(content),
-            'default': default, 'custom_id': custom_id}
+            'default': default, 'custom_id': None}
 
 
 def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
@@ -1839,7 +1850,18 @@ def _fill_slots(template, slots, fills, items):
 
 # --- catalog templates -------------------------------------------------------------------
 
-def from_catalog(entry, *, group_id=None, fills=None, items=None):
+def _walk_dicts(o):
+    """Every dict inside `o`, depth first."""
+    if isinstance(o, dict):
+        yield o
+        for v in o.values():
+            yield from _walk_dicts(v)
+    elif isinstance(o, list):
+        for v in o:
+            yield from _walk_dicts(v)
+
+
+def from_catalog(entry, *, group_id=None, fills=None, items=None, colors=None):
     """Turn a `component-catalog.json` entry into nodes this module can assemble.
 
     A catalog template is the builder's own output, so its internal wiring is already right --
@@ -1870,6 +1892,11 @@ def from_catalog(entry, *, group_id=None, fills=None, items=None):
     where they can: a slot path addresses the template's own `children`, and the authoring shape
     this returns uses `_children`. Passing a bare `template` still works, without slot filling.
 
+    `colors` maps the template's theme colour ids to yours. Templates are written against the
+    builder's starter theme (`white`, `gray-200`, `gray-700`, `accent`, ...), which your flow
+    usually does not declare: `colors={'white': 'surface', 'gray-700': 'ink'}`. Every colour id
+    the result still uses must exist in your theme, or the element draws with no colour.
+
     Deep-copies, so the catalog entry itself is never mutated.
     """
     template, slots = entry, {}
@@ -1886,6 +1913,10 @@ def from_catalog(entry, *, group_id=None, fills=None, items=None):
     template = copy.deepcopy(template)
     if fills or items:
         template = _fill_slots(template, slots, fills or {}, items)
+    if colors:
+        for n in _walk_dicts(template):
+            if n.get('type') == 'color-style' and n.get('colorId') in colors:
+                n['colorId'] = colors[n['colorId']]
 
     def to_v12(props):
         # The catalog keeps two pre-v12 shapes this module would otherwise stamp v12: a border's
@@ -2540,6 +2571,20 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             f'compile (script_type_violation, TS2304 "Cannot find name"). Produce it — an input '
             f'element with that customId, a selectableGroup with that id, a bound product — or '
             f'declare it in variables=(...).')
+
+    color_ids = [c[0] for c in colors]
+    typo_ids = [t[0] for t in typography]
+    for label, ids in (('colour', color_ids), ('typography preset', typo_ids)):
+        repeated = sorted({i for i in ids if ids.count(i) > 1})
+        if repeated:
+            raise ValueError(f'{label} id(s) {repeated} declared twice; one entry is unreachable.')
+    clash = sorted(set(color_ids) & set(typo_ids))
+    if clash:
+        raise ValueError(
+            f'theme id(s) {clash} name both a colour and a typography preset. The device reads '
+            f'`theme` as one keyed container and fails with "Duplicate Key", so the flow will not '
+            f'open, and no other gate sees it. Rename one side (e.g. a colour `ctaFill` beside a '
+            f'preset `ctaLabel`).')
 
     meta_icons = _resolve_icons(screens, components, icons)
 

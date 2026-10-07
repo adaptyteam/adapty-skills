@@ -1385,6 +1385,31 @@ def main():
                         typography=[('b', 'B', 16, w)])['theme']['typography'][0]['settings']
               ['weight'] == w for w in fk.FONT_WEIGHTS))
 
+    # --- theme ids ---------------------------------------------------------------------------
+    # One id for a colour and a preset is the device's "Duplicate Key": the flow will not open.
+    check('a colour and a preset sharing an id are refused',
+          'Duplicate Key' in _message(lambda: fk.config(
+              screens=[], colors=[('cta', 'CTA', '#1F4CEA', '#1F4CEA')],
+              typography=[('cta', 'CTA', 18, 'semibold')])))
+    check('a colour id declared twice is refused',
+          'declared twice' in _message(lambda: fk.config(
+              screens=[], colors=[('a', 'A', '#000000', '#000000'), ('a', 'A2', '#FFFFFF', '#FFFFFF')])))
+    check('distinct colour and preset ids are accepted',
+          len(fk.config(screens=[], colors=[('ctaFill', 'CTA', '#1F4CEA', '#1F4CEA')],
+                        typography=[('ctaLabel', 'CTA', 18, 'semibold')])['theme']['colors']) == 1)
+
+    # --- catalog colour remap, and no customId on a tab -------------------------------------
+    import json as _json, os as _os
+    _cat = _json.load(open(_os.path.join(_os.path.dirname(fk.__file__), 'component-catalog.json')))
+    _entry = next(e for e in _cat['components'] if 'gray-700' in _json.dumps(e['template']))
+    _ids = lambda nodes: {n.get('colorId') for n in fk._walk_dicts(nodes) if n.get('type') == 'color-style'}
+    _out = fk.from_catalog(_entry, colors={'gray-700': 'ink'})
+    check('from_catalog(colors=) renames a template colour id', 'ink' in _ids(_out) and 'gray-700' not in _ids(_out))
+    check('from_catalog() without colors keeps the template ids', 'gray-700' in _ids(fk.from_catalog(_entry)))
+    check('from_catalog(colors=) leaves the catalog entry untouched', 'gray-700' in _json.dumps(_entry['template']))
+    check('tab(custom_id=) is refused, with the reason',
+          'no customId' in _message(lambda: fk.tab([fk.text(fk.rich('A'))], [], custom_id='x'), TypeError))
+
     print()
     if FAILURES:
         print(f'{len(FAILURES)} failure(s): ' + ', '.join(FAILURES))

@@ -2666,6 +2666,33 @@ def check(path, baseline_text=None, baseline_images=None):
                            f'"Generated JSON failed schema validation", and neither the schema '
                            f'check nor the render can see it')
 
+    # ---- progress bar. A flow has ONE bar, and its loader's `fill` is the empty track while its
+    # `color` is the progress. Both shapes below were built, passed every other gate, and drew a
+    # bar that never moved on a device: the probe with several bars, and loaders whose track and
+    # progress were the same colour, which look full on every screen.
+    bars = [(cid, e) for cid, comp in (d.get('components') or {}).items()
+            for e in ((comp or {}).get('map') or {}).values() if e.get('type') == 'progress-bar']
+    if len(bars) > 1:
+        warn.append(f'{len(bars)} progress bars in components ({", ".join(c for c, _ in bars)}) — a '
+                    f'flow has one progress bar, shared by every screen that shows it')
+
+    def _col(c):
+        if isinstance(c, list):
+            c = next((l.get('color') for l in c if isinstance(l, dict) and l.get('type') == 'color'), None)
+        if isinstance(c, dict):
+            return c.get('colorId') or (c.get('hex') or '').upper() or None
+        return None
+    for cid, comp in (d.get('components') or {}).items():
+        for e in ((comp or {}).get('map') or {}).values():
+            if e.get('type') != 'progress-bar-loader':
+                continue
+            p_ = e.get('props') or {}
+            track, prog = _col(p_.get('fill')), _col(p_.get('color'))
+            if track and prog and track == prog:
+                warn.append(f'progress bar {cid}: the loader\'s track (`fill`) and progress (`color`) '
+                            f'are both {track}, so the bar looks full on every screen. `fill` is '
+                            f'the empty track, `color` is the progress')
+
     return bad, warn
 
 args = sys.argv[1:]
@@ -2696,6 +2723,17 @@ for path in args:
     # "your config is corrupt" when it means "this checker hit a shape it did not expect".
     # Exit 2 keeps that distinct from exit 1 (the document has findings), matching the exit-code
     # convention the rest of this repo's scripts use.
+    # An unreadable input is the caller's to fix, not a checker bug — say which, plainly.
+    try:
+        json.load(open(path))
+    except OSError as exc:
+        print(f'{os.path.basename(path):34} UNREADABLE')
+        print(f'   {exc.strerror}: {path}')
+        sys.exit(2)
+    except ValueError as exc:
+        print(f'{os.path.basename(path):34} NOT JSON')
+        print(f'   {exc}')
+        sys.exit(2)
     try:
         bad, warn = check(path, baseline_text, baseline_images)
     except Exception as exc:                                  # noqa: BLE001 - the point is breadth

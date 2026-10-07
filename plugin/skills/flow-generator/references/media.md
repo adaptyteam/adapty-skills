@@ -236,6 +236,18 @@ bitmap with a baked-in background is the thing that breaks, which is why:
   scales to it (measured), so the source resolution is free. *Not* device-measured — the preview
   renderer is not a retina device — so treat crispness on hardware as something the device check
   confirms.
+- **Rasterize with the Chrome `shoot.sh` already uses** — no Pillow needed. Draw the SVG with a
+  tight `viewBox` (no padding around the artwork, so the box is the artwork and nothing needs
+  trimming), wrap it in a page with a transparent background, and screenshot at the drawn size:
+
+  ```bash
+  printf '<html><body style="margin:0;background:transparent"><img src="art.svg" style="display:block;width:%spx;height:%spx"></body></html>' 900 600 > art.html
+  "$CHROME" --headless=new --hide-scrollbars --default-background-color=00000000 \
+    --force-device-scale-factor=1 --window-size=900,600 --screenshot="$PWD/art.png" "file://$PWD/art.html"
+  ```
+
+  The output path must end in `.png` or Chrome writes nothing, and the size is the SVG's own
+  `width`/`height` at 2–3× the box. Upload each PNG once and reuse the URL.
 - **Say that you drew it.** A rasterized graphic looks finished, which is the emoji hazard one
   level up: nothing downstream flags an agent-drawn illustration, so name it as yours and as
   replaceable, or the user ships your sketch believing a designer made it.

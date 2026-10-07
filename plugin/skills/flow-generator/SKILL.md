@@ -91,6 +91,10 @@ offering both on every row recommends a path that ends in a refusal:
 >
 > Until you answer, they ship as placeholders.
 >
+> `<only if you drew stand-ins:>` `<n>` are **drawings of mine**, already uploaded so the screens
+> look finished — `<which>`. They are stand-ins, not your art: replace each one the same way, by
+> path or in the builder.
+>
 > `<only if a clip is missing:>` `<what>` is a **video**, and there is no upload path for a clip —
 > not one I can take either, so this one is yours whichever route you pick. The element is on the
 > screen already, sized `<w>`×`<h>` to match the design: open
@@ -151,7 +155,7 @@ $ADAPTY apps list --json                                       # to get <APP_UUI
 $ADAPTY flows list   --app <APP_UUID> [--page N] [--page-size N]    # page-size max 100
 $ADAPTY flows create --app <APP_UUID> --name <name>            # row only; always `draft`
 $ADAPTY flows get    <FLOW_ID> --app <APP_UUID>
-$ADAPTY flows config get      <FLOW_ID> --app <APP_UUID> --json     # 404 until first write
+$ADAPTY flows config get      <FLOW_ID> --app <APP_UUID> --json     # errors until first write
 $ADAPTY flows config validate <FLOW_ID> --app <APP_UUID> (--config-file <f|-> | --config <json>) --json
 $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--orientation …]
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
@@ -300,7 +304,13 @@ undo, so the copy you fetched is the only way back:
 ```bash
 $ADAPTY flows config get --app $APP $FLOW --json > flow.working.json
 cp flow.working.json flow.backup.json
+jq .config flow.working.json > draft.json
 ```
+
+**Two files, two shapes.** `flow.working.json` and `flow.backup.json` are the **envelope**
+`config get` and `config update` return; `draft.json` is the **bare config** you edit, check,
+preview and send. A new flow has no envelope until its first write: author straight into
+`draft.json`.
 
 **The text is in the catalog.** Every localizable field holds a `{_lid}` ref, and its per-locale
 values live in `localization.content` — so a copy edit or a translation changes
@@ -309,7 +319,7 @@ of them ([transforms.md](references/transforms.md) decision 1). Anything you wri
 `flowkit` fragment, a catalog template, a hand-written value — gets catalogued before phase 3:
 
 ```bash
-python3 references/localization.py catalog flow.working.json
+python3 references/localization.py catalog draft.json
 ```
 
 A fetched config below `schemaVersion` 13 is converted first, the same way; below 12 the user opens
@@ -492,7 +502,7 @@ Walk [Verify](#verify) first — it is local and free and it finds every defect 
 commands below do not. Then **all three gates in one call**:
 
 ```bash
-BASELINE=flow.backup.json references/gates.sh flow.working.json <APP_UUID> <FLOW_ID>
+BASELINE=flow.backup.json references/gates.sh draft.json <APP_UUID> <FLOW_ID>
 ```
 
 It runs the structural walk, the schema shape check and the publish gate over the *same bytes*,
@@ -502,7 +512,9 @@ so the turns were the expensive part. Drop the app and flow ids and it says so r
 pretending a local pass is a publish gate. The three underlying commands, if you need to run one
 alone, are in [validate.md](references/validate.md).
 
-**Always pass `BASELINE=`** — the pristine copy from step 2. The schema describes the newest
+**Pass `BASELINE=` whenever you fetched a config** — the pristine copy from step 2. A brand-new
+flow has no config to fetch (`config get` answers with an error), so it runs without one and has nothing older to
+report. The schema describes the newest
 `schemaVersion` while most live flows are older, so an unbaselined run on a v9 or v10 flow reports
 pre-existing mismatches, none of them yours. Details in
 [flow-schema.md → the two different validators](references/flow-schema.md).
@@ -616,8 +628,9 @@ never navigates, so a working auto-advance and a broken one look identical here 
 device can tell them apart — at a real cycle per attempt. Give the `timer` a child `text` carrying
 the `timer_minutes`/`timer_seconds` tokens: *digits never appear* is the element not mounting,
 *digits reach zero and nothing happens* is the trigger not firing. Without it a failed test returns
-one bit and you guess again. Say it is temporary and remove it; the device-verified timer shape is
-in [patterns.md](references/patterns.md).
+one bit and you guess again. Say it is temporary. When you take the digits out, **the timer keeps a
+child** — move the screen's own copy or graphic inside it, because a timer with no child never fires
+on a device. The device-verified shape is in [patterns.md](references/patterns.md).
 
 **Confirm you screenshotted the flow at all.** A bad `--device`, a broken fragment and a wrong host
 all render as *pages* that pass a "did anything draw" check. If the render is blank, slow or wrong,
@@ -798,7 +811,14 @@ asks for — never something you fold into a write.
 
 **Then end with this callout, every time.** A save is not a release, and it takes their word to
 finish it. Fill the slots and keep all three steps plus the closing line — that line is the
-point:
+point. **If the user asked you to publish and you did,** the heading becomes "Published — live
+on `<placement>`" (or "Published — not on a placement yet"), step 3 and the closing line go, and
+the rest stays.
+
+**Never publish with Terms or Privacy as inert text.** That is the right draft default
+([transforms.md](references/transforms.md) decision 10), but on a published paywall `flow-audit`
+calls it a blocker and both stores reject it. Before a publish you were asked to make, get the
+two URLs; without them, save, don't publish, and say why.
 
 > **Saved as a draft — your users can't see this yet.**
 >
@@ -814,11 +834,16 @@ point:
 >    <the QR image line if they asked for one; otherwise the offer, or nothing>
 > 3. Publish: say the word and I'll do it, or use Publish at the top right of the editor. After
 >    that I can attach it to a placement, which is what makes your app show it.
+>    `<only if a product card has no product chosen:>` Publishing is blocked until you choose
+>    the products for `<the cards, by label>` — tell me which, or pick them in the builder.
 >
 > `<one line, only if the phase-2 missing-assets list still has open items:>`
 > `<n>` assets are still placeholders — see the list above.
 >
-> Until you publish, everyone continues to see the previous version.
+> `<the closing line, by the flow's status:>`
+> `dirty` — Until you publish, everyone continues to see the previous version.
+> `draft` — Nothing is live yet: nobody sees this flow until it is published and attached to a
+> placement.
 
 **Build the link for slot 2 yourself — do not send the user hunting for it.** It is pure string
 construction from the app id, the flow id and the config's `localization.locales`, so
@@ -826,7 +851,7 @@ construction from the app id, the flow id and the config's `localization.locales
 
 ```bash
 # The link alone — the default. No image, no window, no `qrcode` dependency.
-(cd ~/.cache/adapty-flow-qr && node <abs-path>/references/mobile-preview.mjs \
+(mkdir -p ~/.cache/adapty-flow-qr && cd ~/.cache/adapty-flow-qr && node <abs-path>/references/mobile-preview.mjs \
   --app <APP_UUID> --flow <FLOW_ID> --config <abs-path>/flow.working.json)
 
 # Add a QR as well, when it will actually be scanned:

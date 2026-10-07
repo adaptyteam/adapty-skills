@@ -23,6 +23,15 @@ APP="${2:-}"; FLOW="${3:-}"
 CFG="$(cd "$(dirname "$CFG")" && pwd)/$(basename "$CFG")"
 [ -n "${BASELINE:-}" ] && [ -f "$BASELINE" ] && \
   BASELINE="$(cd "$(dirname "$BASELINE")" && pwd)/$(basename "$BASELINE")"
+# The publish gate takes the BARE config and answers an envelope with "Invalid flow input", which
+# reads exactly like a broken document. `config get`/`config update` return the envelope, so unwrap
+# one here instead of letting the gate fail on the file's shape.
+if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d,dict) and isinstance(d.get("config"),dict) else 1)' "$CFG" 2>/dev/null; then
+  BARE="$(mktemp "${TMPDIR:-/tmp}/gates-bare.XXXXXX")"
+  python3 -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["config"], open(sys.argv[2],"w"))' "$CFG" "$BARE"
+  echo "gates: $CFG is an envelope; checking its .config"
+  CFG="$BARE"
+fi
 
 # The CLI is the one SKILL.md phase 1 resolved: pass it as ADAPTY, or have `adapty` on PATH. This
 # script never launches a package itself, so what runs is always the CLI the run already chose.

@@ -166,6 +166,23 @@ function prepare(schema) {
 }
 
 /**
+ * `config update` and `config get` echo an empty top-level `locales: []` and a `defaultLocale`
+ * beside the `localization` catalog. The schema calls both unknown, so every config that has been
+ * through the server would fail at `/` for a field the server wrote itself. Drop the echo only:
+ * a top-level `locales` with entries, or a `defaultLocale` that disagrees with the catalog, is
+ * something an author wrote, and stays visible.
+ */
+function dropServerEcho(cfg) {
+  if (!cfg || typeof cfg !== 'object' || !cfg.localization) return cfg
+  const out = {...cfg}
+  if (Array.isArray(out.locales) && out.locales.length === 0) delete out.locales
+  if ('defaultLocale' in out && (!out.defaultLocale || out.defaultLocale === out.localization.defaultLocale)) {
+    delete out.defaultLocale
+  }
+  return out
+}
+
+/**
  * ajv reports every branch of every failed union, so one bad prop can produce dozens of errors.
  * Keep the most specific error per location and drop the union wrappers that merely say
  * "nothing matched" — those repeat what the child errors already state, with less detail.
@@ -220,7 +237,7 @@ try {
 }
 
 // Accept the envelope `flows config get` returns, or a bare config.
-const config = doc && typeof doc === 'object' && 'config' in doc ? doc.config : doc
+const config = dropServerEcho(doc && typeof doc === 'object' && 'config' in doc ? doc.config : doc)
 
 const schema = await loadSchema(args.schema, args.refresh)
 const Ajv = loadAjv()
@@ -249,7 +266,7 @@ if (args.baseline) {
     fail(`Could not read ${args.baseline}: ${error.message}`)
   }
 
-  const base = baseDoc && typeof baseDoc === 'object' && 'config' in baseDoc ? baseDoc.config : baseDoc
+  const base = dropServerEcho(baseDoc && typeof baseDoc === 'object' && 'config' in baseDoc ? baseDoc.config : baseDoc)
   if (!validate(base)) preexisting = new Set(summarize(validate.errors).flatMap(key(byScreenId(base))))
 }
 
