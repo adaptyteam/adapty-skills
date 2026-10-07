@@ -112,6 +112,10 @@ does ("sends `create_account` to your app; the flow creates no account") and the
 custom action your app answers with its own screen, a second flow on its own placement if the
 onboarding continues after it, or an image or a video (uploaded in the builder) of an effect — and
 call it "not in the builder yet", never impossible.
+When any route is a custom action, list the action IDs and offer to write their handlers in the
+app: "I can add the code that answers these in your app. Want me to?" — on a yes, hand the IDs to
+the `adapty-integration` skill, which owns app code; without it, find the platform's "Respond to
+actions" page through the `adapty-docs` skill and link it.
 
 Images up to ~2.5 MB you can upload; **SVG, fonts, video and anything larger are builder-only**
 ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
