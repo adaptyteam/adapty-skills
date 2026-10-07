@@ -323,7 +323,8 @@ Then, per screen: reference it in `hierarchy` as `{"id": "pb_…", "type": "glob
 **The Countdown is the flow's only delay primitive.** A Spinner has no completion trigger, and
 `On Screen Appear → Navigate Next` fires instantly — so a timed screen is a `timer` with a
 `timer-end` interaction. Build it in the [device-verified shape](#device-verified-the-json-an-auto-advancing-screen-actually-needs):
-a direct child of the screen root, `hug` with padding, **at least one child**, no `opacity: 0`,
+a direct child of the screen root, `hug` with padding, **a text showing its digits inside it**
+(coloured like the background to hide it), no `opacity: 0`,
 and an explicit `navigate`. The builder's own wording ("Opacity 0, Navigate Next") describes the
 dropdown, not the JSON, and followed literally it gives a screen that never advances. When a
 loader must be pinned, the `fixed` position goes on a **container**, not on the Loader element
@@ -391,7 +392,8 @@ first confirmed `timer-end`, since no export in the corpus carries one:
 ```
 
 > **CORRECTED 2026-09-01 — the block above is incomplete, and the missing part is the one that
-> makes it work. `el_delay` MUST HAVE AT LEAST ONE CHILD.** A childless timer does **not** fire
+> makes it work. `el_delay` MUST CONTAIN A TEXT SHOWING ITS DIGITS** (see the bullet on the
+> child below — a logo or plain copy is not enough). A childless timer does **not** fire
 > `timer-end` on a device: the flow reaches the screen and stops there for good. Measured over
 > three device trips — a real onboarding stuck on its loader; the identical config with one child
 > `text` added advancing; and an isolating probe whose two exits led to *different* destinations
@@ -423,8 +425,18 @@ before the device test, so treat the whole shape as the unit that works:
   a zero-opacity element is one a renderer may legitimately skip. **Superseded in its second
   half:** this bullet went on to say a timer with no child draws nothing "anyway", which read as
   a licence to ship one childless. It is not — see the correction above. The surviving rule is
-  narrower: do not set `opacity: 0`, *and* give the timer a child. If the countdown should not be
-  seen, the child is the loading copy the screen was going to show regardless.
+  narrower: do not set `opacity: 0`, *and* put the timer's own digits inside it.
+- **The child must be a text showing its digits, not just any child.** Device-measured on a
+  25-screen flow: four timers whose only child was a logo or a plain sentence never advanced; the
+  same four advanced once a `timer_seconds` text was added — two with the digits visible, two
+  with the digits coloured like the background. So an invisible delay is a timer holding
+  `timer_digits(('seconds',), color_id='<background>')`, and the screen's own copy or graphic sits
+  beside the digits, never instead of them. **Why, read from the transformer's source:** the
+  builder's `timer` box becomes a plain container on the way to the SDK; the SDK's own timer is
+  made from the text inside it that carries a `timer_*` token, and the `timer-end` action is
+  wired onto that element (the first such text per timer). A logo or plain copy is converted to
+  ordinary text or image, so nothing carries the action. The colour of the digits plays no part
+  in that conversion, which is why background-coloured digits still fire.
 - **An explicit `navigate`, not `navigateNext`.** The recipe says "Navigate Next" because that is
   the builder's dropdown; in JSON an implicit next-in-order target silently re-routes if anyone
   reorders the screens, and it also makes the graph invisible to the reachability check —

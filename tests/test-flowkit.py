@@ -1410,6 +1410,15 @@ def main():
     check('tab(custom_id=) is refused, with the reason',
           'no customId' in _message(lambda: fk.tab([fk.text(fk.rich('A'))], [], custom_id='x'), TypeError))
 
+    # --- a firing timer must contain its own digits (device-measured) ------------------------
+    _nav = [fk.navigate('scr_next')]
+    check('a timer whose only child is plain text and fires is refused',
+          'shows its digits' in _message(lambda: fk.timer([fk.text(fk.rich('Loading'))], seconds=2, actions=_nav)))
+    check('a timer with digits coloured like the background is accepted',
+          fk.timer([fk.timer_digits(('seconds',), color_id='bg')], seconds=2, actions=_nav)['type'] == 'timer')
+    check('a timer with visible digits beside other copy is accepted',
+          fk.timer([fk.stack([fk.text(fk.rich('Loading')), fk.timer_digits(('seconds',))])], seconds=2, actions=_nav)['type'] == 'timer')
+
     print()
     if FAILURES:
         print(f'{len(FAILURES)} failure(s): ' + ', '.join(FAILURES))
