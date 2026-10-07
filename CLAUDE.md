@@ -213,9 +213,11 @@ defects the run walked into, each verified against the files before fixing.
   specified for migration and deferred runs; now a conditional slot.
 - **The Stage 4 identify question had no default for a run nobody can answer** — now "skip, and say
   identification is still open", in all seven platform references.
-- **`AskUserQuestion` was named 22 times** across `SKILL.md` and the platform references — a Claude
-  Code tool name in skills that must stay portable to Copilot, Codex and Gemini. Replaced with plain
-  "ask the user" wording.
+- **`AskUserQuestion` is a Claude Code tool name in a skill that must stay portable.** Removing it
+  was tried and reverted at the owner's call: in Claude Code it is the most convenient format for a
+  user who just asked for an integration (they pick, not type). The mentions stay; one line near the
+  top of `SKILL.md` tells an agent without the tool to ask the same thing in one message with
+  numbered options. **Portability here means a fallback, not removal.**
 
 **Not claimed:** that any of these changed an agent's behaviour — the run that found them was one
 agent, and no round has re-run it.

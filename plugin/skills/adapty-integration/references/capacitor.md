@@ -551,7 +551,7 @@ curl -s https://adapty.io/docs/webhook-event-types-and-fields.md
 
 ## Stage 4: Identify users
 
-Ask before deciding to skip. When nobody can answer, take **No, skip** and say in the closing message that identification is still open:
+Use `AskUserQuestion` before deciding to skip. When nobody can answer, take **No, skip** and say in the closing message that identification is still open:
 
 > "This app has no login system, but you can still identify users with a stable ID tied to the device or installation. This gives each user a consistent Adapty profile across sessions, which helps with analytics accuracy, A/B test consistency, and avoiding duplicate profiles after reinstall. Do you have an ID you'd like to use, or would you like to discuss options?"
 > - **Yes, I have an ID in mind** — tell me what it is and I'll implement identification
@@ -684,7 +684,7 @@ curl -s https://adapty.io/docs/release-checklist.md
 
 ## Want to go further?
 
-After the basics are working, present this menu. Keep it casual — the user can pick one, several, or nothing.
+After the basics are working, use `AskUserQuestion` to present this menu. Keep it casual — the user can pick one, several, or nothing.
 
 > "Your integration is complete! Here are some things you might want to set up next. Which ones interest you? (or say 'done' to wrap up)"
 >
