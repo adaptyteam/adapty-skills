@@ -87,6 +87,10 @@ paragraph about what the project lacks.
 
 **The questions** — Phase 2, and any other ask: the questions and their options only.
 
+**Where this skill says `AskUserQuestion`,** use it if your harness has it: the user picks from
+the options instead of typing. Without it, ask the same thing in one message with the options
+numbered, and wait for the answer.
+
 **The closing message** — Part 5. What works now, what is left in order, and where the
 written list is:
 
@@ -98,7 +102,7 @@ written list is:
 > 1. Turn on App Store server notifications so renewals reach Adapty: <link>
 > 2. Check that restore works after a reinstall.
 >
-> All of this is in `ADAPTY_SETUP.md` in your project.
+> `<only if you wrote ADAPTY_SETUP.md:>` All of this is in `ADAPTY_SETUP.md` in your project.
 
 ## State Tracking
 

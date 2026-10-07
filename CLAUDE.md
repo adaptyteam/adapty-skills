@@ -192,6 +192,36 @@ The bullets below apply to `adapty-integration`; the `ads-manager` section furth
 - **A "no Adapty equivalent" claim carries the command that proves it, not just the claim.** Nothing in CI can catch such a claim going stale: the symbol lint verifies symbols that *are* named, and a feature Adapty lacks has no symbol to check. So every gap entry in the RC topic files — mostly `migration-revenuecat-gaps.md`, plus a few in `-attribution.md` and `-purchases.md` — ships with its own `curl … llms.txt | grep -i "<feature>"` and the rule that a hit means read the page and report the Adapty equivalent instead — written per entry, because one instruction at the top of a section is what an agent skips. Behavioral limits are a different case and get a re-read of the page that proves them (`create-product` for one-access-level-per-product, `making-purchases` for auto-applied offers) rather than an index search, since a model constraint never appears as an index entry. This is not paranoia about the roadmap: two of the four headline gaps in the internal RC comparison this content came from — offline entitlements and virtual currencies — closed within months, and Adapty ships both today.
 - **Behavioral claims about either SDK come from that SDK's source, at a pinned release tag.** The RC topic files state timings and failure modes the docs do not carry — the profile poll cadence and its post-web-paywall acceleration, RC's 5-minute/25-hour cache staleness, the 5-second placement load timeout, and the four different not-initialized failure modes. Every one was read from source, verified to still hold at a release tag (`AdaptySDK-iOS` 4.0.3, `AdaptySDK-Android` 4.0.2, `purchases-ios`/`purchases-android` at 2026-08-17 `master`), and none of it is lint-checkable: the symbol lint verifies that a symbol exists, never what a constant equals. So re-read the source when touching these numbers rather than trusting the prose, and prefer describing a behavior over naming an internal type — the global actor on iOS is deliberately unnamed here, because it is a concurrency detail and not an API an agent should call. This is also the rule that caught a wrong claim inherited from the internal comparison: RC's `recordPurchase` is not macOS-only, and RC's Android observer path is a batch `syncPurchases` rather than a per-transaction report.
 
+### Finding 51 (2026-10-07): a full Flutter integration run, and what it found in the skill
+
+`adapty-integration` from `main` was run end to end on a sample Flutter to-do app ("Tidy",
+`~/Documents/flutter-todo-sample`, a test fixture outside this repo) against a new test app,
+app_tidy: two products created from pre-approved commands, a Flow Builder paywall in the repo's own
+theme published on placement `pro`, SDK activation, Pro from the `premium` access level, restore.
+`flutter analyze` clean, `flutter test` 9/9, iOS debug build OK, and the owner checked it on a
+device. One run, not an arm comparison, so nothing here is a behavioural claim; it is a list of
+defects the run walked into, each verified against the files before fixing.
+
+- **`store-setup-android.md` pointed at "Part 4, Step 2"**, which moved to `purchase-testing` when
+  the sandbox purchase did. Now names that skill (backticks, never a relative path, so a
+  directory-copy install does not get a dead link).
+- **Step 2a granted two Play permissions** while Step 2c and `SKILL.md` relied on "the four granted
+  in Part 2a" — **Manage store presence**, the push-to-stores write grant, was missing from the step
+  that grants. Step 2a now lists the four from the docs page, which also moved the path from "API
+  access → Grant access" to "Users and permissions → Invite".
+- **The closing message always said "All of this is in `ADAPTY_SETUP.md`"**, but the file is only
+  specified for migration and deferred runs; now a conditional slot.
+- **The Stage 4 identify question had no default for a run nobody can answer** — now "skip, and say
+  identification is still open", in all seven platform references.
+- **`AskUserQuestion` is a Claude Code tool name in a skill that must stay portable.** Removing it
+  was tried and reverted at the owner's call: in Claude Code it is the most convenient format for a
+  user who just asked for an integration (they pick, not type). The mentions stay; one line near the
+  top of `SKILL.md` tells an agent without the tool to ask the same thing in one message with
+  numbered options. **Portability here means a fallback, not removal.**
+
+**Not claimed:** that any of these changed an agent's behaviour — the run that found them was one
+agent, and no round has re-run it.
+
 ### Finding 40: the products A/B/C question changes which routes reach the user — measured, twice
 
 The knot: Adapty products gate paywalls, flows and placements, so they gate the whole integration;
