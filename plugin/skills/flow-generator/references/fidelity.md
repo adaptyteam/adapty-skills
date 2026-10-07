@@ -8,8 +8,10 @@ anything — deciding which of the reference's graphics the format can reach at 
 **comparison half** belongs to phase 4, against the render. Doing the first one late is how a
 lookalike gets built and then graded against the reference by the agent that built it.
 
-**Run it whenever a reference was given** — an image, a screen to copy, a layout spelled out. Not
-when you chose the design yourself; that case is graded by a teardown skill instead —
+**Run it whenever a reference was given** — an image, a screen to copy, a layout spelled out. In
+**Adapt** mode (`SKILL.md` phase 2) the list has two halves: structure against the reference, and
+colour, type, radii, icon style and copy against the app's own style source — never against the
+reference. Not when you chose the design yourself; that case is graded by a teardown skill instead —
 `paywall-teardown` for a screen that sells, `onboarding-teardown` for a sequence.
 
 ## Why it is a written list and not a look
