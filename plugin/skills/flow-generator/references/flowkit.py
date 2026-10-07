@@ -1427,8 +1427,8 @@ def tab(label, content, *, default=False, custom_id=None):
 
 
 def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
-         bar_fill=None, bar_gap=0, bar_padding=None, item_height=44, item_corner=None,
-         content_height='hug', node_id=None, **kw):
+         bar_fill=None, bar_gap=0, bar_padding=None, bar_corner=None, item_height=44,
+         item_corner=None, content_height='hug', node_id=None, **kw):
     """A tab bar and its panels, built as the FIVE element types a real export uses.
 
     The tree the builder emits, and the only one the SDK renders:
@@ -1461,6 +1461,14 @@ def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
                                                         'borderRadius': radius(12)})
 
     Which look is design and belongs to you; that there IS one is mechanics and belongs here.
+
+    **A segment bar whose segments are plans is still this element** -- `Monthly | Yearly`,
+    `Plus | Premium`. Never product elements styled as segments: it works on a device, so nothing
+    flags it, and the builder then shows the user a product list where they drew tabs. Put each
+    plan in its own panel -- a `single_plan()` in its own one-member `product` group, plus a CTA
+    buying that group's `selectedProduct` -- because one group shared across panels does not
+    follow the tab. A rounded segmented-control track is `bar_corner` (with `bar_fill` and
+    `bar_padding`). See patterns.md, "Tabs that switch plans".
 
     **Heights default to `hug`, and the two sources disagree, so read this before changing it.**
     The real export uses `fill` on `tabs`, the wrapper and every panel — correct there, because
@@ -1511,10 +1519,14 @@ def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
         panels.append(panel)
 
     bar = stack(items, width='fill', height='hug', direction='horizontal', gap=bar_gap,
-                align_h='center', align_v='center', fill_=bar_fill, padding=bar_padding)
+                align_h='center', align_v='center', fill_=bar_fill, padding=bar_padding,
+                corner=bar_corner)
     bar['type'] = 'tab-bar'
     wrapper = stack(panels, width='fill', height=content_height)
     wrapper['type'] = 'tab-content-wrapper'
+    # The real export's wrapper carries {width, height, position} and no `layout`; the schema
+    # refuses one there, so an agent building from this helper had to strip it by hand.
+    wrapper['props'].pop('layout', None)
 
     lay = layout('vertical', gap, 'start', 'start')
     lay['clipContent'] = True                # both sources set it; without it panels bleed out

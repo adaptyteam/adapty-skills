@@ -769,6 +769,18 @@ def main():
           raises(lambda: fk.tabs([fk.tab([], [], default=True),
                                   fk.tab([], [], default=True)],
                                  group_id='g', item_selected=SEL)))
+    # A rounded segmented-control track. The real tabs export and the catalog's tabs-segmented
+    # both put borderRadius on the tab-bar; without a parameter for it, a segment bar copied from
+    # a reference could only be drawn rounded as a plain stack -- of product elements.
+    _bars = lambda **kw: [e for e in fk.flatten([_tabs(group_id='g', **kw)])[0].values()
+                          if e.get('type') == 'tab-bar']
+    check('tabs(bar_corner=) rounds the tab-bar',
+          _bars(bar_corner=fk.radius(16))[0]['props'].get('borderRadius') == fk.radius(16))
+    check('...and without it the tab-bar carries no borderRadius',
+          'borderRadius' not in _bars()[0]['props'])
+    check('the tab-content-wrapper carries no layout, matching the real export',
+          all('layout' not in e['props'] for e in fk.flatten([_tabs(group_id='g')])[0].values()
+              if e.get('type') == 'tab-content-wrapper'))
     # --- the dead-pill defect: states declared, nothing overridden (finding 37) ---
     check('tabs() refuses a missing item_selected, naming the defect',
           raises(lambda: fk.tabs([fk.tab([], []), fk.tab([], [])], group_id='g'),

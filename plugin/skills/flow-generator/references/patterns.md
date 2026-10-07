@@ -216,6 +216,52 @@ builder could not open. See [flow-schema.md trap 10](flow-schema.md) for why the
 answers looked well-sourced — and use `flows config preview` to check a skeleton you adapt from
 here before you trust it, since that is how this one was confirmed.
 
+### Tabs that switch plans
+
+A segment bar in a reference — `Monthly | Yearly`, `Individual | Family`, `Plus | Premium` — is
+the `tabs` composite **even when every segment is a plan**. Do not build it from `product`
+elements styled as segments with one price line bound to `<group>.selectedProduct`. That shape
+works on a device and renders identically, so nothing flags it — but it is not what the design
+is, and the user opening the builder finds a product list where they drew tabs.
+
+Put each plan inside its own panel:
+
+```
+tabs  (group "period", single_choice)
+├── tab-bar → tab-item "Monthly" (default) · tab-item "Yearly"
+└── tab-content-wrapper
+    ├── tab-content: product (group "plan_monthly", default: true) ⟵ the plan's copy + price
+    │                CTA → purchase "plan_monthly.selectedProduct"
+    └── tab-content: product (group "plan_yearly",  default: true)
+                     CTA → purchase "plan_yearly.selectedProduct"
+```
+
+```python
+fk.tabs([fk.tab([label('Monthly')], [fk.single_plan(monthly_copy, product_id=MO, group_id='plan_monthly'),
+                                     cta(fk.purchase('plan_monthly'))], default=True),
+         fk.tab([label('Yearly')],  [fk.single_plan(yearly_copy, product_id=YR, group_id='plan_yearly'),
+                                     cta(fk.purchase('plan_yearly'))])],
+        group_id='period', item_selected={...}, bar_fill=..., bar_padding=..., bar_corner=...)
+```
+
+- **One `product` group per panel, each with one `default: true` member.** A single group
+  shared across panels does not follow the tab: switching to *Yearly* leaves *Monthly*
+  selected, and a CTA buying it buys the wrong plan.
+- **The CTA lives inside each panel**, buying that panel's group — the real tabs export does
+  exactly this, one buy button per panel. Only one panel shows, so it reads as one button.
+- **If the design pins one shared CTA at the bottom, keep it there from inside the panels.** A
+  `footer` sits at the screen root, outside the panels, so it cannot follow the tab. Instead make
+  the screen `scrollable: false`, set `tabs`, the wrapper and every `tab-content` to `height:
+  fill`, and give each panel `distribution: space-between` with the CTA as its last child — the
+  panel then stretches to the bottom and its button lands where the design put it. This is the
+  real tabs export's own height chain. It clips on a short phone, so name that as a device check.
+  Only when the screen must scroll does the CTA move up under the price — say so in the report.
+- Declare every plan's product on the screen (`predeclare(screen_id, [MO, YR])`) and every
+  group in `selectableGroups`: `period` as `single_choice`, each plan group as `product`.
+
+Verified against the live transform service (`valid: true`) and by render. The catalog's
+`tabs-segmented` is the bar to start from when the reference shows a rounded track.
+
 **Two tab facts from the support channel:** if **no `tab-item` carries `default: true`, no tab
 renders at all** — always mark one. And conditioning on the selected tab is possible despite the
 UI exposing no tab-item id field: use the tab element's **id from the builder URL** in
