@@ -1775,12 +1775,27 @@ def check(path, baseline_text=None, baseline_images=None):
                     return any(w(c) for c in (n.get('children') or []))
                 w(root)
                 return found
-            if not _children_of(eid_):
+            # A child is not enough: device-measured, a timer whose only child is a logo or a
+            # plain sentence does not fire either. It fires once a text inside it carries its
+            # own digits (a `timer_*` token), and those digits may be coloured like the
+            # background, which keeps the delay invisible and still fires.
+            m_ = s.get('elements', {}).get('map') or {}
+            def _has_digits(nodes):
+                for n in nodes:
+                    el = m_.get(n.get('id')) or {}
+                    if el.get('type') == 'text' and '"timer_' in json.dumps(el.get('props', {}).get('content')):
+                        return True
+                    if _has_digits(n.get('children') or []):
+                        return True
+                return False
+            kids_ = _children_of(eid_)
+            if not _has_digits(kids_):
                 bad.append(
-                    f'screen {s["id"]}: timer {eid_} has a timer-end action and NO children, '
-                    f'so it does not fire on a device and the flow stops on this screen. '
-                    f'Neither validate nor preview can see this. Give '
-                    f'it a child -- the running digits, or the loading copy itself')
+                    f'screen {s["id"]}: timer {eid_} has a timer-end action but no text inside it '
+                    f'showing its digits, so it does not fire on a device and the flow stops on '
+                    f'this screen ({"no children at all" if not kids_ else "a logo or plain text is not enough"}). '
+                    f'Put a timer_digits() text inside it; to keep the delay invisible, colour the '
+                    f'digits like the background. Neither validate nor preview can see this')
 
     # `footer` is the pinned bottom bar, and all three of these were measured by
     # rendering one screen eight ways. The element is lifted out of the flow and pinned to the

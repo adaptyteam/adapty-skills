@@ -35,6 +35,7 @@ Run `tests/test-flowkit.py` after touching it.
     )
 """
 import copy
+import json
 import hashlib
 import os
 import re
@@ -1751,7 +1752,12 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     """A countdown `timer` element. Pass `timer_digits(...)` as one of its `children` to show the
     running digits.
 
-    **A timer carrying a `timer-end` action MUST have at least one child.** Device-measured,
+    **A timer carrying a `timer-end` action must contain its own digits** — a `timer_digits()`
+    text among its children, which may be coloured like the background to stay invisible. Device-
+    measured: a timer whose child was a logo or a plain sentence did not fire either, and the same
+    timers fired once digits were added, visible or background-coloured.
+
+    The earlier, weaker rule — at least one child — came from these measurements,
     two writes differing in nothing else: the childless form **did not advance**, the
     same timer with one child text **did**, and an isolating probe with two exits to different
     destinations confirmed it on a third trip. So the "purely invisible delay" this docstring used
@@ -1765,13 +1771,14 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     `duration` is `{days, hours, minutes, seconds}`. `behavior='start_at_every_appear'` restarts
     the countdown each time the screen appears.
     """
-    if actions and not list(children):
+    if actions and '"timer_' not in json.dumps(list(children)):
         raise ValueError(
-            'a timer with a `timer-end` action and NO children does not fire on a device '
-            '— the flow stops dead on that screen, and neither '
-            '`config preview` nor `flows config validate` can see it. Give it a child: '
-            'timer_digits(...) if a visible countdown suits the screen, or the loader copy '
-            'itself. See patterns.md -> the auto-advancing screen.')
+            'a timer with a `timer-end` action fires on a device only when a text inside it '
+            'shows its digits — a logo or plain copy as the child does not fire either, and '
+            'neither `config preview` nor `flows config validate` can see it. Add '
+            'timer_digits(...) to its children; to keep the delay invisible, give it the '
+            "background's colour: timer_digits(('seconds',), color_id='<background>'). "
+            'See patterns.md -> the auto-advancing screen.')
     props = {
         'customId': custom_id, 'behavior': behavior,
         'duration': {'days': days, 'hours': hours, 'minutes': minutes, 'seconds': seconds},

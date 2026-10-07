@@ -654,9 +654,10 @@ never navigates, so a working auto-advance and a broken one look identical here 
 device can tell them apart — at a real cycle per attempt. Give the `timer` a child `text` carrying
 the `timer_minutes`/`timer_seconds` tokens: *digits never appear* is the element not mounting,
 *digits reach zero and nothing happens* is the trigger not firing. Without it a failed test returns
-one bit and you guess again. Say it is temporary. When you take the digits out, **the timer keeps a
-child** — move the screen's own copy or graphic inside it, because a timer with no child never fires
-on a device. The device-verified shape is in [patterns.md](references/patterns.md).
+one bit and you guess again. **The digits never leave the timer: a timer fires only when a text
+inside it shows its digits** — a logo or plain copy as its only child does not fire. To hide them
+once the user has checked, colour them like the background; never delete them. The device-verified
+shape is in [patterns.md](references/patterns.md).
 
 **Confirm you screenshotted the flow at all.** A bad `--device`, a broken fragment and a wrong host
 all render as *pages* that pass a "did anything draw" check. If the render is blank, slow or wrong,
