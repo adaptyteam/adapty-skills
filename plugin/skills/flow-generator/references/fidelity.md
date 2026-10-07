@@ -95,7 +95,14 @@ real full-resolution asset where a crop gets a 1x copy of their mockup.
 
 ## 3. Turn what the format cannot reach into named user asks
 
-Never a silent downgrade, and never one line buried in a paragraph — collect them into the
+**Inventory behaviours and effects too, not only graphics.** For every button, field and visual
+effect in the reference, ask what it does in the app it came from and whether the flow does the
+same: a sign-up form that creates an account, a social sign-in, a blurred background, a gradient
+word. Each one the builder cannot do yet is named to the user the way `SKILL.md`'s What you print
+says, with what the screen does instead — a button that only sends a custom action is listed
+there, because to the user it looks like a working sign-up.
+
+Never a silent downgrade, and never one line buried in a paragraph — collect assets into the
 missing-assets block `SKILL.md` describes, so the user sees the whole list and can answer it in
 one go. Batch it with the phase-2 asks, because a path they hand over turns a placeholder into a
 finished screen.
