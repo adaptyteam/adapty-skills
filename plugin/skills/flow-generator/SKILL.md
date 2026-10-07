@@ -106,6 +106,13 @@ offering both on every row recommends a path that ends in a refusal:
 > https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, then tell me the
 > family name and I'll point the theme at it.
 
+**Name what the builder cannot do yet, beside it**: for each behaviour or effect in the design the
+flow does not perform (creating an account, a permission prompt, a blur), say what the screen really
+does ("sends `create_account` to your app; the flow creates no account") and the routes that fit — a
+custom action your app answers with its own screen, a second flow on its own placement if the
+onboarding continues after it, or an image or a video (uploaded in the builder) of an effect — and
+call it "not in the builder yet", never impossible.
+
 Images up to ~2.5 MB you can upload; **SVG, fonts, video and anything larger are builder-only**
 ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
 line, not a repeat of the table.

@@ -546,7 +546,7 @@ Now the SDK limitations, which shape the *geometry* of a real carousel — not w
 Support-channel distilled (2026-08, team-stated and device-verified). The carousel supports exactly
 **two layouts**: adjacent-slide peek (the standard Apple layout), or one full slide with neighbours
 invisible. Anything else is an SDK limitation, not a config error, and a true infinite loop is
-impossible — the approximation is duplicating slides (team-diagnosed).
+not available yet — the approximation is duplicating slides (team-diagnosed).
 
 **`hug` does not survive the trip to the device here.** `Slide Width = Hug` is dropped by the
 transformer (Android stretches the slide full-width, the peek disappears; team-diagnosed), and a hugged

@@ -86,7 +86,8 @@ Two things the config cannot show, and they are exactly the two worth asking for
    is the difference between a payoff and a broken promise, and it is rule 1's whole hinge.
 
 Q6 (permissions) is usually unanswerable from a config too, and for a mechanical reason worth
-knowing: **a flow cannot request a permission at all** — see
+knowing: **a flow has no permission action yet** — the button fires a custom action and the app
+makes the system call — see
 [What you cannot invent](#what-you-cannot-invent).
 
 ### The six questions — ask ONE AT A TIME
@@ -381,7 +382,7 @@ config cleanly, some need something only the user has, and **two cannot be built
 | **Personalized result — echoing an answer back** | Yes. A group's `selectedOptionId` or an input's `.value` read in rich text or a `switch` is a real payoff, and it is visibly personalized | — |
 | **Personalized result — a computed plan or projection** | **No.** The flow can echo what was chosen; it cannot calculate an outcome. A projected number is a fabricated proof number wearing a personalization badge | The real projection, from the app — or drop to echoing, which is honest and still pays the promise |
 | Micro-loading transition | Yes — the device-verified `timer` → `timer-end` → `navigate` shape (`flow-generator` → `references/patterns.md`) | Nothing, but **only build one if a real payoff follows it**: a loader with the paywall behind it is delay, and removing it has won |
-| **Permission request** | **No — there is no permission action.** The 15 action types are alert, closeFlow, conditional, custom, hideElement, navigate, navigateBack, navigateNext, nothing, openUrl, purchase, restorePurchases, selectProduct, setVariable, showElement | The **app** makes the system call. The flow can render the pre-permission soft prompt and fire a `custom` action the app handles — so permission-timing findings are a handoff to whoever owns the app code, not a build item |
+| **Permission request** | **Not in the builder yet — there is no permission action.** The 15 action types are alert, closeFlow, conditional, custom, hideElement, navigate, navigateBack, navigateNext, nothing, openUrl, purchase, restorePurchases, selectProduct, setVariable, showElement | The **app** makes the system call. The flow can render the pre-permission soft prompt and fire a `custom` action the app handles — so permission-timing findings are a handoff to whoever owns the app code, not a build item |
 | Social proof — rating, review count, testimonials | Element yes | The real numbers and the real quotes, verbatim. Several testimonials on one screen is the `carousel` element, never a static card with hand-built dots |
 | Before/after, results with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, a copy-tier change |
 | Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
