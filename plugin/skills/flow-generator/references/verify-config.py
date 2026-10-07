@@ -1708,6 +1708,26 @@ def check(path, baseline_text=None, baseline_images=None):
                            f'resolves nothing and it draws BLANK — an authored `raw` does not '
                            f'override the bundle. Did you mean: {hint}?')
 
+    # An `icon` element with a phosphor loader glyph (`Spinner`, `SpinnerGap`, `SpinnerBall`)
+    # is a still picture of a loader. It draws in every preview and does not
+    # rotate on a device; the loader is the `spinner` element with a custom spinner glyph.
+    # Calibrated: none of these names appears in the tracked or raw corpus or in the catalog.
+    # `CircleNotch` is not flagged: five agent-built welcome screens use it as decoration.
+    if _icons is not None:
+        fakes = set()
+
+        def _static_loader(o):
+            ic = (o.get('props') or {}).get('icon') if o.get('type') == 'icon' else None
+            if isinstance(ic, dict) and ic.get('type') == 'phosphor' \
+                    and ic.get('name') in _icons.STATIC_LOADERS:
+                fakes.add((o.get('id', '?'), ic['name']))
+
+        walk(d, _static_loader)
+        for eid, name in sorted(fakes):
+            warn.append(f'icon element {eid} uses {name!r}, a static picture of a loader: it does '
+                        f'not rotate on a device. For a loading indicator use the spinner element '
+                        f'(flowkit.spinner(\'spinner1\'), or the loader-spinner-label template).')
+
     refs = set()
     walk(d, lambda o: refs.add(o['id']) if o.get('type') == 'global' else None)
     unref = sorted(set(d.get('components', {})) - refs)

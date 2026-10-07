@@ -882,7 +882,8 @@ def text(content, *, preset='body', color_id=None, align='left', width='fill',
     return _node('text', props, **kw)
 
 
-def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None, **kw):
+def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None,
+         static_loader=False, **kw):
     """A `phosphor` glyph. The name is resolved against the renderer's OWN bundle here, and an
     unknown one raises with suggestions.
 
@@ -894,7 +895,15 @@ def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None, **
     error is unreachable from here too.
 
     `icons.py` is the search surface: `python3 icons.py --search arrow`.
+
+    A loader glyph (`Spinner`, `SpinnerGap`, `SpinnerBall`) is refused: as an
+    `icon` it is a still picture that does not rotate on a device. Use `spinner('spinner1')`.
+    Pass `static_loader=True` only when the design really shows a still glyph.
     """
+    if name in icons.STATIC_LOADERS and not static_loader:
+        raise ValueError(f'icon({name!r}) is a still picture of a loader and does not rotate on a '
+                         f"device. For a loading indicator use spinner('spinner1') (spinner1 to "
+                         f'spinner5). Pass static_loader=True only for a deliberately still glyph.')
     icons.icon_meta(name, weight)          # raises on a name or weight the bundle lacks
     props = {'icon': {'name': name, 'size': size_pt, 'type': 'phosphor', 'weight': weight},
              'position': position or relative()}
@@ -1791,6 +1800,10 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     if padding is not None:   props['padding'] = padding
     if corner is not None:    props['borderRadius'] = corner
     if visibility is not None: props['visibility'] = visibility
+    if actions and 'caption' not in kw:
+        # The builder shows a timer with background-coloured digits as an empty frame; a
+        # layer name says it is the screen's auto-advance, not something left behind.
+        kw['caption'] = 'Auto-advance'
     node = _node('timer', props, children=list(children), node_id=node_id, **kw)
     if actions:
         # a timer's own interaction fires on `timer-end`, not `tap`

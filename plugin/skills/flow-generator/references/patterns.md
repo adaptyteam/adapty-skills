@@ -369,7 +369,8 @@ and it is not the `spinner` element — you would ship a lookalike that no longe
 the [fake-footer](#a-bar-that-stays-at-the-bottom-use-footer) mistake wearing a loader: a
 preview-visible impostor standing in for a real element to satisfy a screenshot. Keep the
 `spinner` / `loader-spinner-label`, disclose that the preview cannot show it, and hand the animation
-to the device check. `verify-config.py` cannot see this, so it is on you.
+to the device check. The bundle's `Spinner`, `SpinnerGap` and `SpinnerBall` are still
+pictures of a loader, never the loader itself.
 
 ### DEVICE-VERIFIED: the JSON an auto-advancing screen actually needs
 

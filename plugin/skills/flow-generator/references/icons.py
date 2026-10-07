@@ -161,6 +161,21 @@ def custom_icon_meta(name):
 
 # ---------------------------------------- cli ----------------------------------------
 
+# Phosphor glyphs named as loaders that do not move. A loading indicator is the `spinner`
+# element with one of the custom spinner glyphs; an `icon` with one of these is a still picture.
+# `CircleNotch` is left out on purpose: agents use it as an ordinary ring glyph (activity rings
+# on a welcome screen), so flagging it would fire on legitimate decoration.
+STATIC_LOADERS = frozenset({'Spinner', 'SpinnerGap', 'SpinnerBall'})
+
+
+def _label(name, custom):
+    if name in custom:
+        return f'{name}  (rotates: use it in a spinner element, flowkit.spinner({name!r}))'
+    if name in STATIC_LOADERS:
+        return f'{name}  (static icon: does not rotate; a loader is a spinner element)'
+    return name
+
+
 def _main(argv):
     if not argv or argv[0] in ('-h', '--help'):
         print(__doc__.strip().split('\n\n')[-2], file=sys.stderr)
@@ -173,11 +188,14 @@ def _main(argv):
         # The custom names join the pool: an agent searching "spinner" is usually after
         # `spinner1`, and leaving them out sends it to `Spinner`, a static glyph that does not
         # rotate — the substitution `spinner()` exists to refuse.
+        custom = set(custom_names())
         hits = [n for n in phosphor_names() + custom_names() if needle in n.lower()]
         # Exact name first, then names that start with it: `Lock` and `X` are real icons that an
-        # alphabetical list buries under ArrowClockwise and AirplaneTaxiing.
-        hits.sort(key=lambda n: (n.lower() != needle, not n.lower().startswith(needle)))
-        print('\n'.join(hits) if hits else f'no icon matches {needle!r}')
+        # alphabetical list buries under ArrowClockwise and AirplaneTaxiing. The rotating
+        # spinner glyphs go before both, or "spinner" ranks the static `Spinner` first.
+        hits.sort(key=lambda n: (n not in custom, n.lower() != needle,
+                                 not n.lower().startswith(needle)))
+        print('\n'.join(_label(n, custom) for n in hits) if hits else f'no icon matches {needle!r}')
         return 0 if hits else 1
     try:
         if argv[0] in _load(CUSTOM_ICONS)['icons']:
