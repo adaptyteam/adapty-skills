@@ -2,7 +2,7 @@
 
 [![skills.sh](https://skills.sh/b/adaptyteam/adapty-skills)](https://skills.sh/adaptyteam/adapty-skills)
 
-Skills that hand your app's subscription surface to the agent you already have open: integrate the Adapty SDK on any mobile platform, get the first sandbox purchase through, build and audit Flow Builder paywalls and onboardings, move paywall placements to flows, run Apple Search Ads, read which campaigns pay back in Adapty Attribution, and answer questions from Adapty's docs.
+Skills that hand your app's subscription surface to the agent you already have open: integrate the Adapty SDK on any mobile platform, get the first sandbox purchase through, build and audit Flow Builder paywalls and onboardings, move paywall placements to flows, plan revenue tests from your own numbers, run Apple Search Ads, read which campaigns pay back in Adapty Attribution, and answer questions from Adapty's docs.
 
 **Everything about using them — what each skill does, what you can ask, what runs on your machine — is in the [plugin README](plugin/README.md).**
 

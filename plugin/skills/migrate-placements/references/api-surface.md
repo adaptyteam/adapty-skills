@@ -376,7 +376,7 @@ From the same source, the audience array a `placements create` must satisfy:
 | Constraint | |
 |---|---|
 | `segment_ids` per entry | **at most one** — a `field_validator` refuses more (see the legacy trap below) |
-| exactly one entry | must have `segment_ids=[]`, the default, and it must hold the **highest priority** |
+| exactly one entry | must have `segment_ids=[]`, the default, and it must hold the **largest `priority` number**: a smaller number is checked first, and the default is the fallback, checked last |
 | `priority` values | must be **unique** across the array |
 | `segment_ids` values | must be **unique** across the array |
 
