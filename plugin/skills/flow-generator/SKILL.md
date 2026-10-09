@@ -288,7 +288,7 @@ and print the version you resolved in the same command you run next so the two c
 
 Then `$ADAPTY auth whoami`. It hits the server and prints the name and companies, so it proves the
 token works. Prefer it to `auth status`, which only reports what is stored locally and does not
-verify it — it happily prints `Email: undefined` next to a working token.
+verify it — it prints the stored name and token prefix even when the token no longer works.
 
 If it fails, `$ADAPTY auth login` opens a browser. That is the user's to complete; wait for them
 rather than retrying in a loop. Then `$ADAPTY apps list --json` for the `<APP_UUID>` every later
