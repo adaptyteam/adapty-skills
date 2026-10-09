@@ -28,6 +28,7 @@ Every install below gives you the whole toolkit — and it grows, so an update b
 | Skill | What it does | Needs |
 |---|---|---|
 | [`adapty-integration`](#integrating-the-sdk) | Sets up in-app purchases end to end — dashboard, SDK, paywall, store config — or moves you over from another purchase system | Adapty CLI |
+| [`growth-advisor`](#growing-revenue) | Reads your subscription numbers, finds where the app leaves money, and gives you a test plan per placement — prices, plans, trials, countries, offers — then builds the tests that are flows | Adapty CLI |
 | [`adapty-attribution`](#reading-ad-attribution) | Reads your Adapty Attribution data: which channels, campaigns, ads and countries pay back, trial quality, weekly changes, predicted payback, and why an ad network's numbers differ from Adapty's | Adapty CLI, Adapty Attribution |
 | [`ads-manager`](#managing-apple-search-ads) | Runs your Apple Search Ads: performance across campaigns and keywords, bid and budget changes, search-term harvesting, campaigns on and off | Adapty CLI, Apple Ads account |
 | [`flow-audit`](#auditing-a-flow) | Answers "did I forget anything?" before you publish a flow — triggers, products, variables — with a verdict and ranked fixes | Adapty CLI |
@@ -50,6 +51,8 @@ Say what you want the way you'd brief a colleague. You don't need to name a skil
 - "Add a German translation to my paywall flow."
 - "Before I ship this paywall flow to paying users, did I miss anything?"
 - "Here's my paywall. What should I test to convert better?"
+- "Audit my app. What should I test next to grow revenue?"
+- "Revenue dropped last month. Why?"
 - "Which of my ad channels actually pays back? Should I move budget from TikTok to Meta?"
 - "How did my Apple Search Ads campaigns do last week, and which keywords should I pause?"
 
@@ -170,6 +173,18 @@ You'll be asked for your Adapty credentials and a few decisions along the way �
 - **Flow Builder** (recommended) — Adapty renders paywalls *and* onboarding in a no-code editor; nothing to build. On Unity and Capacitor this is Paywall Builder, the previous generation, which does paywalls only
 - **Custom paywall** — you build the UI; Adapty provides products and handles purchases
 - **Observer mode** — keep your existing StoreKit / Billing code; Adapty tracks events only
+
+## Growing revenue
+
+A growth review of your app from its own numbers, the way a subscription growth manager would run one.
+
+```
+/growth-advisor
+```
+
+It reads your revenue, renewals, trials, installs and refunds through `adapty analytics`, with your placements, paywalls and products, then asks what it cannot see: what you have tested before, which apps you compete with (it reads their prices from their App Store pages once you confirm the list, or from its own picks, named as such, when you are not there to confirm), and your paywall if you want design ideas too. You get back what your numbers say and a short test plan grouped by placement, in the order to run it. Each test names the reason from your own data, the metric that decides it, and an expected range from real A/B tests on subscription apps, or says plainly that it is untested.
+
+**It changes nothing live without your yes.** A test that is a flow — an offer after the paywall closes, a seasonal paywall, a paywall at a new moment in the app — is built by `flow-generator` after your yes. You choose how users get it: an A/B test in the dashboard (the default, and the only way to know what it did), a new placement, or an existing placement for some or all of its users. Before it changes an existing placement it saves what is there, asks you to confirm no A/B test is running on it, and tells you exactly who will see what. Prices, trials and A/B tests are yours to change in the store and the dashboard; it gives you the exact values and the steps. After a test ends, tell it what won and it plans the next one.
 
 ## Reading ad attribution
 
@@ -304,11 +319,12 @@ One constraint it will tell you about rather than quietly working around: **a fl
 - **Existing placements are never converted.** `migrate-placements` creates new flow placements beside your paywall ones, which stay as your rollback, and shows every new ID for your approval first.
 - **Ad spend changes wait for you.** `ads-manager` names each bid, budget, keyword or campaign change in chat and runs it only after your yes.
 - **You see your account before anything is created.** `adapty-integration` reads what already exists in your Adapty dashboard and tells you what it will use and what it will add, then writes code only in your project.
+- **Growth plans change a live placement only on your yes.** `growth-advisor` reads your numbers, saves a placement before changing it, and asks you to confirm no A/B test is running there first, since the CLI cannot see one.
 - **Five skills only read.** `flow-audit`, `adapty-attribution`, `adapty-docs`, `paywall-teardown` and `onboarding-teardown` change nothing in your account.
 
 ## Where it works
 
-The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Seven of the ten need a shell and the Adapty CLI signed in to your account.
+The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Eight of the eleven need a shell and the Adapty CLI signed in to your account.
 
 `paywall-teardown`, `onboarding-teardown` and `adapty-docs` need neither, so they also work in Claude chat and Cowork, where the other skills cannot reach your Adapty account.
 
@@ -343,6 +359,7 @@ The skills are instructions and a few local helper scripts. They run nothing on 
 | **SDK version lookups** | Once per integration, to pin the current SDK release | `api.github.com`, `pub.dev`, Maven Central, depending on the platform |
 | **Flow config schema** | When `flow-generator` checks a config | `app.adapty.io/flow-schema/latest.json`, cached in your temp directory |
 | **Flow previews** | When `flow-generator` renders a screen for you to look at | Your flow config is opened in Adapty's preview page (`app.adapty.io`) in a local headless Chrome. The preview link for a phone is `mobile-app.adapty.io` |
+| **Competitors' App Store pages** | When `growth-advisor` compares your prices: the apps you confirmed, or its own picks when you are away | `apps.apple.com` and the public App Store search at `itunes.apple.com`, read without signing in |
 | **Images you hand over** | Only when you give `flow-generator` an image for a flow | Uploaded to your Adapty account's media library through the CLI |
 | **Optional helper packages** (`ajv`, `playwright`, `qrcode`) | Only for the schema check, the Playwright preview and the QR code, each installed once into `~/.cache/` | The npm registry |
 

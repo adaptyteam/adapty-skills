@@ -351,7 +351,10 @@ python3 references/diff-config.py <the-old-local-copy>.json flow.working.json
 (below) the reference's style then replaces the seed's theme. Its first
 `config update` omits `--expected-updated-at`. **A new flow is the safe default for anything the
 user calls new**, because `config update` replaces everything and generating over a flow with
-content discards that content.
+content discards that content. **Run `flows create` once per new flow**: it does not deduplicate
+and there is no delete, so a second call leaves a second flow in the user's account for good. Keep
+the id it prints, and on any retry (a failed save, a read-back that looks wrong, a later turn)
+write to that id. Coming back without it, look for the name in `flows list` before creating.
 
 Then, before editing: **report what the source config contains** — screens and captions,
 locales, products, the navigation graph. Before proposing anything; it grounds the user and
@@ -1011,7 +1014,8 @@ diff before you write ([merge.md](references/merge.md)).
 confirming it back to them, not for picking one yourself.
 
 **`config update` replaces the whole config.** There is no partial write, no undo and no version
-history. Prefer a fresh `flows create` for new work.
+history. Prefer a fresh `flows create` for new work, and create it once: a retry writes to the
+flow you already created.
 
 **Overwriting an existing config needs an explicit yes.** Phase 5 owns the form. The gate is keyed
 to whether the flow already has a config, not to how confident you feel about the edit — a clean
