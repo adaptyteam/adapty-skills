@@ -46,7 +46,7 @@ serves it to whichever customers see the Offering.
 - **Whether an Offering the app fetches for its products has a Published Paywall attached is
   dashboard state — no call site in the app code reveals it.** An offering fetched only for its products looks identical in code whether or not
   it has a Paywall behind it in the dashboard. You can rule this in or out only with RC account access
-  (the dashboard's Paywalls list) or the `--rc-key` catalog described in section 3 below; from code
+  (the dashboard's Paywalls list) or the catalog migration described in section 3 below; from code
   alone you cannot clear this hazard, only flag it.
 - **The app code does show that an editor paywall is presented** — `import RevenueCatUI` with a
   paywall view, `presentPaywallIfNeeded`, or the platform's equivalent. It does not show which
@@ -83,11 +83,10 @@ RevenueCat, populate its checkboxes with:
 - **Offering metadata destined for paywall remote config** (spine section 3). RC stores this per
   Offering in the dashboard; it does not appear anywhere in a diff of the application code.
 
-Mention that re-running `adapty migrate --rc-key <v2 secret key>` fetches this catalog directly from
-RevenueCat and automates the comparison above — every checkbox in this list becomes a diff the CLI
-already computed instead of a manual dashboard visit. (This flag belongs to the Adapty CLI's `migrate`
-command, which is not yet in a published CLI release — say so if the user asks why it isn't on their
-installed version.)
+Mention that `adapty migrations create --name "<app name>"` copies this catalog straight from the
+RevenueCat account into a new Adapty app, so every checkbox in this list becomes an entity it already
+created instead of a manual dashboard visit. A catalog it created is one the next run finds in the
+lists and reuses (`references/migration.md` section 3).
 
 ---
 
@@ -110,9 +109,9 @@ installed version.)
 - **Map straight from the installed RC version to Adapty.** Never go old RC → current RC → Adapty as
   an intermediate step: either hop can silently drop or rename a concept, and a double translation
   leaves no way to tell which hop introduced the error.
-- **REST API branch.** `adapty migrate --rc-key` needs a RevenueCat v2 **secret** key — the kind RC's
-  dashboard lists under "Secret API keys" (prefixed `sk_`), not the public key used to configure the
-  RC SDK itself. A v1-only key cannot drive it. Say this up front rather than letting the user
+- **Catalog migration branch.** `adapty migrations` needs a RevenueCat v2 **secret** key — the kind
+  RC's dashboard lists under "Secret API keys" (prefixed `sk_`), not the public key used to configure
+  the RC SDK itself. A v1-only key cannot drive it. Say this up front rather than letting the user
   discover it mid-run, and fall back to the code-only path (section 3 above) when a secret key isn't
   available.
 
