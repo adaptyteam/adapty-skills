@@ -392,8 +392,8 @@ failure diagnosis — delegate to it rather than re-deriving them.
 
 **A `http_404` from `flows publish` stops the run here, and it is not a clean stop.** The route is
 not live on this deployment, so switching accounts does not help; but `flows create` has already run for this
-paywall and there is no `flows delete`, so **say how many flow rows exist and that they have to be
-removed from the dashboard** — https://app.adapty.io/flows. Do not keep creating flows for the
+paywall and there is no `flows delete`, so **say how many flow rows exist and that they can be
+archived in the dashboard** — https://adapty.io/docs/archive-flows.md. Do not keep creating flows for the
 remaining paywalls once publish has 404'd.
 
 **Use `references/stub-flow.json` as shipped; do not hand-write a smaller one.** It is known to
@@ -467,10 +467,11 @@ what the run did.
 
 - **Stub or build.** Flow line, and the undo line verbatim:
 
-  > <n> already created and published, one per distinct paywall — on your account now, and
-  > removable only in the dashboard
+  > <n> already created and published, one per distinct paywall — on your account now; you can
+  > archive them in the dashboard
 
-  > Saying no does not undo the flows. Those <n> stay either way; no CLI command deletes a flow.
+  > Saying no does not undo the flows. Those <n> stay either way; to clear them out of your
+  > Flows list, archive them: https://adapty.io/docs/archive-flows.md
 
 - **Existing.** Flow line, and the undo slot is **omitted entirely** — saying no leaves the account
   exactly as this run found it, and there is nothing to warn about:
@@ -630,8 +631,8 @@ by side, each measured on its own metrics, until v4 adoption is high enough.
 paywall placements are the rollback.** Until the app ships the call change, users are on the old
 paywalls; if the new flows are wrong, ship nothing and fix the flows in the builder —
 https://adapty.io/docs/adapty-flow-builder.md. **Rollback covers placements, not flows:** every
-flow the run created **cannot be deleted from the CLI**, so name the count and where to remove them,
-https://app.adapty.io/flows.
+flow the run created **cannot be deleted**, so name the count and say they can be archived in the
+dashboard once no placement uses them — https://adapty.io/docs/archive-flows.md.
 
 Close by naming what is still outstanding, once: flows still holding a stub, placements that failed,
 and flows to clean up. That nobody sees any of this until the app ships is said once in the whole
