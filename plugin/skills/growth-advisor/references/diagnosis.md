@@ -100,8 +100,8 @@ create one.
 
 From these: which placements exist and are active, what each one shows (a paywall or a flow, per
 audience), which products each paywall sells, and whether there is anything after the onboarding
-paywall. Prices and trials are set in the store, not in Adapty: take the app's own prices from its
-App Store page (`competitors.md`, step 2) or ask the user.
+paywall. Trials are set in the store, not in Adapty: read which products carry one from chart 4
+by `store_product_id`, or ask the user. Prices are out of scope; do not look them up.
 
 ## Follow the signal down
 
@@ -149,9 +149,9 @@ to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
 1. Chart 1 (new vs renewal) over the drop and the months before it, at `month`, or `week` for a
    drop under two months.
 2. **Renewals fell:** chart 6 by reason. Cancelled by the user points to the cohort that came up
-   for renewal (a past promo, a price change, a weak acquisition month a year earlier for annual).
-   Billing issues point to grace period and payment retries. Ask what changed then; the CLI shows
-   neither releases nor store price history.
+   for renewal (a past promo, a change to the plans, a weak acquisition month a year earlier for
+   annual). Billing issues point to grace period and payment retries. Ask what changed then; the
+   CLI shows no release history.
 3. **New revenue fell:** chart 3 and chart 4. Installs down is traffic (`adapty-attribution` owns
    campaigns). Installs flat and new subscriptions down is the funnel or the paywall.
 4. Split the falling side by country and by store before naming a cause. A drop in one country
@@ -165,7 +165,6 @@ the one trap to avoid. Read only the charts the idea depends on:
 
 | Idea | Charts |
 |---|---|
-| A price | chart 4 by `duration` filter, and the plan's share; competitor prices |
 | A plan length | chart 2 and chart 4 per length |
 | A trial | charts 4 and 5 |
 | A country | charts 1 and 4 filtered to it, chart 3 |
