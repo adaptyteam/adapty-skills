@@ -1293,6 +1293,30 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"anchor pair collapses to nothing — give it both offsets, or use a "
                         f"real height")
 
+    # A negative zIndex sends an element behind the fill of every ancestor that has one, so a
+    # timeline rail at `zIndex: -10` inside a filled card draws nothing at all. Render-measured;
+    # the fix is paint order: declare the element before the sibling it must sit under and drop
+    # the zIndex. On a page with no filled ancestor the same rail draws, which is why the recipe
+    # survived until it met a card.
+    def _neg_z_under_fill(m, node, filled):
+        for ch in node.get('children') or []:
+            e = m.get(ch.get('id'))
+            if not isinstance(e, dict):
+                continue
+            p = e.get('props') or {}
+            z = (p.get('position') or {}).get('zIndex') if isinstance(p.get('position'), dict) else None
+            if isinstance(z, (int, float)) and z < 0 and filled:
+                yield e, filled[-1]
+            yield from _neg_z_under_fill(m, ch, filled + ([e['id']] if p.get('fill') else []))
+    for s in d.get('screens', []):
+        els_ = s.get('elements') or {}
+        if not isinstance(els_, dict):
+            continue
+        for e, anc in _neg_z_under_fill(els_.get('map') or {}, els_.get('hierarchy') or {}, []):
+            warn.append(f"{s['id']}/{e['id']}: negative zIndex inside {anc}, which has a fill — "
+                        f"the element draws behind that fill and disappears. Drop the zIndex and "
+                        f"declare it before the sibling it should sit under")
+
     # groupId naming rules, both team-stated from publish failures: digit-led ids generate
     # invalid JavaScript (publish blocker), and a groupId reused on another screen broke
     # selection rendering.

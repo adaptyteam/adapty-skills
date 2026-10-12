@@ -817,20 +817,23 @@ icons and copy. Each row is an in-flow horizontal stack, so the copy sets the he
 can break. **Connect the steps with a thin line, not a track:** in each row but the last, add a
 2pt `stack` with `position: absolute`, `top` just below the icon, `bottom` just short of the next
 icon (a negative value about half the list gap), `left` centred under the icon, `height: auto`,
-`zIndex: -10`, filled with the done colour for completed steps and a muted one after. A rail as
+filled with the done colour for completed steps and a muted one after. **Declare it first in the
+row, before the icon, and give it no `zIndex`**: later siblings paint over earlier ones, so the
+icon and the next row cover the line's ends. A rail as
 wide as the icon reads as a row of pills; a hairline reads as one timeline. The anchoring rules
 below still apply to it.
 
 ### A connected timeline, where a rail must reach the next chip
 
-A row is `[chip, rail, text]` where **only the text is in flow**. The chip and the rail are
+A row is `[rail, chip, text]` where **only the text is in flow**. The rail and the chip are
 absolute overlays on the row, and the rail is anchored **top and bottom** so it stretches to
 whatever the row turns out to be. That is the whole mechanism: the copy sets the row's height and
 the rail follows it, so there is no number to compute and nothing for a rewrite or a longer locale
 to break.
 
-The skeleton is lifted from a real builder export and **verified by render**, including under
-grown copy. The row, then its three children in this order:
+The skeleton is lifted from a real builder export, with the rail moved first in place of the
+export's `zIndex: -10`, and **verified by render**, including under grown copy and inside a filled
+card. The row, then its three children in this order — **rail first**:
 
 ```json
 { "id": "el_Row1", "type": "stack", "props": {
@@ -838,6 +841,16 @@ grown copy. The row, then its three children in this order:
     "layout": {"direction": "horizontal", "alignH": "start", "alignV": "start",
                "distribution": {"type": "gap", "gap": 16}},
     "position": {"type": "relative"} }, "states": [] }
+```
+
+```json
+{ "id": "el_Rail1", "type": "stack", "caption": "Connector", "props": {
+    "fill": [{"type": "gradient", "angle": 180, "stops": [
+        {"position": 0, "color": {"type": "hex", "hex": "#E9910B", "opacity": 100}},
+        {"position": 1, "color": {"type": "hex", "hex": "#E9910B", "opacity": 26}}]}],
+    "width": {"type": "fixed", "value": 8}, "height": {"type": "auto"},
+    "position": {"type": "absolute", "top": 10, "left": 12, "bottom": -18},
+    "visibility": {"type": "visible"} }, "states": [] }
 ```
 
 ```json
@@ -852,16 +865,6 @@ grown copy. The row, then its three children in this order:
 ```
 
 ```json
-{ "id": "el_Rail1", "type": "stack", "caption": "Connector", "props": {
-    "fill": [{"type": "gradient", "angle": 180, "stops": [
-        {"position": 0, "color": {"type": "hex", "hex": "#E9910B", "opacity": 100}},
-        {"position": 1, "color": {"type": "hex", "hex": "#E9910B", "opacity": 26}}]}],
-    "width": {"type": "fixed", "value": 8}, "height": {"type": "auto"},
-    "position": {"type": "absolute", "top": 10, "left": 12, "bottom": -18, "zIndex": -10},
-    "visibility": {"type": "visible"} }, "states": [] }
-```
-
-```json
 { "id": "el_Text1", "type": "stack", "props": {
     "width": {"type": "fill"}, "height": {"type": "hug"},
     "layout": {"direction": "vertical", "alignH": "start", "alignV": "start",
@@ -872,7 +875,7 @@ grown copy. The row, then its three children in this order:
 The chip holds one 24pt `icon`; the text column holds a title and a description. **The last row
 carries no rail.**
 
-**Three parts of the rail are load-bearing, each measured by removing it** from a rendered row
+**Each part of the rail is load-bearing, measured by changing it** from a rendered row
 whose description had been grown from two lines to four:
 
 | Change | Result |
@@ -880,10 +883,14 @@ whose description had been grown from two lines to four:
 | as above | rail runs continuously into the next chip and under it |
 | drop `bottom` | rail collapses to nothing — **108px of white** below the chip |
 | `height: fill` instead of `auto` | rail stretches but stops **2px short** — a hairline break |
-| drop `zIndex: -10` | rail paints **over** the chip, erasing the icon inside it |
+| rail declared after the chip, no `zIndex` | rail paints **over** the chip, erasing the icon inside it |
+| rail after the chip with `zIndex: -10`, inside a card with a fill | rail paints **behind the card** and disappears |
 
 So: `bottom` is what gives the element height, `auto` is what makes the anchors authoritative, and
-the negative `zIndex` is what keeps the rail behind the chips it runs under. `flowkit.absolute()`
+paint order is what keeps the rail behind the chips it runs under. The real export used
+`zIndex: -10` instead, which works only while no ancestor has a fill — a negative `zIndex` goes
+behind every filled ancestor, so the same rail inside a trial-timeline card draws nothing.
+`verify-config.py` warns on a negative `zIndex` under a filled ancestor. `flowkit.absolute()`
 emits the position object and refuses the two broken pairings; `verify-config.py` warns on both if
 you hand-write them.
 

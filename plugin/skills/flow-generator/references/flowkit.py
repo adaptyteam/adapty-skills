@@ -250,8 +250,11 @@ def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
     anchors instead, following its parent's height however the content grows. A negative
     `bottom` overshoots past the parent's edge, which is how a timeline rail reaches into the
     next row. Measured, all three parts load-bearing: drop `bottom` and the element collapses to
-    nothing; swap `auto` for `fill` and it stops 2px short; drop a negative `z` and it paints
-    OVER its siblings rather than behind them.
+    nothing; swap `auto` for `fill` and it stops 2px short.
+
+    To sit behind its siblings, list it FIRST among them and leave `z` unset: later siblings
+    paint over earlier ones. A negative `z` also works, but only until an ancestor has a fill —
+    then the element draws behind that fill and disappears.
     """
     p = {'type': 'absolute'}
     for k, v in (('top', top), ('left', left), ('right', right), ('bottom', bottom),

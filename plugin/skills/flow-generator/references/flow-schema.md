@@ -646,14 +646,16 @@ All three parts are load-bearing, each isolated by removing it from one rendered
 
 | Shape | Drawn |
 | :--- | :--- |
-| `{top: 10, bottom: -18, zIndex: -10}` + `height: auto` | stretches with the row, overshoots under the next element |
+| `{top: 10, bottom: -18}` + `height: auto`, declared before its siblings | stretches with the row, overshoots under the next element, sits behind the siblings |
 | the same, minus `bottom` | **collapses to nothing** — 108px of white where the element was |
 | the same, with `height: fill` | stretches but stops **2px short** of its anchor |
-| the same, minus `zIndex` | correct geometry, but paints **over** its siblings instead of behind |
+| the same, declared after its siblings | correct geometry, but paints **over** them instead of behind |
+| after its siblings with `zIndex: -10`, inside an ancestor with a fill | paints behind that fill — **draws nothing** |
 
 `height: auto` therefore means nothing on its own — it is half of a pair, and the other half is the
-anchors. `zIndex` lives *inside* `position`, not at the top level of props, and negative values
-work. (An earlier note here said `zIndex` appeared in no real export; that export now exists.)
+anchors. Paint order is the hierarchy order, so put the element first rather than reaching for
+`zIndex`. `zIndex` lives *inside* `position`, not at the top level of props, and a negative value
+sends the element behind every ancestor that has a fill; `verify-config.py` warns on that. (An earlier note here said `zIndex` appeared in no real export; that export now exists.)
 `flowkit.absolute()` emits the position object and raises on either broken pairing, and
 `verify-config.py` warns on both, since neither the schema nor `validate` has any opinion on
 layout and both misreadings render as "the line is too short".
