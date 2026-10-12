@@ -1,8 +1,9 @@
 # Apple Search Ads — Managing Campaigns
 
 Everything under `adapty asa` is scoped to the company behind the token, not to one app.
-No command in this file takes `--app` to select scope — the one exception is `--app` as a
-list filter, covered in [Scope filters](#scope-filters). Ids are the UUIDs printed by the
+No command in this file takes `--app` to select scope — `--app` is a list filter, covered in
+[Scope filters](#scope-filters), with one exception: on `asa segments`, `--app` is the **Adapty**
+app the segment is written to. See [Segments](#segments). Ids are the UUIDs printed by the
 matching list command; never invent one.
 
 All `list` commands paginate: `--page` (default `1`), `--page-size` (default `100`, max
@@ -142,6 +143,47 @@ Read `payment_model` from `orgs list` before a launch; do not assume `PAYG`.
 | Command | Flags | Notes |
 |---|---|---|
 | `asa creatives list` | see Scope filters | Yields the Apple `creative_id` that `ads create` needs. |
+
+## Segments
+
+`asa segments` turns campaigns, ad groups or keywords into an Adapty segment — an audience a
+placement or an A/B test can route to its own paywall or flow. It is the Ads Manager
+**Actions > Create segment from…** button as commands: one attribution filter over the Apple ids
+of the chosen entities, named the way the dashboard names it. Unlike the rest of this file, these
+commands write to **Adapty**, through the Developer API, not to Apple: nothing here spends money,
+but nothing here is protected by an idempotency key either.
+
+| Command | Flags | Notes |
+|---|---|---|
+| `asa segments list` | `--app` (Adapty app UUID); optional `--campaign` **or** `--ad-group` (one UUID) | The app's segments whose title starts with `[ASA]`. With `--campaign`/`--ad-group`, only those whose filter carries that entity's Apple id — **this is the duplicate check**, run it before every create. Reads the first 100 segments of the app only, so on an app with more, an empty answer is not proof; say so rather than creating blind. |
+| `asa segments create` | `--app`; exactly one entity type: `--campaign` (repeatable) / `--ad-group` (repeatable) / `--keyword` (repeatable, with **exactly one** `--ad-group` as the lookup scope); optional `--title`, `--description`, `--yes` | Several ids of one type make **one** segment matching any of them, not one per id. Mixing types exits `2` before any request. Default title is the dashboard's: `[ASA] Campaign: <name>`, `[ASA] Ad group: <name>`, `[ASA] Keyword: <text>`, `[ASA] <N> campaigns: <three names> +<rest>...`. Keep it: the dashboard and `asa segments list` find these segments by the `[ASA]` prefix. Returns the full segment; `profile_count` starts at `0`. |
+| `asa segments update <id>` | `--app`, the same entity flags; optional `--title`, `--description`, `--yes` | Replaces the filter with the entities passed. Title and description are read back and kept unless overridden. |
+
+A keyword is stored as the attribution field `creative` — the portal's name for it — next to
+`campaign` and `ad_group`. That matters only when you read a segment back with
+`adapty segments get --app <app> <id> --json`.
+
+### Which `--app`
+
+`asa apps list` and `adapty apps list` both print an "app UUID", and they are **different ids**:
+the first is the app as Apple Search Ads promotes it, the second is the Adapty app your SDK talks
+to. `asa segments --app` takes the **Adapty** one. Never carry the UUID from `asa apps list` into
+it, and when the company has more than one Adapty app, ask which one — the segment belongs to one
+app and its placements.
+
+### Segments outside the `[ASA]` shape
+
+Country, app version, install date, custom attributes, or an ASA filter combined with anything
+else: the general `adapty segments create|update`, which the `audiences` skill owns — field names,
+filter syntax, and routing any segment into a placement.
+
+### When the command is refused
+
+- `unknown command` / no `segments` under `asa --help` — the installed CLI predates the topic.
+  Re-resolve `$ADAPTY` per the skill's CLI section; if `@latest` lacks it too, it is unreleased.
+- `405` on create or update — the CLI is new enough but the server has not opened segment writes
+  on the Developer API yet. That is not a flag problem; do not retry with variations. Point the
+  user at the dashboard route, https://adapty.io/docs/ads-manager-create-segments.
 
 ## Automations
 
@@ -295,6 +337,9 @@ nothing was read. Retry a read; read a write's target back before you resend it.
 - Every write sends an `Idempotency-Key`. It is auto-generated per invocation; one network
   error is retried automatically with the same key, so a request that died on the wire is
   never applied twice.
+  **Except `asa segments create|update`**, which write to Adapty, not Apple, and take no
+  `--idempotency-key`: the duplicate guard there is `asa segments list --campaign|--ad-group`
+  before the create. See [Segments](#segments).
 - `--idempotency-key <key>` pins the key yourself. A repeat with the same key and body
   within 24 hours replays the stored result and prints "Already applied earlier — showing
   the stored result." instead of creating a second entity.
