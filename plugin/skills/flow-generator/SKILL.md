@@ -1041,7 +1041,7 @@ none of them is an approval.
 
 **A flow cannot be deleted, only archived in the dashboard.** There is no `flows delete`, so never
 claim to have removed one — including a throwaway you created yourself. Name the flow and point the
-user to https://adapty.io/docs/archive-flows.md; a flow still attached to a placement has to come off
+user to https://app.adapty.io/flows; a flow still attached to a placement has to come off
 it first.
 
 `validate` and `preview` change nothing and cost nothing. Use them freely.

@@ -393,7 +393,7 @@ failure diagnosis — delegate to it rather than re-deriving them.
 **A `http_404` from `flows publish` stops the run here, and it is not a clean stop.** The route is
 not live on this deployment, so switching accounts does not help; but `flows create` has already run for this
 paywall and there is no `flows delete`, so **say how many flow rows exist and that they can be
-archived in the dashboard** — https://adapty.io/docs/archive-flows.md. Do not keep creating flows for the
+archived in the dashboard** — https://app.adapty.io/flows. Do not keep creating flows for the
 remaining paywalls once publish has 404'd.
 
 **Use `references/stub-flow.json` as shipped; do not hand-write a smaller one.** It is known to
@@ -471,7 +471,7 @@ what the run did.
   > archive them in the dashboard
 
   > Saying no does not undo the flows. Those <n> stay either way; to clear them out of your
-  > Flows list, archive them: https://adapty.io/docs/archive-flows.md
+  > Flows list, archive them: https://app.adapty.io/flows
 
 - **Existing.** Flow line, and the undo slot is **omitted entirely** — saying no leaves the account
   exactly as this run found it, and there is nothing to warn about:
@@ -632,7 +632,7 @@ paywall placements are the rollback.** Until the app ships the call change, user
 paywalls; if the new flows are wrong, ship nothing and fix the flows in the builder —
 https://adapty.io/docs/adapty-flow-builder.md. **Rollback covers placements, not flows:** every
 flow the run created **cannot be deleted**, so name the count and say they can be archived in the
-dashboard once no placement uses them — https://adapty.io/docs/archive-flows.md.
+dashboard once no placement uses them — https://app.adapty.io/flows.
 
 Close by naming what is still outstanding, once: flows still holding a stub, placements that failed,
 and flows to clean up. That nobody sees any of this until the app ships is said once in the whole
