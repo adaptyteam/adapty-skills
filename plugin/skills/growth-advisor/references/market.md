@@ -2,7 +2,7 @@
 
 Where the typical subscription app sits, from Adapty's State of Paywalls 2026: 78,000+ paywalls
 from 30,000+ apps, App Store only, October 2025 to September 2026. Revenue is in USD after
-refunds and before store fees; European prices include VAT. Most numbers are medians, computed
+refunds and before store fees. Most numbers are medians, computed
 app by app so the largest apps do not skew them.
 
 This file owns market medians and how often each kind of test wins. `evidence.md` owns the uplift
@@ -18,7 +18,6 @@ their category, and never present a median as their target.
   dashboard.
 - **Trial → paid is comparable, roughly.** The CLI's trial → paid (see `diagnosis.md`) is a
   same-period approximation; say so when you set it against the median.
-- **Prices compare directly**, per plan length, in USD, for the same region.
 - **The median is not the goal.** The top 10% convert 4-5× the median outside the US. Being at
   the median says the app is typical, not that it is done.
 - **App Store only.** For a Google Play question, say there is no market median here.
@@ -39,15 +38,7 @@ US paywall view → paid by category: Graphics & Design 3.50%, Education 3.28%, 
 Health & Fitness 2.86%, Entertainment 2.44%. Category ranks change by region; a US ranking does
 not carry over.
 
-## Prices and plans
-
-| Measure | Median |
-|---|---|
-| Typical price, US | $6.99 a week, $9.99 a month, $39.99 a year |
-| Europe | $8.06 a week, $11.55 a month, $40.88 a year (the most expensive region) |
-| LATAM, annual | $30.11 a year; weekly stays close to $6.99 everywhere |
-| Health & Fitness | $5.33 a week, $29.99 a year (the cheapest category) |
-| Lifetime | About 1.3× the annual price; 14% of apps offer it, and it brings 5.6% of revenue where sold |
+## Plans
 
 - **Revenue by plan length:** weekly 62%, annual 21%, monthly 12% overall. Weekly is 76% in LATAM
   and 50% in Europe. Health & Fitness gets 62% from annual; Utilities 90% from weekly. Judge an
@@ -57,6 +48,7 @@ not carry over.
   the time.
 - **Preselection:** 90% of buyers keep weekly when it is preselected, 46% keep annual.
   Preselecting annual does not hurt conversion.
+- **Lifetime:** 14% of apps offer it, and it brings 5.6% of revenue where sold.
 
 ## Trials
 
@@ -100,12 +92,10 @@ Share of A/B tests that increased each metric:
 | Localization | 62% | |
 | Trial | 60% | |
 | Plan length | 59% | |
-| Price | 46% | 28% |
 | Visual or copy | 35% | 31% |
 
 - Change the offer before the look: localization, trials and plan lengths win more often than
   visual changes.
-- Price tests trade conversion for value, which is why they are judged on revenue per user.
 - The most active apps test often: among apps with 50K-500K monthly paywall views, the top
   quarter run 9+ tests a year; above 500K, 21+.
 - Only 1 in 4 apps personalize paywalls by audience. Most who do split by country or language
