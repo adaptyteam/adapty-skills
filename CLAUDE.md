@@ -15,7 +15,7 @@ Ten portable, Claude-style skills for agentic CLIs (Claude Code, GitHub Copilot 
 - **`migrate-placements`** — moves an app off paywall placements onto flow placements through the CLI's `placements` and `flows` topics. Creates, never converts: a placement's content type is fixed at creation, so every migration is a new placement standing beside the old one, which is also the rollback. Returns the old→new developer-ID mapping and the one SDK call the app must change.
 - **`onboarding-teardown`** — reads an onboarding flow (a described sequence, screens, a flow config, or a set of `flows config preview` renders) against a pattern library and returns ranked, testable growth hypotheses plus a read of the onboarding→paywall seam. Touches nothing: no CLI, no files, no network. Owns the **sequence**; `paywall-teardown` owns the paywall screen's execution, and the two are run together on a flow that is both.
 - **`purchase-testing`** — owns the first sandbox purchase and every failed one: preflights the dashboard and the app code through the CLI, routes the user through the store and device steps, defines what "it worked" means, and localizes a failure to one of five layers. Does not connect stores and does not write code — both stay in `adapty-integration`, which hands off to it.
-- **`paywall-teardown`** — reads a paywall (a screenshot, a `flows config preview` render, or a flow config) against a pattern library and returns ranked, testable conversion hypotheses with expected-impact ranges. Touches nothing: no CLI, no files, no network. The growth half of the pair whose engineering half is `flow-generator`.
+- **`paywall-teardown`** — reads a paywall (a screenshot, a `flows config preview` render, or a flow config) against a pattern library and returns ranked, testable conversion hypotheses with expected-impact ranges. Touches nothing: no CLI, no files, no network — except, in Design, one local `python3` dice roll that `references/look.md` uses to pick among invented looks. The growth half of the pair whose engineering half is `flow-generator`.
 
 One repo, three distribution channels: a Claude Code plugin (the marketplace is `.claude-plugin/marketplace.json` at the repo root; the plugin itself is `plugin/`, with its own `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`), the skills.sh CLI, and plain directory copy of a `plugin/skills/<name>/` directory into a tool's skills folder. Keep every skill directory self-contained and format-portable — nothing in one may assume Claude Code specifically.
 
@@ -61,9 +61,11 @@ All ten skills ship inside the single `adapty-skills` plugin, because a plugin e
 - `plugin/skills/migrate-placements/references/api-surface.md` — the measured-facts reference: what each `placements`/`flows` command accepts and the exact error strings the skill routes on. `SKILL.md` links into it by heading, so renaming a heading breaks the entry point silently.
 - `plugin/skills/migrate-placements/references/stub-flow.json` — a minimal valid v10 config, shipped so the skill can stand a flow up with **no runtime `flowkit` dependency**. `flowkit.py` lives in `flow-generator`, which is absent from a directory-copy install of this skill alone.
 - `plugin/skills/onboarding-teardown/SKILL.md` — the onboarding skill's entry point. Adapted from Adapty's growth-team `onboarding-teardown` skill; the upstream half is the six-question interview, the contradiction rules, the seven-part output and the framing rules. The additions here are the **config/render input forms** with the read-the-config-instead-of-interviewing table, the **two directions** (Audit / Design) on the same observable predicate `paywall-teardown` uses, `## Choose the flow skeleton first` (six skeletons gated on observable prerequisites), `## What you cannot invent`, the split of upstream's combined sign-off into a **translated, fixed-meaning disclaimer** plus **a next step chosen by input** (build offer, make-the-changes offer, or the builder pitch), and the two-way link with `flow-generator`. See finding 28.
-- `plugin/skills/onboarding-teardown/references/patterns.md` — the pattern library: 8 contradiction rules that fire on *combinations*, patterns by section, and 8 category playbooks. **Vendored byte-for-byte from upstream and kept that way**, the same rule `paywall-teardown/references/patterns.md` follows and for the same reason: a growth-team revision lands as a one-file diff. Every repo-specific fact therefore lives in `SKILL.md`, never here.
+- `plugin/skills/onboarding-teardown/references/patterns.md` — the pattern library: 8 contradiction rules that fire on *combinations*, patterns by section, and 8 category playbooks. **Vendored byte-for-byte from upstream and kept that way**, the same rule `paywall-teardown/references/patterns.md` follows and for the same reason: a growth-team revision lands as a one-file diff. Every repo-specific fact therefore lives in `SKILL.md` or `references/categories.md`, never here.
+- `plugin/skills/onboarding-teardown/references/categories.md` — repo-owned, not vendored: how long each category's onboardings run (fitness and sleep 20–50 screens, photo/AI 5–15, utilities 3–6; education says "long" with no number because no source gives one), how traffic temperature moves length, the screens that fill a long flow without promising a computed plan, and the rhythm (at most three questions in a row; variety comes from changing screen type, never from restyling one).
 - `plugin/skills/paywall-teardown/SKILL.md` — the paywall skill's entry point. Owns the **two directions** — audit a paywall someone else will change, or *design*, which is entered on an observable predicate (**no design reference was given**: no reference image, no screen to copy, no layout spec) and runs two passes, the second of which grades and corrects the agent's own render — the three input forms (screenshot / `flows config preview` render / flow config), the internal four-step process, the two output formats, the fixed-meaning disclaimer, the next step chosen by input, and the framing rules that keep the numbers honest. Adapted from Adapty's growth-team `paywall-teardown` skill shipped on claude.ai; the additions here are the render/config inputs, the design-brief direction, the `## What you cannot invent` section, and the two-way link with `flow-generator`.
 - `plugin/skills/paywall-teardown/references/patterns.md` — the pattern library: 15 patterns plus category playbooks, each with when it applies, its cross-check, its impact tier and its category-level grounding. **Kept at that filename deliberately**, matching the upstream skill so a growth-team update to the library copies in as a one-file diff — even though `plugin/skills/flow-generator/references/patterns.md` is a different file about layout composites. They never own the same fact: conversion patterns and impact numbers here, JSON skeletons there.
+- `plugin/skills/paywall-teardown/references/look.md` — repo-owned: how a screen you design looks, and it covers the whole flow when an onboarding ends on the paywall. Owns three rules in order: **the app's design comes first** (code, flows, screenshots or a given brand set the style, and no look is invented — a neon-on-black app gets neon on black); **with a brand, invent only the layout** (question layout, paywall composition, signature element); **with no design, invent the whole look** — four concepts from the app's own world, drop the most obvious, roll among three with a `python3` command. It also owns the two looks nobody chose (white + one accent; near-black + one neon) and the design system every screen is built from (named colours, five type presets, exactly three radii, one spacing scale, one component per screen type, the paywall in the same system).
 - `tests/` — the fixture corpus for `flow-generator`, plus the repo-only Python helpers that operate on it — sanitizing, rendering, measuring and `test-flowkit.py` (see the `flow-generator` conventions below). Not a test suite for the skills. **`verify-config.py` used to live here as `verify-fixture.py` and moved to `plugin/skills/flow-generator/references/` on 2026-08-25 so that it ships, and was renamed at the same time because a runtime agent runs it on its own config, not on a fixture. Every mention of `verify-fixture.py` in the dated findings below was rewritten to the new name: the rounds themselves ran against the old one** — anything in `tests/` is repo-only by definition, so a check an agent must run at runtime does not belong here.
 - `scripts/` — the two validation lints and their plain-text allowlists (see below).
 - **The plugin sends no telemetry.** The end-of-integration feedback POST (and the `feedback-endpoint/` function that received it) was removed for the Anthropic and OpenAI directory submissions: its `sentiment` field was inferred from the conversation, which the Anthropic directory policy forbids extracting, and its personal Vercel host failed OpenAI's publisher-identity rule. The only outbound data beyond the Adapty CLI's own API calls is the `?ref=skill-<token>` docs marker, which carries a random token and nothing else, and the README discloses it. Do not reintroduce a call home without a privacy policy, an `adapty.io` host and a README disclosure in the same change.
@@ -1318,6 +1320,43 @@ correction. A candidate scenario was also **rejected on measurement**: four "mul
 icons turned out to sit in a **single hue bucket**, i.e. monochrome, so the correct answer there is
 authored SVG rather than a crop, and the scenario would have tested the opposite of what it looked
 like.
+
+### Finding 55 (2026-10-12): taste in Design mode — category length, invented looks, one design system
+
+A team thread said builds with no reference looked typical and alike. Six RED builds on `main`
+(fitness ×3, document scanner ×3, local only, rubric pre-registered) confirmed it: fitness flows
+were **6 screens 3/3** (category runs 20–50) of single-choice cards, and **6/6 shared one layout**
+— eyebrow, bold heading, icon-in-tinted-square rows, full-width button, empty image box — with
+only the accent swapped; **6/6 paywalls were two plan cards**, 5/6 with a trial timeline. The
+fitness runs went short because each ruled out a computed plan and then had nothing honest to fill
+a long flow with. Fixed with `onboarding-teardown/references/categories.md` (length by category,
+14 honest screen types, the rhythm) and `paywall-teardown/references/look.md`, over five GREEN
+rounds (ledger `docs/superpowers/baselines/2026-10-09-teardown-taste-red.md`, untracked):
+
+- **Length and mix:** fitness 20–21 screens with 9+ screen types in every round after the change;
+  sleep 20; utilities stayed 4. Education has no sourced length, and one language run stopped at
+  11 against an unsourced floor of 12.
+- **Look, and the lesson worth keeping: each fix created the next default.** "Not the white
+  template" became **near-black + one neon accent 6/6** across fitness and scanner alike; a menu
+  of seven directions picked by "best fit" converged **within every prompt 4/4**; a rolled menu
+  varied fitness but a "night-time use" override sent every sleep roll to Night. What finally
+  varied the same prompt was **inventing four concepts from the app's world, dropping the most
+  obvious, and rolling among three with a shell command** — a model asked to pick at random picks
+  its favourite. Round 5: three sleep builds, three different invented looks (linen/lavender,
+  sea-teal/sand, plum/honey), two paywall compositions. Concept pools overlap across runs; the
+  roll is what spreads the picks.
+- **App design first** (owner's call): neon on black is right for an app that looks like that.
+  Round 5's three builds with a stated black/volt/square brand all followed it with no roll. **Not
+  run:** the layout-invention step for brand-given builds, added after round 5 because those three
+  builds shared one paywall and one layout.
+- **Consistency:** flows in rounds 3–4 used 6–13 corner radii; with the design system 5/6 stay
+  within three. A radius-count checker was **ruled out on calibration** — real builder exports
+  already use 3–6 values. Same-type option identity is a prose rule plus a side-by-side back-pass
+  check, not mechanical.
+
+**Bycatch, each its own fix:** the timeline rail hidden behind a filled card (PR #126); input text
+unreadable on dark screens (no input text colour); typed prices from the request (2 runs); the
+render page's maintenance banner over every render, which `shoot.sh`'s guard does not catch.
 
 ## Conventions when editing `paywall-teardown`
 
