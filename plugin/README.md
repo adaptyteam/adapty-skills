@@ -23,7 +23,7 @@ Subscriptions are the part of a mobile app nobody wants to build and everybody h
 
 ## The toolkit
 
-Every install below gives you the whole toolkit — and it grows, so an update brings new skills with it.
+Every skill below is part of the `adapty-skills` plugin. Install the plugin once and you have all of them — and it grows, so an update brings new skills with it.
 
 | Skill | What it does | Needs |
 |---|---|---|
@@ -61,7 +61,7 @@ Say what you want the way you'd brief a colleague. You don't need to name a skil
 npx adapty skills install
 ```
 
-The [Adapty CLI](https://adapty.io/docs/developer-cli) installs the skills into your coding agent — through the agent's own installer where it has one, and through the [skills CLI](https://skills.sh) otherwise. Restart your agent afterwards. The routes below do the same per agent, by hand.
+The [Adapty CLI](https://adapty.io/docs/developer-cli) installs the `adapty-skills` plugin into your coding agent — through the agent's own installer where it has one, and through the [skills CLI](https://skills.sh) otherwise. Restart your agent afterwards. The routes below do the same per agent, by hand.
 
 ### Claude Code
 
@@ -70,7 +70,7 @@ claude plugin marketplace add adaptyteam/adapty-skills
 claude plugin install adapty-skills@adapty
 ```
 
-Then run `/reload-plugins` inside Claude Code. One plugin, `adapty-skills`, carries every skill in the repo.
+Then run `/reload-plugins` inside Claude Code.
 
 <details>
 <summary><strong>Already installed as <code>adapty-sdk-integration</code>?</strong></summary>
@@ -95,7 +95,7 @@ codex plugin marketplace add adaptyteam/adapty-skills
 codex plugin add adapty-skills@adapty
 ```
 
-Then start a new thread, so Codex picks up the skills. One plugin, `adapty-skills`, carries every skill in the repo.
+Then start a new thread, so Codex picks up the skills.
 
 To pull later changes:
 

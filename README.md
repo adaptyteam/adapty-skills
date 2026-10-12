@@ -12,7 +12,7 @@ Skills that hand your app's subscription surface to the agent you already have o
 npx adapty skills install
 ```
 
-The [Adapty CLI](https://adapty.io/docs/developer-cli) installs the skills into your coding agent. Or install per agent:
+The [Adapty CLI](https://adapty.io/docs/developer-cli) installs the `adapty-skills` plugin into your coding agent. Or install per agent:
 
 **Claude Code**
 
