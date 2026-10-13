@@ -29,9 +29,10 @@ Every skill below is part of the `adapty-skills` plugin. Install the plugin once
 |---|---|---|
 | [`adapty-integration`](#integrating-the-sdk) | Sets up in-app purchases end to end — dashboard, SDK, paywall, store config — or moves you over from another purchase system | Adapty CLI |
 | [`adapty-attribution`](#reading-ad-attribution) | Reads your Adapty Attribution data: which channels, campaigns, ads and countries pay back, trial quality, weekly changes, predicted payback, and why an ad network's numbers differ from Adapty's | Adapty CLI, Adapty Attribution |
-| [`ads-manager`](#managing-apple-search-ads) | Runs your Apple Search Ads: performance across campaigns and keywords, bid and budget changes, search-term harvesting, campaigns on and off | Adapty CLI, Apple Ads account |
+| [`ads-manager`](#managing-apple-search-ads) | Runs your Apple Search Ads: performance across campaigns and keywords, bid and budget changes, search-term harvesting, campaigns on and off, a segment per campaign routed to its own paywall | Adapty CLI, Apple Ads account |
 | [`flow-audit`](#auditing-a-flow) | Answers "did I forget anything?" before you publish a flow — triggers, products, variables — with a verdict and ranked fixes | Adapty CLI |
 | [`flow-generator`](#building-flows-and-paywalls) | Builds a paywall or onboarding flow, or changes one you have: translate it, rewrite the copy, add or reorder screens, add tabs and plan pickers, wire quiz branching | Adapty CLI |
+| [`audiences`](#targeting-who-sees-what) | Shows different paywalls or flows to different users at one placement — by country, app version, revenue, a custom attribute — creating or reusing the segment and adding it without changing what anyone else sees | Adapty CLI |
 | [`migrate-placements`](#migrating-placements-to-flows) | Moves an app from paywall placements to flows — creates the new flow placements alongside your existing ones and hands back the old→new mapping and the one call to change | Adapty CLI |
 | [`onboarding-teardown`](#tearing-down-an-onboarding-flow) | Reads an onboarding flow — described, screenshotted, or as a config — and ranks what to change and test, seam with the paywall included | nothing |
 | [`paywall-teardown`](#tearing-down-a-paywall) | Reads any paywall — yours, a competitor's, a work in progress — and ranks what to change and test | nothing |
@@ -52,6 +53,8 @@ Say what you want the way you'd brief a colleague. You don't need to name a skil
 - "Here's my paywall. What should I test to convert better?"
 - "Which of my ad channels actually pays back? Should I move budget from TikTok to Meta?"
 - "How did my Apple Search Ads campaigns do last week, and which keywords should I pause?"
+- "Show users from my brand campaign a different paywall."
+- "Users in Germany should see the cheaper paywall on my main placement."
 
 ## Install
 
@@ -205,7 +208,7 @@ Open your terminal in any directory and ask:
 How did my Apple Search Ads campaigns do last week, and which keywords should I pause?
 ```
 
-It covers twelve workflows: orienting on your account, reporting performance, launching a campaign (seeded from Adapty's keyword recommendations when you have no keyword list), harvesting keywords from search terms, a bid-and-budget optimization pass, pausing or resuming, running ads against a custom product page, diagnosing an ad that isn't serving, rule-based automations, a competitor check, launching many campaigns at once from JSON or an Apple Ads template, and finding who changed a campaign, bid or keyword from Apple's change history.
+It covers thirteen workflows: orienting on your account, reporting performance, launching a campaign (seeded from Adapty's keyword recommendations when you have no keyword list), harvesting keywords from search terms, a bid-and-budget optimization pass, pausing or resuming, running ads against a custom product page, diagnosing an ad that isn't serving, rule-based automations, a competitor check, launching many campaigns at once from JSON or an Apple Ads template, finding who changed a campaign, bid or keyword from Apple's change history, and giving a campaign's users their own paywall through an Adapty segment.
 
 **It treats your ad account as live money.** There is no delete and no undo in this surface, so the skill confirms before every write, never invents an ID or a budget, prefers small keyword batches, and pins idempotency keys so a re-run can't double-apply. Reads and automation dry runs are free, and it uses them freely.
 
@@ -245,6 +248,18 @@ Four transforms:
 - **Branching and conditions** — selectable groups, option IDs, and the conditional actions that route on them
 
 **It saves to a draft; publishing is a separate word from you.** A newer CLI has a publish command, but the skill never folds it into a save — it asks first. And the publish endpoint isn't in production yet, on any account, so for now it hands you the editor's publish button instead. There is no delete command at all, so removing a flow stays yours. Every write after the first carries the flow's `updated_at` as an optimistic lock, so a save can't quietly overwrite an edit someone else made in the meantime — it fails instead. It asks before creating a product. And because a config can save cleanly and still not render, the agent screenshots the preview and looks at it before telling you it's done.
+
+## Targeting who sees what
+
+One placement, different paywalls or flows for different users: a cheaper paywall in some countries, a new onboarding for users on the latest app version, an offer for people who haven't paid yet.
+
+```
+/audiences
+```
+
+It reuses a segment you already have when one matches, and creates one when none does. It asks the questions that decide who matches — the user's IP country or their store country, the app version they run now or the one they installed — and it reads field names off your existing segments instead of guessing them. The new audience goes in just before your default, so users in your existing segments keep what they see; if you want the new one to win, it asks first. Before writing, it shows the placement's audiences before and after.
+
+Segments built from Apple Search Ads campaigns come from `ads-manager`, which hands them here to route.
 
 ## Migrating placements to flows
 
@@ -308,13 +323,14 @@ One constraint it will tell you about rather than quietly working around: **a fl
 
 - **Your live app changes only when you say so.** `flow-generator` never publishes a flow on its own, and overwrites an existing flow only after you say yes to the exact change. A brand-new flow is saved as a draft.
 - **Existing placements are never converted.** `migrate-placements` creates new flow placements beside your paywall ones, which stay as your rollback, and shows every new ID for your approval first.
+- **Placement changes show their before and after.** `audiences` never moves users in your existing segments to a different paywall without asking.
 - **Ad spend changes wait for you.** `ads-manager` names each bid, budget, keyword or campaign change in chat and runs it only after your yes.
 - **You see your account before anything is created.** `adapty-integration` reads what already exists in your Adapty dashboard and tells you what it will use and what it will add, then writes code only in your project.
 - **Five skills only read.** `flow-audit`, `adapty-attribution`, `adapty-docs`, `paywall-teardown` and `onboarding-teardown` change nothing in your account.
 
 ## Where it works
 
-The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Seven of the ten need a shell and the Adapty CLI signed in to your account.
+The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Eight of the eleven need a shell and the Adapty CLI signed in to your account.
 
 `paywall-teardown`, `onboarding-teardown` and `adapty-docs` need neither, so they also work in Claude chat and Cowork, where the other skills cannot reach your Adapty account.
 

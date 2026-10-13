@@ -957,6 +957,7 @@ $ADAPTY placements list --app "$APP" --page-size 100 --json    # the default pag
 | nothing for this location | `placements create` with a new developer ID |
 | a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping |
 | a **paywall** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
+| a placement where only **some** users should get this flow — a country, a version, a segment | The **`audiences`** skill. It adds a segment audience beside the existing ones without changing what anyone else sees |
 
 **The ID needs an explicit yes, and this is the fourth fixed block.** It is irreversible in a way
 the phase-5 write is not: unique across every placement in the app whatever its type, no rename, no

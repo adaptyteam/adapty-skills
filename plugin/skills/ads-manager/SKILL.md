@@ -1,17 +1,19 @@
 ---
 name: ads-manager
-description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, getting keyword recommendations for an app, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, setting up rule-based ad automations, or finding who changed a campaign, bid or keyword and when.
+description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, getting keyword recommendations for an app, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, setting up rule-based ad automations, finding who changed a campaign, bid or keyword and when, or turning campaigns, ad groups or keywords into Adapty segments so users from one campaign see their own paywall or flow.
 ---
 
 # Apple Search Ads through the Adapty CLI
 
 Reads and `automations run --dry-run` cost nothing. Every other `asa` command reaches Apple
-within seconds and spends real money, and nothing it creates can be deleted or undone.
+within seconds and spends real money, and nothing it creates can be deleted or undone — except
+`asa segments`, which writes an audience to Adapty and never touches Apple (workflow 13).
 
 Open the reference a workflow names before running its commands:
 
 - `references/asa-management.md` — campaigns, ad groups, ads, keywords and keyword
-  recommendations, negative keywords, product pages, creatives, automations, change history.
+  recommendations, negative keywords, product pages, creatives, segments, automations,
+  change history.
 - `references/asa-metrics.md` — `metrics`, `metrics overview`, `search-terms list`,
   `competitors summary`.
 
@@ -36,7 +38,8 @@ Every line the user reads:
 global `adapty` is frequently old. The `asa` topic ships in **0.4.0**, but `ad-groups create
 --automated` and the five `--invoice-*` flags ship in **0.8.2**, the `metrics` scope flags and the
 `automations` action flags in **0.8.3**, and `keywords recommend` in **0.8.7**, so treat 0.8.7 as this
-skill's floor. An older install answers with `unknown command` or an unknown-flag error, which reads
+skill's floor. `asa segments` ships after **0.9.3** and is the one exception to the floor: probe
+`$ADAPTY asa segments --help` before workflow 13 instead of raising it for everyone. An older install answers with `unknown command` or an unknown-flag error, which reads
 like the command does not exist rather than like a stale CLI:
 
 ```bash
@@ -81,7 +84,8 @@ calling the route unreleased.
   not interchangeable: Apple's numeric adam-id (`--adam-id`) and the ASA app UUID (`--app`).
 - Those two and `automations list` take pagination only — no scope filters exist.
 - Scope is the token's company. No `asa` command takes `--app` to select scope — `--app` is a
-  list filter only.
+  list filter only. **`asa segments` is the exception**: there `--app` is the Adapty app the
+  segment is written to, from `$ADAPTY apps list` — never the UUID `asa apps list` prints.
 - `402 ads_manager_subscription_required` — no Ads Manager subscription. `404` — not theirs, or
   does not exist.
 - `--json` for machine-readable output on reads; a write under `--json` refuses and exits `2`.
@@ -116,7 +120,9 @@ somewhere plausible and wrong without erroring. More than one match is where you
 write. The CLI's auto key covers a network retry inside one invocation, not the person who
 re-runs your create step after an ambiguous result — new invocation, fresh key, second campaign.
 That, plus `422 cli_idempotency_key_reuse` and `409 cli_idempotency_in_progress`:
-`references/asa-management.md`, `## Writes and idempotency`.
+`references/asa-management.md`, `## Writes and idempotency`. `asa segments create|update` take no
+key at all — there the slot is filled by a read: `asa segments list --campaign|--ad-group <id>`
+right before the create, every time.
 
 **`--yes` is not in the template, because whether it belongs depends on who runs the command.**
 
@@ -196,6 +202,11 @@ ask for — propose that in the answer instead.
   creates the structure twice, and nothing in the `asa` topic can delete either copy.
 - **Never write a teardown.** No delete exists in the `asa` topic and there is no undo;
   `--status PAUSED` is the only stop.
+- **Never create a segment without listing first.** `asa segments create` has no idempotency key,
+  so a re-run after an ambiguous result makes a second `[ASA] Campaign: <name>` that routes the
+  same users — and placements then disagree about which one counts.
+- **Never rename an `[ASA]` segment the user did not ask to rename.** The prefix is how the
+  dashboard and `asa segments list` find it; a custom title drops it out of both.
 
 ## Rationalizations
 
@@ -219,6 +230,10 @@ ask for — propose that in the answer instead.
   `internal_id` UUID instead of the numeric `org_id`
 - A write whose target you picked by your own definition of "best", "losing" or "terrible"
 - `--order-by-day` with no matching `--by-days` window in the same call
+- An `--app` on `asa segments` copied from `asa apps list` — that is the Apple-side app, not the
+  Adapty one
+- `asa segments create` with no `asa segments list` for the same entity just before it
+- A placement `update` that adds a segment's audience without passing back every existing entry
 - You stated a rule, and three commands later are making a silent exception to it
 
 Observed in CLI-side sessions rather than in this skill's own baseline:
@@ -351,6 +366,43 @@ needs CLI **0.9.4**. Its id filters take Apple's numeric ids from the rows, not 
 $ADAPTY asa change-history list --campaign-group <uuid> --date-from <YYYY-MM-DD> --date-to <YYYY-MM-DD> [--entity-type Campaign] [--event-type UPDATE] [--fields]
 $ADAPTY asa change-history get <detail-id> --campaign-group <uuid>
 ```
+
+**13. Give a campaign its own paywall.** Users from one campaign, ad group or keyword see a
+different paywall or flow — the reason a segment gets made at all, so carry the request to the
+placement rather than stopping at the segment. → `references/asa-management.md`, `## Segments`.
+
+1. **Which entities.** Named by the user → resolve each by name (`campaigns list --search`). Picked
+   by performance ("my best campaigns") → that is a superlative: name the metric and window, get the
+   yes, then take the ids from one ranked `metrics` call (workflow 2). Keywords need their ad group:
+   `--keyword` resolves only inside exactly one `--ad-group`.
+2. **One segment or several.** Ask, because it decides what the placement can do: one segment per
+   campaign lets each campaign get its own paywall; one segment over several campaigns
+   (`--campaign a --campaign b`) gives them all the same one. Default to one per entity when the
+   user says "each".
+3. **Which Adapty app.** `$ADAPTY apps list` — the Adapty app, not `asa apps list`. More than one →
+   ask.
+4. **Check, then create**, per segment. An empty list is the go-ahead; a match is the segment to
+   reuse — say so instead of creating a twin.
+
+   ```
+   $ADAPTY asa segments list --app <adapty-app-uuid> --campaign <campaign-uuid>
+   $ADAPTY asa segments create --app <adapty-app-uuid> --campaign <campaign-uuid>
+   ```
+
+   Name in chat how many segments you will create and their titles, then ask once for the batch.
+   Keep the default `[ASA] …` titles.
+5. **Read the answer right.** `profile_count: 0` on a new segment is expected — Adapty counts the
+   matching profiles afterwards. A count that stays at zero later most often means Adapty has no
+   Apple Ads attribution for those users, not that the filter is wrong; send the user to
+   https://adapty.io/docs/apple-search-ads rather than rebuilding the segment.
+6. **Route it with the `audiences` skill.** It owns adding the segment to a placement: where the
+   new audience goes relative to existing segments, the entry shape, and the before/after table
+   the user confirms. Hand it the segment id and the placement. No paywall or flow for that
+   audience yet? `flow-generator` builds it first.
+
+A `405` on create means the server has not opened segment writes yet — hand the user
+https://adapty.io/docs/ads-manager-create-segments (the same segment, from the dashboard), then
+continue from step 6 with the id they get there.
 
 ## Anything not covered here
 
