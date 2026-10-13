@@ -206,6 +206,11 @@ pattern library (with cross-checks, impact tiers, and category grounding) and th
 rules. Match the flow against it. The library is the moat; your recommendations should be lookups
 against it, not improvised.
 
+Read [references/categories.md](references/categories.md) too whenever length or mix is in
+question — always in Design. It holds how long each category's flows run, the screens that fill a
+long flow without promising a plan, and the rhythm that keeps a long flow from being one screen
+repeated.
+
 ## Two directions
 
 **The test is who ships the change.** If someone else will, you are in Audit. If you will — you are
@@ -219,14 +224,21 @@ user's live flow. Run the process below and emit the ranked table.
 reference screens, no existing flow to copy, no spelled-out sequence. Then this library is the
 reference. Three passes, none optional:
 
-1. **Skeleton.** Choose the sequence's shape before you choose a single pattern — see
-   [Choose the flow skeleton first](#choose-the-flow-skeleton-first). **You decide this, from the
-   evidence; never ask the user to pick.** Name your choice and what ruled out the runner-up.
+1. **Skeleton and length.** Choose the sequence's shape before you choose a single pattern — see
+   [Choose the flow skeleton first](#choose-the-flow-skeleton-first) — and its length from
+   [references/categories.md](references/categories.md). **You decide both, from the evidence;
+   never ask the user to pick.** Name your choice, what ruled out the runner-up, and the screen
+   count you are building to.
 2. **Forward.** Pick the patterns that belong in this flow for this vertical, in priority order,
-   and place them **inside** the skeleton you chose. Output is the build list in
-   [Output — design](#output--design), not the audit table.
+   and place them **inside** the skeleton you chose, following the rhythm in
+   `references/categories.md`. Output is the build list in [Output — design](#output--design), not
+   the audit table. Every screen comes from one design system: one set of colours, type presets and
+   radii, and one component per screen type, so two questions of the same type look identical.
+   When `paywall-teardown` is installed beside this skill, take the look and the system from its
+   `references/look.md` before the first screen; they cover every screen, the paywall included.
 3. **Back, over your own flow.** The moment it renders, run the full process above against it —
-   the config for the sequence, the renders for the execution. **A finding on your own draft is a
+   the config for the sequence, the renders for the execution. A flow shorter than its category's
+   range, or one that breaks the rhythm, is a *High* row. **A finding on your own draft is a
    defect, not a recommendation** — fix every *Fix first* and *High* row and re-render. Never hand
    over a flow accompanied by a table of the patterns you chose to skip; that is unfinished work
    wearing a report. What survives into the write-up is only what you *cannot* fix: rows blocked on
@@ -343,9 +355,11 @@ yet, so a "what to change" cell would be the whole flow. Emit:
 
 **Line 1 — read.** The vertical you are designing for and what it rewards, in one sentence.
 
-**Line 2 — skeleton.** Which shape you chose, and what ruled out the strongest alternative — one
-sentence, naming the missing prerequisite if that is what decided it ("personalization loop would
-win; nothing consumes the answers, so value walkthrough").
+**Line 2 — skeleton and length.** Which shape you chose, what ruled out the strongest
+alternative, and the screen count against the category's range — one sentence, naming the
+missing prerequisite if that is what decided it. The shape, not words to copy: "personalization
+loop would win, but nothing confirms the app uses the answers, so the quiz reads them back with no
+'your plan' screen; N screens, inside the category's range".
 
 **The build list.** Ordered by screen, so it reads as a sequence rather than a bag of patterns:
 

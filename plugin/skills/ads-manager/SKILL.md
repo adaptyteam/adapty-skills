@@ -1,18 +1,19 @@
 ---
 name: ads-manager
-description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, getting keyword recommendations for an app, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, setting up rule-based ad automations, or turning campaigns, ad groups or keywords into Adapty segments so users from one campaign see their own paywall or flow.
+description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, getting keyword recommendations for an app, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, setting up rule-based ad automations, finding who changed a campaign, bid or keyword and when, or turning campaigns, ad groups or keywords into Adapty segments so users from one campaign see their own paywall or flow.
 ---
 
 # Apple Search Ads through the Adapty CLI
 
 Reads and `automations run --dry-run` cost nothing. Every other `asa` command reaches Apple
 within seconds and spends real money, and nothing it creates can be deleted or undone — except
-`asa segments`, which writes an audience to Adapty and never touches Apple (workflow 12).
+`asa segments`, which writes an audience to Adapty and never touches Apple (workflow 13).
 
 Open the reference a workflow names before running its commands:
 
 - `references/asa-management.md` — campaigns, ad groups, ads, keywords and keyword
-  recommendations, negative keywords, product pages, creatives, segments, automations.
+  recommendations, negative keywords, product pages, creatives, segments, automations,
+  change history.
 - `references/asa-metrics.md` — `metrics`, `metrics overview`, `search-terms list`,
   `competitors summary`.
 
@@ -38,7 +39,7 @@ global `adapty` is frequently old. The `asa` topic ships in **0.4.0**, but `ad-g
 --automated` and the five `--invoice-*` flags ship in **0.8.2**, the `metrics` scope flags and the
 `automations` action flags in **0.8.3**, and `keywords recommend` in **0.8.7**, so treat 0.8.7 as this
 skill's floor. `asa segments` ships after **0.9.3** and is the one exception to the floor: probe
-`$ADAPTY asa segments --help` before workflow 12 instead of raising it for everyone. An older install answers with `unknown command` or an unknown-flag error, which reads
+`$ADAPTY asa segments --help` before workflow 13 instead of raising it for everyone. An older install answers with `unknown command` or an unknown-flag error, which reads
 like the command does not exist rather than like a stale CLI:
 
 ```bash
@@ -355,7 +356,18 @@ $ADAPTY asa campaigns bulk-status <operation-id>
 rest with Apple's reason. `--timeout` ends the polling, never the operation, so read it with
 `bulk-status` rather than resubmitting. → `references/asa-management.md`, `### Bulk operations`.
 
-**12. Give a campaign its own paywall.** Users from one campaign, ad group or keyword see a
+**12. Who changed it.** "Who paused this", "why did the bid move", "what changed last week" — read the
+change history before guessing at automations or Apple. One organization and at most 14 days per call;
+needs CLI **0.9.4**. Its id filters take Apple's numeric ids from the rows, not UUIDs, and
+`modified_by` is an Apple user id, not an email. All reads. → `references/asa-management.md`,
+`## Change history`.
+
+```
+$ADAPTY asa change-history list --campaign-group <uuid> --date-from <YYYY-MM-DD> --date-to <YYYY-MM-DD> [--entity-type Campaign] [--event-type UPDATE] [--fields]
+$ADAPTY asa change-history get <detail-id> --campaign-group <uuid>
+```
+
+**13. Give a campaign its own paywall.** Users from one campaign, ad group or keyword see a
 different paywall or flow — the reason a segment gets made at all, so carry the request to the
 placement rather than stopping at the segment. → `references/asa-management.md`, `## Segments`.
 

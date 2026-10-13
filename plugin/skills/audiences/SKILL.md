@@ -17,7 +17,7 @@ This skill owns segments and audiences. It does not own:
   point at content that exists, and a flow only once it is `published`.
 - **Moving paywall placements to flows** → `migrate-placements`.
 - **Segments built from Apple Search Ads campaigns, ad groups or keywords** → `ads-manager`,
-  workflow 12 (`asa segments create` resolves the Apple ids and keeps the dashboard's naming).
+  workflow 13 (`asa segments create` resolves the Apple ids and keeps the dashboard's naming).
   Come back here to route the segment it returns.
 - **An attribute the app has to send** (custom attributes, age, gender, customer user ID) →
   `adapty-integration` owns the SDK call. A segment over an attribute nobody sets matches nobody.
