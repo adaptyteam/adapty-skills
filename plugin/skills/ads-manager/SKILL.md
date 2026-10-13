@@ -1,6 +1,6 @@
 ---
 name: ads-manager
-description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, getting keyword recommendations for an app, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, or setting up rule-based ad automations.
+description: Use when managing Apple Search Ads through the Adapty CLI — reading campaign, ad group, keyword or ad performance, changing bids or budgets, getting keyword recommendations for an app, adding or pausing keywords, launching or pausing a campaign, creating a whole campaign structure in bulk from JSON or an Apple Ads template, harvesting search terms, setting up rule-based ad automations, or finding who changed a campaign, bid or keyword and when.
 ---
 
 # Apple Search Ads through the Adapty CLI
@@ -11,7 +11,7 @@ within seconds and spends real money, and nothing it creates can be deleted or u
 Open the reference a workflow names before running its commands:
 
 - `references/asa-management.md` — campaigns, ad groups, ads, keywords and keyword
-  recommendations, negative keywords, product pages, creatives, automations.
+  recommendations, negative keywords, product pages, creatives, automations, change history.
 - `references/asa-metrics.md` — `metrics`, `metrics overview`, `search-terms list`,
   `competitors summary`.
 
@@ -340,6 +340,17 @@ $ADAPTY asa campaigns bulk-status <operation-id>
 `success`, `partial` or `failed`; a `partial` leaves the objects that succeeded in place and names the
 rest with Apple's reason. `--timeout` ends the polling, never the operation, so read it with
 `bulk-status` rather than resubmitting. → `references/asa-management.md`, `### Bulk operations`.
+
+**12. Who changed it.** "Who paused this", "why did the bid move", "what changed last week" — read the
+change history before guessing at automations or Apple. One organization and at most 14 days per call;
+needs CLI **0.9.4**. Its id filters take Apple's numeric ids from the rows, not UUIDs, and
+`modified_by` is an Apple user id, not an email. All reads. → `references/asa-management.md`,
+`## Change history`.
+
+```
+$ADAPTY asa change-history list --campaign-group <uuid> --date-from <YYYY-MM-DD> --date-to <YYYY-MM-DD> [--entity-type Campaign] [--event-type UPDATE] [--fields]
+$ADAPTY asa change-history get <detail-id> --campaign-group <uuid>
+```
 
 ## Anything not covered here
 

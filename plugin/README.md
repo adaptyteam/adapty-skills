@@ -205,7 +205,7 @@ Open your terminal in any directory and ask:
 How did my Apple Search Ads campaigns do last week, and which keywords should I pause?
 ```
 
-It covers ten workflows: orienting on your account, reporting performance, launching a campaign (seeded from Adapty's keyword recommendations when you have no keyword list), harvesting keywords from search terms, a bid-and-budget optimization pass, pausing or resuming, running ads against a custom product page, diagnosing an ad that isn't serving, rule-based automations, and a competitor check.
+It covers twelve workflows: orienting on your account, reporting performance, launching a campaign (seeded from Adapty's keyword recommendations when you have no keyword list), harvesting keywords from search terms, a bid-and-budget optimization pass, pausing or resuming, running ads against a custom product page, diagnosing an ad that isn't serving, rule-based automations, a competitor check, launching many campaigns at once from JSON or an Apple Ads template, and finding who changed a campaign, bid or keyword from Apple's change history.
 
 **It treats your ad account as live money.** There is no delete and no undo in this surface, so the skill confirms before every write, never invents an ID or a budget, prefers small keyword batches, and pins idempotency keys so a re-run can't double-apply. Reads and automation dry runs are free, and it uses them freely.
 
