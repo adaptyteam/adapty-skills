@@ -7,7 +7,7 @@ Subscriptions are the part of a mobile app nobody wants to build and everybody h
 **These skills hand that whole surface to the agent you already have open.**
 
 ```
-> /adapty-integration
+> Integrate Adapty into my app
 
   Detected Flutter — pubspec.yaml, ios/ and android/ present
 
@@ -23,7 +23,7 @@ Subscriptions are the part of a mobile app nobody wants to build and everybody h
 
 ## The toolkit
 
-Every install below gives you the whole toolkit — and it grows, so an update brings new skills with it.
+Every skill below is part of the `adapty-skills` plugin. Install the plugin once and you have all of them — and it grows, so an update brings new skills with it.
 
 | Skill | What it does | Needs |
 |---|---|---|
@@ -55,6 +55,14 @@ Say what you want the way you'd brief a colleague. You don't need to name a skil
 
 ## Install
 
+### Any agent, one command
+
+```bash
+npx adapty skills install
+```
+
+The [Adapty CLI](https://adapty.io/docs/developer-cli) installs the `adapty-skills` plugin into your coding agent — through the agent's own installer where it has one, and through the [skills CLI](https://skills.sh) otherwise. Restart your agent afterwards. The routes below do the same per agent, by hand.
+
 ### Claude Code
 
 ```bash
@@ -62,7 +70,7 @@ claude plugin marketplace add adaptyteam/adapty-skills
 claude plugin install adapty-skills@adapty
 ```
 
-Then run `/reload-plugins` inside Claude Code. One plugin, `adapty-skills`, carries every skill in the repo.
+Then run `/reload-plugins` inside Claude Code.
 
 <details>
 <summary><strong>Already installed as <code>adapty-sdk-integration</code>?</strong></summary>
@@ -87,7 +95,7 @@ codex plugin marketplace add adaptyteam/adapty-skills
 codex plugin add adapty-skills@adapty
 ```
 
-Then start a new thread, so Codex picks up the skills. One plugin, `adapty-skills`, carries every skill in the repo.
+Then start a new thread, so Codex picks up the skills.
 
 To pull later changes:
 
@@ -147,13 +155,13 @@ cp -r adapty-skills/plugin/skills/* ~/.gemini/skills/
 
 ## Integrating the SDK
 
-Working in-app purchases: dashboard, SDK code, paywall, store config. Open your mobile project in your agentic CLI and run:
+Working in-app purchases: dashboard, SDK code, paywall, store config. Open your mobile project in your agent and ask:
 
 ```
-/adapty-integration
+Integrate Adapty into my app
 ```
 
-(In CLIs that don't map slash commands to skills, "Use the adapty-integration skill" does the same. That holds for every skill below.)
+(Every skill also answers to its name — `/adapty-integration`, `/flow-audit` and so on — in agents that map slash commands to skills. You never need it: describing the task is enough.)
 
 The skill takes over from there. It will:
 
@@ -175,10 +183,10 @@ You'll be asked for your Adapty credentials and a few decisions along the way �
 
 An analyst on your Adapty Attribution data, measured against the subscription revenue Adapty holds for every user.
 
-Open your terminal in any directory and ask for it:
+Open your terminal in any directory and ask:
 
 ```
-/adapty-attribution
+Which of my ad channels paid back best last month?
 ```
 
 It carries ten playbooks: ranking channels and campaigns by payback and deciding where budget goes, judging a young campaign at a horizon it has actually reached, trial-to-paid quality by campaign, a weekly digest with week-over-week flags, countries and stores, the winning ads inside a campaign, refund-heavy traffic, predicted payback, reconciling an ad network's numbers with Adapty's, and diagnosing a drop in installs.
@@ -191,10 +199,10 @@ An analyst on your ad account — bids, budgets, keyword harvests, dead-ad diagn
 
 You need a connected Apple Search Ads account and an active Ads Manager subscription — `adapty asa whoami` tells you where you stand.
 
-Open your terminal in any directory and ask for it:
+Open your terminal in any directory and ask:
 
 ```
-/ads-manager
+How did my Apple Search Ads campaigns do last week, and which keywords should I pause?
 ```
 
 It covers ten workflows: orienting on your account, reporting performance, launching a campaign (seeded from Adapty's keyword recommendations when you have no keyword list), harvesting keywords from search terms, a bid-and-budget optimization pass, pausing or resuming, running ads against a custom product page, diagnosing an ad that isn't serving, rule-based automations, and a competitor check.
@@ -208,10 +216,8 @@ The broken product binding, caught before your users find it. `flow-audit` answe
 **It's read-only.** It never calls `flows config update`, `products create`, or `flows create` — it fetches the flow's config and cross-references it against your live dashboard (catalog, access levels) to catch what an offline checker can't, like a bound product that doesn't exist or a card whose copy claims a period the product doesn't have.
 
 ```
-/flow-audit
+Is my onboarding flow ready to publish?
 ```
-
-(Or "audit my flow" / "is this ready to publish?")
 
 It checks six families — triggers, store compliance, products, variables, localization, and placeholders — plus whether any placement shows the flow, and comes back with a plain-language verdict (**Ready to publish**, **Not ready to publish yet: n things to fix first**, or **Almost ready: n things I could not check**), numbered findings that each say what is wrong, why it matters to a real user, and how to fix it, and a **What happens next** section: what to answer first, what the agent can fix for you, and what only you can do in the dashboard. It answers in your language.
 
@@ -226,7 +232,7 @@ Describe the screen you want and get it built — or change one you already have
 It reads and writes the config through the Adapty CLI, so you don't export or upload anything by hand, and it sorts out the CLI itself rather than telling you a command doesn't exist.
 
 ```
-/flow-generator
+Add a German translation to my paywall flow
 ```
 
 It runs five phases: authenticate, work out whether to create a flow or edit an existing one, validate the config, preview it and iterate until it looks right, then save and ask before it publishes. Validate and preview both run on a local file, so the agent gets it right before anything reaches your dashboard.
@@ -245,7 +251,7 @@ Four transforms:
 You have [placements](https://adapty.io/docs/placements.md) pointing at paywalls, and you want them pointing at [flows](https://adapty.io/docs/adapty-flow-builder.md) instead. `migrate-placements` reads every placement in the app, works out which ones are worth moving, and creates the flow placements for you.
 
 ```
-/migrate-placements
+Move my app's paywall placements to flows
 ```
 
 **None of this is in production yet, on any account** — neither the publish endpoint nor the placement audience a flow needs — so the skill probes for the capability first and, until it ships, hands you [Placements](https://app.adapty.io/placements) in the dashboard instead of a half-finished migration.
