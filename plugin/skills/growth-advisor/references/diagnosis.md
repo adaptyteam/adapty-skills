@@ -18,10 +18,12 @@ $ADAPTY analytics values --app <APP_ID> --dimension country --json
   `ltv`, `cohort`) with their options, every chart id and conversion id, and the groupings and
   filters each one accepts. Read it once per session. Take groupings and filter keys from it: they
   differ per chart and per operation (`installs` takes no purchase filters, for example).
-- Each grouping names its `filter`: the filter key that selects one of its groups. To drill into
-  a group, pass `--filter <that filter>=<the group's key>`. `null` means that grouping has no
-  drill-down. The filter is not always the grouping's own name.
-- Take filter values from `analytics values`; pass the `value`, not the `label`.
+- To narrow a read to one group, take the filter key from the catalog and the value from
+  `analytics values --dimension <key>`, matched to the group by its title. A group's `key` is not
+  a filter value; never pass it to `--filter`.
+- Take filter values from `analytics values`; pass the `value`, not the `label`. A value is sent
+  exactly as written, spaces included; an empty one (`--filter country=`) selects the "No Data"
+  group.
 - If `analytics catalog` says the command does not exist, try `npx --yes adapty@beta analytics
   catalog --help` once. If that fails too, the user's CLI has no analytics yet: ask them for the
   numbers below from the dashboard's Analytics page, and say which ones you need.
@@ -29,15 +31,17 @@ $ADAPTY analytics values --app <APP_ID> --dimension country --json
 Rules for reading any answer:
 
 - Every data command answers in one shape: `data.value` is the number of the whole period,
-  `data.segments` starts with the total (`is_total` true, `key` null), then one segment per group.
+  `data.segments` starts with the total, then one segment per group. Tell the total from a group
+  by `is_total` alone: a group's `key` can be null too.
 - `null` means the value cannot be computed (an LTV period the cohort has not reached, a cohort
   that cannot be predicted). Never read it as zero, and never fill it in. `segments: []` means no
   data for that window, which is not the same as zeros.
 - Dates are whole days in the app's time zone (`meta.query.timezone`). The last few days can
   still change as late store events arrive, so end the window a few days back.
-- A segment's `key` is the raw value to filter by; `title` is what the dashboard shows. Use
-  titles when you write to the user. The "No Data" group is a real group: the zero UUID for an id
-  grouping, `no_offer` for offers, `Uncategorized` for duration, `""` for text.
+- A segment's `key` is the raw value the backend gives for the group; `title` is what the
+  dashboard shows. Use titles when you write to the user. The "No Data" group is a real group, and
+  its key can be `null`, `""`, `"None"` or the zero UUID. A funnel group's key is its title and can
+  repeat: keep each group as its own row.
 - Exit 2 is a bad flag (nothing was sent; the message names it), exit 3 is no token or no access
   to the app, exit 4 is a server refusal: an unknown chart, conversion, grouping or filter. On 4,
   re-read the catalog instead of guessing another name.
@@ -100,14 +104,14 @@ $ADAPTY analytics funnel --app <APP_ID> --date-from $FROM --date-to $TO --group-
 $ADAPTY analytics retention --app <APP_ID> --date-from $FROM --date-to $TO --group-by duration --json
 # 12. LTV by plan length
 $ADAPTY analytics ltv --app <APP_ID> --date-from $FROM --date-to $TO --group-by duration --json
-# 13. Conversion per placement: one call per active placement
-$ADAPTY analytics conversion --app <APP_ID> --conversion view-paid --date-from $FROM --date-to $TO --filter placement_id=<PLACEMENT_ID> --json
+# 13. Conversion per placement: one call per active placement, the value from `analytics values --dimension placement_id`
+$ADAPTY analytics conversion --app <APP_ID> --conversion view-paid --date-from $FROM --date-to $TO --filter placement_id=<VALUE> --json
 ```
 
 A conversion answer's `data.value` is the rate in percent, `value_to` of `value_from`; if the
 window has none, `meta.recommended_period` can name one that has. `view-paid` and `view-trial`
-are the conversion rate of a paywall: filter them with `--filter paywall_id=<id>` (or
-`placement_id`, `flow_id`), one call per paywall, or group them by it when the catalog lists that
+are the conversion rate of a paywall: filter them by `paywall_id` (or `placement_id`, `flow_id`)
+with a value from `analytics values`, one call per paywall, or group them by it when the catalog lists that
 grouping for conversions. Compare paywalls only inside one placement: a paywall shown at
 onboarding and one shown on a feature limit see different users. An LTV
 point the cohort has not reached is `null`: compare lengths only at a point every one of them
@@ -148,10 +152,9 @@ $ADAPTY flows list --app <APP_ID> --json
 $ADAPTY segments list --app <APP_ID> --json
 ```
 
-Segments are the app's own user groups. Group by `segment_id`, or drill into one with the
-filter the catalog names for that grouping, so an existing segment can split any number in this
-file. The CLI cannot
-create one.
+Segments are the app's own user groups. Group by `segment_id`, or filter to one with a value
+from `analytics values --dimension segment_id`, so an existing segment can split any number in
+this file. The CLI cannot create one.
 
 From these: which placements exist and are active, what each one shows (a paywall or a flow, per
 audience), which products each paywall sells, and whether there is anything after the onboarding
