@@ -240,8 +240,8 @@ on it alike — so say that and hand the user the editor's publish button or the
 field. **Run the call before you believe it, though.** Both routes are unverified rather than known
 absent, so treat a 404 as something you observed, never as something you expected.
 
-**There is still no `flows delete`.** Deleting is a dashboard action, so never claim to have
-deleted a flow. Never write a command name the CLI does not have, and never invent a flag —
+**There is still no `flows delete`,** and the dashboard archives a flow rather than deleting it,
+so never claim to have deleted one. Never write a command name the CLI does not have, and never invent a flag —
 `config validate` takes only `--app`, `--config`/`--config-file` and `--json`.
 
 Four facts about the config commands that are not guessable:
@@ -300,6 +300,9 @@ request: the flow exists and is published, and what is missing is the placement 
 the app's own call site. Go straight to phase 6 — phases 2-5 have no work to do — and say that is
 what you are doing, so a user who did want an edit can redirect you.
 
+*"I don't like it, put it back"*, *"revert the flow"* is a **restore**, not a new edit: go to
+phase 5's **Restoring from the backup**, which says when you run it and when it is the dashboard's.
+
 ### 2. New flow, or existing flow
 
 Decide this explicitly and say which you chose, because the two paths differ in what they can
@@ -309,8 +312,8 @@ destroy.
 before touching it. Then `flows config get`, and **keep its `updated_at`** for the write, not
 the one `flows get` or `flows list` printed.
 
-**Take a backup before the first edit.** `config update` replaces the whole config and there is no
-undo, so the copy you fetched is the only way back:
+**Take a backup before the first edit.** `config update` replaces the whole config and the CLI
+has no undo, so the copy you fetched is the only way back you can run yourself:
 
 ```bash
 $ADAPTY flows config get --app $APP $FLOW --json > flow.working.json
@@ -708,8 +711,9 @@ There is nothing to lose and nothing to overwrite, and stopping to ask would be 
 empty document. Report what you wrote afterwards.
 
 **It does** — anything you fetched in phase 2. **Stop and get an explicit yes before the write.**
-`config update` replaces the entire config: no partial write, no undo, no version history here, so
-the document you are replacing exists in exactly one other place — the phase-2 backup. Put all of
+`config update` replaces the entire config: no partial write and no undo from the CLI, and a
+draft is never kept as a version, so the document you are replacing exists in exactly one other
+place — the phase-2 backup. Put all of
 this in front of the user in one message and wait:
 
 **First, compute what the write destroys — never describe it from memory.** Run this on the bytes
@@ -801,6 +805,22 @@ $ADAPTY flows config update $FLOW --app $APP --config-file restore.json --expect
 
 Verified byte-identical on a real flow — so the recovery is real, but only if phase 2 actually
 took the backup, which is why that step is not optional.
+
+**"Get it back" after your own write is this restore — run it yourself** once the user says yes,
+the same way as any write. If the flow was published after your write, the restore saves a draft,
+so the users see the old version only after the next publish: ask for that too.
+
+**Send the user to the dashboard only when the backup cannot do it** — there is no backup in this
+session (the change was made in an earlier one), or they want a version other than the one you
+backed up ("the one from last week"). The CLI cannot list or restore versions; the dashboard can,
+for every **published** version:
+
+> In the Flow Builder, open the flow's menu → **Show version history**, pick the version, and
+> restore it. It becomes your draft (you will be asked to confirm if a draft already exists), and
+> users see it once you publish.
+
+Drafts are not kept as versions, so unpublished work between two publishes can't be brought back
+there. Say so if that is what they are asking for.
 
 Only then:
 
@@ -1010,17 +1030,19 @@ diff before you write ([merge.md](references/merge.md)).
 **Never write to a flow the user did not name.** `flows list` is for finding the right one and
 confirming it back to them, not for picking one yourself.
 
-**`config update` replaces the whole config.** There is no partial write, no undo and no version
-history. Prefer a fresh `flows create` for new work.
+**`config update` replaces the whole config.** There is no partial write and no undo from the
+CLI; only published versions are kept, and only the dashboard can restore one. Prefer a fresh
+`flows create` for new work.
 
 **Overwriting an existing config needs an explicit yes.** Phase 5 owns the form. The gate is keyed
 to whether the flow already has a config, not to how confident you feel about the edit — a clean
 validate, a good screenshot and a user who liked the design are all upstream of the question and
 none of them is an approval.
 
-**Deleting a flow is a dashboard action.** There is no `flows delete`, so never claim to have
-removed one — including a throwaway you created yourself. Name the flow and tell the user where
-to delete it.
+**A flow cannot be deleted, only archived in the dashboard.** There is no `flows delete`, so never
+claim to have removed one — including a throwaway you created yourself. Name the flow and point the
+user to https://app.adapty.io/flows; a flow still attached to a placement has to come off
+it first.
 
 `validate` and `preview` change nothing and cost nothing. Use them freely.
 
