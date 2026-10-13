@@ -14,8 +14,8 @@ of them for you; a hypothesis outside the table fills them itself.
 |---|---|
 | Title | The action, with the user's real values: "Add 3-day trial to annual". Use the type's template when it has one, a plain sentence otherwise. |
 | Target | What it changes: a product, a plan length, a country, a paywall or a placement. |
-| Why | 2-3 sentences from the user's own numbers, problem first. See "Writing the why". |
-| Pattern | 1-2 sentences on the market pattern or user behaviour behind it. Said when the user picks the test or asks why, not in the audit. |
+| Why | One sentence about this app only: where, what you saw, how the change acts on it. See "Writing the why". |
+| Pattern | 1-2 sentences on the market pattern or user behaviour behind it. Said when the user picks the hypothesis or asks why, not in the audit. |
 | Rests on | The numbers it depends on, and where each came from: the CLI or the user. |
 | Judged on | The one metric that decides the winner. |
 | Rules out | What a win and what a loss take off the table (see "After a test"). |
@@ -157,7 +157,18 @@ the offer is real.
 
 ## Writing the why
 
-- Use the user's own numbers ("4% of revenue", "about 24 purchases a month").
+The why is what makes a hypothesis this app's and not a general tip. It is the hypothesis's
+Why line, and it carries three parts, in one sentence:
+
+1. **Where:** the placement by name, and the plan, country or screen when the change targets one.
+2. **What you saw:** one of the user's numbers with its period ("71% of purchases since April",
+   "about 24 purchases a month"), or one fact from the render ("nothing on the screen mentions
+   the trial"). Name which it is when that is not obvious.
+3. **How the change acts on it:** the link from that observation to the change, in plain words.
+
+Check it before sending: swap in another app's name. If the sentence still holds, it has no
+observation from this app in it, so find one or drop the hypothesis.
+
 - Problem first, in their setup; then the reason it matters.
 - Two numbers side by side, never "baseline": "Brazil converts at 0.4% against your 1.5%
   overall".
@@ -169,9 +180,9 @@ the offer is real.
 
 Shape of a good why (an example of the form, not words to copy):
 
-> Your weekly plan brings in 4% of revenue from about 24 purchases a month, so no test on it can
-> move the total. Annual carries the paywall, and it shares the trial with
-> weekly.
+> On your onboarding paywall, weekly brings 4% of revenue from about 24 purchases a month, while
+> it shares the 3-day trial with annual, so moving the trial to annual alone puts it where the
+> money is.
 
-Weak: "Your conversion is low, therefore we recommend a trial." No numbers, no app, and a
-"therefore".
+Weak: "Annual plans earn more, so preselecting annual raises revenue." True of every app: no
+placement, nothing you saw, no number of theirs.
