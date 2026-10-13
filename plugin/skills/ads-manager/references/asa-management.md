@@ -143,6 +143,22 @@ Read `payment_model` from `orgs list` before a launch; do not assume `PAYG`.
 |---|---|---|
 | `asa creatives list` | see Scope filters | Yields the Apple `creative_id` that `ads create` needs. |
 
+## Change history
+
+Who changed what in the account, and when — read live from the Apple Ads API, so it also shows
+changes made in Apple Ads itself, by Apple Support, or by another API tool. Nothing is stored on
+Adapty's side, and Apple keeps 6 months. Needs CLI **0.9.4**.
+
+| Command | Flags | Notes |
+|---|---|---|
+| `asa change-history list` | required `--campaign-group` (UUID from `asa orgs list`); optional `--date-from` / `--date-to` (`YYYY-MM-DD`, default the last 7 days, at most 14 days per call), `--entity-type` / `--event-type` / `--user-type` (repeatable enums), `--campaign` / `--ad-group` / `--entity-id` / `--user` / `--txn` (repeatable Apple ids), `--fields`; pagination | One organization per call — loop over `asa orgs list` for several. Newest first; each row is one transaction (`event_time`, `event_type`, `user_type`, `modified_by`) with the entities it touched, each carrying a `detail_id`. Default entity types are the campaign domain (`Campaign`, `AdGroup`, `Keyword`, `NegativeKeyword`, `Ad`, `Creative`, `LocationGroup`); `Org` and `AdAccount` can't be mixed with them. `--event-type` is `CREATE`/`UPDATE`/`DELETE`; `--user-type` is `CUSTOMER` (Apple Ads UI), `CUSTOMER_API` or `APPLE_SUPPORT`. `--fields` expands the page into flat rows (`field`, `old_values`, `new_values`); its page size is 10, a larger `--page-size` is refused, and a page that needs more than 20 lookups fails — narrow the filters or drop `--fields`. `page × page-size` must stay within 1000. |
+| `asa change-history get <detail-id>` | positional `detail_id` from the list (`EntityType.entityId.txnId`); required `--campaign-group` | Field-level before/after of one entity in one transaction (`changes[]`: `field`, `old_values`, `new_values`) plus `entity_metadata`. Pass the list row's `campaign_group_id`. A `detail_id` Apple has no record of is a `404`. |
+
+**This is the one surface that takes Apple's ids, not UUIDs.** `--campaign`, `--ad-group`,
+`--entity-id` and `--user` take the numeric Apple ids printed in the change-history rows — the UUIDs
+every other list prints match nothing here. `modified_by` is an Apple user id, never an email, so
+don't present it as a person's name.
+
 ## Automations
 
 | Command | Flags | Notes |
@@ -255,6 +271,7 @@ described in the metrics reference). Plan against `limits` when it is present.
 | catalog lists and gets, automation reads | 120/min |
 | `keywords list` | 30/min, burst 5 per 10s, its own 2-concurrent pool, 60s server timeout |
 | `keywords recommend` | 10/min, one in-flight `brand`/`generic` build at a time, `Retry-After: 5` on `cli_analytics_busy` |
+| `change-history list` / `get` | 30/min, burst 5 per 10s, one request in flight per company (`Retry-After: 5` on `cli_analytics_busy`), 50s server timeout (`504 cli_read_timeout`) |
 | all writes | 20/min |
 | template conversion (`bulk-create --from-file`) | 10/min, one conversion at a time |
 | `whoami` | 60/min |
@@ -265,7 +282,10 @@ the account-size reason to filter it in Scope filters. `metrics`, `metrics overv
 budget and its own `429 cli_analytics_busy`; that pool and its numbers live in the metrics
 reference, not here. `keywords recommend` answers the same `cli_analytics_busy` code from a
 different, one-slot pool of its own: a busy `brand`/`generic` build answers with this
-section's `Retry-After: 5`, not the metrics pool's numbers.
+section's `Retry-After: 5`, not the metrics pool's numbers. `change-history` reads Apple live, so it
+adds Apple's own failures: `429 cli_upstream_rate_limited` carries Apple's `Retry-After`, and
+`403 cli_ad_account_unreadable` means the organization can't be read at all — a revoked Apple token, an
+organization no longer linked, or Apple refusing access — so retrying won't help; check `asa whoami`.
 
 A budget running out answers `429 cli_rate_limit_exceeded` with the wait in `Retry-After` —
 a different code from `cli_analytics_busy` (that other pool's concurrency cap) and from
