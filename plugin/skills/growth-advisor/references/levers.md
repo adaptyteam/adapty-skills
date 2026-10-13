@@ -50,30 +50,64 @@ changes.
    into new users and renewals first. New-user revenue down points to traffic, the funnel or the
    paywall. Renewal revenue down points to an older change hurting renewals, such as a cohort that
    stopped renewing after a plan or offer change. Never diagnose from total revenue alone.
-2. **Conversion against revenue per user.** Use install → paid and revenue per install (see
+2. **Read the steps** (next section) before you rank anything.
+3. **Conversion against revenue per user.** Use install → paid and revenue per install (see
    `diagnosis.md`). Compare the app against its own past, and against `market.md` only where the
-   measure is the same (trial → paid, plan mix; never install → paid against a paywall
-   conversion):
+   measure is the same (paywall view → paid, trial → paid, plan mix; never install → paid against
+   a paywall conversion):
    - conversion fine, revenue per user low → plan structure: push buyers toward the longer plan
    - conversion low, revenue per user low → plan structure and the paywall itself
    - both fine → localization, plan mix and placements
-3. **Context that changes the answer.**
+4. **Context that changes the answer.**
    - How many products the paywall sells. One and two-or-more call for different first moves.
    - What was tested before. Ask; the CLI has no test history. A recent loss is off the table.
    - App size. Under about 200 purchases in two weeks, a test takes weeks to settle: recommend
      fewer, bolder changes, and say a small tweak will not reach a clear result.
-4. **Priority.** The offer before the look: localization, trials and plan structure win more
+5. **Priority.** The offer before the look: localization, trials and plan structure win more
    often than visual changes (`market.md`, Testing). Then the paywall design, then small tweaks.
    One test per placement at a time, 2-4 weeks each.
-5. **Main market.** If one market holds 50% or more of revenue, treat it as the main market for
+6. **Main market.** If one market holds 50% or more of revenue, treat it as the main market for
    the whole audit.
+
+## The step that loses users
+
+Read the conversions step by step (`diagnosis.md`, reads 9 and 10) before you rank anything. Two
+weak steps are not paywall tests:
+
+| Weakest step | What to propose |
+|---|---|
+| Paid → 2nd period and later | Plan structure: push buyers toward the longer plan |
+| Billing issue → paid | No test: grace period and billing retry in the dashboard, as dashboard steps |
+
+**Split before you blame a step.** A weak step in one store, country or channel is that segment's
+problem. Run the step by `store` and `attribution_channel` first; a channel that converts far worse
+is traffic, which `adapty-attribution` owns.
+
+## Which placement to test first
+
+One test per placement at a time, so the order of placements is the order of tests. For each
+active placement with about 200 purchases in two weeks or more (smaller ones cannot settle a test;
+say so), read its view → paid and its views (`diagnosis.md`, read 13):
+
+1. **Set a target.** The paywall view → paid median for the app's main region in `market.md`, for
+   an onboarding placement. A later placement converts about a quarter as well as onboarding in
+   the report (0.23% against 0.85% per view), so its target is a quarter of that median. Use the
+   placement's own rate over the same months a year earlier instead when it was higher.
+2. **Count what the gap costs.** Missed purchases = views × (target − rate). A placement at or
+   above its target costs nothing; leave it for later.
+3. **Test the placement that misses the most purchases first.** Say the ranking in one line: "The onboarding paywall misses about 400 purchases
+   a month against the market; the settings paywall about 30."
+
+The targets are rough: the report covers the App Store only and counts purchases within 30 days of
+a view. Filter the reads to `store=app_store` when you compare, and call the target "the market
+median", never the user's goal.
 
 ## Plan structure
 
 - The core lengths are weekly, monthly and annual. Weekly plus annual is the most common pair.
 - **One product on the paywall:** add a second length first; nothing can be optimised without a
   comparison. Then a trial if the category uses one.
-- **Two or more products:** find the leading length (by LTV if the user has it, otherwise by
+- **Two or more products:** find the leading length (by LTV from `analytics ltv`, otherwise by
   revenue share) and push purchases toward it: the trial on it, preselected, a badge.
 - **Four or more products:** simplify to three before anything else.
 - **Removing a length** is a candidate only when it earns under 30% of the paywall's revenue,
@@ -139,8 +173,8 @@ the offer is real.
 - **A paywall from the old Paywall Builder** cannot be copied this way. Offer the dashboard's
   **Move to new builder** first ([convert a paywall to a flow](https://adapty.io/docs/convert-paywall-to-flow.md)),
   then the copy.
-- **Say what it rests on:** the teardown's reading of the screen and the evidence library, not
-  this app's conversion per screen, which the CLI does not have.
+- **Say what it rests on:** the teardown's reading of the screen and the evidence library, plus
+  this paywall's view → paid rate and its purchases per screen (reads 8 and 9 in `diagnosis.md`).
 
 ## After a test
 

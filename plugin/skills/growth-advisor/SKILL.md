@@ -52,8 +52,9 @@ These are the only two words for what you suggest, and the user sees them exactl
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | How a dashboard feature works | `adapty-docs` |
 
-The CLI breaks revenue, purchases and trials down by placement, paywall, flow and flow screen,
-but it has no paywall views, so no conversion rate per paywall. A/B test results and benchmarks
+The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
+funnel, retention, LTV and install cohorts, and breaks most of them down by placement, paywall,
+flow and flow screen. A/B test results and benchmarks
 for the app's own category are not in the CLI either. `references/market.md` holds the market
 medians from Adapty's State of Paywalls 2026, which cover a lot of this at the level of region
 and category. For a benchmark matched to the app, and for anything about price, point the user
@@ -65,13 +66,13 @@ numbers, use them and say where they came from.
 Resolve `$ADAPTY` once and use it for every call:
 
 ```bash
-adapty analytics --help >/dev/null 2>&1 && ADAPTY="adapty" || {
+adapty analytics catalog --help >/dev/null 2>&1 && ADAPTY="adapty" || {
   npm i -g adapty@latest >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
 ```
 
-If `$ADAPTY analytics --help` still reports no such topic, try `npx --yes adapty@beta analytics
---help` once before telling the user analytics is unavailable. `--yes` is required: without it
-npx waits for a confirmation nobody will give. In `zsh`, run `setopt shwordsplit` before using a
+If `$ADAPTY analytics catalog --help` still reports no such command, try `npx --yes adapty@beta
+analytics catalog --help` once before telling the user analytics is unavailable. `--yes` is
+required: without it npx waits for a confirmation nobody will give. In `zsh`, run `setopt shwordsplit` before using a
 multi-word `$ADAPTY`. Pass the command and every flag as separate words: `"placements list"`
 in quotes is one word, and the CLI answers that no such command exists. When you show a command
 to the user, write a literal `adapty` in it.
@@ -184,7 +185,8 @@ conversation that asks "what should I do".
    value carries it. `references/diagnosis.md`, "Follow the signal down". A cause found only at
    the app level is a guess.
 5. **Diagnose and build the hypotheses** with `references/levers.md`: where to look first, the
-   rules per lever, and the shape every hypothesis fills. Check these every time, because they
+   rules per lever, and the shape every hypothesis fills. Order the placements by "Which placement
+   to test first". Check these every time, because they
    are easy to walk past in a chart:
    - more than one product carries a trial
    - only one plan length on the paywall

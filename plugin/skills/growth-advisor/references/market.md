@@ -13,11 +13,10 @@ their category, and never present a median as their target.
 ## Read this before comparing
 
 - **Paywall view → paid is not install → paid.** The report counts conversion from paywall
-  views. The CLI gives installs and purchases, not paywall views, so the app's install → paid can
-  never be set against these rows. Compare only a paywall conversion the user reads from the
-  dashboard.
-- **Trial → paid is comparable, roughly.** The CLI's trial → paid (see `diagnosis.md`) is a
-  same-period approximation; say so when you set it against the median.
+  views. Compare it with the app's `view-paid` conversion (`diagnosis.md`), never with install →
+  paid. It is rough: the report counts purchases within 30 days of a view, and the per-view
+  onboarding and later-paywall rows under Timing are a different count from the Conversion table.
+- **Trial → paid is comparable.** Use the app's `trial-paid` conversion.
 - **The median is not the goal.** The top 10% convert 4-5× the median outside the US. Being at
   the median says the app is typical, not that it is done.
 - **App Store only.** For a Google Play question, say there is no market median here.
