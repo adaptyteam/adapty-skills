@@ -154,7 +154,7 @@ Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph
 any phase), `localization.py` (phase 2, the catalog), `verify-config.py` (phase 3),
 `validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py`,
 `render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (when a render fails),
-`mobile-preview.mjs` (phase 5, the device-preview link).
+`mobile-preview.mjs` (phase 5, the device-preview QR).
 
 ## The CLI surface
 
@@ -886,12 +886,8 @@ two URLs; without them, save, don't publish, and say why.
 >
 >    https://app.adapty.io/flows/<FLOW_ID>/builder
 > 2. Preview it on a real device and check <the specific things this build could not verify>.
->    This link opens it in the Adapty mobile app, which draws it the way your users will see it:
->
->    <the preview link, bare>
->
->    On mobile, tap the link to preview.
->    <the QR image line if they asked for one; otherwise the offer, or nothing>
+>    <the QR image line if they asked for one; otherwise this line:>
+>    Want a QR code to scan with the Adapty mobile app? Just say so and I'll make one.
 > 3. Publish: say the word and I'll do it, or use Publish at the top right of the editor. After
 >    that I can attach it to a placement, which is what makes your app show it.
 >    `<only if a product card has no product chosen:>` Publishing is blocked until you choose
@@ -905,45 +901,28 @@ two URLs; without them, save, don't publish, and say why.
 > `draft` — Nothing is live yet: nobody sees this flow until it is published and attached to a
 > placement.
 
-**Build the link for slot 2 yourself — do not send the user hunting for it.** It is pure string
-construction from the app id, the flow id and the config's `localization.locales`, so
-[`mobile-preview.mjs`](references/mobile-preview.mjs) produces it with no network call and no auth:
+**Offer the QR in slot 2; do not paste the preview link.** Make the QR only when the user says
+yes. [`mobile-preview.mjs`](references/mobile-preview.mjs) builds it from the app id, the flow id
+and the config's locales, with no network call and no auth:
 
 ```bash
-# The link alone — the default. No image, no window, no `qrcode` dependency.
 (mkdir -p ~/.cache/adapty-flow-qr && cd ~/.cache/adapty-flow-qr && node <abs-path>/references/mobile-preview.mjs \
-  --app <APP_UUID> --flow <FLOW_ID> --config <abs-path>/flow.working.json)
-
-# Add a QR as well, when it will actually be scanned:
-#   … --qr --md-base <your working directory>
+  --app <APP_UUID> --flow <FLOW_ID> --config <abs-path>/flow.working.json --qr --md-base <your working directory>)
 ```
 
-**Run it after the write, never before.** The app fetches the *saved* draft, so a link built over an
-unsaved file previews the previous version and reads as "your edit did nothing". One link survives
-later writes, so hand it over once rather than per change.
+**Run it after the write, never before.** The app fetches the *saved* draft, so a QR built over an
+unsaved file previews the previous version and reads as "your edit did nothing". One QR survives
+later writes, so make it once rather than per change. It writes a throwaway PNG into the working
+tree and opens it; paste the `![...](...)` line it prints into your answer. Never commit the image.
 
-**The link is required in the callout. The QR is off unless the user asked for it** — `--qr` writes
-a throwaway PNG into the working tree and opens a window, so it is not a free addition. Never commit
-the image.
-
-**Decide from what they actually said — nothing else is observable.** You cannot tell whether
-someone is at a laptop or holding a phone, so do not build the decision on it:
-
-| What you have | What you do |
+| What they said | What you do |
 | :--- | :--- |
-| they asked for a QR, to scan, or to test on a device | `--qr`, and keep doing it for the session |
-| they asked for the link only, or declined a QR | link only, and **do not offer again** |
-| anything else, including no signal at all | **link only, plus this one line** |
+| yes to the QR, or asked to scan or test on a device | `--qr`, and keep doing it for the session |
+| asked for the link | give the link the script prints, bare on its own line, never in backticks |
+| declined | drop the line, and **do not offer again** |
+| nothing yet | the one-line offer in slot 2 |
 
-> On mobile, tap the link to preview. If you want a QR code to scan for device preview, just say so
-> and I'll generate one.
-
-**The bare link goes in every callout, on its own line, and never in backticks** — a code span is
-not a link, and most terminals linkify a bare URL. When you do pass `--qr`, paste the
-`![...](...)` line it prints into your answer too, whatever surface you think you are on.
-
-Why the link is unconditional and the QR is not, why surface detection cannot work, the `--md-base`
-rule, and why there is no character-art QR:
+Why the QR and the link work this way, the `--md-base` rule, and why there is no character-art QR:
 [preview.md](references/preview.md#the-mobile-app-link-and-why-it-is-not-the-render-url).
 
 **Fill that slot with the actual list, never with "check it works".** You know which of your
