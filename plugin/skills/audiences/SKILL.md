@@ -164,6 +164,11 @@ building, and say what each option means. Labels are the dashboard's (https://ad
   existing one is exactly that change.
 - **Never write a placement without passing back every audience you read.** An entry you omit is
   an entry you deleted.
+- **Never delete an entry the CLI refuses when that entry came from `placements get`.** A refusal
+  such as `content_type is required and must be "paywall" or "flow"` on an entry you did not write
+  means your CLI is older than the API, and the entry is most likely a running A/B test. Re-resolve
+  `$ADAPTY` once and retry the same list. If it still refuses, send the change to the dashboard.
+  Deleting the entry makes the write go through and stops the test.
 - **Never guess a field name, a custom attribute's spelling, or a value format.** See the three
   sources above.
 - **Never put a flow id in `paywall_id`**, or an entry without `content_type`.
@@ -193,6 +198,7 @@ Quotes are verbatim from baseline runs without this skill (2026-10-12).
 - A `placements update` with no answer from the user to the A/B-test question
 - A `field_name` that is not in the confirmed list and was not read off an existing segment
 - An app version with fewer than three parts
+- An entry from `placements get` removed after the CLI refused it
 - "Country" in a filter and no answer to "IP or store account?"
 - `placements list` without `--page-size 100`
 - A planned write to a placement whose priorities skip a number, or that has no `segment_ids: []` entry
