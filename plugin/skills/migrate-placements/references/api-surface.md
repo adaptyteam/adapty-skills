@@ -244,8 +244,10 @@ behind, and it must accept both shapes rather than injecting unconditionally. It
 the thing that would be a bug, not its presence.
 
 The CLI validates the field itself, before any request. `audienceEntryProblem` (**exit 2**, no
-request sent): `content_type` is required and must be one of `{paywall, flow}`; a paywall entry
-requires `paywall_id`, a flow entry requires `flow_id`. Reported as `--audiences[<i>]: <problem>`.
+request sent): `content_type` is required and must be one of `{paywall, flow}` on a CLI before
+0.9.6, which also accepts the four A/B-test kinds (see "Blind spots" below) and, for an unknown
+kind, says `this CLI does not know this audience kind; update the CLI`; a paywall entry requires
+`paywall_id`, a flow entry requires `flow_id`. Reported as `--audiences[<i>]: <problem>`.
 
 **Exit 2 no longer means "nothing was sent".** The draft-flow refusal above also exits 2, and that
 one is a *rejected* request rather than a withheld one. Both are safe to retry after fixing the
@@ -350,24 +352,33 @@ Worth reporting to the CLI/API team alongside QA case C7.
 
 ## Blind spots in the reads themselves
 
-**`placements get` SILENTLY OMITS an audience that is neither paywall nor flow.**
-`PlacementDetailDTO.factory` appends only `PAYWALL` and `FLOW` entries; the source's own test
-`test_factory_skips_content_that_is_neither_paywall_nor_flow` exercises it with
-`PlacementContentType.AB_TEST`. So a placement carrying an A/B-test audience **reports fewer
-audiences than it has**, and every count derived from that read — including this skill's — is short
-by exactly the entries the DTO dropped.
+**What the read returns now.** `placements get` lists an audience that runs an A/B test as an entry
+of its own kind: `content_type` `ab_test` (paywall family) or `flow_ab_test` (flow family), with
+`ab_test_id`, `ab_test_title`, `segment_ids` and `priority`. A test shared across placements shows
+as `cross_ab_test` or `flow_cross_ab_test`, read-only: the backend ignores such an entry on a write
+and keeps the stored ones, and it counts their priorities and their default audience apart from the
+regular ones. The state of a test is not shown (the content of an audience is always the running
+one), and neither are its arms. CLI 0.9.6 is the first release that returns, accepts and writes
+back these entries; an older CLI refuses an entry of these kinds on write with
+`content_type is required and must be "paywall" or "flow"`.
 
-**We cannot detect it, and saying so is the honest answer rather than inventing a check.** The read
-is the only view we have; a placement with 3 audiences of which 1 is an A/B test is
-indistinguishable from a placement with 2. Nothing in the response says an entry was skipped, so
-there is no count to compare against and no flag to test. The only way to know is to look at the
-placement in the dashboard.
+**What follows for the migration.** A paywall test cannot become a flow, and a test id on a new
+placement would start that test there (read from the backend's source, not measured: a test id
+on a write moves or starts that test on the audience that names it). So `migrate.py` **skips every test entry and names it**; it never writes one. The new placement
+is created from the paywall entries only, with priorities renumbered with no gap when a test of the
+placement itself was skipped. A test on the **default audience** would leave the new placement with
+no default audience, which the write refuses (exactly one entry with `segment_ids=[]`, holding the
+highest priority), so that whole placement is skipped. The source placement is never changed: the
+skill only creates, and the test keeps running there.
 
-**What follows for the migration, stated precisely.** This skill creates and never updates, so
-nothing is destroyed and the source placement keeps its A/B-test audience serving. But the **new
-flow placement would not carry that audience**, because the read never showed it — so the migration
-is incomplete in a way the plan cannot show. Disclose it wherever audience counts are reported:
-they are counts of what the API returned, not necessarily of what exists.
+**What is still blind.** A deployment that predates the A/B-test read **still omits a test
+audience from `placements get` without a word** (the placement read's factory appended only paywall
+and flow entries, and its own test exercised a skipped A/B-test entry). Such a placement reports
+fewer audiences than it has, and nothing in the response says an entry was left out: a placement
+with 3 audiences of which 1 is a test is indistinguishable from one with 2. **We cannot detect it,
+and saying so is the honest answer rather than inventing a check.** The new flow placement then
+misses an audience the read never showed, so the counts the plan reports are counts of what the API
+returned, not necessarily of what exists. Disclose it wherever audience counts are reported.
 
 ## What the write requires, and why we carry values verbatim
 

@@ -218,13 +218,14 @@ of placements. "All of them" is then an informed choice rather than an accidenta
 python3 <skill>/references/migrate.py plan --inventory inventory.json
 ```
 
-Per audience: `paywall_id` → migratable; `flow_id` → already done; neither → skip. Migratable
+Per audience: `paywall_id` → migratable; `flow_id` → already done; an A/B test entry → skipped
+(next paragraphs); neither → skip. Migratable
 audiences group by `paywall_id`, and that grouping **is** the flow plan: **one reusable flow per
 distinct paywall**, shared by every placement and audience that uses it, so the user later refines
 one flow instead of many.
 
 **Report the counts and the grouping, never one row per placement** — migratable placements,
-migratable audiences, distinct paywalls, already-flow, no-audience. A 150-row dump is not a report.
+migratable audiences, distinct paywalls, already-flow, no-audience, skipped A/B tests. A 150-row dump is not a report.
 Name the distinct paywall count as the number of flows the next phase creates.
 
 **When `summary.unwritable_multi_segment` is not zero, report it here and treat those placements as
@@ -235,12 +236,32 @@ survive a round-trip ([api-surface.md](references/api-surface.md#what-the-write-
 segment**: that changes who sees what, which is the user's decision. Say it must be resolved in the
 dashboard first, and that the rest of the migration can proceed without it.
 
-**And disclose what the counts are counts OF, once:** `placements get` returns only paywall and
-flow audiences and **silently omits any other kind** — an A/B-test audience, for instance — so a
-placement may hold more audiences than the read shows. **This is not detectable from the API**:
-nothing in the response says an entry was skipped, so there is no check to run and none is
-attempted. It matters because the new flow placement will not carry an audience the read never
-revealed. Say the counts are of what the API returned, and that a placement known to run an A/B
+**A/B tests are skipped, never migrated, and the plan names each one.** `placements get` returns
+an audience that runs an A/B test as an entry of its own kind (`ab_test`, `flow_ab_test`, and for a
+test shared across placements `cross_ab_test`, `flow_cross_ab_test`), with `ab_test_title`. A paywall
+test cannot become a flow, and a test id on a new placement would start that test there, so none of
+these entries goes into a created placement. `plan` prints one line per entry on stderr, starting
+`skipped: A/B test <title>`, and `summary.ab_tests` counts them (the key is absent when the account
+has no test). Read it and report it in this phase:
+
+- **A test on a segment audience.** The new placement is created without that audience, and its
+  priorities are renumbered with no gap (the default audience stays last). Users in that segment
+  reach the new flow through the next audience, so say so: it changes who sees what on the new
+  placement, not on the old one.
+- **A test on the default audience.** The new placement would have no default audience, which the
+  backend refuses, so **the whole placement is skipped** and listed under `skipped_placements` with
+  its reason. It gets no proposed ID, no `command`, and no flow is built for a paywall that only it
+  uses.
+- **A shared test (`cross_ab_test`, `flow_cross_ab_test`)** is skipped too, and it never changes
+  the other audiences' priorities: the backend counts them apart.
+
+**The source placement is never changed.** This skill only creates, so the test keeps running on
+the old placement; say that once.
+
+**And disclose what the counts are counts OF, once:** a deployment that predates the A/B-test read
+still omits a test audience from `placements get` without a word. **That is not detectable from the
+API**: nothing in the response says an entry was left out, so there is no check to run and none is
+attempted. Say the counts are of what the API returned, and that a placement known to run an A/B
 test should be checked in the dashboard.
 
 **And report `summary.scope` in the same line, when it is there** — how many placements the
@@ -449,6 +470,8 @@ not happened rather than claiming nothing has.
 > |---|---|---|
 > | `<developer_id>` | `<proposed developer_id>` | <flow name> |
 >
+> <test line — only when `plan` skipped a test, below>
+>
 > Permanent: a placement cannot be deleted. If one of these IDs is wrong,
 > it stays in the app forever — read the middle column before saying yes.
 >
@@ -459,6 +482,15 @@ not happened rather than claiming nothing has.
 >
 > This does not reach users yet. Your app must call
 > `getFlow("<new developer_id>")` where it currently calls the old placement.
+
+**The test line is the one conditional line.** When `plan` skipped any A/B test, print it, naming
+each test and its old placement, and say the test keeps running there:
+
+> Left out: A/B test `<title>` (on `<developer_id>`)<, and N more>. These tests keep running on
+> your paywall placements; the new placements run without them.
+
+A placement that `plan` skipped whole is not in the table, so name it in the same line with its
+reason. It has no row to approve.
 
 **Those two slots turn on one fact: did *this run* create the flows?** Stub and build did;
 **existing** did not — the user handed over flows that were already published, so this run created
@@ -572,6 +604,10 @@ is the one irreversible command in the skill, so it is the last place to trust r
 - **`segment_ids` and `priority` are carried over verbatim** by `to_flow_audience` — they are the
   targeting, and changing them silently changes who sees what. Retyping them is exactly how a digit
   goes missing.
+- **No A/B test entry reaches the argv.** `to_flow_audience` and `build_create_command` refuse one,
+  so a test id cannot land on a new placement by hand or by a changed plan. The entries `plan`
+  skipped are on the row as `skipped`, and a placement that `plan` skipped whole is in
+  `skipped_placements`, never in `placements`.
 - **A row whose paywall is not in `flows.json` carries no `command`**, only `missing_flows` and a
   reason. Do not fill the gap in by hand: finish phase 5 for that paywall and re-run `plan`.
 - **A row with `multi_segment_audiences` carries no `command` either, and this one you cannot
@@ -608,7 +644,9 @@ the flows from phase 5 exist, are published, and cannot be deleted from the CLI.
 
 ## Phase 8 — Report and handoff
 
-Created, skipped and failed with reasons, then the two things the user acts on:
+Created, skipped and failed with reasons. Skipped includes each A/B test as
+`skipped: A/B test <title>` and each placement `plan` skipped whole, with its reason; the source
+tests keep running. Then the two things the user acts on:
 
 > | Old paywall placement | New flow placement |
 > |---|---|
