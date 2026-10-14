@@ -1,6 +1,6 @@
 ---
 name: flow-generator
-description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app".
+description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead".
 ---
 
 # Flow generator
@@ -152,8 +152,8 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 
 Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph lookup,
 any phase), `localization.py` (phase 2, the catalog), `verify-config.py` (phase 3),
-`validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py` and
-`render-measure.py` (phase 4), `preview-with-playwright.mjs` (when a render fails),
+`validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py`,
+`render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (when a render fails),
 `mobile-preview.mjs` (phase 5, the device-preview link).
 
 ## The CLI surface
@@ -299,6 +299,10 @@ my flow"*, *"how do I get this into my app"*, *"nothing shows up in the app"* is
 request: the flow exists and is published, and what is missing is the placement pointing at it and
 the app's own call site. Go straight to phase 6 — phases 2-5 have no work to do — and say that is
 what you are doing, so a user who did want an edit can redirect you.
+
+*"How are my screens connected"*, *"where does this button lead"* is a **read**: `flows config get`
+the flow into `flow.backup.json`, render its screens if they want thumbnails, and open the map
+([phase 4](#4-preview-and-iterate-until-it-looks-right)). Nothing is written, so no approval.
 
 ### 2. New flow, or existing flow
 
@@ -728,6 +732,24 @@ Skip it only on a literal edit: a typo fix, a locale add.
 — `references/montage.py` joins them into a strip, which is what makes "screen 4 promises what
 screen 5 doesn't deliver" visible at all. One screen out of six cannot show a seam.
 
+**Show how the screens connect when the strip cannot.** A strip is in `screens[]` order, so it
+hides every branch, skip and loop. Draw the map and open it in the user's browser:
+
+```bash
+python3 references/canvas.py draft.json --open     # canvas.html beside the config, renders as thumbnails
+```
+
+| When | Do |
+| :--- | :--- |
+| You built or rewired a flow of 10+ screens, or added or changed a branch | Open the map, one line: what it shows and what to check |
+| The user asks how screens connect, where a button leads, or what a branch does | Open the map, answer in one line |
+| No browser on this machine (a remote or headless session) | Paste `canvas.py draft.json --text` into the reply in a code block |
+
+It reads the config only, so it runs before any write and on a fetched flow you did not change.
+Render the screens with `shoot.sh` first and they show as thumbnails; without renders they draw as
+cards listing their buttons. **Read its flags before you hand it over** — *nothing leads here* and
+*no way out* are wiring defects to fix or name, not decoration.
+
 **Iterate here.** Anything off, go back and fix it, then re-run phases 3 and 4. Nothing has
 been saved yet, so an iteration costs a screenshot rather than a write.
 
@@ -992,6 +1014,7 @@ $ADAPTY placements list --app "$APP" --page-size 100 --json    # the default pag
 | nothing for this location | `placements create` with a new developer ID |
 | a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping |
 | a **paywall** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
+| a placement where only **some** users should get this flow — a country, a version, a segment | The **`audiences`** skill. It adds a segment audience beside the existing ones without changing what anyone else sees |
 
 **The ID needs an explicit yes, and this is the fourth fixed block.** It is irreversible in a way
 the phase-5 write is not: unique across every placement in the app whatever its type, no rename, no
