@@ -104,9 +104,16 @@ check('text: a screen with an arrow out does not', '(no way out)' not in text[:t
 check('text: an unreachable screen says so', '(nothing leads here)' in text)
 check('text: a missing target says so', 'nowhere (missing)' in text)
 
+d = {'screens': [screen('a', button('b1', [nav('b')])),
+                 screen('b', button('b2', [{'id': '', 'type': 'navigateBack'}]))]}
+sc, ed, bd, un, br = graph(d)
+check('a screen you can only leave backwards is a dead end',
+      '(no way out)' in canvas.as_text(sc, ed, bd, un, br).split('▢ b')[-1])
+
 d = {'screens': [screen('a', button('b1', [{'id': '', 'type': 'navigateBack'}, {'id': '', 'type': 'closeFlow'}]))]}
 sc, ed, bd, un, br = graph(d)
 check('back and close are badges, not arrows', not ed and set(bd['a']) == {'back', 'closes flow'})
+check('a screen that closes the flow is not a dead end', '(no way out)' not in canvas.as_text(sc, ed, bd, un, br))
 
 # --- the script end to end ---------------------------------------------------------------------
 
