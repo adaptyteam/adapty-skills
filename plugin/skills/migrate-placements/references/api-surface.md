@@ -371,6 +371,14 @@ no default audience, which the write refuses (exactly one entry with `segment_id
 highest priority), so that whole placement is skipped. The source placement is never changed: the
 skill only creates, and the test keeps running there.
 
+**What `plan` reports.** One stderr line per skipped entry (`skipped: A/B test <title>`, with
+"(cross-placement)" for a shared test, or the id when the test has no title), `summary.ab_tests`
+(`skipped_entries`, `skipped_placements`; absent when the account has no test), `skipped` on a
+created row, and `skipped_placements` for a placement skipped whole. A test on a segment audience
+means that segment's users reach the new flow through the next audience, so the new placement
+differs from the old one there. A shared test never changes the other priorities: the backend
+counts them apart.
+
 **What is still blind.** A deployment that predates the A/B-test read **still omits a test
 audience from `placements get` without a word** (the placement read's factory appended only paywall
 and flow entries, and its own test exercised a skipped A/B-test entry). Such a placement reports

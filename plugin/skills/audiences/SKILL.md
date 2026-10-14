@@ -157,8 +157,9 @@ building, and say what each option means. Labels are the dashboard's (https://ad
    shared test entry goes back as read.
 7. **Confirm with the before/after table.** It carries a test line when the write would stop,
    start or move a test (see above); wait for the answer, and pass `--allow-test-change` only after
-   a yes. With no test line there is nothing more to ask. Then write all entries back with one
-   `placements update`, reusing `title` and `developer_id` exactly.
+   a yes. In an interactive run the user still confirms the table. Only an unattended run writes
+   without a wait, and only when no test stops, starts or moves. Then write all entries back with
+   one `placements update`, reusing `title` and `developer_id` exactly.
 8. **Verify** with `placements get --json`: same entries, your new one where you put it, one
    default, last, and every test entry still there with its `ab_test_id` and segments.
 9. **Close** with who sees what now, and two facts: the segment's count fills in after a delay
@@ -201,11 +202,8 @@ building, and say what each option means. Labels are the dashboard's (https://ad
 | "If the server rejects a field name or value, it reports one error per field. I'd fix the names from that error and re-run, without guessing further." | A wrong name is refused; a right name with the wrong meaning is accepted. Read the name off an existing segment. |
 | "`app_version`, with value `2.0`." | Versions are strict SemVer. `2.0` matches nobody, with no error. Write `2.0.0`, and settle current versus on-install first. |
 | "I put the flow id in the audience's `paywall_id` field. The reference covers only paywalls" | Every entry carries `content_type`, and a flow entry carries `flow_id`. The placement's own entries show which one it takes. |
-| "The CLI refused an entry it does not know, so I left it out and the write went through." | The entry is a running A/B test. Leaving it out stops it with no winner, and the CLI cannot warn about a test it was never given. |
-| "The CLI said test X stops, so I added `--allow-test-change` and ran it again." | The option means the user saw "test X stops with no winner" and said yes. The refusal is the cue to show the table and wait. |
 
-The first five rows are verbatim from baseline runs without this skill (2026-10-12). The last two
-are written from what the CLI does.
+Quotes are verbatim from baseline runs without this skill (2026-10-12).
 
 ## Red Flags — STOP
 
@@ -213,7 +211,7 @@ are written from what the CLI does.
   user about who wins
 - An `--audiences` array with fewer entries than `placements get` returned, plus one
 - `--allow-test-change` on a write whose table the user has not confirmed
-- An `ab_test_id` in the array that no audience of this placement carried when you read it
+- An `ab_test_id` in the array that no audience of this placement carried when you read it, except a draft test the user named
 - A `field_name` that is not in the confirmed list and was not read off an existing segment
 - An app version with fewer than three parts
 - An entry from `placements get` removed after the CLI refused it

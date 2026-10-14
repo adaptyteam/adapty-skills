@@ -1040,7 +1040,10 @@ check('and the UNCLASSIFIED case is inside it, which is the inversion itself: a 
 # `placements get` (CLI 0.9.6 and later) returns a test audience as an entry of its
 # own kind. Before this change one such entry made `inventory` exit 2 (`unknown
 # content_type`), so an app with a single running test could not be migrated at all.
-# Driven through the real CLI entry point with a shim that serves the new shapes.
+# Driven through the real CLI entry point with a shim that serves the new shapes. Only what
+# the unit tests in test-audiences.py cannot see is checked here: the exit codes, the stderr
+# lines, and the silent case. The plan's content (argv, priorities, skipped placements) is
+# asserted there.
 
 ab_shim = TMP / 'fake-adapty-ab.py'
 ab_shim.write_text('''#!/usr/bin/env python3
@@ -1087,24 +1090,6 @@ ab_ledger = TMP / 'ab-flows.json'
 ab_ledger.write_text(json.dumps({'pw-1': 'f-1', 'pw-2': 'f-2', 'pw-3': 'f-3'}))
 ab_plan_run = plan_over(ab_inv, '--flows', str(ab_ledger))
 check('plan exits 0 on it', ab_plan_run.returncode == 0, ab_plan_run.stderr.strip()[:300])
-ab_plan = json.loads(ab_plan_run.stdout) if ab_plan_run.returncode == 0 else {}
-ab_rows = {r['source_developer_id']: r for r in ab_plan.get('placements', [])}
-check('plan creates `main` and `plain`, and skips `gate` whole',
-      sorted(ab_rows) == ['main', 'plain']
-      and [r['source_developer_id'] for r in ab_plan.get('skipped_placements', [])] == ['gate'],
-      str(sorted(ab_rows)))
-main_audiences = json.loads(flag(ab_rows.get('main', {}).get('command'), '--audiences') or 'null')
-check('the argv for `main` holds two flow audiences with priorities 0 and 1 (no gap) '
-      'and neither test id',
-      main_audiences == [
-          {'content_type': 'flow', 'flow_id': 'f-1', 'segment_ids': ['s2'], 'priority': 0},
-          {'content_type': 'flow', 'flow_id': 'f-2', 'segment_ids': [], 'priority': 1}],
-      str(main_audiences))
-check('no argv in the plan is anything but a `placements create`, and none holds a '
-      'test id: the source placements are never changed',
-      all(r['command'][:2] == ['placements', 'create'] for r in ab_plan.get('placements', []))
-      and not any('t-1' in ' '.join(r['command']) or 't-2' in ' '.join(r['command'])
-                  or 't-9' in ' '.join(r['command']) for r in ab_plan.get('placements', [])))
 check('the plan names every skipped test on stderr, in the report wording',
       ab_plan_run.stderr.splitlines()[-3:]
       == ["skipped: A/B test Price test -- placement 'main' is created without it",
@@ -1113,9 +1098,6 @@ check('the plan names every skipped test on stderr, in the report wording',
           "skipped: A/B test Default test -- placement 'gate' is skipped whole: the default "
           "audience runs A/B test Default test, so the new placement would have no default "
           "audience"], str(ab_plan_run.stderr.splitlines()[-3:]))
-check('the flow plan builds no flow for a paywall only the skipped placement uses',
-      sorted(r['paywall_id'] for r in ab_plan.get('flows_needed', [])) == ['pw-1', 'pw-2'],
-      str(ab_plan.get('flows_needed')))
 check('SILENT: the same plan over an inventory with no test prints no `skipped` line',
       'skipped:' not in subprocess.run(
           [sys.executable, str(MIGRATE), 'plan', '--inventory', str(inv)],
