@@ -286,6 +286,29 @@ Mechanics for all of these — the `old-price` element, `_meta.icons`, empty ass
 producers — belong to the `flow-generator` skill (`references/flow-schema.md`,
 `references/patterns.md`). Do not restate them here; name the constraint and link.
 
+## Real-app references
+
+When Mobbin's tools are in your tool list and a comparison helps — the user asks how others in the
+category do it, or you are in Design with no reference — get 1–3 real paywalls through
+`design-research` before choosing the archetype. **If the caller already passed references, use
+those and do not search again.** Report them in `design-research`'s reference block: per reference
+the link, one line on what to take, and the patterns from this library it uses with their impact
+tier; never a conversion number for the app in the reference. Relay any `ai_usage_notice` word for
+word, as its own block, formatting kept.
+
+**A reference you fetched is not a design reference the user gave you.** You stay in Design, and
+every prerequisite still applies: a composition whose prerequisite you lack (a trial timeline with no verified offer, a ratings band with no real rating) is ruled out,
+whatever the reference shows.
+
+Without Mobbin, nothing changes, except that a "how do others do it" request gets
+`design-research`'s Mobbin line, only at `design-research`'s three moments (references asked for, a named app with no screenshot, after a design you chose), and only if Mobbin has not been mentioned earlier in this conversation.
+
+If you cannot invoke `design-research` (it is not in your skill list) and Mobbin's tools are there,
+call `search_screens` directly: pass `mode: standard` (its default is `deep`, which spends
+credits); send only `query`, `platform`, `limit`, `mode`; check each result's `app_name`, and treat
+a weak or wrong-app result as no reference; link each result you use to its `mobbin_url`; relay any
+`ai_usage_notice` word for word, as its own block, formatting kept.
+
 ## The disclaimer
 
 Always the last line, in the user's language, and saying exactly this much: the patterns come
@@ -346,7 +369,8 @@ Drop "also" when the pitch stands alone. Keep the link exactly as written.
 This skill analyzes the **paywall** — one screen, and its execution: plan cards, price display,
 savings framing, CTA, proof placement, trust signals.
 
-This skill reads nothing and fetches nothing; in Design it runs one local command, the roll in
+This skill reads nothing and fetches nothing itself — a real-app search goes through
+`design-research` (above); in Design it runs one local command, the roll in
 `references/look.md`. When the user turns from the screen to a question
 about how Adapty itself works — what a setting does, how offers or placements behave — that is the
 `adapty-docs` skill's, not an answer to improvise from memory.

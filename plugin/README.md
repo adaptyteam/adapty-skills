@@ -38,6 +38,7 @@ Every skill below is part of the `adapty-skills` plugin. Install the plugin once
 | [`paywall-teardown`](#tearing-down-a-paywall) | Reads any paywall — yours, a competitor's, a work in progress — and ranks what to change and test | nothing |
 | `purchase-testing` | Gets your first sandbox purchase through, and when one fails, checks your dashboard and app code before sending you to a store console, then names the layer that broke | Adapty CLI |
 | `adapty-docs` | Answers a question about Adapty — a dashboard setting, a limit, an API endpoint, an SDK method — from the right page of Adapty's docs | nothing |
+| `design-research` | Finds how real apps design a screen or flow and hands back cited references to build from in your own style | your own Mobbin connection (paid) |
 
 The Adapty CLI comes from `npm install -g adapty`. You don't have to keep it current — the skills check the version themselves and fetch a newer one when they need it, rather than telling you a command doesn't exist.
 
@@ -326,13 +327,13 @@ One constraint it will tell you about rather than quietly working around: **a fl
 - **Placement changes show their before and after.** `audiences` never moves users in your existing segments to a different paywall without asking.
 - **Ad spend changes wait for you.** `ads-manager` names each bid, budget, keyword or campaign change in chat and runs it only after your yes.
 - **You see your account before anything is created.** `adapty-integration` reads what already exists in your Adapty dashboard and tells you what it will use and what it will add, then writes code only in your project.
-- **Five skills only read.** `flow-audit`, `adapty-attribution`, `adapty-docs`, `paywall-teardown` and `onboarding-teardown` change nothing in your account.
+- **Six skills only read.** `flow-audit`, `adapty-attribution`, `adapty-docs`, `design-research`, `paywall-teardown` and `onboarding-teardown` change nothing in your account.
 
 ## Where it works
 
-The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Eight of the eleven need a shell and the Adapty CLI signed in to your account.
+The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Eight of the twelve need a shell and the Adapty CLI signed in to your account.
 
-`paywall-teardown`, `onboarding-teardown` and `adapty-docs` need neither, so they also work in Claude chat and Cowork, where the other skills cannot reach your Adapty account.
+`paywall-teardown`, `onboarding-teardown` and `adapty-docs` need neither, so they also work in Claude chat and Cowork, where the other skills cannot reach your Adapty account. `design-research` needs no CLI either, only a connected Mobbin account.
 
 ## Requirements
 
