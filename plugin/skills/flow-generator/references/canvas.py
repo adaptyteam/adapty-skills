@@ -251,6 +251,12 @@ def layout(screens, edges):
     return level, cols, set(unreachable)
 
 
+def dead_end(outs, badges):
+    """No arrow out, and nothing that ends the flow either. A back button alone does not count:
+    the person can only retrace their steps, so the path forward stops here."""
+    return not outs and not (set(badges) - {'back'})
+
+
 def branch_points(screens, edges, level):
     """Screens where the path splits: a conditional decides, or two different buttons lead
     forward to two different screens. A back arrow beside a Continue button is not a split."""
@@ -291,7 +297,7 @@ def as_text(screens, edges, badges, unreachable, branches):
             lines.append(f"    {' / '.join(e['labels']) or 'go'}  →  {name.get(b, b + ' (missing)')}")
         if badges[s.id]:
             lines.append('    ' + ', '.join(badges[s.id]))
-        if not outs and not badges[s.id]:
+        if dead_end(outs, badges[s.id]):
             lines.append('    (no way out)')
     return '\n'.join(lines)
 
@@ -354,17 +360,22 @@ def render_html(screens, edges, badges, level, cols, unreachable, shots, title, 
                 if idx[b] < idx[a]:
                     cls += ' back'
             else:
-                # Into an earlier column: an arc under the row, dashed when it returns to a screen
-                # that comes earlier in the flow.
-                k = lane['back'] = lane.get('back', 0) + 1
-                x1, y1 = ax + NODE_W / 2, ay + node_h
-                x2, y2 = bx + NODE_W / 2, by + node_h
-                yb = row_bottom + 26 + 22 * k
-                d = f'M{x1},{y1} C{x1},{yb} {x2},{yb} {x2},{y2}'
-                mx, my = (x1 + x2) / 2, yb - 6
+                # Into an earlier column: leave by the left edge and arrive at the right edge, so
+                # the arrow runs through the gaps between columns and never behind a screen
+                # stacked in the same column. Dashed when it returns to an earlier screen.
+                x1, x2 = ax, bx + NODE_W
+                if level[a] - level[b] == 1:
+                    d = f'M{x1},{sy} C{x1 - 60},{sy} {x2 + 60},{ty} {x2},{ty}'
+                    mx, my = (x1 + x2) / 2, (sy + ty) / 2
+                else:  # several columns back: down the gap, under the row, up the gap
+                    k = lane['back'] = lane.get('back', 0) + 1
+                    yb = row_bottom + 26 + 22 * k
+                    d = (f'M{x1},{sy} C{x1 - 45},{sy} {x1 - 45},{yb} {x1 - 90},{yb} '
+                         f'L{x2 + 90},{yb} C{x2 + 45},{yb} {x2 + 45},{ty} {x2},{ty}')
+                    mx, my = (x1 + x2) / 2, yb - 6
+                    extra_bottom = max(extra_bottom, 26 + 22 * k)
                 if idx[b] < idx[a]:
                     cls += ' back'
-                extra_bottom = max(extra_bottom, 26 + 22 * k)
         quiet = (e['kind'] == 'plain' and out_count[a] == 1 and b in pos
                  and not any(lbl.startswith('after') for lbl in e['labels']))
         paths.append(f'<path class="{cls}" data-from="{html.escape(a)}" data-to="{html.escape(b)}" d="{d}" marker-end="url(#arrow)"/>')
@@ -383,7 +394,7 @@ def render_html(screens, edges, badges, level, cols, unreachable, shots, title, 
             flags.append('<span class="flag branch">branches</span>')
         if s.id in unreachable:
             flags.append('<span class="flag warn">nothing leads here</span>')
-        if not outs and not badges[s.id]:
+        if dead_end(outs, badges[s.id]):
             flags.append('<span class="flag warn">no way out</span>')
         if s.idx == 0:
             flags.append('<span class="flag start">start</span>')
