@@ -75,7 +75,7 @@ Local, before any request — exit 2, nothing sent:
 | `Invalid --audiences JSON: …` | not parseable |
 | `--audiences must be a JSON array of audience entries.` | parsed to a non-array |
 | `--audiences[<i>]: each entry must be a JSON object` | an entry is a scalar |
-| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall |
+| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall. **On an entry you read from `placements get` and did not write, it means the CLI is older than the API**: re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is most likely a running A/B test, and the write would stop it |
 | `--audiences[<i>]: a flow entry requires flow_id` | flow entry, no `flow_id` |
 | `Invalid placement ID format.` | `update` with a non-UUID placement id |
 
