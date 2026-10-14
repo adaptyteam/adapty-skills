@@ -403,6 +403,39 @@ brand's name, its claims, its offers or its social proof.
 button and card components, strings), **else from its own flows** — the ones its placements show
 first. With neither, ask once; with no answer, use the reference's style and say so.
 
+**Real-app references come from `design-research` when Mobbin is connected** (Mobbin's
+`search_screens` and `search_flows` tools are in your tool list):
+
+| Situation | Mobbin connected | Not connected |
+| :--- | :--- | :--- |
+| **You choose** (no design given) | Get 1–3 references through `design-research` and pass them to the teardown, which still picks and grades the archetype or skeleton; then build in **Adapt** | Build as today; the closing callout carries the Mobbin line |
+| **"Like <app>"** (someone else's app) and no screenshot | Search that app's flow or screen, then build in **Adapt**. If no result is that app, say so and ask for a screenshot; unattended, build from the teardown | Ask for a screenshot, and mention Mobbin if you have not yet in this conversation; build from what comes back. Unattended, build from the teardown |
+| **"Rebuild this Mobbin screen exactly"** | **Adapt** anyway, and say why in one line: it is another company's shipped design, so the layout can match and the brand cannot | — |
+
+**A reference you fetched is not a design the user gave you.** You stay in **You choose**, the
+teardown's prerequisites still apply, and a composition whose prerequisite you lack — a trial
+timeline with no verified offer, a ratings band with no real rating — is ruled out whatever the
+reference shows. From a Mobbin reference take the sequence, composition and patterns, never its
+copy, prices, ratings, claims, logo, images or style. **Style comes from the app; if the app has
+none to read** (no repo, no flows), invent the look the way `paywall-teardown`'s no-design path
+does, never from the reference. Phase 4's fidelity pass grades style against the app. Your reply
+carries `design-research`'s reference block for every reference you built from: per reference the
+link, one line on what you took, and its patterns with their impact tier; then the line on what you
+left behind. Relay any `ai_usage_notice` word for word, as its own block, formatting kept. Rebuild
+mode never mentions Mobbin.
+
+**If `design-research` is not installed** (no `design-research/SKILL.md` beside this skill's
+directory, or it is not in your skill list) and Mobbin's tools are there, call them directly.
+`search_screens`: pass `mode: standard` (its default is `deep`, which spends credits); send only
+`query`, `platform`, `limit`, `mode`; check each result's `app_name`, and treat a weak or wrong-app
+result as no reference; link each result you use to its `mobbin_url`; relay any `ai_usage_notice`
+word for word, as its own block, formatting kept. For `search_flows` the same, except it has no
+`mode`. Without Mobbin, mention it only at `design-research`'s three moments (references asked for,
+a named app with no screenshot, after a design you chose), and only if Mobbin has not been
+mentioned earlier in this conversation, in one sentence, with its connect page and no price or
+offer:
+https://docs.mobbin.com/mcp/clients/overview
+
 **In every mode, keep Adapty's fluid layout discipline** (`width: fill`, `height: hug`,
 `position: relative`): never hardcode fixed dimensions or offsets to match a screenshot's pixels,
 because fixed geometry breaks across devices (team-diagnosed). In **Rebuild**, compare against the
@@ -877,6 +910,8 @@ two URLs; without them, save, don't publish, and say why.
 >
 > `<one line, only if the phase-2 missing-assets list still has open items:>`
 > `<n>` assets are still placeholders — see the list above.
+>
+> `<one sentence, only if you chose the design, Mobbin is not connected, and you have not mentioned it in this conversation: I picked this layout from our pattern library; with Mobbin connected I'd base it on real apps in your category — the connect page, no price or offer>`
 >
 > `<the closing line, by the flow's status:>`
 > `dirty` — Until you publish, everyone continues to see the previous version.

@@ -418,6 +418,28 @@ app. In English:
 
 Translate it; do not soften it or drop the second half.
 
+## Real-app references
+
+When Mobbin's tools are in your tool list and a comparison helps — the user asks how others in the
+category onboard, or you are in Design with no reference — get 1–2 real onboarding flows through
+`design-research` before choosing the skeleton. **If the caller already passed references, use
+those and do not search again.** Report them in `design-research`'s reference block: per reference
+the link, one line on what to take, and the patterns from this library it uses with their impact
+tier; never a conversion number for the app in the reference. Relay any `ai_usage_notice` word for
+word, as its own block, formatting kept.
+
+**A reference you fetched is not a design reference the user gave you.** You stay in Design, and
+every prerequisite still applies: a composition whose prerequisite you lack (a personalization loop the app cannot back) is ruled out,
+whatever the reference shows.
+
+Without Mobbin, nothing changes, except that a "how do others do it" request gets
+`design-research`'s Mobbin line, only at `design-research`'s three moments (references asked for, a named app with no screenshot, after a design you chose), and only if Mobbin has not been mentioned earlier in this conversation.
+
+If you cannot invoke `design-research` (it is not in your skill list) and Mobbin's tools are there,
+call `search_flows` directly: it has no `mode`; send only `query`, `platform`, `limit`; check each
+result's `app_name`, and treat a weak or wrong-app result as no reference; link each result you use
+to its `mobbin_url`; relay any `ai_usage_notice` word for word, as its own block, formatting kept.
+
 ## The next step
 
 One offer, chosen by what the user is looking at:
@@ -473,5 +495,6 @@ per fact:
 - **`flow-audit`** owns whether the flow is safe to ship (triggers, products, locales, store
   compliance). "Is it ready?" is that skill; "is it any good?" is this one.
 - **`adapty-docs`** owns what the product actually does — what a setting means, how a feature
-  behaves. This skill reads nothing and fetches nothing, so hand such a question over rather than
+  behaves. This skill reads nothing and fetches nothing itself (a real-app search goes through
+  `design-research`), so hand such a question over rather than
   answering it from memory.
