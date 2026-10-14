@@ -89,6 +89,7 @@ python3 tests/test-localization.py                                       # the c
 python3 tests/test-flowkit.py                                            # the authoring helpers
 python3 tests/test-diff-config.py                                        # the diff's two directions
 python3 tests/test-snippet.py                                            # extract/plan/graft
+python3 tests/test-canvas.py                                             # the screen map: every arrow, badge and flag
 python3 tests/test-audit-flow.py                                         # the audit's checks, both directions
 python3 tests/test-unmapped-elements.py                                  # old-price: the guarded set vs the corpus
 python3 tests/test-schema-baseline.py                                    # schema --baseline matches by screen id, not position
