@@ -24,6 +24,34 @@ This skill owns segments and audiences. It does not own:
 - **A/B tests on an audience** — not in the CLI. Send the user to
   https://adapty.io/docs/add-audience-paywall-ab-test.
 
+## A/B tests: the CLI cannot see them, and a write ends them
+
+**`placements get` leaves out any audience that runs an A/B test, without saying anything.** The
+response looks complete: an audience with a running test simply is not there. `placements update`
+then replaces every audience with the array you send, so the test's audience disappears. The
+backend treats it as deleted and **stops the test**: it shows as Completed with no winner, and the
+users it covered fall through to the next audience. The CLI prints `Placement updated!` with no
+error and no warning. A finished test cannot be restarted. The dashboard offers only Duplicate (a
+new test with no data) and Archive.
+
+**A skipped priority (even a lone default at `priority: 1`) or no default audience (often
+`"audiences": []`) means a test is hidden there: do not write; send the change to the dashboard.**
+
+When neither shape shows, still ask before writing:
+
+1. **Before any `placements update`, ask in one message:**
+   > Before I change this placement: does any audience in **`<placement title>`** run an A/B test
+   > right now? I can't see A/B tests from the CLI, and saving the placement from here would stop
+   > the test with no winner. You can check on the placement's page in the Adapty dashboard.
+2. **No test** → continue.
+3. **A test, "not sure", or no answer** → do not write. Give the user the exact change to make in
+   the dashboard (which audience, which segment, which paywall or flow, which position), where
+   the test keeps running. Creating the segment through the CLI is still fine; only the placement
+   write is off.
+
+"Go ahead", "don't check back", or an earlier yes to the before/after table is not an answer to
+this question. An unattended run never writes a placement.
+
 ## How you sound
 
 - **"I" for what you do, "you" for what they do.** Lead with who will see what, end on one next step.
@@ -56,7 +84,7 @@ problems, so do not retry with variations:
 | `segments update --app <app> <id> --title <t> --filter <f> […]` | **replaces the whole segment** |
 | `placements list --app <app> --page-size 100 --json` | the default page is 20, so a short list hides placements |
 | `placements get --app <app> <id> --json` | `title`, `developer_id`, `audiences[]` |
-| `placements update --app <app> <id> --title <t> --developer-id <d> --audiences '<json>'` | **replaces every audience** |
+| `placements update --app <app> <id> --title <t> --developer-id <d> --audiences '<json>'` | **replaces every audience, and stops any A/B test on it** (see above) |
 
 `--app` is the **Adapty** app UUID from `$ADAPTY apps list`. A filter is `field:OPERATOR:value[,value…]`:
 `IN`, `NOT IN`, `>`, `>=`, `<`, `<=`, `BETWEEN`, or `field:IS NULL` / `field:IS NOT NULL` with no
@@ -97,7 +125,9 @@ building, and say what each option means. Labels are the dashboard's (https://ad
 ## Workflow
 
 1. **Read the placement.** `placements list --page-size 100 --json`, match `developer_id`, then
-   `placements get --json`. Record `title`, `developer_id`, and every audience. Note the
+   `placements get --json`. Record `title`, `developer_id`, and every audience. Ask the A/B-test
+   question now, in the same message as the step 2 questions, so a "yes" is known before you plan
+   a write. Note the
    `content_type` the entries carry: it is fixed for the placement. Asked to serve a flow at a
    `paywall` placement, or the reverse? The placement cannot; stop and route to
    `migrate-placements`.
@@ -116,7 +146,8 @@ building, and say what each option means. Labels are the dashboard's (https://ad
 6. **Build every entry with its `content_type`** and the matching id: `{"content_type":"paywall",
    "paywall_id":…}` or `{"content_type":"flow","flow_id":…}`, plus `segment_ids` (one id, or `[]`
    for the default) and `priority`. The CLI refuses an entry without them before sending.
-7. **Confirm with the before/after table.** Then write all entries back with one `placements update`,
+7. **Confirm with the before/after table**, once the user has said the placement runs no A/B
+   test. Then write all entries back with one `placements update`,
    reusing `title` and `developer_id` exactly.
 8. **Verify** with `placements get --json`: same entries, your new one where you put it, one
    default, last.
@@ -126,6 +157,8 @@ building, and say what each option means. Labels are the dashboard's (https://ad
 
 ## Never
 
+- **Never run `placements update` without the user's answer that the placement runs no A/B test.**
+  The read cannot show one, and the write stops it for good.
 - **Never change what a user outside the request sees without their explicit answer** — not when
   the user said "go ahead", not when the order "seems right". Moving a new audience above an
   existing one is exactly that change.
@@ -147,6 +180,7 @@ building, and say what each option means. Labels are the dashboard's (https://ad
 | "I put the new segment at priority 0 so DE/AT users reliably get the cheaper paywall." | Priority 0 also outranks every existing segment. "Before the default" is the position that changes nobody else. |
 | "If the server rejects a field name or value, it reports one error per field. I'd fix the names from that error and re-run, without guessing further." | A wrong name is refused; a right name with the wrong meaning is accepted. Read the name off an existing segment. |
 | "`app_version`, with value `2.0`." | Versions are strict SemVer. `2.0` matches nobody, with no error. Write `2.0.0`, and settle current versus on-install first. |
+| "`placements get` returned two audiences, I passed back both plus mine, so nothing is lost." | An audience running an A/B test is not in the response at all. Passing back everything you read still deletes it and ends the test. |
 | "I put the flow id in the audience's `paywall_id` field. The reference covers only paywalls" | Every entry carries `content_type`, and a flow entry carries `flow_id`. The placement's own entries show which one it takes. |
 
 Quotes are verbatim from baseline runs without this skill (2026-10-12).
@@ -156,10 +190,12 @@ Quotes are verbatim from baseline runs without this skill (2026-10-12).
 - A new audience with a lower `priority` number than an existing segment's, and no answer from the
   user about who wins
 - An `--audiences` array with fewer entries than `placements get` returned, plus one
+- A `placements update` with no answer from the user to the A/B-test question
 - A `field_name` that is not in the confirmed list and was not read off an existing segment
 - An app version with fewer than three parts
 - "Country" in a filter and no answer to "IP or store account?"
 - `placements list` without `--page-size 100`
+- A planned write to a placement whose priorities skip a number, or that has no `segment_ids: []` entry
 
 ## Anything not covered here
 
