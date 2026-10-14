@@ -53,6 +53,14 @@ $ADAPTY placements update --app "$APP" <PLACEMENT_UUID> --title "<Title>" --deve
 not pass is an entry you deleted — read the placement first and pass back the ones you are keeping.
 A placement with segment-specific content is where this costs someone real work.
 
+**It also stops any A/B test on the placement, and nothing warns you.** `placements get` leaves out
+an audience that runs an A/B test, so the array you pass back cannot contain it. The write removes
+that audience, the backend stops the test (Completed, no winner, cannot be restarted) and the CLI
+prints `Placement updated!`. Two shapes in `placements get` give a hidden test away: priorities that skip a number (a lone
+default at `priority: 1`), or no default audience (`segment_ids: []`), usually an empty list. Either
+one: do not write, send the change to the dashboard. Otherwise ask the user whether the placement
+runs an A/B test before any `update`. A test, "not sure", or no answer means the change is made in the dashboard instead.
+
 **Never `--paywall-id`.** It is deprecated in favour of `--audiences` (the CLI prints a warning to
 stderr), and on `update` it carries a second warning worth quoting: it *"will rewrite all audiences
 on this placement … If the placement has segment-specific paywalls, they will be replaced by a
