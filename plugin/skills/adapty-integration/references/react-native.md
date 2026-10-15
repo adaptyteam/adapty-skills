@@ -746,21 +746,19 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 
 > "Your integration is complete! Here are some things you might want to set up next. Which ones interest you? (or say 'done' to wrap up)"
 >
-> 1. **Fallback paywalls** — show a cached paywall if the user is offline or Adapty is unreachable
-> 2. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
-> 3. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
-> 4. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
-> 5. **Kids mode** — COPPA-compliant mode that disables IDFA/GAID and ad data collection
-> 6. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
-> 7. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
-> 8. **App Tracking Transparency (ATT)** — handle the iOS ATT prompt correctly in relation to Adapty activation
-> 9. **App Store promoted purchases** — take over completion of a purchase promoted on your App Store product page, e.g. to show a screen first
+> 1. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
+> 2. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
+> 3. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
+> 4. **Kids mode** — COPPA-compliant mode that disables IDFA/GAID and ad data collection
+> 5. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
+> 6. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
+> 7. **App Tracking Transparency (ATT)** — handle the iOS ATT prompt correctly in relation to Adapty activation
+> 8. **App Store promoted purchases** — take over completion of a purchase promoted on your App Store product page, e.g. to show a screen first
 
 For each item the user picks, fetch the relevant doc and implement it:
 
 | Feature | Doc slug(s) |
 |---|---|
-| Fallback paywalls | `react-native-use-fallback-paywalls` |
 | App Store promoted purchases | `react-native-making-purchases` |
 | Custom user attributes | `react-native-setting-user-attributes` |
 | Promotional offers | `app-store-offers`, `create-offer` |
@@ -774,7 +772,7 @@ For each item the user picks, fetch the relevant doc and implement it:
 curl -s https://adapty.io/docs/<slug>.md
 ```
 
-**If you set up fallback paywalls on an upgrade from 4.0.x, download the file again.** The [fallback file](https://adapty.io/docs/fallback-flows.md) format changed in 4.1, and a file downloaded for 4.0 is rejected by `setFallback` — every placement silently loses its fallback. There is no build error, so this is only caught by testing offline.
+**If you set up fallback paywalls on an upgrade from 4.0.x, download the file again** with the new `--sdk-version` (`references/fallbacks.md`). The [fallback file](https://adapty.io/docs/fallback-flows.md) format changed in 4.1, and a file downloaded for 4.0 is rejected by `setFallback` — every placement silently loses its fallback. There is no build error, so this is only caught by testing offline.
 
 **App Store promoted purchases are handled for you unless you ask to intercept them.** 4.1 adds the `'onPromotedPurchaseReceived'` event and `adapty.makePromotedPurchase`; register the listener only if the app needs to do something first, such as show a screen — while it is registered the SDK stops completing those purchases itself. Two limits worth stating before promising it: the hook is built on StoreKit 2 and needs **iOS 16.4+**, and the event never fires on Android.
 

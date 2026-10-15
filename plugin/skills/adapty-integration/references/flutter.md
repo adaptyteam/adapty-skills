@@ -774,19 +774,17 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 
 > "Your integration is complete! Here are some things you might want to set up next. Which ones interest you? (or say 'done' to wrap up)"
 >
-> 1. **Fallback paywalls** — show a cached paywall if the user is offline or Adapty is unreachable
-> 2. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
-> 3. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
-> 4. **Kids mode** — COPPA/COPPA-compliant mode that disables IDFA/GAID and ad data collection
-> 5. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
-> 6. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
-> 7. **Web paywalls** — set up web-based paywalls to accept payments outside the app stores
+> 1. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
+> 2. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
+> 3. **Kids mode** — COPPA/COPPA-compliant mode that disables IDFA/GAID and ad data collection
+> 4. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
+> 5. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
+> 6. **Web paywalls** — set up web-based paywalls to accept payments outside the app stores
 
 For each item the user picks, fetch the relevant doc and implement it:
 
 | Feature | Doc slug(s) |
 |---|---|
-| Fallback paywalls | `flutter-use-fallback-paywalls` |
 | Custom user attributes | `flutter-setting-user-attributes` |
 | Onboardings | `flutter-get-onboardings`, `flutter-present-onboardings`, `flutter-handling-onboarding-events` |
 | Kids mode | `kids-mode-flutter` |

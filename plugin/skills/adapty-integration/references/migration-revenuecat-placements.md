@@ -75,8 +75,8 @@ first-launch user on a plane.
 
 Four things about it that the RC codebase cannot teach you:
 
-- **You do not hand-write it.** The payload is downloaded from the Adapty dashboard — the SDK expects
-  exactly what the backend returns.
+- **You do not hand-write it.** You download it with `$ADAPTY fallbacks get` — the SDK expects exactly
+  what the backend returns. `references/fallbacks.md` owns the command and the platform pages.
 - **`Adapty.setFallback` does not require an activated SDK**, unlike almost everything else, so it can
   be called before or alongside activation.
 - **The file is format-versioned**, and an SDK major upgrade can require re-downloading it. Adapty's own
@@ -87,14 +87,14 @@ Four things about it that the RC codebase cannot teach you:
 One behavior worth knowing before you debug it: the fallback file and the on-device cache are compared
 by version, and the newer one wins. A stale bundled file does not override fresher cached content.
 
-**Because the file is a dashboard download, you usually cannot produce it — and that is exactly why it
-needs its own heading in the handoff, not a mention inside the deferred-dashboard list.** Every other
-deferred item is a thing the user has *not yet gained*; this one is a protection the app has silently
-*lost*, because RC's own offering cache was covering the offline case and Adapty's cache does not cover a
-first launch. Bundling it into "other things to set up in the dashboard" reads as optional housekeeping
-and gets postponed past release, at which point the symptom is an empty paywall for users with no network
-on first run — a case QA rarely tests. Give it its own subheading, say what breaks without it, and put the
-download step and the `setFallback` call in the same place.
+**Download it yourself once the placements are live, and give it its own heading in the handoff either
+way.** Every other deferred item is a thing the user has *not yet gained*; this one is a protection the app
+has silently *lost*, because RC's own offering cache was covering the offline case and Adapty's cache does
+not cover a first launch. Bundled into "other things to set up in the dashboard" it reads as optional
+housekeeping and gets postponed past release, at which point the symptom is an empty paywall for users
+with no network on first run — a case QA rarely tests. If the placements are not live yet, the heading
+says what breaks without the file and carries the download command with the real app ID and SDK version
+filled in, beside the `setFallback` call.
 
 **A custom paywall has to log its own views, and RC gave you no call to port.** RevenueCat measured
 paywall impressions itself, so an RC codebase contains nothing that looks like view logging. Adapty

@@ -180,8 +180,7 @@ missed:
   platform reference's Stage 2 Flow Builder section lists the events page for the platform.
 - **Offline is no longer free.** The old screen rendered from compiled-in strings; a flow is fetched,
   so without a local fallback the paywall is blank on a cold offline launch — a regression a device
-  test on wifi never shows. Set one up: `https://adapty.io/docs/fallback-flows.md`, with the
-  platform side in `references/<platform>.md`.
+  test on wifi never shows. Set one up once the new flow's placement is live: `references/fallbacks.md`.
 - **Locale is now a parameter.** The old screen picked up the OS locale through the platform's own
   localization. A flow renders the locale you pass when you build its configuration, so pass the
   user's — a hardcoded `"en"` ships English to every user who had translations before. The exact call

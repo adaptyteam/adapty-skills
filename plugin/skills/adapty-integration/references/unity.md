@@ -748,20 +748,18 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 
 > "Your integration is complete! Here are some things you might want to set up next. Which ones interest you? (or say 'done' to wrap up)"
 >
-> 1. **Fallback paywalls** — show a cached paywall if the user is offline or Adapty is unreachable
-> 2. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
-> 3. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
-> 4. **Onboardings** — build them as flows in Flow Builder. On SDK 4.x the legacy `GetOnboarding` API still compiles but is deprecated in favour of `GetFlow` and will be removed
-> 5. **Kids mode** — COPPA-compliant mode that disables IDFA/GAID and ad data collection
-> 6. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
-> 7. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
-> 8. **App Tracking Transparency (ATT)** — handle ATT prompt timing relative to Adapty initialization on iOS
+> 1. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
+> 2. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
+> 3. **Onboardings** — build them as flows in Flow Builder. On SDK 4.x the legacy `GetOnboarding` API still compiles but is deprecated in favour of `GetFlow` and will be removed
+> 4. **Kids mode** — COPPA-compliant mode that disables IDFA/GAID and ad data collection
+> 5. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
+> 6. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
+> 7. **App Tracking Transparency (ATT)** — handle ATT prompt timing relative to Adapty initialization on iOS
 
 For each item the user picks, fetch the relevant doc and implement it:
 
 | Feature | Doc slug(s) |
 |---|---|
-| Fallback paywalls | `unity-use-fallback-paywalls` |
 | Custom user attributes | `unity-setting-user-attributes` |
 | Promotional offers | `app-store-offers`, `create-offer` |
 | Onboardings (Flow Builder) | `unity-quickstart-paywalls`, `adapty-flow-builder` |

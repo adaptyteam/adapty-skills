@@ -53,9 +53,19 @@ const REFERENCE_PLATFORM_OVERRIDES = {
  */
 const isMigrationReference = (reference) => reference.startsWith('migration')
 
+/**
+ * Other cross-platform references, linted against the same union for the same
+ * reason. Named one by one: a file missing here is read as a platform and the
+ * lint fails on its missing `<name>-llms-full.txt`, which is loud, not silent.
+ */
+const CROSS_PLATFORM_REFERENCES = new Set(['fallbacks'])
+
+const isCrossPlatformReference = (reference) =>
+  isMigrationReference(reference) || CROSS_PLATFORM_REFERENCES.has(reference)
+
 function platformsFor(reference, available) {
-  if (!isMigrationReference(reference)) return [REFERENCE_PLATFORM_OVERRIDES[reference] ?? reference]
-  return available.filter((r) => !isMigrationReference(r) && !(r in REFERENCE_PLATFORM_OVERRIDES))
+  if (!isCrossPlatformReference(reference)) return [REFERENCE_PLATFORM_OVERRIDES[reference] ?? reference]
+  return available.filter((r) => !isCrossPlatformReference(r) && !(r in REFERENCE_PLATFORM_OVERRIDES))
 }
 
 // ---------- symbol extraction ----------
