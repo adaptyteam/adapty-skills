@@ -187,8 +187,7 @@ building, and say what each option means. Labels are the dashboard's (https://ad
   CLI 0.9.6 and later, meeting a kind they do not know, say `this CLI does not know this audience
   kind; update the CLI`: the same cause and the same rule. Tell the user to update the CLI,
   re-resolve `$ADAPTY` once and retry the same list. If it still refuses, send the change to the
-  dashboard. Deleting the entry makes the write
-  go through and stops the test.
+  dashboard. Deleting the entry makes the write go through and stops the test.
 - **Never guess a field name, a custom attribute's spelling, or a value format.** See the three
   sources above.
 - **Never put a flow id in `paywall_id`**, or an entry without `content_type`.

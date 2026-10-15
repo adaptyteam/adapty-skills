@@ -64,8 +64,8 @@ elsewhere (the backend would move it).
 goes on an audience that holds a test, when a test's audience is missing from the list, and when a
 test's audience gets other segments. Nothing in the CLI warns about it. Before the write, say it
 plainly ("test X stops with no winner; this flow starts"), wait for the user's yes, and read the
-placement again just before the write: if it changed since the read the user saw, ask again. No
-answer means the change is made in the dashboard instead. A write that only adds a segment audience
+placement again just before the write: if it changed since the read the user saw, show the new
+before/after table and ask again (an unattended run stops and reports). No answer means the change is made in the dashboard instead. A write that only adds a segment audience
 or reorders priorities needs no such line, and the test keeps running.
 
 **Never `--paywall-id`.** It is deprecated in favour of `--audiences` (the CLI prints a warning to
