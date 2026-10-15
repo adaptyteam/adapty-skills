@@ -117,7 +117,7 @@ final class AdaptyService: NSObject, ObservableObject, AdaptyDelegate {
     }
 
     // Called automatically when Adapty detects a subscription change
-    func didReceiveUpdatedProfile(_ profile: AdaptyProfile) {
+    func didLoadLatestProfile(_ profile: AdaptyProfile) {
         self.profile = profile
     }
 }
@@ -143,7 +143,7 @@ curl -s https://api.github.com/repos/adaptyteam/AdaptySDK-iOS/releases/latest | 
 
 It must print `4.` or higher. If it prints nothing — no network, a proxy, no `curl`, or a GitHub rate limit — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-iOS/releases) rather than guessing one. If it prints a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
 
-Tell the user to do this in Xcode:
+Tell the user to do this in Xcode — or, when nobody is at Xcode (an unattended run), do it yourself in `project.pbxproj` (see below the steps):
 
 1. **File → Add Package Dependencies...**
 2. Enter the repository URL:
@@ -158,6 +158,8 @@ Tell the user to do this in Xcode:
    - Do NOT select any other packages
 6. Click **Add Package**
 7. Verify: "Adapty" (and "AdaptyUI" if selected) should appear under **Package Dependencies** in the project navigator
+
+**Nobody to click through Xcode:** copy `project.pbxproj` aside, then add the four entries Xcode would: an `XCRemoteSwiftPackageReference` for the repository URL with `kind = upToNextMajorVersion` and `minimumVersion` set to the printed version, listed in the project's `packageReferences`; an `XCSwiftPackageProductDependency` named `Adapty` pointing at it (and one named `AdaptyUI` on the Flow Builder path), listed in the app target's `packageProductDependencies`; and a `PBXBuildFile` for each product in that target's Frameworks build phase. Then run `xcodebuild -resolvePackageDependencies` and build. Say in `ADAPTY_SETUP.md` that you edited the project file by hand, so the user knows to look at it in Xcode.
 
 **If the project uses a `Package.swift` manifest instead of the Xcode UI:** add `.package(url: "https://github.com/adaptyteam/AdaptySDK-iOS.git", from: "<version-printed-by-the-command-above>")` to the `dependencies` array. `from:` carries the same up-to-next-major semantics as the Xcode rule, so the resolved version goes in as the floor and SwiftPM keeps it current within the major.
 
