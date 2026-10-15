@@ -62,12 +62,11 @@ elsewhere (the backend would move it).
 
 **A write that replaces a running test stops it with no winner.** That is the case when the flow
 goes on an audience that holds a test, when a test's audience is missing from the list, and when a
-test's audience gets other segments. The CLI refuses such a write (exit 2, nothing sent) unless
-`--allow-test-change` is set, and names each test. Before the write, say it plainly ("test X stops
-with no winner; this flow starts"), wait for the user's yes, and only then pass the option. It is
-the user's answer, never a way past the refusal. No answer means the change is made in the
-dashboard instead. A write that only adds a segment audience or reorders priorities passes without
-it, and the test keeps running.
+test's audience gets other segments. Nothing in the CLI warns about it. Before the write, say it
+plainly ("test X stops with no winner; this flow starts"), wait for the user's yes, and read the
+placement again just before the write: if it changed since the read the user saw, ask again. No
+answer means the change is made in the dashboard instead. A write that only adds a segment audience
+or reorders priorities needs no such line, and the test keeps running.
 
 **Never `--paywall-id`.** It is deprecated in favour of `--audiences` (the CLI prints a warning to
 stderr), and on `update` it carries a second warning worth quoting: it *"will rewrite all audiences
@@ -83,7 +82,7 @@ Local, before any request — exit 2, nothing sent:
 | `Invalid --audiences JSON: …` | not parseable |
 | `--audiences must be a JSON array of audience entries.` | parsed to a non-array |
 | `--audiences[<i>]: each entry must be a JSON object` | an entry is a scalar |
-| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall. **On an entry you read from `placements get` and did not write, it means the CLI predates CLI 0.9.6** (a newer CLI says `this CLI does not know this audience kind; update the CLI` for a kind it lacks): re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is a running A/B test, and the write would stop it |
+| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall. **On an entry you read from `placements get` and did not write, it means the CLI is CLI 0.9.5 or older** (CLI 0.9.6 and later say `this CLI does not know this audience kind; update the CLI` for a kind they lack): tell the user to update the CLI and re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is a running A/B test, and the write would stop it |
 | `--audiences[<i>]: a flow entry requires flow_id` | flow entry, no `flow_id` |
 | `Invalid placement ID format.` | `update` with a non-UUID placement id |
 

@@ -38,16 +38,17 @@ test's running content, so a test entry is not something you build or edit here.
   backend counts its priorities and its default audience **apart** from the regular ones, so both
   groups can hold priority 0 and a default. You add and reorder only regular audiences.
 - **A write that only adds a segment audience or only changes priorities is safe.** The test keeps
-  running with the same start time, and the CLI asks for nothing.
+  running with the same start time, so the table needs no test line.
 - **A write that changes a test is not, and the table must say so.** Three writes do: a running
   test's audience is replaced by a paywall or flow, or is missing from the list; its audience gets
   other segments; or the list carries a test id the placement does not run now. In the
   before/after table, show each test by its **title** and add one line per test: "test X stops with
   no winner; Y starts" (a stopped test shows as Completed with no winner), or "test X starts again
-  with a new start time". Then **wait for the user's answer**. Pass `--allow-test-change` only
-  after they confirm that table. Without the option, the CLI refuses these writes before it sends
-  anything (exit 2) and names each test; take that as a reason to show the table, never as a flag
-  to add.
+  with a new start time". Then **wait for the user's answer**, and write only after they confirm
+  that table.
+- **Read again just before the write.** Run `placements get` once more. If the placement differs
+  from the read the user saw, show the new before/after table and ask again. An unattended run
+  stops there and reports; it does not write.
 - **Put on an audience only the test id it already carries.** The one exception is a test the user
   names as still a draft, and the table then says "test X starts on <who>". Never put the id of a
   test that runs on another audience or placement: the backend would move that test.
@@ -56,8 +57,9 @@ test's running content, so a test entry is not something you build or edit here.
   which segment, which paywall or flow, which position), where the test keeps running. Creating
   the segment through the CLI is still fine.
 
-An older CLI refuses these entries (see Never below). Re-resolve `$ADAPTY` once; do not compare
-version numbers.
+An older CLI (CLI 0.9.5 and older) refuses these entries on write (see Never below). Tell the user
+to update the CLI, and re-resolve `$ADAPTY`, which fetches the latest; do not compare version
+numbers.
 
 ## How you sound
 
@@ -92,7 +94,7 @@ problems, so do not retry with variations:
 | `segments update --app <app> <id> --title <t> --filter <f> […]` | **replaces the whole segment** |
 | `placements list --app <app> --page-size 100 --json` | the default page is 20, so a short list hides placements |
 | `placements get --app <app> <id> --json` | `title`, `developer_id`, `audiences[]` (A/B test entries included) |
-| `placements update --app <app> <id> --title <t> --developer-id <d> --audiences '<json>' [--allow-test-change]` | **replaces every audience, so send every entry back, test entries included.** Refuses (exit 2, nothing sent) a write that stops, starts or moves a test unless `--allow-test-change` (see above) |
+| `placements update --app <app> <id> --title <t> --developer-id <d> --audiences '<json>'` | **replaces every audience, so send every entry back, test entries included.** Nothing in the CLI warns when the list stops, starts or moves a test: the table does (see above) |
 
 `--app` is the **Adapty** app UUID from `$ADAPTY apps list`. A filter is `field:OPERATOR:value[,value…]`:
 `IN`, `NOT IN`, `>`, `>=`, `<`, `<=`, `BETWEEN`, or `field:IS NULL` / `field:IS NOT NULL` with no
@@ -156,10 +158,11 @@ building, and say what each option means. Labels are the dashboard's (https://ad
    for the default) and `priority`. The CLI refuses an entry without them before sending. An A/B or
    shared test entry goes back as read.
 7. **Confirm with the before/after table.** It carries a test line when the write would stop,
-   start or move a test (see above); wait for the answer, and pass `--allow-test-change` only after
-   a yes. In an interactive run the user still confirms the table. Only an unattended run writes
-   without a wait, and only when no test stops, starts or moves. Then write all entries back with
-   one `placements update`, reusing `title` and `developer_id` exactly.
+   start or move a test (see above); wait for the answer. In an interactive run the user still
+   confirms the table. Only an unattended run writes without a wait, and only when no test stops,
+   starts or moves. Read the placement again (`placements get`); if it changed since the read the
+   user saw, show the new table and ask again. Then write all entries back with one
+   `placements update`, reusing `title` and `developer_id` exactly.
 8. **Verify** with `placements get --json`: same entries, your new one where you put it, one
    default, last, and every test entry still there with its `ab_test_id` and segments.
 9. **Close** with who sees what now, and two facts: the segment's count fills in after a delay
@@ -168,8 +171,8 @@ building, and say what each option means. Labels are the dashboard's (https://ad
 
 ## Never
 
-- **Never pass `--allow-test-change` before the user has confirmed a table that names the test**,
-  and never to get past a refusal. It is the user's answer, not a flag.
+- **Never write a placement whose test would stop, start or move before the user has confirmed a
+  table that names the test**, and never on a placement that changed since the read they saw.
 - **Never put a test id on an audience that does not already carry it**, except a draft the user
   named. A test id of another audience or placement moves that test.
 - **Never edit, reorder or drop a shared-test entry** (`cross_ab_test`, `flow_cross_ab_test`).
@@ -180,10 +183,11 @@ building, and say what each option means. Labels are the dashboard's (https://ad
   an entry you deleted.
 - **Never delete an entry the CLI refuses when that entry came from `placements get`.** A refusal
   such as `content_type is required and must be "paywall" or "flow"` on an entry you did not write
-  means your CLI is older than the API (it predates CLI 0.9.6), and the entry is a running A/B test.
-  A newer CLI that meets a kind it does not know says `this CLI does not know this audience kind;
-  update the CLI`: the same cause and the same rule. Re-resolve `$ADAPTY` once and retry the same
-  list. If it still refuses, send the change to the dashboard. Deleting the entry makes the write
+  means your CLI is older than the API (CLI 0.9.5 or older), and the entry is a running A/B test.
+  CLI 0.9.6 and later, meeting a kind they do not know, say `this CLI does not know this audience
+  kind; update the CLI`: the same cause and the same rule. Tell the user to update the CLI,
+  re-resolve `$ADAPTY` once and retry the same list. If it still refuses, send the change to the
+  dashboard. Deleting the entry makes the write
   go through and stops the test.
 - **Never guess a field name, a custom attribute's spelling, or a value format.** See the three
   sources above.
@@ -210,7 +214,8 @@ Quotes are verbatim from baseline runs without this skill (2026-10-12).
 - A new audience with a lower `priority` number than an existing segment's, and no answer from the
   user about who wins
 - An `--audiences` array with fewer entries than `placements get` returned, plus one
-- `--allow-test-change` on a write whose table the user has not confirmed
+- A write that stops, starts or moves a test, and no confirmed table that names it
+- A `placements update` with no `placements get` just before it
 - An `ab_test_id` in the array that no audience of this placement carried when you read it, except a draft test the user named
 - A `field_name` that is not in the confirmed list and was not read off an existing segment
 - An app version with fewer than three parts
