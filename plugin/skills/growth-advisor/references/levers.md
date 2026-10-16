@@ -33,6 +33,7 @@ of them for you; a hypothesis outside the table fills them itself.
 | Move a trial | Move trial from [length] to [length] | Trial conversion and trial-to-paid together | Every trial test on that paywall | This move |
 | Change trial length | Change trial on [length] from [N] to [M] days | Trial conversion and trial-to-paid together | This change | This change |
 | Follow-up offer | Show a discount when the [placement] paywall closes | Revenue per user across the placement | This offer on that placement | This offer on that placement |
+| Win-back offer | Show former subscribers [offer] at [placement] | Revenue per user in that segment | This offer for that segment | This offer for that segment |
 | Seasonal paywall | Run a [event] paywall from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event |
 | New placement | Show a paywall at [moment] | Purchases from that placement, and total revenue | — | That moment |
 | Localization | Translate [placement] paywall into [language] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall |
@@ -136,6 +137,14 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
 - **Follow-up offer:** a discounted second screen when the onboarding paywall closes. Well
   evidenced after the onboarding paywall, and it loses after the main in-app paywall
   (`evidence.md`, across the flow).
+- **Win-back offer:** former subscribers (paid before, no active subscription now) get their own
+  audience on an in-app placement with a discounted paywall; everyone else keeps the current one.
+  A candidate when most endings are users switching off renewal (read 6 in `diagnosis.md`) and no
+  placement has an audience for former subscribers. Offers keep far more revenue on returning
+  subscribers than on new users (`market.md`, Discounts), which is why the offer must not reach
+  new users. It needs a segment, created through `audiences`: subscription state "subscription
+  cancelled" is the direct signal, and total revenue above 0 keeps out anyone who never paid. It
+  also needs a real discounted product in the store. `evidence.md` has no win-back test: Expected is untested.
 - **Escalating discounts** over days after a close are a growth-team estimate with no A/B
   evidence here: label them untested.
 - **A separate in-app paywall:** simpler than the onboarding one, fewer plans, shown at value
