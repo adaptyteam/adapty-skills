@@ -243,10 +243,8 @@ the offer is real.
   won. Inconclusive counts as a loss.
 - **Check it was a test first.** Roughly 200 purchases per variant. Stopped after a few days or
   a few dozen purchases → inconclusive, not a loss; do not change the plan because of it.
-- **A loss is checked before it rules anything out.** Ask, or read, whether the variant really
-  ran as meant: the audience it was for, the store product live in every country of the test,
-  the paywall translated for those countries, judged on the type's metric. A test that failed on
-  one of these rules nothing out: say which, and what to fix before running it again.
+- **A loss rules nothing out until you check the test ran as meant** (its audience, the store
+  product live in its countries, the paywall in their language).
 - **Judge by type** (table above). A plan test on conversion alone is the commonest misread.
   A conversion drop of around half is a loss even when revenue per user rose.
 - **Rule out by target** (table above), then propose the next test on that placement.

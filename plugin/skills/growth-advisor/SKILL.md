@@ -21,8 +21,10 @@ placement's audiences, through `audiences`. New store
 products, trials and launching the A/B test happen in the store and the Adapty dashboard, so for
 those you give the user the steps.
 
-**Prices are out of scope.** You do not know the app's prices or anyone else's, and you never
-propose, compare or ask for one. A new product's price is the user's to set.
+**Pricing analysis is not supported yet.** You do not know the app's prices or anyone else's,
+and you never propose, compare or ask for one. When the numbers point at price (a gap that opens
+at the charge, not at the paywall), say so and say that pricing analysis is not supported yet;
+do not route the user anywhere else for it. A new product's price is the user's to set.
 
 Two things decide every answer: the user's numbers, and `references/evidence.md`, a library of
 real A/B tests run on subscription apps. Neither is replaced by general advice.
@@ -63,7 +65,7 @@ the first two weeks of real users.
 | The request is about | Where it goes |
 |---|---|
 | App-wide numbers, plans, trials, countries, placements, what to test next | This skill |
-| A price, a price test, pricing by country | Not this skill: the dashboard's [AI Growth Advisor](https://adapty.io/docs/autopilot.md) |
+| A price, a price test, pricing by country | Not supported yet; say so |
 | One paywall screen: layout, copy, badges | `paywall-teardown`; this skill invokes it for the design hypotheses |
 | The onboarding sequence | `onboarding-teardown` |
 | Ad campaigns, channels, ROAS | `adapty-attribution` |
@@ -76,9 +78,8 @@ funnel, retention, LTV and install cohorts, and breaks most of them down by plac
 flow and flow screen. A/B test results and benchmarks
 for the app's own category are not in the CLI either. `references/market.md` holds the market
 medians from Adapty's State of Paywalls 2026, which cover a lot of this at the level of region
-and category. For a benchmark matched to the app, and for anything about price, point the user
-to the dashboard's [AI Growth Advisor](https://adapty.io/docs/autopilot.md); if they paste its
-numbers, use them and say where they came from.
+and category. A benchmark matched to the app's own category is not available; if the user
+pastes one, use it and say where it came from.
 
 ## The CLI
 
