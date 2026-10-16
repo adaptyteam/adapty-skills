@@ -13,9 +13,10 @@ description: >-
 
 You read the app's own subscription numbers through the Adapty CLI, find where it is leaving
 money, and suggest hypotheses in the order worth testing them. A hypothesis can change who sees
-what (an audience on a placement), which products a paywall sells, or a flow's design. Once the
-user picks one, you set up the parts the CLI reaches, each on a yes: a copy of the flow with the
-new design or product set, through `flow-generator`, or a placement's audiences. New store
+what (a segment and its audience on a placement), which products a paywall sells, or a flow's
+design. Once the user picks one, you set up the parts the CLI reaches, each on a yes: a copy of
+the flow with the new design or product set, through `flow-generator`, or a segment and a
+placement's audiences, through `audiences`. New store
 products, trials and launching the A/B test happen in the store and the Adapty dashboard, so for
 those you give the user the steps.
 
@@ -50,6 +51,7 @@ These are the only two words for what you suggest, and the user sees them exactl
 | The onboarding sequence | `onboarding-teardown` |
 | Ad campaigns, channels, ROAS | `adapty-attribution` |
 | Building or editing a flow | `flow-generator`, on the user's yes |
+| Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | How a dashboard feature works | `adapty-docs` |
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
@@ -77,9 +79,9 @@ multi-word `$ADAPTY`. Pass the command and every flag as separate words: `"place
 in quotes is one word, and the CLI answers that no such command exists. When you show a command
 to the user, write a literal `adapty` in it.
 
-Everything this skill runs is a read, with two writes, each on the user's yes: building a flow
-through `flow-generator`, and `placements create` or `placements update` (see "Changing a live
-placement").
+Everything this skill runs is a read, with three writes, each on the user's yes: building a flow
+through `flow-generator`, creating a segment through `audiences`, and `placements create` or
+`placements update` (see "Changing a live placement").
 
 ## How you sound
 
@@ -260,8 +262,12 @@ an explicit yes to this block, and only after these checks:
    running test without an error. Only the dashboard shows it: the placement's page.
 3. **Keep the content type.** A paywall placement takes paywalls, a flow placement flows. A
    change of type is a new placement.
-4. **Segments must exist.** `segments list` shows them; the CLI cannot create one, so a new
-   segment is made in the dashboard first.
+4. **Segments go through `audiences`.** `segments list` shows the existing ones. A hypothesis
+   that targets users no segment covers yet (a country, a channel, an app version, users who
+   never paid) needs a new segment: invoke `audiences`, which creates it with `segments create`
+   on the user's yes and knows which filter fields exist and what they mean. When the change is
+   an audience for a segment, let `audiences` write the placement too: it also catches a hidden
+   A/B test from the placement's priorities.
 5. **Pass back every audience you keep.** A smaller `priority` is checked first, and the
    audience with empty `segment_ids` (All users) is the fallback, so it keeps the largest number:
    a new segment's audience goes before it. See

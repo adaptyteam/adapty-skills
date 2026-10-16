@@ -160,7 +160,7 @@ $ADAPTY segments list --app <APP_ID> --json
 
 Segments are the app's own user groups. Group by `segment_id`, or filter to one with a value
 from `analytics values --dimension segment_id`, so an existing segment can split any number in
-this file. The CLI cannot create one.
+this file. A new segment is created through `audiences`, on the user's yes.
 
 From these: which placements exist and are active, what each one shows (a paywall or a flow, per
 audience), which products each paywall sells, and whether there is anything after the onboarding

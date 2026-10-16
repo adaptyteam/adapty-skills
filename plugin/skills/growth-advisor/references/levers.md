@@ -20,7 +20,7 @@ of them for you; a hypothesis outside the table fills them itself.
 | Judged on | The one metric that decides the winner. |
 | Rules out | What a win and what a loss take off the table (see "After a test"). |
 | Expected | A range from `evidence.md`, or "untested". |
-| How to run it | "I can build it" (a flow, A/B tested or shown on a placement), "I can set it up" (a segment's audience on a placement), or "you do it in the dashboard", with the steps. |
+| How to run it | "I can build it" (a flow, A/B tested or shown on a placement), "I can set it up" (a segment, new or existing, and its audience on a placement, through `audiences`), or "you do it in the dashboard", with the steps. |
 
 ## Known hypothesis types
 
