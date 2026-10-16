@@ -142,9 +142,14 @@ Then hold the set to three rules:
 3. **The obvious concept is a structure, not a name.** A concept is the obvious one when its top
    half is a heading or statement (with or without an icon or badge above it), its value is a
    block under that, and its plans sit inline under the value — whatever it is called and however
-   the block is drawn: a sticker sheet, a checklist, a table, a grid of tiles. Check all four
-   concepts against this before you drop one; every concept that matches it is dropped, and you
-   write a new one in its place until three are left that do not.
+   the block is drawn: a sticker sheet, a checklist, a table, a grid of tiles. The commonest
+   paywall in the stores is this structure with a fixed set of parts: a short headline, a
+   feature checklist, two plan cards with the annual one pre-selected, a button that names the
+   free trial, a "cancel anytime" line under it, and usually no image. That is how a typical app
+   sells, not evidence that it sells better, and a concept made of those parts in a new colour or
+   style is the obvious one too. Check all four concepts against this before you drop one; every
+   concept that matches it is dropped, and you write a new one in its place until three are left
+   that do not.
 
 **How to build a scene.** A scene is not a card with a grid in it; a grid in a box is the obvious
 structure in costume. Four things make it a scene, and none of them is an arrangement:
@@ -177,6 +182,9 @@ all of these, and the back pass checks them on the render:
   No box inside a box, no outlined tags inside an outlined card.
 - **Say each thing once, at a readable size.** A feature is named in one place, in one short
   line; body text no smaller than the body preset, captions only for legal and billing lines.
+- **A short headline.** Six words or fewer in the language you write it in; most paywall
+  headlines run about five. A longer one is usually two ideas, so move the second into one
+  subhead line.
 - **Every part of the screen is designed.** Either fill it on purpose — a full-bleed scene, a
   colour block, type that runs edge to edge — or frame the content with space that is clearly
   meant. A leftover band between two blocks, or content cut off under a pinned bar, is a defect.

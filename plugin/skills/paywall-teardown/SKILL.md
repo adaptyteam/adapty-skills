@@ -103,7 +103,8 @@ Four passes, and none of them is optional:
    a *High* row. **Then answer the four layout questions about the screenshot, not about the
    concept** (`references/look.md` → Inventing the paywall's layout): what fills the top half,
    where the plans are, where the value is. If the render has the obvious structure — a heading
-   on top, a block of value under it, the plans under that — the build did not carry out the
+   on top, a block of value under it, the plans under that — or is the stores' commonest
+   paywall in new colours (`references/look.md`, rule 3 of the layout), the build did not carry out the
    concept, whatever the concept was called: a *Fix first* row, fixed by rebuilding the screen
    to the concept's answers, never by describing the render differently. A render that breaks
    any rule in `references/look.md` → "Different is not enough" (no focal element, boxes inside
@@ -155,6 +156,12 @@ one. Otherwise the archetype says what the screen sells with, never what it look
 concept you invent in `references/look.md` decides the layout and the style, may combine archetypes
 whose prerequisites hold, and must not default to the first one that passes. Taking the first
 that passes is how every paywall became a trial timeline over two cards.
+
+**Decide whether the screen sells the trial or the product, before the archetype.** With a
+verified trial, the screen leads with the trial and puts reassurance next to the button: when the
+first charge happens, and that the user can cancel before it. With no trial, nothing free lowers
+the risk, so the screen has to show the value instead: the result, the features, the saving. Say
+which one you chose in the archetype line.
 
 **Two rules that come from getting this wrong:**
 
