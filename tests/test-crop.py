@@ -170,6 +170,26 @@ check('1x crop warns', code == 0 and any('soft on a 2x/3x' in ln for ln in out))
 code, out = crop.run(P('flat.png'), P('o11.png'), (0, 0, 60, 60), fit=(20, 20))
 check('3x crop is quiet', code == 0 and not any('soft on a 2x/3x' in ln for ln in out))
 
+print('TRANSPARENT SOURCE')
+# Trimming a drawing that is already transparent: the crop must keep its alpha, or the asset
+# draws on a black box. With --key the keyed alpha never exceeds the source's.
+src = [[[0, 0, 0, 0] for _ in range(60)] for _ in range(60)]
+rect(src, 20, 20, 40, 40, (255, 140, 0))
+png(P('alpha.png'), src)
+
+
+def load(path):
+    w, h, n, rows = crop.read_png(path)
+    return [[[rows[y][x * n + i] if i < n else 255 for i in range(4)] for x in range(w)]
+            for y in range(h)]
+
+
+code, _ = crop.run(P('alpha.png'), P('o12.png'), (10, 10, 50, 50))
+got = load(P('o12.png'))
+check('plain crop keeps a transparent backdrop', code == 0 and transparent_at(got, 2, 2),
+      f'alpha={got[2][2][3]}')
+check('  ...and keeps the graphic opaque', opaque_at(got, 20, 20))
+
 print()
 if FAILS:
     print(f'{len(FAILS)} FAILED: {", ".join(FAILS)}')

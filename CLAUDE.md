@@ -1369,6 +1369,49 @@ rounds (ledger `docs/superpowers/baselines/2026-10-09-teardown-taste-red.md`, un
 unreadable on dark screens (no input text colour); typed prices from the request (2 runs); the
 render page's maintenance banner over every render, which `shoot.sh`'s guard does not catch.
 
+### Finding 56 (2026-10-16): variety without a reference — each fix moved the sameness one level up
+
+Paywalls with no reference, built unattended through `flow-generator`, local only plus image
+uploads to a test app. 27 builds for an invented pony-themed to-do app (with a code theme, and
+README-only) and 6 for an invented small-business AI advisor (README-only). One build per
+independent agent, judged by eye from the renders; no arm comparison, so this is a run log, not a
+measured treatment effect. What each round showed, and what it moved:
+
+- **Layout ideas redrew only the benefit block.** Six builds before the change rolled six
+  different concept names and shipped one screen: header, value block, plan cards, button, fine
+  print. Now each concept is four answers (what the screen is, top half, where the plans live,
+  where the value lives) and two concepts must differ in both the top half and the plans.
+- **A rule checked on the written concept is passed by rewording it** ("the table *is* the top
+  half"). The back pass now asks the four questions of the screenshot, and the obvious structure
+  on the render is *Fix first*, rebuilt and never redescribed.
+- **Different made it worse-looking:** the easiest way off the obvious structure was more boxes.
+  Added the quality rules in `look.md` (one focal element, card treatment only on what is tapped,
+  each thing said once, every part of the screen designed — filled or framed on purpose; the owner
+  rejected "leave space empty" as a rule). Character concepts draw the character as one uploaded
+  illustration, never an icon on a coloured circle; before that rule 0 of 19 builds drew
+  anything, after it every scene did.
+- **A concrete scene recipe became the new template** (sky, subject bottom-left, floating chips,
+  plans on a ground band: 6 of 7 scenes). Replaced by principles plus a viewpoint choice.
+- **The concept list itself converges per app, so the roll does not spread.** All three advisor
+  builds rolled "ledger page", because it was in every list. Each concept now starts from a
+  random starting point drawn by a command before any concept is written; the rerun gave a
+  certificate, a till receipt and a Monday-morning brief.
+- **Content sliced by the pinned bar** persisted at High (3 of 6 in one round); now *Fix first*.
+- **Trial wording from a README** appeared once (1 of 9) after plan cards gained a slot; a row in
+  both teardowns' "cannot invent" tables now says a planned trial is not an offer.
+
+**Contamination of mine, worth the warning:** from round 5 the scene recipe's example objects
+were the test app's own content (a dye pot, a saddle, a second pony), and every scene then drew
+exactly those. Examples in shipped guidance are now from a different app (plant care). **Never
+write a test fixture's own nouns into the guidance under test.**
+
+Bycatch fixed: `crop.py` wrote every crop fully opaque, so trimming a transparent drawing gave a
+black box (test added, red against the old code); the missing-assets block listed a drawing the
+agent had already uploaded as missing (held in 4 of 5 replies afterwards). **Not tested:** any of
+this on an onboarding — `onboarding-teardown` gained the back-pass and trial rows by pointer only;
+the advisor variety is one round of three; and uploads in these runs left unused images in the
+test app's media library, which the CLI cannot delete.
+
 ## Conventions when editing `paywall-teardown`
 
 - **This skill is vendored, not authored here.** It came from the growth team's claude.ai skill and the library is theirs. Keep repo-specific additions in `SKILL.md` and keep `references/patterns.md` as close to upstream as possible, so their next revision of the library lands as a clean copy rather than a merge. When a pattern's impact range or cross-check changes, it changes upstream first.
