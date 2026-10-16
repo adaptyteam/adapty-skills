@@ -34,7 +34,7 @@ of them for you; a hypothesis outside the table fills them itself.
 | Change trial length | Change trial on [length] from [N] to [M] days | Trial conversion and trial-to-paid together | This change | This change |
 | Follow-up offer | Show a discount when the [placement] paywall closes | Revenue per user across the placement | This offer on that placement | This offer on that placement |
 | Audience split | Show [segment] [change] at [placement] | The change's own metric, in that segment | That change for that segment | That change for that segment |
-| Win-back offer | Show former subscribers [offer] at [placement] | Revenue per user in that segment | This offer for that segment | This offer for that segment |
+| Win-back offer | Show [former subscribers / lapsed trials] [offer] at [placement] | Revenue per user in that segment | This offer for that segment | This offer for that segment |
 | Seasonal paywall | Run a [event] paywall from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event |
 | New placement | Show a paywall at [moment] | Purchases from that placement, and total revenue | — | That moment |
 | Localization | Translate [placement] paywall into [language] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall |
@@ -57,7 +57,7 @@ changes.
    `diagnosis.md`). Compare the app against its own past, and against `market.md` only where the
    measure is the same (paywall view → paid, trial → paid, plan mix; never install → paid against
    a paywall conversion):
-   - conversion fine, revenue per user low → plan structure: push buyers toward the longer plan
+   - conversion fine, revenue per user low → plan structure: push buyers toward the leading length
    - conversion low, revenue per user low → plan structure and the paywall itself
    - both fine → localization, plan mix and placements
 4. **Context that changes the answer.**
@@ -110,7 +110,9 @@ median", never the user's goal.
 - **One product on the paywall:** add a second length first; nothing can be optimised without a
   comparison. Then a trial if the category uses one.
 - **Two or more products:** find the leading length (by LTV from `analytics ltv`, otherwise by
-  revenue share) and push purchases toward it: the trial on it, preselected, a badge.
+  revenue share) and push purchases toward it: the trial on it, preselected, a badge. It is
+  often weekly, not annual; the evidence library leans annual-first, so check the app's own
+  numbers before carrying a library win over.
 - **Four or more products:** simplify to three before anything else.
 - **Removing a length** is a candidate only when it earns under 30% of the paywall's revenue,
   and is judged on revenue per user: cutting plans has lost on revenue in `evidence.md`.
@@ -130,7 +132,7 @@ median", never the user's goal.
 
 These are the hypotheses this skill can build: a flow, put in front of users by an A/B test, a new placement, or a change to an existing one (`SKILL.md`, "Changing a live placement").
 
-- **A healthy set is about three placements:** the onboarding paywall (push annual), an in-app
+- **A healthy set is about three placements:** the onboarding paywall (push the leading length), an in-app
   paywall at a value moment (a limit hit, a locked feature, settings), and an offer after the
   onboarding paywall closes.
 - **Only one placement** is itself an opportunity. A large share of revenue outside onboarding
@@ -138,7 +140,8 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
 - **Follow-up offer:** a discounted second screen when the onboarding paywall closes. Well
   evidenced after the onboarding paywall, and it loses after the main in-app paywall
   (`evidence.md`, across the flow).
-- **Win-back offer:** former subscribers (paid before, no active subscription now) get their own
+- **Win-back offer:** former subscribers (paid before, no active subscription now), or users whose
+  trial ended without paying (subscription state "trial cancelled"), get their own
   audience on an in-app placement with a discounted paywall; everyone else keeps the current one.
   A candidate when most endings are users switching off renewal (read 6 in `diagnosis.md`) and no
   placement has an audience for former subscribers. Offers keep far more revenue on returning
@@ -240,12 +243,21 @@ the offer is real.
   won. Inconclusive counts as a loss.
 - **Check it was a test first.** Roughly 200 purchases per variant. Stopped after a few days or
   a few dozen purchases → inconclusive, not a loss; do not change the plan because of it.
+- **A loss is checked before it rules anything out.** Ask, or read, whether the variant really
+  ran as meant: the audience it was for, the store product live in every country of the test,
+  the paywall translated for those countries, judged on the type's metric. A test that failed on
+  one of these rules nothing out: say which, and what to fix before running it again.
 - **Judge by type** (table above). A plan test on conversion alone is the commonest misread.
   A conversion drop of around half is a loss even when revenue per user rose.
 - **Rule out by target** (table above), then propose the next test on that placement.
 - After adding a plan length, suggest checking in a couple of months that its buyers renew.
 - When a lever stops producing lifts, say further tests on it will likely return little, and
   move to another lever. Never invent rounds to fill a plan.
+
+## Ideas the user brings
+
+When the user brings their own ideas, rank theirs by purchases at stake, as in "Segments", and
+add at most one of your own, marked as yours.
 
 ## Writing the why
 

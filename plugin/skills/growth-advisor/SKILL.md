@@ -4,9 +4,10 @@ description: >-
   Use when someone wants to grow a subscription app's revenue with Adapty — "audit my app", "what
   should I test next", "I don't know what to test", "should I add a monthly plan or a trial",
   "why did revenue or renewals drop", "my A/B test ended, what now", "do I need more placements
-  or a discount offer".
+  or a discount offer", "which of my ideas should I test first", "we don't have much traffic",
+  "we did it, what's next", "only use our own data", "we launch soon, no data yet".
   Also use when a user asks for a growth plan, a monetization audit, hypotheses or test ideas without naming
-  one screen.
+  one screen, or asks any question about their app's own subscription numbers.
 ---
 
 # Growth advisor
@@ -40,6 +41,22 @@ These are the only two words for what you suggest, and the user sees them exactl
 - **One they turn down leaves the list.** It is not a lost test and rules nothing out; do not
   suggest it again in this conversation unless the user asks or their numbers change.
 - **The reply is the record.** There is no backlog to save hypotheses to yet; never offer one.
+
+## Questions about the numbers
+
+A question about the app's own numbers ("who buys annual", "which country refunds most", "do
+people who start a trial renew better") is answered from the numbers. Find the operation, the
+grouping and the filter that answer it in the catalog (`references/diagnosis.md`, "Before the
+first read"), run them, and answer in the reply shape. No hypotheses unless the user asks what to
+do; if the answer points at one change worth testing, offer it in one Next step.
+
+## No data yet
+
+A new app, or an app whose analytics are empty, gets a starting plan instead of an audit. Say
+there is no data, then build it from `references/market.md` and `references/evidence.md`: the plan
+lengths, trial and placements apps in that category usually start with, and the onboarding
+paywall. Label every number an estimate from the market, and end with which reads to run after
+the first two weeks of real users.
 
 ## Which skill
 
@@ -161,6 +178,12 @@ conversation that asks "what should I do".
    contradicts (a label your numbers disprove, a price typed as text) you report yourself. A
    design hypothesis (layout, copy, what the screen shows) comes only from `paywall-teardown` or
    `onboarding-teardown` run on the render (`references/levers.md`, Paywall design).
+   **Before judging anything, establish how the app earns:** its main product by revenue (often
+   weekly; never assume annual), offers that change the first payment (an intro price, a paid
+   first week), products split by market (compare a product only with others sold in the same
+   market), and whether the paywalls are Flow Builder flows. When the paywalls are drawn in the
+   app's own code, design hypotheses are out: keep to products, trials, placements and audiences,
+   and say why.
 3. **Ask for what the CLI cannot see** before you rank anything. Send one message with the
    questions below that apply, and skip any the user already answered:
    - **What have you tested before,** and what won? A recent loss is off the table, and the CLI
@@ -231,8 +254,10 @@ labelled lines, in this order: Why, Expected, Time, Who. Nothing else goes in th
   directional.
 - **Time:** how long its A/B test would take, computed from their purchases (about 200 per
   variant), in weeks or months. A hypothesis whose test would take over about three months is
-  not suggested: drop it, and offer the faster option in its place (a test on a bigger audience,
-  or a read that answers sooner). Mention the slow one in one sentence at most.
+  not suggested: drop it, and offer what settles sooner in its place: one test across several
+  placements or a group of countries instead of one, a bolder change instead of a small one
+  (small changes need large samples), or a read that answers without a test. Mention the slow
+  one in one sentence at most. When most hypotheses cannot settle, say so in the bold answer.
 - **Who:** what you build, what they change in the store or the dashboard.
 
 The disclaimer goes under any range, once per reply, in the user's language: "Expected results
@@ -296,6 +321,9 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | Should I do X? (one idea) | `diagnosis.md`, "Should I change X?", plus `levers.md` |
 | My A/B test ended, what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test" |
 | I don't know what to test | Run the audit |
+| I have ideas, which first? | `levers.md`, "Ideas the user brings" |
+| We did it, what's next? | Ask what ran and what won, then `levers.md`, "After a test" |
+| Any question about the numbers | "Questions about the numbers" |
 
 ## Dashboard steps
 
@@ -321,6 +349,12 @@ step, and its "How" line says so:
   or a test in `evidence.md`. Never blend two into one figure,
   and never call a market median "your category average" unless it is that category's row.
 - **A base rate is not a verdict on their app.** Only their own test answers that.
+- **Common is not winning.** `market.md` says what most apps do; `evidence.md` says what won in
+  tests. Say which one a claim rests on.
+- **Name what a median covers:** its region and category. When the app's category is narrower
+  than the row (a flight tracker in "travel"), say the median is rough, or that there is none.
+- **The user decides which sources count:** "our own data only" leaves out `evidence.md` and
+  `market.md`, and Expected says what their numbers show or "untested".
 
 ## References
 
