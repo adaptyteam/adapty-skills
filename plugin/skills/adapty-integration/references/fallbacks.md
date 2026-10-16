@@ -93,12 +93,20 @@ So offer the user one of two things, and say which you did:
    two commands before the build, with the `--sdk-version` read from the lockfile in the job so an
    SDK upgrade cannot leave it behind. Tell the user plainly what the job authenticates with before
    they set it up:
-   - The CLI has one kind of token: the personal one `adapty auth login` stores in
-     `~/.config/adapty/config.json`. There is no separate token for CI. The job reads it from an
-     `ADAPTY_TOKEN` secret, which overrides the stored login.
-   - That token belongs to whoever logged in and can do everything they can in the dashboard, not
-     just download this file. Suggest logging in with a shared account the team controls rather than someone's
-     own.
-   - It expires on the server's schedule, and `adapty auth revoke` kills it at once. Either way the
-     job exits 3; the fix is a fresh `adapty auth login` and an updated secret.
-   - Never print, paste or commit the token yourself. The user copies it into the CI secret.
+   - There is no CI token yet. The job uses the personal token that `adapty auth login` stores in
+     `~/.config/adapty/config.json`, set as an `ADAPTY_TOKEN` secret. The CLI reads that variable
+     instead of a login.
+   - **The token lasts 90 days, so the user has to replace the secret by hand before then.** Suggest
+     a calendar reminder. When it expires, or after `adapty auth revoke`, the job fails with exit
+     code 3, and the fix is a fresh `adapty auth login` and an updated secret.
+   - That token can do everything its owner can in the dashboard, not just download this file.
+     Suggest logging in with a shared account the team controls rather than someone's own.
+   - The user copies the token into the secret themselves, with a command that never prints it.
+     For GitHub Actions:
+
+     ```bash
+     jq -r '.access_token' ~/.config/adapty/config.json | gh secret set ADAPTY_TOKEN
+     ```
+
+     For another CI, give its own way to set a secret from standard input. Never run it yourself,
+     and never print, paste or commit the token.
