@@ -1398,7 +1398,9 @@ measured treatment effect. What each round showed, and what it moved:
   certificate, a till receipt and a Monday-morning brief.
 - **Content sliced by the pinned bar** persisted at High (3 of 6 in one round); now *Fix first*.
 - **Trial wording from a README** appeared once (1 of 9) after plan cards gained a slot; a row in
-  both teardowns' "cannot invent" tables now says a planned trial is not an offer.
+  both teardowns' "cannot invent" tables now says a planned trial is not an offer: when the
+  catalog shows none, ask whether it exists and suggest one, and only an unanswerable run leaves it
+  out with the question in the reply.
 
 **Contamination of mine, worth the warning:** from round 5 the scene recipe's example objects
 were the test app's own content (a dye pot, a saddle, a second pony), and every scene then drew

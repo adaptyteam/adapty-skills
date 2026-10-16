@@ -406,7 +406,7 @@ config cleanly, some need something only the user has, and **two cannot be built
 | Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | The paywall at the end | Yes | **The products are theirs to pick**, not yours — catalog first, store ids second, create last (`flow-generator` phase 2). And a trial timeline needs a trial that exists |
 | Second-chance offer after the paywall | Yes, as a screen with its own products | A real discount to offer |
-| Trial or intro-offer wording on any screen — "start your free week", a badge, the button | Yes | The offer on the product. A trial planned in a README, a brief or a roadmap is not an offer: until the product carries it, no screen mentions it, and the reply says it was left out |
+| Trial or intro-offer wording on any screen — "start your free week", a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
 
 Mechanics for all of these — the `timer` shape, `_meta.icons`, empty asset maps, variable
 producers, product binding — belong to the `flow-generator` skill (`references/patterns.md`,

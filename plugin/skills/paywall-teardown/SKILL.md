@@ -289,7 +289,7 @@ the patterns that depend on them must name that in **Needs from you**:
 | Social proof, **several testimonials on one screen** | Yes — the `carousel` element, which swipes and draws its own indicator dots | The quotes. Never a static card with hand-built dots: it ships one frozen slide and dots that do nothing, and it screenshots identically to the real thing |
 | Results/proof with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, which is a copy-tier change |
 | Countdown timer | Yes | A real discount to count down to; no offer means no timer |
-| Trial or intro-offer wording anywhere — a plan card, a badge, the button | Yes | The offer on the product. A trial planned in a README, a brief or a roadmap is not an offer: until the product carries it, no element mentions it, and the reply says it was left out |
+| Trial or intro-offer wording anywhere — a plan card, a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
 | Hero image / video, background image | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | Goal-personalized headline | Yes, if a variable producer exists earlier in the flow | The onboarding step that captures the goal, if there isn't one |
 
