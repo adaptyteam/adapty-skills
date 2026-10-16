@@ -194,6 +194,8 @@ conversation that asks "what should I do".
    - only one plan length on the paywall
    - a plan length with under 5% of purchases
    - only one placement, or nothing after the onboarding paywall closes
+   - most endings are users switching off renewal, and no placement has an audience for former
+     subscribers
    - a market with 50% or more of revenue
    - fewer than about 200 purchases in two weeks
 6. **Report**, following "How you write a reply" and "What a hypothesis needs".
