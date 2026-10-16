@@ -1,9 +1,10 @@
 # Diagnosis
 
 The commands that answer each question, and how to read what they return. Every command here is
-a read. Run them one at a time: all analytics calls of one app share a limit of 2 requests per
-second, a data command is sent once and never retried, and on a `429` you wait
-`retry_after_seconds` (in the `--json` error) and run it once more, never in a loop.
+a read. Run them one at a time: each analytics command allows 2 requests per second per app (and
+360 per minute across everyone calling it), a data command is sent once and never retried, and
+over a limit it exits 4 with the wait as `retry_after_seconds` in the `--json` error. Wait that
+long and run it once more, never in a loop.
 
 ## Before the first read
 
@@ -50,6 +51,11 @@ Rules for reading any answer:
 - For the funnel and retention, read a group's number from the grouped answer. The same query
   filtered to that group can give a different number (a `0` becomes `null`, a `no_offer` group
   loses its paid steps). Charts agree both ways.
+- Two reads differ from the dashboard on purpose. The funnel applies a `cancellation_reason`
+  filter, which the dashboard's funnel ignores, so with that filter its numbers will not match the
+  dashboard. Retention groups by the backend's list of groupings, which is not the dashboard's, so
+  take retention groupings from the catalog, never from the dashboard's menu. Say so when the
+  user compares a number with what they see there.
 
 The conversion ids, as the dashboard titles them:
 
