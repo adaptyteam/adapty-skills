@@ -183,13 +183,48 @@ chart or operation: usually `store`, `country`, `duration`, `store_product_id`, 
 | Before and after | `chart` or `conversion` with `--compare-from`/`--compare-to` set to the same length before the change | How much moved, in one call. |
 | Where in the funnel | `funnel` by the split that moved, against the total | Which step the split loses users at. |
 | Who is leaving | `trials_renewal_cancelled` and `subscriptions_renewal_cancelled` by `duration`, `country` or `attribution_channel` | Who switched off renewal before revenue shows it. |
-| Offers | `revenue` and `subscriptions_new` by `offer_id` | Whether an intro or win-back offer pays for itself. |
+| Offers | `revenue` and `subscriptions_new` by `offer_id`, then the same filtered to that offer and grouped by `country` and `store` | Whether an intro or win-back offer pays for itself, and where: an offer that loses money overall can still pay in some countries. |
 | Refunds | `refund_money` by `store_product_id` or `country`, against revenue for the same split | Purchases that come back. A win with heavy refunds is not a win. |
 | Screen | `subscriptions_new --group-by flow_screen_id` | Which screen of a flow the purchases come from. |
 
 Stop when a split shows one value carrying the effect, or when two splits in a row change
 nothing. Name the split that explained it in the reply, and the one that did not if the user would
 have guessed it.
+
+### From a split to a segment
+
+A group that carries the effect can become the target of a hypothesis (`levers.md`, Segments).
+Some analytics splits have a segment field, so the group can be targeted as you read it:
+
+| Analytics split | Segment field |
+|---|---|
+| `store` | `store` |
+| `attribution_channel`, `_campaign`, `_adgroup`, `_adset`, `_creative`, `_source`, `_status` | `channel`, `campaign`, `ad_group`, `ad_set`, `creative`, `source`, `status` |
+| `country` | `store_country` or `ip_country`. Analytics uses the store country where it is known and the IP country otherwise, so neither matches it exactly; `audiences` asks which one |
+| `segment_id` | the segment itself |
+
+Plan length, offer, renewal period and the placement, paywall and flow ids have no segment field:
+they describe a purchase, not a user.
+
+Many segment fields have no analytics split: subscription state, paid access level, total
+revenue, app version (current or on install), language, platform, OS, device, age, gender, how
+long ago the user installed, and custom attributes. To read numbers for such a group, the segment
+has to exist:
+
+1. **Look for it first** in `segments list`; `segments get` shows its filters.
+2. **Otherwise offer to create it** through `audiences`, on the user's yes, and say why: "to see
+   how former subscribers convert, I need a segment for them." The CLI cannot delete a segment;
+   the user can, in the dashboard, while no placement or A/B test uses it.
+3. **Read it.** `segments get` returns `profile_count`. Filter any read with
+   `--filter segment_id=<id>` (the value from `analytics values --dimension segment_id`). A new
+   segment applies to past events within about a minute, so it splits the last six months at once.
+   Charts can also group by `segment_id`; the funnel and conversions only filter, one call per
+   segment.
+
+How the past is judged differs by field. Paid access level, total revenue, the subscription's
+product and its expiration date are today's values, applied to every past event: a user who paid
+last week counts as a payer in January too. Country, app version, language, device, install date
+and custom attributes are as they were at each event. Say so when it changes the reading.
 
 ## Reading a flow
 

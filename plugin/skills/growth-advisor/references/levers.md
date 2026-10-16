@@ -33,6 +33,7 @@ of them for you; a hypothesis outside the table fills them itself.
 | Move a trial | Move trial from [length] to [length] | Trial conversion and trial-to-paid together | Every trial test on that paywall | This move |
 | Change trial length | Change trial on [length] from [N] to [M] days | Trial conversion and trial-to-paid together | This change | This change |
 | Follow-up offer | Show a discount when the [placement] paywall closes | Revenue per user across the placement | This offer on that placement | This offer on that placement |
+| Audience split | Show [segment] [change] at [placement] | The change's own metric, in that segment | That change for that segment | That change for that segment |
 | Win-back offer | Show former subscribers [offer] at [placement] | Revenue per user in that segment | This offer for that segment | This offer for that segment |
 | Seasonal paywall | Run a [event] paywall from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event |
 | New placement | Show a paywall at [moment] | Purchases from that placement, and total revenue | — | That moment |
@@ -153,6 +154,54 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
   deadline is real; on a standing paywall it is fake urgency and raises refunds.
 - **Paywall after a short goal quiz,** and **a free taste of the product before the paywall**
   (for games and creative tools): onboarding changes, routed to `onboarding-teardown`.
+
+## Segments
+
+A segment is not a lever of its own: any hypothesis above can be aimed at one group of users
+instead of everyone at a placement. Each audience on a placement can then be A/B tested on its
+own, in the dashboard ([A/B test on an audience](https://adapty.io/docs/add-audience-paywall-ab-test.md)).
+
+**Look for a target on every hypothesis, unprompted.** A hypothesis is aimed at a segment when
+all four hold:
+
+1. **A split shows the group behaving differently** on the metric that judges the change
+   (`diagnosis.md`, "Follow the signal down" and "From a split to a segment").
+2. **A segment field can describe it** (the `audiences` field list). A group that only an
+   onboarding answer describes cannot be targeted until the app saves that answer as a custom
+   attribute; that is `adapty-integration`'s change, so say so instead of suggesting the segment.
+3. **It is big enough to test:** about 200 purchases per variant inside the group, in under
+   about three months.
+4. **There is a reason the rest should not get it:** it would hurt them (a discount reaching new
+   users), it cannot apply to them (a feature only in newer app versions), or only this group's
+   numbers show the problem. Without such a reason, suggest the change for everyone.
+
+**Rank it with everything else, by expected gain only.** For every hypothesis, targeted or not,
+count what is at stake in purchases a month: for a placement, its missed purchases ("Which
+placement to test first"); for a group, its volume × its gap to the rest ("1,260 trials a month
+paying at 13% against 33%: about 250 purchases a month"). Order by that number. An evidence range
+narrows how much of it a test is likely to win; an untested hypothesis is uncertain, not worth
+zero, so it is not ranked below a well-tested one with a smaller stake. Being targeted earns no
+place in the order either way. Say the numbers behind the order in one line.
+
+**A targeted hypothesis does not replace the diagnosis.** When the group is a channel or a
+campaign, the reply still says it is traffic and offers the campaign side (`adapty-attribution`);
+the hypothesis is what the app can change for those users meanwhile. The Why line names the group and its
+number; the Who line names the segment and its filters in words ("a segment: subscription state
+is cancelled"), and that `audiences` creates it.
+
+Shapes that come up (the field in brackets):
+
+| Hypothesis | Aimed at |
+|---|---|
+| Win-back offer | Former subscribers (`subscription_state`, `total_revenue_usd`) |
+| Add a plan length | A main market whose plan mix differs from the rest (`store_country`) |
+| Add, move or drop a trial | A channel or campaign whose trial → paid is far lower (`channel`, `campaign`) |
+| Paywall design | A channel whose ad promises something the paywall does not say (`campaign`, `creative`) |
+| New placement or paywall | A feature that exists only from one app version on (`app_version`) |
+| Localization | Usually no segment: a flow's locales already follow the device language |
+
+A segment's evidence is the same entry in `evidence.md` as the change itself; the library has
+almost no tests split by audience, so say when a range was measured on all users.
 
 ## Localization
 

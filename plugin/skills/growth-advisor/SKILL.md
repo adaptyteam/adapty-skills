@@ -185,7 +185,8 @@ conversation that asks "what should I do".
 4. **Follow the biggest signal down** before you name a cause: split it by store, then by the
    dimension most likely to explain it (channel, plan length, country, week, offer), until one
    value carries it. `references/diagnosis.md`, "Follow the signal down". A cause found only at
-   the app level is a guess.
+   the app level is a guess. A group that carries it can be the target of a hypothesis
+   (`references/levers.md`, Segments).
 5. **Diagnose and build the hypotheses** with `references/levers.md`: where to look first, the
    rules per lever, and the shape every hypothesis fills. Order the placements by "Which placement
    to test first". Check these every time, because they
