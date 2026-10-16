@@ -106,7 +106,8 @@ a path that ends in a refusal:
 >
 > `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
 > using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
-> https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, then tell me the
+> https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, set the iOS and
+> Android font name on every face (the flow will not publish without the iOS one), then tell me the
 > family name and I'll point the theme at it.
 
 **Name what the builder cannot do yet, beside it**: for each behaviour or effect in the design the
