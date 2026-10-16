@@ -92,21 +92,46 @@ value. There is no `=`: equality is `IN` with one value (`ip_country:IN:DE`). Fo
 nested value, pass one JSON object:
 `'{"field_name":"age","operator":">","value_list":[18]}'`. Numbers go in plain (`age:>:18`).
 
-## Field names come from evidence, never from a guess
+## Field names and values come from this table, never from a guess
 
-The server rejects an unknown field name, which looks like a safety net and is not one: the
-dangerous mistake is a **valid** name with the wrong meaning, and that one is accepted silently.
-Take a field name from one of these, in order:
+The server refuses an unknown field name and accepts **almost any value** for a known one: a
+misspelled state, a lowercase country, `pt-BR`, `female` all save a segment that matches nobody,
+with no error. Only `paid_access_level` is checked (it must be a UUID). So take the name and the
+value format from here. Labels are the dashboard's.
 
-1. **Confirmed names:** `ip_country`, `install_date`, `age`, `total_revenue_usd`, and the
-   attribution fields `campaign`, `ad_group`, `creative`.
-2. **An existing segment that already filters on it.** `segments list`, then `segments get --json`
-   on the candidates, and copy `field_name`, `operator` and the value format from `filters[]`. This
-   is also how a custom attribute's name and type suffix are found.
-3. **Neither:** ask the user to build **the segment they actually need** in the dashboard — not a
-   throwaway one to copy a name from — then reuse it by id. If more segments on that attribute
-   will follow, read the field name off it (step 2) and create the rest through the CLI. Never
-   iterate guesses against the server.
+| `field_name` | Dashboard label | Values |
+|---|---|---|
+| `ip_country` | Country | ISO alpha-2, uppercase: `DE` |
+| `store_country` | Country from store account | ISO alpha-2, uppercase |
+| `locale` | Language | 2-letter ISO 639-1: `pt`, never `pt-BR` |
+| `app_version` | App version (current) | strict SemVer: `2.0.0`, never `2.0` or `02.1.0` |
+| `app_version_on_install` | App version (on install) | strict SemVer |
+| `os` | OS | a version, compared as one: `17` |
+| `platform` | Platform | `iOS`, `macOS`, `iPadOS`, `visionOS`, `Android` |
+| `device` | Device | the model as stored: `iPhone 13` |
+| `store` | (store) | `app_store`, `play_store`, `stripe`, `paddle`, `adapty` |
+| `subscription_state` | Calculated subscription state | `subscribed`, `active_trial`, `auto_renew_off`, `subscription_cancelled`, `trial_cancelled`, `never_subscribed`, `billing_issue`, `grace_period` |
+| `paid_access_level` | Paid access level | the access level's **UUID** from `access-levels list`, never its name |
+| `subscription_product_id` | Subscription product | the Adapty product UUID from `products list` |
+| `subscription_expiration_date` | Subscription expiration date | `YYYY-MM-DD` |
+| `total_revenue_usd` | Calculated total revenue USD | a number |
+| `age` | Age | a number |
+| `gender` | Gender | `f`, `m`, `o` |
+| `customer_user_id` | App User ID | usually `IS NULL` / `IS NOT NULL` |
+| `install_date`, `created_at` | Installation date, Creation date | `YYYY-MM-DD` |
+| `install_date_relative`, `created_at_relative`, `subscription_expiration_date_relative` | the same, as a relative range | `now-7d`, `now-3M`; comparisons only, no `BETWEEN` |
+| `status` | Attribution: Status | `organic`, `non_organic`, `unknown` |
+| `source` | Attribution: Source | `adjust`, `branch`, `apple_search_ads`, `appsflyer`, `custom` |
+| `channel`, `campaign`, `ad_group`, `ad_set`, `creative` | Attribution: Channel, Campaign, Ad Group, Ad Set, Creative | the raw strings the attribution sends; for Apple Search Ads they are Apple ids, so route to `ads-manager` |
+
+**Custom attributes** are `attributes__<key>@string` (`IN`, `NOT IN`, `IS NULL`, `IS NOT NULL`) or
+`attributes__<key>@float` (comparisons too). The key is the one the app sets through the SDK, and
+the suffix must match its type: a value stored with the other type counts as not set. No command
+lists an app's keys, so take the key from, in order: an existing segment's `filters[]`
+(`segments list`, then `segments get --json`), the app's code, or the user. Never guess a key.
+
+**Last seen** is in the dashboard but not in this list: the server refuses it. A segment on it is
+made in the dashboard.
 
 ## Ambiguous requests — ask, with the options
 
@@ -118,7 +143,7 @@ building, and say what each option means. Labels are the dashboard's (https://ad
 | "users in Germany" | **Country** (latest IP, refreshed weekly, moves with VPNs and travel) or **Country from store account** (iOS 13+ only) | Pricing and legal copy usually want the store country |
 | "on version 2.0", "updated to 2.0" | **App version (current)** or **App version (on install)** | "On install" silently drops everyone who upgraded |
 | any app version | Strict SemVer: `2.0.0`, never `2.0` or `02.1.0` | An invalid version matches nobody, with no error |
-| "never paid", "non-payers" | Which signal: total revenue, subscription state, paid access level | Comparisons and `NOT IN` skip profiles where the attribute is unset, and filters in one segment are ANDed — so "zero **or** unset" is two segments in two audiences, never one segment with both filters |
+| "never paid", "non-payers" | Which signal: total revenue, subscription state (`never_subscribed`), paid access level | Comparisons and `NOT IN` skip profiles where the attribute is unset, and filters in one segment are ANDed — so "zero **or** unset" is two segments in two audiences, never one segment with both filters |
 | a language | 2-letter ISO 639-1 (`pt`, not `pt-BR`) | Extended locales match nobody |
 | two conditions | Both (one segment, two filters) or either (two segments, two audiences) | One audience holds one segment, so "or" is two entries |
 
@@ -169,8 +194,8 @@ building, and say what each option means. Labels are the dashboard's (https://ad
   means your CLI is older than the API, and the entry is most likely a running A/B test. Re-resolve
   `$ADAPTY` once and retry the same list. If it still refuses, send the change to the dashboard.
   Deleting the entry makes the write go through and stops the test.
-- **Never guess a field name, a custom attribute's spelling, or a value format.** See the three
-  sources above.
+- **Never guess a field name, a custom attribute's key, or a value format.** Take them from the
+  table above; the server accepts a wrong value and the segment matches nobody.
 - **Never put a flow id in `paywall_id`**, or an entry without `content_type`.
 - **Never `segments update` with only the filter you changed** — it replaces the segment; read it
   and pass back every filter you keep. A segment can serve several placements and A/B tests, so
@@ -196,7 +221,7 @@ Quotes are verbatim from baseline runs without this skill (2026-10-12).
   user about who wins
 - An `--audiences` array with fewer entries than `placements get` returned, plus one
 - A `placements update` with no answer from the user to the A/B-test question
-- A `field_name` that is not in the confirmed list and was not read off an existing segment
+- A `field_name` or a value not in the table, or a custom attribute key nobody read off a segment, the code or the user
 - An app version with fewer than three parts
 - An entry from `placements get` removed after the CLI refused it
 - "Country" in a filter and no answer to "IP or store account?"
