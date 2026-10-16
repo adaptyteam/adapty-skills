@@ -17,9 +17,11 @@ chosen. A near-black screen with a neon accent is exactly right for an app that 
 settle how a question lays out its options, what the paywall is built around, or what the
 signature element is. Where the app already has a screen of the same kind — a quiz, a paywall —
 follow its layout too. For everything it does not have yet, invent the layout the same way as a
-look, inside the brand: four layout concepts that all use the app's colours, type and corners and
-differ in question layout, paywall composition and signature element; drop the most obvious;
-roll among the three left with the command in
+look, inside the brand: four layout concepts, each from its own rolled starting point (step 2
+of [Inventing the look](#inventing-the-look-when-the-app-has-none)), that all use the app's
+colours, type and corners, each written as the four answers in
+[Inventing the paywall's layout](#inventing-the-paywalls-layout); drop the most obvious; roll
+among the three left with the command in
 [Inventing the look](#inventing-the-look-when-the-app-has-none). Name the one you built and offer
 the other two.
 
@@ -70,16 +72,25 @@ several concepts of your own, drawn from this app's world, then a roll among the
 
 1. **Write the app's promise and audience in one line**, from the brief: who it is for and what it
    gives them ("strength at home for busy adults", "clean PDFs from phone photos").
-2. **Invent four concepts, each from something in the app's world** — an object, a material, a
-   place, a moment or a ritual from how people use it (for a plant-care app: a seed packet, a
-   watering can, a garden journal, morning light on a windowsill). For each,
-   write:
+2. **Roll a starting point for each concept before you think of any.** Left alone, every run
+   invents nearly the same four concepts for an app, so a roll among them still lands on the same
+   screen. Run this and use the four starting points it prints, one per concept, in order:
+
+   ```bash
+   python3 -c "import random; print(random.sample(['an object the user holds', 'a place where the app gets used', 'a material or texture', 'a moment in the user\'s week', 'a ritual or habit', 'a document or form', 'a tool of the trade', 'a time of day or season', 'a game or toy', 'a journey or vehicle', 'a sign, label or signal', 'a collection', 'a prize or reward', 'the problem the app removes', 'a person the user works with', 'the weather or the sky', 'a container', 'a piece of furniture'], 4))"
+   ```
+
+   **Invent four concepts, each from something in the app's world that fits its starting
+   point** — for a plant-care app, "a container" gives a seed packet, "a time of day" gives
+   morning light on a windowsill. When two starting points still lead to the same concept,
+   change the second one. For each, write:
    - **Name and source:** two or three words, and the thing it comes from.
    - **Colour:** background, surface, text, accent and selected state, as hex values.
    - **Type:** sizes, weights, case and letter spacing for heading, body and button.
    - **Question screen:** how the question and its options are laid out — not "cards" or "a
      list", but what this concept does with them.
-   - **Paywall:** how the plans, the offer and the button are composed, built from what the
+   - **Paywall:** the four answers in
+     [Inventing the paywall's layout](#inventing-the-paywalls-layout), built from what the
      archetype table in `SKILL.md` allows (you may combine archetypes).
    - **Corners, spacing, and one signature element** that no other concept has.
 3. **Make them really different.** Any two concepts differ on at least four of colour, type,
@@ -100,6 +111,84 @@ several concepts of your own, drawn from this app's world, then a roll among the
    looks you can rebuild it in. The shape, not words to copy: "I built it as a seed packet: kraft
    paper, stamped type, answers as tick boxes. I can also do it as a garden journal or as
    windowsill light."
+
+## Inventing the paywall's layout
+
+A layout concept is the structure of the whole screen, not a way to draw the benefit list. Four
+concepts that each redraw only the benefits (as a table, as task rows, as a sticker grid) are one
+screen four times: header, benefits block, plan cards, full-width button, fine print. For each
+concept, write these four answers; together they are the concept:
+
+- **What the screen is:** one thing from the app's world the whole screen pretends to be, not "a
+  paywall with X".
+- **Top half:** what fills it — a scene, one big statement, the user's own number, the plans
+  themselves, the app's core loop before and after.
+- **Where the plans live:** inline under the value, in a pinned bar, inside the scene as objects
+  in it, behind tabs, or as the top half.
+- **Where the value lives:** rows, a table, objects in the scene, one sentence, a progression.
+
+Then hold the set to three rules:
+
+1. **Any two concepts differ in both the top half and where the plans live.** Two that differ
+   only in how the benefits are drawn are the same concept.
+2. **At least one concept is a scene from the app's world**: its character, its currency or its
+   core loop, built from what the builder draws — icons on shapes, stacks, gradients, big type
+   ([What you can make without a single asset](#what-you-can-make-without-a-single-asset)). When
+   the app has a character, that concept shows it as one real illustration at a real size —
+   never an icon on a coloured circle, which reads as clip art. With no file of the character,
+   draw it and upload it (`flow-generator`'s `references/media.md`, the draw-and-upload ladder)
+   on a run nobody can answer, or ask for the file when someone can; say in the reply that it is
+   a stand-in and ask for the real art.
+3. **The obvious concept is a structure, not a name.** A concept is the obvious one when its top
+   half is a heading or statement (with or without an icon or badge above it), its value is a
+   block under that, and its plans sit inline under the value — whatever it is called and however
+   the block is drawn: a sticker sheet, a checklist, a table, a grid of tiles. Check all four
+   concepts against this before you drop one; every concept that matches it is dropped, and you
+   write a new one in its place until three are left that do not.
+
+**How to build a scene.** A scene is not a card with a grid in it; a grid in a box is the obvious
+structure in costume. Four things make it a scene, and none of them is an arrangement:
+
+- **It owns its part of the screen,** edge to edge — no card border around it.
+- **One subject is large** — the character or the core object, clearly the biggest thing.
+- **Features are things in that world,** not rows: a watering can, a seed packet, a second plant.
+- **The plans belong to the scene** — standing on it, held by it, hanging from it, printed on it —
+  not a separate section after it.
+
+Everything else is the concept's to choose, and **the first choice is the viewpoint**: the
+default one — a sky over the subject standing bottom-left, objects floating around it, the plans
+on a ground band below — is the obvious scene, and every scene drifts there. Pick a different
+view for each scene concept, for example:
+
+- **Close-up:** the subject's face or one object fills the screen; the plans sit in the frame.
+- **Inside:** the room the subject lives in, seen from within — a stall, a desk, a shelf — with
+  features on its walls or shelves.
+- **From above:** a map, a paddock, a board laid flat, with the plans as two places on it.
+- **A moment:** the core loop caught mid-action — a plant being watered and a new leaf opening — with
+  the plans as what comes next.
+
+**Different is not enough; it has to look good.** Whatever the concept, the built screen meets
+all of these, and the back pass checks them on the render:
+
+- **One focal element, clearly the largest thing on the screen** — the scene, the character, the
+  plans, the statement. Everything else is visibly smaller.
+- **The app's card treatment goes on what the user taps.** Outlines, hard shadows and filled
+  cards mark plan cards and buttons; other content sits on the background or in one container.
+  No box inside a box, no outlined tags inside an outlined card.
+- **Say each thing once, at a readable size.** A feature is named in one place, in one short
+  line; body text no smaller than the body preset, captions only for legal and billing lines.
+- **Every part of the screen is designed.** Either fill it on purpose — a full-bleed scene, a
+  colour block, type that runs edge to edge — or frame the content with space that is clearly
+  meant. A leftover band between two blocks, or content cut off under a pinned bar, is a defect.
+
+The shape, not words to copy — four concepts for a plant-care app:
+
+| Concept | What the screen is | Top half | Plans | Value |
+| :-- | :-- | :-- | :-- | :-- |
+| Seed packet | the back of a seed packet | the packet front, big plant name | the "packet sizes" printed on the back | the growing instructions |
+| Greenhouse shelf | a shelf that fills up | pots appearing on the shelf, one per Plus feature | a pinned bar under the shelf | the pots themselves |
+| Watering calendar | this month's schedule | a month grid with a drop on each reminder day | two tabs under the grid | one sentence |
+| Plans first | the choice itself | two large plan cards | the top half | one line under the button |
 
 ## One design system for the whole flow
 

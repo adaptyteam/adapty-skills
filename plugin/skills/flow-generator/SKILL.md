@@ -72,8 +72,11 @@ build has assets nobody has a file for; and the **placement ask** in phase 6, be
 irreversible developer ID is spent. Fill their slots and do not pad them.
 
 The missing-assets block goes out in phase 2, batched with the product questions, because a path
-they hand over turns a placeholder into a finished screen. **The upload routes are not symmetric** —
-offering both on every row recommends a path that ends in a refusal:
+they hand over turns a placeholder into a finished screen. **A drawing of yours that is already
+uploaded is not missing:** it goes only in the drawings line, never as a row of the table, and
+when nothing but drawings and fonts is left, drop the header, the table and the routes and print
+only those lines. **The upload routes are not symmetric** — offering both on every row recommends
+a path that ends in a refusal:
 
 > **`<n>` assets missing — the screen ships with placeholders until these land.**
 >
@@ -619,6 +622,12 @@ its height from the **asset's** aspect, so the layout moves if the file changes 
 the size is dead; `height: fixed` holds the box and the asset absorbs the mismatch — `cover` crops,
 `fit` letterboxes and leaves a dead band. `objectFit` is `fit` or `cover`, no CSS set. Re-render
 after each change ([media.md → Geometry](references/media.md#geometry-what-changes-when-the-asset-lands)).
+
+**A screen with price variables is judged and handed over at real price length.** Each unbound
+price renders as its full `{{…prod_price}}` token, which wraps and pushes text under a pinned
+button. Render a throwaway copy with a plausible price in place of each token, fix the layout
+against that, and hand that render over, saying the prices in it are samples; the config keeps
+the variables ([preview.md](references/preview.md#what-a-render-cannot-show-you)).
 
 **A reference image raises the bar from "matches the request" to "matches the reference" — run the
 fidelity pass before anything is written, every time one was given.** "Nothing jumped out" is not a

@@ -100,7 +100,17 @@ Four passes, and none of them is optional:
 4. **Back, over your own render.** The moment the screen draws, run the full process above
    against it, and check the render against your look line and the design system: a value outside the system, a
    screen that drifts from another of its type, or a look nobody chose (`references/look.md`) is
-   a *High* row. **A finding on your own draft is a defect, not a
+   a *High* row. **Then answer the four layout questions about the screenshot, not about the
+   concept** (`references/look.md` → Inventing the paywall's layout): what fills the top half,
+   where the plans are, where the value is. If the render has the obvious structure — a heading
+   on top, a block of value under it, the plans under that — the build did not carry out the
+   concept, whatever the concept was called: a *Fix first* row, fixed by rebuilding the screen
+   to the concept's answers, never by describing the render differently. A render that breaks
+   any rule in `references/look.md` → "Different is not enough" (no focal element, boxes inside
+   boxes, a clip-art character) is a *High* row. **Anything the pinned bar slices — a row, a
+   line of text, an image cut at its edge — and any leftover band on the first screen is a *Fix
+   first* row**, fixed by shortening or moving the content, never by calling it something the
+   user scrolls to. **A finding on your own draft is a defect, not a
    recommendation** — fix every *Fix first* and *High* row and re-render. Never hand over a screen accompanied by a table of
    the patterns you chose to skip; that is unfinished work wearing a report. What survives into
    the write-up is only what you *cannot* fix: rows blocked on a real number, a real price or an
@@ -127,7 +137,7 @@ observable, and they usually leave one or two candidates standing.
 | Archetype | Centerpiece | Pick it when | Rules it out |
 | :-- | :-- | :-- | :-- |
 | **Comparison-led** | Free-vs-paid table above the plans | The app has a real free tier **and you know its actual limits**; analytical categories (productivity, finance, AI tools) | No free tier, or you would have to guess the limits |
-| **Hero / visual-led** | A large image or looping video of **the real result** | You have a readable path to that asset, and the app's value is visible output (beauty, photo/video, fitness) | Nobody has the file. A file you *were* given is no longer a blocker — `flows media upload` places it (SVG and video excepted) — but **a graphic you drew yourself does not satisfy this prerequisite**: the archetype sells the app's actual output, and an illustration standing in for it is a fabricated result, the same class as a fabricated rating |
+| **Hero / visual-led** | A large image or looping video of **the real result** | You have a readable path to that asset, and the app's value is visible output (beauty, photo/video, fitness) | Nobody has the file. A file you *were* given is no longer a blocker — `flows media upload` places it (SVG and video excepted) — but **a graphic you drew yourself does not satisfy this prerequisite**: the archetype sells the app's actual output, and an illustration standing in for it is a fabricated result, the same class as a fabricated rating. A scene of the app's own character or core loop is not this archetype: it shows the app's world, not a result, so it needs no file ([look.md → Inventing the paywall's layout](references/look.md#inventing-the-paywalls-layout)) |
 | **Trial-timeline** | Day 0 → reminder → charge, as a connected timeline | The product **really carries an intro offer or trial** you can name | No verified offer on the product. A timeline for a trial that may not exist is a fabricated offer |
 | **Segmented tabs** | Period switcher (Yearly / Monthly) over the price — built as the **tabs** element, one plan per panel, never plan cards styled as segments | Plans differ **only by period** within one tier | Tiers differ by feature set — a switcher hides the difference that matters |
 | **Editorial benefit list** | Outcome-led benefit rows with titles and descriptions | Value is explanatory rather than comparative; no free tier to compare against; emotion-driven categories | The decision really is free-vs-paid |
@@ -279,6 +289,7 @@ the patterns that depend on them must name that in **Needs from you**:
 | Social proof, **several testimonials on one screen** | Yes — the `carousel` element, which swipes and draws its own indicator dots | The quotes. Never a static card with hand-built dots: it ships one frozen slide and dots that do nothing, and it screenshots identically to the real thing |
 | Results/proof with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, which is a copy-tier change |
 | Countdown timer | Yes | A real discount to count down to; no offer means no timer |
+| Trial or intro-offer wording anywhere — a plan card, a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
 | Hero image / video, background image | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | Goal-personalized headline | Yes, if a variable producer exists earlier in the flow | The onboarding step that captures the goal, if there isn't one |
 
