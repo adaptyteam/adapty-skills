@@ -82,6 +82,16 @@ three months later, against about 1 in 10 new users who start with one.
   the main paywall and beat it in 45% of apps. The typical discount there is 38%.
 - 80% of apps use two or more paywalls; 44% use five or more.
 
+## The close button
+
+- 11% of apps have a paywall with no close button, but these are only 2% of paywall views, and
+  57% of their views are in onboarding. An app that uses one tends to use it everywhere: in the
+  median such app, 94% of its paywall views have no close button.
+- Within the same app, a paywall with no close button starts 48% more trials (4.7% of views
+  against 3.2%) and gets 33% fewer direct purchases (0.50% against 0.75%). Counting both, it
+  does better in 57% of apps, so there is no general winner.
+- 22% of apps delay the close button, usually by 3-5 seconds; 2% of delays run past 10 seconds.
+
 ## Testing
 
 Share of A/B tests that increased each metric:
@@ -111,4 +121,5 @@ converts.
 - 54% use no image; 27% show social proof; 48% use a feature checklist.
 - 62% show the full annual price, 24% a monthly breakdown, 4% a weekly one. 41% use a "Save X%"
   badge, 16% a crossed-out price.
+- The typical headline is 5 words; 79% use 6 or fewer.
 - 2% of headlines use what the app knows about the user.
