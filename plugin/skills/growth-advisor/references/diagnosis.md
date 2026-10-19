@@ -9,12 +9,14 @@ long and run it once more, never in a loop.
 ## Before the first read
 
 ```bash
-$ADAPTY apps list --json
+$ADAPTY apps list --page-size 100 --json
 $ADAPTY analytics catalog --app <APP_ID> --json
 $ADAPTY analytics values --app <APP_ID> --dimension duration --json
 $ADAPTY analytics values --app <APP_ID> --dimension country --json
 ```
 
+- `apps list` is paged: when `meta.pagination.pages` is above 1, read every page before saying
+  an app is not in the account. Never run `apps get`: it prints the app's secret key.
 - `analytics catalog` lists the six operations (`chart`, `conversion`, `funnel`, `retention`,
   `ltv`, `cohort`) with their options, every chart id and conversion id, and the groupings and
   filters each one accepts. Read it once per session. Take groupings and filter keys from it: they
@@ -71,6 +73,8 @@ The conversion ids, as the dashboard titles them:
 ## The audit reads
 
 For an audit, read the last six full months at `--granularity month`. Set `FROM` and `TO` once.
+Run every read below, 11 and 12 included: retention and LTV are what tell a plan that sells from a
+plan that pays.
 
 ```bash
 # 1. New vs renewal revenue
@@ -132,13 +136,14 @@ $ADAPTY analytics chart --app <APP_ID> --chart revenue --date-from $FROM --date-
 ```
 
 The main market is the country with the most revenue; the top countries are the three to five
-that hold most of it. Read chart 4 and read 9 filtered to each (`--filter country=<value>`).
-Judge every country against the main market, not against the US: a gap to the app's own main
-market is a finding, a gap to a US median is not. When you compare with the market, use the
-median for the main market's region (`market.md` has US, Europe, MEA and LATAM rows where the
-report gives them) and say when it has none. Name the main market in the reply when it is not
-the US. Add `--filter store=<value>` to any of these when the app sells on both stores and the
-question is about one of them.
+that hold most of it. Read chart 2, chart 4 and read 9 filtered to each (`--filter
+country=<value>`): which plans sell there, how its conversion moved over the window, and where it
+loses users. Read each country against its own past, not against the US or another country
+("Before you state a conclusion"). The main market decides which country's stakes come first and
+which region's median applies (`market.md` has US, Europe, MEA and LATAM rows where the report
+gives them; say when it has none). Name the main market in the reply when it is not the US. Add
+`--filter store=<value>` to any of these when the app sells on both stores and the question is
+about one of them.
 
 What to compute from them, and how much to trust each:
 
@@ -220,6 +225,36 @@ Name the kinds the app has never tried, with how often each wins (`market.md`, T
 app that has only ever changed the look has its likelier wins in kinds it has not touched.
 Knowing what was tried is enough; you do not need the winner for this.
 
+## Before you state a conclusion
+
+Most wrong answers come from a true number compared with the wrong thing. Check each claim
+against these before it goes in a reply:
+
+- **One window and one baseline for the whole reply.** When the user names a period ("the last
+  couple of months"), that is the window. "Held", "the same as before" and "fell" each compare the
+  same two periods as every other number in the reply, at the same granularity. Never disprove
+  the user's premise with a different period: if they say traffic held since summer, check
+  summer, not January.
+- **Date a change from the data, not from your window.** When you find a break, read the series
+  back to a stable stretch: 12 months at month grain, then week grain around each step. A drop
+  often comes in steps; name every step with its date. The start of the window you happened to
+  read is not when anything started.
+- **Split by channel before you blame the product.** A rate that falls because a channel that
+  converted well stopped sending traffic is a change of mix, not a broken paywall or release.
+  Read the rate by `attribution_channel` and check whether it fell inside a channel whose traffic
+  held. Say which part of the fall is mix and which part happened inside a channel.
+- **"Everywhere" needs every group checked.** Before saying a fall is in all stores, countries or
+  channels, read each large one; name the exceptions.
+- **Countries are read against their own past.** Prices and buying power differ by market, so
+  a country's conversion or revenue per install is not ranked against the US or against another
+  country. What a country's numbers mean: its trend over the window, which plans sell there, and
+  where its funnel loses users. Call a market healthy only from its own trend.
+- **A market median is compared on its own slice.** The State of Paywalls numbers are App Store
+  only and per region: filter the app's read to `store=app_store` and to that region's countries
+  before putting the two side by side.
+- **A retention or LTV period is the plan's billing period** (point 6 of a weekly plan is six
+  weeks), and a cohort younger than a plan's period cannot show its renewals.
+
 ## Follow the signal down
 
 The audit reads find a symptom. Before you name a cause, split the biggest one until the split
@@ -300,8 +335,9 @@ to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
 
 ## "Why did revenue drop?"
 
-1. Chart 1 (new vs renewal) over the drop and the months before it, at `month`, or `week` for a
-   drop under two months.
+1. Chart 1 (new vs renewal) over the period the user means and the months before it, at
+   `month`, or `week` for a drop under two months. The bold answer names the side that carries
+   most of the fall; when it is renewals, say plainly that the paywall is not the main cause.
 2. **Renewals fell:** chart 6 by reason. Cancelled by the user points to the cohort that came up
    for renewal (a past promo, a change to the plans, a weak acquisition month a year earlier for
    annual). Billing issues point to grace period and payment retries: `billing-issue-paid` and

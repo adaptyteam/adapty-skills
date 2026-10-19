@@ -101,8 +101,8 @@ say so), read its view → paid and its views (`diagnosis.md`, read 13):
    a month against the market; the settings paywall about 30."
 
 The targets are rough: the report covers the App Store only and counts purchases within 30 days of
-a view. Filter the reads to `store=app_store` when you compare, and call the target "the market
-median", never the user's goal.
+a view. Filter the reads to `store=app_store` and to the median's region (a US median against the
+app's US numbers) when you compare, and call the target "the market median", never the user's goal.
 
 ## Plan structure
 
