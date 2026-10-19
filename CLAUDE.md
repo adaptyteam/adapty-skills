@@ -39,8 +39,8 @@ relative path (name it in backticks), and never reach into another skill's files
 - **Never create anything at `adaptyteam/adapty-sdk-integration-skill`**: it kills GitHub's
   redirect from the old repo name. `raw.githubusercontent.com` does not follow renames.
 - **No telemetry.** The only outbound data besides the CLI's own calls is the docs
-  `?ref=skill-<token>` marker. Don't add a call home without a privacy policy, an `adapty.io`
-  host and a README disclosure in the same change.
+  `?ref=skill-<token>` marker and the `adapty feedback` note. Don't add a call home without a
+  privacy policy, an `adapty.io` host and a README disclosure in the same change.
 
 ## Layout
 
