@@ -83,8 +83,9 @@ $ADAPTY analytics chart --app <APP_ID> --chart installs --date-from $FROM --date
 $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FROM --date-to $TO --group-by offer_category --json
 # 5. New trials
 $ADAPTY analytics chart --app <APP_ID> --chart trials_new --date-from $FROM --date-to $TO --json
-# 6. Endings, by reason
+# 6. Endings, by reason, then the same per store when the app sells on both
 $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_expired --date-from $FROM --date-to $TO --group-by cancellation_reason --json
+$ADAPTY analytics chart --app <APP_ID> --chart subscriptions_expired --date-from $FROM --date-to $TO --group-by cancellation_reason --filter store=<VALUE> --json
 # 7. Refunds
 $ADAPTY analytics chart --app <APP_ID> --chart refund_money --date-from $FROM --date-to $TO --json
 ```
@@ -124,9 +125,20 @@ point the cohort has not reached is `null`: compare lengths only at a point ever
 reached. `analytics cohort` gives revenue per install cohort with a prediction; read it when the
 question is whether a recent month's users are worth less.
 
-Then the top countries: chart 1 with `--filter country=<code>` for the largest three to five
-countries by installs, and chart 4 with the same filter. Add `--filter store=<value>` to any of
-these when the app sells on both stores and the question is about one of them.
+Then the main market and the top countries:
+
+```bash
+$ADAPTY analytics chart --app <APP_ID> --chart revenue --date-from $FROM --date-to $TO --group-by country --json
+```
+
+The main market is the country with the most revenue; the top countries are the three to five
+that hold most of it. Read chart 4 and read 9 filtered to each (`--filter country=<value>`).
+Judge every country against the main market, not against the US: a gap to the app's own main
+market is a finding, a gap to a US median is not. When you compare with the market, use the
+median for the main market's region (`market.md` has US, Europe, MEA and LATAM rows where the
+report gives them) and say when it has none. Name the main market in the reply when it is not
+the US. Add `--filter store=<value>` to any of these when the app sells on both stores and the
+question is about one of them.
 
 What to compute from them, and how much to trust each:
 
@@ -192,6 +204,21 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 
 Say it as facts with the dates, and say what the data cannot show: the winner of a test whose
 variants both stopped, and ideas they discussed but never ran.
+
+Then sort what you found by kind of change, from `paywalls list` (which products each paywall
+sells):
+
+| Kind | How it shows |
+|---|---|
+| Visual or copy | Two paywalls that sell the same products |
+| Plan set | Two paywalls that sell different products, or a product added or dropped |
+| Trial or offer | A product with a trial added or dropped; an offer that ran |
+| Localization | Not visible in the numbers; read the paywall or ask |
+| Placement or audience | A placement or audience that appeared or went |
+
+Name the kinds the app has never tried, with how often each wins (`market.md`, Testing): an
+app that has only ever changed the look has its likelier wins in kinds it has not touched.
+Knowing what was tried is enough; you do not need the winner for this.
 
 ## Follow the signal down
 

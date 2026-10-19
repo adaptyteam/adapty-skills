@@ -183,8 +183,9 @@ conversation that asks "what should I do".
    contradicts (a label your numbers disprove, a price typed as text) you report yourself. A
    design hypothesis (layout, copy, what the screen shows) comes only from `paywall-teardown` or
    `onboarding-teardown` run on the render (`references/levers.md`, Paywall design).
-   **Before judging anything, establish how the app earns:** its main product by revenue (often
-   weekly; never assume annual), offers that change the first payment (read new purchases by
+   **Before judging anything, establish how the app earns:** its main market (the country with
+   the most revenue; judge other countries against it, not against the US), its main product by
+   revenue (often weekly; never assume annual), offers that change the first payment (read new purchases by
    offer category: a paid first period means buyers pay less than the plan's price at first, so
    name it and judge the plan from what they actually pay), products split by market (compare a product only with others sold in the same
    market), and whether the paywalls are Flow Builder flows. When the paywalls are drawn in the
@@ -193,8 +194,8 @@ conversation that asks "what should I do".
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it from the data (`references/diagnosis.md`, "What the app already
    tried"): paywalls or flows that ran side by side on one placement (a past A/B test; the one still
-   live is the one they kept), paywalls, flows and products no longer in use, past offers, and the
-   setup that is live now. Put it in the reply as one short paragraph of facts ("From your data: two
+   live is the one they kept), paywalls, flows and products no longer in use, past offers, the
+   setup that is live now, and the kinds of change it has never tried. Put it in the reply as one short paragraph of facts ("From your data: two
    onboarding paywalls ran side by side in May, and you kept Main."), so the user only types when
    it is wrong. When the user does name past tests, say in one line what each rules out
    (`references/levers.md`, "After a test") before suggesting the next.
@@ -330,10 +331,11 @@ On a yes, run it, read the placement back, and say what changed in one line.
 
 For a change only the user can make, give: what changes (a plan length, a trial length), where
 to change it (App Store Connect, Google Play Console, or the Adapty dashboard), and how to test it
-rather than switch it. A plan or trial change is a new store product, a paywall that sells it,
-and an A/B test of that paywall against the current one in the same placement. A trial belongs to
-the store product, not the paywall, so a test that adds or removes one starts with the store
-step, and its "How" line says so:
+rather than switch it. A plan change is a new store product, a paywall that sells it, and an A/B
+test of that paywall against the current one in the same placement. A trial or discount is set up
+in the store first, and each store does it differently: on the App Store a trial needs a second
+product, while on Google Play it is an offer on the existing plan (`references/levers.md`, "By
+store"). The "How" line starts with that store step:
 [A/B tests](https://adapty.io/docs/ab-tests.md). The new product's price is the user's to set.
 
 ## Framing rules

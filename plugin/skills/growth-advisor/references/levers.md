@@ -148,7 +148,8 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
   subscribers than on new users (`market.md`, Discounts), which is why the offer must not reach
   new users. It needs a segment, created through `audiences`: subscription state "subscription
   cancelled" is the direct signal, and total revenue above 0 keeps out anyone who never paid. It
-  also needs a real discounted product in the store. `evidence.md` has no win-back test: Expected is untested.
+  also needs the discount in the store, which each store sets up differently ("By store").
+  `evidence.md` has no win-back test: Expected is untested.
 - **Escalating discounts** over days after a close are a growth-team estimate with no A/B
   evidence here: label them untested.
 - **A separate in-app paywall:** simpler than the onboarding one, fewer plans, shown at value
@@ -169,7 +170,9 @@ Before ranking, drop any hypothesis that:
 
 A hypothesis that is sensible but standard (what most paywalls already do, `market.md`, How
 paywalls look) stays only when the app does not do it yet, labelled as the standard move, and an
-untried bet with a similar stake ranks above it.
+untried bet with a similar stake ranks above it. At a similar stake, a kind of change the app has
+never tried also ranks above one more test of a kind it keeps running (`diagnosis.md`, What the
+app already tried).
 
 ## When nothing stands out
 
@@ -228,6 +231,27 @@ Shapes that come up (the field in brackets):
 
 A segment's evidence is the same entry in `evidence.md` as the change itself; the library has
 almost no tests split by audience, so say when a range was measured on all users.
+
+## By store
+
+One placement serves both stores, and the stores set up trials and discounts differently. A
+hypothesis says which store it is for and how it is built there. Sources: [Offers in App
+Store](https://adapty.io/docs/app-store-offers.md), [Offers in Google
+Play](https://adapty.io/docs/google-play-offers.md), [Add offers to
+Adapty](https://adapty.io/docs/create-offer.md).
+
+| Change | App Store | Google Play |
+|---|---|---|
+| Add, change or remove a trial | An introductory offer on the product. It reaches every eligible buyer of that product, so a test needs a second product with or without it | An offer on the product's base plan (at least 3 days). Its offer ID goes on the product in Adapty; the test is a paywall that sells the product with the offer against one without |
+| A discount for former subscribers | A win-back offer on the existing product, added to it in Adapty and picked on the paywall. Only churned users are eligible; no new product | An offer on the base plan with "Developer determined" eligibility, shown only to the win-back audience |
+| A discount for anyone (an offer on close) | A promotional offer on the existing product, or a second product | An offer on the base plan |
+
+- **A paywall's products and offers lock** once it has sales or is over 30 days old: a test
+  needs a copy of the paywall. A flow can change them at any time.
+- **Billing failures differ by store.** When one store has a much larger share of billing-issue
+  endings (read 6 in `diagnosis.md`), that is a fix in that store's settings, not a paywall test:
+  a longer [grace period](https://adapty.io/docs/grace-period.md) (App Store 3, 16 or 28 days, 3
+  or 6 for weekly plans; Google Play set per base plan), given as dashboard steps.
 
 ## Localization
 
