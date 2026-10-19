@@ -140,6 +140,12 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
 - **Follow-up offer:** a discounted second screen when the onboarding paywall closes. Well
   evidenced after the onboarding paywall, and it loses after the main in-app paywall
   (`evidence.md`, across the flow).
+- **Before any win-back plan, say who leaves, with numbers** (the "Winning back users who left"
+  reads in `diagnosis.md`): how many endings are users cancelling and how many are billing
+  issues, and how many trials end without paying. Billing issues come back through grace period
+  and payment retries, with no discount: name that share first. When two reads disagree on billing
+  issues (endings by reason against the billing-issue chart), give both numbers and say they
+  disagree; do not pick one. Then aim the offer at the group worth the most.
 - **Win-back offer:** former subscribers (paid before, no active subscription now), or users whose
   trial ended without paying (subscription state "trial cancelled"), get their own
   audience on an in-app placement with a discounted paywall; everyone else keeps the current one.
@@ -235,7 +241,8 @@ almost no tests split by audience, so say when a range was measured on all users
 ## By store
 
 One placement serves both stores, and the stores set up trials and discounts differently. A
-hypothesis says which store it is for and how it is built there. Sources: [Offers in App
+hypothesis says which store it is for and how it is built there, and gives steps only for the
+stores the app sells on (revenue by `store`, or `products list`). Sources: [Offers in App
 Store](https://adapty.io/docs/app-store-offers.md), [Offers in Google
 Play](https://adapty.io/docs/google-play-offers.md), [Add offers to
 Adapty](https://adapty.io/docs/create-offer.md).

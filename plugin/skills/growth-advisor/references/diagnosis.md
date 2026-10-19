@@ -207,6 +207,7 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 | A product with purchases earlier and none lately | A plan or trial they dropped. |
 | An offer with purchases in one stretch only | A past promo or intro offer, and when it ran. |
 | Audiences and segments on placements now | Targeting they already do. |
+| A placement with segment audiences and no All users audience | Either a hidden A/B test (the CLI leaves those out) or users outside the segments see nothing there. The CLI cannot tell which: name it as a finding and ask them to check the placement's page. Never call it "probably an A/B test". |
 
 Say it as facts with the dates, and say what the data cannot show: the winner of a test whose
 variants both stopped, and ideas they discussed but never ran.
@@ -260,7 +261,10 @@ against these before it goes in a reply:
   channels, read each large one; name the exceptions.
 - **"All" sums every group.** A share for "all non-English countries" or "all of Android" adds up
   every group in the answer, not the top ones you read; if you summed the top seven, say "the top
-  seven".
+  seven". A list of what sells now ("the three paywalls that sell") is every group with a sale in
+  the last month, one sale included.
+- **`subscriptions_new` includes subscriptions that started after a trial.** "Bought without a
+  trial" needs the `offer_category` split.
 - **"Most" and "biggest" need the comparison.** "Most money is lost on renewals" compares what
   is lost at renewal with what is lost at the paywall, in the same window, and you compute both.
   A rate with nothing to compare it to (`market.md` has no renewal median) is stated as what it
@@ -359,8 +363,13 @@ to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
 ## "Why did revenue drop?"
 
 1. Chart 1 (new vs renewal) over the period the user means and the months before it, at
-   `month`, or `week` for a drop under two months. The bold answer names the side that carries
-   most of the fall; when it is renewals, say plainly that the paywall is not the main cause.
+   `month`, or `week` for a drop under two months. Compute how many dollars of the fall each side
+   carries. The bold answer names the side that carries most of it, whatever the user suspected
+   (the paywall, traffic), and the first fact after it is that split, with dollars: "of the $2.9k
+   drop since May, $2.2k is renewals from long-time subscribers" (the shape, not the numbers).
+   When it is renewals, say plainly that the paywall is not the main cause. Installs, countries
+   and the paywall come after, and a side that is a small share of revenue (new purchases at 3%)
+   cannot be the cause of a larger fall: say so in one sentence.
 2. **Renewals fell:** chart 6 by reason. Cancelled by the user points to the cohort that came up
    for renewal (a past promo, a change to the plans, a weak acquisition month a year earlier for
    annual). Billing issues point to grace period and payment retries: `billing-issue-paid` and
@@ -386,6 +395,7 @@ the one trap to avoid. Read only what the idea depends on (numbers are the audit
 | A trial | charts 4 and 5, read 9 (trial pairs), read 11 with and without `--use-trial` |
 | A country | charts 1 and 4 filtered to it, chart 3 |
 | A new placement or offer | chart 8 by placement; the setup reads; ask where users hit limits in the app |
+| Winning back users who left | chart 6 by reason, per store; `subscriptions_renewal_cancelled`; `trial-paid`; `billing-issue-paid` and `grace-period-paid` |
 | A paywall or flow's design | read 8 by paywall or flow, `view-paid` for that paywall, then the screen itself (`levers.md`, Paywall design) |
 
 ## "My test ended, what next?"

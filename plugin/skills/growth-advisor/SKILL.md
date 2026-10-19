@@ -105,6 +105,10 @@ multi-word `$ADAPTY`. Pass the command and every flag as separate words: `"place
 in quotes is one word, and the CLI answers that no such command exists. When you show a command
 to the user, write a literal `adapty` in it.
 
+Saved responses and helper scripts go in a temporary directory outside the user's project
+(`mktemp -d`), never in it; delete it before your last reply. When it holds a placement's rollback
+file, keep it and say where it is.
+
 Everything this skill runs is a read, with three writes, each on the user's yes: building a flow
 through `flow-generator`, creating a segment through `audiences`, and `placements create` or
 `placements update` (see "Changing a live placement").
@@ -333,7 +337,7 @@ On a yes, run it, read the placement back, and say what changed in one line.
 
 | Question | Where |
 |---|---|
-| Why did revenue, renewals or trials drop? | `diagnosis.md`, "Why did revenue drop?"; before any hypothesis, audit step 3 |
+| Why did revenue, renewals or trials drop? Also "less money, is it the paywall / traffic?" | `diagnosis.md`, "Why did revenue drop?"; before any hypothesis, audit step 3 |
 | Should I do X? (one idea) | `diagnosis.md`, "Should I change X?", plus `levers.md` |
 | My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test" |
 | I don't know what to test | Run the audit |
