@@ -265,20 +265,27 @@ Four facts about the config commands that are not guessable:
   milliseconds (`1787210847609`), and it marks the last change to the **content**. That value
   is the optimistic lock. `flows get`, `flows list` and `flows create` carry an **ISO string**
   (`2026-09-24T12:14:40Z`), and it marks the last change to the flow **row** (name, status). You
-  already hold that one after a publish poll, and it is the wrong one:
+  already hold that one after a publish poll, and it is the wrong one.
+- **The token is the one your draft is based on, so it lives in `flow.working.json`.** Phase 2's
+  `config get` writes it there, and every successful `config update --json` you move into that file replaces it
+  with the new one (the echoed value equals the next `get`'s). Read it from that file, never from a
+  fresh `config get` just before the write: a fresh read is whoever saved last, which makes the
+  lock pass over the very edit it exists to catch.
 
   ```bash
-  UA="$($ADAPTY flows config get <FLOW_ID> --app <APP_UUID> --json | jq -r .updated_at)"   # right
-  $ADAPTY flows config update <FLOW_ID> --app <APP_UUID> --config-file <f> --expected-updated-at "$UA"
+  UA="$(jq -r .updated_at flow.working.json)"   # right: the version your draft was patched from
+  $ADAPTY flows config update <FLOW_ID> --app <APP_UUID> --config-file draft.json \
+    --expected-updated-at "$UA" --json > write.json && mv write.json flow.working.json
   ```
 
+  The `mv` is only on success: a failed write prints its error JSON to stdout, and redirecting
+  straight into `flow.working.json` would replace your token with it.
+
   A raw ISO string fails before anything is sent (`Expected an integer`, exit 2). Never convert it
-  to milliseconds to make it fit: the flag accepts the number, and the write comes back `409`
-  with *"This flow configuration was already updated by <name>"* — naming a person who did not
-  touch it. So before believing a 409, check where your token came from: if it was not
-  `config get`, the conflict is yours, and re-running `config get` and retrying with its value
-  clears it. A 409 on a token that did come from `config get` is a real edit — re-fetch and apply
-  your change to the new config. Never drop the flag to get past either.
+  to milliseconds to make it fit: the write comes back `409` with *"This flow configuration was
+  already updated by <name>"*, naming a person who did not touch it. A `409` on a token from
+  `flow.working.json` is a real edit: phase 5 says what to do. Never drop the flag, and never
+  re-fetch only the token, to get past it.
 - **`config update` has no dry run.** `validate` and `preview` are the pre-flight checks, and
   both run *before* a write — see phase 5 on why that ordering matters.
 ## The six phases
@@ -833,13 +840,14 @@ case, and the preview pair, the backup and the lock exist precisely so it is saf
 fresh `flows create` only when the work is exploratory — a redesign the user wants next to the
 original — never as the default answer to an edit.
 
-**Restoring from the backup — verified end to end.** Re-read `updated_at` first, because your own
-write has just invalidated the one you were holding:
+**Restoring from the backup — verified end to end.** Lock it on the version your last write left
+in `flow.working.json`, so a restore cannot erase an edit someone made after yours:
 
 ```bash
-UA="$($ADAPTY flows config get --app $APP $FLOW --json | jq -r .updated_at)"
 jq '.config' flow.backup.json > restore.json
-$ADAPTY flows config update $FLOW --app $APP --config-file restore.json --expected-updated-at "$UA"
+$ADAPTY flows config update $FLOW --app $APP --config-file restore.json \
+  --expected-updated-at "$(jq -r .updated_at flow.working.json)" --json > write.json \
+  && mv write.json flow.working.json
 ```
 
 Verified byte-identical on a real flow — so the recovery is real, but only if phase 2 actually
@@ -848,16 +856,16 @@ took the backup, which is why that step is not optional.
 Only then:
 
 ```bash
-# one call: re-read the lock and write under it, because your own last write invalidated it
-UA="$($ADAPTY flows config get $FLOW --app $APP --json | jq -r .updated_at)" \
-  && $ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
-       --expected-updated-at "$UA" --json > flow.working.json
+# the lock is the version draft.json was patched from; the mv stores the next one on success
+$ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
+  --expected-updated-at "$(jq -r .updated_at flow.working.json)" --json > write.json \
+  && mv write.json flow.working.json
 ```
 
 Validate and preview both run on a local file, which is why the write comes last: one write when
 the thing is right, instead of one per iteration. If you have already written and then found a
-problem, that is fine — re-read `updated_at` from `config get` before the next write, because
-yours is now stale.
+problem, that is fine: the `mv` already put your write's `updated_at` in `flow.working.json`,
+so the next write locks on it with no extra read.
 
 **That `--json` redirect *is* the read-back — no extra call.** The write returns the **same
 envelope as `get`**, so your working file is already in sync for the next round, and you can diff
@@ -865,8 +873,10 @@ it against what you sent. A faithful round trip is the norm, so any difference i
 a top-level key that vanished, a `status` you should not have emitted.
 
 A write that changes nothing does not bump `updated_at` (measured once), so re-running the same
-content is not a fresh lock token. **On a 409** someone edited the flow since you fetched it and
-nothing was written: re-`get`, re-apply your change **to their config**, write again. Never force
+content is not a fresh lock token. **On a 409** (*"already updated by <name>. Reload before
+saving…"*, exit 1) someone edited the flow since you fetched it and nothing was written: re-`get`
+into `flow.working.json`, re-apply your change **to their config**, tell the user someone else
+saved in between, and write again. Never force
 past it and never re-send your local copy — that is the content that would erase their work. If
 their version differs in ways you did not author, ask rather than restore.
 
@@ -1048,9 +1058,11 @@ only the UUID routes. `placements create` prints it as `id`. The middle segment 
 ## Safety
 
 **Pass `--expected-updated-at` on every write except the first.** A stale value fails instead of
-clobbering, so this is a real guarantee rather than a warning. Read it from `config get`
-immediately before you write — never from `flows get`, whose `updated_at` is a different field. Omitting it is last-write-wins and will silently overwrite an edit
-someone else made in between.
+clobbering, so this is a real guarantee rather than a warning. Take it from `flow.working.json`,
+the version your draft was patched from — never from a `config get` run just before the write,
+which hands you the other person's token, and never from `flows get`, whose `updated_at` is a
+different field. Omitting it is last-write-wins and will silently overwrite an edit someone else
+made in between.
 
 **The lock is not a merge.** It guards the *timing* of a write and says nothing about its
 *content*: a document that was never based on the live config — regenerated, or patched from a

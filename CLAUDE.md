@@ -199,6 +199,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Trust order: `flows config validate`, then a real export, then the schema.** A shape no export shows needs a device check.
 - **A preview never retires a device report;** a claim about tapping, scrolling or navigation needs the driven page or a device. A shape verified with diagnostics in it is the instrumented shape.
 - **The fetched config is the only write base,** never a build script or leftover file; `diff-config.py` removals go in the approval ask.
+- **The lock token is `flow.working.json`'s `updated_at`,** never a `config get` run just before the write (that lets a concurrent edit through); a write's output reaches that file only on success.
 - **Don't rebuild what was ruled out:** the fake-video detector, a draft-validate copy tool, the Google Fonts catalog, a `CircleNotch` loader guard, an `x-supported` element ban beyond `old-price`. The reasons are in the notes.
 
 ### `migrate-placements`
