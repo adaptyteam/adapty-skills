@@ -43,8 +43,9 @@ Rules for reading any answer:
   still change as late store events arrive, so end the window a few days back.
 - A segment's `key` is the raw value the backend gives for the group; `title` is what the
   dashboard shows. Use titles when you write to the user. The "No Data" group is a real group, and
-  its key can be `null`, `""`, `"None"` or the zero UUID. A funnel group's key is its title and can
-  repeat: keep each group as its own row.
+  its key can be `null`, `""`, `"None"` or the zero UUID. Grouped by `flow_id`, "No Data" is the
+  purchases made outside any flow (an old paywall); say that rather than leaving it unnamed. A
+  funnel group's key is its title and can repeat: keep each group as its own row.
 - Exit 2 is a bad flag (nothing was sent; the message names it), exit 3 is no token or no access
   to the app, exit 4 is a server refusal: an unknown chart, conversion, grouping or filter. On 4,
   re-read the catalog instead of guessing another name.
@@ -235,16 +236,35 @@ against these before it goes in a reply:
   same two periods as every other number in the reply, at the same granularity. Never disprove
   the user's premise with a different period: if they say traffic held since summer, check
   summer, not January.
+- **What is live now comes from the last full month, never the window's average.** Which plans a
+  paywall sells, which placement or paywall brings the purchases, what is running for former
+  subscribers: read it month by month and state the last full month. A six-month share can
+  describe a plan dropped in June or a placement that stopped getting traffic in September. When
+  the picture changed inside the window, name the month, say the earlier numbers describe a setup
+  that is gone, and never aim a hypothesis at a placement, paywall or plan with almost nothing in
+  the last month.
 - **Date a change from the data, not from your window.** When you find a break, read the series
-  back to a stable stretch: 12 months at month grain, then week grain around each step. A drop
+  back to a stable stretch: 12 months at month grain, then week grain around each step. Never
+  date a change from quarter grain: a September switch read by quarter looks like July. A drop
   often comes in steps; name every step with its date. The start of the window you happened to
   read is not when anything started.
+- **Before and after inside one store.** Compare a placement or paywall with the one it replaced
+  per store: when one store converts far lower, a combined rate moves with the store mix. Read
+  the old one's own trend up to the switch too; if it was already falling, say how much of the
+  gap came before the change.
 - **Split by channel before you blame the product.** A rate that falls because a channel that
   converted well stopped sending traffic is a change of mix, not a broken paywall or release.
   Read the rate by `attribution_channel` and check whether it fell inside a channel whose traffic
   held. Say which part of the fall is mix and which part happened inside a channel.
 - **"Everywhere" needs every group checked.** Before saying a fall is in all stores, countries or
   channels, read each large one; name the exceptions.
+- **"All" sums every group.** A share for "all non-English countries" or "all of Android" adds up
+  every group in the answer, not the top ones you read; if you summed the top seven, say "the top
+  seven".
+- **"Most" and "biggest" need the comparison.** "Most money is lost on renewals" compares what
+  is lost at renewal with what is lost at the paywall, in the same window, and you compute both.
+  A rate with nothing to compare it to (`market.md` has no renewal median) is stated as what it
+  is, never as the biggest loss or as low.
 - **Countries are read against their own past.** Prices and buying power differ by market, so
   a country's conversion or revenue per install is not ranked against the US or against another
   country. What a country's numbers mean: its trend over the window, which plans sell there, and
@@ -329,6 +349,9 @@ The config is the flow's screens, copy and products. Before any claim about a sc
   propose a layout, copy or visual change from your own reading.
 - **Hand the config itself** to the teardown only when the preview cannot run, and say the screen
   was read from its config, not seen.
+- **Its languages are `localization.locales`.** The top-level `locales` can be empty on a newer
+  flow. Count them per flow; the CLI does not show the languages of a paywall made outside Flow
+  Builder, so for one of those say so and ask.
 
 Read 8 by `flow_screen_id` shows which screen of the flow the purchases came from. Never write
 to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
@@ -368,5 +391,8 @@ the one trap to avoid. Read only what the idea depends on (numbers are the audit
 ## "My test ended, what next?"
 
 The CLI shows no A/B results. Ask, in one message: which test it was, which variant won (or
-inconclusive), and roughly how many purchases each variant had. Then apply `levers.md`, "After a
-test", and propose the next test for that placement.
+inconclusive), how long it ran and roughly how many purchases each variant had. Until you know,
+never tell them to roll the winner out: the bold answer is conditional ("roll B out if each
+variant had about 200 purchases; with fewer, it has not won yet"). Then apply `levers.md`, "After
+a test", and propose the next test for that placement. The same questions come first when the
+user says a test failed.
