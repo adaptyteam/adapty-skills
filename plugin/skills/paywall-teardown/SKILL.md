@@ -108,7 +108,8 @@ Four passes, and none of them is optional:
    concept, whatever the concept was called: a *Fix first* row, fixed by rebuilding the screen
    to the concept's answers, never by describing the render differently. A render that breaks
    any rule in `references/look.md` → "Different is not enough" (no focal element, boxes inside
-   boxes, a clip-art character) is a *High* row. **Anything the pinned bar slices — a row, a
+   boxes, a clip-art character, a crowd of colours, items scattered off the grid, value pushed
+   below the fold by decoration) is a *High* row. **Anything the pinned bar slices — a row, a
    line of text, an image cut at its edge — and any leftover band on the first screen is a *Fix
    first* row**, fixed by shortening or moving the content, never by calling it something the
    user scrolls to. **A finding on your own draft is a defect, not a
