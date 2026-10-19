@@ -386,7 +386,12 @@ undo, so the copy you fetched is the only way back:
 $ADAPTY flows config get --app $APP $FLOW --json > flow.working.json
 cp flow.working.json flow.backup.json
 jq .config flow.working.json > draft.json
+python3 references/flowkit.py normalize-colors draft.json
 ```
+
+The last line rewrites legacy `#RGB` and `#RRGGBBAA` colours, which older flows hold and the write
+refuses, as `#RRGGBB` plus `opacity`; nothing renders differently. Each line it prints goes in the
+approval ask ([trap 19](references/flow-schema.md#19-every-colour-hex-is-rrggbb-and-alpha-lives-only-in-opacity)).
 
 **Two files, two shapes.** `flow.working.json` and `flow.backup.json` are the **envelope**
 `config get` and `config update` return; `draft.json` is the **bare config** you edit, check,

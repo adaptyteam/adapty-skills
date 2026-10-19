@@ -22,8 +22,16 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references'))
 
 import snippet as sn  # noqa: E402
+import flowkit  # noqa: E402
 CORPUS = os.path.join(ROOT, 'tests', 'fixtures')
-QUIZ = os.path.join(CORPUS, 'onboarding-quiz-paywall.json')
+# The quiz export holds four legacy `#FFFFFFD9` fills, which verify-config.py now reports as a
+# write the API refuses. The oracle below counts every ERROR in a graft, so it reads a copy with
+# its colours normalized -- the copy an agent writes after `flowkit.py normalize-colors`.
+_QUIZ_DIR = tempfile.mkdtemp(prefix='snippet-quiz-')
+QUIZ = os.path.join(_QUIZ_DIR, 'onboarding-quiz-paywall.json')
+_quiz_doc = json.load(open(os.path.join(CORPUS, 'onboarding-quiz-paywall.json')))
+flowkit.normalize_colors(_quiz_doc)
+json.dump(_quiz_doc, open(QUIZ, 'w'), ensure_ascii=False, indent=2)
 COMP = os.path.join(CORPUS, 'comparison-paywall.json')
 TABS = os.path.join(CORPUS, 'tabs-paywall.json')
 VPN = os.path.join(CORPUS, 'vpn-timer-draft.json')

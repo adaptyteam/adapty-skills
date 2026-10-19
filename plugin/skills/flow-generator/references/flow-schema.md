@@ -248,7 +248,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 16 | `purchase` hard-terminates the flow — nothing can be shown after it |
 | 17 | State overrides deep-merge manual values and replace referenced styles wholesale |
 | 18 | `props.verticalAlign` on text is emitted by the builder and ignored by the SDK |
-| 19 | A theme colour must be exactly `#RRGGBB` — and only a theme colour |
+| 19 | Every colour `hex` is `#RRGGBB`, and alpha lives only in `opacity` |
 | 20 | A screen background is bound to a token in every real export — never a literal hex |
 | 21 | `theme.colors` and `theme.typography` share ONE id namespace |
 | 22 | Which group types a conditional can read — and the one action that does not work |
@@ -741,7 +741,7 @@ in real builds — the author reaches for what the helper exposes.
 
 ```json
 "color": {"hex": "#E8553C", "type": "hex", "opacity": 20}   // a 20% tint
-"color": {"hex": "#FFFFFFD9", "type": "hex"}                // omitted = fully opaque
+"color": {"hex": "#E8553C", "type": "hex"}                  // omitted = fully opaque
 ```
 
 Write `"opacity": 1` intending "fully opaque" and you get **1%** — a colour so faint it reads as
@@ -764,8 +764,8 @@ Two things make this expensive to diagnose:
 
 **Also note the two colour forms are not interchangeable in what they accept.** A `color-style`
 reference (`{"type": "color-style", "colorId": "clr_X"}`) carries no `opacity`; if you need
-translucency you need the `hex` form, and then the percentage applies. And `hex` accepts an 8-digit
-value (`#FFFFFFD9`) carrying its own alpha, seen in a real export with no `opacity` key beside it.
+translucency you need the `hex` form, and then the percentage applies. An 8-digit `#RRGGBBAA` is
+not a way round it: the write is refused (trap 19), though older flows still hold such values.
 
 **But the TOKEN it points at can be translucent, and that is where a resolver goes wrong.** The
 reference carries no `opacity`; the token's *definition* does — `vpn-timer-draft`'s `clr_2MZWrBUc`
@@ -775,7 +775,7 @@ corpus:
 
 | source | example | where it lives |
 |---|---|---|
-| an 8-digit hex's own alpha | `#FFFFFFD9` | the colour value |
+| an 8-digit hex's own alpha (legacy flows only; `normalize-colors` moves it into `opacity`) | `#FFFFFFD9` | the colour value |
 | the referencing colour's `opacity` | `{"type": "hex", "hex": "#E8553C", "opacity": 20}` | the reference (`hex` form only) |
 | **the token's `opacity`** | `clr_2MZWrBUc` = `#FFFFFF` @ 20 | `theme.colors[].light` / `.dark` |
 
@@ -839,7 +839,7 @@ paths, so it is the name and not the markup — while `name: "X"`, `weight: regu
 immediately.
 
 Every gate is blind. `flows config validate` returns `valid: true`, the schema types `name` as a
-bare `string` with no enum (the colour-hex class again), and in a screenshot a missing glyph
+bare `string` with no enum, and in a screenshot a missing glyph
 reads as a spacing bug. That combination — silent, total, and invisible to the loop — is why
 [`verify-config.py`](verify-config.py) makes it an **error** rather than a warning.
 
@@ -1023,9 +1023,9 @@ const  var  ==  !=  >  <  has  notHas  in  notIn  empty  notEmpty  size  &&  || 
 
 **Seventeen of them have a case in the condition walker. `assign` does not**, so it falls
 through to `default` and the flow is refused. It is schema-legal, and it is genuinely legal
-inside a `setVariable` payload — it is illegal only *as a condition*. Same class as a colour
-hex being typed a bare string: a rule the consumer enforces and the schema does not state, so
-neither the schema check nor `config preview` objects. 0 of 8 real exports use it anywhere.
+inside a `setVariable` payload — it is illegal only *as a condition*. It is a rule the consumer
+enforces and the schema does not state, so neither the schema check nor `config preview`
+objects. 0 of 8 real exports use it anywhere.
 
 Shape rules, all enforced by that walker:
 
@@ -1126,27 +1126,37 @@ produced a **byte-identical render**. Authoring it buys one warning per text ele
 else, so **do not add it to text you create**. Leave it where you found it — stripping a key you
 did not add is an unrequested edit — but there is no reason to write a new one.
 
-### 19. A theme colour must be exactly `#RRGGBB` — and only a theme colour
+### 19. Every colour `hex` is `#RRGGBB`, and alpha lives only in `opacity`
 
-`theme.colors[].light.hex` / `.dark.hex` accept **six hex digits behind a `#`, either case, and
-nothing else**. Measured against the transform service, every one of these is
-refused there: `#fff`, `#FFFFFFD9`, `#FFFFFFF`, `FFFFFF`, and the empty string.
+A colour's `hex` is **six hex digits behind a `#`, either case** — in a theme colour, an element
+colour, a gradient stop, a screen fill, a rich-text span. An element colour may also be the empty
+string (a `color-style` carries `"hex": ""`, trap 3); a theme colour may not. Everything else is
+refused on write, including the two forms people reach for: `#fff` and `#FFFFFFD9`. Translucency
+is `opacity`, the 0-100 percentage of trap 11:
 
-It is refused with **`Generated JSON failed schema validation` and no path**, so the message
-names no field and you are bisecting a whole document to find one character. Two gates that
-would normally save you are both blind: a colour's `hex` is typed as a bare `string` with no
-pattern, so the schema check passes it, and `config preview` **draws light mode only**, so a
-broken `dark` value renders perfectly.
+```json
+{"type": "hex", "hex": "#FFFFFF", "opacity": 85}    // not "#FFFFFFD9"
+{"type": "hex", "hex": "#2255BB"}                   // not "#25B"
+```
 
-**The rule is position-scoped, and inverting that would be worse than having no rule.** In an
-*element* position — `props.fill.color`, `props.color`, `props.clearButtonColor` — the same
-service accepts a 3-digit hex, an 8-digit `#RRGGBBAA` and an empty string. This is not a
-guess: real exports carry **8** eight-digit and **16** empty values in element positions and
-validate clean, and `tests/fixtures/onboarding-quiz-paywall.json` (which holds both) returns
-`valid: true`. A blanket hex rule would reject the builder's own output.
+**A flow you fetch can already hold the old forms.** The builder's colour field used to save each
+keystroke (`#25B`, `#28`), and older flows carry `#RRGGBBAA`. They still open and publish, but the
+fetched config is your write base, so an untouched legacy colour fails your next `config update`.
+Run the normalizer on every fetched config before you edit it:
 
-`flowkit.config()` raises on a bad theme hex and leaves element colours alone;
-`verify-config.py` errors on the same thing, calibrated silent on all 12 real configs.
+```bash
+python3 references/flowkit.py normalize-colors flow.working.json
+```
+
+It expands `#RGB`, moves an `#RRGGBBAA` alpha into `opacity` (multiplied with any `opacity`
+already there, so nothing renders differently) and prints one line per value it changed. Those
+lines go in the approval ask as colour rewrites the user did not ask for. A value it cannot read
+as a colour it leaves alone and asks you to fix by hand.
+
+A bad **theme** hex is refused with **`Generated JSON failed schema validation` and no path**, so
+the message names no field. `config preview` **draws light mode only**, so a broken `dark` value
+renders perfectly. Don't wait for either: `flowkit.hex_color()`, `gradient()` and `config()` raise
+on a bad hex, and `verify-config.py` errors on one anywhere in the document.
 
 ### 20. A screen background is bound to a token in every real export — never a literal hex
 

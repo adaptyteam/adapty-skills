@@ -43,8 +43,17 @@ def errors(doc):
     return [l.split('ERROR:', 1)[1].strip() for l in r.stdout.splitlines() if 'ERROR:' in l]
 
 
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.join(os.path.dirname(VERIFY)))
+import flowkit  # noqa: E402
+
+
 def load(path=SRC):
-    return json.load(open(path))
+    """A real export with its colours normalized: the quiz export holds four legacy `#FFFFFFD9`
+    fills, a true finding of its own that would otherwise sit in every case built on it."""
+    d = json.load(open(path))
+    flowkit.normalize_colors(d)
+    return d
 
 
 def first_element(d, pred):
@@ -285,19 +294,18 @@ if len(prods) > 1:
 else:
     print('  skip  mixed_product_targets_in_text (fixture has <2 declared products)')
 
-# --- theme colour hexes, position-scoped (see THEME_HEX in verify-config.py).
+# --- theme colour hexes (see THEME_HEX in verify-config.py). Element hexes: test-hex-format.py.
 for _tag, _hex in (('3-digit', '#fff'), ('empty', ''), ('no-hash', 'FFFFFF'),
                    ('8-digit', '#FFFFFFD9'), ('7-digit', '#FFFFFFF')):
     _d = load(os.path.join(CORPUS, 'comparison-paywall.json'))
     _d['theme']['colors'][0]['light']['hex'] = _hex
     fires(f'theme hex {_tag} ({_hex!r})', _d, 'not #RRGGBB')
 
-# An ELEMENT colour is a different rule: the service accepts a 3-digit hex, an 8-digit one and
-# an empty string there, and real exports carry both -- so this must stay silent.
+# An ELEMENT colour takes `''` or `#RRGGBB` too; a 3-digit one is refused on write.
 _d = load()
 _s, _eid, _e = first_element(_d, lambda e: e.get('type') == 'text')
 _e.setdefault('props', {})['color'] = {'type': 'hex', 'hex': '#fff', 'opacity': 100}
-silent('an element colour with a 3-digit hex (real exports carry looser forms)', _d)
+fires('an element colour with a 3-digit hex', _d, 'not #RRGGBB or empty')
 
 # --- `<groupId>.selectedOptionId` on a multi_choice group (round-2 bycatch, three agents).
 _d = load(os.path.join(CORPUS, 'onboarding-quiz-paywall.json'))

@@ -117,38 +117,84 @@ def color(color_id):
     return {'type': 'color-style', 'colorId': color_id}
 
 
-# A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
-# In `theme.colors[].light/dark`, a 3-digit (`#fff`), 8-digit (`#RRGGBBAA`),
-# 7-digit, unprefixed (`FFFFFF`) or EMPTY hex is refused — and refused with the
-# location-free `Generated JSON failed schema validation`, because a colour `hex` is typed as
-# a bare string with no pattern, so neither the schema check nor `config preview` (which
-# draws light mode only) can see it. The cheapest possible defect to introduce and one of
-# the most expensive to diagnose.
-#
-# The constraint is POSITION-SCOPED and this is not a detail: in an ELEMENT position
-# (`props.fill.color`, `props.color`) the same service accepts a 3-digit hex, an 8-digit
-# one and an empty string — real exports carry 8 eight-digit and 16 empty values there and
-# validate clean. So this is checked for theme colours only; a blanket rule would reject
-# documents the builder itself produces.
+# Every colour `hex` is `#RRGGBB` and alpha lives only in `opacity` (flow-schema.md trap 19).
+# Anywhere in the document `''` is also legal; a THEME colour may not be empty either. A `#RGB`
+# or `#RRGGBBAA` is refused on write, and older flows still hold both, so a fetched config goes
+# through normalize_colors() before its first write.
 THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
+ELEMENT_HEX = re.compile(r'(#[0-9A-Fa-f]{6})?\Z')
 
 
 def check_theme_hex(value, where):
     if not (isinstance(value, str) and THEME_HEX.match(value)):
         raise ValueError(
-            f'{where}: theme colour {value!r} must be exactly #RRGGBB (6 hex digits). The '
-            f'transform service refuses anything else here — including #RGB, #RRGGBBAA and an '
-            f'empty string — with the location-free "Generated JSON failed schema validation", '
-            f'which names no field. Element colours are laxer; theme colours are not.')
+            f'{where}: theme colour {value!r} must be exactly #RRGGBB (6 hex digits). Anything '
+            f'else here — including #RGB, #RRGGBBAA and an empty string — is refused, and the '
+            f'transform service names no field when it refuses it. Put alpha in `opacity`.')
     return value
 
 
 def hex_color(hexval, opacity=None):
-    """A literal colour. `opacity` is a 0-100 PERCENTAGE, not a fraction (trap 11)."""
+    """A literal colour. `hexval` is `#RRGGBB`; translucency goes in `opacity`, a 0-100
+    PERCENTAGE, not a fraction (trap 11)."""
+    if not (isinstance(hexval, str) and THEME_HEX.match(hexval)):
+        raise ValueError(
+            f'hex_color({hexval!r}): a colour hex must be exactly #RRGGBB; the flow is refused on '
+            f'write otherwise. Expand #RGB to six digits and put an #RRGGBBAA alpha in '
+            f'`opacity` (0-100).')
     out = {'type': 'hex', 'hex': hexval}
     if opacity is not None:
         out['opacity'] = opacity
     return out
+
+
+def _alpha_pct(op):
+    """An existing `opacity` as a 0-100 percentage. A missing one is fully opaque; real exports
+    also write `1` for fully opaque, so a value in (0, 1] reads as a fraction."""
+    if not isinstance(op, (int, float)) or isinstance(op, bool):
+        return 100.0
+    return max(0.0, min(100.0, op * 100.0 if 0 < op <= 1 else float(op)))
+
+
+def normalize_colors(doc):
+    """Rewrite every colour `hex` in `doc` IN PLACE to `''` or upper-case `#RRGGBB`, keeping what
+    renders: `#RGB` expands, and an `#RRGGBBAA` alpha moves into `opacity`, multiplied with any
+    `opacity` already there. A `color-style`'s own `hex` is not what renders (its `colorId` is),
+    so it only expands or drops the alpha. Returns one line per change; `[]` means clean.
+    """
+    changes = []
+
+    def fix(o, path, in_theme):
+        h = o.get('hex')
+        if not isinstance(h, str) or (THEME_HEX.match(h) if in_theme else ELEMENT_HEX.match(h)):
+            return
+        s = h.strip().lstrip('#')
+        if len(s) == 3:
+            s = ''.join(c * 2 for c in s)
+        if len(s) not in (6, 8) or re.search(r'[^0-9A-Fa-f]', s):
+            changes.append(f'{path}: {h!r} is not a colour; fix it by hand')
+            return
+        new = '#' + s[:6].upper()
+        before = dict(o)
+        o['hex'] = new
+        if len(s) == 8 and o.get('type') != 'color-style':
+            pct = _alpha_pct(o.get('opacity')) * int(s[6:8], 16) / 255
+            o['opacity'] = int(round(pct))
+        if o != before:
+            extra = f' at opacity {o["opacity"]}' if o.get('opacity') != before.get('opacity') else ''
+            changes.append(f'{path}: {h!r} -> {new!r}{extra}')
+
+    def walk(o, path, in_theme=False):
+        if isinstance(o, dict):
+            fix(o, path, in_theme)
+            for k, v in o.items():
+                walk(v, f'{path}.{k}' if path else k, in_theme or path == 'theme.colors')
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                walk(v, f'{path}[{i}]', in_theme or path == 'theme.colors')
+
+    walk(doc.get('config', doc) if 'screens' not in doc else doc, '')
+    return changes
 
 
 def fill(color_id=None, *, hexval=None, layers=None):
@@ -2861,3 +2907,22 @@ def _resolve_icons(screens, components, declared):
         by_key[(name, weight)] = entry
         entries.append(entry)
     return entries
+
+
+if __name__ == '__main__':
+    # `python3 references/flowkit.py normalize-colors flow.working.json` -- rewrites the file.
+    if len(sys.argv) != 3 or sys.argv[1] != 'normalize-colors':
+        sys.exit('usage: python3 flowkit.py normalize-colors <config.json>')
+    path = sys.argv[2]
+    with open(path) as f:
+        doc = json.load(f)
+    found = normalize_colors(doc)
+    if not found:
+        print('colours: nothing to change, every hex is #RRGGBB or empty')
+        sys.exit(0)
+    with open(path, 'w') as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+    print(f'colours: rewrote {len(found)} hex value(s) to #RRGGBB, alpha moved to opacity:')
+    for line in found:
+        print(f'  {line}')
+    sys.exit(1 if any('fix it by hand' in line for line in found) else 0)
