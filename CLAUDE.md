@@ -41,10 +41,6 @@ relative path (name it in backticks), and never reach into another skill's files
 - **No telemetry.** The only outbound data besides the CLI's own calls is the docs
   `?ref=skill-<token>` marker and the `adapty feedback` note. Don't add a call home without a
   privacy policy, an `adapty.io` host and a README disclosure in the same change.
-- **The feedback note goes through `adapty feedback`, inline, with a one-line disclosure in the
-  closing message; "don't send feedback" turns it off.** `--sentiment` grades the agent's own
-  outcome, never the user's mood, and a request the skill correctly declines is `positive`; no
-  user copy, brand, paths, code or account setup. Don't loosen any of these.
 
 ## Layout
 
