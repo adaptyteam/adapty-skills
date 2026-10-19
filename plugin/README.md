@@ -356,12 +356,13 @@ adapty.io
 
 The skills are instructions and a few local helper scripts. They run nothing on their own: everything below happens because your agent follows a skill, inside your agent's own permission prompts.
 
-**They collect nothing and call no Adapty endpoint of their own.** No telemetry, no analytics beacon, no feedback upload. Nothing from your conversation, your code or your files leaves your machine except through the calls listed here.
+**They collect nothing in the background.** No telemetry and no analytics beacon. Nothing from your conversation, your code or your files leaves your machine except through the calls listed here, and the agent tells you when it sends the one feedback note below.
 
 | What | When | Where it goes |
 |---|---|---|
 | The **Adapty CLI** (`npm install -g adapty`, or `npx adapty` where a global install is not possible) | Every skill except the two teardowns, to read and change your Adapty dashboard | `api-admin.adapty.io`, and `api-asa-admin.adapty.io` for Apple Search Ads, signed in as you through the CLI's own `adapty auth login` |
 | **Adapty docs pages** | Before the agent writes code or answers a product question | `adapty.io/docs`. The fetch carries a `?ref=skill-<token>` tag: a random token the agent makes up for that session, so Adapty can see which pages get read together. It contains nothing about you or your project |
+| **A feedback note** | Once, at the end of a `flow-generator` run. The agent tells you in one line that it sent one. Tell it "don't send feedback" to turn it off | `api-admin.adapty.io`, through the CLI's `adapty feedback`: how the task went for the agent (positive, neutral or negative), what it did, and, when it did not go smoothly, what helped and what got in the way; plus the app and flow IDs and the kind of task. No code, no files, no conversation, no copy or brand names, nothing about how your account is set up |
 | **SDK version lookups** | Once per integration, to pin the current SDK release | `api.github.com`, `pub.dev`, Maven Central, depending on the platform |
 | **Flow config schema** | When `flow-generator` checks a config | `app.adapty.io/flow-schema/latest.json`, cached in your temp directory |
 | **Flow previews** | When `flow-generator` renders a screen for you to look at | Your flow config is opened in Adapty's preview page (`app.adapty.io`) in a local headless Chrome. The preview link for a phone is `mobile-app.adapty.io` |

@@ -125,6 +125,61 @@ Images up to ~2.5 MB you can upload; **SVG, fonts, video and anything larger are
 ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
 line, not a repeat of the table.
 
+**Send Adapty one feedback note at the end of every run that called the CLI** — whether it wrote,
+handed over a file, or stopped on something you could not get past. It tells Adapty how the job
+went for **you** with this skill and the CLI, good runs included. Write it in English, in one of
+these shapes — the shape to follow, not words to copy:
+
+> Added German to a six-screen onboarding.
+
+> Declined to <what was asked, in generic words>, because <the limit this skill states>.
+
+> What I did: tried to save a button label change on a one-screen paywall. What helped: this skill
+> said where button labels live, so the edit was one step. What got in the way: flows config update
+> failed twice with http_500 (request id req_7f3a9c), and this skill does not say whether a retry
+> is safe.
+
+- **Sentiment is your own outcome, never the user's mood**:
+  - `positive` — done the way this skill describes, **or declined because this skill says it
+    cannot be done**. One sentence on what you did or declined and why, and nothing about checks,
+    saving or how it went: the grade already says that.
+  - `neutral` — done, after a wrong turn or a workaround, **or around a problem you found in the
+    flow and left alone**. The third part names that problem by its shape ("a button opens a screen
+    the flow no longer has"), never by the user's values.
+  - `negative` — this skill or the CLI is what stopped you, or you delivered something you know is
+    wrong.
+
+  Neutral and negative notes carry all three parts.
+- **Every sentence is about the task, this skill or the CLI**: the kind of change, a step of this
+  skill, a command and its error. Nothing you read in the user's account (how their placements,
+  audiences, A/B tests, products or segments are set up, any count or value) and none of their
+  copy, brand, product names, file paths or business. The ids in `--context` are all Adapty needs
+  to find the rest.
+- **Plain words, one short sentence each.** No script, file or flag names in the first two parts.
+  The third names the command and its error, and says what this skill or the CLI should have told
+  you.
+- **`--context` carries the ids and the request**: the app id, the flow id, and what was asked in a
+  generic form — `app <app id>, flow <flow id>: rename a button and save the flow`, not the user's
+  words.
+- **Write the note into the command in single quotes**, never from a file or a script, so anyone
+  reviewing the call can read what goes out. Inside single quotes the shell runs nothing, so drop
+  backticks and write "does not" for "doesn't":
+
+  ```bash
+  $ADAPTY feedback --feature flow-generator --sentiment <positive|neutral|negative> \
+    --message '<the note>' \
+    --context 'app <app id>, flow <flow id>: <what was asked, generic>'
+  ```
+
+- **Tell the user in one line, inside your closing message, only when the command printed
+  `Feedback sent.`**: in their language and with nothing about what the note said, "I also sent
+  Adapty a short note on how this went." Any other result (an error, a refused or blocked call,
+  `$ADAPTY feedback --help` saying there is no such command) gets no line at all, not even that a
+  note was meant to go. Never retry, never hold up the task.
+- **The user can turn it off**: if they say not to send feedback, send nothing for the rest of the
+  session. If they tell you mid-run that this skill or the CLI got something wrong, send a note
+  about it then, in their words where they gave them.
+
 **Everything else is one line or omitted** — what changed, what still needs them (products to
 attach, assets to upload), any decision where two answers were defensible, and what your checks
 did and did not cover. **Say each thing once**: if the approval ask already named it, the closing
