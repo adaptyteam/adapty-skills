@@ -266,7 +266,7 @@ If the project is already on a 3.x package, this is a v4 upgrade rather than a f
 
 **Gotcha:** `pod install` fails with an `spm_dependency` error → React Native is older than 0.75. React Native has to be upgraded first; this is the prerequisite from the top of this file, and there is no older-Adapty workaround to offer.
 
-**Gotcha:** Build errors after switching to dynamic frameworks → another library doesn't support modular headers, or the project uses Flipper (incompatible). See [Migrate Adapty React Native SDK to v4](https://adapty.io/docs/migration-to-react-native-sdk-v4.md).
+**Gotcha:** Build errors after switching to dynamic frameworks → another library doesn't support modular headers, or the project uses Flipper (incompatible). See [Migrate Adapty React Native SDK to v4](https://adapty.io/docs/migration-to-react-native-sdk-v4.md). If the project cannot move off static linkage or Flipper, the SDK has an opt-in fallback that installs the native SDKs as CocoaPods pods from Adapty's own spec repo, with no dynamic frameworks. It exists only if `node_modules/react-native-adapty/ios/adapty_podfile.rb` does — probe for the file, not a version number. Offer it only after dynamic frameworks have failed: SPM stays the recommended path, so never set it up by default. Setup is `adapty_disable_spm!` before `use_native_modules!` in bare React Native, or `"iosDisableSPM": true` on the `react-native-adapty` config plugin in Expo — follow [Install the SDK in a pure React Native project](https://adapty.io/docs/sdk-installation-react-native-pure.md) or [the Expo guide](https://adapty.io/docs/sdk-installation-react-native-expo.md). Drop the `use_frameworks! :linkage => :dynamic` line or the `expo-build-properties` setting added above only when it was added for Adapty.
 
 For Android with React Native < 0.73, also update `/android/build.gradle`:
 ```groovy
@@ -580,7 +580,7 @@ curl -s https://adapty.io/docs/webhook-event-types-and-fields.md
 
 ## Stage 4: Identify users
 
-Use `AskUserQuestion` before deciding to skip:
+Use `AskUserQuestion` before deciding to skip. When nobody can answer, take **No, skip** and say in the closing message that identification is still open:
 
 > "This app has no login system, but you can still identify users with a stable ID tied to the device or installation. This gives each user a consistent Adapty profile across sessions, which helps with analytics accuracy, A/B test consistency, and avoiding duplicate profiles after reinstall. Do you have an ID you'd like to use, or would you like to discuss options?"
 > - **Yes, I have an ID in mind** — tell me what it is and I'll implement identification

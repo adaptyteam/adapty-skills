@@ -27,7 +27,7 @@ stored minified, one document per line; pretty-print a copy with `jq .` to read 
 | `comparison-paywall.json` | comparison table, custom typography preset, one product |
 | `vpn-timer-draft.json` | countdown timer, four uploaded custom fonts, no products |
 | `tabs-paywall.json` | the five-element tabs composite, three `const` product purchases — **confirmed to render** |
-| `timeline-anchored.json` | the stretch-between-anchors form — `absolute` with `top`+`bottom`, `height: auto`, negative `zIndex` — **confirmed to render**, and the calibration target for the two checks that guard it |
+| `timeline-anchored.json` | the stretch-between-anchors form — `absolute` with `top`+`bottom`, `height: auto`, negative `zIndex` (draws here because no ancestor has a fill; the recipe now puts the rail first instead) — **confirmed to render**, and the calibration target for the two checks that guard it |
 | `reviews-carousel.json` | the real `carousel` — three slides, adjacent-slide peek, indicator dots from `props.dots` — **confirmed to render**, and the fixture that exercises the fake-carousel check's exemption branch |
 
 **`timeline-anchored.json` is a hybrid and is excluded from the census.** Its screen is a real
@@ -89,6 +89,7 @@ python3 tests/test-localization.py                                       # the c
 python3 tests/test-flowkit.py                                            # the authoring helpers
 python3 tests/test-diff-config.py                                        # the diff's two directions
 python3 tests/test-snippet.py                                            # extract/plan/graft
+python3 tests/test-canvas.py                                             # the screen map: every arrow, badge and flag
 python3 tests/test-audit-flow.py                                         # the audit's checks, both directions
 python3 tests/test-unmapped-elements.py                                  # old-price: the guarded set vs the corpus
 python3 tests/test-schema-baseline.py                                    # schema --baseline matches by screen id, not position
@@ -113,6 +114,7 @@ python3 tests/test-audiences.py                                          # audie
 python3 tests/test-migrate-cli.py                                        # migrate.py's CLI, driven offline
 python3 tests/test-existing-flows.py                                     # flows the account already has, and the name match
 python3 tests/test-stub-flow.py                                          # the shipped stub's publishable floor
+python3 tests/test-negative-zindex.py                                    # a negative zIndex under a filled ancestor draws nothing
 ```
 
 Exit codes match the repo's lint convention: `0` clean, `1` findings, `2` infrastructure

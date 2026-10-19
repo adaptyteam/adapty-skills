@@ -53,6 +53,14 @@ $ADAPTY placements update --app "$APP" <PLACEMENT_UUID> --title "<Title>" --deve
 not pass is an entry you deleted — read the placement first and pass back the ones you are keeping.
 A placement with segment-specific content is where this costs someone real work.
 
+**It also stops any A/B test on the placement, and nothing warns you.** `placements get` leaves out
+an audience that runs an A/B test, so the array you pass back cannot contain it. The write removes
+that audience, the backend stops the test (Completed, no winner, cannot be restarted) and the CLI
+prints `Placement updated!`. Two shapes in `placements get` give a hidden test away: priorities that skip a number (a lone
+default at `priority: 1`), or no default audience (`segment_ids: []`), usually an empty list. Either
+one: do not write, send the change to the dashboard. Otherwise ask the user whether the placement
+runs an A/B test before any `update`. A test, "not sure", or no answer means the change is made in the dashboard instead.
+
 **Never `--paywall-id`.** It is deprecated in favour of `--audiences` (the CLI prints a warning to
 stderr), and on `update` it carries a second warning worth quoting: it *"will rewrite all audiences
 on this placement … If the placement has segment-specific paywalls, they will be replaced by a
@@ -67,7 +75,7 @@ Local, before any request — exit 2, nothing sent:
 | `Invalid --audiences JSON: …` | not parseable |
 | `--audiences must be a JSON array of audience entries.` | parsed to a non-array |
 | `--audiences[<i>]: each entry must be a JSON object` | an entry is a scalar |
-| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall |
+| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall. **On an entry you read from `placements get` and did not write, it means the CLI is older than the API**: re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is most likely a running A/B test, and the write would stop it |
 | `--audiences[<i>]: a flow entry requires flow_id` | flow entry, no `flow_id` |
 | `Invalid placement ID format.` | `update` with a non-UUID placement id |
 

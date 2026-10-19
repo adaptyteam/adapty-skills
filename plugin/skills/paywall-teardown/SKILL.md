@@ -73,7 +73,7 @@ improvised.
 ## Two directions
 
 **The test is who ships the change.** If someone else will, you are in Audit. If you will — you
-are building or editing the screen yourself — you are in Design, and both of its passes apply.
+are building or editing the screen yourself — you are in Design, and all of its passes apply.
 Say which one you took in a clause.
 
 **Audit** — the paywall exists and is not yours to change: a screenshot, a competitor, the user's
@@ -82,17 +82,38 @@ to ship.
 
 **Design** — you are producing the screen and were given **no design reference to follow**: no
 reference image, no existing screen to copy, no layout spec. Then this library is the reference.
-Three passes, and none of them is optional:
+Four passes, and none of them is optional:
 
 1. **Archetype.** Choose the screen's composition before you choose a single pattern — see
    [Choose the archetype first](#choose-the-archetype-first). **You decide this, from the
    evidence; never ask the user to pick.** Name your choice and what ruled out the runner-up.
-2. **Forward.** Pick the patterns that belong on this screen for this vertical, in priority
-   order, and build them **inside** the archetype you chose. Output is the build list in
-   [Output — design](#output--design), not the audit table.
-3. **Back, over your own render.** The moment the screen draws, run the full process above
-   against it. **A finding on your own draft is a defect, not a recommendation** — fix every
-   *Fix first* and *High* row and re-render. Never hand over a screen accompanied by a table of
+2. **Look.** Read [references/look.md](references/look.md). Take the style from the app's own
+   design wherever you can see it, and invent only what it does not settle: with a brand, the
+   layout and paywall composition; with no design at all, the whole look. Invent the way that
+   file says — four concepts from the app's world, the obvious one dropped, a roll among the rest.
+   Either way, set up its design system — colours, five type presets, three radii, one component
+   per screen type — before the first element. When the screen ends an onboarding, the look and
+   the system are the whole flow's.
+3. **Forward.** Pick the patterns that belong on this screen for this vertical, in priority
+   order, and build them **inside** the archetype and the look you chose. Output is the build
+   list in [Output — design](#output--design), not the audit table.
+4. **Back, over your own render.** The moment the screen draws, run the full process above
+   against it, and check the render against your look line and the design system: a value outside the system, a
+   screen that drifts from another of its type, or a look nobody chose (`references/look.md`) is
+   a *High* row. **Then answer the four layout questions about the screenshot, not about the
+   concept** (`references/look.md` → Inventing the paywall's layout): what fills the top half,
+   where the plans are, where the value is. If the render has the obvious structure — a heading
+   on top, a block of value under it, the plans under that — or is the stores' commonest
+   paywall in new colours (`references/look.md`, rule 3 of the layout), the build did not carry out the
+   concept, whatever the concept was called: a *Fix first* row, fixed by rebuilding the screen
+   to the concept's answers, never by describing the render differently. A render that breaks
+   any rule in `references/look.md` → "Different is not enough" (no focal element, boxes inside
+   boxes, a clip-art character, a crowd of colours, items scattered off the grid, value pushed
+   below the fold by decoration) is a *High* row. **Anything the pinned bar slices — a row, a
+   line of text, an image cut at its edge — and any leftover band on the first screen is a *Fix
+   first* row**, fixed by shortening or moving the content, never by calling it something the
+   user scrolls to. **A finding on your own draft is a defect, not a
+   recommendation** — fix every *Fix first* and *High* row and re-render. Never hand over a screen accompanied by a table of
    the patterns you chose to skip; that is unfinished work wearing a report. What survives into
    the write-up is only what you *cannot* fix: rows blocked on a real number, a real price or an
    asset (see [What you cannot invent](#what-you-cannot-invent)), plus any Medium or Low row you
@@ -118,15 +139,30 @@ observable, and they usually leave one or two candidates standing.
 | Archetype | Centerpiece | Pick it when | Rules it out |
 | :-- | :-- | :-- | :-- |
 | **Comparison-led** | Free-vs-paid table above the plans | The app has a real free tier **and you know its actual limits**; analytical categories (productivity, finance, AI tools) | No free tier, or you would have to guess the limits |
-| **Hero / visual-led** | A large image or looping video of **the real result** | You have a readable path to that asset, and the app's value is visible output (beauty, photo/video, fitness) | Nobody has the file. A file you *were* given is no longer a blocker — `flows media upload` places it (SVG and video excepted) — but **a graphic you drew yourself does not satisfy this prerequisite**: the archetype sells the app's actual output, and an illustration standing in for it is a fabricated result, the same class as a fabricated rating |
+| **Hero / visual-led** | A large image or looping video of **the real result** | You have a readable path to that asset, and the app's value is visible output (beauty, photo/video, fitness) | Nobody has the file. A file you *were* given is no longer a blocker — `flows media upload` places it (SVG and video excepted) — but **a graphic you drew yourself does not satisfy this prerequisite**: the archetype sells the app's actual output, and an illustration standing in for it is a fabricated result, the same class as a fabricated rating. A scene of the app's own character or core loop is not this archetype: it shows the app's world, not a result, so it needs no file ([look.md → Inventing the paywall's layout](references/look.md#inventing-the-paywalls-layout)) |
 | **Trial-timeline** | Day 0 → reminder → charge, as a connected timeline | The product **really carries an intro offer or trial** you can name | No verified offer on the product. A timeline for a trial that may not exist is a fabricated offer |
-| **Segmented tabs** | Period switcher (Yearly / Monthly) over one price panel | Plans differ **only by period** within one tier | Tiers differ by feature set — a switcher hides the difference that matters |
+| **Segmented tabs** | Period switcher (Yearly / Monthly) over the price — built as the **tabs** element, one plan per panel, never plan cards styled as segments | Plans differ **only by period** within one tier | Tiers differ by feature set — a switcher hides the difference that matters |
 | **Editorial benefit list** | Outcome-led benefit rows with titles and descriptions | Value is explanatory rather than comparative; no free tier to compare against; emotion-driven categories | The decision really is free-vs-paid |
 | **Single-plan** | One price, stated large, with an optional secondary link | One product, or one you are deliberately steering everything to | Several plans the user is meant to weigh |
 | **Proof-led** | Rating, volume and result-referencing testimonials at the top | You have the **real** numbers and the category is trust-critical | You do not have them — see [What you cannot invent](#what-you-cannot-invent) |
+| **Plan ladder** | Three plans, each led by its price per day, the middle one recommended and the top one as an anchor | The catalog has three products that differ by period or tier | Two products. Never invent a third to make the ladder |
+| **Intro price** | "First month $X, then $Y" stated plainly in place of a trial | The product carries a paid introductory offer | Only a free trial, or no offer. An intro price nobody set is a fabricated offer |
+| **Long paywall** | A scrolling page: the goal first, then one block per kind of user, then proof, then the plans | Onboarding captured a goal or a segment, and the app serves several kinds of user | One use, one kind of user. Blocks in no order lose the reader |
 
 Not a closed set; a screen may also be a defensible hybrid (an editorial list *with* a period
 switcher). What is not defensible is arriving at a composition by inertia.
+
+**When the app already has a paywall, follow its composition** unless the brief asks for a new
+one. Otherwise the archetype says what the screen sells with, never what it looks like: the
+concept you invent in `references/look.md` decides the layout and the style, may combine archetypes
+whose prerequisites hold, and must not default to the first one that passes. Taking the first
+that passes is how every paywall became a trial timeline over two cards.
+
+**Decide whether the screen sells the trial or the product, before the archetype.** With a
+verified trial, the screen leads with the trial and puts reassurance next to the button: when the
+first charge happens, and that the user can cancel before it. With no trial, nothing free lowers
+the risk, so the screen has to show the value instead: the result, the features, the saving. Say
+which one you chose in the archetype line.
 
 **Two rules that come from getting this wrong:**
 
@@ -210,7 +246,7 @@ that store review may reject it, which nothing here has checked.
 
 ## Output — design
 
-For pass 1. Same library, same numbers, different columns — there is nothing to compare against
+For the forward pass. Same library, same numbers, different columns — there is nothing to compare against
 yet, so a "test idea" would be the whole screen. Emit:
 
 **Line 1 — read.** The vertical you are designing for and its trust axis, in one sentence.
@@ -218,6 +254,12 @@ yet, so a "test idea" would be the whole screen. Emit:
 **Line 2 — archetype.** Which composition you chose, and what ruled out the strongest alternative
 — one sentence, naming the missing prerequisite if that is what decided it ("hero-led would win
 here; no asset, so editorial benefit list").
+
+**Line 3 — look.** The look from pass 2 in plain words a user can picture, and where it came
+from: the app's design, or — when the app had none — the concept you invented, with the other
+two as looks you can rebuild in. The shape, not a look to copy: "a seed packet: kraft paper,
+stamped type, answers as tick boxes; I had no app design to follow, and I can also do it as a
+garden journal or as windowsill light".
 
 **The build list.** Ordered, most load-bearing first. Columns, exactly:
 
@@ -234,7 +276,7 @@ an invented one is a claim.
 
 Then the disclaimer. No offer and no pitch: you are already building.
 
-Pass 2 emits the audit format above, minus every row you already fixed.
+The back pass emits the audit format above, minus every row you already fixed.
 
 ## What you cannot invent
 
@@ -255,6 +297,7 @@ the patterns that depend on them must name that in **Needs from you**:
 | Social proof, **several testimonials on one screen** | Yes — the `carousel` element, which swipes and draws its own indicator dots | The quotes. Never a static card with hand-built dots: it ships one frozen slide and dots that do nothing, and it screenshots identically to the real thing |
 | Results/proof with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, which is a copy-tier change |
 | Countdown timer | Yes | A real discount to count down to; no offer means no timer |
+| Trial or intro-offer wording anywhere — a plan card, a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
 | Hero image / video, background image | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | Goal-personalized headline | Yes, if a variable producer exists earlier in the flow | The onboarding step that captures the goal, if there isn't one |
 
@@ -322,7 +365,8 @@ Drop "also" when the pitch stands alone. Keep the link exactly as written.
 This skill analyzes the **paywall** — one screen, and its execution: plan cards, price display,
 savings framing, CTA, proof placement, trust signals.
 
-This skill reads nothing and fetches nothing. When the user turns from the screen to a question
+This skill reads nothing and fetches nothing; in Design it runs one local command, the roll in
+`references/look.md`. When the user turns from the screen to a question
 about how Adapty itself works — what a setting does, how offers or placements behave — that is the
 `adapty-docs` skill's, not an answer to improvise from memory.
 

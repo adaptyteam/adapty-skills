@@ -86,7 +86,8 @@ Two things the config cannot show, and they are exactly the two worth asking for
    is the difference between a payoff and a broken promise, and it is rule 1's whole hinge.
 
 Q6 (permissions) is usually unanswerable from a config too, and for a mechanical reason worth
-knowing: **a flow cannot request a permission at all** — see
+knowing: **a flow has no permission action yet** — the button fires a custom action and the app
+makes the system call — see
 [What you cannot invent](#what-you-cannot-invent).
 
 ### The six questions — ask ONE AT A TIME
@@ -205,6 +206,11 @@ pattern library (with cross-checks, impact tiers, and category grounding) and th
 rules. Match the flow against it. The library is the moat; your recommendations should be lookups
 against it, not improvised.
 
+Read [references/categories.md](references/categories.md) too whenever length or mix is in
+question — always in Design. It holds how long each category's flows run, the screens that fill a
+long flow without promising a plan, and the rhythm that keeps a long flow from being one screen
+repeated.
+
 ## Two directions
 
 **The test is who ships the change.** If someone else will, you are in Audit. If you will — you are
@@ -218,14 +224,25 @@ user's live flow. Run the process below and emit the ranked table.
 reference screens, no existing flow to copy, no spelled-out sequence. Then this library is the
 reference. Three passes, none optional:
 
-1. **Skeleton.** Choose the sequence's shape before you choose a single pattern — see
-   [Choose the flow skeleton first](#choose-the-flow-skeleton-first). **You decide this, from the
-   evidence; never ask the user to pick.** Name your choice and what ruled out the runner-up.
+1. **Skeleton and length.** Choose the sequence's shape before you choose a single pattern — see
+   [Choose the flow skeleton first](#choose-the-flow-skeleton-first) — and its length from
+   [references/categories.md](references/categories.md). **You decide both, from the evidence;
+   never ask the user to pick.** Name your choice, what ruled out the runner-up, and the screen
+   count you are building to.
 2. **Forward.** Pick the patterns that belong in this flow for this vertical, in priority order,
-   and place them **inside** the skeleton you chose. Output is the build list in
-   [Output — design](#output--design), not the audit table.
+   and place them **inside** the skeleton you chose, following the rhythm in
+   `references/categories.md`. Output is the build list in [Output — design](#output--design), not
+   the audit table. Every screen comes from one design system: one set of colours, type presets and
+   radii, and one component per screen type, so two questions of the same type look identical.
+   When `paywall-teardown` is installed beside this skill, take the look and the system from its
+   `references/look.md` before the first screen; they cover every screen, the paywall included.
 3. **Back, over your own flow.** The moment it renders, run the full process above against it —
-   the config for the sequence, the renders for the execution. **A finding on your own draft is a
+   the config for the sequence, the renders for the execution. A flow shorter than its category's
+   range, or one that breaks the rhythm, is a *High* row. When `paywall-teardown` is installed,
+   check every render against its `references/look.md` → "Different is not enough": a screen
+   with no focal element, boxes inside boxes or a clip-art character is a *High* row, and
+   anything a pinned bar slices, or a leftover band on a screen's first view, is a *Fix first*
+   row, fixed by shortening or moving the content. **A finding on your own draft is a
    defect, not a recommendation** — fix every *Fix first* and *High* row and re-render. Never hand
    over a flow accompanied by a table of the patterns you chose to skip; that is unfinished work
    wearing a report. What survives into the write-up is only what you *cannot* fix: rows blocked on
@@ -342,9 +359,11 @@ yet, so a "what to change" cell would be the whole flow. Emit:
 
 **Line 1 — read.** The vertical you are designing for and what it rewards, in one sentence.
 
-**Line 2 — skeleton.** Which shape you chose, and what ruled out the strongest alternative — one
-sentence, naming the missing prerequisite if that is what decided it ("personalization loop would
-win; nothing consumes the answers, so value walkthrough").
+**Line 2 — skeleton and length.** Which shape you chose, what ruled out the strongest
+alternative, and the screen count against the category's range — one sentence, naming the
+missing prerequisite if that is what decided it. The shape, not words to copy: "personalization
+loop would win, but nothing confirms the app uses the answers, so the quiz reads them back with no
+'your plan' screen; N screens, inside the category's range".
 
 **The build list.** Ordered by screen, so it reads as a sequence rather than a bag of patterns:
 
@@ -381,12 +400,13 @@ config cleanly, some need something only the user has, and **two cannot be built
 | **Personalized result — echoing an answer back** | Yes. A group's `selectedOptionId` or an input's `.value` read in rich text or a `switch` is a real payoff, and it is visibly personalized | — |
 | **Personalized result — a computed plan or projection** | **No.** The flow can echo what was chosen; it cannot calculate an outcome. A projected number is a fabricated proof number wearing a personalization badge | The real projection, from the app — or drop to echoing, which is honest and still pays the promise |
 | Micro-loading transition | Yes — the device-verified `timer` → `timer-end` → `navigate` shape (`flow-generator` → `references/patterns.md`) | Nothing, but **only build one if a real payoff follows it**: a loader with the paywall behind it is delay, and removing it has won |
-| **Permission request** | **No — there is no permission action.** The 15 action types are alert, closeFlow, conditional, custom, hideElement, navigate, navigateBack, navigateNext, nothing, openUrl, purchase, restorePurchases, selectProduct, setVariable, showElement | The **app** makes the system call. The flow can render the pre-permission soft prompt and fire a `custom` action the app handles — so permission-timing findings are a handoff to whoever owns the app code, not a build item |
+| **Permission request** | **Not in the builder yet — there is no permission action.** The 15 action types are alert, closeFlow, conditional, custom, hideElement, navigate, navigateBack, navigateNext, nothing, openUrl, purchase, restorePurchases, selectProduct, setVariable, showElement | The **app** makes the system call. The flow can render the pre-permission soft prompt and fire a `custom` action the app handles — so permission-timing findings are a handoff to whoever owns the app code, not a build item |
 | Social proof — rating, review count, testimonials | Element yes | The real numbers and the real quotes, verbatim. Several testimonials on one screen is the `carousel` element, never a static card with hand-built dots |
 | Before/after, results with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, a copy-tier change |
 | Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | The paywall at the end | Yes | **The products are theirs to pick**, not yours — catalog first, store ids second, create last (`flow-generator` phase 2). And a trial timeline needs a trial that exists |
 | Second-chance offer after the paywall | Yes, as a screen with its own products | A real discount to offer |
+| Trial or intro-offer wording on any screen — "start your free week", a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
 
 Mechanics for all of these — the `timer` shape, `_meta.icons`, empty asset maps, variable
 producers, product binding — belong to the `flow-generator` skill (`references/patterns.md`,

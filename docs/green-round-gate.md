@@ -284,3 +284,5 @@ could have.
       straight to it and the round was null. **Read the candidate descriptions the way an agent
       would and name the one you would open.** Which description did you read, and why would an
       agent not pick it? ______
+
+- [ ] **A test about where an agent takes STYLE from needs the style source out of control's line of sight.** *reference-adapt-green* round 1 put the session in a branded app repo and asked for "a paywall for my app, like this one": all six runs adapted, because the repo was the first thing every agent read, so the round could not tell the arms apart. Round 2 moved the style into the app's published flows, which nothing in the control skill points at, and separated 0/3 vs 3/3. Where does the control arm's agent look first, and is the answer already there? ______

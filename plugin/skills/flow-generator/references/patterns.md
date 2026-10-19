@@ -216,6 +216,52 @@ builder could not open. See [flow-schema.md trap 10](flow-schema.md) for why the
 answers looked well-sourced — and use `flows config preview` to check a skeleton you adapt from
 here before you trust it, since that is how this one was confirmed.
 
+### Tabs that switch plans
+
+A segment bar in a reference — `Monthly | Yearly`, `Individual | Family`, `Plus | Premium` — is
+the `tabs` composite **even when every segment is a plan**. Do not build it from `product`
+elements styled as segments with one price line bound to `<group>.selectedProduct`. That shape
+works on a device and renders identically, so nothing flags it — but it is not what the design
+is, and the user opening the builder finds a product list where they drew tabs.
+
+Put each plan inside its own panel:
+
+```
+tabs  (group "period", single_choice)
+├── tab-bar → tab-item "Monthly" (default) · tab-item "Yearly"
+└── tab-content-wrapper
+    ├── tab-content: product (group "plan_monthly", default: true) ⟵ the plan's copy + price
+    │                CTA → purchase "plan_monthly.selectedProduct"
+    └── tab-content: product (group "plan_yearly",  default: true)
+                     CTA → purchase "plan_yearly.selectedProduct"
+```
+
+```python
+fk.tabs([fk.tab([label('Monthly')], [fk.single_plan(monthly_copy, product_id=MO, group_id='plan_monthly'),
+                                     cta(fk.purchase('plan_monthly'))], default=True),
+         fk.tab([label('Yearly')],  [fk.single_plan(yearly_copy, product_id=YR, group_id='plan_yearly'),
+                                     cta(fk.purchase('plan_yearly'))])],
+        group_id='period', item_selected={...}, bar_fill=..., bar_padding=..., bar_corner=...)
+```
+
+- **One `product` group per panel, each with one `default: true` member.** A single group
+  shared across panels does not follow the tab: switching to *Yearly* leaves *Monthly*
+  selected, and a CTA buying it buys the wrong plan.
+- **The CTA lives inside each panel**, buying that panel's group — the real tabs export does
+  exactly this, one buy button per panel. Only one panel shows, so it reads as one button.
+- **If the design pins one shared CTA at the bottom, keep it there from inside the panels.** A
+  `footer` sits at the screen root, outside the panels, so it cannot follow the tab. Instead make
+  the screen `scrollable: false`, set `tabs`, the wrapper and every `tab-content` to `height:
+  fill`, and give each panel `distribution: space-between` with the CTA as its last child — the
+  panel then stretches to the bottom and its button lands where the design put it. This is the
+  real tabs export's own height chain. It clips on a short phone, so name that as a device check.
+  Only when the screen must scroll does the CTA move up under the price — say so in the report.
+- Declare every plan's product on the screen (`predeclare(screen_id, [MO, YR])`) and every
+  group in `selectableGroups`: `period` as `single_choice`, each plan group as `product`.
+
+Verified against the live transform service (`valid: true`) and by render. The catalog's
+`tabs-segmented` is the bar to start from when the reference shows a rounded track.
+
 **Two tab facts from the support channel:** if **no `tab-item` carries `default: true`, no tab
 renders at all** — always mark one. And conditioning on the selected tab is possible despite the
 UI exposing no tab-item id field: use the tab element's **id from the builder URL** in
@@ -228,38 +274,66 @@ not a drawing** — never fake it with a static filled `stack` (a partial bar) o
 step `stack`s. A lookalike renders in the preview but **does not advance** across screens and is not
 wired to `props.progressBar`, so it silently ships a dead indicator — the same mistake as the
 [fake carousel](#a-carousel--the-real-carousel-element-never-a-static-card-with-dots) and the fake
-footer. If step dots are what the design shows, that is still this component (segmented template),
-not a row of dot stacks. `verify-config.py` warns on the dot-row shape.
+footer. If step dots are what the design shows, that is still this component, not a row of dot
+stacks — but only the linear shape below has been verified on a device. `verify-config.py` warns on the dot-row shape.
+
+**One bar per flow.** `components` holds a single progress bar, and every screen that shows it
+points at the same segment. It advances on its own as the user moves through the screens that
+have it switched on; nothing per screen says how far along they are. Device-verified shape:
 
 ```json
 "components": {"pb_…": {
   "map": {
     "el_bar":  {"id": "el_bar",  "type": "progress-bar",
                 "props": {"type": "single-segment", "template": "linear",
-                          "oneSegmentPerScreen": false, "width": {…}, "height": {…}}},
+                          "oneSegmentPerScreen": false,
+                          "width": {"type": "fill"}, "height": {"type": "fixed", "value": 20},
+                          "padding": {"left": 12, "right": 12, "top": 0, "bottom": 0}, "layout": {…}}},
     "el_seg":  {"id": "el_seg",  "type": "progress-bar-segment",
-                "props": {"customId": "progress", …},
-                "propsByState": {"current": {…}, "upcoming": {…}, "completed": {…}}},
+                "props": {"customId": "progress", "width": {"type": "fill"},
+                          "height": {"type": "hug"}, "layout": {…}},
+                "propsByState": {"completed": {"width": {"type": "fill"}, "height": {"type": "hug"}},
+                                 "current":   {"width": {"type": "fill"}, "height": {"type": "hug"}},
+                                 "upcoming":  {"width": {"type": "fill"}, "height": {"type": "hug"}}}},
     "el_load": {"id": "el_load", "type": "progress-bar-loader",
-                "props": {"color": {…}, "fill": {…}, "duration": 320, "easing": "ease-in-out"}}},
+                "props": {"fill":  [{"type": "color", "color": {"type": "color-style", "colorId": "<TRACK>"}}],
+                          "color": {"type": "color-style", "colorId": "<PROGRESS>"},
+                          "width": {"type": "fill"}, "height": {"type": "fixed", "value": 8},
+                          "borderRadius": {"tl": 9999, "tr": 9999, "bl": 9999, "br": 9999},
+                          "duration": 300, "easing": "ease-in-out", "position": {"type": "relative"}}}},
   "hierarchy": {"id": "root", "children": [
     {"id": "el_bar", "children": [{"id": "el_seg", "children": [{"id": "el_load"}]}]}]}}}
 ```
 
 Then, per screen: reference it in `hierarchy` as `{"id": "pb_…", "type": "global"}`, and set
-`props.progressBar: {"enabled": true, "segment": "progress"}` — `segment` matches the
-`progress-bar-segment`'s `customId`. Screens that should not show it set `{"enabled": false}`.
+`props.progressBar: {"enabled": true, "segment": "progress"}` — `segment` matches the segment's
+`customId`. Screens that should not show it set `{"enabled": false}`.
 
-`template` is `linear` or `segmented`; `type` is `single-segment` or `multiple-segments`; pair
-`segmented` + `multiple-segments` + `oneSegmentPerScreen: true` for one dot per screen.
+- **On the loader, `fill` is the empty track and `color` is the progress.** Set both to the same
+  colour and the bar looks full on every screen. `verify-config.py` warns on that.
+- **The segment carries no colour.** Its states hold sizes only; colouring the segment paints over
+  the loader.
+- **More segments do not make it advance.** One segment per screen, each screen pointing at its
+  own, never moved on a device; nor did `multiple-segments` with `oneSegmentPerScreen`.
+- **The preview cannot show the fill.** It draws the track only, so whether the bar advances is a
+  device check.
 
 ### A countdown
 
-**The invisible Countdown is the flow's only delay primitive.** A Spinner has no completion
-trigger, and `On Screen Appear → Navigate Next` fires instantly — so a timed screen is a Countdown
-with `Opacity 0`, `Position Absolute`, top/left 0, and `On Timer End → Navigate Next`
-(team-recipe). And when a loader must be pinned, the `fixed` position goes on a **container**, not
-on the Loader element itself. Details of the visible countdown below.
+**The Countdown is the flow's only delay primitive.** A Spinner has no completion trigger, and
+`On Screen Appear → Navigate Next` fires instantly — so a timed screen is a `timer` with a
+`timer-end` interaction. Build it in the [device-verified shape](#device-verified-the-json-an-auto-advancing-screen-actually-needs):
+a direct child of the screen root, `hug` with padding, **a text showing its digits inside it**
+(coloured like the background to hide it), no `opacity: 0`,
+and an explicit `navigate`. The builder's own wording ("Opacity 0, Navigate Next") describes the
+dropdown, not the JSON, and followed literally it gives a screen that never advances. When a
+loader must be pinned, the `fixed` position goes on a **container**, not on the Loader element
+itself.
+
+**Under `safeArea: true`, check where an absolute element lands.** In the render, an absolute
+`top` was measured from the top of the full screen rather than from below the status bar, so a
+timer or back button at `top: 0` sat under the clock. Look for it in the render and move the
+element down rather than trusting the number.
 
 **A `spinner`'s `duration` is its ROTATION PERIOD, not a completion time.** It loops forever and
 fires nothing, on every surface. The field reads exactly like a delay — a user looking at
@@ -295,11 +369,12 @@ and it is not the `spinner` element — you would ship a lookalike that no longe
 the [fake-footer](#a-bar-that-stays-at-the-bottom-use-footer) mistake wearing a loader: a
 preview-visible impostor standing in for a real element to satisfy a screenshot. Keep the
 `spinner` / `loader-spinner-label`, disclose that the preview cannot show it, and hand the animation
-to the device check. `verify-config.py` cannot see this, so it is on you.
+to the device check. The bundle's `Spinner`, `SpinnerGap` and `SpinnerBall` are still
+pictures of a loader, never the loader itself.
 
 ### DEVICE-VERIFIED: the JSON an auto-advancing screen actually needs
 
-The recipe above is written in the builder's vocabulary, and translating it to JSON left three
+The builder's recipe is written in its own vocabulary, and translating it to JSON left three
 gaps that together produced a screen that spun forever on a real device while `validate` returned
 `valid: true`. This is the shape that **worked on a real device** — the project's
 first confirmed `timer-end`, since no export in the corpus carries one:
@@ -318,7 +393,8 @@ first confirmed `timer-end`, since no export in the corpus carries one:
 ```
 
 > **CORRECTED 2026-09-01 — the block above is incomplete, and the missing part is the one that
-> makes it work. `el_delay` MUST HAVE AT LEAST ONE CHILD.** A childless timer does **not** fire
+> makes it work. `el_delay` MUST CONTAIN A TEXT SHOWING ITS DIGITS** (see the bullet on the
+> child below — a logo or plain copy is not enough). A childless timer does **not** fire
 > `timer-end` on a device: the flow reaches the screen and stops there for good. Measured over
 > three device trips — a real onboarding stuck on its loader; the identical config with one child
 > `text` added advancing; and an isolating probe whose two exits led to *different* destinations
@@ -330,7 +406,7 @@ first confirmed `timer-end`, since no export in the corpus carries one:
 > added visible countdown digits to diagnose the failure, then wrote the shape down without
 > them.** The instrumentation *was* the fix, and it was removed from the record as noise. If you
 > add instrumentation to make a remote failure observable, the shape you verified is the
-> instrumented one — strip it and re-verify, or document it as required. See CLAUDE.md finding 29.
+> instrumented one — strip it and re-verify, or document it as required.
 >
 > `flowkit.timer()` now raises on the pair and `verify-config.py` errors on it, because no other
 > gate can see it: `validate` returns `valid: true` for both forms and `config preview` never
@@ -350,8 +426,18 @@ before the device test, so treat the whole shape as the unit that works:
   a zero-opacity element is one a renderer may legitimately skip. **Superseded in its second
   half:** this bullet went on to say a timer with no child draws nothing "anyway", which read as
   a licence to ship one childless. It is not — see the correction above. The surviving rule is
-  narrower: do not set `opacity: 0`, *and* give the timer a child. If the countdown should not be
-  seen, the child is the loading copy the screen was going to show regardless.
+  narrower: do not set `opacity: 0`, *and* put the timer's own digits inside it.
+- **The child must be a text showing its digits, not just any child.** Device-measured on a
+  25-screen flow: four timers whose only child was a logo or a plain sentence never advanced; the
+  same four advanced once a `timer_seconds` text was added — two with the digits visible, two
+  with the digits coloured like the background. So an invisible delay is a timer holding
+  `timer_digits(('seconds',), color_id='<background>')`, and the screen's own copy or graphic sits
+  beside the digits, never instead of them. **Why, read from the transformer's source:** the
+  builder's `timer` box becomes a plain container on the way to the SDK; the SDK's own timer is
+  made from the text inside it that carries a `timer_*` token, and the `timer-end` action is
+  wired onto that element (the first such text per timer). A logo or plain copy is converted to
+  ordinary text or image, so nothing carries the action. The colour of the digits plays no part
+  in that conversion, which is why background-coloured digits still fire.
 - **An explicit `navigate`, not `navigateNext`.** The recipe says "Navigate Next" because that is
   the builder's dropdown; in JSON an implicit next-in-order target silently re-routes if anyone
   reorders the screens, and it also makes the graph invisible to the reachability check —
@@ -461,7 +547,7 @@ Now the SDK limitations, which shape the *geometry* of a real carousel — not w
 Support-channel distilled (2026-08, team-stated and device-verified). The carousel supports exactly
 **two layouts**: adjacent-slide peek (the standard Apple layout), or one full slide with neighbours
 invisible. Anything else is an SDK limitation, not a config error, and a true infinite loop is
-impossible — the approximation is duplicating slides (team-diagnosed).
+not available yet — the approximation is duplicating slides (team-diagnosed).
 
 **`hug` does not survive the trip to the device here.** `Slide Width = Hug` is dropped by the
 transformer (Android stretches the slide full-width, the peek disappears; team-diagnosed), and a hugged
@@ -723,16 +809,31 @@ two non-relative elements, so this has precedent; a fixed container does not.
 The one honest exception is a row of several small links (Restore · Terms · Privacy): the row is a
 fixed container because each link is separately tappable and carries its own action.
 
+### A timeline — start from `list-timeline`
+
+**A timeline, a trial timeline, a list of steps: fill the catalog's `list-timeline`** (up to six
+rows, each `title` + `description` beside an icon) with `flowkit.from_catalog()`, and restyle the
+icons and copy. Each row is an in-flow horizontal stack, so the copy sets the height and nothing
+can break. **Connect the steps with a thin line, not a track:** in each row but the last, add a
+2pt `stack` with `position: absolute`, `top` just below the icon, `bottom` just short of the next
+icon (a negative value about half the list gap), `left` centred under the icon, `height: auto`,
+filled with the done colour for completed steps and a muted one after. **Declare it first in the
+row, before the icon, and give it no `zIndex`**: later siblings paint over earlier ones, so the
+icon and the next row cover the line's ends. A rail as
+wide as the icon reads as a row of pills; a hairline reads as one timeline. The anchoring rules
+below still apply to it.
+
 ### A connected timeline, where a rail must reach the next chip
 
-A row is `[chip, rail, text]` where **only the text is in flow**. The chip and the rail are
+A row is `[rail, chip, text]` where **only the text is in flow**. The rail and the chip are
 absolute overlays on the row, and the rail is anchored **top and bottom** so it stretches to
 whatever the row turns out to be. That is the whole mechanism: the copy sets the row's height and
 the rail follows it, so there is no number to compute and nothing for a rewrite or a longer locale
 to break.
 
-The skeleton is lifted from a real builder export and **verified by render**, including under
-grown copy. The row, then its three children in this order:
+The skeleton is lifted from a real builder export, with the rail moved first in place of the
+export's `zIndex: -10`, and **verified by render**, including under grown copy and inside a filled
+card. The row, then its three children in this order — **rail first**:
 
 ```json
 { "id": "el_Row1", "type": "stack", "props": {
@@ -740,6 +841,16 @@ grown copy. The row, then its three children in this order:
     "layout": {"direction": "horizontal", "alignH": "start", "alignV": "start",
                "distribution": {"type": "gap", "gap": 16}},
     "position": {"type": "relative"} }, "states": [] }
+```
+
+```json
+{ "id": "el_Rail1", "type": "stack", "caption": "Connector", "props": {
+    "fill": [{"type": "gradient", "angle": 180, "stops": [
+        {"position": 0, "color": {"type": "hex", "hex": "#E9910B", "opacity": 100}},
+        {"position": 1, "color": {"type": "hex", "hex": "#E9910B", "opacity": 26}}]}],
+    "width": {"type": "fixed", "value": 8}, "height": {"type": "auto"},
+    "position": {"type": "absolute", "top": 10, "left": 12, "bottom": -18},
+    "visibility": {"type": "visible"} }, "states": [] }
 ```
 
 ```json
@@ -754,16 +865,6 @@ grown copy. The row, then its three children in this order:
 ```
 
 ```json
-{ "id": "el_Rail1", "type": "stack", "caption": "Connector", "props": {
-    "fill": [{"type": "gradient", "angle": 180, "stops": [
-        {"position": 0, "color": {"type": "hex", "hex": "#E9910B", "opacity": 100}},
-        {"position": 1, "color": {"type": "hex", "hex": "#E9910B", "opacity": 26}}]}],
-    "width": {"type": "fixed", "value": 8}, "height": {"type": "auto"},
-    "position": {"type": "absolute", "top": 10, "left": 12, "bottom": -18, "zIndex": -10},
-    "visibility": {"type": "visible"} }, "states": [] }
-```
-
-```json
 { "id": "el_Text1", "type": "stack", "props": {
     "width": {"type": "fill"}, "height": {"type": "hug"},
     "layout": {"direction": "vertical", "alignH": "start", "alignV": "start",
@@ -774,7 +875,7 @@ grown copy. The row, then its three children in this order:
 The chip holds one 24pt `icon`; the text column holds a title and a description. **The last row
 carries no rail.**
 
-**Three parts of the rail are load-bearing, each measured by removing it** from a rendered row
+**Each part of the rail is load-bearing, measured by changing it** from a rendered row
 whose description had been grown from two lines to four:
 
 | Change | Result |
@@ -782,10 +883,14 @@ whose description had been grown from two lines to four:
 | as above | rail runs continuously into the next chip and under it |
 | drop `bottom` | rail collapses to nothing — **108px of white** below the chip |
 | `height: fill` instead of `auto` | rail stretches but stops **2px short** — a hairline break |
-| drop `zIndex: -10` | rail paints **over** the chip, erasing the icon inside it |
+| rail declared after the chip, no `zIndex` | rail paints **over** the chip, erasing the icon inside it |
+| rail after the chip with `zIndex: -10`, inside a card with a fill | rail paints **behind the card** and disappears |
 
 So: `bottom` is what gives the element height, `auto` is what makes the anchors authoritative, and
-the negative `zIndex` is what keeps the rail behind the chips it runs under. `flowkit.absolute()`
+paint order is what keeps the rail behind the chips it runs under. The real export used
+`zIndex: -10` instead, which works only while no ancestor has a fill — a negative `zIndex` goes
+behind every filled ancestor, so the same rail inside a trial-timeline card draws nothing.
+`verify-config.py` warns on a negative `zIndex` under a filled ancestor. `flowkit.absolute()`
 emits the position object and refuses the two broken pairings; `verify-config.py` warns on both if
 you hand-write them.
 
@@ -798,6 +903,13 @@ Derive the offsets rather than copying the numbers, since they follow from the c
   chip rather than below it.
 - **rail `bottom`** = −(the list's row gap + a few px of overlap), so the tail passes *under* the
   next chip instead of stopping at its edge — −18 against a `gap: 12` list.
+
+**When the rail is as wide as the chip — a track, not a hairline — round only its outer ends.**
+Each row's rail is its own element, so rounding every corner draws a separate pill per row: the
+tail of one cap and the head of the next show as a notch at every join, and the track reads as
+broken. Give the first row's rail rounded top corners only, the middle rows' none, and the last
+drawn rail rounded bottom corners only; where a row changes colour (done → upcoming), the join is
+still square. A hairline rail is too thin for this to show.
 
 **Fade the rail on alpha, not toward the page colour.** The gradient above runs one hex from
 `opacity: 100` to `26`; a fade whose last stop *is* the background renders the tail invisible and
@@ -826,7 +938,7 @@ nodes = fk.from_catalog(entry, group_id='plans', items=[
 ```
 
 Read the rest of this section when the catalog shape does not fit — a comparison layout, a single
-hidden attach point, cards that are not a vertical list. This is the commonest paywall shape there
+plan written as plain copy, cards that are not a vertical list. This is the commonest paywall shape there
 is and the one most likely to be rebuilt from scratch, and rebuilding it is where the dead
 selected state comes from. Radio and product-card shapes below are lifted from
 `tests/fixtures/onboarding-quiz-paywall.json` (a real export); the assembly is **verified by
@@ -967,51 +1079,49 @@ The rule generalises: **`propsByState` restyles an element, it does not suppress
 it.** Anything with children needs `visibility` — and hiding collapses the layout, so reserve the
 space deliberately (trap 14 in [flow-schema.md](flow-schema.md)).
 
-### A single-plan screen: hide the product element, buy with `const`
+### A single-plan screen: the plan's text block is the product
 
-One product means there is nothing to pick, and a lone `product` card is worse than no card: it
-carries a permanent `selected` look the user cannot change, so the styling says "choice" while the
-screen offers none.
-
-The shape that avoids it uses each mechanism for the one thing it is for:
+A screen that sells one plan usually shows no card at all — just copy: the plan's name, the
+price, the period, a trial line. **That text block is the product.** Recognize it as one even
+when nothing about it looks like a card, and wrap it in the `product` element:
 
 ```json
-{ "id": "el_attachPoint", "type": "product", "caption": "Product attach point (hidden)",
-  "props": {"width": {"type": "hug"}, "height": {"type": "hug"},
-            "visibility": {"type": "hidden"},
+{ "id": "el_plan", "type": "product", "caption": "Plan",
+  "props": {"width": {"type": "fill"}, "height": {"type": "hug"},
             "groupId": "plans", "default": true,
             "product": {"id": "<product-uuid>"}, "layout": {…}, "position": {"type": "relative"}},
   "states": [{"id": "selected", "type": "system"}] }
 ```
+
+Its children are the text elements the reference shows — `Premium`, `<uuid>.prod_price / year`,
+and so on — laid out and styled exactly as the reference has them. `flowkit.single_plan(children,
+product_id=…, group_id=…)` emits it and refuses an empty block.
+
+The CTA buys the element's selection, exactly as on a multi-plan screen — `flowkit.purchase("plans")`:
+
 ```json
 "interactions": [{"id": "int_buy", "trigger": "tap", "actions": [
   {"id": "act_buy", "type": "purchase",
-   "payload": {"product": {"type": "const", "value": {"id": "<product-uuid>"}}}}]}]
+   "payload": {"product": {"type": "var", "variableId": "plans.selectedProduct"}}}]}]
 ```
 
-- The **hidden `product` element is the attach point**, and it exists for one reason: a price
-  variable resolves only against a declared product, and only a `product` element can be
-  attached to. Hidden costs nothing — hiding collapses the space (trap 14) — and the price then
-  lives in ordinary copy anywhere on the screen.
-- **`height` is `hug`, never `fixed: 0`.** A `{"type": "fixed", "value": 0}` saves fine and kills
-  the element on device; `verify-config.py` **errors** on it under trap 15. `visibility: hidden`
-  already collapses the space, so a zero height buys nothing and trips a real gate.
-- The **CTA buys with `const`**, which names the product directly and needs no group and no
-  selection. Both facts, with their evidence, are
-  [products.md → a price variable REQUIRES a `product` element](products.md) and
-  [→ a purchase can bind a product with no `product` element](products.md).
+- **Never an empty or hidden `product` beside the copy.** The builder draws a childless `product`
+  as a 1x1 box that breaks the layout around it and is hard to find and delete, while
+  `config preview` collapses it — so the screen looks right until the user opens the builder.
+  `verify-config.py` warns on one.
+- **No `propsByState.selected`.** The element starts selected and there is nothing to pick, so
+  it must not look pickable: style it in its base props and it draws exactly like the plain
+  stack it replaces.
+- The price variables sit **inside** the element's subtree, which is where every price variable
+  sits in the real export that uses them ([products.md](products.md)).
+- **The CTA buys `<group>.selectedProduct`, never a `const` id.** `default: true` makes the one
+  card the selection, so the product is named in one place: swap it on the card in the builder
+  and the button follows. A `const` names it twice, and the button keeps buying the old one. The
+  one real single-card export does exactly this, and no real export pairs a `const` purchase with
+  a `product` element on the same screen — `const` is for a screen with no `product` element at
+  all ([products.md](products.md)). `verify-config.py` warns on the mix.
 - Keep the `selectableGroups` entry and the element's `groupId` in agreement even though nothing
   reads the selection — the invariant is bidirectional and a stray `groupId` fails verify.
-
-**Verified by render**, and it is what a reviewer asked for over a visible single card. Evidence
-tier, stated plainly because this file's own ordering demands it: **no real export contains a
-hidden attach point at all** — every `product` element across the corpus is a visible plan card
-(`hug` height, `fill` width, no `visibility`), so this composition is authored, not observed. The
-two halves it is built from *are* attested separately: `hug` is what every real `product` element
-uses, and `visibility: hidden` appears on real builder output elsewhere in the corpus. What is
-*not* yet verified: whether the builder declares a product on a **hidden** element when it saves.
-Declare it with `flowkit.predeclare()` to cover device preview meanwhile, and check the
-live `_meta.screens` after the flow has been saved in the builder once before relying on it.
 
 ### Plans in a `bottom-sheet`
 

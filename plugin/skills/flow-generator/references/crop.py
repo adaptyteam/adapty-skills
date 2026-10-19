@@ -65,7 +65,10 @@ def chan_dist(p, k):
 
 def crop_box(rows, nch, box):
     x0, y0, x1, y1 = box
-    return [[[r[x * nch], r[x * nch + 1], r[x * nch + 2], 255] for x in range(x0, x1)]
+    # Keep the source's alpha: trimming a drawing that is already transparent must not put it
+    # on a black box.
+    alpha = (lambda r, x: r[x * nch + 3]) if nch == 4 else (lambda r, x: 255)
+    return [[[r[x * nch], r[x * nch + 1], r[x * nch + 2], alpha(r, x)] for x in range(x0, x1)]
             for r in (rows[y] for y in range(y0, y1))]
 
 
@@ -142,7 +145,7 @@ def key_backdrop(px, key):
                 f = a / 255.0
                 for i in range(3):
                     p[i] = max(0, min(255, int((p[i] - key[i] * (1 - f)) / f)))
-            p[3] = a
+            p[3] = min(a, p[3])          # never more opaque than the source
     return removed / float(w * h)
 
 

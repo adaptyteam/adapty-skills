@@ -405,24 +405,18 @@ broken link.
 
 `--qr` writes a 228x228 PNG (~4KB), opens it, and prints a markdown line to paste.
 
-**The link is the deliverable; the QR is off unless asked for.** Without `--qr` the script prints the
-link and nothing else — no PNG, no window, and `qrcode` is never even loaded.
+**The callout offers the QR; it does not paste the link.** Without `--qr` the script prints the link
+and nothing else — no PNG, no window, and `qrcode` is never even loaded — which is what to hand over
+when the user asks for the link itself (a reader on the phone they want to preview on cannot scan
+their own screen). By default, slot 2 carries one line:
 
-**The two serve different readers, not different tastes.** Someone reading on the phone they want to
-preview on taps the link and is done; a QR is useless to them, since they cannot point their only
-camera at their own screen. The QR is for the reader on a laptop whose test device is a separate
-thing they have to reach. So the link is unconditional, and offering "a QR instead of tapping the
-link" is the wrong frame — it implies a choice where the phone reader already has everything they
-need. Say it as two situations:
-
-> On mobile, tap the link to preview. If you want a QR code to scan for device preview, just say so
-> and I'll generate one.
+> Want a QR code to scan with the Adapty mobile app? Just say so and I'll make one.
 
 **Base that decision only on what the user said.** Two drafts of this guidance keyed it on something
 unobservable — first `$TERM` to guess whether images render, then "when the user is at a laptop and
 about to test on a device" — and an unevaluable condition does not become a default, it becomes a
-coin flip. You cannot see their desk. You can see their words: a QR they asked for, a QR they
-declined, or no signal, in which case offer in one line and let them answer.
+coin flip. You cannot see their desk. You can see their words: a QR they asked for, the link they
+asked for, a QR they declined, or no signal, in which case offer in one line and let them answer.
 
 That is a general rule for this file: **a condition written here has to be one an agent can actually
 check.** If it cannot, it will be resolved by guessing, and the guess will read as considered

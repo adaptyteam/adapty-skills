@@ -704,10 +704,19 @@ def catalog_findings(raw):
         bad.append(f'schemaVersion is {raw.get("schemaVersion")!r} on a catalogued document — '
                    f'it must be the number {_loc.SCHEMA_VERSION}. A lower number makes the builder '
                    f're-run migrations over shapes it has already produced')
-    for k in ('locales', 'defaultLocale'):
-        if k in raw:
-            bad.append(f'top-level `{k}` beside `localization` — it lives under '
-                       f'`localization.{k}` only; delete the top-level copy')
+    # The top-level `locales`/`defaultLocale` are legacy fields the transform service does not read
+    # on a catalogued document. `config update` echoes them back itself as `locales: []` and the
+    # catalog's default, so that shape is every saved document, not a defect. A top-level copy
+    # that says something the catalog does not is one: a locale written there is read by nothing.
+    lz_ = raw.get('localization') if isinstance(raw.get('localization'), dict) else {}
+    if raw.get('locales') not in (None, []):
+        bad.append('top-level `locales` beside `localization` carries entries, and nothing reads '
+                   'it — locales live under `localization.locales` only. Move any locale you '
+                   'meant to add there and empty the top-level copy')
+    if 'defaultLocale' in raw and raw['defaultLocale'] != lz_.get('defaultLocale'):
+        bad.append(f'top-level `defaultLocale` is {raw["defaultLocale"]!r} but '
+                   f'`localization.defaultLocale` is {lz_.get("defaultLocale")!r} — only the '
+                   f'latter is read. Set the default there')
 
     locs = [l for l in (lz.get('locales') or []) if isinstance(l, dict)]
     ids = [l.get('id') for l in locs if isinstance(l.get('id'), str)]
@@ -1324,6 +1333,30 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"anchor pair collapses to nothing — give it both offsets, or use a "
                         f"real height")
 
+    # A negative zIndex sends an element behind the fill of every ancestor that has one, so a
+    # timeline rail at `zIndex: -10` inside a filled card draws nothing at all. Render-measured;
+    # the fix is paint order: declare the element before the sibling it must sit under and drop
+    # the zIndex. On a page with no filled ancestor the same rail draws, which is why the recipe
+    # survived until it met a card.
+    def _neg_z_under_fill(m, node, filled):
+        for ch in node.get('children') or []:
+            e = m.get(ch.get('id'))
+            if not isinstance(e, dict):
+                continue
+            p = e.get('props') or {}
+            z = (p.get('position') or {}).get('zIndex') if isinstance(p.get('position'), dict) else None
+            if isinstance(z, (int, float)) and z < 0 and filled:
+                yield e, filled[-1]
+            yield from _neg_z_under_fill(m, ch, filled + ([e['id']] if p.get('fill') else []))
+    for s in d.get('screens', []):
+        els_ = s.get('elements') or {}
+        if not isinstance(els_, dict):
+            continue
+        for e, anc in _neg_z_under_fill(els_.get('map') or {}, els_.get('hierarchy') or {}, []):
+            warn.append(f"{s['id']}/{e['id']}: negative zIndex inside {anc}, which has a fill — "
+                        f"the element draws behind that fill and disappears. Drop the zIndex and "
+                        f"declare it before the sibling it should sit under")
+
     # groupId naming rules, both team-stated from publish failures: digit-led ids generate
     # invalid JavaScript (publish blocker), and a groupId reused on another screen broke
     # selection rendering.
@@ -1739,6 +1772,26 @@ def check(path, baseline_text=None, baseline_images=None):
                            f'resolves nothing and it draws BLANK — an authored `raw` does not '
                            f'override the bundle. Did you mean: {hint}?')
 
+    # An `icon` element with a phosphor loader glyph (`Spinner`, `SpinnerGap`, `SpinnerBall`)
+    # is a still picture of a loader. It draws in every preview and does not
+    # rotate on a device; the loader is the `spinner` element with a custom spinner glyph.
+    # Calibrated: none of these names appears in the tracked or raw corpus or in the catalog.
+    # `CircleNotch` is not flagged: five agent-built welcome screens use it as decoration.
+    if _icons is not None:
+        fakes = set()
+
+        def _static_loader(o):
+            ic = (o.get('props') or {}).get('icon') if o.get('type') == 'icon' else None
+            if isinstance(ic, dict) and ic.get('type') == 'phosphor' \
+                    and ic.get('name') in _icons.STATIC_LOADERS:
+                fakes.add((o.get('id', '?'), ic['name']))
+
+        walk(d, _static_loader)
+        for eid, name in sorted(fakes):
+            warn.append(f'icon element {eid} uses {name!r}, a static picture of a loader: it does '
+                        f'not rotate on a device. For a loading indicator use the spinner element '
+                        f'(flowkit.spinner(\'spinner1\'), or the loader-spinner-label template).')
+
     refs = set()
     walk(d, lambda o: refs.add(o['id']) if o.get('type') == 'global' else None)
     unref = sorted(set(d.get('components', {})) - refs)
@@ -1806,12 +1859,27 @@ def check(path, baseline_text=None, baseline_images=None):
                     return any(w(c) for c in (n.get('children') or []))
                 w(root)
                 return found
-            if not _children_of(eid_):
+            # A child is not enough: device-measured, a timer whose only child is a logo or a
+            # plain sentence does not fire either. It fires once a text inside it carries its
+            # own digits (a `timer_*` token), and those digits may be coloured like the
+            # background, which keeps the delay invisible and still fires.
+            m_ = s.get('elements', {}).get('map') or {}
+            def _has_digits(nodes):
+                for n in nodes:
+                    el = m_.get(n.get('id')) or {}
+                    if el.get('type') == 'text' and '"timer_' in json.dumps(el.get('props', {}).get('content')):
+                        return True
+                    if _has_digits(n.get('children') or []):
+                        return True
+                return False
+            kids_ = _children_of(eid_)
+            if not _has_digits(kids_):
                 bad.append(
-                    f'screen {s["id"]}: timer {eid_} has a timer-end action and NO children, '
-                    f'so it does not fire on a device and the flow stops on this screen. '
-                    f'Neither validate nor preview can see this. Give '
-                    f'it a child -- the running digits, or the loading copy itself')
+                    f'screen {s["id"]}: timer {eid_} has a timer-end action but no text inside it '
+                    f'showing its digits, so it does not fire on a device and the flow stops on '
+                    f'this screen ({"no children at all" if not kids_ else "a logo or plain text is not enough"}). '
+                    f'Put a timer_digits() text inside it; to keep the delay invisible, colour the '
+                    f'digits like the background. Neither validate nor preview can see this')
 
     # `footer` is the pinned bottom bar, and all three of these were measured by
     # rendering one screen eight ways. The element is lifted out of the flow and pinned to the
@@ -2167,6 +2235,61 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'identical and nothing carries `propsByState.selected`, so a user cannot '
                     f'tell which one is selected. If the design marks selection some other way '
                     f'(a radio dot with its own state) this is fine. Members: {names}')
+    # A `product` ELEMENT WITH NOTHING IN IT. The single-plan shape where the plan's name and price
+    # are loose text beside an empty (often hidden) `product` "attach point". The builder draws the
+    # empty element as a 1x1 box the user has to find and delete by hand, and it breaks the layout
+    # around it — while `config preview` collapses it and draws the screen clean. The text that
+    # describes the plan IS the product: wrap it in the `product` element. Zero real exports and
+    # zero catalog templates contain a childless `product`, so this is never builder output.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+
+        def _empty_products(n):
+            if (m.get(n.get('id'), {}).get('type') == 'product'
+                    and not n.get('children')):
+                warn.append(
+                    f'screen {s["id"]}: {n["id"]} is a `product` element with no children. The '
+                    f'builder shows it as a 1x1 box that breaks the layout, and the preview hides '
+                    f'it. Move the text that names and prices the plan INSIDE this element and '
+                    f'delete the empty one — on a single-plan screen that text block is the '
+                    f'product. See patterns.md, "A single-plan screen"')
+            for c in n.get('children') or []:
+                _empty_products(c)
+        _empty_products(s['elements']['hierarchy'])
+
+    # A `const` PURCHASE OF A PRODUCT A `product` ELEMENT ON THE SAME SCREEN ALREADY BINDS. The
+    # product is then named twice: swap it on the card in the builder and the button keeps buying
+    # the old one, with nothing on screen to show it. A screen with a `product` element buys
+    # `<group>.selectedProduct` -- the one real single-card export does, even with one card -- and
+    # `const` is for a screen with no `product` element. Zero real exports mix the two.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+        bound = {}
+        for k, e in m.items():
+            if e.get('type') == 'product':
+                pid = ((e.get('props') or {}).get('product') or {}).get('id')
+                if pid:
+                    bound[pid] = (e.get('props') or {}).get('groupId')
+
+        def _const_buys(o, eid=None):
+            if isinstance(o, dict):
+                if o.get('type') == 'purchase':
+                    p = (o.get('payload') or {}).get('product') or {}
+                    pid = (p.get('value') or {}).get('id') if p.get('type') == 'const' else None
+                    if pid in bound:
+                        warn.append(
+                            f'screen {s["id"]}: {eid} buys product {pid} by `const` while a '
+                            f'`product` element on this screen binds the same product. Buy '
+                            f'`{bound[pid]}.selectedProduct` instead — named twice, swapping the '
+                            f'product on the card in the builder leaves this button buying the '
+                            f'old one. See patterns.md, "A single-plan screen"')
+                for v in o.values():
+                    _const_buys(v, eid)
+            elif isinstance(o, list):
+                for v in o:
+                    _const_buys(v, eid)
+        for k, e in m.items():
+            _const_buys(e.get('interactions'), k)
     # ---- conditions the transform service compiles: shape, then variable resolution.
     # Both are hard 422s and neither is visible to any other gate — the schema types a
     # condition loosely and `config preview` renders the element in whichever state it draws.
@@ -2725,6 +2848,33 @@ def check(path, baseline_text=None, baseline_images=None):
                            f'"Generated JSON failed schema validation", and neither the schema '
                            f'check nor the render can see it')
 
+    # ---- progress bar. A flow has ONE bar, and its loader's `fill` is the empty track while its
+    # `color` is the progress. Both shapes below were built, passed every other gate, and drew a
+    # bar that never moved on a device: the probe with several bars, and loaders whose track and
+    # progress were the same colour, which look full on every screen.
+    bars = [(cid, e) for cid, comp in (d.get('components') or {}).items()
+            for e in ((comp or {}).get('map') or {}).values() if e.get('type') == 'progress-bar']
+    if len(bars) > 1:
+        warn.append(f'{len(bars)} progress bars in components ({", ".join(c for c, _ in bars)}) — a '
+                    f'flow has one progress bar, shared by every screen that shows it')
+
+    def _col(c):
+        if isinstance(c, list):
+            c = next((l.get('color') for l in c if isinstance(l, dict) and l.get('type') == 'color'), None)
+        if isinstance(c, dict):
+            return c.get('colorId') or (c.get('hex') or '').upper() or None
+        return None
+    for cid, comp in (d.get('components') or {}).items():
+        for e in ((comp or {}).get('map') or {}).values():
+            if e.get('type') != 'progress-bar-loader':
+                continue
+            p_ = e.get('props') or {}
+            track, prog = _col(p_.get('fill')), _col(p_.get('color'))
+            if track and prog and track == prog:
+                warn.append(f'progress bar {cid}: the loader\'s track (`fill`) and progress (`color`) '
+                            f'are both {track}, so the bar looks full on every screen. `fill` is '
+                            f'the empty track, `color` is the progress')
+
     return bad, warn
 
 args = sys.argv[1:]
@@ -2755,6 +2905,17 @@ for path in args:
     # "your config is corrupt" when it means "this checker hit a shape it did not expect".
     # Exit 2 keeps that distinct from exit 1 (the document has findings), matching the exit-code
     # convention the rest of this repo's scripts use.
+    # An unreadable input is the caller's to fix, not a checker bug — say which, plainly.
+    try:
+        json.load(open(path))
+    except OSError as exc:
+        print(f'{os.path.basename(path):34} UNREADABLE')
+        print(f'   {exc.strerror}: {path}')
+        sys.exit(2)
+    except ValueError as exc:
+        print(f'{os.path.basename(path):34} NOT JSON')
+        print(f'   {exc}')
+        sys.exit(2)
     try:
         bad, warn = check(path, baseline_text, baseline_images)
     except Exception as exc:                                  # noqa: BLE001 - the point is breadth

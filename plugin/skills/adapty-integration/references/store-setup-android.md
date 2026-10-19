@@ -10,7 +10,7 @@ Present this entire checklist to the user with the **exact product IDs and place
 
 Adapty products need matching products in Google Play Console before purchases work.
 
-> **Prerequisite:** Google Play Console will not let you create in-app products or subscriptions until a signed AAB with the `com.android.vending.BILLING` permission has been uploaded to any track. If the **Subscriptions** and **In-app products** pages are empty or disabled, do **Part 4, Step 2** first (upload a signed AAB to a closed track), then come back here. This is a one-time gate — after the first upload you can create products normally.
+> **Prerequisite:** Google Play Console will not let you create in-app products or subscriptions until a signed AAB with the `com.android.vending.BILLING` permission has been uploaded to any track. If the **Subscriptions** and **In-app products** pages are empty or disabled, upload a signed AAB to a closed track first — `purchase-testing` walks through it in its Google Play reference — then come back here. This is a one-time gate — after the first upload you can create products normally.
 
 1. Open [Google Play Console](https://play.google.com/console) → your app → **Monetize → Products**.
 
@@ -56,9 +56,11 @@ Adapty uses a Service Account key to communicate with Google Play. If you don't 
 6. The `.json` file downloads automatically. Save it — you'll upload it to Adapty.
 7. In [Google Play Console → Setup → API access](https://play.google.com/console/developers/api-access):
    - Link to the Google Cloud project from step 1 (if not already linked)
-   - Under **Service accounts**, find the account you created → click **Grant access**
-   - Grant these permissions: **View financial data**, **Manage orders and subscriptions**
-   - Click **Apply**
+   - Invite the service account under **Users and permissions** and grant all four permissions
+     Adapty needs: **View app information and download bulk reports**, **View financial data,
+     orders, and cancellation survey responses**, **Manage orders and subscriptions**, and
+     **Manage store presence**
+     ([Grant permissions to the service account](https://adapty.io/docs/grant-permissions-to-service-account.md))
 8. In [Adapty Dashboard → App settings → Android SDK](https://app.adapty.io/settings/android-sdk):
    - Upload the `.json` key file
    - Click **Save**

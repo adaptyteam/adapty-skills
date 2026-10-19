@@ -253,6 +253,21 @@ silent('a `custom` icon under any other name — custom renders from its own dec
 silent('an icon element with no weight — the older name/weight check owns that one',
        doc_with(icon_el('el_a', 'Star', weight=None)))
 
+# --- the command line an agent actually types ------------------------------------------------
+ICONS_CLI = os.path.join(os.path.dirname(VERIFY), 'icons.py')
+def cli(*a):
+    return subprocess.run([sys.executable, ICONS_CLI, *a], capture_output=True, text=True)
+for needle in ('Lock', 'X', 'x'):
+    first = (cli('--search', needle).stdout.splitlines() or [''])[0]
+    check(f'--search {needle} lists the exact icon first', first.lower() == needle.lower(), first)
+h = cli('--help')
+check('--help prints usage, not an unknown-icon error',
+      h.returncode == 0 and 'not a Phosphor icon' not in h.stderr, h.stderr[:120])
+missing = subprocess.run([sys.executable, VERIFY, '/nonexistent/flow.json'], capture_output=True, text=True)
+check('verify-config names a missing file as unreadable, not as its own bug',
+      missing.returncode == 2 and 'UNREADABLE' in missing.stdout and 'bug in' not in missing.stdout,
+      missing.stdout[:160])
+
 print()
 if fails:
     print(f'{len(fails)} FAILED')
