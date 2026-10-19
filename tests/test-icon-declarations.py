@@ -7,7 +7,7 @@ Repo-only. Runs the shipped script as a subprocess -- never imports it, so nothi
 
 Why this file exists. The check read `i['name']` and `i['weight']` straight off dicts an author
 wrote, so a `_meta.icons` entry missing `weight` killed the script with a bare
-`KeyError: 'weight'`. That is the second instance of a class CLAUDE.md already records -- the
+`KeyError: 'weight'`. That is the second instance of a class docs/maintainers/flow-generator.md already records -- the
 envelope `KeyError: 'theme'` -- and the damage is the same both times: a stack trace reads as
 "your config is corrupt" when it means "one field is missing", so the reader looks in the wrong
 place. Found 2026-09-02 by feeding the checker a config built without the field.
