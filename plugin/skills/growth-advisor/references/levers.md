@@ -158,6 +158,29 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
 - **Paywall after a short goal quiz,** and **a free taste of the product before the paywall**
   (for games and creative tools): onboarding changes, routed to `onboarding-teardown`.
 
+## Already tried, already live, or standard
+
+Before ranking, drop any hypothesis that:
+
+- matches what is live now (a trial already on that plan, an offer already shown on close, a
+  placement that already exists);
+- repeats a past test, whichever way it went, unless its loss failed the check in "After a test";
+- repeats a past promo without a reason it would go differently this time.
+
+A hypothesis that is sensible but standard (what most paywalls already do, `market.md`, How
+paywalls look) stays only when the app does not do it yet, labelled as the standard move, and an
+untried bet with a similar stake ranks above it.
+
+## When nothing stands out
+
+When no split shows one group carrying a gap and no step of the funnel is clearly weak, say so in
+the bold answer ("nothing is broken; these are bets"). Then suggest growth bets, still ranked by
+purchases at stake: a lever the app has not touched (a placement at a value moment, a win-back
+audience, a plan length or lifetime it does not sell), something rare in the market with evidence
+behind it (`market.md`, How paywalls look; `evidence.md`), a bet aimed at a segment, and at least
+one bolder change sized to their traffic. Never fill the list with standard moves the app already
+makes.
+
 ## Segments
 
 A segment is not a lever of its own: any hypothesis above can be aimed at one group of users

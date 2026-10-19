@@ -167,6 +167,32 @@ audience), which products each paywall sells, and whether there is anything afte
 paywall. Trials are set in the store, not in Adapty: read which products carry one from chart 4
 by `store_product_id`, or ask the user. Prices are out of scope; do not look them up.
 
+## What the app already tried
+
+Read this in every audit; the user will rarely tell you. Use 12 months, not six.
+
+```bash
+# Paywalls and flows week by week, one call per active placement
+$ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FROM12 --date-to $TO --granularity week --group-by paywall_id --filter placement_id=<VALUE> --json
+# (or --group-by flow_id for a flow placement)
+# Offers over time
+$ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FROM12 --date-to $TO --granularity month --group-by offer_id --json
+# Products over time
+$ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FROM12 --date-to $TO --granularity month --group-by store_product_id --json
+```
+
+| What you see | What it means |
+|---|---|
+| Two paywalls or flows selling on one placement in the same weeks, then one stops | A past A/B test. The one still selling is the one they kept; say "kept", not "won". |
+| One paywall stops and another starts the same week | A change they made and kept. |
+| A paywall or flow in `paywalls list` / `flows list` that no placement shows | Something tried and dropped. Its name often says what it tried. |
+| A product with purchases earlier and none lately | A plan or trial they dropped. |
+| An offer with purchases in one stretch only | A past promo or intro offer, and when it ran. |
+| Audiences and segments on placements now | Targeting they already do. |
+
+Say it as facts with the dates, and say what the data cannot show: the winner of a test whose
+variants both stopped, and ideas they discussed but never ran.
+
 ## Follow the signal down
 
 The audit reads find a symptom. Before you name a cause, split the biggest one until the split

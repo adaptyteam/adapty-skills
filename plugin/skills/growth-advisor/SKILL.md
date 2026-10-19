@@ -50,8 +50,11 @@ These are the only two words for what you suggest, and the user sees them exactl
 A question about the app's own numbers ("who buys annual", "which country refunds most", "do
 people who start a trial renew better") is answered from the numbers. Find the operation, the
 grouping and the filter that answer it in the catalog (`references/diagnosis.md`, "Before the
-first read"), run them, and answer in the reply shape. No hypotheses unless the user asks what to
-do; if the answer points at one change worth testing, offer it in one Next step.
+first read"), run them, and answer in the reply shape. Do not run the audit, read the test history
+or suggest hypotheses unless the user asks what to do. End with one offer that names the metric the
+question was about, for example "Want data-backed ideas on what to test to improve trial-to-paid?"
+(an example of the shape, not words to copy). When the answer already points at one change worth
+testing, name that change in the offer instead.
 
 ## No data yet
 
@@ -187,35 +190,29 @@ conversation that asks "what should I do".
    market), and whether the paywalls are Flow Builder flows. When the paywalls are drawn in the
    app's own code, design hypotheses are out: keep to products, trials, placements and audiences,
    and say why.
-3. **Ask for what the CLI cannot see** before you rank anything. Send one message with the
-   questions below that apply, and skip any the user already answered:
-   - **What have you tested before,** and what won? A recent loss is off the table, and the CLI
-     has no test history. When the user names past tests, say in one line what each result rules
-     out (`references/levers.md`, "After a test") before suggesting the next.
-   - **Your trials:** which products carry one and how long, if the numbers do not show it.
-   - **Your paywall,** as a screenshot, if a design hypothesis may rank. `paywall-teardown` reads it.
+3. **Work out what the app already tried, and do not wait for the user.** Most users will not
+   type a test history, so read it from the data (`references/diagnosis.md`, "What the app already
+   tried"): paywalls or flows that ran side by side on one placement (a past A/B test; the one still
+   live is the one they kept), paywalls, flows and products no longer in use, past offers, and the
+   setup that is live now. Put it in the reply as one short paragraph of facts ("From your data: two
+   onboarding paywalls ran side by side in May, and you kept Main."), so the user only types when
+   it is wrong. When the user does name past tests, say in one line what each rules out
+   (`references/levers.md`, "After a test") before suggesting the next.
 
-   The questions go into the reply's Next steps as "You:" items. Shape (the form, not words to
-   copy):
-
-   > **Next steps**
-   > 1. You: have you A/B tested anything on your paywall, and what won?
-   > 2. You: can you send a screenshot of your onboarding paywall?
-   > 3. Me: suggest up to three hypotheses once you answer. You can skip either question.
-
-   When nobody can answer, carry on without the answers and list each one under what you could
-   not check.
-
-   This step runs before you suggest **any** hypothesis, also when the conversation began with a
-   question such as "why did revenue drop": answer the question first, then ask before you rank
-   hypotheses.
+   Ask at most one question, as the last "You:" item in Next steps, and only when its answer would
+   change your first pick: a past test whose winner the data cannot show, a trial the numbers do
+   not show, a screenshot when a design hypothesis would rank first. Never hold the hypotheses back
+   waiting for an answer.
 4. **Follow the biggest signal down** before you name a cause: split it by store, then by the
    dimension most likely to explain it (channel, plan length, country, week, offer), until one
    value carries it. `references/diagnosis.md`, "Follow the signal down". A cause found only at
    the app level is a guess. A group that carries it can be the target of a hypothesis
    (`references/levers.md`, Segments).
 5. **Diagnose and build the hypotheses** with `references/levers.md`: where to look first, the
-   rules per lever, and the shape every hypothesis fills. Order the placements by "Which placement
+   rules per lever, and the shape every hypothesis fills. Drop what step 3 found already tried or
+   already live (`levers.md`, "Already tried, already live, or standard"). When no split and no
+   step stands out, say so and suggest growth bets instead of fixes (`levers.md`, "When nothing
+   stands out"). Order the placements by "Which placement
    to test first". Check these every time, because they
    are easy to walk past in a chart:
    - more than one product carries a trial
