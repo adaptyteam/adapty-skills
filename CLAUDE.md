@@ -1413,6 +1413,16 @@ a cancel line, no image), taken from a survey of 100 top iOS paywalls that descr
 common, not what converts; a six-word headline limit in the quality rules; and a trial-or-product
 decision before the archetype. Two rounds (ledger `docs/superpowers/baselines/2026-10-16-default-anatomy-green/`, untracked; three apps, README only, 7 builds per arm): the market default came out in 4/7 control and 2/7 treatment builds, headlines of six words or fewer in 5/7 and 7/7, and with a confirmed trial (or a confirmed none) the screen sold the right thing in 3.5/4 and 4/4. Every row leans treatment and none separates, so the wording stays and no behavioural claim is made for it. Control led with value on the no-trial app unaided, 2/2. Treatment replies stated the trial-or-product choice 4/4 in round 2 (0/3 in round 1, where no trial could be confirmed).
 
+**Calm looks (2026-10-19), untested beyond one run per app.** An old-versus-new comparison on three
+fresh README-only apps (a travel phrasebook, dog training, a shared budget) showed the new skill
+varied every screen but made two of three loud: a fridge door of notes in five colours at uneven
+heights, a drawn dog plus a six-stop trail plus a third accent. The one that worked carried its
+idea in one element (a split-flap headline) and kept the rest ordered. `look.md` now adds four
+rules: one idea in one place, few colours, everything on one grid, and content before decoration
+on a screen with a pinned bar (value pushed below the fold by an empty decorative shape is cut
+first). Re-runs came out as one illustration over plain rows and an enrolment form; the second is
+close to the comparison-table default, which is the trade-off to watch.
+
 Bycatch fixed: `crop.py` wrote every crop fully opaque, so trimming a transparent drawing gave a
 black box (test added, red against the old code); the missing-assets block listed a drawing the
 agent had already uploaded as missing (held in 4 of 5 replies afterwards). **Not tested:** any of

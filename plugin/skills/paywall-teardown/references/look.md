@@ -156,7 +156,8 @@ structure in costume. Four things make it a scene, and none of them is an arrang
 
 - **It owns its part of the screen,** edge to edge — no card border around it.
 - **One subject is large** — the character or the core object, clearly the biggest thing.
-- **Features are things in that world,** not rows: a watering can, a seed packet, a second plant.
+- **Features are things in that world,** not rows of icons: a watering can, a seed packet, a
+  second plant — set in order, one line or one column of the same size, never scattered.
 - **The plans belong to the scene** — standing on it, held by it, hanging from it, printed on it —
   not a separate section after it.
 
@@ -172,6 +173,9 @@ view for each scene concept, for example:
 - **A moment:** the core loop caught mid-action — a plant being watered and a new leaf opening — with
   the plans as what comes next.
 
+A scene can be quiet: one object or one illustration on a plain background, with everything
+else ordinary, is still a scene.
+
 **Different is not enough; it has to look good.** Whatever the concept, the built screen meets
 all of these, and the back pass checks them on the render:
 
@@ -185,6 +189,21 @@ all of these, and the back pass checks them on the render:
 - **A short headline.** Six words or fewer in the language you write it in; most paywall
   headlines run about five. A longer one is usually two ideas, so move the second into one
   subhead line.
+- **One idea, shown in one place.** The concept lives in the signature element — the headline, the
+  plan cards, one illustration — and the rest of the screen is plain and ordered. Not every
+  element dresses up as part of the world: if the features, the plans and the background all play
+  a role in it, the screen is a costume, not a design.
+- **Few colours.** A background, one surface, the ink, and one accent for the button and the
+  selected plan. Items of the same kind share one colour; features in five different colours are
+  noise.
+- **Everything on one grid.** Items of the same kind are the same size, aligned to the same edges
+  and spaced evenly. Nothing tilted, scattered or at uneven heights — an idea the screen can only
+  carry by breaking the grid is too loud for a paywall.
+- **Content before decoration on the first screen.** When a bar is pinned to the bottom, the
+  plans, the button and the value the user is paying for are visible without scrolling. Space
+  that holds nothing — a decorative shape's empty curve, padding around an emblem — is cut first;
+  if the value still does not fit, cut it to its strongest three lines rather than push it below
+  the fold. A deliberately long, scrolling paywall is a different layout and is exempt.
 - **Every part of the screen is designed.** Either fill it on purpose — a full-bleed scene, a
   colour block, type that runs edge to edge — or frame the content with space that is clearly
   meant. A leftover band between two blocks, or content cut off under a pinned bar, is a defect.
