@@ -1423,6 +1423,11 @@ on a screen with a pinned bar (value pushed below the fold by an empty decorativ
 first). Re-runs came out as one illustration over plain rows and an enrolment form; the second is
 close to the comparison-table default, which is the trade-off to watch.
 
+**The standard layout is offered, not banned (owner's call, 2026-10-19).** The 100-paywall survey
+shows what is common, not what converts, and an invented look has no conversion data either. So
+the obvious concept stays out of the build but the reply offers it as the version to A/B test
+against. Untested.
+
 Bycatch fixed: `crop.py` wrote every crop fully opaque, so trimming a transparent drawing gave a
 black box (test added, red against the old code); the missing-assets block listed a drawing the
 agent had already uploaded as missing (held in 4 of 5 replies afterwards). **Not tested:** any of
