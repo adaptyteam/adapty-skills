@@ -1037,7 +1037,7 @@ check('and the UNCLASSIFIED case is inside it, which is the inversion itself: a 
 
 # --- A/B test audiences: skipped, never refused, never carried over ---
 #
-# `placements get` (CLI 0.9.6 and later) returns a test audience as an entry of its
+# `placements get` (CLI 0.11.0 and later) returns a test audience as an entry of its
 # own kind. Before this change one such entry made `inventory` exit 2 (`unknown
 # content_type`), so an app with a single running test could not be migrated at all.
 # Driven through the real CLI entry point with a shim that serves the new shapes. Only what

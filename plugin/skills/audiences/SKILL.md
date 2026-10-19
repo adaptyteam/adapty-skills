@@ -27,7 +27,7 @@ This skill owns segments and audiences. It does not own:
 
 ## A/B tests on a placement: the CLI reads and keeps them
 
-`placements get` shows an audience that runs an A/B test as an entry of its own kind (CLI 0.9.6 is
+`placements get` shows an audience that runs an A/B test as an entry of its own kind (CLI 0.11.0 is
 the first release that does): `{"content_type":"ab_test","ab_test_id":…,"ab_test_title":…,
 "segment_ids":[…],"priority":…}`, or `"flow_ab_test"` on a flow placement. Send it back in
 `--audiences` exactly as read (`ab_test_title` is optional on a write). The audience serves the
@@ -57,7 +57,7 @@ test's running content, so a test entry is not something you build or edit here.
   which segment, which paywall or flow, which position), where the test keeps running. Creating
   the segment through the CLI is still fine.
 
-An older CLI (CLI 0.9.5 and older) refuses these entries on write (see Never below). Tell the user
+An older CLI (CLI 0.10.0 and older) refuses these entries on write (see Never below). Tell the user
 to update the CLI, and re-resolve `$ADAPTY`, which fetches the latest; do not compare version
 numbers.
 
@@ -183,8 +183,8 @@ building, and say what each option means. Labels are the dashboard's (https://ad
   an entry you deleted.
 - **Never delete an entry the CLI refuses when that entry came from `placements get`.** A refusal
   such as `content_type is required and must be "paywall" or "flow"` on an entry you did not write
-  means your CLI is older than the API (CLI 0.9.5 or older), and the entry is a running A/B test.
-  CLI 0.9.6 and later, meeting a kind they do not know, say `this CLI does not know this audience
+  means your CLI is older than the API (CLI 0.10.0 or older), and the entry is a running A/B test.
+  CLI 0.11.0 and later, meeting a kind they do not know, say `this CLI does not know this audience
   kind; update the CLI`: the same cause and the same rule. Tell the user to update the CLI,
   re-resolve `$ADAPTY` once and retry the same list. If it still refuses, send the change to the
   dashboard. Deleting the entry makes the write go through and stops the test.

@@ -622,7 +622,7 @@ check('exposure.status_readable is FALSE on today\'s API, which is what routes '
 
 # ---------- A/B test entries: read, skipped, never carried over ----------
 #
-# `placements get` (CLI 0.9.6 and later) returns an audience that runs an A/B test as
+# `placements get` (CLI 0.11.0 and later) returns an audience that runs an A/B test as
 # `{content_type: ab_test | flow_ab_test, ab_test_id, ab_test_title, segment_ids,
 # priority}`, and a test shared with other placements as `cross_ab_test |
 # flow_cross_ab_test`. A paywall test cannot become a flow, and a test id on a NEW

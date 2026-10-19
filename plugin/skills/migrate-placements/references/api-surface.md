@@ -245,7 +245,7 @@ the thing that would be a bug, not its presence.
 
 The CLI validates the field itself, before any request. `audienceEntryProblem` (**exit 2**, no
 request sent): `content_type` is required and must be one of `{paywall, flow}` on a CLI before
-0.9.6, which also accepts the four A/B-test kinds (see "Blind spots" below) and, for an unknown
+0.11.0, which also accepts the four A/B-test kinds (see "Blind spots" below) and, for an unknown
 kind, says `this CLI does not know this audience kind; update the CLI`; a paywall entry requires
 `paywall_id`, a flow entry requires `flow_id`. Reported as `--audiences[<i>]: <problem>`.
 
@@ -358,7 +358,7 @@ of its own kind: `content_type` `ab_test` (paywall family) or `flow_ab_test` (fl
 as `cross_ab_test` or `flow_cross_ab_test`, read-only: the backend ignores such an entry on a write
 and keeps the stored ones, and it counts their priorities and their default audience apart from the
 regular ones. The state of a test is not shown (the content of an audience is always the running
-one), and neither are its arms. CLI 0.9.6 is the first release that returns, accepts and writes
+one), and neither are its arms. CLI 0.11.0 is the first release that returns, accepts and writes
 back these entries; an older CLI refuses an entry of these kinds on write with
 `content_type is required and must be "paywall" or "flow"`.
 

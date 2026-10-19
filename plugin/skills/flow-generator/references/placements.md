@@ -55,7 +55,7 @@ A placement with segment-specific content is where this costs someone real work.
 
 **Pass every A/B test entry back as read.** `placements get` shows an audience that runs a test as
 `{"content_type":"flow_ab_test","ab_test_id":…,"ab_test_title":…,"segment_ids":[…],"priority":…}`
-(CLI 0.9.6 is the first release that does), and a test shared across placements as
+(CLI 0.11.0 is the first release that does), and a test shared across placements as
 `flow_cross_ab_test`, read-only. Send each back unchanged; an entry you leave out is a test you
 stopped. Put on an audience only the test id it already carries, never the id of a test that runs
 elsewhere (the backend would move it).
@@ -82,7 +82,7 @@ Local, before any request — exit 2, nothing sent:
 | `Invalid --audiences JSON: …` | not parseable |
 | `--audiences must be a JSON array of audience entries.` | parsed to a non-array |
 | `--audiences[<i>]: each entry must be a JSON object` | an entry is a scalar |
-| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall. **On an entry you read from `placements get` and did not write, it means the CLI is CLI 0.9.5 or older** (CLI 0.9.6 and later say `this CLI does not know this audience kind; update the CLI` for a kind they lack): tell the user to update the CLI and re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is a running A/B test, and the write would stop it |
+| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall. **On an entry you read from `placements get` and did not write, it means the CLI is CLI 0.10.0 or older** (CLI 0.11.0 and later say `this CLI does not know this audience kind; update the CLI` for a kind they lack): tell the user to update the CLI and re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is a running A/B test, and the write would stop it |
 | `--audiences[<i>]: a flow entry requires flow_id` | flow entry, no `flow_id` |
 | `Invalid placement ID format.` | `update` with a non-UUID placement id |
 
