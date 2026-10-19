@@ -1841,7 +1841,7 @@ def check(path, baseline_text=None, baseline_images=None):
     # This also CORRECTS the shape `patterns.md` published as device-verified, which carried no
     # children: that verification was confounded by its own instrumentation -- the session that
     # ran it had added visible digits to diagnose the failure, and documented the shape without
-    # them. See CLAUDE.md finding 29.
+    # them. See docs/maintainers/flow-generator.md, finding 29.
     for s in d.get('screens') or []:
         for eid_, e in (s.get('elements', {}).get('map') or {}).items():
             if e.get('type') != 'timer':

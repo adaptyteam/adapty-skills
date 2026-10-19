@@ -525,7 +525,7 @@ def main():
     # SUPERSEDED 2026-09-01: this block used to build the delay timer CHILDLESS and assert
     # that "a delay timer with no digit child draws nothing, which is the invisible-delay
     # shape". Device-measured over three trips, that shape does not fire at all — see the
-    # guard below and CLAUDE.md finding 29. The timer-end assertion survives; the
+    # guard below and docs/maintainers/flow-generator.md finding 29. The timer-end assertion survives; the
     # invisible-delay one was encoding the wrong claim and is replaced by its opposite.
     delay = fk.timer([fk.timer_digits(units=('seconds',))],
                      actions=[{'id': 'act_next', 'type': 'navigate',
