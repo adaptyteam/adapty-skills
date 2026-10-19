@@ -23,7 +23,7 @@ colours, type and corners, each written as the four answers in
 [Inventing the paywall's layout](#inventing-the-paywalls-layout); drop the most obvious; roll
 among the three left with the command in
 [Inventing the look](#inventing-the-look-when-the-app-has-none). Name the one you built and offer
-the other two.
+the other two, plus the standard layout as a test arm (step 6).
 
 **Invent the whole look only when the app has no design you can see**: a new app, nothing in the
 session, nothing given. Say in the reply that you chose the look because there was nothing to
@@ -108,9 +108,14 @@ several concepts of your own, drawn from this app's world, then a roll among the
    Never roll again for a result you like better, and never overrule the roll with a fact about the
    category — all three were invented for this app.
 6. **In the reply, name the concept in one plain line and list the other two in one line each**, as
-   looks you can rebuild it in. The shape, not words to copy: "I built it as a seed packet: kraft
-   paper, stamped type, answers as tick boxes. I can also do it as a garden journal or as
-   windowsill light."
+   looks you can rebuild it in. Then offer the standard layout — the obvious concept you dropped
+   (see [Inventing the paywall's layout](#inventing-the-paywalls-layout), rule 3) — as the version
+   to A/B test against: it is what most top apps use, nobody has shown the invented look sells
+   better, and a test is how the user finds out. On a yes, build it in the same design system as
+   the one you built — same colours, type and corners — so the test compares layouts, not looks.
+   The shape, not words to copy: "I built it as a seed packet: kraft paper, stamped type, answers
+   as tick boxes. I can also do it as a garden journal or as windowsill light, or build the
+   standard layout most top apps use, so you can A/B test the two."
 
 ## Inventing the paywall's layout
 
@@ -146,10 +151,11 @@ Then hold the set to three rules:
    paywall in the stores is this structure with a fixed set of parts: a short headline, a
    feature checklist, two plan cards with the annual one pre-selected, a button that names the
    free trial, a "cancel anytime" line under it, and usually no image. That is how a typical app
-   sells, not evidence that it sells better, and a concept made of those parts in a new colour or
+   sells, not evidence that it sells better or worse, and a concept made of those parts in a new colour or
    style is the obvious one too. Check all four concepts against this before you drop one; every
    concept that matches it is dropped, and you write a new one in its place until three are left
-   that do not.
+   that do not. It is dropped from the build, not from the reply: offer it as the version to A/B
+   test against ([Inventing the look](#inventing-the-look-when-the-app-has-none), step 6).
 
 **How to build a scene.** A scene is not a card with a grid in it; a grid in a box is the obvious
 structure in costume. Four things make it a scene, and none of them is an arrangement:
