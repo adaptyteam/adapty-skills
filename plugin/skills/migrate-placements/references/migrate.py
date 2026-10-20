@@ -19,8 +19,20 @@ both of them before:
    is a real third state, absence means UNKNOWN, and `select_scope`
    partitions three ways rather than two.
 
+4. A/B TESTS. `placements get` returns an audience that runs an A/B test as
+   `{content_type: ab_test | flow_ab_test, ab_test_id, ab_test_title,
+   segment_ids, priority}`, and a cross-placement test (one that runs across
+   several placements, shown read-only on each) as `cross_ab_test |
+   flow_cross_ab_test`. A paywall test cannot become a flow, and a test id on
+   a NEW placement would start that test there, so none of these entries is
+   ever carried over: the plan SKIPS each one and names it. A test on the
+   default audience leaves the new placement with no default audience, so
+   that whole placement is skipped. Priorities of the new placement are
+   renumbered with no gap when a test of the placement itself was skipped.
+
 This module NEVER emits a `placements update` that changes content type: the
-backend refuses it with `Placement type can not be changed.`
+backend refuses it with `Placement type can not be changed.` It never emits a
+`placements update` at all, so a source placement is never changed.
 
 `plan --flows <ledger>` is how the create argv is produced. `placements
 create` has no preview and no prompt, so whatever argv is sent is sent --
@@ -90,6 +102,25 @@ import pathlib
 CONTENT_PAYWALL = 'paywall'
 CONTENT_FLOW = 'flow'
 CONTENT_TYPES = (CONTENT_PAYWALL, CONTENT_FLOW)
+CONTENT_AB_TEST = 'ab_test'
+CONTENT_FLOW_AB_TEST = 'flow_ab_test'
+CONTENT_CROSS_AB_TEST = 'cross_ab_test'
+CONTENT_FLOW_CROSS_AB_TEST = 'flow_cross_ab_test'
+# Entry kinds that run a test. This module reads them and never writes them.
+TEST_KINDS = (CONTENT_AB_TEST, CONTENT_FLOW_AB_TEST,
+              CONTENT_CROSS_AB_TEST, CONTENT_FLOW_CROSS_AB_TEST)
+# A cross-placement entry is read-only on this placement: the backend ignores
+# it on a write, and it counts its priorities and its default separately.
+CROSS_KINDS = (CONTENT_CROSS_AB_TEST, CONTENT_FLOW_CROSS_AB_TEST)
+# The content family of each kind. The backend allows one family per placement.
+KIND_FAMILY = {
+    CONTENT_PAYWALL: CONTENT_PAYWALL,
+    CONTENT_AB_TEST: CONTENT_PAYWALL,
+    CONTENT_CROSS_AB_TEST: CONTENT_PAYWALL,
+    CONTENT_FLOW: CONTENT_FLOW,
+    CONTENT_FLOW_AB_TEST: CONTENT_FLOW,
+    CONTENT_FLOW_CROSS_AB_TEST: CONTENT_FLOW,
+}
 
 
 def normalize_audience(entry):
@@ -103,12 +134,13 @@ def normalize_audience(entry):
         raise TypeError(f'an audience entry must be a dict, got {type(entry).__name__}')
     out = dict(entry)
     declared = out.get('content_type')
-    if declared in CONTENT_TYPES:
+    if declared in CONTENT_TYPES or declared in TEST_KINDS:
         return out
     if declared is not None:
         raise ValueError(
-            f'unknown content_type {declared!r}; the CLI accepts only '
-            f'{CONTENT_PAYWALL!r} or {CONTENT_FLOW!r}')
+            f'unknown content_type {declared!r}; this tool reads '
+            f'{CONTENT_PAYWALL!r}, {CONTENT_FLOW!r} and the A/B test kinds '
+            f'{list(TEST_KINDS)}')
     if 'paywall_id' in out:
         out['content_type'] = CONTENT_PAYWALL
     elif 'flow_id' in out:
@@ -129,6 +161,14 @@ def to_flow_audience(entry, flow_id):
     if not flow_id:
         raise ValueError('to_flow_audience needs a flow_id')
     src = normalize_audience(entry)
+    if src['content_type'] in TEST_KINDS:
+        # A test id on a new placement would START that test there (the backend
+        # moves a running test to the audience that names it), and a paywall
+        # test cannot become a flow. Refusing here keeps it unreachable from
+        # `build_plan` and from a direct caller alike.
+        raise ValueError(
+            f'an A/B test entry ({src["content_type"]!r}) is never converted '
+            'into a flow audience; skip it')
     return {
         'content_type': CONTENT_FLOW,
         'flow_id': flow_id,
@@ -138,8 +178,97 @@ def to_flow_audience(entry, flow_id):
 
 
 def content_types(entries):
-    """The set of content types in an audience array, normalizing as it reads."""
-    return {normalize_audience(e)['content_type'] for e in entries}
+    """The set of content FAMILIES (`paywall`, `flow`) in an audience array,
+    normalizing as it reads. A paywall A/B test is in the paywall family and a
+    flow A/B test in the flow family, as the backend counts them."""
+    return {KIND_FAMILY[normalize_audience(e)['content_type']] for e in entries}
+
+
+def is_test_entry(entry):
+    """True for an audience entry that runs an A/B test (regular or cross)."""
+    return normalize_audience(entry)['content_type'] in TEST_KINDS
+
+
+def _test_name(entry):
+    """What to call a test in a message: its title, else its id."""
+    for key in ('ab_test_title', 'ab_test_id'):
+        value = entry.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return '(no title)'
+
+
+def skip_label(entry):
+    """`skipped: A/B test <title>`, the line the report carries for a test."""
+    label = f'skipped: A/B test {_test_name(entry)}'
+    if entry['content_type'] in CROSS_KINDS:
+        label += ' (cross-placement)'
+    return label
+
+
+def split_audiences(audiences):
+    """Split a placement's audiences into what migrates and what is skipped.
+
+    Returns `(migratable, skipped, blocked)`:
+
+    * `migratable`: the normalized paywall entries, the only kind that can
+      become a flow audience. When a test of THIS placement was skipped, their
+      priorities are renumbered 0..n-1 in the old order, so the new placement
+      has no gap and its default audience stays last. Cross-placement entries
+      do not trigger the renumbering: the backend counts their priorities apart
+      from the regular ones.
+    * `skipped`: one row per test entry (regular or cross), with the exact
+      report line in `reason`.
+    * `blocked`: why the WHOLE placement is skipped, or None. A regular test on
+      the default audience (`segment_ids` empty) would leave the new placement
+      with no default audience, which the backend refuses. A placement with no
+      paywall left is blocked for the same reason: nothing can be created.
+
+    A flow placement (every entry in the flow family) returns nothing: it is
+    already done and nothing in it is skipped by this tool.
+
+    Never changes its input.
+    """
+    if CONTENT_PAYWALL not in content_types(audiences):
+        return [], [], None
+    migratable, skipped, regular_skipped = [], [], False
+    for raw in audiences:
+        entry = normalize_audience(raw)
+        kind = entry['content_type']
+        if kind == CONTENT_PAYWALL:
+            migratable.append(entry)
+        elif kind in TEST_KINDS:
+            skipped.append({
+                'content_type': kind,
+                'ab_test_id': entry.get('ab_test_id'),
+                'title': _test_name(entry),
+                'segment_ids': list(entry.get('segment_ids') or []),
+                'priority': entry.get('priority', 0),
+                'reason': skip_label(entry),
+            })
+            regular_skipped = regular_skipped or kind not in CROSS_KINDS
+    blocked = None
+    for item in skipped:
+        if item['content_type'] not in CROSS_KINDS and not item['segment_ids']:
+            blocked = (f'the default audience runs A/B test {item["title"]}, so '
+                       'the new placement would have no default audience')
+            break
+    if blocked is None and skipped and not migratable:
+        blocked = 'no paywall audience is left after the A/B tests are skipped'
+    if regular_skipped and migratable and blocked is None:
+        for index, entry in enumerate(
+                sorted(migratable, key=lambda e: _priority(e))):
+            entry['priority'] = index
+    return migratable, skipped, blocked
+
+
+def _priority(entry):
+    value = entry.get('priority', 0)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(
+            f'cannot renumber priorities after skipping an A/B test: an '
+            f'audience has priority {value!r}, not a whole number')
+    return value
 
 
 def is_mixed(entries):
@@ -410,6 +539,10 @@ def group_by_paywall(placements):
     """
     groups = {}
     for placement in placements:
+        # A placement that is skipped whole (a test on its default audience)
+        # creates nothing, so it must not make the plan build a flow.
+        if _split(placement)[2]:
+            continue
         for index, raw in enumerate(placement.get('audiences') or []):
             entry = normalize_audience(raw)
             if entry['content_type'] != CONTENT_PAYWALL:
@@ -418,12 +551,19 @@ def group_by_paywall(placements):
     return groups
 
 
+def _split(placement):
+    """`split_audiences` over one placement row."""
+    return split_audiences(placement.get('audiences') or [])
+
+
 def migratable_summary(placements):
     """Counts for the phase-3 report -- never print one row per placement."""
     groups = group_by_paywall(placements)
     referenced = {pid for refs in groups.values() for pid, _ in refs}
     already_flow = 0
     empty = 0
+    skipped_entries = 0
+    skipped_placements = 0
     for placement in placements:
         audiences = placement.get('audiences') or []
         if not audiences:
@@ -431,16 +571,23 @@ def migratable_summary(placements):
             continue
         if CONTENT_PAYWALL not in content_types(audiences):
             already_flow += 1
+            continue
+        _, skipped, blocked = _split(placement)
+        skipped_entries += len(skipped)
+        if blocked:
+            skipped_placements += 1
     # Counted here so phase 3's report names it, rather than the user meeting it
     # for the first time as a missing `command` in phase 7.
     unwritable = 0
     for placement in placements:
+        if _split(placement)[2]:
+            continue
         for raw in placement.get('audiences') or []:
             entry = normalize_audience(raw)
             if (entry['content_type'] == CONTENT_PAYWALL
                     and len(entry.get('segment_ids') or []) > 1):
                 unwritable += 1
-    return {
+    summary = {
         'placements': len(referenced),
         'audiences': sum(len(refs) for refs in groups.values()),
         'paywalls': len(groups),
@@ -448,6 +595,13 @@ def migratable_summary(placements):
         'empty': empty,
         'unwritable_multi_segment': unwritable,
     }
+    if skipped_entries:
+        # Present only when a test was read, so an account with no test has
+        # the same summary as before. Never a silent drop: the entries are
+        # counted here and named per placement by `describe_skipped`.
+        summary['ab_tests'] = {'skipped_entries': skipped_entries,
+                               'skipped_placements': skipped_placements}
+    return summary
 
 
 def propose_developer_id(original, taken, suffix='-flow'):
@@ -767,10 +921,24 @@ def build_plan(placements, suffix='-flow', flows=None, app_id=None, scope=None,
     by_id = {p['id']: p for p in placements}
     taken = {p.get('developer_id') for p in placements if p.get('developer_id')}
     rows = []
+    # A placement that is skipped WHOLE (a test on its default audience) gets no
+    # row, no proposed id and no command; it is listed apart, with its reason,
+    # so the report can name it. The source placement is never changed: this
+    # module only reads, and creates by argv that the caller runs.
+    skipped_placements = []
+    for placement in placements:
+        migratable, skipped, blocked = _split(placement)
+        if blocked:
+            skipped_placements.append({
+                'source_placement_id': placement['id'],
+                'source_developer_id': placement['developer_id'],
+                'title': placement.get('title') or placement['developer_id'],
+                'reason': blocked,
+                'skipped': skipped,
+            })
     for placement_id in sorted({pid for refs in groups.values() for pid, _ in refs}):
         placement = by_id[placement_id]
-        audiences = [normalize_audience(a) for a in (placement.get('audiences') or [])]
-        migratable = [a for a in audiences if a['content_type'] == CONTENT_PAYWALL]
+        migratable, skipped, _ = _split(placement)
         proposed = propose_developer_id(placement['developer_id'], taken, suffix=suffix)
         taken.add(proposed)
         row = {
@@ -782,6 +950,10 @@ def build_plan(placements, suffix='-flow', flows=None, app_id=None, scope=None,
                            'segment_ids': list(a.get('segment_ids') or []),
                            'priority': a.get('priority', 0)} for a in migratable],
         }
+        if skipped:
+            # Named on the row, so the report cannot list the placement as
+            # fully migrated while a test stays behind on the source.
+            row['skipped'] = skipped
         # READABLE BUT UNWRITABLE. The API's audience DTO validator caps
         # segment_ids at one entry, and both READ factories deliberately bypass
         # it (`model_construct`) so legacy multi-segment rows survive a read
@@ -882,7 +1054,31 @@ def build_plan(placements, suffix='-flow', flows=None, app_id=None, scope=None,
         'summary': summary,
         'flows_needed': needed,
         'placements': rows,
+        'skipped_placements': skipped_placements,
     }
+
+
+def describe_skipped(build):
+    """One line per skipped A/B test, and one per skipped placement.
+
+    On STDERR from `plan`, as `describe_existing` is, because plan's stdout is
+    JSON and is routinely redirected. The first words of each test line are the
+    report's own wording, `skipped: A/B test <title>`.
+    """
+    lines = []
+    for row in (build or {}).get('placements') or []:
+        for item in row.get('skipped') or []:
+            lines.append(f'{item["reason"]} -- placement '
+                         f'{row["source_developer_id"]!r} is created without it')
+    for row in (build or {}).get('skipped_placements') or []:
+        for item in row.get('skipped') or []:
+            lines.append(f'{item["reason"]} -- placement '
+                         f'{row["source_developer_id"]!r} is skipped whole: '
+                         f'{row["reason"]}')
+        if not row.get('skipped'):
+            lines.append(f'skipped: placement {row["source_developer_id"]!r}: '
+                         f'{row["reason"]}')
+    return lines
 
 
 def _read_inventory(path):
@@ -974,9 +1170,12 @@ def _audience_problem(entry):
         kind = normalize_audience(entry)['content_type']
     except (TypeError, ValueError) as exc:
         return str(exc)
-    field = 'paywall_id' if kind == CONTENT_PAYWALL else 'flow_id'
-    value = entry.get(field)
-    if not isinstance(value, str) or not value:
+    # A test entry carries `ab_test_id` and is skipped, never converted, so this
+    # tool subscripts no content id on it. Its `segment_ids` is still checked
+    # below, because an empty one is what marks the default audience.
+    field = {CONTENT_PAYWALL: 'paywall_id', CONTENT_FLOW: 'flow_id'}.get(kind)
+    value = entry.get(field) if field else None
+    if field and (not isinstance(value, str) or not value):
         return (f'declares content_type {kind!r} but has no usable {field!r} '
                 f'(got {value!r}); a declared type and a present id are two '
                 'separate facts, and this entry has only the first')
@@ -1190,6 +1389,8 @@ def _run(args):
     if scope:
         print(describe_scope(scope), file=sys.stderr)
     print(describe_existing(build['summary']), file=sys.stderr)
+    for line in describe_skipped(build):
+        print(line, file=sys.stderr)
     return 0
 
 

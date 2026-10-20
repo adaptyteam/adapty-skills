@@ -218,13 +218,15 @@ of placements. "All of them" is then an informed choice rather than an accidenta
 python3 <skill>/references/migrate.py plan --inventory inventory.json
 ```
 
-Per audience: `paywall_id` → migratable; `flow_id` → already done; neither → skip. Migratable
+Per audience: `paywall_id` → migratable; `flow_id` → already done; an A/B test entry → skipped
+(below); neither → skip. Migratable
 audiences group by `paywall_id`, and that grouping **is** the flow plan: **one reusable flow per
 distinct paywall**, shared by every placement and audience that uses it, so the user later refines
 one flow instead of many.
 
 **Report the counts and the grouping, never one row per placement** — migratable placements,
-migratable audiences, distinct paywalls, already-flow, no-audience. A 150-row dump is not a report.
+migratable audiences, distinct paywalls, already-flow, no-audience, skipped A/B tests. A 150-row
+dump is not a report.
 Name the distinct paywall count as the number of flows the next phase creates.
 
 **When `summary.unwritable_multi_segment` is not zero, report it here and treat those placements as
@@ -235,13 +237,12 @@ survive a round-trip ([api-surface.md](references/api-surface.md#what-the-write-
 segment**: that changes who sees what, which is the user's decision. Say it must be resolved in the
 dashboard first, and that the rest of the migration can proceed without it.
 
-**And disclose what the counts are counts OF, once:** `placements get` returns only paywall and
-flow audiences and **silently omits any other kind** — an A/B-test audience, for instance — so a
-placement may hold more audiences than the read shows. **This is not detectable from the API**:
-nothing in the response says an entry was skipped, so there is no check to run and none is
-attempted. It matters because the new flow placement will not carry an audience the read never
-revealed. Say the counts are of what the API returned, and that a placement known to run an A/B
-test should be checked in the dashboard.
+**A/B tests are skipped and `plan` names each one** (`skipped: A/B test <title>`, stderr). A test on
+the default audience skips the **whole** placement (`skipped_placements`: no ID, no `command`, no
+flow built). The source placement is never changed. Report each skip, once
+([api-surface.md](references/api-surface.md#blind-spots-in-the-reads-themselves)). A deployment that
+predates the A/B-test read still omits a test silently: say the counts are of what the API
+returned, and check a placement known to run a test in the dashboard.
 
 **And report `summary.scope` in the same line, when it is there** — how many placements the
 inventory withheld and why. The counts above describe what you read; that block is the only thing
@@ -449,6 +450,8 @@ not happened rather than claiming nothing has.
 > |---|---|---|
 > | `<developer_id>` | `<proposed developer_id>` | <flow name> |
 >
+> <test line, only if `plan` skipped a test>
+>
 > Permanent: a placement cannot be deleted. If one of these IDs is wrong,
 > it stays in the app forever — read the middle column before saying yes.
 >
@@ -459,6 +462,9 @@ not happened rather than claiming nothing has.
 >
 > This does not reach users yet. Your app must call
 > `getFlow("<new developer_id>")` where it currently calls the old placement.
+
+**The test line is a shape, not words to copy** (name a whole-placement skip in it too):
+"Left out: A/B test `<title>` (on `<developer_id>`); it keeps running on the old placement."
 
 **Those two slots turn on one fact: did *this run* create the flows?** Stub and build did;
 **existing** did not — the user handed over flows that were already published, so this run created
@@ -608,7 +614,7 @@ the flows from phase 5 exist, are published, and cannot be deleted from the CLI.
 
 ## Phase 8 — Report and handoff
 
-Created, skipped and failed with reasons, then the two things the user acts on:
+Created, skipped (A/B tests included) and failed with reasons, then the two things the user acts on:
 
 > | Old paywall placement | New flow placement |
 > |---|---|

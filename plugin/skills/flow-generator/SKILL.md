@@ -1069,7 +1069,7 @@ $ADAPTY placements list --app "$APP" --page-size 100 --json    # the default pag
 | What `list` shows | What you do |
 | :--- | :--- |
 | nothing for this location | `placements create` with a new developer ID |
-| a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping. **First ask whether the placement runs an A/B test**: the CLI cannot see one, and the write stops it with no winner. A test or no answer → the change goes in the dashboard |
+| a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping, A/B test entries (`flow_ab_test`) and shared ones (`flow_cross_ab_test`) exactly as `placements get` returned them. A write that replaces a running test, for instance this flow on the default audience a test holds, **stops that test with no winner**: show the audiences before and after as a table with the line "test X stops with no winner; this flow starts", wait for the user's yes, and read the placement again just before the write; if it changed, show the new before/after table and ask again (unattended: stop and report). No answer → the change goes in the dashboard |
 | a **paywall** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
 | a placement where only **some** users should get this flow — a country, a version, a segment | The **`audiences`** skill. It adds a segment audience beside the existing ones without changing what anyone else sees |
 

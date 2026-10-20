@@ -177,8 +177,9 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 ### `audiences`
 
 - **Field names come from a real `segments get`,** never from memory.
-- **Every `placements update` is preceded by asking about a running A/B test;** an empty audience list, a missing default entry or a skipped priority means a hidden test: never write it. Unattended runs never write a placement.
-- **Never delete an entry the CLI refuses** for `content_type`; re-resolve `$ADAPTY`, then the dashboard.
+- **Pass A/B test entries back as read** (CLI 0.11.0 is the first release that returns them). Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it, or a draft the user named.
+- **A write that stops, starts or moves a test** shows "test X stops with no winner; Y starts" in the table and waits for the user; read the placement again before the write (changed: ask again; unattended: stop and report). The CLI has no such check. An unattended run may write when no test is affected.
+- **Never delete an entry the CLI refuses** (`content_type` on 0.10.0 and older, "this CLI does not know this audience kind" later); tell the user to update the CLI, re-resolve `$ADAPTY`, then the dashboard.
 - **OR is two segments** (filters inside one are ANDed); equality is `IN` with one value; new audiences go before the default.
 
 ### `flow-audit`
@@ -206,6 +207,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Create, never convert:** only `placements create`; the old placements stay as the rollback.
 - **The user approves every developer ID** before anything is created; IDs are permanent.
 - **Build, publish, then place.** Route on `Cannot attach a draft flow` (the backend sentence is the legacy form).
+- **An A/B test entry is skipped and named, never migrated:** a test on the default audience skips the whole placement; `to_flow_audience` and `build_create_command` raise on a test entry; the source placement never changes.
 - **Keep the guards in `migrate.py`:** paginate through `fetch_list`, `content_type` on every audience, no mixed audiences, phase-7 argv only from `plan --flows`.
 - **Look for converted flows first** (Reuse → Convert → Build → Stub); those reads degrade, never fail the run. Ledgers are `flows.json` and successes-only `placements.json`; the stub ships locally, never `flowkit`.
 

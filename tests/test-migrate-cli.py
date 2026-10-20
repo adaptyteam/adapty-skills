@@ -1035,6 +1035,74 @@ check('and the UNCLASSIFIED case is inside it, which is the inversion itself: a 
       'degrades to vague-but-true rather than to a confident false claim',
       BAD_INPUT['unclassified failure'].returncode == 2)
 
+# --- A/B test audiences: skipped, never refused, never carried over ---
+#
+# `placements get` (CLI 0.11.0 and later) returns a test audience as an entry of its
+# own kind. Before this change one such entry made `inventory` exit 2 (`unknown
+# content_type`), so an app with a single running test could not be migrated at all.
+# Driven through the real CLI entry point with a shim that serves the new shapes. Only what
+# the unit tests in test-audiences.py cannot see is checked here: the exit codes, the stderr
+# lines, and the silent case. The plan's content (argv, priorities, skipped placements) is
+# asserted there.
+
+ab_shim = TMP / 'fake-adapty-ab.py'
+ab_shim.write_text('''#!/usr/bin/env python3
+"""Stand-in for the adapty CLI on an app that runs A/B tests."""
+import json, sys
+a = sys.argv[1:]
+PL = [
+    {"id": "pl-a", "developer_id": "main", "title": "Main"},
+    {"id": "pl-b", "developer_id": "gate", "title": "Gate"},
+    {"id": "pl-c", "developer_id": "plain", "title": "Plain"},
+]
+DETAIL = {
+    "pl-a": [
+        {"content_type": "ab_test", "ab_test_id": "t-1", "ab_test_title": "Price test",
+         "segment_ids": ["s1"], "priority": 0},
+        {"content_type": "paywall", "paywall_id": "pw-1", "segment_ids": ["s2"], "priority": 1},
+        {"content_type": "cross_ab_test", "ab_test_id": "t-9", "ab_test_title": "Shared test",
+         "segment_ids": [], "priority": 0},
+        {"content_type": "paywall", "paywall_id": "pw-2", "segment_ids": [], "priority": 2}],
+    "pl-b": [
+        {"content_type": "paywall", "paywall_id": "pw-3", "segment_ids": ["s1"], "priority": 0},
+        {"content_type": "ab_test", "ab_test_id": "t-2", "ab_test_title": "Default test",
+         "segment_ids": [], "priority": 1}],
+    "pl-c": [{"content_type": "paywall", "paywall_id": "pw-1", "segment_ids": [], "priority": 0}],
+}
+if a[:2] == ["placements", "list"]:
+    print(json.dumps({"data": PL, "meta": {"pagination": {"count": 3, "page": 1, "pages": 1}}}))
+    sys.exit(0)
+if a[:2] == ["placements", "get"]:
+    pid = a[a.index("--app") + 2]
+    row = next(p for p in PL if p["id"] == pid)
+    print(json.dumps(dict(row, audiences=DETAIL[pid])))
+    sys.exit(0)
+sys.exit(9)
+''')
+ab_inv = TMP / 'ab-inventory.json'
+ab_read = subprocess.run(
+    [sys.executable, str(MIGRATE), 'inventory', '--app', 'app-1', '--no-existing',
+     '--adapty', f'{sys.executable} {ab_shim}', '--out', str(ab_inv)],
+    capture_output=True, text=True)
+check('inventory READS an app that runs A/B tests (exit 0, not the old exit 2)',
+      ab_read.returncode == 0, ab_read.stderr.strip()[:300])
+ab_ledger = TMP / 'ab-flows.json'
+ab_ledger.write_text(json.dumps({'pw-1': 'f-1', 'pw-2': 'f-2', 'pw-3': 'f-3'}))
+ab_plan_run = plan_over(ab_inv, '--flows', str(ab_ledger))
+check('plan exits 0 on it', ab_plan_run.returncode == 0, ab_plan_run.stderr.strip()[:300])
+check('the plan names every skipped test on stderr, in the report wording',
+      ab_plan_run.stderr.splitlines()[-3:]
+      == ["skipped: A/B test Price test -- placement 'main' is created without it",
+          "skipped: A/B test Shared test (cross-placement) -- placement 'main' is created "
+          "without it",
+          "skipped: A/B test Default test -- placement 'gate' is skipped whole: the default "
+          "audience runs A/B test Default test, so the new placement would have no default "
+          "audience"], str(ab_plan_run.stderr.splitlines()[-3:]))
+check('SILENT: the same plan over an inventory with no test prints no `skipped` line',
+      'skipped:' not in subprocess.run(
+          [sys.executable, str(MIGRATE), 'plan', '--inventory', str(inv)],
+          capture_output=True, text=True).stderr)
+
 for f in sorted(TMP.rglob('*'), reverse=True):
     f.unlink() if f.is_file() else f.rmdir()
 TMP.rmdir()
