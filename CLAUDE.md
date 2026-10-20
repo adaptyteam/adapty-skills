@@ -177,7 +177,8 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 ### `audiences`
 
 - **Field names come from a real `segments get`,** never from memory.
-- **A/B test entries are read and passed back as read** (CLI 0.11.0 is the first release that returns them). A write that stops, starts or moves a test shows "test X stops with no winner; Y starts" in the before/after table and waits for the user; read the placement again just before the write and ask again if it changed (unattended: stop and report). Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it, or a draft the user named. An unattended run may write when no test is affected. The CLI has no check for this: the skill is the only protection.
+- **Pass A/B test entries back as read** (CLI 0.11.0 is the first release that returns them). Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it, or a draft the user named.
+- **A write that stops, starts or moves a test** shows "test X stops with no winner; Y starts" in the table and waits for the user; read the placement again before the write (changed: ask again; unattended: stop and report). The CLI has no such check. An unattended run may write when no test is affected.
 - **Never delete an entry the CLI refuses** (`content_type` on 0.10.0 and older, "this CLI does not know this audience kind" later); tell the user to update the CLI, re-resolve `$ADAPTY`, then the dashboard.
 - **OR is two segments** (filters inside one are ANDed); equality is `IN` with one value; new audiences go before the default.
 
