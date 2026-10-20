@@ -322,6 +322,7 @@ chart or operation: usually `store`, `country`, `duration`, `store_product_id`, 
 |---|---|---|
 | Store | `--group-by store` | Whether it is one platform. Test results differ by platform more often than not. |
 | Channel | `trials_new` and `subscriptions_new` by `attribution_channel`, then `installs --filter attribution_channel=<value>` | Whether one channel's traffic converts far worse. Then that channel's part of the fall is traffic: say so and offer `adapty-attribution` for its campaigns. Whether the rest is traffic too: "It's the traffic" in "Before you state a conclusion". The `No Data` channel is unattributed traffic, not organic. |
+| Mix check | The rate that fell, `--granularity month`, `--filter store=<the store with the most revenue>` and `--filter country=<value>`, one call per country for the three largest by revenue; then the same rate with `--filter attribution_channel=<the No Data value>` | Required before a reply calls the fall traffic or mix. If the rate fell in those countries too, it fell on steady traffic: say so, with the main market's numbers. |
 | When | `--granularity week` over the eight weeks around a change | The week it started, to match against a release, a price change or a campaign. |
 | Before and after | `chart` or `conversion` with `--compare-from`/`--compare-to` set to the same length before the change | How much moved, in one call. |
 | Where in the funnel | `funnel` by the split that moved, against the total | Which step the split loses users at. |

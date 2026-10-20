@@ -231,7 +231,8 @@ conversation that asks "what should I do".
    whenever any channel has attribution, then by the dimension most likely to explain it (plan
    length, country, week, offer), until one
    value carries it. `references/diagnosis.md`, "Follow the signal down", and check every claim
-   against "Before you state a conclusion" there. A cause found only at the app level is a guess. A group that carries it can be the target of a hypothesis
+   against "Before you state a conclusion" there. A cause found only at the app level is a guess. Before
+   the reply calls a fall traffic or mix, run the Mix check there and say what it showed. A group that carries it can be the target of a hypothesis
    (`references/levers.md`, Segments).
 5. **Diagnose and build the hypotheses** with `references/levers.md`: where to look first, the
    rules per lever, and the shape every hypothesis fills. Drop what step 3 found already tried or
@@ -351,6 +352,7 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | Question | Where |
 |---|---|
 | Why did revenue, renewals or trials drop? Also "less money, is it the paywall / traffic?" | `diagnosis.md`, "Why did revenue drop?"; before any hypothesis, audit step 3 |
+| Why did conversion drop? | `diagnosis.md`, "Follow the signal down", with the Mix check before naming traffic |
 | Should I do X? (one idea) | `diagnosis.md`, "Should I change X?", plus `levers.md` |
 | My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test" |
 | I don't know what to test | Run the audit |
