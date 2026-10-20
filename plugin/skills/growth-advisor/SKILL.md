@@ -76,7 +76,8 @@ the first two weeks of real users.
 | A price, a price test, pricing by country | Not supported yet; say so |
 | One paywall screen: layout, copy, badges | `paywall-teardown`; this skill invokes it for the design hypotheses |
 | The onboarding sequence | `onboarding-teardown` |
-| Ad campaigns, channels, ROAS | `adapty-attribution` |
+| Which channel brings paying users: installs, trials, trial → paid, purchases and revenue by channel | This skill, from analytics grouped by `attribution_channel`, whether or not the company has Attribution; say spend and ROAS are not in these reads |
+| Ad spend, ROAS, CPI, campaign budgets | `adapty-attribution` |
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | How a dashboard feature works | `adapty-docs` |
@@ -204,21 +205,27 @@ conversation that asks "what should I do".
    name it and judge the plan from what they actually pay), products split by market (compare a product only with others sold in the same
    market), what is live now (per placement, the paywall or flow and the plans that sold in the
    last full month, with the month anything switched: `references/diagnosis.md`, "Before you
-   state a conclusion"), and whether the paywalls are Flow Builder flows. When the paywalls are drawn in the
-   app's own code, design hypotheses are out: keep to products, trials, placements and audiences,
-   say why, and never offer to build a flow copy.
+   state a conclusion"), and whether each placement shows a flow or a paywall, read from `placements get`.
+   A flow is always built in Adapty's builder: read and render it. A paywall is either drawn by
+   the app itself (its own code or remote config) or made in the legacy Paywall Builder, and the
+   CLI cannot tell which. When the app's code is in front of you, look at how it buys: a screen of
+   its own that calls `makePurchase` is a custom paywall. Otherwise ask for a
+   screenshot, and whether it was made in the Paywall Builder. A design hypothesis on a paywall
+   waits for that screenshot. A legacy Builder paywall can be moved to the new builder and then
+   copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it from the data (`references/diagnosis.md`, "What the app already
    tried"): paywalls or flows that ran side by side on one placement (a past A/B test; the one still
    live is the one they kept), paywalls, flows and products no longer in use, past offers, the
-   setup that is live now, and the kinds of change it has never tried. Put it in the reply as one short paragraph of facts ("From your data: two
+   setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts ("From your data: two
    onboarding paywalls ran side by side in May, and you kept Main."), so the user only types when
    it is wrong. When the user does name past tests, say in one line what each rules out
    (`references/levers.md`, "After a test") before suggesting the next.
 
    Ask at most one question, as the last "You:" item in Next steps, and only when its answer would
-   change your first pick: a past test whose winner the data cannot show, a trial the numbers do
-   not show, a screenshot when a design hypothesis would rank first. Never hold the hypotheses back
+   change your first pick: a past test whose winner the data cannot show, whether they already
+   tried the kind of change you would start with when the data shows no sign of it, a trial the
+   numbers do not show, a screenshot when a design hypothesis would rank first. Never hold the hypotheses back
    waiting for an answer.
 4. **Follow the biggest signal down** before you name a cause: split it by store, then by channel
    whenever any channel has attribution, then by the dimension most likely to explain it (plan

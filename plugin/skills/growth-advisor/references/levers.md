@@ -83,7 +83,8 @@ weak steps are not paywall tests:
 
 **Split before you blame a step.** A weak step in one store, country or channel is that segment's
 problem. Run the step by `store` and `attribution_channel` first; a channel that converts far worse
-is traffic, which `adapty-attribution` owns.
+is traffic for its own part, which `adapty-attribution` owns. Before calling the rest traffic too,
+check the step inside traffic that held (`diagnosis.md`, "It's the traffic").
 
 ## Which placement to test first
 
@@ -176,8 +177,8 @@ Before ranking, drop any hypothesis that:
 
 A hypothesis that is sensible but standard (what most paywalls already do, `market.md`, How
 paywalls look) stays only when the app does not do it yet, labelled as the standard move, and an
-untried bet with a similar stake ranks above it. At a similar stake, a kind of change the app has
-never tried also ranks above one more test of a kind it keeps running (`diagnosis.md`, What the
+untried bet with a similar stake ranks above it. At a similar stake, a kind of change the data shows
+no sign of also ranks above one more test of a kind it keeps running (`diagnosis.md`, What the
 app already tried).
 
 ## When nothing stands out
@@ -285,7 +286,8 @@ the offer is real.
 - **A change to a live flow is a copy.** Offer: "I can build this as a copy of your flow and you
   A/B test it against the current one." `flow-generator` builds the copy as a new flow. Never
   edit the live flow in place: every user gets the change, and nothing measures it.
-- **A paywall from the old Paywall Builder** cannot be copied this way. Offer the dashboard's
+- **A paywall from the old Paywall Builder** (the user confirms it; the CLI cannot tell it from a
+  custom one) cannot be copied this way. Offer the dashboard's
   **Move to new builder** first ([convert a paywall to a flow](https://adapty.io/docs/convert-paywall-to-flow.md)),
   then the copy.
 - **Say what it rests on:** the teardown's reading of the screen and the evidence library, plus

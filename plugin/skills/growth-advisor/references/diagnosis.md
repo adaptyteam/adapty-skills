@@ -207,6 +207,8 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 | Two paywalls or flows selling on one placement in the same weeks, then one stops | A past A/B test. The one still selling is the one they kept; say "kept", not "won". |
 | One paywall stops and another starts the same week | A change they made and kept. |
 | A paywall or flow in `paywalls list` / `flows list` that no placement shows | Something tried and dropped. Its name often says what it tried. |
+| A placement, paywall, flow or product whose name names a change ("No Free Trial", "Exit Offer Test", "ex-Winback", "Weekly Trial And Yearly") | That change was tried, whatever its numbers. Say "it looks like you tested X; what came out?", never that it was never tried. |
+| Two paywalls or flows both selling on one placement in the last full month | Possibly an A/B test running now. The CLI shows no running A/B tests: ask what is running there before suggesting a test on that placement, and never describe it in the past tense. |
 | A product with purchases earlier and none lately | A plan or trial they dropped. |
 | An offer with purchases in one stretch only | A past promo or intro offer, and when it ran. |
 | Audiences and segments on placements now | Targeting they already do. |
@@ -226,8 +228,12 @@ sells):
 | Localization | Not visible in the numbers; read the paywall or ask |
 | Placement or audience | A placement or audience that appeared or went |
 
-Name the kinds the app has never tried, with how often each wins (`market.md`, Testing): an
-app that has only ever changed the look has its likelier wins in kinds it has not touched.
+The data cannot show that a kind was never tried: a test can run outside Adapty or under a name
+that says nothing. Read every name in `placements list`, `paywalls list`, `flows list` and
+`products list`, every page, first. A kind with no sign anywhere is "no sign of it in your data",
+never "you have never tried it", and the reply asks whether they did. Name those kinds with how
+often each wins (`market.md`, Testing): an app that has only ever changed the look has its
+likelier wins in kinds it has not touched.
 Knowing what was tried is enough; you do not need the winner for this.
 
 ## Before you state a conclusion
@@ -252,6 +258,10 @@ against these before it goes in a reply:
   date a change from quarter grain: a September switch read by quarter looks like July. A drop
   often comes in steps; name every step with its date. The start of the window you happened to
   read is not when anything started.
+- **A fall back to the level before a spike is the end of the spike.** When a store, channel or
+  country ran far above its own usual level for a stretch and then came back to it, compare with
+  the level before the spike, give the weeks it rose and fell, and ask what drove it (a campaign,
+  a promo, a feature). Never call it something that broke or stopped.
 - **Before and after inside one store.** Compare a placement or paywall with the one it replaced
   per store: when one store converts far lower, a combined rate moves with the store mix. Read
   the old one's own trend up to the switch too; if it was already falling, say how much of the
@@ -260,6 +270,13 @@ against these before it goes in a reply:
   converted well stopped sending traffic is a change of mix, not a broken paywall or release.
   Read the rate by `attribution_channel` and check whether it fell inside a channel whose traffic
   held. Say which part of the fall is mix and which part happened inside a channel.
+- **"It's the traffic" needs the rate inside traffic that held.** Before saying a fall is mix
+  (a store, country or channel that converts worse grew), read the same rate over the same months
+  inside one store and in its largest countries by revenue, the main market first, and in
+  unattributed traffic. Pick those countries by size, never by whether they moved. If the rate
+  fell there too, the reply says mix explains part and the rate also fell on steady traffic, with
+  that slice's numbers, and never "the paywall is not broken" or "this is traffic, not the
+  paywall".
 - **"Everywhere" needs every group checked.** Before saying a fall is in all stores, countries or
   channels, read each large one; name the exceptions.
 - **"All" sums every group.** A share for "all non-English countries" or "all of Android" adds up
@@ -271,7 +288,9 @@ against these before it goes in a reply:
 - **"Most" and "biggest" need the comparison.** "Most money is lost on renewals" compares what
   is lost at renewal with what is lost at the paywall, in the same window, and you compute both.
   A rate with nothing to compare it to (`market.md` has no renewal median) is stated as what it
-  is, never as the biggest loss or as low.
+  is, never as the biggest loss or as low. "One of the lowest" or "mostly Europe" ranks every
+  group in the answer, not the ones you looked at; and "74% are weekly with a trial" counts every
+  product of that kind, or names the one product it is.
 - **Countries are read against their own past.** Prices and buying power differ by market, so
   a country's conversion or revenue per install is not ranked against the US or against another
   country. What a country's numbers mean: its trend over the window, which plans sell there, and
@@ -302,13 +321,13 @@ chart or operation: usually `store`, `country`, `duration`, `store_product_id`, 
 | Split | Command shape | What it tells you |
 |---|---|---|
 | Store | `--group-by store` | Whether it is one platform. Test results differ by platform more often than not. |
-| Channel | `trials_new` and `subscriptions_new` by `attribution_channel`, then `installs --filter attribution_channel=<value>` | Whether one channel's traffic converts far worse. Then it is traffic, not the paywall: say so and offer `adapty-attribution`. |
+| Channel | `trials_new` and `subscriptions_new` by `attribution_channel`, then `installs --filter attribution_channel=<value>` | Whether one channel's traffic converts far worse. Then that channel's part of the fall is traffic: say so and offer `adapty-attribution` for its campaigns. Whether the rest is traffic too: "It's the traffic" in "Before you state a conclusion". The `No Data` channel is unattributed traffic, not organic. |
 | When | `--granularity week` over the eight weeks around a change | The week it started, to match against a release, a price change or a campaign. |
 | Before and after | `chart` or `conversion` with `--compare-from`/`--compare-to` set to the same length before the change | How much moved, in one call. |
 | Where in the funnel | `funnel` by the split that moved, against the total | Which step the split loses users at. |
 | Who is leaving | `trials_renewal_cancelled` and `subscriptions_renewal_cancelled` by `duration`, `country` or `attribution_channel` | Who switched off renewal before revenue shows it. |
 | Offers | `revenue` and `subscriptions_new` by `offer_id`, then the same filtered to that offer and grouped by `country` and `store` | Whether an intro or win-back offer pays for itself, and where: an offer that loses money overall can still pay in some countries. |
-| Refunds | `refund_money` by `store_product_id` or `country`, against revenue for the same split | Purchases that come back. A win with heavy refunds is not a win. |
+| Refunds | `refund_money` by `store_product_id` or `country`, against revenue for the same split | Purchases that come back. A win with heavy refunds is not a win. Read refunds both as a share of purchases and as a share of revenue; they can disagree. The data shows where refunds come from, never why: name no reason the reads do not show (a surprise charge after a trial, a missing translation), and build no hypothesis on one. |
 | Screen | `subscriptions_new --group-by flow_screen_id` | Which screen of a flow the purchases come from. |
 
 Stop when a split shows one value carrying the effect, or when two splits in a row change
@@ -366,8 +385,8 @@ The config is the flow's screens, copy and products. Before any claim about a sc
 - **Hand the config itself** to the teardown only when the preview cannot run, and say the screen
   was read from its config, not seen.
 - **Its languages are `localization.locales`.** The top-level `locales` can be empty on a newer
-  flow. Count them per flow; the CLI does not show the languages of a paywall made outside Flow
-  Builder, so for one of those say so and ask.
+  flow. Count them per flow; the CLI does not show the languages of a paywall (only of a flow), so
+  for a paywall say so and ask.
 
 Read 8 by `flow_screen_id` shows which screen of the flow the purchases came from. Never write
 to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
