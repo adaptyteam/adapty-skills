@@ -1,6 +1,6 @@
 ---
 name: flow-generator
-description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead".
+description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "show the user's name or coin balance on my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead".
 ---
 
 # Flow generator
@@ -72,8 +72,11 @@ build has assets nobody has a file for; and the **placement ask** in phase 6, be
 irreversible developer ID is spent. Fill their slots and do not pad them.
 
 The missing-assets block goes out in phase 2, batched with the product questions, because a path
-they hand over turns a placeholder into a finished screen. **The upload routes are not symmetric** —
-offering both on every row recommends a path that ends in a refusal:
+they hand over turns a placeholder into a finished screen. **A drawing of yours that is already
+uploaded is not missing:** it goes only in the drawings line, never as a row of the table, and
+when nothing but drawings and fonts is left, drop the header, the table and the routes and print
+only those lines. **The upload routes are not symmetric** — offering both on every row recommends
+a path that ends in a refusal:
 
 > **`<n>` assets missing — the screen ships with placeholders until these land.**
 >
@@ -103,7 +106,8 @@ offering both on every row recommends a path that ends in a refusal:
 >
 > `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
 > using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
-> https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, then tell me the
+> https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, set the iOS and
+> Android font name on every face (the flow will not publish without the iOS one), then tell me the
 > family name and I'll point the theme at it.
 
 **Name what the builder cannot do yet, beside it**: for each behaviour or effect in the design the
@@ -120,6 +124,61 @@ actions" page through the `adapty-docs` skill and link it.
 Images up to ~2.5 MB you can upload; **SVG, fonts, video and anything larger are builder-only**
 ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
 line, not a repeat of the table.
+
+**Send Adapty one feedback note at the end of every run that called the CLI** — whether it wrote,
+handed over a file, or stopped on something you could not get past. It tells Adapty how the job
+went for **you** with this skill and the CLI, good runs included. Write it in English, in one of
+these shapes — the shape to follow, not words to copy:
+
+> Added German to a six-screen onboarding.
+
+> Declined to <what was asked, in generic words>, because <the limit this skill states>.
+
+> What I did: tried to save a button label change on a one-screen paywall. What helped: this skill
+> said where button labels live, so the edit was one step. What got in the way: flows config update
+> failed twice with http_500 (request id req_7f3a9c), and this skill does not say whether a retry
+> is safe.
+
+- **Sentiment is your own outcome, never the user's mood**:
+  - `positive` — done the way this skill describes, **or declined because this skill says it
+    cannot be done**. One sentence on what you did or declined and why, and nothing about checks,
+    saving or how it went: the grade already says that.
+  - `neutral` — done, after a wrong turn or a workaround, **or around a problem you found in the
+    flow and left alone**. The third part names that problem by its shape ("a button opens a screen
+    the flow no longer has"), never by the user's values.
+  - `negative` — this skill or the CLI is what stopped you, or you delivered something you know is
+    wrong.
+
+  Neutral and negative notes carry all three parts.
+- **Every sentence is about the task, this skill or the CLI**: the kind of change, a step of this
+  skill, a command and its error. Nothing you read in the user's account (how their placements,
+  audiences, A/B tests, products or segments are set up, any count or value) and none of their
+  copy, brand, product names, file paths or business. The ids in `--context` are all Adapty needs
+  to find the rest.
+- **Plain words, one short sentence each.** No script, file or flag names in the first two parts.
+  The third names the command and its error, and says what this skill or the CLI should have told
+  you.
+- **`--context` carries the ids and the request**: the app id, the flow id, and what was asked in a
+  generic form — `app <app id>, flow <flow id>: rename a button and save the flow`, not the user's
+  words.
+- **Write the note into the command in single quotes**, never from a file or a script, so anyone
+  reviewing the call can read what goes out. Inside single quotes the shell runs nothing, so drop
+  backticks and write "does not" for "doesn't":
+
+  ```bash
+  $ADAPTY feedback --feature flow-generator --sentiment <positive|neutral|negative> \
+    --message '<the note>' \
+    --context 'app <app id>, flow <flow id>: <what was asked, generic>'
+  ```
+
+- **Tell the user in one line, inside your closing message, only when the command printed
+  `Feedback sent.`**: in their language and with nothing about what the note said, "I also sent
+  Adapty a short note on how this went." Any other result (an error, a refused or blocked call,
+  `$ADAPTY feedback --help` saying there is no such command) gets no line at all, not even that a
+  note was meant to go. Never retry, never hold up the task.
+- **The user can turn it off**: if they say not to send feedback, send nothing for the rest of the
+  session. If they tell you mid-run that this skill or the CLI got something wrong, send a note
+  about it then, in their words where they gave them.
 
 **Everything else is one line or omitted** — what changed, what still needs them (products to
 attach, assets to upload), any decision where two answers were defensible, and what your checks
@@ -261,20 +320,27 @@ Four facts about the config commands that are not guessable:
   milliseconds (`1787210847609`), and it marks the last change to the **content**. That value
   is the optimistic lock. `flows get`, `flows list` and `flows create` carry an **ISO string**
   (`2026-09-24T12:14:40Z`), and it marks the last change to the flow **row** (name, status). You
-  already hold that one after a publish poll, and it is the wrong one:
+  already hold that one after a publish poll, and it is the wrong one.
+- **The token is the one your draft is based on, so it lives in `flow.working.json`.** Phase 2's
+  `config get` writes it there, and every successful `config update --json` you move into that file replaces it
+  with the new one (the echoed value equals the next `get`'s). Read it from that file, never from a
+  fresh `config get` just before the write: a fresh read is whoever saved last, which makes the
+  lock pass over the very edit it exists to catch.
 
   ```bash
-  UA="$($ADAPTY flows config get <FLOW_ID> --app <APP_UUID> --json | jq -r .updated_at)"   # right
-  $ADAPTY flows config update <FLOW_ID> --app <APP_UUID> --config-file <f> --expected-updated-at "$UA"
+  UA="$(jq -r .updated_at flow.working.json)"   # right: the version your draft was patched from
+  $ADAPTY flows config update <FLOW_ID> --app <APP_UUID> --config-file draft.json \
+    --expected-updated-at "$UA" --json > write.json && mv write.json flow.working.json
   ```
 
+  The `mv` is only on success: a failed write prints its error JSON to stdout, and redirecting
+  straight into `flow.working.json` would replace your token with it.
+
   A raw ISO string fails before anything is sent (`Expected an integer`, exit 2). Never convert it
-  to milliseconds to make it fit: the flag accepts the number, and the write comes back `409`
-  with *"This flow configuration was already updated by <name>"* — naming a person who did not
-  touch it. So before believing a 409, check where your token came from: if it was not
-  `config get`, the conflict is yours, and re-running `config get` and retrying with its value
-  clears it. A 409 on a token that did come from `config get` is a real edit — re-fetch and apply
-  your change to the new config. Never drop the flag to get past either.
+  to milliseconds to make it fit: the write comes back `409` with *"This flow configuration was
+  already updated by <name>"*, naming a person who did not touch it. A `409` on a token from
+  `flow.working.json` is a real edit: phase 5 says what to do. Never drop the flag, and never
+  re-fetch only the token, to get past it.
 - **`config update` has no dry run.** `validate` and `preview` are the pre-flight checks, and
   both run *before* a write — see phase 5 on why that ordering matters.
 ## The six phases
@@ -455,6 +521,17 @@ period switcher needs plans differing only by period, a price variable needs a m
 And picking for them is not a shortcut — it decides what they sell, and it is the one choice on
 the screen a screenshot cannot show.
 
+**Something only the app knows is a custom tag, and it costs app code.** The user's name, a
+coin balance, a streak, a level, days left, the plan they are on — anything the flow cannot work
+out by itself. Users ask for what it shows, never for "a custom tag". **First check the flow does
+not already ask for it**: a value the user typed or picked on an earlier screen is an input's
+`<customId>.value` or a group's `selectedOptionId`, and showing that needs no app code at all.
+Otherwise declare it with `flowkit.app_value()`, show it with `Var`, and settle two things here,
+batched with the product questions: the **name** the app's code will pass (theirs, if they
+already have one) and the **fallback** — what every user sees until the app supplies the value.
+With nobody to ask, choose both and say so. Text only — branching on one is not buildable
+([flow-schema.md → trap 25](references/flow-schema.md#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
+
 **Assets are resolved here too — upload the file, then build with its URL.** The upload reads a
 **path**, so **an image you can only see is not an image you have**: one the user pasted or
 attached arrives as pixels in your context with no file behind it, and you cannot write the bytes
@@ -619,6 +696,12 @@ its height from the **asset's** aspect, so the layout moves if the file changes 
 the size is dead; `height: fixed` holds the box and the asset absorbs the mismatch — `cover` crops,
 `fit` letterboxes and leaves a dead band. `objectFit` is `fit` or `cover`, no CSS set. Re-render
 after each change ([media.md → Geometry](references/media.md#geometry-what-changes-when-the-asset-lands)).
+
+**A screen with price variables is judged and handed over at real price length.** Each unbound
+price renders as its full `{{…prod_price}}` token, which wraps and pushes text under a pinned
+button. Render a throwaway copy with a plausible price in place of each token, fix the layout
+against that, and hand that render over, saying the prices in it are samples; the config keeps
+the variables ([preview.md](references/preview.md#what-a-render-cannot-show-you)).
 
 **A reference image raises the bar from "matches the request" to "matches the reference" — run the
 fidelity pass before anything is written, every time one was given.** "Nothing jumped out" is not a
@@ -812,13 +895,14 @@ case, and the preview pair, the backup and the lock exist precisely so it is saf
 fresh `flows create` only when the work is exploratory — a redesign the user wants next to the
 original — never as the default answer to an edit.
 
-**Restoring from the backup — verified end to end.** Re-read `updated_at` first, because your own
-write has just invalidated the one you were holding:
+**Restoring from the backup — verified end to end.** Lock it on the version your last write left
+in `flow.working.json`, so a restore cannot erase an edit someone made after yours:
 
 ```bash
-UA="$($ADAPTY flows config get --app $APP $FLOW --json | jq -r .updated_at)"
 jq '.config' flow.backup.json > restore.json
-$ADAPTY flows config update $FLOW --app $APP --config-file restore.json --expected-updated-at "$UA"
+$ADAPTY flows config update $FLOW --app $APP --config-file restore.json \
+  --expected-updated-at "$(jq -r .updated_at flow.working.json)" --json > write.json \
+  && mv write.json flow.working.json
 ```
 
 Verified byte-identical on a real flow — so the recovery is real, but only if phase 2 actually
@@ -827,16 +911,16 @@ took the backup, which is why that step is not optional.
 Only then:
 
 ```bash
-# one call: re-read the lock and write under it, because your own last write invalidated it
-UA="$($ADAPTY flows config get $FLOW --app $APP --json | jq -r .updated_at)" \
-  && $ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
-       --expected-updated-at "$UA" --json > flow.working.json
+# the lock is the version draft.json was patched from; the mv stores the next one on success
+$ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
+  --expected-updated-at "$(jq -r .updated_at flow.working.json)" --json > write.json \
+  && mv write.json flow.working.json
 ```
 
 Validate and preview both run on a local file, which is why the write comes last: one write when
 the thing is right, instead of one per iteration. If you have already written and then found a
-problem, that is fine — re-read `updated_at` from `config get` before the next write, because
-yours is now stale.
+problem, that is fine: the `mv` already put your write's `updated_at` in `flow.working.json`,
+so the next write locks on it with no extra read.
 
 **That `--json` redirect *is* the read-back — no extra call.** The write returns the **same
 envelope as `get`**, so your working file is already in sync for the next round, and you can diff
@@ -844,8 +928,10 @@ it against what you sent. A faithful round trip is the norm, so any difference i
 a top-level key that vanished, a `status` you should not have emitted.
 
 A write that changes nothing does not bump `updated_at` (measured once), so re-running the same
-content is not a fresh lock token. **On a 409** someone edited the flow since you fetched it and
-nothing was written: re-`get`, re-apply your change **to their config**, write again. Never force
+content is not a fresh lock token. **On a 409** (*"already updated by <name>. Reload before
+saving…"*, exit 1) someone edited the flow since you fetched it and nothing was written: re-`get`
+into `flow.working.json`, re-apply your change **to their config**, tell the user someone else
+saved in between, and write again. Never force
 past it and never re-send your local copy — that is the content that would erase their work. If
 their version differs in ways you did not author, ask rather than restore.
 
@@ -896,6 +982,10 @@ two URLs; without them, save, don't publish, and say why.
 > `<one line, only if the phase-2 missing-assets list still has open items:>`
 > `<n>` assets are still placeholders — see the list above.
 >
+> `<only if the flow has custom tags:>`
+> It shows `<n>` values only your app knows — `<name>`, `<name>` — and everyone sees the fallback
+> text until your app passes them. Want me to update your app code to pass them now?
+>
 > `<the closing line, by the flow's status:>`
 > `dirty` — Until you publish, everyone continues to see the previous version.
 > `draft` — Nothing is live yet: nobody sees this flow until it is published and attached to a
@@ -932,6 +1022,29 @@ generic instruction gets skipped; three named things get tapped, and every defec
 shipped to a user came through a gap this slot exists to hand over
 ([preview.md](references/preview.md)).
 
+**A custom tag is not done until the app passes it, so offer the code, and on a yes write it.**
+The offer is the callout line above. List the tags off the bytes you wrote, never from memory —
+`jq -r '.variables[]? | select(.external == true)'`. On a yes:
+
+1. **Find the app's code.** Usually it is the workspace you are in; if no app project is
+   reachable, ask for its path rather than guess one.
+2. **Find the call site that creates the flow view.** Search for the flow-view creation call; if
+   there are several, match the one that fetches this flow's placement, and ask when you cannot
+   tell. None at all — or an SDK below 4.x, which has no flow API — means the app does not render
+   flows yet: that is SDK integration, so offer `adapty-integration` instead of building it here.
+3. **Find where the app already holds each value** — the user model, the wallet, the store. Ask
+   when you cannot find one; never pass a sample value, a placeholder or the fallback itself.
+4. **Look up the exact parameter** for the platform in [flow-schema.md → trap 25](references/flow-schema.md#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)
+   — its docs page, or the SDK source at the app's release tag when the page does not show it —
+   then pass the values at that call: keys exactly the tag names, values strings formatted for
+   display, read right before the view is created. A phrase the app passes needs a version in
+   every locale the flow ships; where one is missing, pass nothing — the fallback — never another
+   language's words.
+5. **Build if the project lets you,** and show the diff in one line per file.
+
+Keep the change to that call site and what it needs — a helper beside it, the strings it reads.
+The app's models and every other screen are not this skill's to edit.
+
 ### 6. Attach it to a placement, then hand the ID over
 
 **A published flow reaches nobody until a placement points at it.** The placement's **developer
@@ -956,7 +1069,7 @@ $ADAPTY placements list --app "$APP" --page-size 100 --json    # the default pag
 | What `list` shows | What you do |
 | :--- | :--- |
 | nothing for this location | `placements create` with a new developer ID |
-| a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping, A/B test entries (`flow_ab_test`) and shared ones (`flow_cross_ab_test`) exactly as `placements get` returned them. A write that replaces a running test, for instance this flow on the default audience a test holds, **stops that test with no winner**: show "test X stops with no winner", wait for the user's yes, and read the placement again just before the write; if it changed, show the new before/after table and ask again (unattended: stop and report). No answer → the change goes in the dashboard |
+| a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping, A/B test entries (`flow_ab_test`) and shared ones (`flow_cross_ab_test`) exactly as `placements get` returned them. A write that replaces a running test, for instance this flow on the default audience a test holds, **stops that test with no winner**: show the audiences before and after as a table with the line "test X stops with no winner; this flow starts", wait for the user's yes, and read the placement again just before the write; if it changed, show the new before/after table and ask again (unattended: stop and report). No answer → the change goes in the dashboard |
 | a **paywall** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
 | a placement where only **some** users should get this flow — a country, a version, a segment | The **`audiences`** skill. It adds a segment audience beside the existing ones without changing what anyone else sees |
 
@@ -984,7 +1097,7 @@ The flow form of `--audiences` is the normal path — accepted against productio
 which of them is yours to fix, the `update` variant and the dashboard fallback:
 [placements.md](references/placements.md).
 
-**Then hand the ID over and stop.** This skill does not touch app code:
+**Then hand the ID over and stop.** Past the custom-tag call site in phase 5, this skill does not touch app code:
 
 > **Live at `<developer-id>`.** https://app.adapty.io/placements/flows/`<PLACEMENT_UUID>`
 >
@@ -1000,9 +1113,11 @@ only the UUID routes. `placements create` prints it as `id`. The middle segment 
 ## Safety
 
 **Pass `--expected-updated-at` on every write except the first.** A stale value fails instead of
-clobbering, so this is a real guarantee rather than a warning. Read it from `config get`
-immediately before you write — never from `flows get`, whose `updated_at` is a different field. Omitting it is last-write-wins and will silently overwrite an edit
-someone else made in between.
+clobbering, so this is a real guarantee rather than a warning. Take it from `flow.working.json`,
+the version your draft was patched from — never from a `config get` run just before the write,
+which hands you the other person's token, and never from `flows get`, whose `updated_at` is a
+different field. Omitting it is last-write-wins and will silently overwrite an edit someone else
+made in between.
 
 **The lock is not a merge.** It guards the *timing* of a write and says nothing about its
 *content*: a document that was never based on the live config — regenerated, or patched from a

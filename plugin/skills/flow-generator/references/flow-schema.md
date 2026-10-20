@@ -36,7 +36,7 @@ observed.
 | `localization` | `{locales, defaultLocale, content}` | `locales`: `[{id, code, name}]`, e.g. `{"id": "en", "code": "en", "name": "English"}`. `defaultLocale`: a locale **id**, and it must name an entry in `locales`. `content`: the catalog, one entry per localizable value. There is no top-level `locales` or `defaultLocale`. [Localization: the catalog](#localization-the-catalog) owns the rules. |
 | `variables` | `[{id, name, valueType}]` | **Custom, app-supplied variables only** — `{"id": "var_ddvg4jeg", "name": "app.permission.location.allowed", "valueType": "boolean"}`. Built-ins are never declared here. `[]` in `timer` and `comparison`. |
 | `theme` | `{typography: [{id, name, settings}], colors: [{id, name, light, dark?}]}` | Per-project design system. **Not a fixed vocabulary** — see [Shape traps](#shape-traps). `colors[].dark` is present only where dark mode was configured (`quiz` only). |
-| `_meta` | `{icons, fonts, screens}` | `icons`: `[{name, weight, raw}]`, `raw` being literal SVG markup. `fonts`: `[{id, name, url, iosName, androidName}]`, `[]` in `quiz`. `screens`: an object keyed by screen id, holding that screen's declared products — `{"<screen-id>": {"products": [{"id": "<product-uuid>", "flowProductId": "<flow-product-uuid>"}]}}`. An entry also carries `offerId` when the binding has one, between `id` and `flowProductId`. Screens with no products have no entry at all. **Rewriting a flow: carry `screens[].products[]` through untouched. Authoring one: derive it with `flowkit.predeclare()`.** [`products.md`](products.md) owns the rules and the reasoning. |
+| `_meta` | `{icons, fonts, screens}` | `icons`: `[{name, weight, raw}]`, `raw` being literal SVG markup. `fonts`: `[{id, name, url, iosName, androidName, faces}]`, `[]` in `quiz`; `faces` is one entry per uploaded weight and style, `{id, url, iosName, androidName, weight, italic, isDefault}`, and the top-level `url`/`iosName`/`androidName` copy the default face. An older entry has no `faces` and is still accepted. **Carry `fonts` through untouched, `faces` included; never write an entry yourself** — [trap 8](#8-custom-fonts-do-not-ship-with-the-flow). `screens`: an object keyed by screen id, holding that screen's declared products — `{"<screen-id>": {"products": [{"id": "<product-uuid>", "flowProductId": "<flow-product-uuid>"}]}}`. An entry also carries `offerId` when the binding has one, between `id` and `flowProductId`. Screens with no products have no entry at all. **Rewriting a flow: carry `screens[].products[]` through untouched. Authoring one: derive it with `flowkit.predeclare()`.** [`products.md`](products.md) owns the rules and the reasoning. |
 
 `elements.hierarchy` — and a component's `hierarchy` — is **one node, always
 `{"id": "root", "children": [...]}`**, and `root` has no entry in `map`. True of 9 of 9
@@ -181,7 +181,7 @@ the one invariant on this list that a real multi-locale export has never exercis
 | 6 | Every `selectableGroups[].id` has at least one member element carrying that `groupId`, and every `groupId` in use has a declared group | branching edits | A group with no members and a member with no group are both broken selection state. Groups are per screen and typed (`single_choice`, `product`). Two team-stated naming rules: a `groupId` must **not start with a digit** (`1a` generated invalid JavaScript and blocked publish), and should be **unique across the flow**, not merely its screen — two screens sharing `"products"` broke selection rendering. |
 | 7 | Every `const` compared against `<groupId>.selectedOptionId` matches some member's `customId` | branching edits, renaming an option | The case never matches, so every user takes the `default` branch. Silent — the flow still routes somewhere. |
 | 8 | Every `colorId` and every `font.preset` resolves in **that file's own** `theme` | pasting a screen from another flow | **A hard 422, confirmed.** A screen pasted in from another flow kept `font.preset: "button-label"`, a preset the destination theme does not define; device preview returned `unknown_font_preset` as **severity `error`**, once per text element, blocking the whole flow. `config update` had saved it without complaint. So this is a publish blocker, not a cosmetic drift — and `references/verify-config.py` catches it, which is the check earning its place. Fix by repointing to a preset the destination theme has, not by adding the source's name to the theme. Never validate these against a remembered list of built-in names — see [Shape traps](#shape-traps). |
-| 9 | Every `family.id` resolves in `_meta.fonts` — via **both** reference paths: an element's `props.font.family.id`, and `theme.typography[].settings.family.id` | pasting a screen from another flow, editing or deleting a typography preset | Unresolvable font reference. **Check both paths or you check nothing**: element-level refs number 7 in `timer` and 0 in both `quiz` and `comparison`, so in `comparison` all three declared fonts are reached only through theme presets, and in `timer` the two paths together are what reach all four. A check that reads only element props would find `comparison`'s `_meta.fonts` entirely unreferenced and could license deleting them. Resolving here also does not mean the font ships — trap 7. |
+| 9 | Every `family.id` resolves in `_meta.fonts` — via **all four** reference paths: an element's `props.font.family.id`, `theme.typography[].settings.family.id`, a state override's `propsByState.<state>.font.family.id`, and a rich-text span's `attrs.family.id` (a span's `family: null` clears the family and references nothing) | pasting a screen from another flow, editing or deleting a typography preset | Unresolvable font reference. **Check every path or you check nothing**: element-level refs number 7 in `timer` and 0 in both `quiz` and `comparison`, so in `comparison` all three declared fonts are reached only through theme presets, and in `timer` the element and preset paths together are what reach all four. A check that reads only element props would find `comparison`'s `_meta.fonts` entirely unreferenced and could license deleting them. Resolving here also does not mean the font ships — trap 8. |
 | 10 | Every `(name, weight)` icon pair used by an `icon` element appears in `_meta.icons` | adding an icon | `_meta.icons[].raw` carries the literal SVG markup the renderer draws, so an unlisted pair has nothing to draw. The markup is **no longer unobtainable**: [`icons.py`](icons.py) resolves any `phosphor` name+weight and the five Builder spinners, byte-identically to a real export — and `flowkit.config()` derives the whole list from the tree, which makes this invariant unrepresentable to violate from the module. A `custom` icon nobody has markup for is still yours to supply. Note the harder sibling: for a `phosphor` icon, being declared is not enough, because the renderer resolves the NAME from its own bundle — trap 23. |
 | 11 | Every **text and placeholder** entry has a value for the default locale, and a translated value for each locale the flow is translated into. An **image or video** entry holds the default locale plus only the locales that get a different file | adding a locale | A missing text value falls back to the default locale's text, so the field shows in the wrong language; `verify-config.py` warns per locale. A missing default value leaves every locale with nothing to fall back to. A missing image value shows the default's file, which is what you want; a copy of it duplicates the preview once per locale. |
 | 12 | Every variable **consumer** still has a **producer**, and *which* producer depends on the form: `<inputCustomId>.value` needs the `text-input` carrying that `customId`; `<groupId>.selectedOptionId` needs a group with that id; `<productUUID>.prod_*` needs that product declared; `<groupId>.selectedProduct.<field>` needs a `product`-typed **group** — resolve it against `selectableGroups`, never against the product list, or you repeat invariant 5's false positive | **screen deletion**, moving an element between screens | Breaks the **opposite way** from invariant 3: the reference survives and its producer dies, so nothing on the screen you edited looks wrong. In `quiz`, the `text-input` with `customId: "name"` lives on the Quiz screen while `name.value` is read on three *other* screens (both genre branches and the paywall) — deleting Quiz strands all three, and none of them is the screen that was touched. |
@@ -220,7 +220,7 @@ invariants above, and is still wrong. This table is the index into them.
 
 The numbers are this file's addressing scheme: other files, and two checker messages in
 `verify-config.py` and `render-check.py`, cite them as **trap N**. They are therefore stable — a
-trap is never renumbered, a new one takes the next free number (**25**), and a new trap with no
+trap is never renumbered, a new one takes the next free number (**26**), and a new trap with no
 row here is unreachable, because the number is the only address anyone cites.
 
 | trap | the thing that parses and is still wrong |
@@ -254,6 +254,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 22 | Which group types a conditional can read — and the one action that does not work |
 | 23 | A `phosphor` icon resolves from the renderer's own bundle, and `raw` does not override it |
 | 24 | A `{_lid}` names an entry of THIS flow's catalog — never copy a ref between flows |
+| 25 | A value only the app knows is a custom tag — shown in text, never read by logic |
 
 ### 1. A localizable field is a ref, and its entry's `kind` decides the value shape
 
@@ -382,8 +383,9 @@ Do not add a `preset` to the second form to make it look like the first.
 
 ### 4. Built-in variables are referenced but never declared
 
-`variables[]` holds custom app-supplied variables only. These four families are used by
-`variableId` and appear in no declaration anywhere in the file:
+`variables[]` holds only the variables the author created: flow-owned ones, and custom tags
+(`external: true`, [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
+These four families are used by `variableId` and appear in no declaration anywhere in the file:
 
 | Reference | Produced by |
 | :--- | :--- |
@@ -426,12 +428,10 @@ The group id is not fixed at `products` — it is whatever that screen's `select
 declares. The corpus uses `products`; a live builder screen used `products2`. Read it from the
 file.
 
-**Unknown:** how a *custom* `variables[]` entry is referenced from a `variableId` — by its `id`
-(`var_ddvg4jeg`) or by its `name` (`app.permission.location.allowed`). The corpus cannot
-settle it: the one declared custom variable is read nowhere — that is the second warning under
-[Invariants](#invariants), and it is why this is unobservable. Do
-not introduce a reference to a custom variable on a guess; if a transform needs one, say the
-form is unverified and let the user wire it in the Flow Builder.
+**A `variables[]` entry is referenced by its `id`, never its `name`** — in a rich-text
+`variable` node (`attrs.variableId: "var_user_name"`) and in a condition operand
+(`{"type": "var", "variableId": "var_is_vip"}`) alike. The `name` is what the builder shows and,
+for a custom tag, what the app's code passes; the document never points at it.
 
 The JSON's names are not the dashboard's names. [Element
 variables](https://adapty.io/docs/onboarding-variables.md) documents the UI as offering
@@ -602,7 +602,21 @@ Introducing a custom-font reference is therefore a **runtime** footgun, not a pu
 the flow publishes, and the text renders in the wrong typeface on devices whose bundle lacks
 the file. Report it; do not block on it.
 
-A reference can enter by either of invariant 9's two paths, and the second is the quiet one:
+**A family is a set of faces, and the device draws the nearest one.** Each uploaded weight and
+style is a face in `_meta.fonts[].faces`, carrying the iOS and Android names the app bundle
+registers it under. For a text's weight, the transformer picks the face with that exact weight and
+style, else the nearest weight in the same style, else the nearest weight of any style (a tie goes
+to the lighter face), and the device draws that face at its own weight. So a `semibold` preset
+over a family with only Regular and Bold draws one of those two, never a faked semibold. When the
+design needs a weight the family lacks, say which face will draw instead.
+
+**A face with no iOS font name blocks publishing.** The transform service refuses the flow with
+`font_face_missing_ios_name`, at `_meta.fonts[<n>].faces[<m>].iosName`, for any face of a declared
+family that has none. `flows config validate` reports it; `verify-config.py` does not. It is the
+user's to fix, not yours: they set the name on that face in the builder's font settings, then
+you re-fetch. Never type a name into `_meta.fonts` — it would not match their bundle.
+
+A reference can enter by any of invariant 9's paths, and the preset is the quiet one:
 an element's `props.font.family`, or a **typography preset** whose
 `settings.family.id` points at an uploaded font. `quiz` declares no fonts at all
 (`_meta.fonts: []`) and styles everything through presets that carry no `family`;
@@ -891,6 +905,107 @@ value into the destination, and run `localization.py catalog` over it. That mint
 destination's own. The same holds inside one flow when you duplicate an element: the copy shares
 the original's entry until you give it one of its own (`localization.copy_entry()`), and editing
 either then edits both.
+
+
+### 25. A value only the app knows is a custom tag — shown in text, never read by logic
+
+**Before reaching for one, check the flow does not already know the value.** A name the user typed
+on an earlier screen is `<inputCustomId>.value`, an answer is `<groupId>.selectedOptionId` (trap 4)
+— both readable on any later screen with no app code. A custom tag is for what only the app has.
+
+Users rarely say "custom tag". They say *greet them by name*, *show their coin balance*, *how many
+days are left on their streak*, *their level*, *the plan they are on*, *the city we detected* —
+anything the **app** knows and the flow cannot work out by itself. That is one construct: a
+`variables[]` entry with `external: true`, shown through an ordinary rich-text `variable` node.
+
+```json
+"variables": [
+  {"id": "var_user_name", "name": "user_name", "valueType": "string",
+   "value": "there", "external": true}
+]
+```
+
+```json
+{"type": "paragraph", "content": [
+  {"type": "text", "text": "Hi, ", "attrs": {}},
+  {"type": "variable", "attrs": {"variableId": "var_user_name"}},
+  {"type": "text", "text": "!", "attrs": {}}
+]}
+```
+
+| Field | What it is |
+| :--- | :--- |
+| `name` | **The contract with the app's code.** The SDK looks the value up by this exact, case-sensitive string. Letters, digits, `_`, `-`, and dots between parts (`user.coins`). Not a name the SDK resolves itself — `PRICE`, `TITLE`, `PERCENT`, `VALUE`, `TIMER_*` and the rest of the product tags are refused (`custom_tag_invalid_name`). Unique across **all** variables, flow-owned ones included (`custom_tag_duplicate_name`) |
+| `valueType` | `string`, `number` or `boolean` only. On an array or product variable `external` is ignored |
+| `value` | **The fallback.** Every string carrying the tag ships with a copy that has the tag replaced by this value, and the SDK shows that copy whenever the app does not supply one — an older app build, a missing attribute, a resolver not wired yet. It is also what the builder preview draws |
+| `external` | `true`. Absent means a flow-owned variable |
+| `description` | Optional, builder-only note for the author |
+
+Three things that parse and are still wrong:
+
+- **Logic sees the fallback, never the app's value.** A condition, conditional text, a
+  `setVariable` — any `{"type": "var"}` operand naming a custom tag compiles against the
+  Initial value, so on a device the branch goes the same way for every user. The service warns
+  (`external_variable_in_logic`) and publishes. So *show the VIP block when the app says they are
+  VIP*, *skip the notifications screen if permission is already granted*, *a different paywall
+  for users from the US* are **not** buildable with a custom tag: say so, and offer what works
+  today — a separate flow per segment behind the placement's audiences, or a `custom` action the
+  app handles. Never wire it and let it look done.
+- **Inside an interaction it is empty.** A tag in an `alert` title or message, or in a URL, is
+  written as an empty string (`custom_tag_in_script_context`). Text elements only.
+- **A fallback that does not read as copy ships as broken copy.** An empty fallback renders
+  "Hi, !" for everyone the app does not cover. Write the fallback inside the sentence around it
+  ("Hi, there!", "You have your coins to spend" is wrong — "You have coins to spend" is right,
+  so restructure the sentence rather than force a noun in). Show the line with the fallback in
+  the preview, because that is exactly what those users will see.
+
+**Every locale carries its own `variable` node.** Translating the sentence keeps the node; a
+locale that dropped it shows no value at all there.
+
+**On a flow with more than one locale, the fallback is shown in every one of them, so it holds no
+words** — an empty string or a number, never "Traveler" or "travel credits", which reach a Serbian
+user as English in the middle of a Serbian sentence. An empty fallback then needs a sentence built
+for it: put the tag where nothing is left dangling — the start of a line that still reads without
+it, or after a colon — because mid-sentence it leaves a double space ("You have  credits"). A
+string tag that has to start a sentence ("Maria, better places…") gets its own text element, or
+the punctuation moves into the value the app passes. `verify-config.py` warns on both: a word
+fallback on a multi-locale flow, and an empty fallback between two spaces.
+
+**Keep the copy in the flow and pass only the bare value** — the city, the number — so the words
+stay translatable in the builder. Have the app pass a whole phrase only when the language changes
+the value's own form (a case ending on the city, a plural on the noun), and say so: that copy then
+lives in the app's code, in every locale, and the builder can no longer edit it.
+
+**The app has to pass the value, and nothing in the config makes it.** Until the app's code
+supplies each tag by name when it creates the flow view, every user sees the fallback. Values are
+strings, read once at creation — nothing updates them while the flow is open — and one missing tag
+swaps its whole line for the fallback text. So a run that adds a custom tag ends by offering to
+write that code, and on a yes writes it ([SKILL.md](../SKILL.md), end of phase 5). This table is
+where the exact parameter comes from — read the page, then edit the call site; never hand the user
+a link in place of the change.
+
+| Platform | Where the values go | Docs | Source |
+| :--- | :--- | :--- | :--- |
+| iOS | `tagResolver` on the flow configuration call | https://adapty.io/docs/get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-iOS |
+| Android | `tagResolver` on the flow view | https://adapty.io/docs/android-present-paywalls.md | https://github.com/adaptyteam/AdaptySDK-Android |
+| Flutter | `customTags` on create flow view | https://adapty.io/docs/flutter-get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-Flutter |
+| React Native | `customTags` in the create flow view params | https://adapty.io/docs/react-native-get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-React-Native |
+| Unity | `CustomTags` on the create flow view parameters | https://adapty.io/docs/unity-get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-Unity |
+| Kotlin Multiplatform | `customTags` on create flow view | https://adapty.io/docs/kmp-present-paywalls.md | https://github.com/adaptyteam/AdaptySDK-KMP |
+| Capacitor | `customTags` in the create flow view params | https://adapty.io/docs/capacitor-get-pb-paywalls.md | https://github.com/adaptyteam/AdaptySDK-Capacitor |
+
+Read the docs page first. When it does not show the parameter, read the SDK source at the release
+tag the app depends on — search it for the parameter name — rather than guessing a signature.
+
+Read the list off the config rather than from memory:
+
+```bash
+jq -r '.variables[]? | select(.external == true) | "\(.name)\t\(.valueType)\tfallback: \(.value)"' flow.json
+```
+
+`flowkit.app_value()` builds the entry and refuses every shape above that it can see; it raises
+if a custom tag reaches a condition, conditional text, `setVariable` or an interaction.
+`verify-config.py` reports the same four on a fetched config.
 
 ### 14b. A condition is an expression tree, and `assign` is the one type it may not use
 
@@ -1755,6 +1870,8 @@ style error: you will search for an element type that does not exist, or invent 
 | a divider, a rule | A `divider` element exists. Both real exports instead use a `stack` with `height: {type: "fixed", value: 1}` and a `fill` — either is valid; prefer whichever the input already uses. |
 | a text field, email, phone, a date picker | `text-input`, or one of `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker`. Its `customId` becomes the variable `<customId>.value`. |
 | a price | Never literal text. A rich-text `variable` node — see invariant 5 for the two forms. |
+| the user's name, their coin balance, streak, level, days left, current plan, "something the app knows" | A **custom tag**: a `variables[]` entry with `external: true` whose `name` the app's code passes, shown by a rich-text `variable` node. Text only, and it needs app code — [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic). |
+| show, hide or skip something based on what the app knows (VIP status, a permission already granted, country) | **Not buildable from a custom tag** — logic sees only its fallback. A separate flow per segment behind the placement's audiences, or a `custom` action the app handles. Say so rather than wiring a condition that never fires. |
 | a close button, "dismiss" | A tappable `stack` whose action is `{"type": "closeFlow"}` (no payload). |
 | a hero image the content slides up over, an overlay hero, a panel over a background | A **`sliding-sheet`** at the screen root holding the content, with the hero as the screen `fill` or as a root sibling of the sheet (the cover band). **Not a `bottom-sheet`**: that one is a hidden modal an action opens. See [`patterns.md`](patterns.md). |
 | an image, a background | An `image` element for content; `props.fill` with `{"type": "image"}` for a screen or element background. **Different shapes** — see trap 1. |

@@ -119,7 +119,7 @@ The routes are **not symmetric**, so say which one applies rather than offering 
 | :--- | :--- | :--- |
 | PNG / JPEG / WEBP / GIF, ≤ ~2.5 MB | yes — `flows media upload` | also fine |
 | SVG | no — `http_500`, reproducible | yes |
-| a font | no — not an image; `validation_error` | **yes, and only here.** Then they must tell you the family name, because the upload mints the id you point `theme.typography` at |
+| a font | no — not an image; `validation_error` | **yes, and only here.** They set the iOS and Android font name on every face (publishing refuses a face with no iOS name), then tell you the family name, because the upload mints the id you point `theme.typography` at |
 | video | no — the command refuses a clip | **yes, always.** Place the real `video` element with no source, at a **fixed** height and the design's own radius/margins, and say in words that they upload it in the builder — [media.md](media.md#the-video-placeholder) |
 | an image over ~2.5 MB | no — bare `http_400` | yes, or a smaller export |
 

@@ -238,7 +238,11 @@ reference. Three passes, none optional:
    `references/look.md` before the first screen; they cover every screen, the paywall included.
 3. **Back, over your own flow.** The moment it renders, run the full process above against it —
    the config for the sequence, the renders for the execution. A flow shorter than its category's
-   range, or one that breaks the rhythm, is a *High* row. **A finding on your own draft is a
+   range, or one that breaks the rhythm, is a *High* row. When `paywall-teardown` is installed,
+   check every render against its `references/look.md` → "Different is not enough": a screen
+   with no focal element, boxes inside boxes or a clip-art character is a *High* row, and
+   anything a pinned bar slices, or a leftover band on a screen's first view, is a *Fix first*
+   row, fixed by shortening or moving the content. **A finding on your own draft is a
    defect, not a recommendation** — fix every *Fix first* and *High* row and re-render. Never hand
    over a flow accompanied by a table of the patterns you chose to skip; that is unfinished work
    wearing a report. What survives into the write-up is only what you *cannot* fix: rows blocked on
@@ -402,6 +406,7 @@ config cleanly, some need something only the user has, and **two cannot be built
 | Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | The paywall at the end | Yes | **The products are theirs to pick**, not yours — catalog first, store ids second, create last (`flow-generator` phase 2). And a trial timeline needs a trial that exists |
 | Second-chance offer after the paywall | Yes, as a screen with its own products | A real discount to offer |
+| Trial or intro-offer wording on any screen — "start your free week", a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
 
 Mechanics for all of these — the `timer` shape, `_meta.icons`, empty asset maps, variable
 producers, product binding — belong to the `flow-generator` skill (`references/patterns.md`,

@@ -26,7 +26,7 @@ not. `flowkit` authors exactly that kind of screen.
 
 KNOWN FINDING, asserted rather than suppressed: `timeline-anchored.json` fires (6 elements,
 dark). It is the corpus's one hybrid -- a real export screen with a *borrowed* theme, already
-excluded from census counts in CLAUDE.md -- and it hardcodes its screen fill, which none of the
+excluded from census counts in docs/maintainers/flow-generator.md -- and it hardcodes its screen fill, which none of the
 11 genuine exports do. The fixture is left exactly as it is: its provenance is mixed, and
 editing evidence to quiet a checker is how a corpus stops being evidence. Pinning the finding
 here turns it from ambient noise into an expectation.

@@ -343,7 +343,7 @@ check('a flow with no selling screen AND a real escape reports no compliance '
 
 # `no-escape-in-flow` is NOT gated behind selling: a non-paywall onboarding flow
 # with no way off anywhere fires it too -- the early `if not selling: return out`
-# used to defeat this entirely (CLAUDE.md finding, corrected here). A `screens: []`
+# used to defeat this entirely (docs/maintainers/flow-generator.md finding, corrected here). A `screens: []`
 # flow has no escape and no selling screen, so this is the narrowest repro.
 no_sell_no_escape_findings = run(
     {'screens': [], 'locales': [], 'defaultLocale': 'en'})[1] or []
@@ -554,7 +554,7 @@ check('...and its message names the screen both bindings are on, once',
 
 print('\nproducts / catalog: const-purchase product binding (C1)')
 # A `const` purchase action binds a product with no `product` element and no card
-# copy -- CLAUDE.md documents the shape. `bound_products` must see it: real fixture
+# copy -- docs/maintainers/flow-generator.md documents the shape. `bound_products` must see it: real fixture
 # tabs-paywall.json binds three products this way, none of which exist in the
 # catalog fixture -- previously this family was entirely blind to them.
 rc_tabs, findings_tabs = run(os.path.join(FIX, 'tabs-paywall.json'))
@@ -930,7 +930,7 @@ check('...and it is reported as a blocker',
 
 # A reproduced false positive, not a hypothetical: a savings figure written beside
 # (never inside) the price-variable element still trips `hardcoded-price`, because
-# the guard is element-scoped, not card-scoped -- CLAUDE.md's own known-limitations
+# the guard is element-scoped, not card-scoped -- docs/maintainers/flow-generator.md's own known-limitations
 # entry had this backwards ("beside" read as the SILENT case; it is the one that
 # FIRES). The message must not assert the literal IS the price -- "Save $20" is a
 # savings figure, not a price -- so it is worded as a currency amount written into

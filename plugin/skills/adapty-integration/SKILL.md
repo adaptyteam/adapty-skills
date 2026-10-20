@@ -197,6 +197,8 @@ Use `AskUserQuestion` for all three together in one call:
 
 **State update:** Set `paywallApproach` to `flow_builder` (the value on every platform for the builder-rendered choice; `paywall_builder` survives only as the state value a run that predates Flow Builder support may still carry), `custom`, `observer`, or `none`. Set `integrations` to the array of selected integration keys (e.g. `["amplitude", "appsflyer"]`), or `[]` if none. Set `appPreference` to `existing` or `new`.
 
+**Nobody to answer (an unattended run):** take these defaults and list each one in `ADAPTY_SETUP.md` as a decision made without the user. Paywall approach: **custom** on a migration, because it keeps the app's working paywall screen and changes only the purchase code under it; **Flow Builder** on a new integration. Integrations: none. Adapty app: the one the request names, otherwise a new one.
+
 Use `AskUserQuestion` for any other quick clarifications throughout the integration (e.g., "Did the build succeed?", "What's your App Store product ID?"). Never ask for values that can be retrieved via CLI.
 
 ## Phase 3: Dashboard setup
@@ -271,15 +273,11 @@ Every product must be linked to an access level.
 $ADAPTY access-levels create --app <APP_ID> --sdk-id <ACCESS_LEVEL_ID> --title "<TITLE>"
 ```
 
-**If `appPreference` is `new`:** The default `premium` access level is created automatically with every new app. Skip the list command — use `premium` as the access level ID directly.
-
-**If `appPreference` is `existing`:** List the existing access levels to get the correct ID:
+An access level has two identifiers, and they go to different places: its **SDK ID** (`premium` by default) is the string the app's code checks, and its **UUID** is what `products create --access-level-id` takes. A new app already has `premium`. On a new or existing app alike, list the access levels and note both values of the one you will use:
 
 ```bash
 $ADAPTY access-levels list --app <APP_ID>
 ```
-
-Note the **ID** from the output.
 
 ### Step 3.5: Check existing dashboard config (existing apps only)
 
@@ -383,7 +381,7 @@ $ADAPTY products create \
   --app <APP_ID> \
   --title "Monthly" \
   --period monthly \
-  --access-level-id <ACCESS_LEVEL_ID> \
+  --access-level-id <ACCESS_LEVEL_UUID> \
   --ios-product-id "com.example.app.monthly"
 
 # Android subscription (--android-base-plan-id is required for subscriptions)
@@ -391,7 +389,7 @@ $ADAPTY products create \
   --app <APP_ID> \
   --title "Monthly" \
   --period monthly \
-  --access-level-id <ACCESS_LEVEL_ID> \
+  --access-level-id <ACCESS_LEVEL_UUID> \
   --android-product-id "com.example.app.monthly" \
   --android-base-plan-id "monthly-base"
 ```
@@ -517,8 +515,9 @@ Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion`
 **If creating new paywalls/placements** (either `appPreference` is `new`, or `existing` but creating new ones), create one paywall and one placement per confirmed location:
 
 ```bash
-# Create paywall — capture the returned id as <PAYWALL_ID>
-$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall"
+# Create paywall — --product-id is required, once per product UUID from Step 4, in display order.
+# Capture the returned id as <PAYWALL_ID>
+$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --product-id <PRODUCT_UUID_1> --product-id <PRODUCT_UUID_2>
 
 # Repeat for each placement location, using the paywall id from above
 $ADAPTY placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"paywall","segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'
