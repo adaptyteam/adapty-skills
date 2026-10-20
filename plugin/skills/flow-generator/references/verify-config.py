@@ -164,17 +164,15 @@ EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty
 # it falls through to `default` and the flow is refused. Legal in a `setVariable` payload,
 # illegal as a condition — hence scoped here and not to expressions generally.
 COND_ILLEGAL_TYPES = {'assign'}
-# A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
-# In `theme.colors[].light/dark` a 3-digit, 8-digit, 7-digit, unprefixed or EMPTY
-# hex is refused -- and refused with the location-free `Generated JSON failed schema
-# validation`, which names no field, because a colour `hex` is a bare string with no pattern.
-# The render cannot see it either: `config preview` draws light mode only.
-#
-# POSITION-SCOPED on purpose. In an element position the same service accepts a 3-digit hex,
-# an 8-digit one and an empty string, and real exports carry 8 eight-digit and 16 empty values
-# in `props.fill.color` / `props.color` and validate clean -- so a blanket hex rule would fire
-# on the builder's own output. Theme colours only.
+# Every colour `hex` is `#RRGGBB`, alpha only in `opacity` (flow-schema.md trap 19). Anywhere in
+# the document `''` is also legal; a THEME colour may not be empty either. Anything else is
+# refused on write, and in a theme colour the transform service refuses it with the location-free
+# `Generated JSON failed schema validation`. `config preview` draws light mode only, so the
+# render cannot see a bad `dark` value. Older flows hold `#RGB` and `#RRGGBBAA` from before the
+# rule, so a real export can fire this: that is a true positive, and
+# `flowkit.py normalize-colors` fixes it without changing what renders.
 THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
+ELEMENT_HEX = re.compile(r'(#[0-9A-Fa-f]{6})?\Z')
 
 # An id that reaches the generated runtime script as an identifier. Element ids, group ids,
 # input `customId`s and custom variable ids all do; SCREEN ids do not get this treatment here,
@@ -2845,8 +2843,37 @@ def check(path, baseline_text=None, baseline_images=None):
             if not (isinstance(h, str) and THEME_HEX.match(h)):
                 bad.append(f'theme colour {c.get("id")!r} {variant} hex is {h!r}, not #RRGGBB — '
                            f'the transform service refuses this with the location-free '
-                           f'"Generated JSON failed schema validation", and neither the schema '
-                           f'check nor the render can see it')
+                           f'"Generated JSON failed schema validation", and the render cannot '
+                           f'see it. Fix: python3 references/flowkit.py normalize-colors <file>')
+
+    # ---- every other colour hex: `''` or `#RRGGBB`. See ELEMENT_HEX above.
+    bad_hex = []
+
+    def hex_walk(o, where):
+        if isinstance(o, dict):
+            h = o.get('hex')
+            if isinstance(h, str) and not ELEMENT_HEX.match(h):
+                bad_hex.append(f'{where}: {h!r}')
+            for k, v in o.items():
+                hex_walk(v, f'{where}.{k}')
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                hex_walk(v, f'{where}[{i}]')
+    for s_ in d.get('screens') or []:
+        for k, v in s_.items():
+            if k != 'elements':
+                hex_walk(v, f'screen {s_.get("id")} {k}')
+    for where, eid_, e in iter_elements(d):
+        for k, v in e.items():
+            hex_walk(v, f'{where}/{eid_} {k}')
+    hex_walk(d.get('localization'), 'localization')
+    if bad_hex:
+        bad.append(f'{len(bad_hex)} colour hex value(s) are not #RRGGBB or empty — the write is '
+                   f'refused. Older flows hold #RGB and #RRGGBBAA from before the rule. Fix: '
+                   f'python3 references/flowkit.py normalize-colors <file>, which expands #RGB and '
+                   f'moves an #RRGGBBAA alpha into opacity; its report goes in the approval ask: '
+                   + '; '.join(bad_hex[:6])
+                   + (f'; and {len(bad_hex) - 6} more' if len(bad_hex) > 6 else ''))
 
     # ---- progress bar. A flow has ONE bar, and its loader's `fill` is the empty track while its
     # `color` is the progress. Both shapes below were built, passed every other gate, and drew a

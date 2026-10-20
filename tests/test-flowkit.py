@@ -486,7 +486,7 @@ def main():
     check('a gradient stop carries a per-stop opacity when given one',
           [s['color'].get('opacity') for s in fade[0]['stops']] == [100, 22])
     check('a two-item gradient stop still omits opacity entirely',
-          'opacity' not in fk.gradient(180, ('#FFF', 0), ('#000', 1))[0]['stops'][0]['color'])
+          'opacity' not in fk.gradient(180, ('#FFFFFF', 0), ('#000000', 1))[0]['stops'][0]['color'])
 
     # Typography leading, verified present on 6 of 7 presets in a real export.
     typo = fk.config(screens=[fk.screen('scr_t', [])],
@@ -907,9 +907,9 @@ def main():
     check('an input PRODUCES the variable a condition consumes', bool(_gated('email.value')))
     check('...and a typo in that variable is still caught', raises(lambda: _gated('emial.value')))
 
-    # --- theme colour hexes. The accepted/refused split below was measured against the real
-    # transform service on 2026-08-28, and it is POSITION-SCOPED: element colours accept all
-    # of these, theme colours accept only #RRGGBB.
+    # --- colour hexes. The theme split below was measured against the real transform service on
+    # 2026-08-28. Element colours now take only '' or #RRGGBB as well: the Developer API refuses
+    # the rest on write, so hex_color() raises on them (cases in test-hex-format.py).
     def _theme(h):
         return fk.config(screens=[fk.screen('s1', [fk.text('hi')])],
                          colors=[('bg', 'Bg', h, '#000000')],
@@ -920,8 +920,8 @@ def main():
     for bad_hex in ('#fff', '', 'FFFFFF', '#FFFFFFD9', '#FFFFFFF', 'white'):
         check(f'theme hex {bad_hex!r} raises (service: REFUSED, and location-free)',
               raises(lambda h=bad_hex: _theme(h)))
-    check('an ELEMENT colour stays lax — the service accepts a 3-digit hex there',
-          fk.hex_color('#fff')['hex'] == '#fff')
+    check('an element colour refuses a 3-digit hex too — the API refuses it on write',
+          raises(lambda: fk.hex_color('#fff'), ValueError))
 
     # --- on_selected(): the capability whose ABSENCE shipped a broken paywall (2026-08-28).
     # Without it there was no way to express "selected" from this module, so the look got baked
