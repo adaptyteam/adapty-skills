@@ -75,6 +75,7 @@ the first two weeks of real users.
 | App-wide numbers, plans, trials, countries, placements, what to test next | This skill |
 | A price, a price test, pricing by country | Not supported yet; say so |
 | One paywall screen: layout, copy, badges | `paywall-teardown`; this skill invokes it for the design hypotheses |
+| A screen with a change in the app's numbers ("people buy half as often since summer") | This skill first: which paywall it is, its view → paid by month, what changed then; `paywall-teardown` for the design part after. Prices on a screenshot may be preview samples: never read them as what users pay |
 | The onboarding sequence | `onboarding-teardown` |
 | Which channel brings paying users: installs, trials, trial → paid, purchases and revenue by channel | This skill, from analytics grouped by `attribution_channel`, whether or not the company has Attribution; say spend and ROAS are not in these reads |
 | Ad spend, ROAS, CPI, campaign budgets | `adapty-attribution` |

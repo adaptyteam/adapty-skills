@@ -146,7 +146,10 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
   issues, and how many trials end without paying. Billing issues come back through grace period
   and payment retries, with no discount: name that share first. When two reads disagree on billing
   issues (endings by reason against the billing-issue chart), give both numbers and say they
-  disagree; do not pick one. Then aim the offer at the group worth the most.
+  disagree; do not pick one. Then aim the offer at the group worth the most. Reading it is not
+  enough: the first fact after the bold answer is that split, with counts ("of 11,500
+  subscriptions that ended since April, 84% were switched off by the user and 13% failed to
+  pay", the shape, not the numbers), and each group the plan names carries its size.
 - **Win-back offer:** former subscribers (paid before, no active subscription now), or users whose
   trial ended without paying (subscription state "trial cancelled"), get their own
   audience on an in-app placement with a discounted paywall; everyone else keeps the current one.
@@ -156,7 +159,11 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
   new users. It needs a segment, created through `audiences`: subscription state "subscription
   cancelled" is the direct signal, and total revenue above 0 keeps out anyone who never paid. It
   also needs the discount in the store, which each store sets up differently ("By store").
-  `evidence.md` has no win-back test: Expected is untested.
+  `evidence.md` has no win-back test: Expected is untested. The size of the discount and the
+  discounted price are the user's: never name one, not even as an example ("annual for $29.99",
+  "40% off"); ask. An existing product counts as a win-back product only when it has no trial and
+  its name says it is the discounted one. Its Time comes from how many of the target group
+  come back a month at today's rate, never from a count of shows.
 - **Escalating discounts** over days after a close are a growth-team estimate with no A/B
   evidence here: label them untested.
 - **A separate in-app paywall:** simpler than the onboarding one, fewer plans, shown at value

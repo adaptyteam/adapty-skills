@@ -307,6 +307,10 @@ against these before it goes in a reply:
 - **A market median is compared on its own slice.** The State of Paywalls numbers are App Store
   only and per region: filter the app's read to `store=app_store` and to that region's countries
   before putting the two side by side.
+- **What the CLI does not show is asked, not stated.** Which plan a paywall preselects or lists
+  first, its prices and its trial copy are not in any read; a paywall's or product's name only
+  hints at them. When to expect renewals comes from the data: read revenue by product and
+  `renewal_status` before saying when a plan's renewals start.
 - **A retention or LTV period is the plan's billing period** (point 6 of a weekly plan is six
   weeks), and a cohort younger than a plan's period cannot show its renewals.
 
@@ -419,7 +423,10 @@ to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
 
 Answer in three parts: the verdict (test it / a fair bet / skip it / already a strong default),
 why (the user's numbers, then what `evidence.md` says, with the split if results were mixed), and
-the one trap to avoid. Read only what the idea depends on (numbers are the audit reads):
+the one trap to avoid. An idea about a plan (push annual, add monthly, drop weekly) names the
+main product by revenue over the last 12 months, with its share, before the verdict: the user may
+be asking about a plan that is not where their money is. Read only what the idea depends on
+(numbers are the audit reads):
 
 | Idea | Reads |
 |---|---|
