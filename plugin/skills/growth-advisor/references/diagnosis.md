@@ -136,11 +136,14 @@ Then the main market and the top countries:
 $ADAPTY analytics chart --app <APP_ID> --chart revenue --date-from $FROM --date-to $TO --group-by country --json
 ```
 
-The main market is the country with the most revenue; the top countries are the three to five
-that hold most of it. Read chart 2, chart 4 and read 9 filtered to each (`--filter
-country=<value>`): which plans sell there, how its conversion moved over the window, and where it
-loses users. Read each country against its own past, not against the US or another country
-("Before you state a conclusion"). The main market decides which country's stakes come first and
+The main market is a country with 50% or more of revenue. Compute every country's share of the
+total; when none reaches 50%, the app has no main market: say so, and work from the spread. The
+top countries are the three to five that hold most of it. Installs by country (read 3) do not
+make a main market: a country can bring a quarter of the installs and almost none of the money.
+Read chart 2, chart 4 and read 9 filtered to each top country (`--filter country=<value>`): which
+plans sell there, how its conversion moved over the window, and where it loses users. Read each
+country against its own past, not against the US or another country ("Before you state a
+conclusion"). The main market decides which country's stakes come first and
 which region's median applies (`market.md` has US, Europe, MEA and LATAM rows where the report
 gives them; say when it has none). Name the main market in the reply when it is not the US. Add
 `--filter store=<value>` to any of these when the app sells on both stores and the question is
@@ -273,6 +276,15 @@ against these before it goes in a reply:
   a country's conversion or revenue per install is not ranked against the US or against another
   country. What a country's numbers mean: its trend over the window, which plans sell there, and
   where its funnel loses users. Call a market healthy only from its own trend.
+- **A premise about the market is checked, not adopted.** When the user says most users come
+  from one country, compute each country's share of revenue and of installs. If no country has
+  50% or more of either, the bold answer corrects it with the real split ("There is no single
+  market: Brazil and Mexico bring a third of installs each, and revenue is spread over five
+  countries", an example of the shape, not words to copy), and the rest of the reply is built on
+  that split, never on the user's picture.
+- **A country is not a language.** Analytics has no language split, so the numbers show where
+  users are, never what language they speak. Say "users in Mexico", not "Spanish speakers";
+  a claim about language needs the paywall's locales or the user's word.
 - **A market median is compared on its own slice.** The State of Paywalls numbers are App Store
   only and per region: filter the app's read to `store=app_store` and to that region's countries
   before putting the two side by side.

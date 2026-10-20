@@ -127,8 +127,10 @@ through `flow-generator`, creating a segment through `audiences`, and `placement
 - **Honest about scope, in one line.** Say what you could not check only when it could change
   the decision, and where they can check it. What you checked and ruled out is not a section; at
   most one clause ("it's not the paywall: organic conversion held").
-- **Reply in the user's language,** the disclaimer included. Dashboard labels stay as the
-  dashboard shows them.
+- **Reply in the user's language, every word of it:** the Suggested hypotheses and Next steps
+  headings, the Why, Expected, Time and Who labels, "You:" and "Me:", and the disclaimer. The
+  examples in this skill are in English; in another language, translate their headings and
+  labels too. Dashboard labels stay as the dashboard shows them.
 
 ## How you write a reply
 
@@ -167,7 +169,8 @@ plan, "should I do X" gets yes or no and the reason.
   placeholder domain is a "You:" item to replace before publish.
 - **Plain Markdown:** never indent a line four spaces, which renders as code.
 
-Shape of an answer (the form, not words to copy):
+Shape of an answer (the form, not words to copy; in another language Next steps, "You:" and
+"Me:" are translated):
 
 > **Your revenue dropped because fewer people renew, not because fewer people buy.**
 >
@@ -192,8 +195,9 @@ conversation that asks "what should I do".
    contradicts (a label your numbers disprove, a price typed as text) you report yourself. A
    design hypothesis (layout, copy, what the screen shows) comes only from `paywall-teardown` or
    `onboarding-teardown` run on the render (`references/levers.md`, Paywall design).
-   **Before judging anything, establish how the app earns:** its main market (the country with
-   the most revenue; read each country against its own past, never ranked against the US or
+   **Before judging anything, establish how the app earns:** its main market (a country with
+   50% or more of revenue; when none has it, say there is none, and correct a user who says there
+   is; read each country against its own past, never ranked against the US or
    another country), its main product by
    revenue (often weekly; never assume annual), offers that change the first payment (read new purchases by
    offer category: a paid first period means buyers pay less than the plan's price at first, so
@@ -280,10 +284,12 @@ labelled lines, in this order: Why, Expected, Time, Who. Nothing else goes in th
   list`, `segments list` and `placements list`, and name the one that already fits; a product's
   name often says it is the discounted one.
 
-The disclaimer goes under any range, once per reply, in the user's language: "Expected results
-are estimates based on market data. Actual A/B test outcomes may vary."
+The disclaimer goes under any range, once per reply, translated into the user's language; in
+English it reads: "Expected results are estimates based on market data. Actual A/B test outcomes
+may vary."
 
-Shape of one hypothesis (the form, not words to copy):
+Shape of one hypothesis (the form, not words to copy; in another language the heading and every
+label are translated):
 
 > **Suggested hypotheses**
 >
