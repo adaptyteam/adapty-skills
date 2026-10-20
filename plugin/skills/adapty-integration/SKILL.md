@@ -87,6 +87,10 @@ paragraph about what the project lacks.
 
 **The questions** — Phase 2, and any other ask: the questions and their options only.
 
+**Where this skill says `AskUserQuestion`,** use it if your harness has it: the user picks from
+the options instead of typing. Without it, ask the same thing in one message with the options
+numbered, and wait for the answer.
+
 **The closing message** — Part 5. What works now, what is left in order, and where the
 written list is:
 
@@ -98,7 +102,7 @@ written list is:
 > 1. Turn on App Store server notifications so renewals reach Adapty: <link>
 > 2. Check that restore works after a reinstall.
 >
-> All of this is in `ADAPTY_SETUP.md` in your project.
+> `<only if you wrote ADAPTY_SETUP.md:>` All of this is in `ADAPTY_SETUP.md` in your project.
 
 ## State Tracking
 
@@ -131,7 +135,9 @@ If a docs page leaves you unable to tell how the pieces fit together in a real a
 
 Pick a short random `sessionToken` once at the very start — 8 lowercase letters and digits — and reuse the **same** one for the whole session. Mint it yourself: if you have a shell, run `openssl rand -hex 4` and use its output; only invent one by hand when no shell is available, and never copy a token you've seen in an example or a previous session (reused tokens merge unrelated sessions in the docs analytics). **Append it to every Adapty docs URL you open this session** — whether you fetch with `curl` or read the page directly (e.g. WebFetch), at any stage — as `?ref=skill-<sessionToken>` (or `&ref=skill-<sessionToken>` if the URL already has a `?`). So every `https://adapty.io/docs/...` you read becomes `https://adapty.io/docs/<page>?ref=skill-<sessionToken>` (with your minted token substituted). The explicit `curl` examples in the references already show this tag; do the same for every other docs page you open, with the **same** token, so the whole run's reading stays grouped.
 
-The `ref` tag is a plain docs-analytics marker: it lets Adapty see which docs pages get read together during an integration and improve them. It carries no user or project data — just the random token. There's no need to announce it, but it's not a secret: if the user asks, just say so.
+**On a migration from RevenueCat, the token starts with `rc-`.** The moment `migrationSource` becomes `revenuecat` — in Phase 1, or because a launcher told you the source — set `sessionToken` to `rc-` followed by the token you already minted, and use that for every docs URL from then on. Keep the random part, so the pages you read before Phase 1 still group with the rest of the run. Every `?ref=skill-<sessionToken>` in the references then carries the prefix with no other change.
+
+The `ref` tag is a plain docs-analytics marker: it lets Adapty see which docs pages get read together during an integration and improve them. It carries no user or project data — just the random token, plus the `rc-` prefix on a RevenueCat migration. There's no need to announce it, but it's not a secret: if the user asks, just say so.
 
 ## Phase 1: Analyze the project
 
@@ -154,9 +160,9 @@ Also check for:
 
 **Pre-existing purchase system — the migration trigger.** Grep the dependency manifests that exist (`package.json`, `pubspec.yaml`, `Podfile`, `Package.swift`, the gradle files, `Packages/manifest.json`) and the Xcode project file for any purchase or paywall SDK, store plugin, or direct StoreKit / Google Play Billing use. Answer one question here: does this project already sell purchases through something? Do not classify the source in this phase.
 
-On a hit, load `references/migration.md` in addition to the platform reference and identify the source there with its section 2 table, which owns the signals, the first-match order, and where the version comes from. Then set `migrationSource` to one of `revenuecat`, `superwall`, `qonversion`, `store-plugin`, `native-store`, set `migrationSourceVersion` to the source's installed version, and load `references/migration-<migrationSource>.md` too when that file exists. You are the setter for both variables; the migration reference records them only if you did not. No hit → leave both empty, load no migration reference, and treat the integration as greenfield.
+On a hit, load `references/migration.md` in addition to the platform reference and identify the source there with its section 2 table, which owns the signals, the first-match order, and where the version comes from. Then set `migrationSource` to one of `revenuecat`, `superwall`, `qonversion`, `store-plugin`, `native-store`, set `migrationSourceVersion` to the source's installed version, and load `references/migration-<migrationSource>.md` too when that file exists. When `migrationSource` is `revenuecat`, add the `rc-` prefix to `sessionToken` now (see Session marker). You are the setter for both variables; the migration reference records them only if you did not. No hit → leave both empty, load no migration reference, and treat the integration as greenfield.
 
-If a launcher (for example the Adapty CLI) already told you the source, take it and skip the detection grep — but still load `references/migration.md` and still resolve `migrationSourceVersion` from the project, since a launcher never supplies the version.
+If a launcher (for example the Adapty CLI) already told you the source, take it — and add the `rc-` prefix to `sessionToken` if it is `revenuecat` — and skip the detection grep — but still load `references/migration.md` and still resolve `migrationSourceVersion` from the project, since a launcher never supplies the version.
 
 **State update:** Set `platform` to the detected platform (`ios`, `android`, `flutter`, `react-native`, `unity`, `kmp`, or `capacitor`). Set `migrationSource` and `migrationSourceVersion` as above, or leave both empty for a greenfield project.
 
@@ -190,6 +196,8 @@ Use `AskUserQuestion` for all three together in one call:
 **Some apps show no paywall at all.** If the app only ever *reads* entitlement state — access is bought on the user's website, granted by their backend, or sold through a channel outside the app — then none of the three approaches applies, and forcing one produces a placement and paywall nobody will ever fetch. Set `paywallApproach` to `none` in that case, skip the paywall and placement work in Phase 3 (Steps 4 and 5) and the paywall stage in Phase 4, and record in `ADAPTY_SETUP.md` that no paywall was set up and why. Everything else still applies — activation, identity, entitlement checks, and the store connections. Confirm it with the user before concluding it rather than inferring it from an absent paywall screen, since a paywall that simply has not been built yet is a different situation. On a migration run this is also a signal to read `references/migration.md` section 5 subsection 8: an app that sells outside the stores usually has a backend granting access through the source's API, and that path does not move itself.
 
 **State update:** Set `paywallApproach` to `flow_builder` (the value on every platform for the builder-rendered choice; `paywall_builder` survives only as the state value a run that predates Flow Builder support may still carry), `custom`, `observer`, or `none`. Set `integrations` to the array of selected integration keys (e.g. `["amplitude", "appsflyer"]`), or `[]` if none. Set `appPreference` to `existing` or `new`.
+
+**Nobody to answer (an unattended run):** take these defaults and list each one in `ADAPTY_SETUP.md` as a decision made without the user. Paywall approach: **custom** on a migration, because it keeps the app's working paywall screen and changes only the purchase code under it; **Flow Builder** on a new integration. Integrations: none. Adapty app: the one the request names, otherwise a new one.
 
 Use `AskUserQuestion` for any other quick clarifications throughout the integration (e.g., "Did the build succeed?", "What's your App Store product ID?"). Never ask for values that can be retrieved via CLI.
 
@@ -265,15 +273,11 @@ Every product must be linked to an access level.
 $ADAPTY access-levels create --app <APP_ID> --sdk-id <ACCESS_LEVEL_ID> --title "<TITLE>"
 ```
 
-**If `appPreference` is `new`:** The default `premium` access level is created automatically with every new app. Skip the list command — use `premium` as the access level ID directly.
-
-**If `appPreference` is `existing`:** List the existing access levels to get the correct ID:
+An access level has two identifiers, and they go to different places: its **SDK ID** (`premium` by default) is the string the app's code checks, and its **UUID** is what `products create --access-level-id` takes. A new app already has `premium`. On a new or existing app alike, list the access levels and note both values of the one you will use:
 
 ```bash
 $ADAPTY access-levels list --app <APP_ID>
 ```
-
-Note the **ID** from the output.
 
 ### Step 3.5: Check existing dashboard config (existing apps only)
 
@@ -377,7 +381,7 @@ $ADAPTY products create \
   --app <APP_ID> \
   --title "Monthly" \
   --period monthly \
-  --access-level-id <ACCESS_LEVEL_ID> \
+  --access-level-id <ACCESS_LEVEL_UUID> \
   --ios-product-id "com.example.app.monthly"
 
 # Android subscription (--android-base-plan-id is required for subscriptions)
@@ -385,7 +389,7 @@ $ADAPTY products create \
   --app <APP_ID> \
   --title "Monthly" \
   --period monthly \
-  --access-level-id <ACCESS_LEVEL_ID> \
+  --access-level-id <ACCESS_LEVEL_UUID> \
   --android-product-id "com.example.app.monthly" \
   --android-base-plan-id "monthly-base"
 ```
@@ -511,8 +515,9 @@ Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion`
 **If creating new paywalls/placements** (either `appPreference` is `new`, or `existing` but creating new ones), create one paywall and one placement per confirmed location:
 
 ```bash
-# Create paywall — capture the returned id as <PAYWALL_ID>
-$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall"
+# Create paywall — --product-id is required, once per product UUID from Step 4, in display order.
+# Capture the returned id as <PAYWALL_ID>
+$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --product-id <PRODUCT_UUID_1> --product-id <PRODUCT_UUID_2>
 
 # Repeat for each placement location, using the paywall id from above
 $ADAPTY placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"paywall","segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'

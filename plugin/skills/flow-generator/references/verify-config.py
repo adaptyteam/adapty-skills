@@ -315,6 +315,46 @@ def expr_var_ids(o, out):
     return out
 
 
+def rich_var_ids(o, out):
+    """Every rich-text `variable` node's id in a subtree (not expression `var` operands)."""
+    if isinstance(o, dict):
+        if (o.get('type') == 'variable' and isinstance(o.get('attrs'), dict)
+                and isinstance(o['attrs'].get('variableId'), str)
+                and o['attrs'].get('productRef') is None):
+            out.add(o['attrs']['variableId'])
+        for v in o.values():
+            rich_var_ids(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            rich_var_ids(v, out)
+    return out
+
+
+# Custom tag names. Kept identical to `flowkit.RESERVED_TAG_NAMES` -- a test ties the two.
+RESERVED_TAG_NAMES = frozenset({
+    'TITLE', 'DESCRIPTION', 'PRICE', 'PRICE_AMOUNT', 'PRICE_AMOUNT_INTEGER',
+    'PRICE_AMOUNT_FRACTION', 'CURRENCY_CODE', 'CURRENCY_SYMBOL', 'PRICE_PER_DAY',
+    'PRICE_PER_WEEK', 'PRICE_PER_MONTH', 'PRICE_PER_YEAR', 'SUBSCRIPTION_PERIOD', 'OFFER_PRICE',
+    'OFFER_PERIOD', 'OFFER_NUMBER_OF_PERIOD', 'OFFER_PRICE_PER_DAY', 'OFFER_PRICE_PER_WEEK',
+    'OFFER_PRICE_PER_MONTH', 'OFFER_PRICE_PER_YEAR', 'PERCENT', 'TIMER', 'VALUE', 'PROD_TITLE',
+    'PROD_PRICE', 'PROD_PRICE_PER_DAY', 'PROD_PRICE_PER_WEEK', 'PROD_PRICE_PER_MONTH',
+    'PROD_PRICE_PER_YEAR', 'OFFER_BILLING_PERIOD', 'OFFER_FULL_DURATION',
+})
+TAG_NAME_RE = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
+TAG_VALUE_TYPES = ('string', 'number', 'boolean')
+
+
+def tag_name_issue(name):
+    if not name:
+        return 'empty'
+    if not (isinstance(name, str) and TAG_NAME_RE.fullmatch(name)):
+        return 'invalid'
+    upper = name.upper()
+    if upper in RESERVED_TAG_NAMES or upper.startswith('TIMER_'):
+        return 'reserved'
+    return None
+
+
 # Required payload fields per action type, read off the transform service's own error
 # messages in `compile-actions.ts` rather than from the schema, which is looser than the
 # service on every row. `invalid_action_payload` is one code covering all of them.
@@ -729,10 +769,19 @@ def catalog_findings(raw):
         bad.append(f'schemaVersion is {raw.get("schemaVersion")!r} on a catalogued document — '
                    f'it must be the number {_loc.SCHEMA_VERSION}. A lower number makes the builder '
                    f're-run migrations over shapes it has already produced')
-    for k in ('locales', 'defaultLocale'):
-        if k in raw:
-            bad.append(f'top-level `{k}` beside `localization` — it lives under '
-                       f'`localization.{k}` only; delete the top-level copy')
+    # The top-level `locales`/`defaultLocale` are legacy fields the transform service does not read
+    # on a catalogued document. `config update` echoes them back itself as `locales: []` and the
+    # catalog's default, so that shape is every saved document, not a defect. A top-level copy
+    # that says something the catalog does not is one: a locale written there is read by nothing.
+    lz_ = raw.get('localization') if isinstance(raw.get('localization'), dict) else {}
+    if raw.get('locales') not in (None, []):
+        bad.append('top-level `locales` beside `localization` carries entries, and nothing reads '
+                   'it — locales live under `localization.locales` only. Move any locale you '
+                   'meant to add there and empty the top-level copy')
+    if 'defaultLocale' in raw and raw['defaultLocale'] != lz_.get('defaultLocale'):
+        bad.append(f'top-level `defaultLocale` is {raw["defaultLocale"]!r} but '
+                   f'`localization.defaultLocale` is {lz_.get("defaultLocale")!r} — only the '
+                   f'latter is read. Set the default there')
 
     locs = [l for l in (lz.get('locales') or []) if isinstance(l, dict)]
     ids = [l.get('id') for l in locs if isinstance(l.get('id'), str)]
@@ -1349,6 +1398,30 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"anchor pair collapses to nothing — give it both offsets, or use a "
                         f"real height")
 
+    # A negative zIndex sends an element behind the fill of every ancestor that has one, so a
+    # timeline rail at `zIndex: -10` inside a filled card draws nothing at all. Render-measured;
+    # the fix is paint order: declare the element before the sibling it must sit under and drop
+    # the zIndex. On a page with no filled ancestor the same rail draws, which is why the recipe
+    # survived until it met a card.
+    def _neg_z_under_fill(m, node, filled):
+        for ch in node.get('children') or []:
+            e = m.get(ch.get('id'))
+            if not isinstance(e, dict):
+                continue
+            p = e.get('props') or {}
+            z = (p.get('position') or {}).get('zIndex') if isinstance(p.get('position'), dict) else None
+            if isinstance(z, (int, float)) and z < 0 and filled:
+                yield e, filled[-1]
+            yield from _neg_z_under_fill(m, ch, filled + ([e['id']] if p.get('fill') else []))
+    for s in d.get('screens', []):
+        els_ = s.get('elements') or {}
+        if not isinstance(els_, dict):
+            continue
+        for e, anc in _neg_z_under_fill(els_.get('map') or {}, els_.get('hierarchy') or {}, []):
+            warn.append(f"{s['id']}/{e['id']}: negative zIndex inside {anc}, which has a fill — "
+                        f"the element draws behind that fill and disappears. Drop the zIndex and "
+                        f"declare it before the sibling it should sit under")
+
     # groupId naming rules, both team-stated from publish failures: digit-led ids generate
     # invalid JavaScript (publish blocker), and a groupId reused on another screen broke
     # selection rendering.
@@ -1764,6 +1837,26 @@ def check(path, baseline_text=None, baseline_images=None):
                            f'resolves nothing and it draws BLANK — an authored `raw` does not '
                            f'override the bundle. Did you mean: {hint}?')
 
+    # An `icon` element with a phosphor loader glyph (`Spinner`, `SpinnerGap`, `SpinnerBall`)
+    # is a still picture of a loader. It draws in every preview and does not
+    # rotate on a device; the loader is the `spinner` element with a custom spinner glyph.
+    # Calibrated: none of these names appears in the tracked or raw corpus or in the catalog.
+    # `CircleNotch` is not flagged: five agent-built welcome screens use it as decoration.
+    if _icons is not None:
+        fakes = set()
+
+        def _static_loader(o):
+            ic = (o.get('props') or {}).get('icon') if o.get('type') == 'icon' else None
+            if isinstance(ic, dict) and ic.get('type') == 'phosphor' \
+                    and ic.get('name') in _icons.STATIC_LOADERS:
+                fakes.add((o.get('id', '?'), ic['name']))
+
+        walk(d, _static_loader)
+        for eid, name in sorted(fakes):
+            warn.append(f'icon element {eid} uses {name!r}, a static picture of a loader: it does '
+                        f'not rotate on a device. For a loading indicator use the spinner element '
+                        f'(flowkit.spinner(\'spinner1\'), or the loader-spinner-label template).')
+
     refs = set()
     walk(d, lambda o: refs.add(o['id']) if o.get('type') == 'global' else None)
     unref = sorted(set(d.get('components', {})) - refs)
@@ -1813,7 +1906,7 @@ def check(path, baseline_text=None, baseline_images=None):
     # This also CORRECTS the shape `patterns.md` published as device-verified, which carried no
     # children: that verification was confounded by its own instrumentation -- the session that
     # ran it had added visible digits to diagnose the failure, and documented the shape without
-    # them. See CLAUDE.md finding 29.
+    # them. See docs/maintainers/flow-generator.md, finding 29.
     for s in d.get('screens') or []:
         for eid_, e in (s.get('elements', {}).get('map') or {}).items():
             if e.get('type') != 'timer':
@@ -1831,12 +1924,27 @@ def check(path, baseline_text=None, baseline_images=None):
                     return any(w(c) for c in (n.get('children') or []))
                 w(root)
                 return found
-            if not _children_of(eid_):
+            # A child is not enough: device-measured, a timer whose only child is a logo or a
+            # plain sentence does not fire either. It fires once a text inside it carries its
+            # own digits (a `timer_*` token), and those digits may be coloured like the
+            # background, which keeps the delay invisible and still fires.
+            m_ = s.get('elements', {}).get('map') or {}
+            def _has_digits(nodes):
+                for n in nodes:
+                    el = m_.get(n.get('id')) or {}
+                    if el.get('type') == 'text' and '"timer_' in json.dumps(el.get('props', {}).get('content')):
+                        return True
+                    if _has_digits(n.get('children') or []):
+                        return True
+                return False
+            kids_ = _children_of(eid_)
+            if not _has_digits(kids_):
                 bad.append(
-                    f'screen {s["id"]}: timer {eid_} has a timer-end action and NO children, '
-                    f'so it does not fire on a device and the flow stops on this screen. '
-                    f'Neither validate nor preview can see this. Give '
-                    f'it a child -- the running digits, or the loading copy itself')
+                    f'screen {s["id"]}: timer {eid_} has a timer-end action but no text inside it '
+                    f'showing its digits, so it does not fire on a device and the flow stops on '
+                    f'this screen ({"no children at all" if not kids_ else "a logo or plain text is not enough"}). '
+                    f'Put a timer_digits() text inside it; to keep the delay invisible, colour the '
+                    f'digits like the background. Neither validate nor preview can see this')
 
     # `footer` is the pinned bottom bar, and all three of these were measured by
     # rendering one screen eight ways. The element is lifted out of the flow and pinned to the
@@ -2192,6 +2300,61 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'identical and nothing carries `propsByState.selected`, so a user cannot '
                     f'tell which one is selected. If the design marks selection some other way '
                     f'(a radio dot with its own state) this is fine. Members: {names}')
+    # A `product` ELEMENT WITH NOTHING IN IT. The single-plan shape where the plan's name and price
+    # are loose text beside an empty (often hidden) `product` "attach point". The builder draws the
+    # empty element as a 1x1 box the user has to find and delete by hand, and it breaks the layout
+    # around it — while `config preview` collapses it and draws the screen clean. The text that
+    # describes the plan IS the product: wrap it in the `product` element. Zero real exports and
+    # zero catalog templates contain a childless `product`, so this is never builder output.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+
+        def _empty_products(n):
+            if (m.get(n.get('id'), {}).get('type') == 'product'
+                    and not n.get('children')):
+                warn.append(
+                    f'screen {s["id"]}: {n["id"]} is a `product` element with no children. The '
+                    f'builder shows it as a 1x1 box that breaks the layout, and the preview hides '
+                    f'it. Move the text that names and prices the plan INSIDE this element and '
+                    f'delete the empty one — on a single-plan screen that text block is the '
+                    f'product. See patterns.md, "A single-plan screen"')
+            for c in n.get('children') or []:
+                _empty_products(c)
+        _empty_products(s['elements']['hierarchy'])
+
+    # A `const` PURCHASE OF A PRODUCT A `product` ELEMENT ON THE SAME SCREEN ALREADY BINDS. The
+    # product is then named twice: swap it on the card in the builder and the button keeps buying
+    # the old one, with nothing on screen to show it. A screen with a `product` element buys
+    # `<group>.selectedProduct` -- the one real single-card export does, even with one card -- and
+    # `const` is for a screen with no `product` element. Zero real exports mix the two.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+        bound = {}
+        for k, e in m.items():
+            if e.get('type') == 'product':
+                pid = ((e.get('props') or {}).get('product') or {}).get('id')
+                if pid:
+                    bound[pid] = (e.get('props') or {}).get('groupId')
+
+        def _const_buys(o, eid=None):
+            if isinstance(o, dict):
+                if o.get('type') == 'purchase':
+                    p = (o.get('payload') or {}).get('product') or {}
+                    pid = (p.get('value') or {}).get('id') if p.get('type') == 'const' else None
+                    if pid in bound:
+                        warn.append(
+                            f'screen {s["id"]}: {eid} buys product {pid} by `const` while a '
+                            f'`product` element on this screen binds the same product. Buy '
+                            f'`{bound[pid]}.selectedProduct` instead — named twice, swapping the '
+                            f'product on the card in the builder leaves this button buying the '
+                            f'old one. See patterns.md, "A single-plan screen"')
+                for v in o.values():
+                    _const_buys(v, eid)
+            elif isinstance(o, list):
+                for v in o:
+                    _const_buys(v, eid)
+        for k, e in m.items():
+            _const_buys(e.get('interactions'), k)
     # ---- conditions the transform service compiles: shape, then variable resolution.
     # Both are hard 422s and neither is visible to any other gate — the schema types a
     # condition loosely and `config preview` renders the element in whichever state it draws.
@@ -2221,6 +2384,89 @@ def check(path, baseline_text=None, baseline_images=None):
                    f'selectableGroup, bound product or variables[] entry produces it. The '
                    f'generated script emits it as a bare identifier and fails to compile '
                    f'(script_type_violation, TS2304)')
+
+    # ---- custom tags: `variables[]` entries with `external: true`, whose value the app supplies.
+    # The name is the contract with the app's code and publishes as an SDK tag, so the two
+    # errors mirror the transform service's own (`custom_tag_invalid_name`,
+    # `custom_tag_duplicate_name`). The two warnings mirror its `external_variable_in_logic` and
+    # `custom_tag_in_script_context`: both publish, and both are wrong for every user on a device.
+    tag_vars = [v for v in (d.get('variables') or [])
+                if isinstance(v, dict) and v.get('external') is True]
+    tag_name = {v.get('id'): v.get('name') for v in tag_vars
+                if v.get('valueType') in TAG_VALUE_TYPES}
+    for v in tag_vars:
+        if v.get('valueType') not in TAG_VALUE_TYPES:
+            warn.append(f'variable {v.get("name")!r} carries external: true but is a '
+                        f'{v.get("valueType")!r}; only string, number and boolean variables can '
+                        f'come from the app, so the flag is ignored and the app cannot set it')
+            continue
+        issue = tag_name_issue(v.get('name'))
+        if issue:
+            bad.append(f'custom tag name {v.get("name")!r} is {issue} (custom_tag_invalid_name): '
+                       f'letters, digits, `_`, `-` and dots between parts, and not a tag the SDK '
+                       f'resolves itself (PRICE, TITLE, PERCENT, VALUE, TIMER_*, ...)')
+    all_names = [v.get('name') for v in (d.get('variables') or []) if isinstance(v, dict)]
+    for n in sorted({n for n in tag_name.values() if all_names.count(n) > 1}):
+        bad.append(f'custom tag name {n!r} is also used by another variable '
+                   f'(custom_tag_duplicate_name): both publish as the same SDK tag, so the app '
+                   f'value overrides the other one wherever it is used')
+    locs = [l.get('code') if isinstance(l, dict) else l for l in (d.get('locales') or [])]
+    if len(locs) > 1:
+        for v in tag_vars:
+            if (v.get('valueType') == 'string' and isinstance(v.get('value'), str)
+                    and re.search(r'[^\W\d_]', v['value'])):
+                warn.append(f'custom tag {v.get("name")!r} has the fallback {v["value"]!r} on a flow '
+                            f'with {len(locs)} locales. The fallback is one per variable, so every '
+                            f'locale shows these words untranslated — use an empty string or a number '
+                            f'and build the sentence to read without it')
+    empty_tags = {v.get('id') for v in tag_vars if v.get('value') in ('', None)}
+    gapped = set()
+
+    def _gap(content, eid, where):
+        for i, node in enumerate(content or []):
+            if not (isinstance(node, dict) and node.get('type') == 'variable'
+                    and (node.get('attrs') or {}).get('variableId') in empty_tags):
+                continue
+            prev = content[i - 1] if i else None
+            nxt = content[i + 1] if i + 1 < len(content) else None
+            if ((where, eid) not in gapped and isinstance(prev, dict)
+                    and str(prev.get('text', '')).endswith(' ')
+                    and isinstance(nxt, dict) and str(nxt.get('text', '')).startswith(' ')):
+                gapped.add((where, eid))
+                warn.append(f'{where}: {eid} puts custom tag '
+                            f'{tag_name.get(node["attrs"]["variableId"])!r}, whose fallback is empty, '
+                            f'between two spaces — without the app value the line shows a double '
+                            f'space. Move the tag to the start of the line or after a colon')
+                return
+
+    def _paragraphs(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'paragraph' and isinstance(o.get('content'), list):
+                yield o['content']
+            for x in o.values():
+                yield from _paragraphs(x)
+        elif isinstance(o, list):
+            for x in o:
+                yield from _paragraphs(x)
+    if empty_tags:
+        for where, eid, e in iter_elements(d):
+            for para in _paragraphs(e.get('props') or {}):
+                _gap(para, eid, where)
+    if tag_name:
+        for where, eid, e in iter_elements(d):
+            logic = expr_var_ids(e, set()) & tag_name.keys()
+            script = rich_var_ids(e.get('interactions') or [], set()) & tag_name.keys()
+            if logic:
+                warn.append(f'{where}: {eid} reads custom tag(s) '
+                            f'{sorted(tag_name[i] for i in logic)} in logic (a condition, '
+                            f'conditional text or setVariable). Logic sees only the Initial value, '
+                            f'never the app value, so on a device it goes the same way for every '
+                            f'user. A custom tag can only be shown in text')
+            if script:
+                warn.append(f'{where}: {eid} puts custom tag(s) '
+                            f'{sorted(tag_name[i] for i in script)} inside an interaction (an '
+                            f'alert, a URL), where the app value is unavailable and the SDK '
+                            f'writes an empty string')
 
     # ---- action payloads. One code, sixteen required-field checks in the service; these are
     # the ones a config can be read for. The schema is looser than the service on every row.
@@ -2675,6 +2921,34 @@ def check(path, baseline_text=None, baseline_images=None):
                            f'check nor the render can see it')
 
     theme_style_findings(d, bad, warn)
+
+    # ---- progress bar. A flow has ONE bar, and its loader's `fill` is the empty track while its
+    # `color` is the progress. Both shapes below were built, passed every other gate, and drew a
+    # bar that never moved on a device: the probe with several bars, and loaders whose track and
+    # progress were the same colour, which look full on every screen.
+    bars = [(cid, e) for cid, comp in (d.get('components') or {}).items()
+            for e in ((comp or {}).get('map') or {}).values() if e.get('type') == 'progress-bar']
+    if len(bars) > 1:
+        warn.append(f'{len(bars)} progress bars in components ({", ".join(c for c, _ in bars)}) — a '
+                    f'flow has one progress bar, shared by every screen that shows it')
+
+    def _col(c):
+        if isinstance(c, list):
+            c = next((l.get('color') for l in c if isinstance(l, dict) and l.get('type') == 'color'), None)
+        if isinstance(c, dict):
+            return c.get('colorId') or (c.get('hex') or '').upper() or None
+        return None
+    for cid, comp in (d.get('components') or {}).items():
+        for e in ((comp or {}).get('map') or {}).values():
+            if e.get('type') != 'progress-bar-loader':
+                continue
+            p_ = e.get('props') or {}
+            track, prog = _col(p_.get('fill')), _col(p_.get('color'))
+            if track and prog and track == prog:
+                warn.append(f'progress bar {cid}: the loader\'s track (`fill`) and progress (`color`) '
+                            f'are both {track}, so the bar looks full on every screen. `fill` is '
+                            f'the empty track, `color` is the progress')
+
     return bad, warn
 
 
@@ -2864,6 +3138,17 @@ for path in args:
     # "your config is corrupt" when it means "this checker hit a shape it did not expect".
     # Exit 2 keeps that distinct from exit 1 (the document has findings), matching the exit-code
     # convention the rest of this repo's scripts use.
+    # An unreadable input is the caller's to fix, not a checker bug — say which, plainly.
+    try:
+        json.load(open(path))
+    except OSError as exc:
+        print(f'{os.path.basename(path):34} UNREADABLE')
+        print(f'   {exc.strerror}: {path}')
+        sys.exit(2)
+    except ValueError as exc:
+        print(f'{os.path.basename(path):34} NOT JSON')
+        print(f'   {exc}')
+        sys.exit(2)
     try:
         bad, warn = check(path, baseline_text, baseline_images)
     except Exception as exc:                                  # noqa: BLE001 - the point is breadth

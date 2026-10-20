@@ -303,6 +303,18 @@ case("theme: nor is the font shared by two other adopted presets",
      '80ccb8e9-b1d3-45ba-6871-5e83b564af42' in {f['id'] for f in pl2['carry']['fonts']},
      False)
 
+# Each app has its own font library, so a font carried into ANOTHER app is an ask; within
+# one app it is not. Same snippet content, scope flipped.
+case('theme: a same-app carried font raises no font ask',
+     [n for n in pl2['needs'] if "font library" in n['text']], [])
+p3a, _s3a, _ = extract(COMP, '--screen', COMP_S0, 'Comparison table any-app',
+                       extra=('--scope', 'any-app'))
+_rc2a, pl2a = plan_json(QUIZ, p3a, QUIZ_S0)
+font_asks = [n for n in pl2a['needs'] if "font library" in n['text']]
+case('theme: an any-app carried font raises one ? ask per carried font',
+     (len(font_asks), {n['level'] for n in font_asks}),
+     (len(pl2a['carry']['fonts']), {'?'}))
+
 # Same flow, same theme: nothing to adopt, nothing to carry.
 _rc3, pl3 = plan_json(QUIZ, p, QUIZ_S0)
 case('theme: grafting into its own flow adopts nothing', pl3['adopt'], [])

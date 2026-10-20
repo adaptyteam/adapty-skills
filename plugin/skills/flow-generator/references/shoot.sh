@@ -5,6 +5,10 @@
 #   shoot.sh draft.json scr_a scr_b scr_c                # three screens, one strip
 #   OUT=/tmp/x shoot.sh draft.json scr_a                 # choose the output dir
 #
+# Renders go next to the config, unless the config sits inside a git work tree -- an app repo,
+# usually -- in which case they go to $TMPDIR/adapty-flow-shots, so no PNG lands in the user's
+# working tree. OUT= always wins.
+#
 # Prints the path of the strip to open. That is the only thing you need from it -- read the path
 # it prints rather than guessing the name: every output carries an 8-char signature of the
 # CONFIG'S CONTENT (shot-<sig>-<screen>.png), so re-rendering after an edit writes a new file
@@ -22,7 +26,13 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${1:?usage: shoot.sh <config.json> [screen-id ...]}"; shift || true
 SCREENS="$*"
-OUT="${OUT:-$(dirname "$CFG")}"
+if [ -z "${OUT:-}" ]; then
+  if git -C "$(dirname "$CFG")" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    OUT="${TMPDIR:-/tmp}"; OUT="${OUT%/}/adapty-flow-shots"
+  else
+    OUT="$(dirname "$CFG")"
+  fi
+fi
 BUDGET="${BUDGET:-8000}"
 # 520 wide, not the phone's own 430: the render page centres its phone frame with a margin, so at
 # 430 the frame starts ~55px in and its right edge is cut off, which reads as a layout overflow.
@@ -139,6 +149,28 @@ for s in $SCREENS; do
     http*) ;;
     *) echo "shoot: preview failed for $s: $(printf '%s' "$url" | head -2)" >&2; exit 1 ;;
   esac
+  # A config with several bound images carries their previews and can push the URL past what the
+  # render page boots from: it draws its own "There's been a glitch" page instead, which passes
+  # the pixel guard below as a real screen. Measured failing at ~113K and ~145K characters. Above
+  # the limit, render through the page's file input instead (preview-with-playwright.mjs), which
+  # never puts the config in the URL.
+  if [ "${#url}" -gt "${URL_LIMIT:-100000}" ]; then
+    PW_DIR="$HOME/.cache/adapty-flow-playwright"
+    if [ -d "$PW_DIR/node_modules/playwright" ]; then
+      echo "   URL is ${#url} chars — rendering $s through the file input instead" >&2
+      # Absolute paths: this runs after a `cd`, so a relative --config or --out resolves against
+      # the cache dir and the render fails (or lands where nobody looks).
+      ABS_CFG="$(cd "$(dirname "$CFG")" && pwd)/$(basename "$CFG")"
+      ABS_PNG="$(cd "$(dirname "$png")" && pwd)/$(basename "$png")"
+      ( cd "$PW_DIR" && node "$HERE/preview-with-playwright.mjs" --config "$ABS_CFG" \
+          ${s:+$( [ "$s" != "__default__" ] && printf -- '--screen %s' "$s")} --out "$ABS_PNG" ) >&2 || rm -f "$png"
+      if [ -s "$png" ]; then echo "   rendered $s -> $(basename "$png")"; shots="$shots $png"; n=$((n+1)); continue; fi
+    fi
+    echo "   SKIPPED $s — the preview URL is ${#url} characters, past what the render page loads;" >&2
+    echo "           a screenshot here would show its error page. Render it with" >&2
+    echo "           preview-with-playwright.mjs (one-time install in its header)." >&2
+    continue
+  fi
   probe_host "$url"
   shoot_one "$url" "$png" "$BUDGET" "${WATCHDOG:-180}"
   if [ ! -s "$png" ]; then

@@ -8,8 +8,10 @@ anything — deciding which of the reference's graphics the format can reach at 
 **comparison half** belongs to phase 4, against the render. Doing the first one late is how a
 lookalike gets built and then graded against the reference by the agent that built it.
 
-**Run it whenever a reference was given** — an image, a screen to copy, a layout spelled out. Not
-when you chose the design yourself; that case is graded by a teardown skill instead —
+**Run it whenever a reference was given** — an image, a screen to copy, a layout spelled out. In
+**Adapt** mode (`SKILL.md` phase 2) the list has two halves: structure against the reference, and
+colour, type, radii, icon style and copy against the app's own style source — never against the
+reference. Not when you chose the design yourself; that case is graded by a teardown skill instead —
 `paywall-teardown` for a screen that sells, `onboarding-teardown` for a sequence.
 
 ## Why it is a written list and not a look
@@ -93,7 +95,14 @@ real full-resolution asset where a crop gets a 1x copy of their mockup.
 
 ## 3. Turn what the format cannot reach into named user asks
 
-Never a silent downgrade, and never one line buried in a paragraph — collect them into the
+**Inventory behaviours and effects too, not only graphics.** For every button, field and visual
+effect in the reference, ask what it does in the app it came from and whether the flow does the
+same: a sign-up form that creates an account, a social sign-in, a blurred background, a gradient
+word. Each one the builder cannot do yet is named to the user the way `SKILL.md`'s What you print
+says, with what the screen does instead — a button that only sends a custom action is listed
+there, because to the user it looks like a working sign-up.
+
+Never a silent downgrade, and never one line buried in a paragraph — collect assets into the
 missing-assets block `SKILL.md` describes, so the user sees the whole list and can answer it in
 one go. Batch it with the phase-2 asks, because a path they hand over turns a placeholder into a
 finished screen.
@@ -110,7 +119,7 @@ The routes are **not symmetric**, so say which one applies rather than offering 
 | :--- | :--- | :--- |
 | PNG / JPEG / WEBP / GIF, ≤ ~2.5 MB | yes — `flows media upload` | also fine |
 | SVG | no — `http_500`, reproducible | yes |
-| a font | no — not an image; `validation_error` | **yes, and only here.** Then they must tell you the family name, because the upload mints the id you point `theme.typography` at |
+| a font | no — not an image; `validation_error` | **yes, and only here.** They set the iOS and Android font name on every face (publishing refuses a face with no iOS name), then tell you the family name, because the upload mints the id you point `theme.typography` at |
 | video | no — the command refuses a clip | **yes, always.** Place the real `video` element with no source, at a **fixed** height and the design's own radius/margins, and say in words that they upload it in the builder — [media.md](media.md#the-video-placeholder) |
 | an image over ~2.5 MB | no — bare `http_400` | yes, or a smaller export |
 

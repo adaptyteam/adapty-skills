@@ -50,6 +50,7 @@ Grep these dependency manifests (whichever exist): `package.json`, `pubspec.yaml
 | `cordova-plugin-purchase` | `store-plugin` | Capacitor / Cordova |
 | `com.unity.purchasing` in `Packages/manifest.json` | `store-plugin` | Unity IAP |
 | `com.android.billingclient` | `native-store` | Google Play Billing |
+| `SwiftyStoreKit` or `TPInAppReceipt` in a `Podfile`, `Package.swift` or `.pbxproj` | `native-store` | iOS wrapper libraries over StoreKit; remove them with the rest of the source |
 | `StoreKit.framework` in a `.pbxproj`, or `import StoreKit` in source | `native-store` | |
 
 Two rules about reading that table:
@@ -69,7 +70,7 @@ Vocabulary differs per source: what Adapty calls an **access level** the source 
 
 - **Access levels** — one per *active* entitlement in the source, ID = the source's own entitlement identifier, so existing code that gates on that string keeps working. Skip archived or unused entitlements. Sources with no entitlement concept at all (store plugins, hand-rolled native code — they gate on a product ID or a stored boolean) → use the default `premium` access level and record that choice, and the line of code it replaced, in `ADAPTY_SETUP.md`.
 
-- **Products — store product IDs are IMMUTABLE once an Adapty product exists.** They can never be edited; the only fix is deleting the product and recreating it, which loses its paywall attachments. So **never create a product with a guessed, normalized, or placeholder store ID.** Use the exact identifier as written in the code or config, byte for byte. No real ID available → create no product; put the ready-to-run `products create` command in `ADAPTY_SETUP.md` with a `<REAL_PRODUCT_ID>` slot instead. A product's access level = the entitlement it unlocked in the source; attached to several → assign the one the code actually gates on and flag the choice; attached to none → the default access level, flagged.
+- **Products — a store product ID cannot be fixed from the CLI once the Adapty product exists.** `products update` changes only the title and access level, and there is no `products delete`; the dashboard can edit a store ID, but Adapty's docs advise against it. So **never create a product with a guessed, normalized, or placeholder store ID.** Use the exact identifier as written in the code or config, byte for byte. No real ID available → create no product; put the ready-to-run `products create` command in `ADAPTY_SETUP.md` with a `<REAL_PRODUCT_ID>` slot instead. A product's access level = the entitlement it unlocked in the source; attached to several → assign the one the code actually gates on and flag the choice; attached to none → the default access level, flagged.
 
 - **One store identifier present in both stores → ONE Adapty product carrying both store IDs**, never two products. Equally, do not assume a product exists in every store the app ships to — create it with only the store IDs it demonstrably has.
 

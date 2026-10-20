@@ -526,7 +526,7 @@ def _const_purchase_product_id(action):
     """The product id bound by a `const` purchase ACTION's payload, or None.
 
     A `const` purchase action binds a product with no `product` element behind it and
-    no card copy to read -- CLAUDE.md documents the shape (verified against
+    no card copy to read -- docs/maintainers/flow-generator.md documents the shape (verified against
     `verify-config.py`'s own `missing flowProductId` check, path `...purchase.product`).
     Only the catalog checks (`product-not-in-catalog` and friends) need to see this
     shape, since none of them read card copy -- see `bound_products`.

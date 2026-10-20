@@ -35,6 +35,7 @@ Run `tests/test-flowkit.py` after touching it.
     )
 """
 import copy
+import json
 import hashlib
 import os
 import re
@@ -255,8 +256,11 @@ def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
     anchors instead, following its parent's height however the content grows. A negative
     `bottom` overshoots past the parent's edge, which is how a timeline rail reaches into the
     next row. Measured, all three parts load-bearing: drop `bottom` and the element collapses to
-    nothing; swap `auto` for `fill` and it stops 2px short; drop a negative `z` and it paints
-    OVER its siblings rather than behind them.
+    nothing; swap `auto` for `fill` and it stops 2px short.
+
+    To sit behind its siblings, list it FIRST among them and leave `z` unset: later siblings
+    paint over earlier ones. A negative `z` also works, but only until an ancestor has a fill —
+    then the element draws behind that fill and disappears.
     """
     p = {'type': 'absolute'}
     for k, v in (('top', top), ('left', left), ('right', right), ('bottom', bottom),
@@ -544,11 +548,20 @@ def _condition_var_ids(o, out):
 # still published. So the span kinds are named types here, and a bare tuple is rejected.
 
 class Var:
-    """A variable span: renders the variable's value, or its literal token if unresolved."""
+    """A variable span: renders the variable's value, or its literal token if unresolved.
+
+    Takes a variable id, or the entry `app_value()` returned — so a custom tag is bound by the
+    object you declared rather than by an id you retyped.
+    """
 
     __slots__ = ('variable_id',)
 
     def __init__(self, variable_id):
+        if isinstance(variable_id, dict):
+            variable_id = variable_id.get('id')
+        if not (isinstance(variable_id, str) and variable_id):
+            raise ValueError(f'Var() needs a variable id or an app_value() entry, got '
+                             f'{variable_id!r}')
         self.variable_id = variable_id
 
 
@@ -641,6 +654,117 @@ def switch_rich(cases, default, *, locale='en'):
         'type': 'switch', 'cases': out,
         'default': {'type': 'const', 'value': _blocks(default, 'default parts')}}},
         '_localizable': True}
+
+
+# --- values only the app knows (custom tags) -----------------------------------------------
+#
+# A custom tag is a `variables[]` entry with `external: true`: the app supplies its value when it
+# opens the flow, and text shows it wherever a `Var` points at it. The variable's `name` is the
+# contract with the app's code -- the SDK looks the value up by that exact, case-sensitive string
+# -- and its `value` is the FALLBACK, shown whenever the app does not supply one (an old app
+# build, a missing attribute, a resolver that is not wired yet). It is also what the builder
+# preview draws.
+#
+# Text only. A condition, a `setVariable`, an alert or a URL sees the fallback and never the
+# app's value, so a branch keyed on a custom tag goes the same way for every user on a device.
+
+#: Names the SDK resolves itself (product tags, element-scoped tags) plus the legacy builder's
+#: labels for them. Compared case-insensitively; `TIMER_` is reserved as a prefix.
+RESERVED_TAG_NAMES = frozenset({
+    'TITLE', 'DESCRIPTION', 'PRICE', 'PRICE_AMOUNT', 'PRICE_AMOUNT_INTEGER',
+    'PRICE_AMOUNT_FRACTION', 'CURRENCY_CODE', 'CURRENCY_SYMBOL', 'PRICE_PER_DAY',
+    'PRICE_PER_WEEK', 'PRICE_PER_MONTH', 'PRICE_PER_YEAR', 'SUBSCRIPTION_PERIOD', 'OFFER_PRICE',
+    'OFFER_PERIOD', 'OFFER_NUMBER_OF_PERIOD', 'OFFER_PRICE_PER_DAY', 'OFFER_PRICE_PER_WEEK',
+    'OFFER_PRICE_PER_MONTH', 'OFFER_PRICE_PER_YEAR', 'PERCENT', 'TIMER', 'VALUE', 'PROD_TITLE',
+    'PROD_PRICE', 'PROD_PRICE_PER_DAY', 'PROD_PRICE_PER_WEEK', 'PROD_PRICE_PER_MONTH',
+    'PROD_PRICE_PER_YEAR', 'OFFER_BILLING_PERIOD', 'OFFER_FULL_DURATION',
+})
+RESERVED_TAG_PREFIX = 'TIMER_'
+_TAG_NAME = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
+_TAG_VALUE_TYPES = {'string': (str,), 'number': (int, float), 'boolean': (bool,)}
+
+
+def tag_name_issue(name):
+    """Why `name` cannot be a custom tag — `'empty'`, `'invalid'`, `'reserved'` — or None."""
+    if not name:
+        return 'empty'
+    if not (isinstance(name, str) and _TAG_NAME.fullmatch(name)):
+        return 'invalid'
+    upper = name.upper()
+    if upper in RESERVED_TAG_NAMES or upper.startswith(RESERVED_TAG_PREFIX):
+        return 'reserved'
+    return None
+
+
+def app_value(name, *, fallback, value_type='string', variable_id=None, description=None):
+    """A value only the app knows, shown in text: the user's name, a coin balance, a streak.
+
+        coins = fk.app_value('coins_balance', fallback='your coins')
+        fk.text(fk.rich('You have ', fk.Var(coins), ' to spend'))
+        fk.config(screens=[...], variables=[coins])
+
+    `fallback` has no default on purpose: it is what every user sees until the app supplies the
+    value, so it must read as finished copy inside the sentence around it ("Hi, there!" rather
+    than "Hi, !"). Its type must match `value_type`.
+
+    `name` is what the app's code passes, character for character — letters, digits, `_`, `-`,
+    and dots between parts. A name the SDK already resolves (`PRICE`, `TITLE`, `TIMER_*`, ...)
+    is refused, because publishing it would rewrite the SDK's own tag in every fallback.
+    """
+    issue = tag_name_issue(name)
+    if issue:
+        raise ValueError(
+            f'app_value() name {name!r} is {issue}: use letters, digits, `_`, `-` and dots '
+            f'between parts, and not a name the SDK resolves itself '
+            f'({", ".join(sorted(RESERVED_TAG_NAMES)[:4])}, ..., {RESERVED_TAG_PREFIX}*).')
+    if value_type not in _TAG_VALUE_TYPES:
+        raise ValueError(f'app_value() value_type must be one of {sorted(_TAG_VALUE_TYPES)}, '
+                         f'got {value_type!r} — the app passes strings, numbers or booleans only')
+    ok = _TAG_VALUE_TYPES[value_type]
+    if not isinstance(fallback, ok) or (value_type == 'number' and isinstance(fallback, bool)):
+        raise TypeError(f'app_value() fallback {fallback!r} is not a {value_type}; it is shown '
+                        f'in place of the app value, so it must be the same type')
+    vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
+    if not _IDENT.fullmatch(vid):
+        raise ValueError(f'app_value() variable_id {vid!r} must be [A-Za-z0-9_] — it is emitted '
+                         f'as an identifier in the generated script.')
+    entry = {'id': vid, 'name': name, 'valueType': value_type, 'value': fallback,
+             'external': True}
+    if description:
+        entry['description'] = description
+    return entry
+
+
+def _external_ids(variables):
+    return {v['id']: v.get('name') for v in variables
+            if isinstance(v, dict) and v.get('external') is True and v.get('id')}
+
+
+def _expr_var_ids(o, out):
+    """Every `{"type": "var"}` operand in a subtree — logic, never rich text."""
+    if isinstance(o, dict):
+        if o.get('type') == 'var' and isinstance(o.get('variableId'), str):
+            out.add(o['variableId'])
+        for v in o.values():
+            _expr_var_ids(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            _expr_var_ids(v, out)
+    return out
+
+
+def _rich_var_ids(o, out):
+    """Every rich-text `variable` node in a subtree."""
+    if isinstance(o, dict):
+        if o.get('type') == 'variable' and isinstance(o.get('attrs'), dict) \
+                and isinstance(o['attrs'].get('variableId'), str):
+            out.add(o['attrs']['variableId'])
+        for v in o.values():
+            _rich_var_ids(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            _rich_var_ids(v, out)
+    return out
 
 
 # --- nodes -------------------------------------------------------------------------------
@@ -887,7 +1011,8 @@ def text(content, *, preset='body', color_id=None, align='left', width='fill',
     return _node('text', props, **kw)
 
 
-def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None, **kw):
+def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None,
+         static_loader=False, **kw):
     """A `phosphor` glyph. The name is resolved against the renderer's OWN bundle here, and an
     unknown one raises with suggestions.
 
@@ -899,7 +1024,15 @@ def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None, **
     error is unreachable from here too.
 
     `icons.py` is the search surface: `python3 icons.py --search arrow`.
+
+    A loader glyph (`Spinner`, `SpinnerGap`, `SpinnerBall`) is refused: as an
+    `icon` it is a still picture that does not rotate on a device. Use `spinner('spinner1')`.
+    Pass `static_loader=True` only when the design really shows a still glyph.
     """
+    if name in icons.STATIC_LOADERS and not static_loader:
+        raise ValueError(f'icon({name!r}) is a still picture of a loader and does not rotate on a '
+                         f"device. For a loading indicator use spinner('spinner1') (spinner1 to "
+                         f'spinner5). Pass static_loader=True only for a deliberately still glyph.')
     icons.icon_meta(name, weight)          # raises on a name or weight the bundle lacks
     props = {'icon': {'name': name, 'size': size_pt, 'type': 'phosphor', 'weight': weight},
              'position': position or relative()}
@@ -1353,31 +1486,42 @@ def product(children=(), *, product_id, group_id, default=False, offer_id=None, 
     return node
 
 
-def attach_point(*, product_id, group_id, element_id=None):
-    """The hidden `product` element a single-plan screen attaches its product to.
+def single_plan(children, *, product_id, group_id, offer_id=None, **kw):
+    """A single-plan screen's product: the block of text that names and prices the plan.
 
-    One product means there is nothing to pick, and a visible lone card carries a permanent
-    `selected` look the user cannot change. But a price variable resolves only against a declared
-    product and only a `product` element can be attached to -- so the element exists, hidden, and
-    the price lives in ordinary copy. See patterns.md, "A single-plan screen".
+    On a screen that sells one plan, the copy describing it -- name, price, period, trial line --
+    IS the product. Wrap it in the `product` element so the price variables resolve against a
+    product the element itself declares. Never put an empty or hidden `product` beside that copy:
+    the builder draws a childless one as a 1x1 box that breaks the layout, and `config preview`
+    collapses it, so the screen looks right until the user opens it in the builder.
 
-    `height` is `hug`, never `fixed: 0`. `visibility: hidden` already collapses the space, and a
-    zero height is the shape `verify-config.py` errors on (trap 15: it saves fine and kills the
-    element on device). patterns.md spelled this skeleton with `fixed: 0` until 2026-09-02, and an
-    agent following it hit that error -- which is also why this helper exists at all: the shape was
-    hand-assembled every time because nothing emitted it.
+    The element starts selected (`default: True`) and carries no `propsByState.selected`, so it
+    looks exactly like the plain stack it replaces: there is nothing to pick, so it must not look
+    pickable. Style it in its base props, as the reference shows it.
 
-    Evidence tier, since this file's callers rely on it: the composition is AUTHORED, not observed.
-    No real export contains a hidden attach point. Its two halves are attested separately -- `hug`
-    is what every real `product` element uses, and `visibility: hidden` occurs on real builder
-    output elsewhere in the corpus.
+    The CTA buys `purchase(group_id)` -- the selection, which this element is by default -- never
+    a `const` id. A `const` names the product a second time, so swapping it on the card in the
+    builder leaves the button buying the old one. See patterns.md, "A single-plan screen".
     """
-    node = product((), product_id=product_id, group_id=group_id, default=True,
-                   width='hug', height='hug', visibility=hidden())
-    node['props']['caption'] = 'Product attach point (hidden)'
-    if element_id:
-        node['id'] = element_id
-    return node
+    if not children:
+        raise ValueError(
+            'single_plan() needs the text that describes the plan as its children -- the name, '
+            'the price, the period. An empty `product` element is a 1x1 box in the builder that '
+            'breaks the layout around it.')
+    if kw.get('visibility') is not None:
+        raise ValueError(
+            'single_plan() is the visible plan block, so it takes no `visibility`. Hiding it hides '
+            'the plan copy with it.')
+    return product(children, product_id=product_id, group_id=group_id, default=True,
+                   offer_id=offer_id, **kw)
+
+
+def attach_point(**_):
+    """Removed: an empty hidden `product` element breaks the builder layout. Use `single_plan()`."""
+    raise ValueError(
+        'attach_point() is gone. A childless `product` element is a 1x1 box in the builder that '
+        'breaks the layout around it. Wrap the plan text instead: '
+        'single_plan([name, price, ...], product_id=..., group_id=...).')
 
 
 # The only group types real exports declare. A tab group is `single_choice`; there is no
@@ -1412,18 +1556,29 @@ def selectable(children=(), *, group_id, default=False, custom_id=None, **kw):
 def tab(label, content, *, default=False, custom_id=None):
     """One tab: the `label` shown in the bar, and the `content` panel shown below it.
 
+    To recolour the label when its tab is selected, wrap the text in `on_selected()`:
+    `tab([on_selected(text(rich('Yearly'), color_id='ink'), color=color('onAccent'))], …)`.
+    The override on a descendant of the tab-item follows the tab's selected state.
+
+    There is no `customId` on a tab: the schema has none for a tab-item, and switching tabs
+    raises no analytics event, so a tab switch is not something an app can read.
+
     Both halves are given together because the builder links them by ORDINAL POSITION — a
     `tab-content` carries no groupId and no back-reference, so the Nth panel belongs to the
     Nth tab and nothing in the document says so. Pairing them here is the only way that
     ordering cannot drift.
     """
+    if custom_id is not None:
+        raise TypeError('tab() takes no custom_id: a tab-item has no customId in the schema and a '
+                        'tab switch raises no event. Read the selection some other way, e.g. a '
+                        'per-panel button with its own action.')
     return {'_tab': True, 'label': list(label), 'content': list(content),
-            'default': default, 'custom_id': custom_id}
+            'default': default, 'custom_id': None}
 
 
 def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
-         bar_fill=None, bar_gap=0, bar_padding=None, item_height=44, item_corner=None,
-         content_height='hug', node_id=None, **kw):
+         bar_fill=None, bar_gap=0, bar_padding=None, bar_corner=None, item_height=44,
+         item_corner=None, content_height='hug', node_id=None, **kw):
     """A tab bar and its panels, built as the FIVE element types a real export uses.
 
     The tree the builder emits, and the only one the SDK renders:
@@ -1456,6 +1611,14 @@ def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
                                                         'borderRadius': radius(12)})
 
     Which look is design and belongs to you; that there IS one is mechanics and belongs here.
+
+    **A segment bar whose segments are plans is still this element** -- `Monthly | Yearly`,
+    `Plus | Premium`. Never product elements styled as segments: it works on a device, so nothing
+    flags it, and the builder then shows the user a product list where they drew tabs. Put each
+    plan in its own panel -- a `single_plan()` in its own one-member `product` group, plus a CTA
+    buying that group's `selectedProduct` -- because one group shared across panels does not
+    follow the tab. A rounded segmented-control track is `bar_corner` (with `bar_fill` and
+    `bar_padding`). See patterns.md, "Tabs that switch plans".
 
     **Heights default to `hug`, and the two sources disagree, so read this before changing it.**
     The real export uses `fill` on `tabs`, the wrapper and every panel — correct there, because
@@ -1506,10 +1669,14 @@ def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
         panels.append(panel)
 
     bar = stack(items, width='fill', height='hug', direction='horizontal', gap=bar_gap,
-                align_h='center', align_v='center', fill_=bar_fill, padding=bar_padding)
+                align_h='center', align_v='center', fill_=bar_fill, padding=bar_padding,
+                corner=bar_corner)
     bar['type'] = 'tab-bar'
     wrapper = stack(panels, width='fill', height=content_height)
     wrapper['type'] = 'tab-content-wrapper'
+    # The real export's wrapper carries {width, height, position} and no `layout`; the schema
+    # refuses one there, so an agent building from this helper had to strip it by hand.
+    wrapper['props'].pop('layout', None)
 
     lay = layout('vertical', gap, 'start', 'start')
     lay['clipContent'] = True                # both sources set it; without it panels bleed out
@@ -1723,7 +1890,12 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     """A countdown `timer` element. Pass `timer_digits(...)` as one of its `children` to show the
     running digits.
 
-    **A timer carrying a `timer-end` action MUST have at least one child.** Device-measured,
+    **A timer carrying a `timer-end` action must contain its own digits** — a `timer_digits()`
+    text among its children, which may be coloured like the background to stay invisible. Device-
+    measured: a timer whose child was a logo or a plain sentence did not fire either, and the same
+    timers fired once digits were added, visible or background-coloured.
+
+    The earlier, weaker rule — at least one child — came from these measurements,
     two writes differing in nothing else: the childless form **did not advance**, the
     same timer with one child text **did**, and an isolating probe with two exits to different
     destinations confirmed it on a third trip. So the "purely invisible delay" this docstring used
@@ -1737,13 +1909,14 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     `duration` is `{days, hours, minutes, seconds}`. `behavior='start_at_every_appear'` restarts
     the countdown each time the screen appears.
     """
-    if actions and not list(children):
+    if actions and '"timer_' not in json.dumps(list(children)):
         raise ValueError(
-            'a timer with a `timer-end` action and NO children does not fire on a device '
-            '— the flow stops dead on that screen, and neither '
-            '`config preview` nor `flows config validate` can see it. Give it a child: '
-            'timer_digits(...) if a visible countdown suits the screen, or the loader copy '
-            'itself. See patterns.md -> the auto-advancing screen.')
+            'a timer with a `timer-end` action fires on a device only when a text inside it '
+            'shows its digits — a logo or plain copy as the child does not fire either, and '
+            'neither `config preview` nor `flows config validate` can see it. Add '
+            'timer_digits(...) to its children; to keep the delay invisible, give it the '
+            "background's colour: timer_digits(('seconds',), color_id='<background>'). "
+            'See patterns.md -> the auto-advancing screen.')
     props = {
         'customId': custom_id, 'behavior': behavior,
         'duration': {'days': days, 'hours': hours, 'minutes': minutes, 'seconds': seconds},
@@ -1756,6 +1929,10 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     if padding is not None:   props['padding'] = padding
     if corner is not None:    props['borderRadius'] = corner
     if visibility is not None: props['visibility'] = visibility
+    if actions and 'caption' not in kw:
+        # The builder shows a timer with background-coloured digits as an empty frame; a
+        # layer name says it is the screen's auto-advance, not something left behind.
+        kw['caption'] = 'Auto-advance'
     node = _node('timer', props, children=list(children), node_id=node_id, **kw)
     if actions:
         # a timer's own interaction fires on `timer-end`, not `tap`
@@ -1822,7 +1999,18 @@ def _fill_slots(template, slots, fills, items):
 
 # --- catalog templates -------------------------------------------------------------------
 
-def from_catalog(entry, *, group_id=None, fills=None, items=None):
+def _walk_dicts(o):
+    """Every dict inside `o`, depth first."""
+    if isinstance(o, dict):
+        yield o
+        for v in o.values():
+            yield from _walk_dicts(v)
+    elif isinstance(o, list):
+        for v in o:
+            yield from _walk_dicts(v)
+
+
+def from_catalog(entry, *, group_id=None, fills=None, items=None, colors=None):
     """Turn a `component-catalog.json` entry into nodes this module can assemble.
 
     A catalog template is the builder's own output, so its internal wiring is already right --
@@ -1853,6 +2041,11 @@ def from_catalog(entry, *, group_id=None, fills=None, items=None):
     where they can: a slot path addresses the template's own `children`, and the authoring shape
     this returns uses `_children`. Passing a bare `template` still works, without slot filling.
 
+    `colors` maps the template's theme colour ids to yours. Templates are written against the
+    builder's starter theme (`white`, `gray-200`, `gray-700`, `accent`, ...), which your flow
+    usually does not declare: `colors={'white': 'surface', 'gray-700': 'ink'}`. Every colour id
+    the result still uses must exist in your theme, or the element draws with no colour.
+
     Deep-copies, so the catalog entry itself is never mutated.
     """
     template, slots = entry, {}
@@ -1869,6 +2062,10 @@ def from_catalog(entry, *, group_id=None, fills=None, items=None):
     template = copy.deepcopy(template)
     if fills or items:
         template = _fill_slots(template, slots, fills or {}, items)
+    if colors:
+        for n in _walk_dicts(template):
+            if n.get('type') == 'color-style' and n.get('colorId') in colors:
+                n['colorId'] = colors[n['colorId']]
 
     def to_v12(props):
         # The catalog keeps two pre-v12 shapes this module would otherwise stamp v12: a border's
@@ -2643,6 +2840,67 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             f'compile (script_type_violation, TS2304 "Cannot find name"). Produce it — an input '
             f'element with that customId, a selectableGroup with that id, a bound product — or '
             f'declare it in variables=(...).')
+
+    # Custom tags (`app_value()`). Each rule is one the transform service also enforces or
+    # warns on; here they raise, because a document you are writing now has no excuse.
+    seen_vids = set()
+    for v in variables:
+        vid = v.get('id') if isinstance(v, dict) else None
+        if vid in seen_vids:
+            raise ValueError(f'variable id {vid!r} is declared twice in variables=(...).')
+        seen_vids.add(vid)
+    external = _external_ids(variables)
+    for v in variables:
+        if not (isinstance(v, dict) and v.get('external') is True):
+            continue
+        if v.get('valueType') not in _TAG_VALUE_TYPES:
+            raise ValueError(f'variable {v.get("name")!r} is external but its valueType is '
+                             f'{v.get("valueType")!r}; only string, number and boolean '
+                             f'variables can come from the app. Build it with app_value().')
+        issue = tag_name_issue(v.get('name'))
+        if issue:
+            raise ValueError(f'custom tag name {v.get("name")!r} is {issue} '
+                             f'(custom_tag_invalid_name). Build it with app_value().')
+    if external:
+        names = [v.get('name') for v in variables if isinstance(v, dict)]
+        shared = sorted({n for n in external.values() if names.count(n) > 1})
+        if shared:
+            raise ValueError(
+                f'custom tag name(s) {shared} are also used by another variable '
+                f'(custom_tag_duplicate_name): both would publish as the same SDK tag, so the '
+                f'app value would land in the other variable\'s text too.')
+        in_logic, in_script = set(), set()
+        maps = [((s_.get('elements') or {}).get('map') or {}) for s_ in screens]
+        maps += [((c or {}).get('map') or {}) for c in (components or {}).values()]
+        for m in maps:
+            for e in m.values():
+                in_logic |= _expr_var_ids(e, set()) & external.keys()
+                in_script |= _rich_var_ids(e.get('interactions') or [], set()) & external.keys()
+        if in_logic:
+            raise ValueError(
+                f'custom tag(s) {sorted(external[i] for i in in_logic)} are read by logic — a '
+                f'condition, conditional text or setVariable. Logic sees only the fallback, never '
+                f'the app\'s value, so the branch goes the same way for every user on a device. '
+                f'A custom tag can only be SHOWN in text.')
+        if in_script:
+            raise ValueError(
+                f'custom tag(s) {sorted(external[i] for i in in_script)} are inside an '
+                f'interaction (an alert, a URL). The app value is not available there and the '
+                f'SDK writes an empty string — put the value in a text element instead.')
+
+    color_ids = [c[0] for c in colors]
+    typo_ids = [t[0] for t in typography]
+    for label, ids in (('colour', color_ids), ('typography preset', typo_ids)):
+        repeated = sorted({i for i in ids if ids.count(i) > 1})
+        if repeated:
+            raise ValueError(f'{label} id(s) {repeated} declared twice; one entry is unreachable.')
+    clash = sorted(set(color_ids) & set(typo_ids))
+    if clash:
+        raise ValueError(
+            f'theme id(s) {clash} name both a colour and a typography preset. The device reads '
+            f'`theme` as one keyed container and fails with "Duplicate Key", so the flow will not '
+            f'open, and no other gate sees it. Rename one side (e.g. a colour `ctaFill` beside a '
+            f'preset `ctaLabel`).')
 
     meta_icons = _resolve_icons(screens, components, icons)
     theme_colors = [_theme_color(c) for c in colors]

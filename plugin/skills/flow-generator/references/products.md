@@ -146,7 +146,9 @@ screen whose CTA carries a `const` purchase still cannot resolve a price variabl
 **So: if a screen shows a price, it needs a `product` element, whatever the design looks like.**
 A single-plan paywall with no visible picker still wraps its price block in one — give it the
 `groupId` of a `product`-typed group and `default: true`, and it renders exactly like the plain
-stack it replaces while giving the builder something to attach. Evidence for the shape: in the one
+stack it replaces while giving the builder something to attach. The price block goes *inside*
+the element — never an empty `product` beside it, which the builder draws as a 1x1 box
+([patterns.md](patterns.md), "A single-plan screen"). Evidence for the shape: in the one
 verified export that uses price variables, **every** price-variable holder sits inside a `product`
 element's subtree.
 
@@ -394,8 +396,11 @@ Three consequences, the third of which is a correction:
 
 - **Do not manufacture a `product` element** to satisfy a purchase action. The `var` form
   (`{"type": "var", "variableId": "<groupId>.selectedProduct"}`) needs a `product`-typed
-  selectable group behind it; the `const` form needs nothing. Choose by which one the screen
-  already uses — never by which one you know how to build.
+  selectable group behind it; the `const` form needs nothing. Choose by what the screen has:
+  **a `product` element on the screen → `var`**, even when it is the only one (it is `default:
+  true`, so it is the selection); **no `product` element → `const`**. Never `const` beside a
+  `product` element bound to the same product — the product is then named twice, and swapping it
+  on the card in the builder leaves the button buying the old one. No real export does it.
 - **Prices are the reason to *attach* a product, not purchases.** A `prod_price_*` variable needs
   its product attached and resolvable; a `const` purchase does not.
 - **Every product a screen names needs a `_meta.screens[<sid>].products[]` entry, however it is

@@ -9,7 +9,7 @@ inconclusive by construction** (the validate loop's round 1), and **exactly one 
 (`video-green2`, control 0/3 vs treatment 3/3 — see the note at the foot of this file for what made
 it different). `video-green3` is the first round whose null was **predicted before dispatch** from
 that note's rule, and reframed into a base-rate measurement rather than run as an arm comparison. Every one but the last two was
-diagnosed *afterwards*, in CLAUDE.md, in its own words — and the diagnoses repeat: the sandbox
+diagnosed *afterwards*, in its own words in the maintainer notes — and the diagnoses repeat: the sandbox
 account contained a working reference implementation **twice**, and the pre-registered prediction
 that the control arm would fail has now been **wrong six times**.
 
@@ -208,7 +208,7 @@ Write it to disk **before** any agent runs, together with the scorer.
 ## 5. After the round
 
 - [ ] Ledger written to `docs/superpowers/baselines/<date>-<name>.md` (untracked).
-- [ ] CLAUDE.md finding records **what is not claimed**, not only what is.
+- [ ] The finding goes in `docs/maintainers/<skill>.md`, never in `CLAUDE.md`, and records **what is not claimed**, not only what is. If it changes a standing rule, update that rule's one line in `CLAUDE.md`.
 - [ ] Any scenario flaw found afterwards is written into this file as a new row, with its round
       named — that is the only way this list stays worth reading.
 
@@ -284,3 +284,5 @@ could have.
       straight to it and the round was null. **Read the candidate descriptions the way an agent
       would and name the one you would open.** Which description did you read, and why would an
       agent not pick it? ______
+
+- [ ] **A test about where an agent takes STYLE from needs the style source out of control's line of sight.** *reference-adapt-green* round 1 put the session in a branded app repo and asked for "a paywall for my app, like this one": all six runs adapted, because the repo was the first thing every agent read, so the round could not tell the arms apart. Round 2 moved the style into the app's published flows, which nothing in the control skill points at, and separated 0/3 vs 3/3. Where does the control arm's agent look first, and is the answer already there? ______

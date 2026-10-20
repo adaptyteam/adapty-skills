@@ -255,7 +255,7 @@ for (const reference of references) {
 // silently-unchecked symbol is exactly what this lint exists to prevent. So check the claim
 // instead of believing it. Requires a capital A, which is what separates an SDK symbol
 // (`AdaptyPaywall`, `Adapty.getPaywall`) from the domain (`adapty.io`) and the CLI (`adapty asa`).
-const OTHER_SKILLS = ['adapty-attribution', 'adapty-docs', 'ads-manager', 'flow-audit', 'flow-generator', 'migrate-placements', 'onboarding-teardown', 'paywall-teardown', 'purchase-testing']
+const OTHER_SKILLS = ['adapty-attribution', 'adapty-docs', 'ads-manager', 'audiences', 'flow-audit', 'flow-generator', 'migrate-placements', 'onboarding-teardown', 'paywall-teardown', 'purchase-testing']
 const SDK_SYMBOL = /\bAdapty[A-Z][A-Za-z0-9_]+|\bAdapty\.[a-z][A-Za-z0-9_]*/g
 const SKILLS_ROOT = join(SCRIPTS_DIR, '..', 'plugin', 'skills')
 
@@ -279,7 +279,10 @@ for (const skill of OTHER_SKILLS) {
   }
   for (const file of files) {
     const text = await readFile(file, 'utf8')
-    for (const [i, lineText] of text.split('\n').entries()) {
+    for (const [i, rawLine] of text.split('\n').entries()) {
+      // A URL is not a symbol: the SDK repos are named `AdaptySDK-<platform>`, and a link to one
+      // is exactly what these skills should carry instead of naming an API.
+      const lineText = rawLine.replace(/https?:\/\/\S+/g, '')
       for (const m of lineText.matchAll(SDK_SYMBOL)) {
         console.log(
           `  OUT OF SCOPE  ${m[0]}  (${skill}/${file.split(`/${skill}/`)[1]}:${i + 1}) - an SDK ` +

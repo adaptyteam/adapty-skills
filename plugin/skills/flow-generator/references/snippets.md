@@ -220,14 +220,16 @@ blocker or a renders-empty risk, `?` for something milder (a placeholder asset).
 collide with the destination are re-minted and every internal reference is rewritten with them —
 `WILL RENAME` lines show old → new.
 
-**Media and font URLs travel unchanged across a cross-app graft — measured with
-`adapty` 0.8.1.** A `flows media upload` CDN URL and a `_meta.fonts[].url` are not
-app-scoped: a probe image uploaded to one app loaded (`200 image/png`) and drew
-visibly inside a different app's flow with no re-upload, and a font entry lifted
-verbatim from one app's flow rendered in that face inside another app's flow preview.
-Neither needs a rewrite step. That preview result is not a device guarantee for the
-font (`flow-schema.md` trap 7 — a resolvable reference is not proof the font ships), so
-still name it as unconfirmed-on-device when a font-carrying snippet is grafted. The
+**Media URLs travel unchanged across a cross-app graft; fonts travel but need an ask.** A
+`flows media upload` CDN URL is not app-scoped: a probe image uploaded to one app loaded
+(`200 image/png`) and drew visibly inside a different app's flow with no re-upload. A
+`_meta.fonts` entry lifted from one app's flow also resolves and renders in that face in
+another app's flow preview, but **each app has its own font library**, so the destination's
+library does not have that font and the user cannot manage or replace it there. `graft`
+carries the entry, `faces` included, and with `--scope any-app` adds a `?` line to `NEEDS YOU`
+per carried font: upload it to this app, or pick one this app has, then repoint. A resolvable
+reference is also no device guarantee (`flow-schema.md` trap 8 — the app bundle supplies the
+font), so name it as unconfirmed-on-device either way. The
 `fill` object-versus-array question was only tested for a single-layer `color` fill in
 either shape — the split does not track `schemaVersion` cleanly (the tracked fixture
 corpus includes a real `schemaVersion: 9` export with array-form fills), so read a fill's own

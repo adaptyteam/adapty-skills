@@ -525,7 +525,7 @@ def main():
     # SUPERSEDED 2026-09-01: this block used to build the delay timer CHILDLESS and assert
     # that "a delay timer with no digit child draws nothing, which is the invisible-delay
     # shape". Device-measured over three trips, that shape does not fire at all — see the
-    # guard below and CLAUDE.md finding 29. The timer-end assertion survives; the
+    # guard below and docs/maintainers/flow-generator.md finding 29. The timer-end assertion survives; the
     # invisible-delay one was encoding the wrong claim and is replaced by its opposite.
     delay = fk.timer([fk.timer_digits(units=('seconds',))],
                      actions=[{'id': 'act_next', 'type': 'navigate',
@@ -769,6 +769,18 @@ def main():
           raises(lambda: fk.tabs([fk.tab([], [], default=True),
                                   fk.tab([], [], default=True)],
                                  group_id='g', item_selected=SEL)))
+    # A rounded segmented-control track. The real tabs export and the catalog's tabs-segmented
+    # both put borderRadius on the tab-bar; without a parameter for it, a segment bar copied from
+    # a reference could only be drawn rounded as a plain stack -- of product elements.
+    _bars = lambda **kw: [e for e in fk.flatten([_tabs(group_id='g', **kw)])[0].values()
+                          if e.get('type') == 'tab-bar']
+    check('tabs(bar_corner=) rounds the tab-bar',
+          _bars(bar_corner=fk.radius(16))[0]['props'].get('borderRadius') == fk.radius(16))
+    check('...and without it the tab-bar carries no borderRadius',
+          'borderRadius' not in _bars()[0]['props'])
+    check('the tab-content-wrapper carries no layout, matching the real export',
+          all('layout' not in e['props'] for e in fk.flatten([_tabs(group_id='g')])[0].values()
+              if e.get('type') == 'tab-content-wrapper'))
     # --- the dead-pill defect: states declared, nothing overridden (finding 37) ---
     check('tabs() refuses a missing item_selected, naming the defect',
           raises(lambda: fk.tabs([fk.tab([], []), fk.tab([], [])], group_id='g'),
@@ -1013,23 +1025,38 @@ def main():
     check('...while a childless timer with NO action stays legal (a decorative countdown)',
           fk.timer([], custom_id='d', seconds=3)['type'] == 'timer')
 
-    # ---- attach_point(): the single-plan hidden product element.
-    # patterns.md spelled this skeleton with `height: fixed 0` until 2026-09-02 -- the exact shape
-    # verify-config.py errors on under trap 15 -- and flowkit exposed no helper, so it was
-    # hand-assembled from that skeleton every time. Both halves of finding 12 in one place.
-    _ap = fk.attach_point(product_id='p-uuid', group_id='plans')
-    check('attach_point is a product element',
-          _ap['type'] == 'product')
-    check('attach_point height is hug, NEVER fixed 0 (trap 15)',
-          _ap['props']['height'] == {'type': 'hug'})
-    check('attach_point is hidden — that is what collapses the space',
-          _ap['props']['visibility'] == {'type': 'hidden'})
-    check('attach_point binds the product and the group',
-          _ap['props']['product'] == {'id': 'p-uuid'} and _ap['props']['groupId'] == 'plans')
-    check('attach_point is the group default — a lone member must be selected',
-          _ap['props']['default'] is True)
-    check('attach_point carries the selected system state like any group member',
-          _ap['states'] == [{'id': 'selected', 'type': 'system'}])
+    # ---- single_plan(): on a one-plan screen the plan's text block IS the product element.
+    # The old attach_point() emitted an empty hidden `product` beside loose price text; the
+    # builder draws that as a 1x1 box that breaks the layout, and the preview collapses it.
+    _name = fk.text(fk.rich('Premium'))
+    _sp = fk.single_plan([_name], product_id='p-uuid', group_id='plans')
+    check('single_plan is a product element',
+          _sp['type'] == 'product')
+    check('single_plan holds the plan text as its children',
+          _sp['_children'] == [_name])
+    check('single_plan binds the product and the group, and starts selected',
+          _sp['props']['product'] == {'id': 'p-uuid'} and _sp['props']['groupId'] == 'plans'
+          and _sp['props']['default'] is True)
+    check('single_plan carries no selected look — there is nothing to pick',
+          'propsByState' not in _sp)
+    _e = None
+    try:
+        fk.single_plan([], product_id='p-uuid', group_id='plans')
+    except ValueError as e:
+        _e = str(e)
+    check('single_plan refuses an empty block, naming the 1x1 box', _e and '1x1' in _e)
+    _e = None
+    try:
+        fk.single_plan([_name], product_id='p-uuid', group_id='plans', visibility=fk.hidden())
+    except ValueError as e:
+        _e = str(e)
+    check('single_plan refuses to be hidden', _e and 'visibility' in _e)
+    _e = None
+    try:
+        fk.attach_point(product_id='p-uuid', group_id='plans')
+    except ValueError as e:
+        _e = str(e)
+    check('attach_point raises and points at single_plan', _e and 'single_plan' in _e)
 
     # --- id hygiene: the ids that become identifiers in the generated script ---------------
     #
@@ -1357,6 +1384,40 @@ def main():
           all(fk.config(screens=[], colors=[],
                         typography=[('b', 'B', 16, w)])['theme']['typography'][0]['settings']
               ['weight'] == w for w in fk.FONT_WEIGHTS))
+
+    # --- theme ids ---------------------------------------------------------------------------
+    # One id for a colour and a preset is the device's "Duplicate Key": the flow will not open.
+    check('a colour and a preset sharing an id are refused',
+          'Duplicate Key' in _message(lambda: fk.config(
+              screens=[], colors=[('cta', 'CTA', '#1F4CEA', '#1F4CEA')],
+              typography=[('cta', 'CTA', 18, 'semibold')])))
+    check('a colour id declared twice is refused',
+          'declared twice' in _message(lambda: fk.config(
+              screens=[], colors=[('a', 'A', '#000000', '#000000'), ('a', 'A2', '#FFFFFF', '#FFFFFF')])))
+    check('distinct colour and preset ids are accepted',
+          len(fk.config(screens=[], colors=[('ctaFill', 'CTA', '#1F4CEA', '#1F4CEA')],
+                        typography=[('ctaLabel', 'CTA', 18, 'semibold')])['theme']['colors']) == 1)
+
+    # --- catalog colour remap, and no customId on a tab -------------------------------------
+    import json as _json, os as _os
+    _cat = _json.load(open(_os.path.join(_os.path.dirname(fk.__file__), 'component-catalog.json')))
+    _entry = next(e for e in _cat['components'] if 'gray-700' in _json.dumps(e['template']))
+    _ids = lambda nodes: {n.get('colorId') for n in fk._walk_dicts(nodes) if n.get('type') == 'color-style'}
+    _out = fk.from_catalog(_entry, colors={'gray-700': 'ink'})
+    check('from_catalog(colors=) renames a template colour id', 'ink' in _ids(_out) and 'gray-700' not in _ids(_out))
+    check('from_catalog() without colors keeps the template ids', 'gray-700' in _ids(fk.from_catalog(_entry)))
+    check('from_catalog(colors=) leaves the catalog entry untouched', 'gray-700' in _json.dumps(_entry['template']))
+    check('tab(custom_id=) is refused, with the reason',
+          'no customId' in _message(lambda: fk.tab([fk.text(fk.rich('A'))], [], custom_id='x'), TypeError))
+
+    # --- a firing timer must contain its own digits (device-measured) ------------------------
+    _nav = [fk.navigate('scr_next')]
+    check('a timer whose only child is plain text and fires is refused',
+          'shows its digits' in _message(lambda: fk.timer([fk.text(fk.rich('Loading'))], seconds=2, actions=_nav)))
+    check('a timer with digits coloured like the background is accepted',
+          fk.timer([fk.timer_digits(('seconds',), color_id='bg')], seconds=2, actions=_nav)['type'] == 'timer')
+    check('a timer with visible digits beside other copy is accepted',
+          fk.timer([fk.stack([fk.text(fk.rich('Loading')), fk.timer_digits(('seconds',))])], seconds=2, actions=_nav)['type'] == 'timer')
 
     print()
     if FAILURES:
