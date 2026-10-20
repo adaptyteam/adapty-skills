@@ -151,17 +151,20 @@ def hex_color(hexval, opacity=None):
     return out
 
 
-def fill(color_id=None, *, hexval=None, layers=None):
-    """A fill. v10 spells this as an ARRAY -- but pass ONE layer.
+def fill(color_id=None, *, hexval=None, opacity=None, layers=None):
+    """A fill. v10 spells this as an ARRAY of layers, drawn bottom to top.
 
-    A two-layer fill draws in `config preview` and is IGNORED on device (measured: an
-    image+gradient screen fill shipped with the tint missing, after validate, the schema check
-    and the render all passed). No real export has a multi-layer fill. Bake a tint into the
-    asset instead, or give it its own element.
+    One layer is `fill('card')` or `fill(hexval=...)`; a stack is the layer helpers concatenated,
+    or `layers=`: `image_fill(url, preview=p) + fill(hexval='#000000', opacity=40)` is a photo
+    under a scrim. When the stack must change between light and dark, put it in a theme colour
+    (`config(colors=...)`) and fill with `fill(color_id)`. An input's fill draws only its first
+    layer.
     """
     if layers is not None:
         return list(layers)
-    c = color(color_id) if color_id is not None else hex_color(hexval)
+    if opacity is not None and hexval is None:
+        raise TypeError('fill(opacity=...) applies to hexval; a theme colour carries its own')
+    c = color(color_id) if color_id is not None else hex_color(hexval, opacity)
     return [{'type': 'color', 'color': c}]
 
 
@@ -1137,8 +1140,11 @@ def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hex
     """A background image fill — `props.fill` on a screen or a stack.
 
     The SAME asset binds two different ways and this is the other one: an `image` element wraps
-    its value in a per-locale `values` map, while a fill takes the `Image` FLAT. A fill is not
-    localizable, so a background that must change per language has to be an element instead.
+    its value in a per-locale `values` map, while a fill takes the `Image` FLAT. A background
+    that must change per language is simplest as an element (media.md).
+
+    Inside a theme colour's layer stack this is the image layer: `config(colors=...)` takes
+    `image_fill(dark_url, preview=p) + fill(hexval='#000000', opacity=40)` as one appearance.
 
     `preview` matters here for the same reason it does on an element, and more visibly: a
     background is usually the largest asset on the screen, so it is the one whose absence reads
@@ -1156,7 +1162,7 @@ def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hex
 
 def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fill', height='hug',
           fixed_w=None, fixed_h=None, corner=None, margin=None, position=None,
-          locale='en', **kw):
+          locale='en', dark=None, dark_preview=_PREVIEW_UNSET, dark_media_id=None, **kw):
     """An `image` element bound to an uploaded asset.
 
     `url` is the CDN URL that `flows media upload` printed, `media_id` the id it printed
@@ -1173,6 +1179,9 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fil
     aspect ratio, so the screen re-flows if the file is swapped and `fit` has no visible effect.
     With a fixed height the box wins and the asset absorbs the mismatch — `cover` crops it,
     `fit` letterboxes it and leaves a dead band.
+
+    `dark` is a second uploaded file the device shows in dark mode (`props.imageDark`), with its
+    own `dark_preview` and `dark_media_id` from ITS upload. Without it the one file shows in both.
     """
     if fit not in OBJECT_FIT:
         raise ValueError(f'objectFit must be one of {OBJECT_FIT}, not {fit!r}')
@@ -1198,6 +1207,12 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fil
         'objectFit': fit,
         'position': position or relative(),
     }
+    if dark is not None:
+        if not (isinstance(dark, str) and dark.strip()):
+            raise TypeError(f'image(dark=...) wants the URL the dark file\'s upload printed, '
+                            f'not {dark!r}')
+        props['imageDark'] = {'values': {locale: _image_value(dark, dark_media_id, dark_preview)},
+                              '_localizable': True}
     if corner is not None:  props['borderRadius'] = corner
     if margin is not None:  props['margin'] = margin
     return _node('image', props, **kw)
@@ -2534,9 +2549,130 @@ def predeclare(screen_id, products):
     return {screen_id: {'products': entries}}
 
 
+_TEXT_COLOR_TYPES = {'text', 'timer', 'old-price', 'text-input', 'email-input', 'password-input',
+                     'number-input', 'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
+
+
+def _style_value(value, where):
+    """One appearance of a theme colour: a `#RRGGBB` string, or a LAYER STACK.
+
+    A stack is a list of fill layers, bottom to top, built from the helpers that already emit
+    them — `fill(hexval=...)`, `gradient(...)`, `image_fill(...)` — concatenated:
+    `fill(hexval='#000000') + image_fill(url, preview=p)`. Every fill that references the style
+    then follows the appearance. The layers must be LITERAL: a style cannot reference another
+    style, and every colour inside one, gradient stops included, is `#RRGGBB` with alpha in
+    `opacity` — the only form the schema allows.
+    """
+    if isinstance(value, str):
+        return {'hex': check_theme_hex(value, where)}
+    if not isinstance(value, list) or not value:
+        raise TypeError(f'{where}: a theme colour is a "#RRGGBB" string or a non-empty list of '
+                        f'fill layers (fill(hexval=...) + gradient(...) + image_fill(...)), '
+                        f'not {value!r}')
+    for j, layer in enumerate(value):
+        w = f'{where}[{j}]'
+        t = layer.get('type') if isinstance(layer, dict) else None
+        if t == 'color':
+            col = layer.get('color') or {}
+            if col.get('type') != 'hex':
+                raise ValueError(f'{w}: a style cannot reference another style — use '
+                                 f'fill(hexval=...) inside a stack, not fill(color_id)')
+            check_theme_hex(col.get('hex'), w)
+        elif t == 'gradient':
+            for st in layer.get('stops') or []:
+                col = st.get('color') or {}
+                if col.get('type') != 'hex':
+                    raise ValueError(f'{w}: gradient stops in a style must be literal hex')
+                check_theme_hex(col.get('hex'), f'{w} stop')
+        elif t == 'image':
+            if not (layer.get('image') or {}).get('url'):
+                raise ValueError(f'{w}: an image layer needs a url')
+        elif t == 'video':
+            raise ValueError(f'{w}: flowkit does not author video layers in a style — there is no '
+                             f'CLI upload for a clip; the user adds it in the Flow Builder')
+        else:
+            raise TypeError(f'{w}: not a fill layer: {layer!r}')
+    return list(value)
+
+
+def _theme_color(entry):
+    """`(id, name, light, dark)` -> a `theme.colors` entry. `light`/`dark` is a `#RRGGBB` string
+    or a layer stack (see `_style_value`); `dark=None` omits the key, so dark mode shows light."""
+    i, n, lt, dk = entry
+    out = {'id': i, 'name': n, 'light': _style_value(lt, f'colors[{i!r}].light')}
+    if dk is not None:
+        out['dark'] = _style_value(dk, f'colors[{i!r}].dark')
+    return out
+
+
+def _is_single_solid(entry):
+    for side in ('light', 'dark'):
+        v = entry.get(side, entry.get('light'))
+        if isinstance(v, list) and not (len(v) == 1 and v[0].get('type') == 'color'):
+            return False
+    return True
+
+
+def _check_layered_styles(theme_colors, typography, screens, components):
+    """Two failures of a layered style that the service accepts or reports badly.
+
+    1. The service mints asset ids from a layered style's id (`<id>_fill_<n>`, `<id>_border_<n>`,
+       `<id>_text_color`); a colour or preset already named that way is refused.
+    2. Text takes only a style's SOLID layers, blended. A style with no solid layer in an
+       appearance draws its text fully transparent there, and nothing refuses it.
+    """
+    layered = {c['id']: c for c in theme_colors if not _is_single_solid(c)}
+    if not layered:
+        return
+    taken = {c['id'] for c in theme_colors} | {t[0] for t in typography}
+    for sid, c in layered.items():
+        count = max(len(v) if isinstance(v, list) else 1
+                    for v in (c['light'], c.get('dark', c['light'])))
+        minted = ({f'{sid}_fill_{n}' for n in range(1, count)} | {f'{sid}_text_color'}
+                  | {f'{sid}_border_{n}' for n in range(count)})
+        minted |= {f'{m}@dark' for m in minted}
+        if minted & taken:
+            raise ValueError(f'theme id(s) {sorted(minted & taken)} collide with the asset ids the '
+                             f'transform service derives from the layered style {sid!r} — rename')
+
+    def no_solid(c):
+        for side in ('light', 'dark'):
+            v = c.get(side, c['light'])
+            if isinstance(v, list) and not any(x.get('type') == 'color' for x in v):
+                return side
+        return None
+
+    def visit(e):
+        if not isinstance(e, dict):
+            return
+        if e.get('type') in _TEXT_COLOR_TYPES:
+            for props in [e.get('props') or {}] + list((e.get('propsByState') or {}).values()):
+                col = props.get('color') if isinstance(props, dict) else None
+                if isinstance(col, dict) and col.get('colorId') in layered:
+                    side = no_solid(layered[col['colorId']])
+                    if side:
+                        raise ValueError(
+                            f'element {e.get("id")!r}: text bound to {col["colorId"]!r}, which has '
+                            f'no solid layer in {side} — text takes only a style\'s solid layers, '
+                            f'so it would draw fully transparent. Bind text to a single-colour '
+                            f'style; keep the layered one for fills')
+        for v in e.values():
+            if isinstance(v, (dict, list)):
+                for x in (v if isinstance(v, list) else [v]):
+                    visit(x)
+
+    for s in list(screens) + list((components or {}).values()):
+        visit(s)
+
+
 def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'English'),),
            default_locale='en', variables=(), components=None, meta_screens=None):
     """The document.
+
+    `colors` is `(id, name, light, dark)` tuples. `light`/`dark` is a `#RRGGBB` string or a layer
+    stack — `gradient(...)`, `image_fill(...)`, `fill(hexval=...)`, concatenated — so a fill bound
+    to the style can be a gradient in light mode and a photo under a scrim in dark. Bind a layered
+    style from fills and borders; text and other colour positions want a single-colour style.
 
     `_meta.icons` is DERIVED, not authored: every icon the tree uses is declared here from the
     trusted markup in `icons.py`. Used-here-declared-there is a two-place binding whose second
@@ -2777,6 +2913,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             f'preset `ctaLabel`).')
 
     meta_icons = _resolve_icons(screens, components, icons)
+    theme_colors = [_theme_color(c) for c in colors]
+    _check_layered_styles(theme_colors, typography, screens, components)
 
     doc = {
         'schemaVersion': localization.MIN_SOURCE_VERSION,
@@ -2785,10 +2923,7 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
         'variables': list(variables),
         'components': components if components is not None else {},
         'theme': {
-            'colors': [{'id': i, 'name': n,
-                        'light': {'hex': check_theme_hex(lt, f'colors[{i!r}].light')},
-                        'dark': {'hex': check_theme_hex(dk, f'colors[{i!r}].dark')}}
-                       for i, n, lt, dk in colors],
+            'colors': theme_colors,
             'typography': [_typo(t) for t in typography],
         },
         '_meta': {'icons': meta_icons, 'fonts': [],

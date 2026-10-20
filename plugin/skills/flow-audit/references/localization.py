@@ -75,8 +75,8 @@ _PLACEHOLDER_TYPES = ('text-input', 'email-input', 'password-input', 'number-inp
 #: element type -> {property: kind}. Every schema property with `localizable: true`.
 LOCALIZABLE = {
     'text': {'content': 'rich-text'},
-    'image': {'image': 'image'},
-    'video': {'video': 'video'},
+    'image': {'image': 'image', 'imageDark': 'image'},
+    'video': {'video': 'video', 'videoDark': 'video'},
     **{t: {'placeholder': 'rich-string'} for t in _PLACEHOLDER_TYPES},
 }
 

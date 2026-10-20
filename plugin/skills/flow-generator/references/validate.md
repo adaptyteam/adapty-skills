@@ -165,6 +165,7 @@ A clean `validate` is a floor, not a proof. Every one of these passed with `vali
 | A ref naming no catalog entry, or an entry of the wrong `kind` | `references/verify-config.py` — the field renders nothing, and the refusal, if any, names the catalog path rather than the element |
 | An untranslated field | nothing, by design — it falls back to the default locale; `references/verify-config.py` warns per locale |
 | A colour that is not `{type: hex, hex}` or `{type: color-style, colorId}` — a theme entry `{id}` where a reference belongs, or a fill layer `{type: color, color}` in `border.color` or `props.color`. The Flow Builder crashes on open and the flow cannot be edited from the dashboard; the device renders it | `references/verify-config.py` (an error); the schema check too, but that one is advisory |
+| Text bound to a layered theme colour with no solid layer — it draws fully transparent ([flow-schema.md](flow-schema.md), trap 26) | `references/verify-config.py` (an error) |
 | A hyphen in an element id, which breaks the generated runtime script | `references/verify-config.py` (added after this row; the render still cannot show it — see [flow-schema.md](flow-schema.md#element-and-screen-ids-become-identifiers)) |
 | A product id that does not exist in this app | nothing; no price on device and the purchase fails |
 | Advisory warnings about silently dropped props (`verticalAlign` and friends) | nothing reachable from the CLI |
