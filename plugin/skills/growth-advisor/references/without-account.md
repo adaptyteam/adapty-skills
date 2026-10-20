@@ -26,8 +26,8 @@ Never hold the answer back for a sign-in or an integration. Both are the last Ne
 | Screenshots | What each screen is, in the order you took them, said in one line. Plan lengths, which plan is preselected, which carries a trial, what the button says, Restore, Terms and Privacy, the language |
 | The app's code | Find the purchase call and its product IDs, the paywall screen, and the onboarding screens in order. Read the copy from the string files and the locales that exist, which product is preselected, which carries a trial (a comment, a StoreKit configuration file, the product IDs), what follows when the paywall closes, and where else in the app it opens. Note whether the Adapty SDK is in the dependencies |
 
-Prices on a listing, a screenshot or in code are never read: the pricing sentence in `SKILL.md`
-covers this path too.
+Prices on a listing, a screenshot or in code are never read: a price claim starts from the
+product's prices in Adapty (`references/pricing.md`), which this path cannot read.
 
 ## Building the hypotheses
 
