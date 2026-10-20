@@ -11,17 +11,21 @@ renders wrong; each was run through the transformer and its output-schema gate f
 case records the service's verdict rather than a guess.
 
     FIRES   -- empty stack; neither side; nested color-style in a solid or a gradient stop;
-               image with no url; 8-digit / empty solid hex; #RGB / unprefixed / 8-digit stop
-               hex; a theme id colliding with a derived asset id; text bound to a style with
-               no solid layer (accepted, draws transparent); input border bound to a style
-               with two paint layers
-    WARNS   -- #RGB solid hex (accepted, but the same value is refused in a stop); a carousel
-               dot colour bound to a layered style; a border bound to an image-only style
+               image with no url; empty / unreadable solid hex; empty stop hex; no readable
+               stop; a gradient with no angle; video topology (one side only, mixed `loop`)
+               and a video with no url; a theme id or preset colliding with a derived asset
+               id, `@dark` twins included; text (a timer too) bound to a style with no solid
+               layer (accepted, draws transparent); input border on two paint layers
+    WARNS   -- #RGB / 8-digit solid and #RGB / unprefixed / 8-digit stop hex (read, but the
+               schema allows only #RRGGBB); an unreadable stop beside a good one (dropped); an
+               input fill on a layered style (first layer only); a carousel dot colour bound
+               to a layered style; a border bound to an image-only style
     SILENT  -- every tracked and raw export; a gradient/image/scrim stack on a screen fill; a
                one-gradient input border (accepted); a
                dark-only stack; a stack used next to an image layer in an element fill; text
                bound to [image, solid] (the solid is what text draws)
-    FLOWKIT -- builds a stack from gradient()/image_fill()/fill(hexval=, opacity=); raises on a
+    FLOWKIT -- builds a stack from gradient()/image_fill()/fill(hexval=, opacity=), and an
+               image(dark=) whose imageDark lands in the catalog; raises on a
                nested reference, a bad stop hex, a video layer, a derived-id collision and text
                bound to a no-solid style
 
@@ -144,12 +148,27 @@ fires('nested reference in a stop', variant(REVIEWS, lambda d: style(d, 'bg').up
         {'color': hx('#FFFFFF'), 'position': 1}]}])), 'must be a literal')
 fires('image with no url', variant(REVIEWS, lambda d: style(d, 'bg').update(
     light=[{'type': 'image', 'image': {'id': '1'}}])), 'needs `image.url`')
-for tag, h in (('8-digit', '#FFFFFFD9'), ('empty', '')):
+fires('timer text on a gradient-only style', variant(REVIEWS, lambda d: (
+    style(d, 'muted').update(light=[grad('#111114', '#333344')]),
+    d['screens'][0]['elements']['map'].update(el_probe_timer={
+        'id': 'el_probe_timer', 'type': 'timer', 'states': [],
+        'props': {'color': {'type': 'color-style', 'colorId': 'muted'}}}))), 'el_probe_timer props.color: text bound')
+for tag, h in (('empty', ''), ('unreadable', '#25BFF')):
     fires(f'{tag} solid hex', variant(REVIEWS, lambda d, h=h: style(d, 'bg').update(light=[solid(h)])),
-          'is refused')
-for tag, h in (('#RGB', '#fff'), ('unprefixed', 'FFFFFF'), ('8-digit', '#FFFFFFD9')):
-    fires(f'{tag} stop hex', variant(REVIEWS, lambda d, h=h: style(d, 'bg').update(light=[grad(h, '#EEEEEE')])),
-          'gradient stop hex')
+          'cannot be read')
+fires('empty stop hex', variant(REVIEWS, lambda d: style(d, 'bg').update(light=[grad('', '#EEEEEE')])),
+      'empty hex')
+fires('no readable stop', variant(REVIEWS, lambda d: style(d, 'bg').update(light=[grad('#XYZ', '#QQQ')])),
+      'no gradient stop hex can be read')
+fires('gradient with no angle', variant(REVIEWS, lambda d: style(d, 'bg').update(
+    light=[{k: v for k, v in grad('#FFFFFF', '#EEEEEE').items() if k != 'angle'}])), 'numeric `angle`')
+VID = {'type': 'video', 'video': {'videoUrl': 'https://x/a.m3u8', 'previewUrl': 'https://x/a.jpg'}}
+fires('video on one side only', variant(REVIEWS, lambda d: style(d, 'bg').update(
+    light=[VID], dark=[IMG])), 'a video on one side needs one on the other')
+fires('videos disagree on loop', variant(REVIEWS, lambda d: style(d, 'bg').update(
+    light=[VID], dark=[dict(VID, loop=False)])), 'disagree on `loop`')
+fires('video with no url', variant(REVIEWS, lambda d: style(d, 'bg').update(
+    light=[{'type': 'video', 'video': {'previewUrl': 'https://x/a.jpg'}}])), 'video.videoUrl')
 
 
 def collide(d):
@@ -158,6 +177,14 @@ def collide(d):
 
 
 fires('derived-id collision', variant(REVIEWS, collide), "['bg_fill_1']")
+
+
+def collide_dark(d):
+    style(d, 'bg').update(light=[solid('#FFFFFF'), grad('#FFFFFF', '#EEEEEE')])
+    d['theme']['typography'].append({'id': 'bg_fill_1@dark', 'name': 'x', 'size': 14})
+
+
+fires('derived dark-id collision', variant(REVIEWS, collide_dark), "bg_fill_1@dark")
 fires('text on a gradient-only style', variant(REVIEWS, lambda d: style(d, 'ink').update(
     light=[grad('#111114', '#333344')])), 'draws fully TRANSPARENT')
 fires('text on a dark image-only style', variant(REVIEWS, lambda d: style(d, 'ink').update(
@@ -177,8 +204,18 @@ def input_border(d, layers=None):
 fires('input border on two paint layers', variant(REVIEWS, input_border), 'unsupported_input_border_layers')
 
 print('verify-config.py — WARNS')
-warns('#RGB solid hex', variant(REVIEWS, lambda d: style(d, 'bg').update(light=[solid('#fff')])),
-      'write #RRGGBB')
+for tag, h in (('#RGB', '#fff'), ('8-digit', '#FFFFFFD9')):
+    warns(f'{tag} solid hex', variant(REVIEWS, lambda d, h=h: style(d, 'bg').update(light=[solid(h)])),
+          'allows only #RRGGBB')
+for tag, h in (('#RGB', '#fff'), ('unprefixed', 'FFFFFF'), ('8-digit', '#FFFFFFD9')):
+    warns(f'{tag} stop hex', variant(REVIEWS, lambda d, h=h: style(d, 'bg').update(light=[grad(h, '#EEEEEE')])),
+          'allows only #RRGGBB')
+warns('unreadable stop beside a good one', variant(REVIEWS, lambda d: style(d, 'bg').update(
+    light=[grad('#XYZ', '#EEEEEE')])), 'the stop is dropped')
+warns('input fill on a layered style', variant(REVIEWS, lambda d: (
+    input_border(d), d['screens'][0]['elements']['map']['el_probe_input']['props'].update(
+        border=None, fill=[{'type': 'color', 'color': {'type': 'color-style', 'colorId': 'card'}}]))),
+    'draws only its first (bottom) layer')
 warns('dots bound to a layered style', variant(REVIEWS, lambda d: style(d, 'ink').update(
     light=[IMG, solid('#111114')])), 'carousel colour bound to the layered style')
 
@@ -262,6 +299,20 @@ if not (isinstance(bg['light'], list) and bg['dark'][1]['color'] == {'type': 'he
 else:
     print('  BUILDS stack from gradient()/image_fill()/fill(hexval=, opacity=)')
 silent('flowkit-built stack', built)
+
+DARK_URL = 'https://public-media.adapty.io/x-dark.png'
+lit = fk.config(screens=[fk.screen('scr_main', [fk.image(URL, preview='UklGRg==', media_id=1,
+                                                         dark=DARK_URL, dark_preview='UklGRg==',
+                                                         dark_media_id=2)])],
+                typography=TYPO, colors=[INK])
+props = next(e for e in lit['screens'][0]['elements']['map'].values() if e['type'] == 'image')['props']
+dark_entry = lit['localization']['content'].get((props.get('imageDark') or {}).get('_lid'), {})
+if not (dark_entry.get('kind') == 'image'
+        and (dark_entry.get('values') or {}).get('en', {}).get('url') == DARK_URL):
+    fails.append(f'flowkit image(dark=): imageDark not catalogued: {json.dumps(props)[:300]}')
+else:
+    print('  BUILDS image(dark=) as a catalogued imageDark ref')
+silent('flowkit image with a dark file', lit)
 
 raises('nested reference', lambda: fk.config(screens=scr, typography=TYPO, colors=[
     ('bg', 'Bg', fk.fill('card'), None), ('card', 'Card', '#FFFFFF', None), INK]), 'another style')

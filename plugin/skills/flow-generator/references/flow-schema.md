@@ -82,8 +82,9 @@ these, on a screen element or inside `components`:
 | :--- | :--- | :--- |
 | `text` `props.content` | `rich-text` | an array of paragraph blocks, or a plain string |
 | `props.placeholder` on the eight inputs and pickers | `rich-string` | a plain string, or an inline-node array |
-| `image` `props.image` | `image` | the whole `{id, url, previewValue?}` object |
-| `video` `props.video` | `video` | the whole video object |
+| `image` `props.image`, `props.imageDark` | `image` | the whole `{id, url, previewValue?}` object |
+| `video` `props.video`, `props.videoDark` | `video` | the whole video object |
+| an `image` or `video` layer in a `fill` or a theme colour | `image` / `video` | the same objects; the flat value is also accepted |
 | `alert` action `payload.title` / `payload.message` | `rich-string` | a plain string |
 | `openUrl` action `payload.url` | `rich-string` | a plain string, or text, variable and token nodes — never paragraphs |
 
@@ -259,7 +260,8 @@ row here is unreachable, because the number is the only address anyone cites.
 
 ### 1. A localizable field is a ref, and its entry's `kind` decides the value shape
 
-`text.props.content`, an input's `placeholder`, `image.props.image`, `video.props.video` and an
+`text.props.content`, an input's `placeholder`, `image.props.image` and `imageDark`,
+`video.props.video` and `videoDark`, and an
 alert's `title` / `message` each hold a `{_lid}` ref, whatever they say. A label that reads
 "Next" is stored like a translated paragraph:
 
@@ -1011,9 +1013,11 @@ if a custom tag reaches a condition, conditional text, `setVariable` or an inter
 
 ### 26. A theme colour can be a layer stack — and only a fill reads all of it
 
-A `theme.colors[]` entry's `light` and `dark` each take one of two forms: the `{hex, opacity}`
-object, or an **array of fill layers**, bottom to top — `color`, `gradient`, `image` (and
-`video`, which this skill does not author). Every fill that references the style with
+In the Flow Builder this is a **color style** (the **Styles** panel, **Colors** tab) with
+**Light** and **Dark** versions, each holding one or more layers: **Solid color**, **Gradient**,
+**Image**, **Video**. In the config, a `theme.colors[]` entry's `light` and `dark` each take one
+of two forms: the `{hex, opacity}` object, or an **array of fill layers**, bottom to top —
+`color`, `gradient`, `image`, `video`. Every fill that references the style with
 `{"type": "color-style", "colorId": …}` then follows the appearance, so one style can be a
 gradient in light mode and a photo under a scrim in dark:
 
@@ -1030,19 +1034,28 @@ gradient in light mode and a photo under a scrim in dark:
 The two sides need not match in length or kind; either may be omitted, and the missing one shows
 the other. **The layers are literal.** The transform service refuses the flow when a stack is
 empty, when a style has neither side, when a layer references another style (a `color-style`
-inside a stack or a gradient stop), when an image layer has no `url`, and when a gradient stop
-is anything but `#RRGGBB` — `#RGB`, `#RRGGBBAA` and an unprefixed hex all fail there, so put
-alpha in `opacity`. An image layer wants its `previewValue` exactly as an image fill does
-([media.md](media.md)).
+inside a stack or a gradient stop), when a gradient has no numeric `angle` or a stop no numeric
+`position`, and when an image layer has neither a `url` nor a `{_lid}` catalog ref. Write every
+hex inside a stack, gradient stops included, as `#RRGGBB` with alpha in `opacity`: that is the
+only form the schema allows, an empty or unreadable solid is refused or silently dropped
+depending on the service build, and an unreadable stop vanishes from the gradient. An image
+layer wants its `previewValue` exactly as an image fill does ([media.md](media.md)); the Flow
+Builder rewrites it into a catalog ref when the flow is opened.
+
+**Video layers** are the user's to add in the Flow Builder: there is no CLI upload for a clip, so
+this skill never writes one. On a fetched config, keep the ones it carries and their two rules:
+if one side has a video the other must have the same number of videos, and every video in the
+style shares one `loop`. Breaking either is refused (`unsupported_appearance_fill_topology`).
 
 **Where you bind a layered style decides what draws:**
 
 | position | what it gets |
 | :--- | :--- |
 | `fill` (screen, stack, card) | the whole stack, per appearance — what the form is for |
+| an input's or a picker's `fill` | the **first (bottom) layer only** |
 | `border.color` | the solid and gradient layers only; an **input's** border takes at most one, and a second is refused (`unsupported_input_border_layers`) |
-| text `color`, an input's text | the **blend of the solid layers only** — gradient and image layers contribute nothing |
-| any other colour (icon, carousel dots, spinner) | the style's first layer used as a plain colour, which a device is not obliged to draw |
+| text `color` — a `text`, its rich-text spans, a `timer`, an `old-price`, an input's text | the **blend of the solid layers only** — gradient, image and video layers contribute nothing |
+| any other colour (icon, shadow, carousel dots, spinner) | the Flow Builder requires **exactly one solid layer per appearance**; the service uses the first layer as a plain colour |
 
 The text row is the trap. **Text bound to a style with no solid layer — a gradient-only or
 image-only one — draws fully transparent**, and the service accepts it without a word: the
@@ -1052,9 +1065,12 @@ layered style for the surfaces behind them.
 
 **One id rule comes with it.** The service mints asset ids from a layered style's id —
 `<id>_fill_1`, `<id>_fill_2`, … for the layers above the first, `<id>_border_<n>` and
-`<id>_text_color` when a border or text uses it — and a theme colour or typography preset
-already named that way is refused (`duplicate_appearance_asset_id`). Do not name a colour
-`surface_fill_1` beside a layered `surface`.
+`<id>_text_color` when a border or text uses it, each with an `@dark` twin — and a theme colour
+or typography preset already named that way is refused (`duplicate_appearance_asset_id`). Do
+not name a colour `surface_fill_1` beside a layered `surface`.
+
+`flows config preview` draws the **light** version only; check a dark stack by reading it, or
+ask the user to switch the theme preview in the Flow Builder.
 
 `flowkit.config(colors=...)` takes a stack as `light`/`dark` — `gradient(...)`,
 `image_fill(...)`, `fill(hexval=..., opacity=...)`, concatenated — and raises on every refusal
@@ -1204,8 +1220,8 @@ validate clean, and `tests/fixtures/onboarding-quiz-paywall.json` (which holds b
 `verify-config.py` errors on the same thing, calibrated silent on all 12 real configs.
 
 A theme colour written as a **layer stack** (trap 26) carries hexes inside its layers, and the
-rule follows them there: write `#RRGGBB` everywhere, with alpha in `opacity`. A gradient stop is
-refused in any other form, and so is an 8-digit or empty solid.
+rule follows them there: write `#RRGGBB` everywhere, with alpha in `opacity`. An empty or
+unreadable solid is refused or silently dropped, and an unreadable gradient stop vanishes.
 
 ### 20. A screen background is bound to a token in every real export — never a literal hex
 
@@ -1427,9 +1443,9 @@ with a reference to that colour — trap 26.
 ### Before authoring a shape you have not seen produced: grep for it
 
 **The schema tells you what is permitted; a real export tells you what is produced; only the
-second predicts the device.** Three defects shipped from that gap — a two-layer fill, an id reused
-across the two `theme` lists, and a predicate on a `toggle` group — and every local gate was green
-for two of them. In both of those the disproof was already on disk and cost seconds to find.
+second predicts the device.** Defects have shipped from that gap — an id reused across the two
+`theme` lists, a predicate on a `toggle` group — and the disproof was already on disk and cost
+seconds to find.
 
 So when you are about to author a construct you have not seen in a real document, **count it
 first** in the two sources a run always has:
@@ -1441,7 +1457,7 @@ jq '[.. | objects | select(has("fill")) | .fill | select(type=="array") | length
 
 # 2. component-catalog.json — 70 builder-authored templates, and it SHIPS with this skill
 jq '[.. | objects | select(has("fill")) | .fill | select(type=="array") | length] | unique' \
-   references/component-catalog.json      # -> [1].  105 fills, none with 2 layers
+   references/component-catalog.json      # the layer counts the builder's templates use
 ```
 
 **A count of zero is a finding, not an absence.** Nothing produced the shape, so nothing
@@ -1449,7 +1465,7 @@ downstream is obliged to understand it — say so out loud and treat the device 
 load-bearing rather than ceremonial.
 
 Know what each source cannot answer. The catalog carries elements and fills but **no `theme`
-block at all**, so it can settle "does the builder emit multi-layer fills" and not "may a colour
+block at all**, so it can settle "does the builder emit this fill shape" and not "may a colour
 and a preset share an id" — that one is `verify-config.py`'s job. And `tests/fixtures/` is
 repo-only: it does not exist on an installed skill, so never write a check that depends on it.
 
@@ -1458,8 +1474,8 @@ repo-only: it does not exist on an installed skill, so never write a check that 
 
 ### The `fill` shapes are a version difference, with a live exception
 
-v9 spells a fill as a single object; v10 as an **array** — but read the next section before you
-put two things in that array. Measured across four real exports plus one hand-built config:
+v9 spells a fill as a single object; v10 as an **array** of layers (next section).
+Measured across four real exports plus one hand-built config:
 
 | Config | `schemaVersion` | fill form |
 | :--- | :-- | :--- |
@@ -1470,30 +1486,14 @@ So the version rule is the explanation, not a law: a v9 flow carrying array fill
 Which is why the operating rule is unchanged and is the safe one either way — **read the form the
 input uses and keep it.** Author the array form only in a config that already uses it.
 
-#### One layer per fill: the array is a container, not proof of compositing
+#### A fill is a layer stack, bottom to top
 
-**A fill with two layers draws in `config preview` and is ignored on the device.** Measured the
-hard way: a screen fill of `[{image}, {gradient}]` — an asset with a dark scrim over it — rendered
-exactly as intended in the preview page, passed `flows config validate` (`valid: true`), passed
-the schema check, and shipped to an iOS device **with the tint simply absent**. The extra layer
-was dropped.
-
-The corroboration was sitting in the corpus the whole time: **every array fill in every real
-export has exactly one layer — 0 of 8 files contain a multi-layer fill**, and image fills and
-gradient fills always live on separate elements. The builder never emits the shape, so nothing
-downstream is obliged to composite it.
-
-**Do not treat the array as a compositing feature** — it is a container the schema permits, not a
-bottom-to-top stack you can rely on to express a tint over an image.
-
-**So express a tint one of two ways:** bake it into the asset and upload the result (one `image`
-layer — see [media.md](media.md)), or put the second visual on its own element. **One visual
-layer per fill.**
-
-**A theme colour is the one place a stack is the form.** When the layers must switch between
-light and dark — a photo under a scrim in one, a gradient in the other — write them as a layer
-stack in `theme.colors` and fill with a single reference to it (trap 26). The fill itself still
-holds one layer: the reference.
+A v10 fill array is drawn bottom to top, so a tint over a photo is two layers:
+`[{"type": "image", …}, {"type": "color", "color": {"type": "hex", "hex": "#000000", "opacity": 40}}]`.
+The layers are the ones a color style holds (trap 26) — solid, gradient, image, video — and a
+fill may also hold a single `color-style` reference to a layered style, which is the form to use
+when the stack must change between light and dark. An input's or a picker's fill draws only its
+first (bottom) layer.
 
 ### `effects` renders — a drop shadow is available, and measured
 
@@ -1939,7 +1939,8 @@ style error: you will search for an element type that does not exist, or invent 
 | a close button, "dismiss" | A tappable `stack` whose action is `{"type": "closeFlow"}` (no payload). |
 | a hero image the content slides up over, an overlay hero, a panel over a background | A **`sliding-sheet`** at the screen root holding the content, with the hero as the screen `fill` or as a root sibling of the sheet (the cover band). **Not a `bottom-sheet`**: that one is a hidden modal an action opens. See [`patterns.md`](patterns.md). |
 | an image, a background | An `image` element for content; `props.fill` with `{"type": "image"}` for a screen or element background. **Different shapes** — see trap 1. |
-| a background or card that changes with dark mode — a gradient in one, an image or a scrimmed photo in the other | A **layered theme colour** (trap 26): the layers go in `theme.colors[].light` / `.dark`, and the fill holds one `color-style` reference to it. `flowkit.config(colors=...)` takes the stack. Keep the text on it bound to a single-colour style — text on a style with no solid layer draws transparent. |
+| a background or card that changes with dark mode — a gradient in one, an image or a scrimmed photo in the other | A **layered color style** (trap 26): the layers go in `theme.colors[].light` / `.dark`, and the fill holds one `color-style` reference to it. `flowkit.config(colors=...)` takes the stack. Keep the text on it bound to a single-colour style — text on a style with no solid layer draws transparent. |
+| an image or a video that changes with dark mode — a logo, an illustration, a hero | The element's own dark file: `imageDark` beside `image`, `videoDark` beside `video`, both catalog refs keyed by locale. `flowkit.image(url, dark=...)` emits it; upload both files. See [`media.md`](media.md). |
 | a video, a looping banner | A `video` element (`loop`, `objectFit`). No CLI upload for the source — the command refuses a clip — so leave `customMediaID`/`video` unset: it renders a styled **"Upload Video"** placeholder and publishes clean. Give it a **fixed** height (a `hug` one draws an arbitrary 256pt, measured) plus the radius and margins of the design around it, then tell the user in words to upload it in the builder. `flowkit.video()`, or the catalog's `video-hero` / `video-card`. **Never** fake it with a `stack` + Play icon — trap 5. |
 | a carousel, reviews/testimonials, a slider, swipeable cards, cards with dots | A `carousel` element, one child `stack` per slide. It is swipeable and **renders its own indicator dots** from `props.dots` (`{size, color, activeColor}`) — you never build the dots by hand. Fixed geometry only (`slideWidth`/`slideHeight`/`height`; `hug` is dropped on device). **Never** fake it with a static card plus decorative dot `stack`s — that ships one frozen slide and dots that do nothing, the same lookalike mistake as the fake footer/spinner/video (trap 5). If the seed flow has one, copy it; otherwise take `component-catalog.json`'s filled **`reviews-carousel`** template, never the single-card `ue-review` — [`patterns.md`](patterns.md). |
 

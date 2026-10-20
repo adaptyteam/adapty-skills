@@ -220,17 +220,25 @@ correct, and it ships disclosed.
 `image` carrying a `groupId` is inert. So plan cards, toggles and tab bars cannot be pictures of
 themselves, however much easier the picture looks.
 
-**Anything whose colour must follow the theme.** An image has **no** appearance variant — its
-catalog entry is keyed by *locale*, and `ImageProps` has no light/dark hook anywhere. A themed
-colour does (`light`/`dark` per entry in `theme.colors`), and this is not hypothetical: two of the
-four corpus fixtures define a dark variant for **every** colour they declare (14/14 and 11/11). A
-bitmap with a baked-in background is the thing that breaks, which is why:
+**Anything whose colour must follow the theme — unless you upload a dark file too.** A bitmap
+with a baked-in background breaks the moment the app switches to dark mode, while every colour
+around it flips: themed colours carry `light`/`dark` per entry in `theme.colors`, and two of the
+four corpus fixtures define a dark variant for **every** colour they declare (14/14 and 11/11).
+An image can follow the appearance only with a second file:
 
-> A **background** image can follow the appearance: put it in a theme colour as a layer stack —
-> one image for light, another (or a gradient) for dark — and fill the screen or card with a
-> reference to that colour ([flow-schema.md](flow-schema.md), trap 26). Upload both files; the
-> image layer inside the style takes the same `{id, url, previewValue}` as an image fill, and
-> `flowkit.image_fill()` emits it. This is a fill, so it does not localize.
+- **An `image` element takes `imageDark`** beside `image`, and a `video` takes `videoDark`
+  beside `video`. Both are catalog refs of the same kind as their light field, keyed by locale.
+  The device shows the dark file in dark mode and the light one otherwise; either alone shows
+  in both. `flowkit.image(url, dark=dark_url, dark_preview=..., dark_media_id=...)` emits it. A
+  dark entry with no default-locale value shows the light file in dark mode wherever that
+  locale is missing, with a warning.
+- **A background** follows the appearance through a theme colour written as a layer stack — one
+  image for light, another (or a gradient) for dark — with the screen or card filled by a
+  reference to that colour ([flow-schema.md](flow-schema.md), trap 26). The image layer takes
+  the same `{id, url, previewValue}` as an image fill, and `flowkit.image_fill()` emits it.
+
+Upload both files either way. When the user has only one, design the graphic so it works on
+both surfaces, which is why:
 
 ### If you do rasterize
 
@@ -293,8 +301,12 @@ ref and no catalog entry:
 ```
 
 Because the element form is localizable, **a different asset per locale is expressible** — the
-entry's `values` is keyed by locale id exactly like copy. A fill is not localizable, so a background
-that must change per language has to be an element.
+entry's `values` is keyed by locale id exactly like copy. A fill's image can be localized too: its
+`image` may be a `{_lid}` ref to an `image` catalog entry instead of the flat value, and that is
+how the Flow Builder stores one — it rewrites the inline image of a fill or a theme colour into a
+ref when the flow is opened, so a re-fetched config shows refs where you wrote URLs.
+`localization.py catalog` mints refs for elements only, so a background that must change per
+language is simplest as an element; a fill ref you write needs its catalog entry beside it.
 
 **Write the `id` as a string.** The command prints a number and `--json` returns a JSON integer
 (`"id": 516395`), while the schema's `Image` declares `id` as a required `string` and every real

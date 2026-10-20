@@ -152,16 +152,13 @@ def hex_color(hexval, opacity=None):
 
 
 def fill(color_id=None, *, hexval=None, opacity=None, layers=None):
-    """A fill. v10 spells this as an ARRAY -- but pass ONE layer.
+    """A fill. v10 spells this as an ARRAY of layers, drawn bottom to top.
 
-    A two-layer fill draws in `config preview` and is IGNORED on device (measured: an
-    image+gradient screen fill shipped with the tint missing, after validate, the schema check
-    and the render all passed). No real export has a multi-layer fill. Bake a tint into the
-    asset instead, give it its own element, or — when the layers must follow light and dark —
-    put the stack in a theme colour (`config(colors=...)`) and fill with `fill(color_id)`.
-
-    `fill(hexval=...)` is also the solid layer inside such a stack; `opacity` (0-100) makes it a
-    scrim: `image_fill(url, preview=p) + fill(hexval='#000000', opacity=40)`.
+    One layer is `fill('card')` or `fill(hexval=...)`; a stack is the layer helpers concatenated,
+    or `layers=`: `image_fill(url, preview=p) + fill(hexval='#000000', opacity=40)` is a photo
+    under a scrim. When the stack must change between light and dark, put it in a theme colour
+    (`config(colors=...)`) and fill with `fill(color_id)`. An input's fill draws only its first
+    layer.
     """
     if layers is not None:
         return list(layers)
@@ -1143,8 +1140,11 @@ def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hex
     """A background image fill — `props.fill` on a screen or a stack.
 
     The SAME asset binds two different ways and this is the other one: an `image` element wraps
-    its value in a per-locale `values` map, while a fill takes the `Image` FLAT. A fill is not
-    localizable, so a background that must change per language has to be an element instead.
+    its value in a per-locale `values` map, while a fill takes the `Image` FLAT. A background
+    that must change per language is simplest as an element (media.md).
+
+    Inside a theme colour's layer stack this is the image layer: `config(colors=...)` takes
+    `image_fill(dark_url, preview=p) + fill(hexval='#000000', opacity=40)` as one appearance.
 
     `preview` matters here for the same reason it does on an element, and more visibly: a
     background is usually the largest asset on the screen, so it is the one whose absence reads
@@ -1162,7 +1162,7 @@ def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hex
 
 def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fill', height='hug',
           fixed_w=None, fixed_h=None, corner=None, margin=None, position=None,
-          locale='en', **kw):
+          locale='en', dark=None, dark_preview=_PREVIEW_UNSET, dark_media_id=None, **kw):
     """An `image` element bound to an uploaded asset.
 
     `url` is the CDN URL that `flows media upload` printed, `media_id` the id it printed
@@ -1179,6 +1179,9 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fil
     aspect ratio, so the screen re-flows if the file is swapped and `fit` has no visible effect.
     With a fixed height the box wins and the asset absorbs the mismatch — `cover` crops it,
     `fit` letterboxes it and leaves a dead band.
+
+    `dark` is a second uploaded file the device shows in dark mode (`props.imageDark`), with its
+    own `dark_preview` and `dark_media_id` from ITS upload. Without it the one file shows in both.
     """
     if fit not in OBJECT_FIT:
         raise ValueError(f'objectFit must be one of {OBJECT_FIT}, not {fit!r}')
@@ -1204,6 +1207,12 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fil
         'objectFit': fit,
         'position': position or relative(),
     }
+    if dark is not None:
+        if not (isinstance(dark, str) and dark.strip()):
+            raise TypeError(f'image(dark=...) wants the URL the dark file\'s upload printed, '
+                            f'not {dark!r}')
+        props['imageDark'] = {'values': {locale: _image_value(dark, dark_media_id, dark_preview)},
+                              '_localizable': True}
     if corner is not None:  props['borderRadius'] = corner
     if margin is not None:  props['margin'] = margin
     return _node('image', props, **kw)
@@ -2540,8 +2549,8 @@ def predeclare(screen_id, products):
     return {screen_id: {'products': entries}}
 
 
-_TEXT_COLOR_TYPES = {'text', 'text-input', 'email-input', 'password-input', 'number-input',
-                     'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
+_TEXT_COLOR_TYPES = {'text', 'timer', 'old-price', 'text-input', 'email-input', 'password-input',
+                     'number-input', 'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
 
 
 def _style_value(value, where):
@@ -2552,7 +2561,7 @@ def _style_value(value, where):
     `fill(hexval='#000000') + image_fill(url, preview=p)`. Every fill that references the style
     then follows the appearance. The layers must be LITERAL: a style cannot reference another
     style, and every colour inside one, gradient stops included, is `#RRGGBB` with alpha in
-    `opacity` — the transform service refuses a stop written any other way.
+    `opacity` — the only form the schema allows.
     """
     if isinstance(value, str):
         return {'hex': check_theme_hex(value, where)}
@@ -2579,8 +2588,8 @@ def _style_value(value, where):
             if not (layer.get('image') or {}).get('url'):
                 raise ValueError(f'{w}: an image layer needs a url')
         elif t == 'video':
-            raise ValueError(f'{w}: flowkit does not author video layers in a style — a video '
-                             f'needs a URL only the Flow Builder can produce')
+            raise ValueError(f'{w}: flowkit does not author video layers in a style — there is no '
+                             f'CLI upload for a clip; the user adds it in the Flow Builder')
         else:
             raise TypeError(f'{w}: not a fill layer: {layer!r}')
     return list(value)
@@ -2621,6 +2630,7 @@ def _check_layered_styles(theme_colors, typography, screens, components):
                     for v in (c['light'], c.get('dark', c['light'])))
         minted = ({f'{sid}_fill_{n}' for n in range(1, count)} | {f'{sid}_text_color'}
                   | {f'{sid}_border_{n}' for n in range(count)})
+        minted |= {f'{m}@dark' for m in minted}
         if minted & taken:
             raise ValueError(f'theme id(s) {sorted(minted & taken)} collide with the asset ids the '
                              f'transform service derives from the layered style {sid!r} — rename')

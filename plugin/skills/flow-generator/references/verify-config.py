@@ -563,8 +563,8 @@ def resolve_color(c, pal):
 def solid_fill(fill):
     """The `Color` inside a solid fill, taking the v9 object and the v10 one-layer array alike.
 
-    A multi-layer array is deliberately unresolvable: 0 of the real exports contain one, and the
-    one this project shipped reached a device with the tint missing (see flow-schema.md).
+    A multi-layer array is deliberately unresolvable: what it composites to over an image or a
+    gradient is not one colour, so the legibility check skips it rather than guess.
     """
     if isinstance(fill, list):
         if len(fill) != 1:
@@ -2957,21 +2957,35 @@ def check(path, baseline_text=None, baseline_images=None):
 # layers — solid, gradient, image, video — so one style can be a gradient in light mode and a
 # photo under a scrim in dark, and every fill that references it follows the appearance. The
 # transform service refuses a malformed stack with a 422 whose path names the style; the checks
-# below mirror each refusal so a document is named in one local pass. Video layers are carried
-# through untouched and not checked here.
+# below mirror each refusal so a document is named in one local pass. Video layers are only the
+# user's to add, so they are checked for the two topology rules and otherwise carried through.
 STYLE_LAYER_TYPES = {'color', 'gradient', 'image', 'video'}
-TEXT_COLOR_TYPES = {'text', 'text-input', 'email-input', 'password-input', 'number-input',
-                    'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
-INPUT_ELEMENT_TYPES = TEXT_COLOR_TYPES - {'text'}
+INPUT_ELEMENT_TYPES = {'text-input', 'email-input', 'password-input', 'number-input',
+                       'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
+TEXT_COLOR_TYPES = {'text', 'timer', 'old-price'} | INPUT_ELEMENT_TYPES
 
 
-def _solid_hex_warning(layer):
-    """A solid layer's hex the service maps but the builder never writes (#RGB, no `#`)."""
-    col = layer.get('color') if isinstance(layer, dict) and layer.get('type') == 'color' else None
-    h = col.get('hex') if isinstance(col, dict) and col.get('type') == 'hex' else None
-    if isinstance(h, str) and not THEME_HEX.match(h) and parse_hex(h) and len(h.lstrip('#')) != 8:
-        return f'solid hex {h!r} maps, but write #RRGGBB — a gradient stop refuses the same value'
-    return None
+def _hex_warnings(layer):
+    """Hexes the service reads but the schema does not allow (#RGB, #RRGGBBAA, no `#`)."""
+    if not isinstance(layer, dict):
+        return []
+    cols = []
+    if layer.get('type') == 'color':
+        cols.append(('solid', layer.get('color')))
+    elif layer.get('type') == 'gradient':
+        cols += [('gradient stop', st.get('color')) for st in layer.get('stops') or []
+                 if isinstance(st, dict)]
+    out = []
+    for what, col in cols:
+        h = col.get('hex') if isinstance(col, dict) and col.get('type') == 'hex' else None
+        if isinstance(h, str) and h and not THEME_HEX.match(h):
+            if parse_hex(h):
+                out.append(f'{what} hex {h!r} is read, but the schema allows only #RRGGBB — '
+                           f'write that, with alpha in `opacity`')
+            elif what == 'gradient stop':
+                out.append(f'gradient stop hex {h!r} cannot be read, so the stop is dropped from '
+                           f'the gradient — write #RRGGBB')
+    return out
 
 
 def _style_layer_problem(layer):
@@ -2989,25 +3003,56 @@ def _style_layer_problem(layer):
         if not (isinstance(col, dict) and col.get('type') == 'hex'):
             return f'a solid layer needs {{"type": "hex", "hex": "#RRGGBB"}}, not {json.dumps(col)}'
         h = col.get('hex')
-        if not (isinstance(h, str) and parse_hex(h)) or len(h.lstrip('#')) == 8:
-            return (f'solid hex {h!r} is refused — write #RRGGBB and put any alpha in '
-                    f'`opacity`')
+        if not (isinstance(h, str) and parse_hex(h)):
+            return (f'solid hex {h!r} cannot be read — depending on the service build it is '
+                    f'refused or the layer is silently dropped. Write #RRGGBB, alpha in `opacity`')
     if t == 'gradient':
         stops = layer.get('stops')
         if not (isinstance(stops, list) and stops):
             return 'a gradient layer needs at least one stop'
+        if not isinstance(layer.get('angle'), (int, float)) or isinstance(layer.get('angle'), bool):
+            return f'a gradient layer needs a numeric `angle`, not {json.dumps(layer.get("angle"))}'
         for st in stops:
             col = st.get('color') if isinstance(st, dict) else None
             if not (isinstance(col, dict) and col.get('type') == 'hex'):
                 return (f'gradient stop colour {json.dumps(col)} must be a literal '
                         f'{{"type": "hex", "hex": "#RRGGBB"}} — a style reference is refused here')
-            if not (isinstance(col.get('hex'), str) and THEME_HEX.match(col['hex'])):
-                return (f'gradient stop hex {col.get("hex")!r} is not #RRGGBB — the service refuses '
-                        f'#RGB, #RRGGBBAA and an unprefixed hex in a stop; put alpha in `opacity`')
+            if not (isinstance(col.get('hex'), str) and col['hex']):
+                return 'a gradient stop has an empty hex, which is refused — write #RRGGBB'
+            pos = st.get('position')
+            if not isinstance(pos, (int, float)) or isinstance(pos, bool):
+                return f'a gradient stop needs a numeric `position`, not {json.dumps(pos)}'
+        if not any(parse_hex(st['color']['hex']) for st in stops):
+            return 'no gradient stop hex can be read, so the gradient is refused — write #RRGGBB'
     if t == 'image':
         img = layer.get('image')
-        if not (isinstance(img, dict) and isinstance(img.get('url'), str) and img['url'].strip()):
-            return 'an image layer needs `image.url` — an empty image row is refused in a style'
+        ok = isinstance(img, dict) and (
+            (isinstance(img.get('url'), str) and img['url'].strip())
+            or img.get('_localizable') is True or isinstance(img.get('_lid'), str))
+        if not ok:
+            return ('an image layer needs `image.url` or a catalog ref — an empty image row is '
+                    'refused in a style')
+    if t == 'video':
+        vid = layer.get('video')
+        flat = isinstance(vid, dict) and not (vid.get('_localizable') is True
+                                              or isinstance(vid.get('_lid'), str))
+        if flat and not (vid.get('videoUrl') and vid.get('previewUrl')):
+            return 'a video layer needs `video.videoUrl` and `video.previewUrl`, or a catalog ref'
+    return None
+
+
+def _video_topology_problem(c):
+    """The two video rules of one style: equal video counts on both sides, one shared `loop`."""
+    def videos(variant):
+        return [x for x in style_layers(c.get(variant)) or []
+                if isinstance(x, dict) and x.get('type') == 'video']
+    lt, dk = videos('light'), videos('dark')
+    if c.get('light') is not None and c.get('dark') is not None and len(lt) != len(dk):
+        return (f'light has {len(lt)} video layer(s) and dark has {len(dk)} — a video on one '
+                f'side needs one on the other')
+    loops = {x.get('loop', True) is not False for x in lt + dk}
+    if len(loops) > 1:
+        return 'its video layers disagree on `loop` — every video in a style shares one value'
     return None
 
 
@@ -3043,8 +3088,13 @@ def theme_style_findings(d, bad, warn):
                 if problem:
                     bad.append(f'{where} {variant}[{j}] (theme.colors[{i}].{variant}[{j}]): '
                                f'{problem}. The transform service refuses the flow')
-                elif _solid_hex_warning(layer):
-                    warn.append(f'{where} {variant}[{j}]: {_solid_hex_warning(layer)}')
+                else:
+                    for w in _hex_warnings(layer):
+                        warn.append(f'{where} {variant}[{j}]: {w}')
+        topo = _video_topology_problem(c)
+        if topo:
+            bad.append(f'{where} (theme.colors[{i}]): {topo}. The transform service refuses the '
+                       f'flow (unsupported_appearance_fill_topology)')
         if isinstance(cid, str) and not is_single_solid(c):
             layered[cid] = c
 
@@ -3061,6 +3111,7 @@ def theme_style_findings(d, bad, warn):
         count = max(len(style_layers(style_side(c, v)) or []) for v in ('light', 'dark'))
         minted = ({f'{cid}_fill_{n}' for n in range(1, count)} | {f'{cid}_text_color'}
                   | {f'{cid}_border_{n}' for n in range(count)})
+        minted |= {f'{m}@dark' for m in minted}
         clash = sorted(x for x in minted & taken if isinstance(x, str))
         if clash:
             bad.append(f'theme id(s) {clash} collide with the ids the service derives from the '
@@ -3068,9 +3119,9 @@ def theme_style_findings(d, bad, warn):
 
     # Where a layered style may be used. A fill is what it exists for. A border takes its solid
     # and gradient layers only. Text — and an input's text — gets the BLEND of its solid layers,
-    # so a style with no solid layer draws text at alpha 0. Any other colour position (an icon,
-    # carousel dots, a spinner) receives the style's first layer as its colour, which a device is
-    # not obliged to draw as a gradient or an image.
+    # so a style with no solid layer draws text at alpha 0. An input's or picker's fill draws only
+    # the first layer. Any other colour position (an icon, a shadow, carousel dots, a spinner) must
+    # be one solid layer per appearance in the Flow Builder; the service uses the first layer.
     for where, eid_, e in iter_elements(d):
         etype = e.get('type')
         for path, v in iter_color_values(e):
@@ -3081,6 +3132,10 @@ def theme_style_findings(d, bad, warn):
             c = layered[sid]
             segs = {seg.split('[')[0] for seg in path.split('.')}
             if 'fill' in segs:
+                if etype in INPUT_ELEMENT_TYPES and any(
+                        len(style_layers(style_side(c, v)) or []) > 1 for v in ('light', 'dark')):
+                    warn.append(f'{where}/{eid_} {path}: an input or picker fill bound to the '
+                                f'layered style {sid!r} draws only its first (bottom) layer')
                 continue
             if 'border' in segs:
                 for variant in ('light', 'dark'):
@@ -3107,8 +3162,9 @@ def theme_style_findings(d, bad, warn):
                         break
                 continue
             warn.append(f'{where}/{eid_} {path}: {etype} colour bound to the layered style {sid!r} '
-                        f'— outside a fill, border or text a style is used as a plain colour, so '
-                        f'bind this to a single-colour style')
+                        f'— outside a fill, border or text the Flow Builder requires a style with '
+                        f'exactly one solid layer per appearance; bind this to a single-colour '
+                        f'style')
 
 args = sys.argv[1:]
 # --baseline <config> turns on the price/discount/duration comparison: literals already in the
