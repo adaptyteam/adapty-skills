@@ -1227,7 +1227,7 @@ that is not at the root, and refuses two.
 
   | the image's size | what the band draws |
   | :--- | :--- |
-  | `width` fixed | edge to edge, **ignoring** screen padding and the safe area, so it runs under the status bar. The width is a preview width, so the proportions change on a wider device |
+  | `width` fixed | inset by the screen padding and the top safe area like the rows below — **not** edge to edge, and not under the status bar. With `height` hug and an image that fits the band, it keeps that width from the leading padding and narrows where the band is narrower. Otherwise the width is ignored and the `width` fill row with the same height applies. For a hero that runs under the status bar, use the screen `fill` |
   | `width` fill, `height` fill | fills the band, inset by the screen padding and the top safe area |
   | `width` fill, `height` fixed | exactly that height, top-aligned; the rest of the band shows the screen fill |
   | `width` fill, `height` hug | its natural height if that fits the band, cropped to the band if it is taller. The call is made from the image's **`previewValue`**; without one the image is treated as fitting, so a tall image letterboxes instead of cropping. Carry the preview ([`media.md`](media.md)) |
