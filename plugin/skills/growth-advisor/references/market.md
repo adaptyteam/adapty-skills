@@ -20,6 +20,8 @@ their category, and never present a median as their target.
 - **The median is not the goal.** The top 10% convert 4-5× the median outside the US. Being at
   the median says the app is typical, not that it is done.
 - **App Store only.** For a Google Play question, say there is no market median here.
+- **Prices are not here.** Price levels by country, category and plan are in `price-index.csv`
+  (`pricing.md`), from a different Adapty report; that file owns every price number.
 
 ## The full grid
 

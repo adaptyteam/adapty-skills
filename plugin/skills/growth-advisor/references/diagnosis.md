@@ -211,7 +211,7 @@ paywall. Trials are set in the store, not in Adapty: read which products carry o
 by `store_product_id`, or ask the user. `product-offers list` shows the offers added to a product
 in Adapty, by type (`promotional`, `win_back`, `introductory`) and store: an offer there is
 available to a paywall, not proof that one shows it. An App Store trial applies without being
-added, so a product with no `introductory` offer listed may still have one: chart 4 settles it. Prices are out of scope; do not look them up.
+added, so a product with no `introductory` offer listed may still have one: chart 4 settles it.
 
 ## What the app already tried
 
@@ -540,6 +540,7 @@ be asking about a plan that is not where their money is. Read only what the idea
 | A plan length | chart 2 and chart 4 per length, read 12 |
 | A trial | charts 4 and 5, read 9 (trial pairs), read 11 with and without `--use-trial` |
 | A country | charts 1 and 4 filtered to it, chart 3 |
+| A price | the price CSV and the reads in `pricing.md`, "Reading the app's prices" |
 | A new placement or offer | chart 8 by placement; the setup reads; ask where users hit limits in the app |
 | Winning back users who left | chart 6 by reason, per store; `subscriptions_renewal_cancelled`; `trial-paid`; `billing-issue-paid` and `grace-period-paid` |
 | A paywall or flow's design | read 8 by paywall or flow, `view-paid` for that paywall, then the screen itself (`levers.md`, Paywall design) |

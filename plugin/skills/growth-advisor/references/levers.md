@@ -40,6 +40,11 @@ of them for you; a hypothesis outside the table fills them itself.
 | Localization | Translate [paywall] into [language] on [placement], for [countries] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall |
 | Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion | That change on that paywall | That change on that paywall |
 | Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Conversion to purchase | That change on that flow | That change on that flow |
+| Core price | Raise/Lower [plan] in [country] from [price] to [price] | Revenue per user | Moving it back | This move in this country |
+| Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there |
+| Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder |
+
+When each price type applies, and how it is tested on a copy: `pricing.md`.
 
 A rule-out is keyed to its target. Adding a trial to annual and losing rules out a trial on
 annual; it says nothing about a trial on monthly. A ruled-out idea is not deleted: say
@@ -57,7 +62,8 @@ changes.
    `diagnosis.md`). Compare the app against its own past, and against `market.md` only where the
    measure is the same (paywall view → paid, trial → paid, plan mix; never install → paid against
    a paywall conversion):
-   - conversion fine, revenue per user low → plan structure: push buyers toward the leading length
+   - conversion fine, revenue per user low → plan structure: push buyers toward the leading length;
+     and the price, placed against the market (`pricing.md`)
    - conversion low, revenue per user low → plan structure and the paywall itself
    - both fine → localization, plan mix and placements
 4. **Context that changes the answer.**
