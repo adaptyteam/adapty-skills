@@ -120,16 +120,17 @@ def color(color_id):
 # A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
 # In `theme.colors[].light/dark`, a 3-digit (`#fff`), 8-digit (`#RRGGBBAA`),
 # 7-digit, unprefixed (`FFFFFF`) or EMPTY hex is refused — and refused with the
-# location-free `Generated JSON failed schema validation`, because a colour `hex` is typed as
-# a bare string with no pattern, so neither the schema check nor `config preview` (which
-# draws light mode only) can see it. The cheapest possible defect to introduce and one of
-# the most expensive to diagnose.
+# location-free `Generated JSON failed schema validation`, which names no field, and
+# `config preview` (which draws light mode only) cannot see it. The published schema's hex
+# pattern `^(?:#[0-9A-Fa-f]{6})?$` catches all of these but the EMPTY string. The cheapest
+# possible defect to introduce and one of the most expensive to diagnose.
 #
-# The constraint is POSITION-SCOPED and this is not a detail: in an ELEMENT position
-# (`props.fill.color`, `props.color`) the same service accepts a 3-digit hex, an 8-digit
-# one and an empty string — real exports carry 8 eight-digit and 16 empty values there and
-# validate clean. So this is checked for theme colours only; a blanket rule would reject
-# documents the builder itself produces.
+# The service's constraint is POSITION-SCOPED and this is not a detail: in an ELEMENT
+# position (`props.fill.color`, `props.color`) the same service accepts a 3-digit hex, an
+# 8-digit one and an empty string — real exports carry 8 eight-digit and 16 empty values
+# there and validate clean. So this raises for theme colours only; a blanket rule would
+# reject documents the builder itself produces. Write `#RRGGBB` everywhere regardless: the
+# schema's pattern covers element colours too.
 THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
 
 

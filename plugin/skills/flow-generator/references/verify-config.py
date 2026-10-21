@@ -167,13 +167,15 @@ COND_ILLEGAL_TYPES = {'assign'}
 # A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
 # In `theme.colors[].light/dark` a 3-digit, 8-digit, 7-digit, unprefixed or EMPTY
 # hex is refused -- and refused with the location-free `Generated JSON failed schema
-# validation`, which names no field, because a colour `hex` is a bare string with no pattern.
-# The render cannot see it either: `config preview` draws light mode only.
+# validation`, which names no field. The render cannot see it: `config preview` draws light
+# mode only. The published schema's hex pattern `^(?:#[0-9A-Fa-f]{6})?$` catches the rest but
+# allows the EMPTY string, so this check is the only local gate for that one.
 #
 # POSITION-SCOPED on purpose. In an element position the same service accepts a 3-digit hex,
 # an 8-digit one and an empty string, and real exports carry 8 eight-digit and 16 empty values
-# in `props.fill.color` / `props.color` and validate clean -- so a blanket hex rule would fire
-# on the builder's own output. Theme colours only.
+# in `props.fill.color` / `props.color` and validate clean -- so an error here would fire on
+# the builder's own output. The schema check reports the 3- and 8-digit ones; `--baseline`
+# keeps the ones already in the fetched config out of its report. Theme colours only.
 THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
 
 # An id that reaches the generated runtime script as an identifier. Element ids, group ids,
