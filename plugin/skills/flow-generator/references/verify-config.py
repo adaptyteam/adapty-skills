@@ -1752,8 +1752,13 @@ def check(path, baseline_text=None, baseline_images=None):
         bad.append(f'lineHeight is in points, not a multiplier of size — these collapse every line '
                    f'onto the one above it: {sorted(set(collapsed))}. Multiply the ratio by size '
                    f'(1.2 on size 16 → 19)')
+    # An unresolved colorId draws nothing, so the screen the user sees today has no paint there.
+    # Repointing it at a real colour makes that fill appear: footers went opaque over their text.
     if uc - colors:
-        bad.append(f'colorId not in theme.colors: {sorted(uc - colors)}')
+        bad.append(f'colorId not in theme.colors: {sorted(uc - colors)}. Tell the user, whether or '
+                   f'not you touch it: today these draw as transparent, so picking a colour for one '
+                   f'CHANGES how the screen looks (a fill appears where there was none). Ask which '
+                   f'they want: bind it to a theme colour, or remove the fill to keep the current look')
 
     # Every colour an element carries is an `Color`: `{type: hex, hex}` or
     # `{type: color-style, colorId}`, nothing else. The Flow Builder's renderer throws on any

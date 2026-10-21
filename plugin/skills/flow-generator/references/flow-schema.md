@@ -619,6 +619,25 @@ family that has none. `flows config validate` reports it; `verify-config.py` doe
 user's to fix, not yours: they set the name on that face in the builder's font settings, then
 you re-fetch. Never type a name into `_meta.fonts` — it would not match their bundle.
 
+**`_meta.fonts` is a copy of the app's font record, and a builder save overwrites it.** The
+custom font lives once per app; each flow carries a snapshot of it, refreshed from the app's
+record when someone saves that flow in the builder. So a name corrected through
+`config update` comes back on read, and then the next builder save restores the old value.
+The fix is always the user's, in the font's settings in the builder
+([Manage a custom font](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)), and it
+reaches each flow only when that flow is saved again in the builder. Opening it is not enough.
+After that fix, every other flow that uses the font still carries the old name until it is
+re-saved, so name those flows in the handoff. The names have one shape each
+([Add the font files to your app's bundle](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)):
+
+| Field | Must be |
+|---|---|
+| `iosName` | the PostScript name stored in the font file, unique across the app's custom fonts. A variable font file often declares none, so the user enters it |
+| `androidName` | the file name in `res/font/` without the extension: lowercase letters, digits and `_` only. The builder never fills it in |
+
+When a flow you touch carries a name of the wrong shape, report it with that rule and the
+settings link above. The flow publishes with it; the device draws the system font instead.
+
 A reference can enter by any of invariant 9's paths, and the preset is the quiet one:
 an element's `props.font.family`, or a **typography preset** whose
 `settings.family.id` points at an uploaded font. `quiz` declares no fonts at all

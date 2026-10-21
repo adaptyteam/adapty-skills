@@ -211,6 +211,9 @@ if (values.locales) {
   locales = readLocales(flow)
   const dflt = localizationOf(flow).defaultLocale
   defaultLocaleId = typeof dflt === 'string' ? dflt : null
+  // A single-language flow can carry `locales: []` with only `defaultLocale` set; that one
+  // value is then the whole list, and here the id and the code are the same string.
+  if (locales.length === 0 && defaultLocaleId) locales = [{code: defaultLocaleId, id: defaultLocaleId}]
   configDir = dirname(resolve(values.config))
 }
 

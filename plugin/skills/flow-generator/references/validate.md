@@ -72,6 +72,9 @@ missing or wrong flow id, an expired token and a genuinely broken config all exi
 presence of `valid`, then on its value — an agent gating on the exit code alone reports a good
 config as broken and a failed call as a defect.
 
+**`http_502` is a failed call, never a verdict on the config.** Validating many flows in parallel
+returns it for most of them. Validate one flow at a time, and on a 502 retry that one call once.
+
 `code` and `path` come back `null` on every message measured. The location, when there is one, is
 inside the `message` string.
 

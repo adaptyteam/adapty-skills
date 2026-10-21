@@ -314,7 +314,7 @@ Four facts about the config commands that are not guessable:
 
 - **`config get` returns an envelope, not the config**: `{config, remote_configs, status,
   updated_at}`, plus `publication_status`, `transform_error` and `publication_error` when the last
-  publish failed. The document you transform is the `config` field, and both `update` and
+  publish failed; `status` can be missing, so read it with a default. The document you transform is the `config` field, and both `update` and
   `validate` take that field alone. Handing `validate` the envelope returns
   `Invalid flow input` — which reads exactly like a broken config and is not one. (`preview`
   is the odd one out: it accepts either.)
