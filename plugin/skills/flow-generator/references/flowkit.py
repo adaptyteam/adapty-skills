@@ -2028,7 +2028,7 @@ def from_catalog(entry, *, group_id=None, fills=None, items=None, colors=None):
     `screen()` as it stands. Without this conversion a template gets retyped as a hand-built
     skeleton instead of lifted, which is where its correct wiring is lost on the way in.
 
-        entry = json.load(open('component-catalog.json'))['components']
+        entry = json.load(open('component-catalog.json', encoding='utf-8'))['components']
         tpl   = next(c for c in entry if c['id'] == 'prod-vertical-list')['template']
         nodes = fk.from_catalog(tpl, group_id='plans')
 

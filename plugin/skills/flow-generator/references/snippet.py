@@ -61,7 +61,7 @@ def load(path):
 def load_stored(path):
     """Read a flow config exactly as stored. Accepts the bare config or the envelope."""
     try:
-        with open(path) as fh:
+        with open(path, encoding='utf-8') as fh:
             doc = json.load(fh)
     except (OSError, ValueError) as e:
         die(f'cannot read {path}: {e}')
@@ -403,7 +403,7 @@ def _enrich(config, deps, defs, elements, screen, catalog):
     cat = {}
     if catalog:
         try:
-            rows = json.load(open(catalog))
+            rows = json.load(open(catalog, encoding='utf-8'))
             rows = rows.get('data', rows) if isinstance(rows, dict) else rows
             cat = {r['id']: r for r in rows if isinstance(r, dict) and 'id' in r}
         except (OSError, ValueError, KeyError):
@@ -533,7 +533,7 @@ def snippet_dir(start=None):
 
 def read_snippet(path):
     try:
-        with open(path) as fh:
+        with open(path, encoding='utf-8') as fh:
             s = json.load(fh)
     except (OSError, ValueError) as e:
         die(f'cannot read {path}: {e}')
@@ -837,7 +837,7 @@ def resolve_identity(snippet, config, screen_id, catalog_path):
     cat = []
     if catalog_path:
         try:
-            rows = json.load(open(catalog_path))
+            rows = json.load(open(catalog_path, encoding='utf-8'))
         except (OSError, ValueError):
             rows = None
         if isinstance(rows, dict):
@@ -1467,7 +1467,7 @@ def main(argv):
                              a2.scope, a2.catalog, a2.app)
         snip['savedAt'] = time.strftime('%Y-%m-%d')
         os.makedirs(os.path.dirname(os.path.abspath(a2.out)), exist_ok=True)
-        with open(a2.out, 'w') as fh:
+        with open(a2.out, 'w', encoding='utf-8') as fh:
             json.dump(snip, fh, indent=2, sort_keys=False)
             fh.write('\n')
         print(f'saved: {os.path.abspath(a2.out)}')
@@ -1551,7 +1551,7 @@ def main(argv):
             die(f'cannot graft into {a2.config}: {exc}')
         for w in lost:
             print(f'DROPPED  {w["path"]}: {w["message"]}')
-        with open(a2.out, 'w') as fh:
+        with open(a2.out, 'w', encoding='utf-8') as fh:
             json.dump(out, fh, indent=2)
             fh.write('\n')
         print(f'\n{_applied_line(pl, snip)}')

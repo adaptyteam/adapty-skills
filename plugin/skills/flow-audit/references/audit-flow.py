@@ -77,7 +77,7 @@ def _tag(f, **report_only):
 def load_config(path):
     """Accept either the `config get` envelope or a bare config, and return the READ VIEW:
     every catalog ref inlined, `locales`/`defaultLocale` copied to the top level."""
-    doc = json.load(open(path))
+    doc = json.load(open(path, encoding='utf-8'))
     doc = doc['config'] if isinstance(doc, dict) and 'config' in doc else doc
     return _loc.resolve(doc) if isinstance(doc, dict) else doc
 
@@ -3073,11 +3073,11 @@ def main(argv):
         return 2
     try:
         config = load_config(args[0])
-        catalog = json.load(open(flags['--catalog'])) if isinstance(
+        catalog = json.load(open(flags['--catalog'], encoding='utf-8')) if isinstance(
             flags.get('--catalog'), str) else None
-        placements = json.load(open(flags['--placements'])) if isinstance(
+        placements = json.load(open(flags['--placements'], encoding='utf-8')) if isinstance(
             flags.get('--placements'), str) else None
-        siblings = json.load(open(flags['--sibling-locales'])) if isinstance(
+        siblings = json.load(open(flags['--sibling-locales'], encoding='utf-8')) if isinstance(
             flags.get('--sibling-locales'), str) else None
     except (OSError, ValueError) as exc:
         print(f'cannot read input: {exc}', file=sys.stderr)

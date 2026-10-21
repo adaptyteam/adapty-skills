@@ -709,7 +709,7 @@ def _main(argv):
     if '--out' in argv:
         out_path = argv[argv.index('--out') + 1]
     try:
-        with open(src) as f:
+        with open(src, encoding='utf-8') as f:
             doc = json.load(f)
     except (OSError, ValueError) as exc:
         print(f'cannot read {src}: {exc}', file=sys.stderr)
@@ -726,7 +726,7 @@ def _main(argv):
     except MigrationError as exc:
         print(f'not catalogued: {exc}', file=sys.stderr)
         return 2
-    with open(out_path, 'w') as f:
+    with open(out_path, 'w', encoding='utf-8') as f:
         json.dump(dict(doc, config=out) if envelope else out, f, ensure_ascii=False, indent=2)
     n = len(out['localization']['content'])
     print(f'catalogued -> {out_path} ({n} entries, schemaVersion {SCHEMA_VERSION})')

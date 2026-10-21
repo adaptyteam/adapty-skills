@@ -16,6 +16,17 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${1:?usage: gates.sh <config.json> [APP_UUID FLOW_ID]}"
 APP="${2:-}"; FLOW="${3:-}"
 [ -f "$CFG" ] || { echo "gates: no such file: $CFG" >&2; exit 2; }
+# Python 3 by RUNNING each candidate, never by name: on Windows `python3` is usually the Microsoft
+# Store stub, which is on PATH, prints an install hint and fails — so the structural step failed
+# while the gate itself looked broken. `-X utf8` because Windows otherwise reads and prints the
+# config in the console code page, and a non-Latin locale does not survive that. PYTHON= wins.
+PY="${PYTHON:-}"
+if [ -z "$PY" ]; then
+  for c in python3 python "py -3"; do
+    if $c -X utf8 -c 'import sys; sys.exit(sys.version_info[0] != 3)' >/dev/null 2>&1; then PY="$c -X utf8"; break; fi
+  done
+fi
+[ -n "$PY" ] || { echo "gates: no Python 3 found (tried python3, python, py -3) — set PYTHON=/path" >&2; exit 2; }
 # Absolutise both paths NOW. The schema step runs inside `cd "$AJV_DIR"`, so a relative path
 # resolves against the ajv cache dir, the node call cannot find the file, and because that step is
 # wrapped in `|| true` the gate is SILENTLY SKIPPED while the run still reports a pass. The -f
@@ -26,9 +37,9 @@ CFG="$(cd "$(dirname "$CFG")" && pwd)/$(basename "$CFG")"
 # The publish gate takes the BARE config and answers an envelope with "Invalid flow input", which
 # reads exactly like a broken document. `config get`/`config update` return the envelope, so unwrap
 # one here instead of letting the gate fail on the file's shape.
-if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d,dict) and isinstance(d.get("config"),dict) else 1)' "$CFG" 2>/dev/null; then
+if $PY -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d,dict) and isinstance(d.get("config"),dict) else 1)' "$CFG" 2>/dev/null; then
   BARE="$(mktemp "${TMPDIR:-/tmp}/gates-bare.XXXXXX")"
-  python3 -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["config"], open(sys.argv[2],"w"))' "$CFG" "$BARE"
+  $PY -c 'import json,sys; json.dump(json.load(open(sys.argv[1]))["config"], open(sys.argv[2],"w"))' "$CFG" "$BARE"
   echo "gates: $CFG is an envelope; checking its .config"
   CFG="$BARE"
 fi
@@ -38,7 +49,7 @@ fi
 ADAPTY_BIN=${ADAPTY:-}
 if [ -z "$ADAPTY_BIN" ] && command -v adapty >/dev/null 2>&1; then ADAPTY_BIN="adapty"; fi
 if [ -z "$ADAPTY_BIN" ] && [ -n "$APP" ]; then
-  echo "gates: no Adapty CLI. Install it (npm install -g adapty) or pass the command as ADAPTY=..." >&2
+  echo "gates: no Adapty CLI. Install it (npm install -g adapty) or pass the command: ADAPTY='npx --yes adapty@latest' gates.sh ..." >&2
   exit 2
 fi
 
@@ -51,9 +62,9 @@ echo "-- 1/3 structure (verify-config.py)"
 # findings, and verify-config.py uses it to tell a price THIS draft invented from one the flow
 # already had. Both are already absolute (see above), and this runs before any `cd`.
 if [ -n "${BASELINE:-}" ] && [ -f "$BASELINE" ]; then
-  if python3 "$HERE/verify-config.py" --baseline "$BASELINE" "$CFG"; then :; else fail=1; fi
+  if $PY "$HERE/verify-config.py" --baseline "$BASELINE" "$CFG"; then :; else fail=1; fi
 else
-  if python3 "$HERE/verify-config.py" "$CFG"; then :; else fail=1; fi
+  if $PY "$HERE/verify-config.py" "$CFG"; then :; else fail=1; fi
 fi
 
 echo "-- 2/3 schema shape (ADVISORY — does not decide the verdict)"
@@ -92,7 +103,7 @@ if [ -z "$APP" ] || [ -z "$FLOW" ]; then
   fail=1
 else
   out="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$CFG" --json 2>&1)"
-  verdict="$(printf '%s' "$out" | python3 -c '
+  verdict="$(printf '%s' "$out" | $PY -c '
 import json,sys
 try: d=json.load(sys.stdin)
 except Exception: print("UNPARSEABLE"); raise SystemExit

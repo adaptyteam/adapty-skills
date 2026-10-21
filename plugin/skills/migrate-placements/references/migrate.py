@@ -1102,7 +1102,7 @@ def _read_inventory(path):
     """
     p = pathlib.Path(path)
     try:
-        text = p.read_text()
+        text = p.read_text(encoding='utf-8')
     except OSError as exc:
         return None, f'could not read {path}: {exc.strerror or exc}'
     try:
@@ -1218,7 +1218,7 @@ def _read_flows(path):
     """
     p = pathlib.Path(path)
     try:
-        text = p.read_text()
+        text = p.read_text(encoding='utf-8')
     except OSError as exc:
         return None, f'could not read {path}: {exc.strerror or exc}'
     try:
@@ -1345,7 +1345,7 @@ def _run(args):
             except CliError as exc:
                 payload['existing'] = {'error': str(exc)}
         try:
-            pathlib.Path(args.out).write_text(json.dumps(payload, indent=2))
+            pathlib.Path(args.out).write_text(json.dumps(payload, indent=2), encoding='utf-8')
         except OSError as exc:
             print(f'could not write {args.out}: {exc.strerror or exc}', file=sys.stderr)
             return 2
