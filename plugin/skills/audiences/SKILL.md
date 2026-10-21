@@ -38,14 +38,14 @@ test's running content, so a test entry is not something you build or edit here.
   backend counts its priorities and its default audience **apart** from the regular ones, so both
   groups can hold priority 0 and a default. You add and reorder only regular audiences.
 - **A write that only adds a segment audience or only changes priorities is safe.** The test keeps
-  running with the same start time, so the test needs no card.
+  running with the same start time, so the test needs no warning.
 - **A write that changes a test is not safe, and this skill does not make it.** Three writes do:
   a running test's audience is replaced by a paywall or flow, or is missing from the list; its
   audience gets other segments; or the list carries a test id the placement does not run now.
   Stopping a test belongs to `ab-tests` (`ab-tests stop` with `--winner`, `--other` or
-  `--no-content`), which shows the user the exact effect first. Say so, hand the user to
-  `ab-tests`, and come back for the placement write after the test has stopped (read the placement
-  again then).
+  `--no-content`) and starting one to `ab-tests start`; each shows the user the exact effect
+  first. Say so, hand the user to `ab-tests`, and come back for the placement write after the
+  test has stopped (read the placement again then).
 - **Read again just before the write.** Run `placements get` once more. If the placement differs
   from the read the user saw, show the new before/after table and ask again. An unattended run
   stops there and reports; it does not write.

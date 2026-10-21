@@ -189,7 +189,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 - **Field names come from a real `segments get`,** never from memory.
 - **Pass A/B test entries back as read** (CLI 0.11.0 is the first release that returns them). Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it. Starting, stopping or replacing a test is `ab-tests`, never a placement write here.
-- **A placement write never stops, starts or moves a test:** every test entry goes back as read, and a request that would stop one (this skill's new audience, a flow, other segments) is routed to `ab-tests stop`, then the write follows. Read the placement again before the write (changed: ask again; unattended: stop and report). The CLI has no such check. An unattended run may write when every test entry is unchanged.
+- **A placement write never stops, starts or moves a test:** every test entry goes back as read, and a request that would stop one (a write that replaces or moves a test's audience) is routed to `ab-tests stop`, and one that would start one to `ab-tests start`; then the write follows. Read the placement again before the write (changed: ask again; unattended: stop and report). The CLI has no such check. An unattended run may write when every test entry is unchanged.
 - **Never delete an entry the CLI refuses** (`content_type` on 0.10.0 and older, "this CLI does not know this audience kind" later); tell the user to update the CLI, re-resolve `$ADAPTY`, then the dashboard.
 - **OR is two segments** (filters inside one are ANDed); equality is `IN` with one value; new audiences go before the default.
 
