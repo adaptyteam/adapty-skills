@@ -67,7 +67,9 @@ audiences before and after as a table with the line "test X stops with no winner
 starts", wait for the user's yes, and read the placement again just before the write: if it changed
 since the read the user saw, show the new table and ask again (an unattended run stops and
 reports). No answer means the change is made in the dashboard instead. A write that only adds a
-segment audience or reorders priorities needs no such line, and the test keeps running.
+segment audience or reorders priorities needs no such line, and the test keeps running. Starting,
+stopping or replacing a test on purpose is not a placement write: it belongs to the `ab-tests`
+skill.
 
 **Never `--paywall-id`.** It is deprecated in favour of `--audiences` (the CLI prints a warning to
 stderr), and on `update` it carries a second warning worth quoting: it *"will rewrite all audiences

@@ -21,9 +21,9 @@ This skill owns segments and audiences. It does not own:
   Come back here to route the segment it returns.
 - **An attribute the app has to send** (custom attributes, age, gender, customer user ID) →
   `adapty-integration` owns the SDK call. A segment over an attribute nobody sets matches nobody.
-- **Starting, stopping or building an A/B test** — not in the CLI. The CLI reads the tests on a
-  placement and keeps them (next section). For the rest, send the user to
-  https://adapty.io/docs/add-audience-paywall-ab-test.
+- **Starting, stopping, replacing or building an A/B test** → `ab-tests`. It owns the life of a
+  regular paywall or flow test and shows the user the exact effect before each one-way step. This
+  skill reads the tests on a placement and keeps them (next section); it never starts or stops one.
 
 ## A/B tests on a placement: the CLI reads and keeps them
 
@@ -49,9 +49,9 @@ test's running content, so a test entry is not something you build or edit here.
 - **Read again just before the write.** Run `placements get` once more. If the placement differs
   from the read the user saw, show the new before/after table and ask again. An unattended run
   stops there and reports; it does not write.
-- **Put on an audience only the test id it already carries.** The one exception is a test the user
-  names as still a draft, and the table then says "test X starts on <who>". Never put the id of a
-  test that runs on another audience or placement: the backend would move that test.
+- **Put on an audience only the test id it already carries.** Never put any other test id on an
+  audience, a draft included: starting a test belongs to `ab-tests`. The id of a test that runs on
+  another audience or placement would move that test.
 - **An unattended run may write a placement when the table has no test line.** A test line with no
   answer from the user means no write: give the exact dashboard change instead (which audience,
   which segment, which paywall or flow, which position), where the test keeps running. Creating
@@ -195,8 +195,8 @@ building, and say what each option means. Labels are the dashboard's (https://ad
 
 - **Never write a placement whose test would stop, start or move before the user has confirmed a
   table that names the test**, and never on a placement that changed since the read they saw.
-- **Never put a test id on an audience that does not already carry it**, except a draft the user
-  named. A test id of another audience or placement moves that test.
+- **Never put a test id on an audience that does not already carry it.** Starting a test is
+  `ab-tests`; the id of a test that runs elsewhere moves that test.
 - **Never edit, reorder or drop a shared-test entry** (`cross_ab_test`, `flow_cross_ab_test`).
 - **Never change what a user outside the request sees without their explicit answer** — not when
   the user said "go ahead", not when the order "seems right". Moving a new audience above an
@@ -237,7 +237,7 @@ Quotes are verbatim from baseline runs without this skill (2026-10-12).
 - An `--audiences` array with fewer entries than `placements get` returned, plus one
 - A write that stops, starts or moves a test, and no confirmed table that names it
 - A `placements update` with no `placements get` just before it
-- An `ab_test_id` in the array that no audience of this placement carried when you read it, except a draft test the user named
+- An `ab_test_id` in the array that no audience of this placement carried when you read it
 - A `field_name` or a value not in the table, or a custom attribute key nobody read off a segment, the code or the user
 - An app version with fewer than three parts
 - An entry from `placements get` removed after the CLI refused it
