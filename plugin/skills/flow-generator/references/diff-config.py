@@ -76,7 +76,7 @@ def load(path):
     """Take a config out of an envelope if it is in one. `config get` and `config update`
     both return `{config, remote_configs, status, updated_at}`; `preview` and the file
     deliverable take the bare config. Accept either on either side."""
-    d = json.load(open(path))
+    d = json.load(open(path, encoding='utf-8'))
     if isinstance(d, dict) and 'config' in d and isinstance(d['config'], dict) \
             and 'screens' in d['config']:
         d = d['config']

@@ -961,7 +961,7 @@ def _var_ids(v):
 
 
 def check(path, baseline_text=None, baseline_images=None):
-    raw = unwrap(json.load(open(path)))
+    raw = unwrap(json.load(open(path, encoding='utf-8')))
     bad, warn = catalog_findings(raw)
     # Every check below reads THIS: the same document with each `{_lid}` ref inlined, so a check
     # written against a localizable value sees its per-locale values. Read-only by construction.
@@ -3175,7 +3175,7 @@ if '--baseline' in args:
     i = args.index('--baseline')
     if i + 1 >= len(args):
         sys.exit('verify-config.py: --baseline needs a config path')
-    base = _loc.resolve(unwrap(json.load(open(args[i + 1]))))
+    base = _loc.resolve(unwrap(json.load(open(args[i + 1], encoding='utf-8'))))
     baseline_text = {t for _, _, _, t in iter_visible_text(base)}
     # url -> did the baseline already carry a preview for it. False means the flow arrived
     # without one, which is not this draft's doing and cannot be repaired from the CLI.
@@ -3196,7 +3196,7 @@ for path in args:
     # convention the rest of this repo's scripts use.
     # An unreadable input is the caller's to fix, not a checker bug — say which, plainly.
     try:
-        json.load(open(path))
+        json.load(open(path, encoding='utf-8'))
     except OSError as exc:
         print(f'{os.path.basename(path):34} UNREADABLE')
         print(f'   {exc.strerror}: {path}')

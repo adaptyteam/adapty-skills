@@ -50,7 +50,7 @@ TERMINAL = {'purchase': 'buys', 'restorePurchases': 'restores', 'closeFlow': 'cl
 # ---------- reading the config ----------
 
 def load(path):
-    with open(path) as f:
+    with open(path, encoding='utf-8') as f:
         d = json.load(f)
     if isinstance(d, dict) and 'config' in d and 'screens' not in d:
         d = d['config']
@@ -585,7 +585,7 @@ def main():
     title = a.title
     if not title:
         try:
-            with open(a.config) as f:
+            with open(a.config, encoding='utf-8') as f:
                 env = json.load(f)
             title = env.get('name') or env.get('title')
         except Exception:
@@ -593,7 +593,7 @@ def main():
     title = title or os.path.splitext(os.path.basename(a.config))[0]
     shots = find_shots(a.shots or os.path.dirname(os.path.abspath(a.config)), [s.id for s in screens])
     out = a.out or os.path.join(os.path.dirname(os.path.abspath(a.config)), 'canvas.html')
-    with open(out, 'w') as f:
+    with open(out, 'w', encoding='utf-8') as f:
         f.write(render_html(screens, edges, badges, level, cols, unreachable, shots, title, branches))
     print(f'canvas: {out}')
     print(f'  {len(screens)} screens, {len(edges)} connections, '

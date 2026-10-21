@@ -257,7 +257,14 @@ both lack it — never from a version number you read somewhere.
 **In `zsh` — the macOS default — a multi-word `$ADAPTY` is not split into words**, so every command
 below fails with `command not found: npx --yes adapty@latest`. Run `setopt shwordsplit` once in the
 same shell (verified), or call `npx --yes adapty@latest` in full. That error is a shell problem,
-never evidence the command or the CLI is missing.
+never evidence the command or the CLI is missing. `gates.sh` and `shoot.sh` run in `bash` and split
+it themselves, so hand them the command as a prefix: `ADAPTY='npx --yes adapty@latest' references/gates.sh …`.
+
+**On Windows, run the `.sh` scripts from Git Bash, and where this skill writes `python3`, call
+`python -X utf8` (or `py -3 -X utf8`).** `python3` there is usually the Microsoft Store stub, and
+"Python was not found" means the wrong interpreter, never a broken script; `-X utf8` keeps non-Latin
+copy from passing through the console code page. `gates.sh` and `shoot.sh` find a working Python,
+and Chrome or Edge, themselves; set `PYTHON=` or `CHROME=` only when they say they cannot.
 
 **`flows media upload` works in production.** It takes a local image file and prints a live CDN URL
 to bind into the config, so an image the user *handed you a file for* is yours to place, not a user

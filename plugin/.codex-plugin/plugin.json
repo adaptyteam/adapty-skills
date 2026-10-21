@@ -1,6 +1,6 @@
 {
   "name": "adapty-skills",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Skills that hand your app's subscription surface to your agent: integrate the Adapty SDK on any mobile platform (iOS, Android, Flutter, React Native, Unity, KMP, Capacitor), get the first sandbox purchase through, build and edit Flow Builder paywalls and onboardings, audit a flow before you publish, move paywall placements to flows, show different paywalls to different users by segment, run Apple Search Ads, read which campaigns pay back in Adapty Attribution, turn a paywall or onboarding into ranked conversion tests, and answer a product, dashboard or API question straight from Adapty's docs.",
   "author": {
     "name": "Adapty",
