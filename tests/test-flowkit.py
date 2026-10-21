@@ -1385,6 +1385,20 @@ def main():
                         typography=[('b', 'B', 16, w)])['theme']['typography'][0]['settings']
               ['weight'] == w for w in fk.FONT_WEIGHTS))
 
+    # --- line height -------------------------------------------------------------------------
+    # Points, not a multiplier: `1.15` is a 1.15pt line box and collapses the text.
+    check('a multiplier lineHeight is refused with the point value to write',
+          'Write 18 for 1.15' in _message(
+              lambda: fk.config(screens=[], colors=[], typography=[('b', 'B', 16, 'bold', 1.15)])))
+    check('a lineHeight in points is kept',
+          fk.config(screens=[], colors=[], typography=[('h', 'H', 30, 'bold', 34, -1)])
+          ['theme']['typography'][0]['settings'] ==
+          {'size': 30, 'weight': 'bold', 'lineHeight': 34, 'letterSpacing': -1})
+    check('the schema\'s percent form passes through the guard untouched',
+          fk.config(screens=[], colors=[],
+                    typography=[('h', 'H', 32, 'bold', {'type': 'percent', 'value': 110})])
+          ['theme']['typography'][0]['settings']['lineHeight'] == {'type': 'percent', 'value': 110})
+
     # --- theme ids ---------------------------------------------------------------------------
     # One id for a colour and a preset is the device's "Duplicate Key": the flow will not open.
     check('a colour and a preset sharing an id are refused',

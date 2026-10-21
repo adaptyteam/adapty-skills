@@ -2470,8 +2470,8 @@ def _typo(entry):
 
     `weight` is a NAME from `FONT_WEIGHTS`, never a number.
 
-    Both extras are plain numbers inside `settings`, verified against a real export that carries
-    them on 6 of its 7 presets. Leading is a design lever, not a nicety: at the default the
+    Both extras are plain numbers in POINTS inside `settings`, verified against a real export that
+    carries them on 6 of its 7 presets. Leading is a design lever, not a nicety: at the default the
     renderer gives a 30pt heading noticeably loose line spacing, and there is nowhere else to
     set it — a `text` element cannot override what the preset does not carry.
     """
@@ -2483,6 +2483,15 @@ def _typo(entry):
             f'kills the render with "Invalid font weight value", which draws as a blank screen.')
     settings = {'size': s, 'weight': w}
     if len(rest) > 0 and rest[0] is not None:
+        # POINTS, not a CSS multiplier: `lineHeight: 1.15` on a 16pt preset is a 1.15pt line box,
+        # and every line of that text draws on top of the one before. The real export pairs
+        # 30 with 34 and 14 with 20.
+        if isinstance(rest[0], (int, float)) and rest[0] < s * 0.75:
+            ratio = rest[0] if rest[0] <= 3 else 1.2
+            raise ValueError(
+                f'typography {i!r}: lineHeight {rest[0]!r} is in points, the height of one line, '
+                f'not a multiplier of size {s} — it collapses every line of this text. '
+                f'Write {round(s * ratio)} for {ratio}× leading.')
         settings['lineHeight'] = rest[0]
     if len(rest) > 1 and rest[1] is not None:
         settings['letterSpacing'] = rest[1]

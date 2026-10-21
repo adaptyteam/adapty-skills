@@ -1738,6 +1738,20 @@ def check(path, baseline_text=None, baseline_images=None):
     walk(d, themerefs)
     if up - presets:
         bad.append(f'font.preset not in theme.typography: {sorted(up - presets)}')
+
+    # `lineHeight` is POINTS (the real export pairs size 30 with 34), so a CSS-style multiplier
+    # like 1.15 is a 1.15pt line box and every line of the text draws on top of the last.
+    collapsed = []
+    def leading(o):
+        lh, sz = o.get('lineHeight'), o.get('size')
+        if (isinstance(lh, (int, float)) and isinstance(sz, (int, float))
+                and not isinstance(lh, bool) and lh < sz * 0.75):
+            collapsed.append(f'{lh} on size {sz}')
+    walk(d, leading)
+    if collapsed:
+        bad.append(f'lineHeight is in points, not a multiplier of size — these collapse every line '
+                   f'onto the one above it: {sorted(set(collapsed))}. Multiply the ratio by size '
+                   f'(1.2 on size 16 → 19)')
     if uc - colors:
         bad.append(f'colorId not in theme.colors: {sorted(uc - colors)}')
 
