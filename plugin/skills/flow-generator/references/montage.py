@@ -103,6 +103,11 @@ def main(argv):
     if len(argv) < 2:
         print(__doc__)
         return 2
+    flags = [a for a in argv if a.startswith('-')]
+    if flags:
+        print(f'montage: unknown option {flags[0]}. The output file comes first, with no flag:\n'
+              f'    montage.py out.png a.png b.png', file=sys.stderr)
+        return 2
     out, sources = argv[0], argv[1:]
     try:
         imgs = [read_png(p) for p in sources]
