@@ -1433,9 +1433,17 @@ documented by its own publishers:
 ### Typography metrics: `lineHeight` and `letterSpacing` exist
 
 `Font` carries **`lineHeight`** and **`letterSpacing`** alongside `family`, `preset`, `size` and
-`weight`. Both are absent from every real export and from every catalog template, so they are a
-*grep-zero* shape — declare them knowing the device may ignore them, and note that they **fail
-safe**: an ignored `lineHeight` gives looser leading, not a broken screen.
+`weight`. One real export sets them on most of its presets; no catalog template does.
+
+**`lineHeight` is in points, the height of one line — never a CSS-style multiplier.** The export
+pairs `size: 30` with `lineHeight: 34` and `size: 14` with `lineHeight: 20`. A multiplier such as
+`1.15` is read as 1.15 pt and **collapses every line of that preset onto the one above it**. To
+convert a ratio, multiply it by `size` and round: `16 × 1.25 → 20`. `flowkit.config` and
+`verify-config.py` refuse a number below three quarters of its `size`. `letterSpacing` is in
+points too (`-1` on a 30 pt headline).
+
+The schema also takes `{"type": "percent", "value": 110}` for either field, and the preview draws it
+the same as the matching points. No real export uses it, so it is unproven on a device: write points.
 
 Worth stating because two agents in the same GREEN arm disagreed about whether `lineHeight`
 exists, and the one who believed it did not **left a reachable fidelity gap** — shipping 52 pt
