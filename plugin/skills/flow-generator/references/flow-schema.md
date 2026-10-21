@@ -767,8 +767,10 @@ Two things make this expensive to diagnose:
 
 **Also note the two colour forms are not interchangeable in what they accept.** A `color-style`
 reference (`{"type": "color-style", "colorId": "clr_X"}`) carries no `opacity`; if you need
-translucency you need the `hex` form, and then the percentage applies. And `hex` accepts an 8-digit
-value (`#FFFFFFD9`) carrying its own alpha, seen in a real export with no `opacity` key beside it.
+translucency you need the `hex` form, and then the percentage applies. An element's `hex` can also
+arrive as an 8-digit value (`#FFFFFFD9`) carrying its own alpha, seen in a real export with no
+`opacity` key beside it. The service reads it but the published schema does not allow it, so write
+`#RRGGBB` plus `opacity` yourself (trap 19).
 
 **But the TOKEN it points at can be translucent, and that is where a resolver goes wrong.** The
 reference carries no `opacity`; the token's *definition* does — `vpn-timer-draft`'s `clr_2MZWrBUc`
@@ -842,7 +844,7 @@ paths, so it is the name and not the markup — while `name: "X"`, `weight: regu
 immediately.
 
 Every gate is blind. `flows config validate` returns `valid: true`, the schema types `name` as a
-bare `string` with no enum (the colour-hex class again), and in a screenshot a missing glyph
+bare `string` with no enum, and in a screenshot a missing glyph
 reads as a spacing bug. That combination — silent, total, and invisible to the loop — is why
 [`verify-config.py`](verify-config.py) makes it an **error** rather than a warning.
 
@@ -1094,8 +1096,8 @@ const  var  ==  !=  >  <  has  notHas  in  notIn  empty  notEmpty  size  &&  || 
 
 **Seventeen of them have a case in the condition walker. `assign` does not**, so it falls
 through to `default` and the flow is refused. It is schema-legal, and it is genuinely legal
-inside a `setVariable` payload — it is illegal only *as a condition*. Same class as a colour
-hex being typed a bare string: a rule the consumer enforces and the schema does not state, so
+inside a `setVariable` payload — it is illegal only *as a condition*. Same class as an empty
+theme-colour hex: a rule the consumer enforces and the schema does not state, so
 neither the schema check nor `config preview` objects. 0 of 8 real exports use it anywhere.
 
 Shape rules, all enforced by that walker:
@@ -1204,20 +1206,26 @@ nothing else**. Measured against the transform service, every one of these is
 refused there: `#fff`, `#FFFFFFD9`, `#FFFFFFF`, `FFFFFF`, and the empty string.
 
 It is refused with **`Generated JSON failed schema validation` and no path**, so the message
-names no field and you are bisecting a whole document to find one character. Two gates that
-would normally save you are both blind: a colour's `hex` is typed as a bare `string` with no
-pattern, so the schema check passes it, and `config preview` **draws light mode only**, so a
-broken `dark` value renders perfectly.
+names no field and you are bisecting a whole document to find one character. `config preview`
+cannot help: it **draws light mode only**, so a broken `dark` value renders perfectly. The schema
+check sees most of it: the published schema gives every colour `hex` the pattern
+`^(?:#[0-9A-Fa-f]{6})?$`, so `validate-with-schema.mjs` names the path of a `#fff`,
+`#FFFFFFD9`, `#FFFFFFF` or `FFFFFF`. **That pattern allows the empty string**, which the service
+still refuses in a theme colour, so an empty theme hex passes the schema check.
 
-**The rule is position-scoped, and inverting that would be worse than having no rule.** In an
-*element* position — `props.fill.color`, `props.color`, `props.clearButtonColor` — the same
-service accepts a 3-digit hex, an 8-digit `#RRGGBBAA` and an empty string. This is not a
-guess: real exports carry **8** eight-digit and **16** empty values in element positions and
-validate clean, and `tests/fixtures/onboarding-quiz-paywall.json` (which holds both) returns
-`valid: true`. A blanket hex rule would reject the builder's own output.
+**The service's rule is position-scoped; the schema's is not.** In an *element* position —
+`props.fill.color`, `props.color`, `props.clearButtonColor` — the same service accepts a 3-digit
+hex, an 8-digit `#RRGGBBAA` and an empty string. This is not a guess: real exports carry **8**
+eight-digit and **16** empty values in element positions and validate clean, and
+`tests/fixtures/onboarding-quiz-paywall.json` (which holds both) returns `valid: true`. The
+schema's pattern covers element colours too, so the schema check reports the 3- and 8-digit ones.
+Two rules follow. **Write `#RRGGBB` in every position you author**, with alpha in `opacity`. And
+**carry an existing 3- or 8-digit element value through untouched**: the service reads it,
+`--baseline` keeps it out of the schema check's report, and rewriting it is an unrequested edit.
 
-`flowkit.config()` raises on a bad theme hex and leaves element colours alone;
-`verify-config.py` errors on the same thing, calibrated silent on all 12 real configs.
+`flowkit.config()` raises on a bad theme hex, the empty string included, and leaves element
+colours alone; `verify-config.py` errors on the same thing, calibrated silent on all 12 real
+configs.
 
 A theme colour written as a **layer stack** (trap 26) carries hexes inside its layers, and the
 rule follows them there: write `#RRGGBB` everywhere, with alpha in `opacity`. An empty or
