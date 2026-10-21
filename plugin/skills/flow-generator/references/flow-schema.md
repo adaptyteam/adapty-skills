@@ -1750,9 +1750,10 @@ wrapper.
   2026-08-17, acknowledged as a bug, unresolved; do not design a caption that depends on 11pt.
 - **A `mailto:` `openUrl` crashes iOS unless "open in external browser" is set** — SDK-side fix
   landed, but the flag remains the safe pattern.
-- **Dark theme works only through colour styles that define dark values** — a direct hex is one
-  colour in both themes; theme-dependent *images or videos* are not buildable at all (the fallback
-  is separate screens per theme, switched app-side).
+- **Dark theme works only through colour styles that define dark values and through dark files** —
+  a direct hex is one colour in both themes. A background that changes per theme (a different
+  colour, gradient, image or video) is a layered colour style, trap 26; an `image` or `video`
+  element takes `imageDark`/`videoDark`, `references/media.md`.
 - **Screen ids are analytics keys**: the dashboard's per-screen paywall rows key on `screen_id`,
   every republish mints a new row, and a rename only affects future versions — so mint stable,
   meaningful screen ids and set `caption`s, because both outlive the publish.
