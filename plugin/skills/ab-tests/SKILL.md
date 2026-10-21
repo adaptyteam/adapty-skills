@@ -59,7 +59,7 @@ Write a literal `adapty` in a command you show the user. Every command takes `--
 | `ab-tests create` | `--title`, `--goal`, `--placement`, `--segment <id>` or `--all-users` (a plan only), exactly one of `--paywalls '<json>'` / `--flows '<json>'` |
 | `ab-tests update <id>` | the same flags as create. **The whole test is sent again:** a flag you leave out is cleared (goal, placement, planned audience) |
 | `ab-tests start <id>` | `--placement`, exactly one of `--segment <id>` / `--all-users`, `--yes` |
-| `ab-tests stop <id>` | exactly one of `--winner <content id>` (an arm), `--other <content id>` (not an arm), `--no-content`, `--yes` |
+| `ab-tests stop <id>` | exactly one of `--winner <id>` (the `paywall_id` or `flow_id` of an arm of the test), `--other <id>` (the `paywall_id` or `flow_id` of other content, not an arm), `--no-content`, `--yes` |
 | `ab-tests replace <id>` | `--title`, `--goal`, `--placement`, exactly one of `--paywalls` / `--flows`, `--yes`; no audience flag |
 | `ab-tests archive <id>` | `--yes` |
 
@@ -93,12 +93,12 @@ own text. These come back often:
    it is what the user saw.
 2. **Show the card** and wait:
 
-   > **Start** "Price test" on the Main placement for German users.
+   > Start "Price test" on the Main placement for German users.
    > - Now: German users see the Monthly paywall.
    > - From now: they see the Monthly paywall (50%) or the Annual paywall (50%), a new draw for each
    >   user. A change for a segment can take up to 20 minutes to reach every user.
-   > - Stops: the Monthly paywall stops for German users; the test "Old test" running there ends as
-   >   completed, with no winner.
+   > - Stops: the Monthly paywall stops for German users; the test "Old test" running there
+   >   becomes completed.
    > - Moves: German users who also match "Premium users" go into the test.
    > - **Cannot be undone.** Stopping it later does not bring back what it replaced.
    >
@@ -108,8 +108,8 @@ own text. These come back often:
    stops, and ends on what cannot be undone. Per action:
    - **Start.** The audience is the placement row with the same segment (`[]` is the default row).
      A segment with no row gets a new row at the top, so users of this segment who match another
-     audience move into the test: name those audiences. A row that holds a test ends that test as
-     completed, with no winner. A row that holds a shared test (`cross_ab_test`,
+     audience move into the test: name those audiences. A row that holds a test ends that test: it
+     becomes completed. A row that holds a shared test (`cross_ab_test`,
      `flow_cross_ab_test`) is not yours: send the user to the dashboard.
    - **Stop.** Say which content the audience shows afterwards (the winner, the other content, or
      nothing: its row leaves the placement and its users get the next audience they match). The
@@ -146,8 +146,9 @@ again.
 2. **Create the draft:** `ab-tests create … --json`. A draft shows to no user, so it needs no
    card. Read it back and say the arms and weights as the user will see them.
 3. **Change a draft:** `ab-tests update`, with every flag resent as read.
-4. **Start**, with the card. `--placement` and the audience flag name where it runs; planned values
-   on the draft change nothing until then.
+4. **Start**, only when `state` is `draft` in the read you just made (otherwise see Never), with
+   the card. `--placement` and the audience flag name where it runs; planned values on the draft
+   change nothing until then.
 5. **Change a started test.** Rename or new goal: `update`, which keeps the test, its start time
    and its draw; resend the arms and placement exactly as `get` returned them (arm titles too) and
    pass no audience flag. New arms or weights on a live test: `replace`, with its card. On a

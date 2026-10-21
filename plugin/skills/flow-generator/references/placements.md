@@ -60,16 +60,16 @@ A placement with segment-specific content is where this costs someone real work.
 stopped. Put on an audience only the test id it already carries, never the id of a test that runs
 elsewhere (the backend would move it).
 
-**A write that replaces a running test stops it with no winner.** That is the case when the flow
-goes on an audience that holds a test, when a test's audience is missing from the list, and when a
-test's audience gets other segments. Nothing in the CLI warns about it. Before the write, show the
-audiences before and after as a table with the line "test X stops with no winner; this flow
-starts", wait for the user's yes, and read the placement again just before the write: if it changed
-since the read the user saw, show the new table and ask again (an unattended run stops and
-reports). No answer means the change is made in the dashboard instead. A write that only adds a
-segment audience or reorders priorities needs no such line, and the test keeps running. Starting,
-stopping or replacing a test on purpose is not a placement write: it belongs to the `ab-tests`
-skill.
+**A write that replaces a running test stops it, and a placement write is not how a test stops.**
+That is the case when the flow goes on an audience that holds a test, when a test's audience is
+missing from the list, and when a test's audience gets other segments. Nothing in the CLI warns
+about it. Route it to the `ab-tests` skill: `ab-tests stop` (with `--winner`, `--other` or
+`--no-content`) shows the user the exact effect and waits for the yes. Write the placement after
+the test has stopped, and read it again just before the write: if it changed since the read the
+user saw, show the new before/after table and ask again (an unattended run stops and reports). No
+answer means the change is made in the dashboard instead. A write that only adds a segment audience
+or reorders priorities leaves the test running. Starting, stopping or replacing a test on purpose
+belongs to the `ab-tests` skill.
 
 **Never `--paywall-id`.** It is deprecated in favour of `--audiences` (the CLI prints a warning to
 stderr), and on `update` it carries a second warning worth quoting: it *"will rewrite all audiences
