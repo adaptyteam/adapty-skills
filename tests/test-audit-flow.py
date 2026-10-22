@@ -1379,8 +1379,15 @@ check('comparison-paywall.json still raises 3 separate dead-affordance findings 
       len(of(findings_cmp2, 'dead-affordance')) == 3,
       f'got {len(of(findings_cmp2, "dead-affordance"))}')
 
-r_cmp2 = subprocess.run([sys.executable, AUDIT, cmp_fixture, '--catalog', CATALOG,
-                          '--report'], capture_output=True, text=True)
+# The fixture's fonts carry real, malformed Android names, so the fonts family adds its
+# own blocker; this case counts the collapse, so it reads a copy without fonts.
+_cmp_nofonts = json.load(open(cmp_fixture))
+_cmp_nofonts['_meta']['fonts'] = []
+with tempfile.TemporaryDirectory() as _tmp:
+    _cmp_path = os.path.join(_tmp, 'c.json')
+    json.dump(_cmp_nofonts, open(_cmp_path, 'w'))
+    r_cmp2 = subprocess.run([sys.executable, AUDIT, _cmp_path, '--catalog', CATALOG,
+                              '--report'], capture_output=True, text=True)
 cmp_txt = r_cmp2.stdout
 cmp_blocker_count = int(re.search(r'(\d+) things? to fix', cmp_txt.splitlines()[0]).group(1))
 check('comparison-paywall.json reports exactly 2 blockers after the sibling '
@@ -1880,6 +1887,139 @@ check('placements without --flow-id cannot be matched, so nothing is claimed eit
 check('placement findings keep the exact 7-key contract',
       all(set(f) == {'severity', 'family', 'check', 'screen', 'element', 'message',
                       'fix'} for f in _placements_run([_shown[1]])[1]))
+
+print('\nfonts')
+import http.server, struct, threading  # noqa: E402
+
+
+def _font_bytes(postscript, variable=False, magic=b'OTTO'):
+    """A minimal sfnt: a `name` table holding one Windows name ID 6, plus an `fvar`
+    table when `variable`. Enough for the audit's reader; no renderer would load it."""
+    raw = postscript.encode('utf-16-be')
+    tables = {b'name': struct.pack('>HHH', 0, 1, 18) + struct.pack('>6H', 3, 1, 0x409, 6,
+                                                                       len(raw), 0) + raw}
+    if variable:
+        tables[b'fvar'] = bytes(16)
+    head = magic + struct.pack('>HHHH', len(tables), 0, 0, 0)
+    off, recs, body = 12 + 16 * len(tables), b'', b''
+    for tag, data in tables.items():
+        recs += struct.pack('>4sIII', tag, 0, off + len(body), len(data))
+        body += data + bytes(-len(data) % 4)
+    return head + recs + body
+
+
+_FONT_FILES = {
+    '/inter-medium': _font_bytes('Inter-Medium'),
+    '/inter-bold': _font_bytes('Inter-Bold', magic=b'\x00\x01\x00\x00'),
+    '/variable': _font_bytes('Roboto-Regular', variable=True),
+    '/not-a-font': b'\x89PNG\r\n\x1a\n' + bytes(32),
+}
+
+
+class _FontHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = _FONT_FILES.get(self.path)
+        self.send_response(200 if body else 404)
+        self.end_headers()
+        self.wfile.write(body or b'')
+
+    def log_message(self, *a):
+        pass
+
+
+_srv = http.server.HTTPServer(('127.0.0.1', 0), _FontHandler)
+threading.Thread(target=_srv.serve_forever, daemon=True).start()
+_BASE = f'http://127.0.0.1:{_srv.server_port}'
+
+
+def _with_fonts(fonts):
+    c = load(os.path.join(FIX, 'tabs-paywall.json'))
+    c.setdefault('_meta', {})['fonts'] = fonts
+    return c
+
+
+def _font(fid, path, ios, android, faces=None):
+    f = {'id': fid, 'name': fid, 'url': _BASE + path, 'iosName': ios, 'androidName': android}
+    if faces is not None:
+        f['faces'] = faces
+    return f
+
+
+FONT_CHECKS = ('android-font-name', 'ios-font-name', 'variable-font',
+               'duplicate-ios-font-name', 'font-file-unread')
+
+# Real exports: every tracked fixture with fonts carries Android names Android cannot
+# use ("Inter Medium", "Avenir-Heavy"), so android-font-name FIRES on both. Their urls are
+# sanitized to example.invalid, so the file check degrades to one question.
+for _name in ('comparison-paywall.json', 'vpn-timer-draft.json'):
+    _rc, _f = run(os.path.join(FIX, _name))
+    check(f'{_name}: android-font-name FIRES as one blocker on its real Android names',
+          [f['severity'] for f in of(_f, 'android-font-name')] == ['blocker'])
+    check(f'{_name}: an unreachable font url degrades to font-file-unread, a question',
+          [f['severity'] for f in of(_f, 'font-file-unread')] == ['question']
+          and not of(_f, 'ios-font-name') and _rc in (0, 1))
+for _name in ('onboarding-multilocale.json', 'onboarding-quiz-paywall.json',
+              'reviews-carousel.json', 'tabs-paywall.json', 'timeline-anchored.json'):
+    _f = run(os.path.join(FIX, _name))[1]
+    check(f'{_name} (no custom fonts) is SILENT on every font check',
+          not [f for f in _f if f['check'] in FONT_CHECKS])
+
+_good = _font('inter', '/inter-medium', 'Inter-Medium', 'inter_medium')
+_f = run(_with_fonts([_good]))[1]
+check('a face whose names match its file and the res/font rule is SILENT on every font '
+      'check', not [f for f in _f if f['check'] in FONT_CHECKS], _f)
+
+for _bad in ('Inter Medium', 'Inter-Medium', 'InterMedium', 'inter-medium', ''):
+    _f = run(_with_fonts([dict(_good, androidName=_bad)]))[1]
+    check(f'android-font-name FIRES on {_bad!r}', len(of(_f, 'android-font-name')) == 1)
+
+_f = run(_with_fonts([dict(_good, iosName='Inter Medium')]))[1]
+check('ios-font-name FIRES when the iOS name differs from the file\'s PostScript name',
+      [f['severity'] for f in of(_f, 'ios-font-name')] == ['blocker']
+      and 'Inter-Medium' in of(_f, 'ios-font-name')[0]['message'], _f)
+_f = run(_with_fonts([_font('inter', '/inter-bold', 'Inter-Bold', 'inter_bold')]))[1]
+check('a TrueType file (0x00010000) is read as well as a CFF one (OTTO)',
+      not [f for f in _f if f['check'] in FONT_CHECKS], _f)
+
+_faces = [{'id': 'f1', 'url': _BASE + '/inter-medium', 'iosName': 'Inter-Medium',
+           'androidName': 'inter_medium', 'weight': 500, 'italic': False, 'isDefault': True},
+          {'id': 'f2', 'url': _BASE + '/inter-bold', 'iosName': 'Inter-Heavy',
+           'androidName': 'Inter Bold', 'weight': 700, 'italic': False, 'isDefault': False}]
+_f = run(_with_fonts([_font('inter', '/inter-medium', 'Inter-Medium', 'inter_medium',
+                            faces=_faces)]))[1]
+check('with faces[], each face is checked, not only the copied default',
+      len(of(_f, 'android-font-name')) == 1 and len(of(_f, 'ios-font-name')) == 1
+      and '700' in of(_f, 'ios-font-name')[0]['message'], _f)
+
+_var = _font('roboto', '/variable', 'Roboto-Bold', 'roboto')
+_f = run(_with_fonts([_var]))[1]
+check('a variable file raises variable-font, a question',
+      [f['severity'] for f in of(_f, 'variable-font')] == ['question'], _f)
+check('...and a variable face named after another instance is NOT an ios-font-name '
+      'blocker', not of(_f, 'ios-font-name'), _f)
+_f = run(_with_fonts([dict(_var, iosName='roboto_bold')]))[1]
+check('a variable face whose iOS name is Android-shaped and differs from the file FIRES '
+      'ios-font-name', len(of(_f, 'ios-font-name')) == 1, _f)
+
+_f = run(_with_fonts([_good, _font('inter2', '/inter-bold', 'Inter-Medium',
+                                   'inter_bold')]))[1]
+check('two font ids sharing one iOS name raise duplicate-ios-font-name, a risk',
+      [f['severity'] for f in of(_f, 'duplicate-ios-font-name')] == ['risk'], _f)
+_f = run(_with_fonts([_font('roboto', '/variable', 'Roboto-Regular', 'roboto', faces=[
+    {'id': 'a', 'url': _BASE + '/variable', 'iosName': 'Roboto-Regular',
+     'androidName': 'roboto'},
+    {'id': 'b', 'url': _BASE + '/variable', 'iosName': 'Roboto-Regular',
+     'androidName': 'roboto'}])]))[1]
+check('...and faces of ONE font sharing a name are SILENT on it',
+      not of(_f, 'duplicate-ios-font-name'), _f)
+
+for _path, _why in (('/not-a-font', 'a file that is not a font'),
+                    ('/missing', 'a 404')):
+    _rc, _f = run(_with_fonts([_font('inter', _path, 'Inter-Medium', 'inter_medium')]))
+    check(f'{_why} degrades to font-file-unread and the run still succeeds',
+          len(of(_f, 'font-file-unread')) == 1 and not of(_f, 'ios-font-name')
+          and _rc in (0, 1), _f)
+_srv.shutdown()
 
 if fails:
     print(f'\n{len(fails)} FAILED')
