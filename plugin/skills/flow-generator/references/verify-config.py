@@ -1355,7 +1355,8 @@ def check(path, baseline_text=None, baseline_images=None):
         warn.append(f"locale code(s) {', '.join(misshapen)} are not `language[-Script][-REGION]` "
                     f"with the SDK's casing (`pt-BR`, `zh-Hans`, `sr-Latn`) — the transform "
                     f"service refuses the flow at publish with a pattern violation on "
-                    f"`/localizations/N/id`. Renaming a code whose locale id is the same string "
+                    f"`/localizations/N/id`, although `flows config validate` returns valid: "
+                    f"true for it, so fix it before any publish. Renaming a code whose locale id is the same string "
                     f"means the id too: the entry in `localization.locales`, every catalog "
                     f"`values` key and `remote_configs`")
 
@@ -1423,6 +1424,35 @@ def check(path, baseline_text=None, baseline_images=None):
             warn.append(f"{s['id']}/{e['id']}: negative zIndex inside {anc}, which has a fill — "
                         f"the element draws behind that fill and disappears. Drop the zIndex and "
                         f"declare it before the sibling it should sit under")
+
+    # A screen-sized image or video taken out of flow (absolute or fixed) is a background made the
+    # wrong way. Device-reported: listed first on each screen, it still sat over its siblings and
+    # took the taps of every option, and a box wider than the screen widened the screen. Preview
+    # and validate were clean. The screen `fill` is the background slot, so nothing to tap sits
+    # under it. A hero-sized absolute image (242pt wide in a real export) stays silent.
+    def _big(sz, floor):
+        sz = sz if isinstance(sz, dict) else {}
+        v = sz.get('value')
+        return sz.get('type') == 'fill' or (sz.get('type') == 'fixed'
+                                            and isinstance(v, (int, float)) and v >= floor)
+    for where, k, e in iter_elements(d):
+        if e.get('type') not in ('image', 'video'):
+            continue
+        p = e.get('props') or {}
+        pos = p.get('position') if isinstance(p.get('position'), dict) else {}
+        if pos.get('type') not in ('absolute', 'fixed'):
+            continue
+        w = p.get('width') if isinstance(p.get('width'), dict) else {}
+        wide = w.get('type') == 'fixed' and isinstance(w.get('value'), (int, float)) and w['value'] > 430
+        if wide or (_big(w, 320) and _big(p.get('height'), 400)):
+            warn.append(f"{where}/{k}: a screen-sized {e['type']} positioned {pos['type']} — on a "
+                        f"device it sits over the elements beside it and takes their taps, "
+                        f"whatever its order"
+                        + (", and its width wider than the screen widens the screen" if wide else "")
+                        + (". For a background, put the image in the screen's `fill` instead "
+                           "(an opaque image: transparent areas have shown black on a device)"
+                           if e['type'] == 'image' else
+                           ". Keep the video in flow (`relative`) and lay the screen out around it"))
 
     # groupId naming rules, both team-stated from publish failures: digit-led ids generate
     # invalid JavaScript (publish blocker), and a groupId reused on another screen broke
@@ -2677,8 +2707,11 @@ def check(path, baseline_text=None, baseline_images=None):
                 if len(found) > 1:
                     bad.append(f'{e["id"]}: text content for {code!r} references {len(found)} '
                                f'distinct product anchors ({sorted(found)}) — refused as '
-                               f'mixed_product_targets_in_text. Split it into one text per '
-                               f'product')
+                               f'mixed_product_targets_in_text. If it means the price of '
+                               f'whichever plan is selected, use one '
+                               f'`<groupId>.selectedProduct.<field>` variable instead of naming '
+                               f'each product (products.md); otherwise split it into one text '
+                               f'per product')
 
 
     # ---- `<groupId>.selectedOptionId` on a MULTI_CHOICE group. Measured against the transform

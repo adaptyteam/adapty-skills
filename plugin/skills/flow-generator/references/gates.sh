@@ -102,8 +102,8 @@ if [ -z "$APP" ] || [ -z "$FLOW" ]; then
   echo "   SKIPPED — pass APP_UUID and FLOW_ID to run it. A green local pass is NOT a publish gate."
   fail=1
 else
-  out="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$CFG" --json 2>&1)"
-  verdict="$(printf '%s' "$out" | $PY -c '
+  verdict_of() {  # $1 = config file -> the verdict, one line
+    $ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>&1 | $PY -c '
 import json,sys
 try: d=json.load(sys.stdin)
 except Exception: print("UNPARSEABLE"); raise SystemExit
@@ -114,9 +114,28 @@ elif v is False:
     print("valid: false — " + "; ".join(str(i.get("message")) for i in iss[:3] or ["(no issues listed)"]))
 else:
     print("API ERROR (not a verdict — retry): " + json.dumps(d)[:160])
-' 2>/dev/null)"
+' 2>/dev/null
+  }
+  verdict="$(verdict_of "$CFG")"
   echo "   $verdict"
   case "$verdict" in "valid: true") ;; *) fail=1 ;; esac
+  # A fatal the fetched config already had is not this run's, and it hides any fatal of this
+  # run's behind it, since validate reports one per run. Without this line the agent cannot tell
+  # the two apart; SKILL.md says what to do with it.
+  case "$verdict" in "valid: false"*)
+    # The backup is the `config get` envelope; validate takes the bare config inside it.
+    bare="$(mktemp "${TMPDIR:-/tmp}/adapty-baseline.XXXXXX")"
+    [ -n "${BASELINE:-}" ] && [ -f "$BASELINE" ] && $PY -c '
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+json.dump(d.get("config", d) if isinstance(d, dict) else d, open(sys.argv[2], "w", encoding="utf-8"))
+' "$BASELINE" "$bare" 2>/dev/null
+    if [ -s "$bare" ] && [ "$(verdict_of "$bare")" = "$verdict" ]; then
+      echo "   ALREADY IN $(basename "$BASELINE"): the fetched config fails with this same fatal, before"
+      echo "   this run's edit. It is not yours, and it hides anything of yours behind it."
+    fi
+    rm -f "$bare" ;;
+  esac
 fi
 
 echo
