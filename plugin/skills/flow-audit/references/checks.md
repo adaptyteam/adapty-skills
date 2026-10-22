@@ -11,7 +11,8 @@ Calibration corpus: six tracked flow fixtures under `tests/fixtures/` (five from
 plus `tests/catalog-fixture.json` (a product catalog, not a flow config, so it lives
 outside `fixtures/`) plus five real flows measured while this
 skill was written. `vpn-timer-draft.json` is this skill's **negative control** — it
-produces **zero** findings across all six families. `timeline-anchored.json` is
+produces **zero** findings across every family except Fonts, where its real, malformed
+font names fire correctly (see Fonts below). `timeline-anchored.json` is
 **not** a full negative control: it carries **zero actions anywhere** — no purchase,
 no `closeFlow`/`navigateBack`, nothing tappable at all — so `no-escape-in-flow` fires
 on it, correctly, as a `question`. That is a true positive, not a blind spot: a flow
@@ -172,6 +173,40 @@ cases compare `<groupId>.selectedOptionId` with an answer's `customId`.
 | A bare word match instead of an anchored one | "Sample a new workout every week" is legitimate copy — `sample` alone cannot be a signal. The vocabulary is anchored (`lorem ipsum` as a phrase, `your … here` as a phrase, whole-word `TODO`/`TBD`/`FIXME`, and a handful of bare structural nouns matched only as the **entire** stripped string) so a real sentence containing one of those words in passing never matches. |
 | Keying a dot on `width == height` | The **active** dot is very often drawn as a wider pill. With one pill among three, only two equal dots remain — which is how the shape in the original bug report passed a check written against three identical dots. Height anchors the test instead, and width may run to 3× it. |
 | Counting any small icon as a dot | `ue-review` ships a five-`Star` rating row, so a size-only test would fire on every review card in the corpus. The icon test is name-scoped to `Circle`/`Dot`/`DotOutline`. |
+
+## Fonts
+
+Adapty does not send custom fonts to the device: the app bundle carries every face, and the
+flow finds each one by the names in the Builder's font settings. A name that does not match
+draws SF Pro or Roboto **silently**, and every Builder preview still looks right, because the
+preview draws the uploaded file. The naming rules are the "Add the font files to your app's
+bundle" section of https://adapty.io/docs/using-custom-fonts-in-flow-builder.md. Each
+`_meta.fonts[]` entry is read face by face (`faces[]`; an older entry with no `faces` is its
+own face). Each check is one finding listing every face it applies to, since the user fixes
+them all on one settings screen.
+
+**Every fix goes to the font settings (Edit custom font), never to a flow edit:**
+`_meta.fonts` is a copy of the app's font record, and the next Builder save overwrites it.
+All five route to "yours to do in the Adapty dashboard".
+
+| Check | Severity | Why | Calibration |
+| :--- | :--- | :--- | :--- |
+| `android-font-name` — a face's `androidName` fails `^[a-z0-9_]+$` (empty included) | blocker | Android finds the face by its `res/font/` file name, which allows only lowercase letters, numbers and underscores | **fires** on both tracked fixtures that carry fonts, as true positives: `comparison-paywall.json` (`Inter SemiBold`, `Inter Medium`, `Inter Regular`) and `vpn-timer-draft.json` (`AvenirNextCyr-Bold`, `ClashDisplay-Semibold`, `Avenir-Heavy`, `Avenir-Roman`); fires on injected `Inter-Medium`, `InterMedium`, `inter-medium`, empty. **silent** on `inter_medium` and on the five fixtures without fonts |
+| `ios-font-name` — the face's `iosName` differs from the PostScript name (name ID 6) in the file at its `url`. For a variable file, only when the `iosName` is Android-shaped | blocker | iOS finds the face by the PostScript name stored in the file | **fires** on 4 of 7 real faces in `tests/fixtures-raw/` (the three Inter files say `Inter18pt-SemiBold`/`-Medium`/`-Regular`; one Avenir file says `AvenirLTStd-Roman`). **silent** on the other 3 (`AvenirNextCyr-Bold`, `ClashDisplay-Semibold`, `Avenir-Heavy` match their files) and on an injected matching face, both CFF (`OTTO`) and TrueType |
+| `variable-font` — the file has an `fvar` table | question | Adapty makes one face per named style; a face's iOS name can legitimately be an instance's name, not the file's, so the file alone does not settle it | fires on an injected variable file; no real fixture has one |
+| `duplicate-ios-font-name` — two different `_meta.fonts[].id`s share one `iosName` | risk | the iOS name must be unique across the app; one font draws in the other's typeface | fires on injection; silent when faces of **one** font share a name (one variable file's faces) and on every fixture |
+| `font-file-unread` — a face's file cannot be downloaded, is not an sfnt/TTC file, or declares no PostScript name | question | the degrade path: the iOS name is unchecked, the run goes on | fires on both fixtures above (their urls are sanitized to `example.invalid`), on a 404 and on a non-font body; the run still exits 0/1, never 2 |
+
+The `font_face_missing_ios_name` publish refusal (an empty `iosName`) is not checked here:
+`flows config validate` reports it.
+
+### Traps — Fonts
+
+| Trap | What would have shipped |
+| :--- | :--- |
+| Comparing a variable face's iOS name with the file's PostScript name | Name ID 6 is the default instance's name; a Bold face of the same file is correctly named after its own instance, so the plain comparison would block every variable font but its default face. A variable face fires only when its iOS name is Android-shaped (the Android name copied across, which no PostScript name looks like); everything else is the `variable-font` question. |
+| Treating a missing download as a clean font | A silent skip reads as "fonts checked". The unread faces become one question naming them, with the Font Book step. |
+| Sending the fix to a flow edit | `_meta.fonts` is overwritten by the app's font record on the next Builder save, so an edited name would revert. |
 
 ## Store review
 
