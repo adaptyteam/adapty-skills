@@ -74,6 +74,8 @@ The conversion ids, as the dashboard titles them:
 ## The audit reads
 
 For an audit, read the last six full months at `--granularity month`. Set `FROM` and `TO` once.
+`reads.py audit` runs every read below and prints them; the commands are here for a read it does
+not cover or a different filter.
 Run every read below, 11 and 12 included: retention and LTV are what tell a plan that sells from a
 plan that pays.
 
@@ -84,7 +86,7 @@ $ADAPTY analytics chart --app <APP_ID> --chart revenue --date-from $FROM --date-
 $ADAPTY analytics chart --app <APP_ID> --chart revenue --date-from $FROM --date-to $TO --group-by duration --json
 # 3. Installs by country
 $ADAPTY analytics chart --app <APP_ID> --chart installs --date-from $FROM --date-to $TO --group-by country --json
-# 4. New paid subscriptions, split by trial vs no offer
+# 4. New paid subscriptions, split by the offer on the first payment (a trial that converts counts as No Offer)
 $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FROM --date-to $TO --group-by offer_category --json
 # 5. New trials
 $ADAPTY analytics chart --app <APP_ID> --chart trials_new --date-from $FROM --date-to $TO --json
@@ -120,7 +122,8 @@ $ADAPTY analytics ltv --app <APP_ID> --date-from $FROM --date-to $TO --group-by 
 $ADAPTY analytics conversion --app <APP_ID> --conversion view-paid --date-from $FROM --date-to $TO --filter placement_id=<VALUE> --json
 ```
 
-A conversion answer's `data.value` is the rate in percent, `value_to` of `value_from`; if the
+A conversion answer's `data.value` is the rate in percent, `value_to` of `value_from` (for
+`view-paid`, `value_to` is not new buyers: "Before you state a conclusion"); if the
 window has none, `meta.recommended_period` can name one that has. `view-paid` and `view-trial`
 are the conversion rate of a paywall: filter them by `paywall_id` (or `placement_id`, `flow_id`)
 with a value from `analytics values`, one call per paywall, or group them by it when the catalog lists that
@@ -136,8 +139,9 @@ Then the main market and the top countries:
 $ADAPTY analytics chart --app <APP_ID> --chart revenue --date-from $FROM --date-to $TO --group-by country --json
 ```
 
-The main market is a country with 50% or more of revenue. Compute every country's share of the
-total; when none reaches 50%, the app has no main market: say so, and work from the spread. The
+The main market is a country with 50% or more of revenue, or with 40% or more and at least five
+times the revenue of the next country. Compute every country's share of the total; when none
+qualifies, the app has no main market: say so, and work from the spread. The
 top countries are the three to five that hold most of it. Installs by country (read 3) do not
 make a main market: a country can bring a quarter of the installs and almost none of the money.
 Read chart 2, chart 4 and read 9 filtered to each top country (`--filter country=<value>`): which
@@ -190,7 +194,10 @@ by `store_product_id`, or ask the user. Prices are out of scope; do not look the
 
 ## What the app already tried
 
-Read this in every audit; the user will rarely tell you. Use 12 months, not six.
+Read this in every audit; the user will rarely tell you. Use 12 months, not six. `reads.py audit`
+prints which paywalls sold on which placement over 13 months and notes a paywall that sold on
+several: a promo, a seasonal offer or a test can run through a placement other than the one named
+for it, so read that table before saying something did not run or was never tried.
 
 ```bash
 # Paywalls and flows week by week, one call per active placement
@@ -208,11 +215,11 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 | One paywall stops and another starts the same week | A change they made and kept. |
 | A paywall or flow in `paywalls list` / `flows list` that no placement shows | Something tried and dropped. Its name often says what it tried. |
 | A placement, paywall, flow or product whose name names a change ("No Free Trial", "Exit Offer Test", "ex-Winback", "Weekly Trial And Yearly") | That change was tried, whatever its numbers. Say "it looks like you tested X; what came out?", never that it was never tried. |
-| Two paywalls or flows both selling on one placement in the last full month | Possibly an A/B test running now. The CLI shows no running A/B tests: ask what is running there before suggesting a test on that placement, and never describe it in the past tense. |
+| Two paywalls or flows both selling on one placement in the last full month | Possibly an A/B test running now. A running test shows in `placements get` only sometimes, as an audience with `content_type: ab_test`: ask what is running there before suggesting a test on that placement, and never describe it in the past tense. |
 | A product with purchases earlier and none lately | A plan or trial they dropped. |
 | An offer with purchases in one stretch only | A past promo or intro offer, and when it ran. |
 | Audiences and segments on placements now | Targeting they already do. |
-| A placement with segment audiences and no All users audience | Either a hidden A/B test (the CLI leaves those out) or users outside the segments see nothing there. The CLI cannot tell which: name it as a finding and ask them to check the placement's page. Never call it "probably an A/B test". |
+| A placement with segment audiences and no All users audience | Either an A/B test the CLI did not return or users outside the segments see nothing there. The CLI cannot tell which: name it as a finding and ask them to check the placement's page. Never call it "probably an A/B test". |
 
 Say it as facts with the dates, and say what the data cannot show: the winner of a test whose
 variants both stopped, and ideas they discussed but never ran.
@@ -246,6 +253,25 @@ against these before it goes in a reply:
   same two periods as every other number in the reply, at the same granularity. Never disprove
   the user's premise with a different period: if they say traffic held since summer, check
   summer, not January.
+- **A conversion's size comes from month grain.** A conversion counts each user once per bucket,
+  so the same months read by week and by month give different rates, and different drops. Find
+  the week with week grain, then read the same months at `--granularity month` and give that
+  drop. A fall measured from the best month also says where it stands against the months before
+  it ("down from the July peak, still above January to May").
+- **Older cohorts and recent ones are both read.** When you compare cohorts old enough to be
+  complete (90-day revenue, LTV), read the same rate for the last three full months too. If the
+  recent months tell a different story, the reply says so next to the conclusion.
+- **Groups are compared month by month.** Before saying two channels, placements, plans or
+  countries perform the same or differently, read the rate for each at `--granularity month`
+  and line the months up. A gap that opened or closed inside the window is the finding: give the
+  last three full months next to the window's figure, never the window's average alone.
+- **"None", "only N", "you kept X" and "nothing after Y" are counts.** Before the reply says how
+  many paywalls sell on a placement, that one stopped, that a placement or flow has no purchases
+  or that nothing shows after a paywall, count every group in a read that covers that placement
+  through the last full month and give the number, never "more than N", and read the whole answer, never through `head` or a cut-off
+  print. An active placement with audiences is something, however few purchases it brings: say
+  what it sells and ask where it is shown. When no read covers it, say "until <date> I see…" or
+  ask.
 - **What is live now comes from the last full month, never the window's average.** Which plans a
   paywall sells, which placement or paywall brings the purchases, what is running for former
   subscribers: read it month by month and state the last full month. A six-month share can
@@ -257,7 +283,9 @@ against these before it goes in a reply:
   back to a stable stretch: 12 months at month grain, then week grain around each step. Never
   date a change from quarter grain: a September switch read by quarter looks like July. A drop
   often comes in steps; name every step with its date. The start of the window you happened to
-  read is not when anything started.
+  read is not when anything started. `reads.py` prints an `onset:` line under each conversion: the
+  peak and the first month 15% or more below it. Date the fall from that line, and when it says the
+  peak is the start of the window, read further back before naming a month.
 - **A fall back to the level before a spike is the end of the spike.** When a store, channel or
   country ran far above its own usual level for a stretch and then came back to it, compare with
   the level before the spike, give the weeks it rose and fell, and ask what drove it (a campaign,
@@ -265,7 +293,15 @@ against these before it goes in a reply:
 - **Before and after inside one store.** Compare a placement or paywall with the one it replaced
   per store: when one store converts far lower, a combined rate moves with the store mix. Read
   the old one's own trend up to the switch too; if it was already falling, say how much of the
-  gap came before the change.
+  gap came before the change. The size of the change is against the old one's level over the
+  months before it started falling, not its lowest month. When both ran in the same month, compare
+  them at `--granularity day` over the days both had full traffic; a month that holds one
+  side's leftover traffic after the switch is not the comparison. `reads.py placement` prints
+  these numbers for every switch it finds (the old level before its share fell, the month both
+  sold, the whole placement's rate): the reply gives them, and says when the whole placement fell.
+  `reads.py audit` prints the last three months against the same months a year earlier, per store,
+  and a NOTE when a store launched: name a launch next to any before/after that crosses it, and
+  read each store against its own past year before calling one of them steady.
 - **Split by channel before you blame the product.** A rate that falls because a channel that
   converted well stopped sending traffic is a change of mix, not a broken paywall or release.
   Read the rate by `attribution_channel` and check whether it fell inside a channel whose traffic
@@ -277,14 +313,34 @@ against these before it goes in a reply:
   fell there too, the reply says mix explains part and the rate also fell on steady traffic, with
   that slice's numbers, and never "the paywall is not broken" or "this is traffic, not the
   paywall".
+- **A change is a cause only where it acted.** Before naming a change as the cause of a rise or
+  fall (a new product, paywall, placement, price, release, offer or store launch), read the same
+  rate over the same weeks for what the change did not touch: the old product, the other store,
+  another placement or country. If that moved the same way, the change is not the cause: say so,
+  with both numbers, and look for what the two share. This is the Cause check in "Follow the
+  signal down".
 - **"Everywhere" needs every group checked.** Before saying a fall is in all stores, countries or
   channels, read each large one; name the exceptions.
 - **"All" sums every group.** A share for "all non-English countries" or "all of Android" adds up
   every group in the answer, not the top ones you read; if you summed the top seven, say "the top
   seven". A list of what sells now ("the three paywalls that sell") is every group with a sale in
   the last month, one sale included.
-- **`subscriptions_new` includes subscriptions that started after a trial.** "Bought without a
-  trial" needs the `offer_category` split.
+- **`subscriptions_new` includes subscriptions that started after a trial, and `offer_category`
+  does not show them.** A trial that converts lands in No Offer, like a straight purchase; the
+  categories mark only a discounted or promotional first payment. Whether a plan has a trial, and
+  how many buyers came through one, comes from `trials_new` by `store_product_id` and trial → paid,
+  never from No Offer.
+- **`view-paid` counts any purchase after a view, not new buyers.** Its second number is everyone
+  who saw a paywall that day and paid at any time after: renewals of people already subscribed and
+  one-time purchases count too (install → paid counts the first subscription only). Never call it
+  purchases or buyers. New buyers are `subscriptions_new` on the same placement and store: before
+  saying a placement or paywall sells less or stopped selling, check that count fell too, and give
+  it next to the rate.
+- **Small numbers are noise.** A rate with fewer than about 20 purchases or trials behind it, per
+  group or per month, cannot rank two groups, date a change or name its cause: give the counts
+  ("4 of 644 installs, against 1 of 415"), say they are too few to tell, and never call a group
+  one that "barely buys". `reads.py` marks such rows with `~`. Traffic that grew while purchases did
+  not is evidence against "traffic is what limits you": say what the extra traffic did not change.
 - **"Most" and "biggest" need the comparison.** "Most money is lost on renewals" compares what
   is lost at renewal with what is lost at the paywall, in the same window, and you compute both.
   A rate with nothing to compare it to (`market.md` has no renewal median) is stated as what it
@@ -303,7 +359,8 @@ against these before it goes in a reply:
   that split, never on the user's picture.
 - **A country is not a language.** Analytics has no language split, so the numbers show where
   users are, never what language they speak. Say "users in Mexico", not "Spanish speakers";
-  a claim about language needs the paywall's locales or the user's word.
+  a claim about language needs the paywall's locales or the user's word. That includes ruling
+  language out: "the market speaks English" is a language claim too.
 - **A market median is compared on its own slice.** The State of Paywalls numbers are App Store
   only and per region: filter the app's read to `store=app_store` and to that region's countries
   before putting the two side by side.
@@ -326,6 +383,7 @@ chart or operation: usually `store`, `country`, `duration`, `store_product_id`, 
 |---|---|---|
 | Store | `--group-by store` | Whether it is one platform. Test results differ by platform more often than not. |
 | Channel | `trials_new` and `subscriptions_new` by `attribution_channel`, then `installs --filter attribution_channel=<value>` | Whether one channel's traffic converts far worse. Then that channel's part of the fall is traffic: say so and offer `adapty-attribution` for its campaigns. Whether the rest is traffic too: "It's the traffic" in "Before you state a conclusion". The `No Data` channel is unattributed traffic, not organic. |
+| Cause check | The same rate, the same weeks, for what the change did not touch: the old product or paywall, the other store, another placement or country | Required before a reply names a change as the cause. If the untouched group rose or fell the same way, the change is not the cause: give both numbers. |
 | Mix check | The rate that fell, `--granularity month`, `--filter store=<the store with the most revenue>` and `--filter country=<value>`, one call per country for the three largest by revenue; then the same rate with `--filter attribution_channel=<the No Data value>` | Required before a reply calls the fall traffic or mix. If the rate fell in those countries too, it fell on steady traffic: say so, with the main market's numbers. |
 | When | `--granularity week` over the eight weeks around a change | The week it started, to match against a release, a price change or a campaign. |
 | Before and after | `chart` or `conversion` with `--compare-from`/`--compare-to` set to the same length before the change | How much moved, in one call. |

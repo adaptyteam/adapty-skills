@@ -67,9 +67,9 @@ changes.
      fewer, bolder changes, and say a small tweak will not reach a clear result.
 5. **Priority.** The offer before the look: localization, trials and plan structure win more
    often than visual changes (`market.md`, Testing). Then the paywall design, then small tweaks.
-   One test per placement at a time, 2-4 weeks each.
-6. **Main market.** If one market holds 50% or more of revenue, treat it as the main market for
-   the whole audit.
+   One test per audience at a time, 2-4 weeks each.
+6. **Main market.** If one market holds 50% or more of revenue, or 40% or more and five times the
+   next country's, treat it as the main market for the whole audit.
 
 ## The step that loses users
 
@@ -88,7 +88,10 @@ check the step inside traffic that held (`diagnosis.md`, "It's the traffic").
 
 ## Which placement to test first
 
-One test per placement at a time, so the order of placements is the order of tests. For each
+A placement runs one A/B test per audience at a time. Two tests on one placement run side by side
+only on different audiences; an audience added above a running test's audience takes those users
+out of it mid-test, and a crossplacement test cannot start while those placements run regular
+tests. So for the users one test reaches, the order of placements is the order of tests. For each
 active placement with about 200 purchases in two weeks or more (smaller ones cannot settle a test;
 say so), read its view → paid and its views (`diagnosis.md`, read 13):
 
@@ -178,7 +181,14 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
 Before ranking, drop any hypothesis that:
 
 - matches what is live now (a trial already on that plan, an offer already shown on close, a
-  placement that already exists);
+  placement that already exists). A default plan counts as live when any paywall that sold on
+  that placement in the last full month has it: check every paywall's name and plans, not the
+  top ones. When some paywalls have it and others not, say "N of your paywalls there already
+  preselect X" and drop the hypothesis, or turn it into comparing those paywalls' numbers. An
+  audience counts as live when the placement already has a segment for that group with its own
+  paywall or flow (former subscribers on a discount paywall, a country on its own screen), and a
+  change a selling paywall's name names (a badge, an offer, a default) counts as live: read both
+  in `reads.py placement` before suggesting it;
 - repeats a past test, whichever way it went, unless its loss failed the check in "After a test";
 - repeats a past promo without a reason it would go differently this time.
 
@@ -187,6 +197,11 @@ paywalls look) stays only when the app does not do it yet, labelled as the stand
 untried bet with a similar stake ranks above it. At a similar stake, a kind of change the data shows
 no sign of also ranks above one more test of a kind it keeps running (`diagnosis.md`, What the
 app already tried).
+
+A discount or promo the app runs all the time (an onboarding offer, a win-back paywall, an
+always-on LTO) is not a reason to suggest more of it. The bet is a holdout: part of the same users
+kept from it, judged by revenue per user, with the dollars the discount gives up a month as the
+stake. It questions money they already spend, which a dashboard never shows them.
 
 ## When nothing stands out
 
@@ -334,6 +349,8 @@ Why line, and it carries three parts, in one sentence:
 Check it before sending: swap in another app's name. If the sentence still holds, it has no
 observation from this app in it, so find one or drop the hypothesis.
 
+- Lead with the surprise: the contrast in their numbers a growth manager would not have spotted
+  in the dashboard.
 - Problem first, in their setup; then the reason it matters.
 - Two numbers side by side, never "baseline": "Brazil converts at 0.4% against your 1.5%
   overall".
