@@ -17,6 +17,8 @@ import sys
 import zlib
 
 WHITE = (255, 255, 255)
+# Written into every strip, so a rerun may replace its own output and nothing else.
+MARK = b'Software\x00montage.py'
 
 
 def read_png(path):
@@ -92,6 +94,7 @@ def write_png(path, width, height, rows_rgb):
     body = b''.join(b'\x00' + r for r in rows_rgb)
     open(path, 'wb').write(b'\x89PNG\r\n\x1a\n'
                            + chunk(b'IHDR', header)
+                           + chunk(b'tEXt', MARK)
                            + chunk(b'IDAT', zlib.compress(body, 6))
                            + chunk(b'IEND', b''))
 
@@ -109,6 +112,17 @@ def main(argv):
               f'    montage.py out.png a.png b.png', file=sys.stderr)
         return 2
     out, sources = argv[0], argv[1:]
+    # The output comes first, so `montage.py a.png b.png` used to overwrite the render a.png with
+    # a strip of b.png alone, silently. Refuse to write over any file this script did not make.
+    try:
+        prior = open(out, 'rb').read()
+    except OSError:
+        prior = None
+    if out in sources or (prior is not None and MARK not in prior):
+        print(f'montage: {out} already exists and is not a strip this script made, so writing it '
+              f'would destroy it. The output file comes first and must be a new name:\n'
+              f'    montage.py strip.png {" ".join(argv)}', file=sys.stderr)
+        return 2
     try:
         imgs = [read_png(p) for p in sources]
     except (ValueError, OSError) as exc:

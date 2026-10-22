@@ -244,7 +244,9 @@ one it shows that is not there:
   **page**, with exit 0, which passes any "did something draw" check. So a layout whose safety
   depends on viewport height — `scrollable: false`, fixed heights, a tall content column
   ([flow-schema.md trap 10b](flow-schema.md)) — cannot be validated against a small phone from
-  here. Reason about it structurally instead, and name it in the handoff. Note `--window-size` is
+  here. `iphone-13-mini` renders, but at 375×812 it is narrower than the default, not short: it
+  says nothing about a 667pt-tall screen. Reason about it structurally instead (does the content
+  column plus the pinned footer fit in 667pt?), and name it in the handoff. Note `--window-size` is
   **not** a substitute: the page draws its own device frame, so a smaller window crops the
   screenshot rather than re-laying-out the screen (measured — a 375×667 window returned
   the same 390pt-wide screen with its right edge cut off, which reads exactly like an overflow bug
@@ -519,6 +521,14 @@ page's third-party analytics beacons put `location.href` into their own query st
 hash becomes a 113K beacon request, the beacon host answers **414**, and the app's own assets die
 as collateral on the torn-down connection — the bundle never boots and you screenshot an error
 page. Reported for a 668KB flow; loads at a 32K fragment, hangs at 64K.
+
+**Bound image previews are what usually push the URL over.** Each `previewValue` is thousands of
+characters, so a flow with a handful of uploaded images crosses the limit with a small config.
+`shoot.sh` handles that itself: above the limit it first renders a copy with every `previewValue`
+removed, which draws the same screen because the render downloads the full image anyway, and says
+so. The one layout that copy can change is a sliding-sheet cover image with a `hug` height, whose
+crop is decided from the preview ([patterns.md](patterns.md#a-hero-with-the-content-sliding-over-it-sliding-sheet)). Only when
+even that copy is too long does it fall back to the file input below.
 
 The escape hatch is [`preview-with-playwright.mjs`](preview-with-playwright.mjs), which
 opens the render page on a **short** URL and hands the config to its file input

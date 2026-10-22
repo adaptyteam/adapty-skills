@@ -300,6 +300,14 @@ ref and no catalog entry:
          "color": {"type": "hex", "hex": "#FFFFFF"}}
 ```
 
+**Upload an opaque file for a background fill.** On a device, the transparent part of a fill's
+image showed black (reported), and an opaque file fixed it. Whether a colour layer under the
+image shows through instead is not verified: the preview draws it, a device may not. So with a
+transparent file, tell the user the transparent area can show black on a phone, and ask for an
+opaque version or a device check of that area. A screen-sized background
+belongs here, not in an `image` element positioned `absolute` or `fixed`: that one takes the
+taps of everything beside it ([flow-schema.md](flow-schema.md), trap 9).
+
 Because the element form is localizable, **a different asset per locale is expressible** — the
 entry's `values` is keyed by locale id exactly like copy. A fill's image can be localized too: its
 `image` may be a `{_lid}` ref to an `image` catalog entry instead of the flat value, and that is

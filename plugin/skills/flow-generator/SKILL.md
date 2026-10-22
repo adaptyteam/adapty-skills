@@ -395,6 +395,11 @@ cp flow.working.json flow.backup.json
 jq .config flow.working.json > draft.json
 ```
 
+**If `config get` dies with `Maximum call stack size exceeded`, the flow is too large for Node's
+default stack, not broken.** Run the installed CLI under a bigger stack:
+`node --stack-size=4000 "$(npm root -g)/adapty/bin/run.js" flows config get …`. It must be that
+flag on `node` itself: `NODE_OPTIONS` refuses `--stack-size`.
+
 **Two files, two shapes.** `flow.working.json` and `flow.backup.json` are the **envelope**
 `config get` and `config update` return; `draft.json` is the **bare config** you edit, check,
 preview and send. A new flow has no envelope until its first write: author straight into
@@ -658,6 +663,23 @@ code reports a good config as broken and a dead call as a defect.
 
 > **Done here is a run that printed `valid: true` over the exact bytes you are about to write.**
 > It reports one fatal per run, so fix, re-run, repeat — a shorter list is not progress.
+
+**When `gates.sh` prints `ALREADY IN` under the verdict, the fatal was in the live flow before your
+edit.** Make your edit anyway:
+
+1. Copy the draft to a scratch file, fix the blocker there, and run `gates.sh` over that copy.
+   That is the only way to see whether your own edit is clean, because the old fatal hides
+   anything of yours behind it.
+2. Once the copy prints `valid: true`, save your edit as the user asked, without the fix, and ask
+   with the fix named:
+
+   > Your headline change is ready. The flow already had a problem before I touched it: one text
+   > uses a type style the theme does not define, so it cannot be published as it is. Should I
+   > point it at the theme's body style in the same save?
+
+   *(The shape, not the words: what is ready, what was already broken, why it blocks publishing,
+   the one fix.)*
+3. On a yes, save the fixed copy.
 
 **And while the products are unsettled it reports nothing but the products** — binding is an
 early stage, so an unbound card or an undeclared product hides every later defect behind it.
@@ -935,7 +957,9 @@ so the next write locks on it with no extra read.
 **That `--json` redirect *is* the read-back — no extra call.** The write returns the **same
 envelope as `get`**, so your working file is already in sync for the next round, and you can diff
 it against what you sent. A faithful round trip is the norm, so any difference is a real finding —
-a top-level key that vanished, a `status` you should not have emitted.
+a top-level key that vanished, a `status` you should not have emitted. The one expected
+difference: the server echoes the legacy top-level `locales` and `defaultLocale` back, which
+`localization.py catalog` drops from what you send. Those two keys alone are not a finding.
 
 A write that changes nothing does not bump `updated_at` (measured once), so re-running the same
 content is not a fresh lock token. **On a 409** (*"already updated by <name>. Reload before
