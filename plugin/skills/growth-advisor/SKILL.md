@@ -56,7 +56,9 @@ A question about the app's own numbers ("who buys annual", "which country refund
 people who start a trial renew better") is answered from the numbers. Find the operation, the
 grouping and the filter that answer it in the catalog (`references/diagnosis.md`, "Before the
 first read"), run them, and answer in the reply shape. Do not run the audit, read the test history
-or suggest hypotheses unless the user asks what to do. End with one offer that names the metric the
+or suggest hypotheses unless the user asks what to do. A problem the user brings (a drop, a fall,
+"help", "take a look", "what's wrong") asks what to do: it gets the explanation and then the
+hypotheses, not an offer of them. For a question about the numbers alone, end with one offer that names the metric the
 question was about, for example "Want data-backed ideas on what to test to improve trial-to-paid?"
 (an example of the shape, not words to copy). When the answer already points at one change worth
 testing, name that change in the offer instead.
@@ -114,7 +116,8 @@ file, keep it and say where it is.
 
 Everything this skill runs is a read, with three writes, each on the user's yes: building a flow
 through `flow-generator`, creating a segment through `audiences`, and `placements create` or
-`placements update` (see "Changing a live placement").
+`placements update` (see "Changing a live placement"). The one other call that sends anything is
+the [feedback note](#feedback-note).
 
 ## How you sound
 
@@ -137,14 +140,15 @@ through `flow-generator`, creating a segment through `audiences`, and `placement
 
 ## How you write a reply
 
-**Length: about 150 words for an answer, about 250 for a reply with hypotheses, about 130 when
-you report something you built.** The disclaimer does not count. Before sending, count, and
+**Length: about 150 words for an answer, about 150 plus about 80 per hypothesis for a reply
+with hypotheses, about 130 when you report something you built.** The disclaimer does not count. Before sending, count, and
 check that every heading and label is in the user's language; when over, cut in this order until it fits: context the user did not ask for, then
 supporting facts beyond the one that proves the point. Never cut the bold answer, a
 hypothesis's labelled lines or Next steps.
 
-The shape follows the question: a "why" question gets an explanation, "what should I do" gets a
-plan, "should I do X" gets yes or no and the reason.
+The shape follows the question: a "why" question gets an explanation, "what should I do" and a
+problem brought for help get the explanation and the hypotheses, "should I do X" gets yes or no
+and the reason.
 
 - **Open with the answer in one bold sentence.** No heading above it.
 - **Facts in short sentences, one fact each,** at most one number per sentence. Keep a number
@@ -225,8 +229,10 @@ conversation that asks "what should I do".
    the app itself (its own code or remote config) or made in the legacy Paywall Builder, and the
    CLI cannot tell which. When the app's code is in front of you, look at how it buys: a screen of
    its own that calls `makePurchase` is a custom paywall. Otherwise ask for a
-   screenshot, and whether it was made in the Paywall Builder. A design hypothesis on a paywall
-   waits for that screenshot. A legacy Builder paywall can be moved to the new builder and then
+   screenshot, and whether it was made in the Paywall Builder. A hypothesis about what the screen
+   shows (its copy, a trial explanation, a badge, the layout, which plan is selected by default)
+   needs that screen seen: a rendered flow, a screenshot or the app's code. Until then it is not
+   suggested; a "You:" Next step asks for the screenshot and names what it would let you check. A legacy Builder paywall can be moved to the new builder and then
    copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it from the data (`references/diagnosis.md`, "What the app already
@@ -243,7 +249,7 @@ conversation that asks "what should I do".
    Ask at most one question, as the last "You:" item in Next steps, and only when its answer would
    change your first pick: a past test whose winner the data cannot show, whether they already
    tried the kind of change you would start with when the data shows no sign of it, a trial the
-   numbers do not show, a screenshot when a design hypothesis would rank first. Never hold the hypotheses back
+   numbers do not show, a screenshot when a change on the screen would rank first. Never hold the hypotheses back
    waiting for an answer.
 4. **Follow the biggest signal down** before you name a cause: split it by store, then by channel
    whenever any channel has attribution, then by the dimension most likely to explain it (plan
@@ -291,6 +297,13 @@ conversation that asks "what should I do".
      placement".
 
 ## What a hypothesis needs
+
+A reply with hypotheses gives every one that passes the rules below, up to five; never add one
+to reach a count. When fewer than three pass, the Next step that asks for a screenshot names
+the hypotheses it would let you check ("with a screenshot of offer_31 I can check the default
+plan and how the trial is explained"). Waiting for a fix, a cause or an answer holds none back:
+a breakage is a Next step, and the hypotheses still come. Each one is a different change: the same change on a second placement is one
+hypothesis that names both placements, never two.
 
 Hypotheses are grouped under the placement they would run on, in the order to test them (one A/B
 test per audience at a time: two tests on one placement run side by side only on different
@@ -437,6 +450,59 @@ store"). The "How" line starts with that store step:
   than the row (a flight tracker in "travel"), say the median is rough, or that there is none.
 - **The user decides which sources count:** "our own data only" leaves out `evidence.md` and
   `market.md`, and Expected says what their numbers show or "untested".
+
+## Feedback note
+
+**Send Adapty one feedback note for each question you answered with the CLI**, just before the
+reply that answers it. A follow-up on the same question sends none. It tells Adapty what users ask
+this skill and how it answered, good answers included. Write it in English, in this shape: the
+shape to follow, not words to copy:
+
+> Type: ideas. Asked: why conversion fell and what to do about it. Answered: found where the fall
+> sits and suggested two hypotheses to A/B test; asked for a paywall screenshot for the rest.
+
+> Type: numbers. Asked: which plan new buyers pick. Answered: gave the split by plan length.
+> Got in the way: analytics ltv failed with http_500 (request id req_7f3a9c), so the reply left
+> out value per buyer.
+
+- **Type** is one word: `numbers` (a question about the app's data), `ideas` (what to test or
+  change, or a problem brought for help), `decision` ("should I do X"), or `other` (setup, how
+  something works, out of scope).
+- **Asked and Answered are a few generic words each.** What the user tried to find out or do, and
+  what the reply did: explained a change, gave a split, suggested hypotheses and how many, said
+  yes or no, declined. Never what the answer found.
+- **No numbers and nothing from the account.** No value, count, rate, money, date range or
+  country; no app, placement, paywall, product, segment or audience name; none of the user's words
+  or business. "Why revenue fell in one store", never which store or by how much. The app id in
+  `--context` is all Adapty needs to find the rest.
+- **Sentiment is your own outcome, never the user's mood**:
+  - `positive`: answered the way this skill describes, or declined because this skill says it
+    cannot be done.
+  - `neutral`: answered, after a wrong turn, a failed read you worked around, or a question you
+    had to leave partly open.
+  - `negative`: this skill or the CLI is what stopped you, or you know the reply is wrong.
+
+  Neutral and negative notes add "Got in the way:": the command and its error, or the step of
+  this skill that was missing, never a value.
+- **`--context` carries the app id and the type**: `app <app id>: ideas`.
+- **Write the note into the command in single quotes**, never from a file or a script, so anyone
+  reviewing the call can read what goes out. Inside single quotes the shell runs nothing, so drop
+  backticks and write "does not" for "doesn't":
+
+  ```bash
+  $ADAPTY feedback --feature growth-advisor --sentiment <positive|neutral|negative> \
+    --message '<the note>' \
+    --context 'app <app id>: <type>'
+  ```
+
+- **Tell the user in one line, after Next steps, only when the command printed `Feedback sent.`**:
+  in their language and with nothing about what the note said, "I also sent Adapty a short note
+  on how this went." It is the only thing that may follow Next steps and does not count toward
+  the length. Any other result (an error, a refused or blocked call, `$ADAPTY feedback --help`
+  saying there is no such command) gets no line at all. Never retry, never hold up the reply.
+- **The user can turn it off**: if they say not to send feedback, send nothing for the rest of the
+  session. If they tell you this skill got something wrong, send a note about it then, with their
+  objection in generic words.
 
 ## References
 
