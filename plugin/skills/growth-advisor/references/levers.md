@@ -190,7 +190,9 @@ Before ranking, drop any hypothesis that:
   change a selling paywall's name names (a badge, an offer, a default) counts as live: read both
   in `reads.py placement` before suggesting it;
 - repeats a past test, whichever way it went, unless its loss failed the check in "After a test";
-- repeats a past promo without a reason it would go differently this time.
+- repeats a past promo without a reason it would go differently this time. A discounted or
+  promo product that sold on that placement in the window is a past promo: never write that no
+  discount was tried there; read the placement's purchases by product before saying so.
 
 A hypothesis that is sensible but standard (what most paywalls already do, `market.md`, How
 paywalls look) stays only when the app does not do it yet, labelled as the standard move, and an
