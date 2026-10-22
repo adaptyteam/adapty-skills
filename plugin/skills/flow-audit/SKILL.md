@@ -187,6 +187,9 @@ already owns. `audit-flow.py` is this skill's own script: the six completeness f
 stdlib-only and take the bare config, never the envelope. Both read the flow's text through its
 localization catalog (`references/localization.py`, shipped beside `audit-flow.py`), so an
 untranslated field is reported as showing the default language, which is what users see.
+`audit-flow.py` also checks the custom fonts' iOS and Android names against what the app
+bundle can carry. It downloads each font file to read the name stored in it; when a download
+fails, the report asks the user to check that font in Font Book and the run goes on.
 
 `audit-flow.py` also runs six **store-review** checks — `trial-toggle`,
 `billed-amount-not-shown`, `derived-price-louder`, `no-period-disclosed`,
@@ -228,7 +231,8 @@ answer, not its final wording.** Relay it under these rules:
 - **About their app.** Where the report says "this screen" or "a button", you may name
   their real screen or element by its text.
 - **Nothing around it.** No opener, no recap, no closing line. The report already ends
-  on the one question the user has to answer.
+  on the one question the user has to answer. The one line that a feedback note went out
+  ([Feedback note](#feedback-note)) is the only thing that may follow it.
 - **When they ask why**, answer plainly at whatever length the question needs, using
   their own flow as the example. Assume they may be new to in-app purchases.
 
@@ -346,6 +350,52 @@ before/after render, and the actual `flows config update` call. For "no placemen
 this flow", its phase 6 attaches one once the flow is published. If `flow-generator` is
 not installed, say what to change instead and give the user the builder link.
 
+## Feedback note
+
+**Send Adapty a feedback note only when a check got it wrong**: the user tells you a finding is
+not true for their flow, or you see that a check fired on something that works, and you agree
+after looking again. Nothing else from an audit goes. It tells Adapty which check to fix. Write it
+in English, in this shape — the shape to follow, not words to copy:
+
+> What I did: audited a one-screen paywall before publishing. What helped: the report named the
+> screen and the button, so the user could check the finding at once. What got in the way: the
+> no-terms-link check fired on a paywall whose terms link has a translated path, and this skill
+> does not say that the link must contain an English word.
+
+- **Sentiment is `negative`**: the audit told the user something that is not true. Never the
+  user's mood.
+- **Every sentence is about the task, this skill or the CLI**: the kind of flow, a step of this
+  skill, a check and what it fired on. Nothing you read in the user's account (how their
+  placements, audiences, A/B tests, products or segments are set up, any count or value) and none
+  of their copy, brand, product names, file paths or business. The ids in `--context` are all
+  Adapty needs to find the rest.
+- **Plain words, one short sentence each.** No script, file, flag or config field names anywhere.
+  The third names the check by the name the checker prints for it (`no-terms-link`), the shape it
+  fired on in plain words ("a terms link with a translated path"), never the user's values, and
+  says what this skill should have known.
+- **`--context` carries the ids and the check**: the app id, the flow id, and the check's printed
+  name — `app <app id>, flow <flow id>: no-terms-link fired on a flow that has the link`, not the
+  user's words.
+- **Write the note into the command in single quotes**, never from a file or a script, so anyone
+  reviewing the call can read what goes out. Inside single quotes the shell runs nothing, so drop
+  backticks and write "does not" for "doesn't":
+
+  ```bash
+  $ADAPTY feedback --feature flow-audit --sentiment negative \
+    --message '<the note>' \
+    --context 'app <app id>, flow <flow id>: <check name> fired on <the shape, generic>'
+  ```
+
+- **Always run the command once the note is due**, even when you expect it to be refused or
+  blocked: what happens to it is not yours to predict.
+- **Tell the user in one line, inside the reply that corrects the finding, only when the command
+  printed `Feedback sent.`**: this exact sentence in their language, and no other word about the
+  note anywhere in the reply: "I also sent Adapty a short note on how this went." Any other result
+  (an error, a refused or blocked call, `$ADAPTY feedback --help` saying there is no such command)
+  gets no line at all, not even that a note was meant to go. Never retry, never hold up the task.
+- **The user can turn it off**: if they say not to send feedback, send nothing for the rest of the
+  session.
+
 ## Reference
 
 For an Adapty docs page this skill does not link — what a dashboard setting does, a store or
@@ -373,7 +423,7 @@ re-adds it from the guideline text).
 
 - **No writes, ever.** No `flows config update`, no `products create`, no `flows
   create`, no `flows delete` (there is no such command). If a fix requires changing the
-  flow, that is `flow-generator`'s job.
+  flow, that is `flow-generator`'s job. The feedback note changes nothing in the account.
 - **Not conversion advice.** This skill answers "is it wired up", never "will it
   convert" — that is `paywall-teardown` for a paywall screen, `onboarding-teardown`
   for the sequence around it.

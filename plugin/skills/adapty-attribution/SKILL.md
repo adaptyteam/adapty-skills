@@ -46,8 +46,12 @@ multi-word `$ADAPTY`. When you show a command to the user, write a literal `adap
 - Run reports one at a time. The service runs only a few queries per company at once, and
   `report` and `values` are never retried for you. On `attribution_busy`, wait
   `retry_after_seconds`, then run the call once more.
-- `attribution_access_required` means the company has no Attribution access. Logging in again
-  will not fix it; say so and stop.
+- `attribution_access_required` means the company has no Attribution access, so spend, CPI and
+  ROAS are out of reach. Logging in again will not fix it; say so once and run no more
+  `attribution` calls. A question about which channel brings users, subscribers or money is
+  still answerable from the app's subscription analytics: invoke `growth-advisor` now and answer
+  it in this reply, by installs, trials, trial-to-paid and revenue per channel, saying spend and
+  ROAS are not in them. Only a question about spend, CPI or ROAS itself ends here.
 
 ## Apple Search Ads spend is not in Attribution
 

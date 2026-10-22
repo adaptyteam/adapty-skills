@@ -33,7 +33,7 @@ observed.
 | `schemaVersion` | the number **13**, the builder's latest | **The number declares which migrations the document has already been through**, and the builder acts on that declaration alone: on load it applies every registered step whose version is greater than the flow's, then stamps its own latest. So the number is a claim about the shapes inside, not a label. Three consequences, and they are the whole rule. **Never raise it by hand**: a document stamped 13 has every step up to 13 skipped, so an inline value stamped 13 is never moved into the catalog: it still publishes, but the Flow Builder's languages view does not list it, so nobody can translate it there. The only ways a document reaches 13 are the builder saving it and `localization.py catalog`, which does the 013 conversion and stamps the number together. **Never stamp past 13** — a version ahead of the builder's latest throws `Downgrade is not supported` and the flow will not open. **A fetched flow below 13 is converted before anything else**: at 12, `localization.py catalog` over it; below 12, migrations 011 and 012 are the builder's alone, so the user opens the flow in the Flow Builder and saves it, and you fetch it again. `flowkit` emits array fills (010), structured product refs (011) and the screen registry (012) itself and gets 013 from `localization.catalog()`, so it stamps **13**. |
 | `components` | `{}` or `{"pb_XXXXXXXX": {map, hierarchy}}` | Reusable blocks with the same `{map, hierarchy}` shape as a screen's `elements`. Referenced from a screen hierarchy as `{"id": "pb_XXXXXXXX", "type": "global"}` — a hierarchy node with no entry in that screen's `map`. Empty object in `comparison`. May be present and referenced by nobody. |
 | `screens` | `[{id, props, caption, elements: {map, hierarchy}, selectableGroups, products}]` | Array order is flow order; `screens[0]` is the entry screen. `selectableGroups` is `[]` on screens with no groups, never omitted. `hierarchy` is a single rooted node — see below. **`products` is the screen's Product + Offer registry, and it is what `_meta.screens[].products[]` is derived from** — [`products.md`](products.md) owns the rules, including the one that matters most here: absent and `[]` mean opposite things, so omit the key rather than emptying it. The three exports in this corpus are v9 and carry the other five keys only; a screen you did not export yourself has six. |
-| `localization` | `{locales, defaultLocale, content}` | `locales`: `[{id, code, name}]`, e.g. `{"id": "en", "code": "en", "name": "English"}`. `defaultLocale`: a locale **id**, and it must name an entry in `locales`. `content`: the catalog, one entry per localizable value. There is no top-level `locales` or `defaultLocale`. [Localization: the catalog](#localization-the-catalog) owns the rules. |
+| `localization` | `{locales, defaultLocale, content}` | `locales`: `[{id, code, name}]`, e.g. `{"id": "en", "code": "en", "name": "English"}`. `defaultLocale`: a locale **id**, and it must name an entry in `locales`. `content`: the catalog, one entry per localizable value. There is no top-level `locales` or `defaultLocale` to write: `localization.py catalog` drops a legacy pair, and the server echoes it back on save, which the catalog outranks. [Localization: the catalog](#localization-the-catalog) owns the rules. |
 | `variables` | `[{id, name, valueType}]` | **Custom, app-supplied variables only** — `{"id": "var_ddvg4jeg", "name": "app.permission.location.allowed", "valueType": "boolean"}`. Built-ins are never declared here. `[]` in `timer` and `comparison`. |
 | `theme` | `{typography: [{id, name, settings}], colors: [{id, name, light, dark?}]}` | Per-project design system. **Not a fixed vocabulary** — see [Shape traps](#shape-traps). `colors[].dark` is present only where dark mode was configured (`quiz` only). |
 | `_meta` | `{icons, fonts, screens}` | `icons`: `[{name, weight, raw}]`, `raw` being literal SVG markup. `fonts`: `[{id, name, url, iosName, androidName, faces}]`, `[]` in `quiz`; `faces` is one entry per uploaded weight and style, `{id, url, iosName, androidName, weight, italic, isDefault}`, and the top-level `url`/`iosName`/`androidName` copy the default face. An older entry has no `faces` and is still accepted. **Carry `fonts` through untouched, `faces` included; never write an entry yourself** — [trap 8](#8-custom-fonts-do-not-ship-with-the-flow). `screens`: an object keyed by screen id, holding that screen's declared products — `{"<screen-id>": {"products": [{"id": "<product-uuid>", "flowProductId": "<flow-product-uuid>"}]}}`. An entry also carries `offerId` when the binding has one, between `id` and `flowProductId`. Screens with no products have no entry at all. **Rewriting a flow: carry `screens[].products[]` through untouched. Authoring one: derive it with `flowkit.predeclare()`.** [`products.md`](products.md) owns the rules and the reasoning. |
@@ -619,6 +619,25 @@ family that has none. `flows config validate` reports it; `verify-config.py` doe
 user's to fix, not yours: they set the name on that face in the builder's font settings, then
 you re-fetch. Never type a name into `_meta.fonts` — it would not match their bundle.
 
+**`_meta.fonts` is a copy of the app's font record, and a builder save overwrites it.** The
+custom font lives once per app; each flow carries a snapshot of it, refreshed from the app's
+record when someone saves that flow in the builder. So a name corrected through
+`config update` comes back on read, and then the next builder save restores the old value.
+The fix is always the user's, in the font's settings in the builder
+([Manage a custom font](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)), and it
+reaches each flow only when that flow is saved again in the builder. Opening it is not enough.
+After that fix, every other flow that uses the font still carries the old name until it is
+re-saved, so name those flows in the handoff. The names have one shape each
+([Add the font files to your app's bundle](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)):
+
+| Field | Must be |
+|---|---|
+| `iosName` | the PostScript name stored in the font file, unique across the app's custom fonts. A variable font file often declares none, so the user enters it |
+| `androidName` | the file name in `res/font/` without the extension: lowercase letters, digits and `_` only. The builder never fills it in |
+
+When a flow you touch carries a name of the wrong shape, report it with that rule and the
+settings link above. The flow publishes with it; the device draws the system font instead.
+
 A reference can enter by any of invariant 9's paths, and the preset is the quiet one:
 an element's `props.font.family`, or a **typography preset** whose
 `settings.family.id` points at an uploaded font. `quiz` declares no fonts at all
@@ -671,7 +690,9 @@ All three parts are load-bearing, each isolated by removing it from one rendered
 
 `height: auto` therefore means nothing on its own — it is half of a pair, and the other half is the
 anchors. Paint order is the hierarchy order, so put the element first rather than reaching for
-`zIndex`. `zIndex` lives *inside* `position`, not at the top level of props, and a negative value
+`zIndex`. That orders the drawing, not the taps: on a device a screen-sized `absolute` image
+listed first still took every option's taps, so a background goes in the screen's `fill`
+([media.md](media.md#binding-the-url-two-different-shapes)), and `verify-config.py` warns. `zIndex` lives *inside* `position`, not at the top level of props, and a negative value
 sends the element behind every ancestor that has a fill; `verify-config.py` warns on that. (An earlier note here said `zIndex` appeared in no real export; that export now exists.)
 `flowkit.absolute()` emits the position object and raises on either broken pairing, and
 `verify-config.py` warns on both, since neither the schema nor `validate` has any opinion on
@@ -1731,9 +1752,10 @@ wrapper.
   2026-08-17, acknowledged as a bug, unresolved; do not design a caption that depends on 11pt.
 - **A `mailto:` `openUrl` crashes iOS unless "open in external browser" is set** — SDK-side fix
   landed, but the flag remains the safe pattern.
-- **Dark theme works only through colour styles that define dark values** — a direct hex is one
-  colour in both themes; theme-dependent *images or videos* are not buildable at all (the fallback
-  is separate screens per theme, switched app-side).
+- **Dark theme works only through colour styles that define dark values and through dark files** —
+  a direct hex is one colour in both themes. A background that changes per theme (a different
+  colour, gradient, image or video) is a layered colour style, trap 26; an `image` or `video`
+  element takes `imageDark`/`videoDark`, `references/media.md`.
 - **Screen ids are analytics keys**: the dashboard's per-screen paywall rows key on `screen_id`,
   every republish mints a new row, and a rename only affects future versions — so mint stable,
   meaningful screen ids and set `caption`s, because both outlive the publish.

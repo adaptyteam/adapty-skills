@@ -22,6 +22,7 @@ Gemini CLI), all shipped in one plugin, `adapty-skills`:
 | `audiences` | Creates or reuses segments and adds them as placement audiences |
 | `flow-audit` | Read-only: is this Flow Builder flow ready for production |
 | `flow-generator` | Reads, transforms, builds and writes Flow Builder configs; attaches a published flow to a placement |
+| `growth-advisor` | Reads the app's subscription numbers through the read-only `analytics` topic and returns hypotheses to A/B test; no pricing |
 | `migrate-placements` | Moves an app from paywall placements to flow placements, by creating new ones |
 | `onboarding-teardown` | Growth hypotheses for an onboarding sequence; touches nothing |
 | `paywall-teardown` | Conversion hypotheses for a paywall screen; touches nothing |
@@ -212,6 +213,15 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **A preview never retires a device report;** a claim about tapping, scrolling or navigation needs the driven page or a device. A shape verified with diagnostics in it is the instrumented shape.
 - **The fetched config is the only write base,** never a build script or leftover file; `diff-config.py` removals go in the approval ask.
 - **Don't rebuild what was ruled out:** the fake-video detector, a draft-validate copy tool, the Google Fonts catalog, a `CircleNotch` loader guard, an `x-supported` element ban beyond `old-price`. The reasons are in the notes.
+
+### `growth-advisor`
+
+- **`references/evidence.md` is vendored byte-for-byte from the growth team.** Repo-specific facts go elsewhere; never quote the raw test library, which names customers.
+- **One owner per number:** uplift ranges from `evidence.md`, market medians and win rates from `market.md`. No Autopilot impact numbers.
+- **Pricing is out of scope:** no price is read, compared or proposed, and price is mentioned only in the skill's fixed sentence. Don't restore the deleted competitor-price reads.
+- **Two words for users: a hypothesis, and once picked, an A/B test.** Ask which one to start with, never for a verdict on each.
+- **A live placement changes only through the confirmation block:** `placements get` omits A/B-test audiences and `update` replaces them all.
+- **Filter values come from `analytics values`, never from a group's `key`;** read funnel and retention groups from the grouped answer. New segments go through `audiences`.
 
 ### `migrate-placements`
 

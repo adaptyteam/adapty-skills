@@ -72,6 +72,9 @@ missing or wrong flow id, an expired token and a genuinely broken config all exi
 presence of `valid`, then on its value — an agent gating on the exit code alone reports a good
 config as broken and a failed call as a defect.
 
+**`http_502` is a failed call, never a verdict on the config.** Validating many flows in parallel
+returns it for most of them. Validate one flow at a time, and on a 502 retry that one call once.
+
 `code` and `path` come back `null` on every message measured. The location, when there is one, is
 inside the `message` string.
 
@@ -167,6 +170,7 @@ A clean `validate` is a floor, not a proof. Every one of these passed with `vali
 | A colour that is not `{type: hex, hex}` or `{type: color-style, colorId}` — a theme entry `{id}` where a reference belongs, or a fill layer `{type: color, color}` in `border.color` or `props.color`. The Flow Builder crashes on open and the flow cannot be edited from the dashboard; the device renders it | `references/verify-config.py` (an error); the schema check too, but that one is advisory |
 | Text bound to a layered theme colour with no solid layer — it draws fully transparent ([flow-schema.md](flow-schema.md), trap 26) | `references/verify-config.py` (an error) |
 | A hyphen in an element id, which breaks the generated runtime script | `references/verify-config.py` (added after this row; the render still cannot show it — see [flow-schema.md](flow-schema.md#element-and-screen-ids-become-identifiers)) |
+| A locale code with the wrong casing (`pt-br` for `pt-BR`): the publish refuses it with a pattern violation on `/localizations/N/id` | `references/verify-config.py` (a warning, and it outranks the clean validate: fix the code before publishing) |
 | A product id that does not exist in this app | nothing; no price on device and the purchase fails |
 | Advisory warnings about silently dropped props (`verticalAlign` and friends) | nothing reachable from the CLI |
 

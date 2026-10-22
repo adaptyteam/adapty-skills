@@ -255,7 +255,10 @@ fk.tabs([fk.tab([label('Monthly')], [fk.single_plan(monthly_copy, product_id=MO,
   fill`, and give each panel `distribution: space-between` with the CTA as its last child — the
   panel then stretches to the bottom and its button lands where the design put it. This is the
   real tabs export's own height chain. It clips on a short phone, so name that as a device check.
-  Only when the screen must scroll does the CTA move up under the price — say so in the report.
+  Only when the screen must scroll does the CTA move up under the price — say so in the report,
+  and find that CTA in the render: on a screen that also has a pinned `footer`, it can land
+  behind the footer or below the fold. Move the tab block up until the button shows above the
+  footer.
 - Declare every plan's product on the screen (`predeclare(screen_id, [MO, YR])`) and every
   group in `selectableGroups`: `period` as `single_choice`, each plan group as `product`.
 
@@ -1240,7 +1243,9 @@ that is not at the root, and refuses two.
   cut off.
 - **Give the sheet an opaque `fill`**, because it rides over the cover. Round the top corners only:
   the bottom edge sits at the screen edge, so bottom radii are never seen.
-- **Put every tappable element inside the sheet, the close button included.** On Android a tap on
+- **Put every tappable element inside the sheet, the close button included.** Not as an
+  `absolute` element at the screen root: that one belongs to the cover band, and the preview did
+  not draw it (reported). On Android a tap on
   an element in the cover band does not register, while the same button works on iOS and works
   inside the sheet on both. `verify-config.py` warns on any interaction in the cover. A close
   button nobody can tap on Android is a store-review problem, not a cosmetic one. A video in a cover

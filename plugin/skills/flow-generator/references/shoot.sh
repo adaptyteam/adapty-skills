@@ -143,6 +143,9 @@ shoot_one() {  # $1 = url, $2 = out png, $3 = budget ms, $4 = watchdog s
     waited=$((waited + 1))
     sleep 0.5
   done
+  # Its helpers first: killing only the main process left renderer and GPU processes running
+  # after a hung shot (reported), and they pile up over a run.
+  command -v pkill >/dev/null 2>&1 && pkill -9 -P "$c" 2>/dev/null
   kill -9 "$c" 2>/dev/null
   wait "$c" 2>/dev/null
   [ -n "$profile" ] && rm -rf "$profile"
@@ -191,6 +194,35 @@ for s in $SCREENS; do
   # never puts the config in the URL. Windows caps a whole command line at 32,767 characters, so
   # there a URL far shorter than that limit never reaches Chrome at all.
   if [ "$WIN" = 1 ]; then limit=30000; else limit=100000; fi
+  # The previews are what grows: one bound image's previewValue is thousands of characters. So
+  # first try a copy with every previewValue removed; it renders the same screen, because the
+  # render downloads the full image anyway. The one layout it can change is a sliding-sheet cover
+  # image with a hug height, whose crop is decided from the preview (media.md). Reported by two
+  # runs that each stripped the previews by hand after the fallback below clipped the footer.
+  if [ "${#url}" -gt "${URL_LIMIT:-$limit}" ]; then
+    lean="$OUT/nopreview-$CFGSIG.json"
+    $PY -c '
+import json, sys
+def strip(o):
+    if isinstance(o, dict):
+        return {k: strip(v) for k, v in o.items() if k != "previewValue"}
+    if isinstance(o, list):
+        return [strip(v) for v in o]
+    return o
+json.dump(strip(json.load(open(sys.argv[1], encoding="utf-8"))), open(sys.argv[2], "w", encoding="utf-8"))
+' "$CFG" "$lean" 2>/dev/null
+    if [ -s "$lean" ]; then
+      if [ "$s" = "__default__" ]; then lurl="$($ADAPTY_BIN flows config preview "$lean" 2>&1)"
+      else lurl="$($ADAPTY_BIN flows config preview "$lean" --screen "$s" 2>&1)"; fi
+      case "$lurl" in
+        http*) if [ "${#lurl}" -le "${URL_LIMIT:-$limit}" ]; then
+                 echo "   URL is ${#url} chars — rendering $s from a copy without image previews" >&2
+                 echo "   (same screen; only a sliding-sheet cover image with a hug height can crop differently)" >&2
+                 url="$lurl"
+               fi ;;
+      esac
+    fi
+  fi
   if [ "${#url}" -gt "${URL_LIMIT:-$limit}" ]; then
     PW_DIR="$HOME/.cache/adapty-flow-playwright"
     if [ -d "$PW_DIR/node_modules/playwright" ]; then
