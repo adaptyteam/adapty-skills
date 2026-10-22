@@ -319,7 +319,10 @@ labelled lines, in this order: Why, Expected, Time, Who. Nothing else goes in th
   wins in Adapty's library of real subscription A/B tests"). Call a range resting on one test
   directional. Then what it is worth: the range applied to the money the change touches on that
   placement, in dollars a month from their numbers ("about $1,000-1,600 a month on $4,000 of first
-  payments here"); with no range, the dollars a month the change puts at stake.
+  payments here"); with no range, the dollars a month the change puts at stake. The base is
+  always that placement's first payments in the last full month: never a year's revenue, a
+  cohort's first-year value or the whole app, so the same placement is worth the same in every
+  hypothesis.
 - **Time:** how long its A/B test would take, computed from their purchases (about 200 per
   variant), in weeks or months, followed by the weekly count it came from: the purchases, or the
   trials for a trial → paid metric, on that placement in the last full month (`reads.py

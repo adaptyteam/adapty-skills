@@ -296,6 +296,8 @@ def audit(a):
     R('7. refunds by country', chart('refund_money', f, t, 'country'), top=12)
     placements = R('8. new subscriptions by placement', chart('subscriptions_new', f, t, 'placement_id'))
     R('new subscriptions by paywall', chart('subscriptions_new', f, t, 'paywall_id'))
+    R('first-payment revenue by placement (the base for a hypothesis\'s dollars a month)',
+      chart('revenue', f, t, 'placement_id', filters=['renewal_period=1']))
     wf = (dt.date.fromisoformat(t) - dt.timedelta(days=27)).isoformat()
     R('new subscriptions per week by placement, the last 4 weeks (the count a Time line uses)',
       chart('subscriptions_new', wf, t, 'placement_id', 'week'))
