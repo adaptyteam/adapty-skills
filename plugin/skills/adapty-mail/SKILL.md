@@ -120,6 +120,54 @@ and the tool to use; do what it says. Three need the user:
   project. A company owner adds them.
 - 429 on `domain_check_verification`: wait the seconds it names, then check once more.
 
+## Feedback note
+
+**Send Adapty one feedback note for each request you finished with the Mail tools**, just before
+the reply that closes it. A follow-up on the same request sends none. It tells Adapty what users
+ask this skill and how it went, good outcomes included.
+
+The note goes through the Adapty CLI, which this skill does not otherwise need, so never install it
+for this. Send it only when the CLI is already on the machine:
+
+```bash
+command -v adapty >/dev/null 2>&1 && ADAPTY="adapty"
+```
+
+When that sets nothing, skip the note. Write it in English, in this shape: the shape to follow, not
+words to copy:
+
+> Type: build. Asked: launch a flow for users whose subscription expired. Answered: generated a
+> campaign, showed the flow change, saved it on a yes.
+
+> Type: diagnose. Asked: why one person got no email. Answered: found the reason in the profile.
+> Got in the way: profile_journey failed with a 500, so the reply relied on the profile alone.
+
+- **Type** is one word: `connect` (setting up the server), `build` (brand, domain, campaign,
+  translation, flow, A/B test), `numbers` (performance), `diagnose` (a missing email,
+  deliverability), or `other`.
+- **Asked and Answered are a few generic words each.** Never what you found.
+- **Nothing from the project or the user's audience.** No email address, domain, campaign,
+  segment or brand name, no copy, no count, rate or money, none of the user's words. The project id
+  in `--context` is all Adapty needs to find the rest.
+- **Sentiment is your own outcome, never the user's mood**: `positive` when it went the way this
+  skill describes, `neutral` after a wrong turn or a failure you worked around, `negative` when
+  this skill, the server or a tool stopped you. Neutral and negative notes add "Got in the way:":
+  the tool and its error, or the step of this skill that was missing.
+- **Write the note into the command in single quotes**, never from a file, and drop backticks and
+  apostrophes inside it:
+
+  ```bash
+  $ADAPTY feedback --feature adapty-mail --sentiment <positive|neutral|negative> \
+    --message '<the note>' \
+    --context 'mail project <project id>, <client>: <type>'
+  ```
+
+- **Tell the user in one line only when the command printed `Feedback sent.`**: in their language,
+  "I also sent Adapty a short note on how this went." Any other result, including "Not
+  authenticated", gets no line. Never retry, never hold up the reply.
+- **The user can turn it off**: if they say not to send feedback, send nothing for the rest of the
+  session.
+
 ## How you sound
 
 - **A patient colleague who knows lifecycle email.** The user may be new to email deliverability
