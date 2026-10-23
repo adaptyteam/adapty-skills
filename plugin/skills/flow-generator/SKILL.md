@@ -207,6 +207,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [placements.md](references/placements.md) | **Phase 6** — every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
 | the **`paywall-teardown`** skill | **Phase 2** when *you* choose the design of a **screen that sells**, **phase 4** to grade what you built. It owns whether the screen sells; this skill owns the JSON |
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
+| the **`ab-tests`** skill | **Phase 6**, when the user wants this flow tested against another flow. It owns the test from the draft to the stop; this skill hands it the published flow ids |
 | the **`adapty-integration`** skill | **Phase 6**, once a placement points at the flow. It owns the app side — the fetch, the render and the call sites — and this skill hands it one thing: the placement developer ID |
 
 Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph lookup,
@@ -1103,9 +1104,10 @@ $ADAPTY placements list --app "$APP" --page-size 100 --json    # the default pag
 | What `list` shows | What you do |
 | :--- | :--- |
 | nothing for this location | `placements create` with a new developer ID |
-| a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping, A/B test entries (`flow_ab_test`) and shared ones (`flow_cross_ab_test`) exactly as `placements get` returned them. A write that replaces a running test, for instance this flow on the default audience a test holds, **stops that test with no winner**: show the audiences before and after as a table with the line "test X stops with no winner; this flow starts", wait for the user's yes, and read the placement again just before the write; if it changed, show the new before/after table and ask again (unattended: stop and report). No answer → the change goes in the dashboard |
+| a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping, A/B test entries (`flow_ab_test`) and shared ones (`flow_cross_ab_test`) exactly as `placements get` returned them. A write that replaces a running test, for instance this flow on the default audience a test holds, **stops that test**, and a placement write does not do that: route it to the **`ab-tests`** skill (`ab-tests stop`, which shows the user the exact effect first), then write the placement and read it again just before (changed: show the before/after table and ask again; unattended: stop and report). No answer → the change goes in the dashboard |
 | a **paywall** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
 | a placement where only **some** users should get this flow — a country, a version, a segment | The **`audiences`** skill. It adds a segment audience beside the existing ones without changing what anyone else sees |
+| the user wants to **test this flow against another** (an A/B test: "split traffic", "run it 50/50", "start the test", "stop the test") | The **`ab-tests`** skill. It creates the test as a draft and starts, stops or replaces it only after the user sees the exact effect. Never start or stop a test with a `placements update` |
 
 **The ID needs an explicit yes, and this is the fourth fixed block.** It is irreversible in a way
 the phase-5 write is not: unique across every placement in the app whatever its type, no rename, no

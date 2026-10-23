@@ -35,6 +35,7 @@ Every skill below is part of the `adapty-skills` plugin. Install the plugin once
 | [`flow-audit`](#auditing-a-flow) | Answers "did I forget anything?" before you publish a flow — triggers, products, variables — with a verdict and ranked fixes | Adapty CLI |
 | [`flow-generator`](#building-flows-and-paywalls) | Builds a paywall or onboarding flow, or changes one you have: translate it, rewrite the copy, add or reorder screens, add tabs and plan pickers, wire quiz branching | Adapty CLI |
 | [`audiences`](#targeting-who-sees-what) | Shows different paywalls or flows to different users at one placement — by country, app version, revenue, a custom attribute — creating or reusing the segment and adding it without changing what anyone else sees | Adapty CLI |
+| [`ab-tests`](#running-an-ab-test) | Runs a paywall or flow A/B test from the first draft to the stop: creates it, starts it, stops it with a winner, replaces a running test with a changed one, archives old ones — and shows you exactly who sees what before every step that cannot be undone | Adapty CLI |
 | [`migrate-placements`](#migrating-placements-to-flows) | Moves an app from paywall placements to flows — creates the new flow placements alongside your existing ones and hands back the old→new mapping and the one call to change | Adapty CLI |
 | [`onboarding-teardown`](#tearing-down-an-onboarding-flow) | Reads an onboarding flow — described, screenshotted, or as a config — and ranks what to change and test, seam with the paywall included | nothing |
 | [`paywall-teardown`](#tearing-down-a-paywall) | Reads any paywall — yours, a competitor's, a work in progress — and ranks what to change and test | nothing |
@@ -61,6 +62,7 @@ Say what you want the way you'd brief a colleague. You don't need to name a skil
 - "How did my Apple Search Ads campaigns do last week, and which keywords should I pause?"
 - "Show users from my brand campaign a different paywall."
 - "Users in Germany should see the cheaper paywall on my main placement."
+- "Run a 50/50 test of these two paywalls for German users."
 
 ## Install
 
@@ -198,7 +200,7 @@ A growth review of your app from its own numbers, the way a subscription growth 
 
 It reads your revenue, renewals, trials, installs and refunds through `adapty analytics`, with your placements, paywalls and products, then asks what it cannot see: what you have tested before, your trials if the numbers do not show them, and your paywall if you want design ideas too. It does not cover pricing yet: it neither reads nor recommends prices. You get back what your numbers say and a short list of suggested hypotheses grouped by placement, in the order to test them. Each one names why your app in particular needs it — the placement, a number from your data or something on your screen, and how the change acts on it — plus the metric that decides it and an expected range from real A/B tests on subscription apps, or says plainly that it is untested. You pick which one to start with, and it helps you choose if you're unsure; the one you pick becomes an A/B test.
 
-**It changes nothing live without your yes.** For the hypothesis you pick it sets up what the CLI reaches, after your yes: a copy of the flow with the new design or product set (an offer after the paywall closes, a paywall at a new moment in the app) built by `flow-generator`, or a new audience on a placement. You choose how users get it: an A/B test in the dashboard (the default, and the only way to know what it did), a new placement, or an existing placement for some or all of its users. Before it changes an existing placement it saves what is there, asks you to confirm no A/B test is running on it, and tells you exactly who will see what. New plans, trials and A/B tests are yours to change in the store and the dashboard; it gives you the steps. After an A/B test ends, tell it what won and it suggests the next hypothesis.
+**It changes nothing live without your yes.** For the hypothesis you pick it sets up what the CLI reaches, after your yes: a copy of the flow with the new design or product set (an offer after the paywall closes, a paywall at a new moment in the app) built by `flow-generator`, or a new audience on a placement. You choose how users get it: an A/B test (the default, and the only way to know what it did), a new placement, or an existing placement for some or all of its users. Before it offers the A/B test it checks that everything the test needs exists — the published copy, the new product in Adapty, the segment — and tells you what is still yours to make; `ab-tests` then creates the test and starts it only after your yes. Before it changes an existing placement it saves what is there, names any A/B test running on it and keeps it as it is, and tells you exactly who will see what. New plans and trials are yours to make in the store; it gives you the steps. After an A/B test ends, tell it what won and it suggests the next hypothesis.
 
 ## Reading ad attribution
 
@@ -293,6 +295,18 @@ It reuses a segment you already have when one matches, and creates one when none
 
 Segments built from Apple Search Ads campaigns come from `ads-manager`, which hands them here to route.
 
+## Running an A/B test
+
+Two or more paywalls, or two or more flows, shown to the users of one audience at one placement, with the split you choose.
+
+```
+Run a 50/50 test of my Monthly and Annual paywalls for German users
+```
+
+It creates the test as a draft, which no user sees. Then, before it starts the test, it tells you in plain words what the audience sees now, what it will see from the moment of the start, which running test or paywall stops, and which users move into the test, and it waits for your yes. The same goes for stopping a test with a winner, replacing a running test with a changed one, and archiving. If the placement changed between what you saw and the moment of the start, you see the new picture and are asked again. It never starts a test that already ran (the users in it would get their old arm again): it offers a new test instead. When a piece is missing it makes what the CLI can — a paywall that sells other products, a new placement after you approve its permanent ID, a segment through `audiences` — and tells you what is yours: a new design, a new store product, the app code that fetches a new placement. Results, tests across several placements and onboarding tests stay in the dashboard.
+
+Needs a CLI with the `ab-tests` commands, which the skill fetches itself.
+
 ## Migrating placements to flows
 
 You have [placements](https://adapty.io/docs/placements.md) pointing at paywalls, and you want them pointing at [flows](https://adapty.io/docs/adapty-flow-builder.md) instead. `migrate-placements` reads every placement in the app, works out which ones are worth moving, and creates the flow placements for you.
@@ -355,16 +369,17 @@ One constraint it will tell you about rather than quietly working around: **a fl
 
 - **Your live app changes only when you say so.** `flow-generator` never publishes a flow on its own, and overwrites an existing flow only after you say yes to the exact change. A brand-new flow is saved as a draft.
 - **Existing placements are never converted.** `migrate-placements` creates new flow placements beside your paywall ones, which stay as your rollback, and shows every new ID for your approval first.
+- **A/B tests change what users see only after you have seen how.** `ab-tests` shows the exact effect of a start, a stop, a replace or an archive and runs it only after your yes; a scheduled or unattended run never does these four.
 - **Placement changes show their before and after.** `audiences` never moves users in your existing segments to a different paywall without asking.
 - **Ad spend changes wait for you.** `ads-manager` names each bid, budget, keyword or campaign change in chat and runs it only after your yes.
 - **You see your account before anything is created.** `adapty-integration` reads what already exists in your Adapty dashboard and tells you what it will use and what it will add, then writes code only in your project.
-- **Growth plans change a live placement only on your yes.** `growth-advisor` reads your numbers, saves a placement before changing it, and asks you to confirm no A/B test is running there first, since the CLI cannot see one.
+- **Growth plans change a live placement only on your yes.** `growth-advisor` reads your numbers, saves a placement before changing it, and names any A/B test running there, which the change keeps as it is.
 - **Email reaches real people only on your yes.** `adapty-mail` shows every flow change — what is added, moved or removed — and waits for your yes before saving, launching or ending an A/B test, or deleting anything.
 - **Five skills only read.** `flow-audit`, `adapty-attribution`, `adapty-docs`, `paywall-teardown` and `onboarding-teardown` change nothing in your account.
 
 ## Where it works
 
-The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Nine of the thirteen need a shell and the Adapty CLI signed in to your account. `adapty-mail` needs the Adapty Mail MCP server connected in your agent instead, so it also works in Claude and ChatGPT once you add the server as a connector.
+The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Ten of the fourteen need a shell and the Adapty CLI signed in to your account. `adapty-mail` needs the Adapty Mail MCP server connected in your agent instead, so it also works in Claude and ChatGPT once you add the server as a connector.
 
 `paywall-teardown`, `onboarding-teardown` and `adapty-docs` need neither, so they also work in Claude chat and Cowork, where the other skills cannot reach your Adapty account.
 
@@ -403,6 +418,8 @@ The skills are instructions and a few local helper scripts. They run nothing on 
 | **Flow previews** | When `flow-generator` renders a screen for you to look at | Your flow config is opened in Adapty's preview page (`app.adapty.io`) in a local headless Chrome. The preview link for a phone is `mobile-app.adapty.io` |
 | **Images you hand over** | Only when you give `flow-generator` an image for a flow | Uploaded to your Adapty account's media library through the CLI |
 | **Optional helper packages** (`ajv`, `playwright`, `qrcode`) | Only for the schema check, the Playwright preview and the QR code, each installed once into `~/.cache/` | The npm registry |
+
+`ab-tests` starts, stops and replaces A/B tests in your Adapty account. It shows the effect of each and waits for your yes before it runs one.
 
 `ads-manager` changes bids, budgets, keywords and campaign status in your Apple Search Ads account. It names every change in chat and waits for your yes before it runs one; it never moves money between accounts.
 

@@ -112,9 +112,9 @@ The rule is conditional, and getting it backwards is its own bug:
   manual call on top produces double-counted views — which the docs list as a known cause of a paywall
   view count showing twice the expected number.
 
-The call is named per platform and per SDK major (`logShowFlow` on Flutter v4+, `logShowPaywall`
-elsewhere), so take the exact spelling from `references/<platform>.md` rather than from here, and put it
-in the same commit as the paywall screen so the two cannot drift apart.
+On SDK v4 the call is `logShowFlow` on every platform (`LogShowFlow` on Unity); v3 named it
+`logShowPaywall`. Take the exact call from the custom paywall stage of `references/<platform>.md` rather
+than from here, and put it in the same commit as the paywall screen so the two cannot drift apart.
 
 **Nothing is prewarmed.** RC refreshes its offerings cache when the SDK is configured *and again every
 time the app comes to the foreground*, so by the time a user reaches a paywall the data is almost always

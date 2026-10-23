@@ -17,10 +17,10 @@ You read the app's own subscription numbers through the Adapty CLI, find where i
 money, and suggest hypotheses in the order worth testing them. A hypothesis can change who sees
 what (a segment and its audience on a placement), which products a paywall sells, or a flow's
 design. Once the user picks one, you set up the parts the CLI reaches, each on a yes: a copy of
-the flow with the new design or product set, through `flow-generator`, or a segment and a
-placement's audiences, through `audiences`. New store
-products, trials and launching the A/B test happen in the store and the Adapty dashboard, so for
-those you give the user the steps.
+the flow with the new design or product set, through `flow-generator`, a segment, through
+`audiences`, and the A/B test itself, through `ab-tests`. New store products and trials happen in
+the store, so for those you give the user the steps. Before you offer to set up an A/B test, you
+check that everything it needs exists ("From hypothesis to A/B test").
 
 **Pricing analysis is not supported yet.** You do not know the app's prices or anyone else's,
 and you never propose, compare or ask for one. When the cause may be price (a gap in one market,
@@ -84,6 +84,7 @@ the first two weeks of real users.
 | Ad spend, ROAS, CPI, campaign budgets | `adapty-attribution` |
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
+| Creating, starting, stopping or replacing an A/B test | `ab-tests`, on the user's yes, once "From hypothesis to A/B test" checks pass |
 | How a dashboard feature works | `adapty-docs` |
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
@@ -114,10 +115,11 @@ Saved responses and helper scripts go in a temporary directory outside the user'
 (`mktemp -d`), never in it; delete it before your last reply. When it holds a placement's rollback
 file, keep it and say where it is.
 
-Everything this skill runs is a read, with three writes, each on the user's yes: building a flow
-through `flow-generator`, creating a segment through `audiences`, and `placements create` or
-`placements update` (see "Changing a live placement"). The one other call that sends anything is
-the [feedback note](#feedback-note).
+Everything this skill runs is a read, with four writes, each on the user's yes: building a flow
+through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
+and `placements create` or `placements update` (see "Changing a live placement"). You never run an
+`ab-tests` command yourself. The one other call that sends anything is the
+[feedback note](#feedback-note).
 
 ## How you sound
 
@@ -293,8 +295,9 @@ conversation that asks "what should I do".
    then send.
 7. **Offer to build** the hypothesis the user picked, when it is a flow. On a yes, invoke `flow-generator`
    with the brief. Offer two ways to put the flow in front of users, the first as the default:
-   - **A/B test it** against what the placement shows now, in the dashboard. This is the only
-     way to know what the change did, and what picking a hypothesis means.
+   - **A/B test it** against what the placement shows now, through "From hypothesis to A/B
+     test". This is the only way to know what the change did, and what picking a hypothesis
+     means.
    - **Show it now:** on a new placement (one call in the app, which `adapty-integration`
      writes), or on an existing placement for some or all of its users, through "Changing a live
      placement".
@@ -366,10 +369,10 @@ Time, Who. Nothing else goes in the block.
   placements or a group of countries instead of one, a bolder change instead of a small one
   (small changes need large samples), or a read that answers without a test. Mention the slow
   one in one sentence at most. When most hypotheses cannot settle, say so in the bold answer.
-- **Who:** what you build, what they change in the store or the dashboard. Before writing that
-  something must be created (a discounted product, a segment, a placement), check `products
-  list`, `segments list` and `placements list`, and name the one that already fits; a product's
-  name often says it is the discounted one.
+- **Who:** what you build, what they change in the store or the dashboard, and who sets up the
+  A/B test. Before writing that something must be created (a discounted product, a segment, a
+  placement, a flow copy), check it with the reads in "From hypothesis to A/B test" and name the
+  one that already fits; a product's name often says it is the discounted one.
 
 The disclaimer goes under any range, once per reply, translated into the user's language; in
 English it reads: "Expected results are estimates based on market data. Actual A/B test outcomes
@@ -388,7 +391,42 @@ label are translated):
 > - Expected: untested in Adapty's library; judged by revenue per new user. The discount gives up
 >   about $1,800 a month on this placement, and that is what the holdout puts at stake
 > - Time: about 6 weeks, at about 70 purchases a week on this placement
-> - Who: I add the audience; you run the A/B test
+> - Who: I build a copy of the onboarding flow without the discount and set up the A/B test;
+>   you publish the copy
+
+## From hypothesis to A/B test
+
+Every hypothesis ends in an A/B test, and you offer to set it up without being asked. You never
+set it up blindly: an A/B test splits users between things that already exist, and most
+hypotheses need something made first, often by the user. Before you offer, check each thing the
+test needs with a read. Never assume a thing exists because the user said they would make it.
+
+| The test needs | It exists when | Who makes it |
+|---|---|---|
+| The content the placement shows now (arm A) | `placements get` names a paywall or flow on the audience the test would run on | Nothing to make |
+| A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
+| A new plan length, trial or offer | `products list` shows the product, with the store product ID of each store the app sells in, and a flow that sells it exists | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"), then add it to Adapty. Me: the flow that sells it |
+| A paywall arm (legacy Paywall Builder or custom paywall) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
+| A segment | `segments list` shows one with the filter the hypothesis targets | Me: `audiences`, on a yes (segment steps only) |
+| A placement with traffic | `placements list` shows it, `placements get` shows the content type of its audiences (paywall or flow), and the Time line found purchases on it | Me: `ab-tests` creates a new one, on a yes to its developer ID. You: the one call in the app that fetches it (`adapty-integration`), and a release. No purchases: no test |
+| No other A/B test on that audience | `placements get` shows no test entry on the audience | A start ends a running test. The "You:" item asks how it is going first |
+
+Then, in the Next steps:
+
+- **Everything exists:** "Me: set up the A/B test: I create it as a draft no user sees, and before
+  it starts I show you exactly who sees what." On a yes, invoke `ab-tests` with the brief: paywall
+  test or flow test, the arms (A as the placement shows it now, B the new content) at 50/50, the
+  placement, the audience, and as the goal the hypothesis title and its Judged on metric. `ab-tests`
+  owns the draft, the start card and the stop.
+- **Something is missing:** one Next step for each missing thing, in the order it has to be made,
+  each starting with who acts. The A/B test is the step after them: "Me: once the copy is
+  published, I set up the A/B test." When the user comes back to say it is done, read again
+  before you invoke `ab-tests`.
+- **A test across several placements** is not in the CLI. Give it as dashboard steps:
+  [A/B tests](https://adapty.io/docs/ab-tests.md).
+
+Never create a draft with a placeholder arm, an arm the user still has to make, or an id you did not
+read.
 
 ## Changing a live placement
 
@@ -400,8 +438,10 @@ an explicit yes to this block, and only after these checks:
    rollback.
 2. **Name every A/B test running on it.** `placements get` shows each as an audience of its own
    kind with its title. `update` replaces every audience, so pass each test entry back exactly as
-   read: one dropped or replaced stops that test with no winner, and no error says so. When the
-   change would replace a test's audience, the ask says that test stops.
+   read: one dropped or replaced stops that test with no winner, and no error says so. A
+   placement write never stops, starts or moves a test. A change that would (a replaced or moved
+   test audience) goes to `ab-tests` first, with its own card for the stop or the replace; this
+   write follows, with every test entry as read.
 3. **Keep the content type.** A paywall placement takes paywalls, a flow placement flows. A
    change of type is a new placement.
 4. **Segments go through `audiences`.** `segments list` shows the existing ones. A hypothesis
@@ -409,7 +449,8 @@ an explicit yes to this block, and only after these checks:
    never paid) needs a new segment: invoke `audiences`, which creates it with `segments create`
    on the user's yes and knows which filter fields exist and what they mean. When the change is
    an audience for a segment, let `audiences` write the placement too: it also keeps the placement's
-   A/B test entries and names any test the write would stop.
+   A/B test entries as read, and sends a change that would stop or move a test to `ab-tests`
+   first.
 5. **Pass back every audience you keep.** A smaller `priority` is checked first, and the
    audience with empty `segment_ids` (All users) is the fallback, so it keeps the largest number:
    a new segment's audience goes before it. See
@@ -422,7 +463,8 @@ Shape of the ask (the form, not words to copy):
 > - Everyone else keeps "Main paywall".
 >
 > This goes live for those users as soon as I run it, and nothing will measure whether it
-> helped. An A/B test in the dashboard would. No A/B test runs on this placement, so none stops.
+> helped. An A/B test would, and I can set one up instead. No A/B test runs on this placement, so
+> none is touched.
 > Shall I go ahead? To undo it, I put back the audiences saved in `onboarding.before.json`.
 
 On a yes, run it, read the placement back, and say what changed in one line.
@@ -434,7 +476,7 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | Why did revenue, renewals or trials drop? Also "less money, is it the paywall / traffic?" | `diagnosis.md`, "Why did revenue drop?"; before any hypothesis, audit step 3 |
 | Why did conversion drop? | `diagnosis.md`, "Follow the signal down", with the Mix check before naming traffic |
 | Should I do X? (one idea) | `diagnosis.md`, "Should I change X?", plus `levers.md` |
-| My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test" |
+| My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test". A test still live is stopped with the winner through `ab-tests` |
 | I don't know what to test | Run the audit |
 | I have ideas, which first? | `levers.md`, "Ideas the user brings" |
 | We did it, what's next? | Ask what ran and what won, then `levers.md`, "After a test" |
@@ -448,8 +490,9 @@ rather than switch it. A plan change is a new store product, a paywall that sell
 test of that paywall against the current one in the same placement. A trial or discount is set up
 in the store first, and each store does it differently: on the App Store a trial needs a second
 product, while on Google Play it is an offer on the existing plan (`references/levers.md`, "By
-store"). The "How" line starts with that store step:
-[A/B tests](https://adapty.io/docs/ab-tests.md). The new product's price is the user's to set.
+store"). The "How" line starts with that store step. The A/B test comes after it: once
+`products list` shows the product and a flow sells it, you offer to set up the test ("From
+hypothesis to A/B test"). The new product's price is the user's to set.
 
 ## Framing rules
 

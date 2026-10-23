@@ -14,6 +14,7 @@ Gemini CLI), all shipped in one plugin, `adapty-skills`:
 
 | Skill | Does |
 |---|---|
+| `ab-tests` | Runs the life of a regular paywall or flow A/B test through the CLI's `ab-tests` topic: plan, create, update, start, stop, replace, archive |
 | `adapty-attribution` | Answers campaign-performance questions from Adapty Attribution through the CLI's read-only `attribution` topic |
 | `adapty-docs` | Routes any Adapty question to the right docs index and page; the fallback every other skill uses for a URL |
 | `adapty-mail` | Operates Adapty Mail through its MCP server: connects it, launches email flows, reads results |
@@ -149,6 +150,17 @@ template, not the rule. A condition the agent cannot observe is not followed; ma
 
 Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
+### `ab-tests`
+
+- **Every command, flag and output field comes from `src/cli/commands/ab-tests/*` in `adapty-cli`,** not from help text. CLI 0.13.0 is the first release with the `ab-tests` commands.
+- **Start, stop, replace and archive run only after the user's yes to the exact effect:** who sees what from when, what stops, what cannot be undone; then `--yes`. The CLI asks only at a terminal and refuses with exit 6 elsewhere, so the skill's card is the confirmation. An unattended run never does these four.
+- **Read the test and the placement before each of the four; read the placement again just before a start, stop or replace.** Changed since the user saw it: a new card, a new question.
+- **Never start a test that is not a draft** (it would start again with old users on their old arms); offer a new test, or `replace` for a live one.
+- **Never update a placement.** Only `ab-tests` commands start, stop and replace tests; a placement write that carries a test entry belongs to `audiences`, which keeps entries as read. The one placement write is `placements create` for a placement that does not exist, after a yes to its permanent developer ID; say the app needs the fetch call (`adapty-integration`).
+- **Make missing pieces, check the rest:** a flow arm needs `status` `published` in `flows get` (`draft` and `dirty` are published first); a paywall arm that differs only in products is `paywalls create` on a yes; a new design, a new store product and the app code are the user's. A segment comes from `audiences`, segment only. A start puts a segment without a row at the top; a lower position is an `audiences` row first, then the start on it.
+- **`update` sends the whole test again:** a flag left out is cleared. On a started test it changes only title and goal, with the arms and placement as read.
+- **`list` shows flow tests unless `--type paywall` is given;** look at both types.
+
 ### `adapty-attribution`
 
 - **Apple Search Ads spend is not in Attribution.** Keep the sentence the reply says; read spend through `asa`; a spend the user states becomes a threshold, never a ROAS.
@@ -185,8 +197,8 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 ### `audiences`
 
 - **Field names come from a real `segments get`,** never from memory.
-- **Pass A/B test entries back as read** (CLI 0.11.0 is the first release that returns them). Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it, or a draft the user named.
-- **A write that stops, starts or moves a test** shows "test X stops with no winner; Y starts" in the table and waits for the user; read the placement again before the write (changed: ask again; unattended: stop and report). The CLI has no such check. An unattended run may write when no test is affected.
+- **Pass A/B test entries back as read** (CLI 0.11.0 is the first release that returns them). Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it. Starting, stopping or replacing a test is `ab-tests`, never a placement write here.
+- **A placement write never stops, starts or moves a test:** every test entry goes back as read, and a request that would stop one (a write that replaces or moves a test's audience) is routed to `ab-tests stop`, and one that would start one to `ab-tests start`; then the write follows. Read the placement again before the write (changed: ask again; unattended: stop and report). The CLI has no such check. An unattended run may write when every test entry is unchanged.
 - **Never delete an entry the CLI refuses** (`content_type` on 0.10.0 and older, "this CLI does not know this audience kind" later); tell the user to update the CLI, re-resolve `$ADAPTY`, then the dashboard.
 - **OR is two segments** (filters inside one are ANDed); equality is `IN` with one value; new audiences go before the default.
 
@@ -217,6 +229,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Pricing is out of scope:** no price is read, compared or proposed, and price is mentioned only in the skill's fixed sentence. Don't restore the deleted competitor-price reads.
 - **Two words for users: a hypothesis, and once picked, an A/B test.** Ask which one to start with, never for a verdict on each.
 - **A live placement changes only through the confirmation block:** `update` replaces every audience, so a running A/B test entry not passed back as read stops that test.
+- **A picked hypothesis becomes an A/B test through `ab-tests`, offered unasked, and only after a read shows each thing it needs exists** (published flow copy, product with store IDs, segment, placement with traffic). A missing one is a Next step with who makes it, never a placeholder arm; this skill runs no `ab-tests` command itself.
 - **Filter values come from `analytics values`, never from a group's `key`;** read funnel and retention groups from the grouped answer. New segments go through `audiences`.
 
 ### `migrate-placements`

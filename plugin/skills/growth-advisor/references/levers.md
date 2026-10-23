@@ -20,7 +20,7 @@ of them for you; a hypothesis outside the table fills them itself.
 | Judged on | The one metric that decides the winner. |
 | Rules out | What a win and what a loss take off the table (see "After a test"). |
 | Expected | A range from `evidence.md`, or "untested". |
-| How to run it | "I can build it" (a flow, A/B tested or shown on a placement), "I can set it up" (a segment, new or existing, and its audience on a placement, through `audiences`), or "you do it in the dashboard", with the steps. |
+| How to run it | "I can build it" (a flow, A/B tested or shown on a placement), "I can set it up" (a segment, new or existing, and its audience on a placement, through `audiences`; the A/B test, through `ab-tests`, once `SKILL.md`, "From hypothesis to A/B test" finds everything it needs), or "you do it in the store or the dashboard", with the steps. |
 
 ## Known hypothesis types
 
@@ -134,7 +134,7 @@ app's US numbers) when you compare, and call the target "the market median", nev
 
 ## Placements and flows
 
-These are the hypotheses this skill can build: a flow, put in front of users by an A/B test, a new placement, or a change to an existing one (`SKILL.md`, "Changing a live placement").
+These are the hypotheses this skill can build: a flow, put in front of users by an A/B test (`SKILL.md`, "From hypothesis to A/B test"), a new placement, or a change to an existing one (`SKILL.md`, "Changing a live placement").
 
 - **A healthy set is about three placements:** the onboarding paywall (push the leading length), an in-app
   paywall at a value moment (a limit hit, a locked feature, settings), and an offer after the
@@ -219,7 +219,7 @@ makes.
 
 A segment is not a lever of its own: any hypothesis above can be aimed at one group of users
 instead of everyone at a placement. Each audience on a placement can then be A/B tested on its
-own, in the dashboard ([A/B test on an audience](https://adapty.io/docs/add-audience-paywall-ab-test.md)).
+own, through `ab-tests` once the segment exists ([A/B test on an audience](https://adapty.io/docs/add-audience-paywall-ab-test.md)).
 
 **Look for a target on every hypothesis, unprompted.** A hypothesis is aimed at a segment when
 all four hold:
@@ -307,8 +307,8 @@ the offer is real.
 
 - **Which flow:** the one that brings the most purchases first; a placement that brings almost
   none is a question about the moment it shows, not only about its screen.
-- **A change to a live flow is a copy.** Offer: "I can build this as a copy of your flow and you
-  A/B test it against the current one." `flow-generator` builds the copy as a new flow. Never
+- **A change to a live flow is a copy.** Offer: "I can build this as a copy of your flow and,
+  once it is published, set up an A/B test of it against the current one." `flow-generator` builds the copy as a new flow. Never
   edit the live flow in place: every user gets the change, and nothing measures it.
 - **A paywall from the old Paywall Builder** (the user confirms it; the CLI cannot tell it from a
   custom one) cannot be copied this way. Offer the dashboard's
@@ -320,7 +320,8 @@ the offer is real.
 ## After a test
 
 - **The user decides the winner.** You cannot see A/B results through the CLI; ask which variant
-  won. Inconclusive counts as a loss.
+  won. Inconclusive counts as a loss. When the test is still live, offer to stop it with that
+  winner through `ab-tests`.
 - **Check it was a test first.** Roughly 200 purchases per variant. Stopped after a few days or
   a few dozen purchases → inconclusive, not a loss; do not change the plan because of it.
 - **A loss rules nothing out until you check the test ran as meant** (its audience, the store
