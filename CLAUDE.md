@@ -16,6 +16,7 @@ Gemini CLI), all shipped in one plugin, `adapty-skills`:
 |---|---|
 | `adapty-attribution` | Answers campaign-performance questions from Adapty Attribution through the CLI's read-only `attribution` topic |
 | `adapty-docs` | Routes any Adapty question to the right docs index and page; the fallback every other skill uses for a URL |
+| `adapty-mail` | Operates Adapty Mail through its MCP server: connects it, launches email flows, reads results |
 | `adapty-integration` | Integrates the Adapty SDK into a mobile app end to end, including migrations from other purchase systems |
 | `ads-manager` | Operates Apple Search Ads through `adapty asa` |
 | `audiences` | Creates or reuses segments and adds them as placement audiences |
@@ -167,6 +168,12 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Every "no Adapty equivalent" claim carries its own `llms.txt` grep** (or a page re-read for model limits) and says a hit means report the equivalent.
 - **SDK timings and failure modes come from SDK source at a pinned release tag;** re-read it when touching them. Take RevenueCat URLs from its `llms.txt`.
 - **The store product ID is a slot in the `products create` template:** a store-less product succeeds and cannot be repaired from the CLI.
+
+### `adapty-mail`
+
+- **The server's own instructions own the workflow;** the skill adds connection, routing, dashboard-only gaps, confirmation and post-launch work. Facts come from a live `tools/list` or the server's prompts, never from memory.
+- **Every `container_save` goes through the confirmation block,** built from a fresh `container_list`: the list replaces the whole flow.
+- **Link no MCP page or plugin repo until it is public;** the setup blocks live in `references/connect.md`.
 
 ### `ads-manager`
 
