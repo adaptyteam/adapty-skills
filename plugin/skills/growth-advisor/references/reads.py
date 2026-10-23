@@ -3,6 +3,10 @@
 
     python3 <skill>/references/reads.py audit --app <APP_ID> --adapty "$ADAPTY" [--months 6]
     python3 <skill>/references/reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID> [--months 12]
+    python3 <skill>/references/reads.py check-reply --file <DRAFT>
+
+`check-reply` reads no data: it flags the sentences of a draft reply that claim "every" group, a cause
+from timing, or less money without the first-payment / renewal split.
 
 `audit` runs "The audit reads" in diagnosis.md over the last full months. `placement` reads one
 placement: its audiences by name, every paywall or flow that sold on it, the weekly purchase count
@@ -16,6 +20,8 @@ in the reply what could not be read. Every call is a read; nothing here writes.
 import argparse
 import datetime as dt
 import json
+import math
+import re
 import shlex
 import subprocess
 import sys
@@ -178,6 +184,348 @@ def onset(seg, xs):
           'read further back before dating it.' if peak == idx[0] else ''))
 
 
+def signed(v):
+    return ('+' if v >= 0 else '-') + num(abs(v))
+
+
+def moved(segs, what):
+    """Name every group that moved a tenth of the total in the last full month, and every one that started
+    or stopped: a total that held can be one group replacing another."""
+    total = next((s for s in segs if s.get('is_total')), None)
+    tv = [p.get('value') or 0 for p in (total or {}).get('values') or []]
+    if len(tv) < 2 or not tv[-2]:
+        return
+    xs = [label(p.get('x'))[:7] for p in total['values']]
+    big = []
+    for s in segs:
+        v = [p.get('value') or 0 for p in s.get('values') or []]
+        if s.get('is_total') or len(v) != len(tv) or abs(v[-1] - v[-2]) < 0.1 * tv[-2]:
+            continue
+        big.append((v[-1] - v[-2], s.get('title') or s.get('key'), v[-2], v[-1]))
+    # only groups that were a twentieth of the total in some month: a tiny channel stopping is noise
+    large = [s for s in segs if not s.get('is_total') and any(
+        (p.get('value') or 0) >= 0.05 * t for p, t in zip(s.get('values') or [], tv) if t)]
+    events = started_stopped(large, xs)
+    if not big and not events:
+        return
+    if big:
+        print(f'   moved in {xs[-1]} vs {xs[-2]}: total {signed(tv[-1] - tv[-2])} ({num(tv[-2])} -> {num(tv[-1])}); '
+              + '; '.join(f'{n} {signed(d)} ({num(b)} -> {num(c)})' for d, n, b, c in sorted(big, key=lambda x: x[0])))
+    if events:
+        print('   started or stopped in the window: ' + '; '.join(f'{x} ({m})' for m, x in events))
+    print(f'   Name every {what} above in the reply, with its month, before calling traffic flat or steady.')
+
+
+def fell_and_stayed(v):
+    """The first index from which every later value is under 75% of the median before it, or None.
+    v[0] is skipped: a read starting mid-history inflates its first period. The window's first months must
+    sit at that level too, so the end of a spike is not read as a break, and at least two months come after
+    the fall, so one low month is not read as one that stayed down."""
+    for k in range(3, len(v) - 1):
+        before = sorted(x for x in v[1:k] if x is not None)
+        after = [x for x in v[k:] if x is not None]
+        if len(before) < 2 or not after:
+            continue
+        base = before[len(before) // 2]
+        start = [x for x in v[1:3] if x is not None]
+        if max(after) < 0.75 * base and start and min(start) >= 0.75 * base:
+            return k, base
+    return None
+
+
+def split_money(segs):
+    """First payments against renewals, month by month, and which side carries a change: the first fact of any
+    answer about less money."""
+    total = next((s for s in segs if s.get('is_total')), None)
+    first = next((s for s in segs if (s.get('title') or '').lower() == 'activation'), None)
+    if not total or not first:
+        return
+    xs = [label(p.get('x'))[:7] for p in total.get('values') or []]
+    tv = [p.get('value') or 0 for p in total.get('values') or []]
+    fv = [p.get('value') or 0 for p in first.get('values') or []]
+    if len(tv) != len(fv) or len(tv) < 2:
+        return
+    rv = [x - y for x, y in zip(tv, fv)]
+    print('   first payments vs renewals: ' + '  '.join(f'{m} {num(a)} / {num(b)}' for m, a, b in zip(xs, fv, rv)))
+
+    def side(i0, i1, j0, j1, what):
+        dt, df = sum(tv[j0:j1]) - sum(tv[i0:i1]), sum(fv[j0:j1]) - sum(fv[i0:i1])
+        dr = dt - df
+        if dt >= 0:
+            print(f'   {what}: revenue did not fall ({signed(dt)})')
+            return
+        lead, part = ('first payments', df) if df < dr else ('renewals', dr)
+        print(f'   {what}: revenue {signed(dt)}: first payments {signed(df)}, renewals {signed(dr)}; '
+              f'{lead} carry {part / dt:.0%} of the fall')
+    n = len(tv)
+    side(n - 2, n - 1, n - 1, n, f'{xs[-1]} against {xs[-2]}')
+    if n >= 4:
+        side(n - 4, n - 2, n - 2, n, f'{xs[-2]}..{xs[-1]} against {xs[-4]}..{xs[-3]}')
+    print('   An answer about less money opens with this split for the user\'s period: the bold answer names the '
+          'side that carries most of the fall, and its first fact gives both numbers.')
+
+
+def same_windows(segs):
+    """Installs per store for the same two comparisons split_money prints, so traffic and money in one reply
+    always compare the same months."""
+    total = next((s for s in segs if s.get('is_total')), None)
+    if not total:
+        return
+    xs = [label(p.get('x'))[:7] for p in total.get('values') or []]
+    rows = [('total', total)] + [(s.get('title') or s.get('key'), s) for s in segs
+                                  if not s.get('is_total') and sum(p.get('value') or 0 for p in s.get('values') or [])]
+    n = len(xs)
+
+    def line(i0, i1, j0, j1, what):
+        parts = []
+        tv = [p.get('value') or 0 for p in total.get('values') or []]
+        for name, s in rows:
+            v = [p.get('value') or 0 for p in s.get('values') or []]
+            a, b = sum(v[i0:i1]), sum(v[j0:j1])
+            if a and a >= 0.01 * sum(tv[i0:i1]):
+                parts.append(f'{name} {num(a)} -> {num(b)} ({b / a - 1:+.0%})')
+        print(f'   installs, {what}: ' + '; '.join(parts))
+    if n >= 2:
+        line(n - 2, n - 1, n - 1, n, f'{xs[-1]} against {xs[-2]}')
+    if n >= 4:
+        line(n - 4, n - 2, n - 2, n, f'{xs[-2]}..{xs[-1]} against {xs[-4]}..{xs[-3]}')
+    print('   These are the same comparisons as the money split above. Say "traffic held" or "fell" only in the '
+          'comparison the reply uses for money, and name the store that moved.')
+
+
+def country_value(a, title):
+    """The filter value `analytics values` lists for a country title, or None."""
+    body, err = cli(a.adapty, ['analytics', 'values', '--dimension', 'country', '--app', a.app])
+    rows = (body or {}).get('data') or []
+    return next((r.get('value') for r in rows if r.get('label') == title), None) if not err else None
+
+
+def rate(rev, views):
+    return sum(rev) / sum(views) if sum(views) else None
+
+
+def weakest(a, names, placements, top_country):
+    """Rank weak points by first-payment revenue per paywall view, which a price change that paid off does not
+    lower: each of the top placements per store, inside the country with the most revenue, against the other
+    store there and against its own best three months. The gap times the views is the money at stake."""
+    f, t = window(12, a.to)
+    cv = country_value(a, top_country) if top_country else None
+    scope = [f'country={cv}'] if cv else []
+    where = top_country if cv else 'all countries'
+    top = sorted((s for s in placements if not s.get('is_total') and s.get('key') not in (None, NO_DATA)),
+                 key=lambda s: -last_value(s))[:3]
+    print(f'\n## weakest points: first-payment revenue per paywall view, {where}, the last 3 full months')
+    lines = []
+    for p in top:
+        flt = [f"placement_id={p['key']}"] + scope
+        rb, re_ = cli(a.adapty, chart('revenue', f, t, 'store', filters=flt + ['renewal_period=1']) + ['--app', a.app])
+        vb, ve = cli(a.adapty, conversion('view-paid', f, t, filters=flt) + ['--group-by', 'store', '--app', a.app])
+        if re_ or ve:
+            FAILED.append(f"weakest points on {names.get(p['key'], p['key'])}: {re_ or ve}")
+            continue
+        rev = {s.get('key'): [x.get('value') or 0 for x in s.get('values') or []] for s in segments(rb) if not s.get('is_total')}
+        stores = {}
+        for s in segments(vb):
+            pts = s.get('values') or []
+            r = rev.get(s.get('key'))
+            if s.get('is_total') or not r or len(r) != len(pts):
+                continue
+            views = [x.get('value_from') or 0 for x in pts]
+            paid = [x.get('value_to') or 0 for x in pts]
+            if sum(views[-3:]) < 9000 or sum(paid[-3:]) < 3 * FEW:
+                continue
+            xs = [label(x.get('x'))[:7] for x in pts]
+            now = rate(r[-3:], views[-3:])
+            # own best: any three months in a row after the first, ending before the last three
+            best = max(((rate(r[i:i + 3], views[i:i + 3]) or 0, xs[i], xs[i + 2]) for i in range(1, len(pts) - 5)),
+                       default=(0, None, None))
+            stores[s.get('key')] = (s.get('title') or s.get('key'), now, sum(views[-3:]) / 3, best)
+        pname = names.get(p['key']) or p.get('title') or p['key']
+        for key, (sname, now, vmonth, best) in stores.items():
+            if now is None:
+                continue
+            if best[0] and now < 0.85 * best[0]:
+                lines.append(((best[0] - now) * vmonth, pname, p['key'], key, sname,
+                              f'${now:.3f} a view now against ${best[0]:.3f} in its own {best[1]}..{best[2]}', None))
+            for okey, (oname, onow, _, _) in stores.items():
+                if okey != key and onow and now < 0.85 * onow:
+                    lines.append(((onow - now) * vmonth, pname, p['key'], key, sname,
+                                  f'${now:.3f} a view against ${onow:.3f} on {oname}, same placement and country', okey))
+    if not lines:
+        print('   none: no top placement has a store well below its other store or its own best months')
+        return
+    lines.sort(key=lambda x: -x[0])
+    for i, (gap, pname, _, _, sname, why, ref) in enumerate(lines[:3], 1):
+        # the country goes in every line, so a reply that quotes the numbers carries it with them
+        print(f'   WEAKEST {i}: {pname}, {sname}, {where}: {why}: about ${gap:,.0f} a month at stake'
+              + (' at most: part of a gap between stores is who uses each store' if ref else ''))
+    print(f'   These numbers are for {where} only: name {where} wherever the reply quotes them.')
+    gap, pname, pkey, key, sname, why, ref = lines[0]
+    form = ''
+    if ref:
+        ff, tt = window(1, a.to)
+
+        def top_paywalls(store):
+            body, err = cli(a.adapty, chart('subscriptions_new', ff, tt, 'paywall_id',
+                                            filters=[f'placement_id={pkey}', f'store={store}'] + scope) + ['--app', a.app])
+            sold = sorted((s for s in segments(body) if not s.get('is_total') and s.get('value')), key=lambda s: -s['value'])
+            total = sum(s['value'] for s in sold)
+            return [(s.get('key'), names.get(s.get('key')) or s.get('title'), s['value'] / total) for s in sold]
+        theirs, ours = top_paywalls(ref), top_paywalls(key)
+        if theirs:
+            best_key, best_name, _ = theirs[0]
+            here = next(((n, sh) for k, n, sh in ours if k == best_key), None)
+            now = '; '.join(f'"{n}" {sh:.0%}' for _, n, sh in ours[:3])
+            # a paywall that already sells on the weak side is not a new test: the gap is somewhere else
+            if here and here[1] >= 0.2:
+                form = (f' The other store\'s top paywall, "{best_name}", already brings {here[1]:.0%} of new '
+                        f'subscriptions on {pname}, {sname}, {where}: the gap is not which paywall is shown, so do not '
+                        f'suggest showing it there. Sold there last month: {now}.')
+            else:
+                form = (f' The no-screenshot form: on {pname}, {sname}, {where}, test "{best_name}", the paywall that sells '
+                        f'most on the other store, against what sells there now ({now or "nothing read"}).')
+    if form:
+        print('  ' + form)
+
+
+def short_breaks(a, names):
+    """Per store, week by week over the last 13 full weeks: any week where paywall view -> trial fell under half
+    the store's median. A break that short never shows at month grain, and it decides whether "the paywall is not
+    broken" is true."""
+    t = dt.date.fromisoformat(a.to) if a.to else dt.date.today()
+    end = t - dt.timedelta(days=t.weekday() + 1)              # the last Sunday: weeks run Monday to Sunday
+    start = end - dt.timedelta(days=13 * 7 - 1)
+    args = conversion('view-trial', start.isoformat(), end.isoformat(), gran='week') + ['--group-by', 'store']
+    print(f'\n## one-week breaks, by store, weeks {start.isoformat()}..{end.isoformat()}')
+    body, err = cli(a.adapty, args + ['--app', a.app])
+    if err:
+        print(f'   FAILED: adapty {" ".join(args)}: {err}')
+        FAILED.append(f'view-trial by week and store: {err}')
+        return
+    found = []
+    for s in segments(body):
+        pts = [p for p in s.get('values') or [] if p.get('value_from')]
+        if s.get('is_total') or len(pts) < 6 or sorted(p.get('value_to') or 0 for p in pts)[len(pts) // 2] < FEW:
+            continue
+        rates = sorted(p.get('value') or 0 for p in pts)
+        med = rates[len(rates) // 2]
+        name = names.get(s.get('key')) or s.get('title') or s.get('key')
+        for p in pts:
+            if (p.get('value') or 0) < 0.5 * med:
+                found.append((s.get('key'), label(p.get('x'))))
+                print(f'   BREAKAGE {name}, week of {label(p.get("x"))}: paywall view -> trial (not install -> trial) '
+                      f'{num(p.get("value"))}% on {num(p.get("value_from"))} views, against a {num(med)}% weekly median')
+    if not found:
+        print('   none: no store had a week under half its median')
+        return
+    # whether the money came back too: first payments per week in that store, same weeks
+    for key, week in found:
+        rb, re_ = cli(a.adapty, chart('revenue', start.isoformat(), end.isoformat(), gran='week',
+                                      filters=[f'store={key}', 'renewal_period=1']) + ['--app', a.app])
+        segs = [s for s in segments(rb) if s.get('is_total')] if not re_ else []
+        if segs:
+            v = [(label(p.get('x')), p.get('value') or 0) for p in segs[0].get('values') or []]
+            i = next((j for j, (x, _) in enumerate(v) if x == week), None)
+            if i is not None and i >= 3:
+                # every number with its own week, so a reply cannot quote one week's figure as another's
+                print('   first payments in that store, by week: '
+                      + '  '.join(f'{x} ${num(val)}' + (' (the break week)' if j == i else '')
+                                  for j, (x, val) in enumerate(v[i - 3:i + 4], i - 3)))
+    print('   A BREAKAGE week is something that stopped working, not the design: the reply names it with its dates and '
+          'store, never says the paywall is not broken without it, and asks what shipped that week. Say what came back '
+          'by the line above: the trial rate, and the first payments only if they did.')
+
+
+def still_down(a, names):
+    """Per store, over 12 full months: every conversion that fell a quarter or more and never came back.
+    A break that started before the window a user asks about is still live."""
+    f, t = window(12, a.to)
+    print(f'\n## rates still down, by store, {f[:7]}..{t[:7]}')
+    scopes = [('', [])]
+    onsets, downs = [], set()
+    for suffix, flt in scopes:
+        for c in ('install-trial', 'view-trial', 'view-paid'):
+            args = conversion(c, f, t, filters=flt) + ['--group-by', 'store']
+            body, err = cli(a.adapty, args + ['--app', a.app])
+            if err:
+                print(f'   FAILED: adapty {" ".join(args)}: {err}')
+                FAILED.append(f'{c} by store over 12 months{suffix}: {err}')
+                continue
+            for s in segments(body):
+                if s.get('is_total'):
+                    continue
+                pts = s.get('values') or []
+                paid = sorted((p.get('value_to') or 0) for p in pts)
+                if len(pts) < 6 or paid[len(paid) // 2] < FEW:
+                    continue
+                v = [p.get('value') if p.get('value_from') else None for p in pts]
+                hit = fell_and_stayed(v)
+                if not hit:
+                    continue
+                k, base = hit
+                xs = [label(p.get('x'))[:7] for p in pts]
+                name = (names.get(s.get('key')) or s.get('title') or s.get('key')) + suffix
+                onsets.append(k)
+                downs.add((suffix, name))
+                print(f'   STILL DOWN {c} {name}: {num(base)}% before {xs[k]}, under {num(0.75 * base)}% '
+                      f'every month since; {xs[k]} {num(v[k])}%, {xs[-1]} {num(v[-1])}%')
+    if not onsets:
+        print('   none: no store has a conversion that fell a quarter and stayed down')
+        return
+    # from the month before the earliest break: the months the breaks could have cost
+    # split only where a line fell, in the same countries as that line: a combined row moves with the store mix
+    split = {}
+    for suffix, flt in scopes:
+        if any(sc == suffix for sc, _ in downs):
+            split.update(split_new(a, f, t, names, min(onsets) - 1, flt, suffix))
+    main = [n for sc, n in sorted(downs) if n in split and split[n][1] <= 0.75 and split[n][0] > 0.5]
+    print('   The bold answer still names the side of the new-vs-renewal split that carries most of the drop. '
+          'After it, one paragraph names each STILL DOWN line with its store, month and size.')
+    print('   ' + (f'Conversion carries the larger share of a fall of a quarter or more in: {", ".join(main)}. There '
+                     'the STILL DOWN line is the main cause of fewer new subscriptions; say so with both shares.' if main
+                     else 'Where a STILL DOWN line is, fewer installs carry most of the fall in new subscriptions, or '
+                     'it fell less than a quarter: never call a STILL DOWN line the cause of the drop; give both shares.'))
+
+
+def split_new(a, f, t, names, start=0, flt=(), suffix=''):
+    """Split each store's fall in new subscriptions, month `start` to the last, into fewer installs and fewer
+    subscriptions per install (shares of the log change). Returns {store + suffix: (conversion's share,
+    last / first)}. The all-stores row is left out: it moves with the store mix."""
+    xs = []
+
+    def series(chart_id):
+        args = chart(chart_id, f, t, 'store', filters=flt)
+        body, err = cli(a.adapty, args + ['--app', a.app])
+        if err:
+            FAILED.append(f'{chart_id} by store over 12 months: {err}')
+        segs = segments(body)
+        if segs and not xs:
+            xs.extend(label(p.get('x'))[:7] for p in segs[0].get('values') or [])
+        return {(names.get(s.get('key')) or s.get('title') or s.get('key')) + suffix:
+                [p.get('value') or 0 for p in s.get('values') or []] for s in segs if not s.get('is_total')}
+    inst, subs = series('installs'), series('subscriptions_new')
+    if len(xs) <= start + 1:
+        return {}
+    print(f'\n## why new subscriptions fell, by store{suffix}, {xs[start]} -> {xs[-1]}: fewer installs or fewer per install')
+    out = {}
+    for name, s in subs.items():
+        i = inst.get(name)
+        if not i or len(i) != len(s) or min(s[start], s[-1], i[start], i[-1]) <= 0:
+            continue
+        s0, i0 = s[start], i[start]
+        li, ls = math.log(i[-1] / i0), math.log(s[-1] / s0)
+        lc = ls - li
+        if ls >= 0:
+            print(f'   {name}: new subscriptions did not fall ({num(s0)} -> {num(s[-1])})')
+            continue
+        share = 1.0 if lc < 0 <= li else 0.0 if li < 0 <= lc else lc / ls
+        out[name] = (share, s[-1] / s0)
+        print(f'   {name}: new subscriptions {num(s0)} -> {num(s[-1])} ({s[-1] / s0 - 1:+.0%}); installs '
+              f'{i[-1] / i0 - 1:+.0%}; per install {math.exp(lc) - 1:+.0%}: fewer installs carry {1 - share:.0%} '
+              f'of the fall, conversion {share:.0%}')
+    return out
+
+
 def read(adapty, app, title, args, names=None, conv=False, top=None, cols=None):
     body, err = cli(adapty, args + ['--app', app])
     return show(title, ' '.join(args), body, err, names, conv, top, cols)
@@ -270,24 +618,35 @@ def audit(a):
     print(f'# audit {f} .. {t} (the last full month is marked *)')
     names, lists = name_map(a.adapty, a.app, ('placements', 'paywalls', 'flows', 'products', 'segments'))
     print('\n## lists, every page: ' + ', '.join(f'{n} {len(r)}' for n, r in lists.items()))
-    print('\n## audiences of every placement, lowest priority first (every placement read)')
-    print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
-          'Past tests never show: never write that no test ran.')
-    for p in lists['placements']:
-        print(f"   placement {p.get('title')!r} id {p.get('id')}"
-              f"{'' if p.get('is_active', True) else ' (inactive)'}")
-        print_audiences(a.adapty, a.app, p.get('id'), names)
 
     def R(title, args, conv=False, top=None, cols=None):
         return read(a.adapty, a.app, title, args, names, conv, top, cols)
-    R('1. revenue, new vs renewal', chart('revenue', f, t, 'renewal_status'))
+    # the top countries by revenue, so each audience can say which of them its segments cover
+    first_countries = segments(cli(a.adapty, chart('revenue', f, t, 'country') + ['--app', a.app])[0])
+    top_codes = [s.get('key') for s in sorted((s for s in first_countries if not s.get('is_total') and s.get('key')),
+                                              key=lambda s: -(s.get('value') or 0))[:8]]
+    print('\n## audiences of every placement, lowest priority first (every placement read)')
+    print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
+          'Past tests never show: never write that no test ran.')
+    print('   Under each audience, its segments\' filters. Before a hypothesis says who sees a paywall, read it here: '
+          'a country group sees a paywall only when its segment takes that country in.')
+    seg_cache = {}
+    for p in lists['placements']:
+        print(f"   placement {p.get('title')!r} id {p.get('id')}"
+              f"{'' if p.get('is_active', True) else ' (inactive)'}")
+        print_audiences(a.adapty, a.app, p.get('id'), names, top_codes, seg_cache)
+    split_money(R('1. revenue by payment: Activation is first payments, Renewal N the later ones',
+                  chart('revenue', f, t, 'period')))
     R('revenue by store', chart('revenue', f, t, 'store'))
     year_over_year(a)
     R('2. revenue by plan length', chart('revenue', f, t, 'duration'))
-    main_market(R('revenue by country', chart('revenue', f, t, 'country'), top=12))
+    by_country = R('revenue by country', chart('revenue', f, t, 'country'), top=12)
+    main_market(by_country)
+    top_country = max((s for s in by_country if not s.get('is_total')), key=lambda s: s.get('value') or 0,
+                      default={}).get('title')
     R('3. installs by country', chart('installs', f, t, 'country'), top=12)
-    R('installs by store', chart('installs', f, t, 'store'))
-    R('installs by channel', chart('installs', f, t, 'attribution_channel'), top=12)
+    same_windows(R('installs by store', chart('installs', f, t, 'store')))
+    moved(R('installs by channel', chart('installs', f, t, 'attribution_channel'), top=12), 'channel')
     R('4. new paid subscriptions by first-payment offer (a converted trial counts as No Offer)',
       chart('subscriptions_new', f, t, 'offer_category'))
     R('new paid subscriptions by plan length', chart('subscriptions_new', f, t, 'duration'))
@@ -303,6 +662,9 @@ def audit(a):
       chart('subscriptions_new', wf, t, 'placement_id', 'week'))
     for c in ('install-trial', 'trial-paid', 'install-paid', 'view-paid'):
         R(f'9. conversion {c}', conversion(c, f, t), conv=True)
+    short_breaks(a, names)
+    still_down(a, names)
+    weakest(a, names, placements, top_country)
     R('11. retention by plan length', ['analytics', 'retention', '--date-from', f, '--date-to', t,
                                          '--group-by', 'duration'], cols=13)
     lf, lt = window(6, (dt.date.fromisoformat(t) - dt.timedelta(days=364)).isoformat())
@@ -413,7 +775,34 @@ def switch_report(names, months, sh, conv, whole, old, new, products=(), store=N
           '   lowest month. Before/after is not an A/B test: name every other change in the same months.')
 
 
-def print_audiences(adapty, app, pid, names):
+COUNTRY_FIELDS = ('ip_country', 'store_country', 'country')
+
+
+def segment_filters(adapty, app, sid, cache, top):
+    """One line per segment: its filters, and for a country filter which of the app's top revenue countries it
+    takes in, so no hypothesis assumes a group sees a paywall its segment does not cover."""
+    if sid in cache:
+        return cache[sid]
+    body, err = cli(adapty, ['segments', 'get', sid, '--app', app])
+    parts = []
+    for f in ((body or {}).get('data') or body or {}).get('filters') or [] if not err else []:
+        field, op = f.get('field_name'), (f.get('operator') or '').upper()
+        vals = f.get('value_list') if f.get('value_list') is not None else [f.get('value')]
+        vals = [v for v in vals if v is not None]
+        if field in COUNTRY_FIELDS and top:
+            covered = [c for c in top if (c in vals) != op.startswith('NOT')]
+            left = [c for c in top if c not in covered]
+            parts.append(f'{field} {op} {len(vals)} countries; of your top countries by revenue, in: '
+                         f'{", ".join(covered) or "none"}; not in: {", ".join(left) or "none"}')
+        else:
+            shown = ', '.join(map(str, vals[:6])) + (f' and {len(vals) - 6} more' if len(vals) > 6 else '')
+            parts.append(f'{field} {op} {shown}')
+    cache[sid] = '; '.join(parts) if parts else ('could not read' if err else 'no filters')
+    return cache[sid]
+
+
+def print_audiences(adapty, app, pid, names, top=None, cache=None):
+    cache = {} if cache is None else cache
     body, err = cli(adapty, ['placements', 'get', pid, '--app', app])
     if err:
         print(f'   FAILED: {err}')
@@ -428,6 +817,8 @@ def print_audiences(adapty, app, pid, names):
             cid = x.get('paywall_id') or x.get('flow_id')
             target = names.get(cid, cid)
         print(f"   {x.get('priority'):>3}  {' + '.join(map(str, segs))[:64]:64} -> {target}")
+        for sid in x.get('segment_ids') or []:
+            print(f"        {names.get(sid, sid)}: {segment_filters(adapty, app, sid, cache, top)}")
     tests = sorted({x.get('ab_test_title') or x.get('ab_test_id') for x in aud
                     if x.get('content_type') == 'ab_test' or x.get('ab_test_id')})
     if tests:
@@ -503,15 +894,105 @@ def placement(a):
                 switch_report(names, months, sh, conv, whole, old, new, products, store)
 
 
+EVERY = re.compile(
+    r'\b(every|all)\s+(\w+\s+)?(country|countries|store|stores|market|markets|channel|channels|placement|'
+    r'placements|paywall|paywalls|platform|platforms|version|versions|segment|segments)\b|\beverywhere\b|'
+    r'\bacross the board\b|\b(во всех|по всем|в каждой|в каждом|каждой|каждом|везде|повсюду|все страны|всех стран)\b',
+    re.I)
+TIMING = re.compile(
+    r'\b(when|after|since|right after|the (week|day|month)|coincid\w*)\b.*\b(switch\w*|'
+    r'launch\w*|went live|started(?! a trial| trials)|changed|moved|replaced|released|turned on|rolled out|stopped|disappeared|'
+    r'went away|ended|turned off|dropped out)\b|'
+    r'(когда|после того как|с тех пор как|совпал\w*|в ту (же )?неделю|в тот (же )?день|сразу после).*'
+    r'(переключ|запуст|выш(ел|ла|ли)|выкат|смен|поменя|замен|включ|начал|стартова|перестал|пропал|исчез|'
+    r'прекрати|закончи|отключ|убрал)',
+    re.I)
+DROP = re.compile(r'revenue (fell|dropped|declined|is falling)|less money|(выручк\w*|денег|деньги)[^.]{0,40}'
+                  r'(упал|снизил|просел|стало меньше|пада|уход)', re.I)
+# the split counts only with a dollar figure beside each side
+MONEY = r'[-−+]?\$\s?\d[\d.,]*\s?[kKmM]?'
+FIRST = re.compile(rf'(first[- ]payments?|перв\w* (платеж|оплат)\w*)[^.\n]{{0,60}}{MONEY}|{MONEY}[^.\n]{{0,60}}'
+                   rf'(first[- ]payments?|перв\w* (платеж|оплат))', re.I)
+RENEW = re.compile(rf'(renewals?|продлени\w*)[^.\n]{{0,60}}{MONEY}|{MONEY}[^.\n]{{0,60}}(renewals?|продлени)', re.I)
+
+
+HYP = re.compile(r'^\*\*(?:Hypothesis|Гипотеза)\s*(\d+)', re.M | re.I)
+STAKE = re.compile(r'(at stake|на кону|под угрозой|puts? [^.\n]{0,40}at stake)', re.I)
+AMOUNT = re.compile(r'\$\s?([\d.,]+)\s?([kKmMкК]?)(?:\s?[–-]\s?\$?([\d.,]+)\s?([kKmMкК]?))?')
+
+
+def dollars(num_s, unit):
+    v = float(num_s.replace(',', '').replace(' ', '') or 0)
+    return v * (1e3 if unit.lower() in ('k', 'к') else 1e6 if unit.lower() == 'm' else 1)
+
+
+def stakes(text):
+    """The money at stake each hypothesis names, in the order the reply gives them: the largest amount in the
+    sentence that says "at stake" (the upper end of a range)."""
+    marks = list(HYP.finditer(text))
+    out = []
+    for i, m in enumerate(marks):
+        block = text[m.start():marks[i + 1].start() if i + 1 < len(marks) else len(text)]
+        best = None
+        # the Expected line carries the money in the skill's format; "at stake" sentences when there is none
+        expected = [l for l in block.split('\n') if re.match(r'\s*-\s*\**\s*(Expected|Ожида)', l, re.I)]
+        for sent in expected or re.split(r'(?<=[.!?])\s+|\n', block):
+            if expected or STAKE.search(sent):
+                for a in AMOUNT.finditer(sent):
+                    hi = dollars(a.group(3), a.group(4) or a.group(2)) if a.group(3) else dollars(a.group(1), a.group(2))
+                    best = max(best or 0, hi)
+        out.append((m.group(1), best))
+    return out
+
+
+def check_reply(path):
+    """Flag the sentences of a draft reply that make a claim the reads rarely back on their own."""
+    text = open(path).read()
+    # questions to the user claim nothing
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+|\n+', text) if s.strip() and not s.strip().endswith('?')]
+    found = 0
+    for s in sentences:
+        if EVERY.search(s):
+            found += 1
+            print(f'CHECK every: "{s[:220]}"\n   Name the groups you read, each with its number. If you did not read '
+                  'every group, say which ones you read instead of "every".')
+        if TIMING.search(s):
+            found += 1
+            print(f'CHECK timing: "{s[:220]}"\n   A cause from timing needs both dates from reads at the same grain: '
+                  'the week (or day) the change acted and the week the rate moved. If you have not read when the '
+                  'change happened, say you cannot tell when it changed, or drop the link.')
+    st = [(n, v) for n, v in stakes(text) if v]
+    for (n0, v0), (n1, v1) in zip(st, st[1:]):
+        if v1 > v0:
+            found += 1
+            print(f'CHECK order: hypothesis {n1} puts ${num(v1)} a month at stake, hypothesis {n0} only ${num(v0)}. '
+                  'Order the hypotheses by money at stake, or say in the reply why the smaller one comes first '
+                  '(a running test, a breakage to fix first).')
+    if DROP.search(text) and not (FIRST.search(text) and RENEW.search(text)):
+        found += 1
+        print('CHECK split: the reply says revenue fell but does not give both sides in dollars, first payments and '
+              'renewals. Give the split '
+              'from read 1 before any cause.')
+    print(f'{found} line(s) to check' if found else 'no lines to check')
+
+
 def run():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('command', choices=('audit', 'placement'))
-    ap.add_argument('--app', required=True)
+    ap.add_argument('command', choices=('audit', 'placement', 'check-reply'))
+    ap.add_argument('--app')
+    ap.add_argument('--file', help='check-reply: the draft reply to check')
     ap.add_argument('--adapty', default='adapty', help='the resolved $ADAPTY command string')
     ap.add_argument('--placement')
     ap.add_argument('--months', type=int)
     ap.add_argument('--to', help='YYYY-MM-DD; the window ends with the last full month before it')
     a = ap.parse_args()
+    if a.command == 'check-reply':
+        if not a.file:
+            ap.error('check-reply needs --file <draft>')
+        check_reply(a.file)
+        return 0
+    if not a.app:
+        ap.error(f'{a.command} needs --app <APP_ID>')
     if a.command == 'placement' and not a.placement:
         ap.error('placement needs --placement <PLACEMENT_ID>')
     a.months = a.months or (6 if a.command == 'audit' else 12)

@@ -80,8 +80,9 @@ Run every read below, 11 and 12 included: retention and LTV are what tell a plan
 plan that pays.
 
 ```bash
-# 1. New vs renewal revenue
-$ADAPTY analytics chart --app <APP_ID> --chart revenue --date-from $FROM --date-to $TO --group-by renewal_status --json
+# 1. First payments vs renewals: Activation is first payments, Renewal 1, 2… the later ones
+#    (renewal_status is auto-renew on or off, not new vs renewal)
+$ADAPTY analytics chart --app <APP_ID> --chart revenue --date-from $FROM --date-to $TO --group-by period --json
 # 2. Revenue by plan length
 $ADAPTY analytics chart --app <APP_ID> --chart revenue --date-from $FROM --date-to $TO --group-by duration --json
 # 3. Installs by country
@@ -253,6 +254,13 @@ against these before it goes in a reply:
   same two periods as every other number in the reply, at the same granularity. Never disprove
   the user's premise with a different period: if they say traffic held since summer, check
   summer, not January.
+- **A break before the window that never recovered is still live.** `reads.py audit` reads each
+  store's conversions over 12 months and prints a `STILL DOWN` line for every rate that fell a
+  quarter and stayed down. The bold answer still comes from the user's window ("Why did revenue
+  drop?", step 1); after it, one paragraph names each `STILL DOWN` line with its store, month and
+  size. Under those lines it splits each store's fall in new subscriptions into fewer installs and
+  lower conversion: a break is the main cause only in a store where conversion carries the larger
+  share, and the reply gives both shares.
 - **A conversion's size comes from month grain.** A conversion counts each user once per bucket,
   so the same months read by week and by month give different rates, and different drops. Find
   the week with week grain, then read the same months at `--granularity month` and give that
@@ -306,6 +314,27 @@ against these before it goes in a reply:
   converted well stopped sending traffic is a change of mix, not a broken paywall or release.
   Read the rate by `attribution_channel` and check whether it fell inside a channel whose traffic
   held. Say which part of the fall is mix and which part happened inside a channel.
+- **A total that held can be one channel replacing another.** Before calling traffic flat,
+  steady or "the same", read installs by `attribution_channel` month by month. `reads.py audit`
+  prints a `moved in` line under that read (every channel that moved a tenth of the total in the
+  last full month) and a `started or stopped` line: the reply names each channel on those lines
+  with its month, next to the total.
+- **A weak point is measured in money per view, not in a rate.** A rate that fell after a price
+  rise is not weak when first-payment revenue per view held. `reads.py audit` ranks the top
+  placements per store, inside the country with the most revenue, by first-payment revenue per
+  paywall view against the other store and against their own best months, and prints the gaps as
+  `WEAKEST` lines in dollars a month.
+- **Dollars go only to a slice that was read.** "That's the $9k" or "this costs $X a month" needs a
+  read of that slice's own revenue. Without one, give the slice's own numbers and say how much of
+  the drop they leave unexplained.
+- **A span quotes its lowest and highest month.** "Stable at 4.7–4.9%" is wrong when one month in
+  that span read 4.2%: give the range over every month the sentence covers, or name the months.
+- **Who sees a paywall comes from its audience.** `reads.py audit` prints each audience's segment
+  filters, and for a country filter which of the app's top revenue countries it takes in. A
+  hypothesis that changes a paywall for a group of users names a paywall that group's audience
+  shows; when the audience points elsewhere, the hypothesis changes that paywall instead.
+- **A placement is called a placement.** Names come from `placements list` and `paywalls list`;
+  "the Settings placement", never "the Settings paywall" when Settings is a placement.
 - **"It's the traffic" needs the rate inside traffic that held.** Before saying a fall is mix
   (a store, country or channel that converts worse grew), read the same rate over the same months
   inside one store and in its largest countries by revenue, the main market first, and in

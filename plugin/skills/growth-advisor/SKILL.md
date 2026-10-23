@@ -289,7 +289,10 @@ conversation that asks "what should I do".
    What is surprising in these is where the first hypothesis comes from.
 6. **Report**, following "How you write a reply" and "What a hypothesis needs". An audit always
    ends with hypotheses. When an open question could change the first pick, give them anyway and
-   say in one line what the answer would change.
+   say in one line what the answer would change. Before sending any reply with numbers, write the
+   draft to a file in your scratch folder and run `python3 <skill>/references/reads.py check-reply
+   --file <draft>`. Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped),
+   then send.
 7. **Offer to build** the hypothesis the user picked, when it is a flow. On a yes, invoke `flow-generator`
    with the brief. Offer two ways to put the flow in front of users, the first as the default:
    - **A/B test it** against what the placement shows now, through "From hypothesis to A/B
@@ -317,8 +320,25 @@ that stopped arriving, a variant shown to the wrong users) is a Next step to fix
 hypothesis, and comes before any test. Preselecting annual comes first only when annual is
 already the main plan, or when its buyers bring more revenue per user on that placement. When the user asks what to test before or instead of something (a
 new plan, a redesign), leave that thing out of the list; one sentence at most says when it comes.
-Each hypothesis is a block: a bold title with the change and the user's real values, then four
-labelled lines, in this order: Why, Expected, Time, Who. Nothing else goes in the block.
+Each hypothesis is a block: a bold title, then four labelled lines, in this order: Why, Expected,
+Time, Who. Nothing else goes in the block.
+
+- **Title:** four slots, in this order: **[verb] [what, by its name in their data] [from what it
+  is now → to what] on [placement][, for whom]**.
+  - The verb is one of Add, Remove, Replace, Move, Preselect, Show, Turn off, Translate, Lengthen,
+    Shorten. Never a noun ("A discount for…") or a goal ("Boost conversion…").
+  - What: the product, paywall, plan or segment as `products list`, `paywalls list`, `placements
+    list` or `segments list` names it, never "the onboarding paywall" or "weekly".
+  - From → to whenever something that exists changes, the new state said concretely ("3-day
+    trial", "a monthly plan", "Spanish copy"), and no value you cannot set: "a win-back offer you
+    size", not "30% off".
+  - The placement always, and whom it targets when not everyone there (a store, country, app
+    version or segment). The A/B split is never in the title; it goes in Who.
+  - Check: a developer could set up the test from the title alone. A slot left empty means it is
+    not a title yet.
+
+  Shape (not words to copy): "Replace 'Main Annual' with a monthly plan next to 'Weekly 3-day
+  trial' on Onboarding, for App Store users in Brazil".
 
 - **Why:** one sentence about this app, and only this app, opening with what is unusual in their
   numbers, put as a contrast ("12% of new iPhone users see it, against 57% on Android"). It names three things: where (the
@@ -365,7 +385,7 @@ label are translated):
 >
 > *Onboarding placement*
 >
-> **Hypothesis 1: Keep half of new users from the always-on 50% onboarding discount**
+> **Hypothesis 1: Remove the always-on 50% discount 'Weekly Intro 50' from 'Onboarding Main' on Onboarding, for new users**
 > - Why: your onboarding paywall has shown the 50% discount every month since January, and 40% of
 >   its purchases take it, so the seasonal sales have nothing to add and some users learn to wait.
 > - Expected: untested in Adapty's library; judged by revenue per new user. The discount gives up
