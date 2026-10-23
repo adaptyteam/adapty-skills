@@ -89,15 +89,13 @@ client's MCP settings when it asks. A client without OAuth for remote servers ca
 
 - **Claude:** Settings → Connectors → **Add custom connector**: name `Adapty Mail`, the URL above,
   keep the detected defaults, **Add**, then approve in the tab that opens.
-- **ChatGPT** (developer mode on): create a custom MCP server with the URL above and OAuth. Open
-  **Advanced OAuth settings** and set **Registration method** to **Dynamic Client Registration
-  (DCR)** before creating it.
+- **ChatGPT** (developer mode on): create a custom MCP server with the URL above and OAuth,
+  then approve in the tab that opens.
 
 ## When it does not connect
 
 | Symptom | Fix |
 |---|---|
-| ChatGPT: `invalid_request`, "Client ID … not found" | In the connector's settings set **Registration method** to **Dynamic Client Registration (DCR)** and connect again |
 | The dashboard says the request expired | Start the sign-in again from the client and approve within 10 minutes |
 | The server is listed but no tools | It connected without signing in: run the client's sign-in step above |
 | It worked before and now asks to sign in | Access lapsed after long idle time or a disconnect: sign in again |
