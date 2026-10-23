@@ -12,7 +12,7 @@ of them for you; a hypothesis outside the table fills them itself.
 
 | Field | What goes in it |
 |---|---|
-| Title | The action, with the user's real values: "Add 3-day trial to annual". Use the type's template when it has one, a plain sentence otherwise. |
+| Title | Four slots: [verb] [what, by its name in their data] [from → to] on [placement][, for whom]. SKILL.md, "What a hypothesis needs". Use the type's template when it has one. |
 | Target | What it changes: a product, a plan length, a country, a paywall or a placement. |
 | Why | One sentence about this app only: where, what you saw, how the change acts on it. See "Writing the why". |
 | Pattern | 1-2 sentences on the market pattern or user behaviour behind it. Said when the user picks the hypothesis or asks why, not in the audit. |
@@ -26,20 +26,20 @@ of them for you; a hypothesis outside the table fills them itself.
 
 | Type | Title template | Judged on | After a win, rule out | After a loss, rule out |
 |---|---|---|---|---|
-| Add a plan length | Add [weekly/monthly/annual] | Purchase conversion and revenue per user | Removing that length | Adding that length |
-| Remove a plan length | Remove [weekly/monthly/annual] | Revenue per user | Adding that length back | Removing that length |
-| Swap a plan length | Replace [length] with [length] | Purchase conversion and revenue per user | The reverse swap | This swap |
-| Add a trial | Add [N]-day trial to [length] | Trial conversion and trial-to-paid together | Adding it again | Adding it on that product |
-| Move a trial | Move trial from [length] to [length] | Trial conversion and trial-to-paid together | Every trial test on that paywall | This move |
-| Change trial length | Change trial on [length] from [N] to [M] days | Trial conversion and trial-to-paid together | This change | This change |
-| Follow-up offer | Show a discount when the [placement] paywall closes | Revenue per user across the placement | This offer on that placement | This offer on that placement |
-| Audience split | Show [segment] [change] at [placement] | The change's own metric, in that segment | That change for that segment | That change for that segment |
-| Win-back offer | Show [former subscribers / lapsed trials] [offer] at [placement] | Revenue per user in that segment | This offer for that segment | This offer for that segment |
-| Seasonal paywall | Run a [event] paywall from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event |
-| New placement | Show a paywall at [moment] | Purchases from that placement, and total revenue | — | That moment |
-| Localization | Translate [placement] paywall into [language] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall |
-| Paywall design | Free text, from `paywall-teardown` | Purchase conversion | That change on that paywall | That change on that paywall |
-| Onboarding change | Free text, from `onboarding-teardown` | Conversion to purchase | That change on that flow | That change on that flow |
+| Add a plan length | Add a [weekly/monthly/annual] plan next to [products] on [placement] | Purchase conversion and revenue per user | Removing that length | Adding that length |
+| Remove a plan length | Remove [product] from [paywall] on [placement] | Revenue per user | Adding that length back | Removing that length |
+| Swap a plan length | Replace [product] with a [length] plan on [placement] | Purchase conversion and revenue per user | The reverse swap | This swap |
+| Add a trial | Add a [N]-day trial to [product] on [placement] | Trial conversion and trial-to-paid together | Adding it again | Adding it on that product |
+| Move a trial | Move the [N]-day trial from [product] to [product] on [placement] | Trial conversion and trial-to-paid together | Every trial test on that paywall | This move |
+| Change trial length | Change the trial on [product] from [N] to [M] days on [placement] | Trial conversion and trial-to-paid together | This change | This change |
+| Follow-up offer | Show [offer] when [paywall] closes on [placement] | Revenue per user across the placement | This offer on that placement | This offer on that placement |
+| Audience split | Show [paywall or change] instead of [current] on [placement], for [segment] | The change's own metric, in that segment | That change for that segment | That change for that segment |
+| Win-back offer | Replace [current paywall] with a [offer] paywall on [placement], for [former subscribers / lapsed trials] | Revenue per user in that segment | This offer for that segment | This offer for that segment |
+| Seasonal paywall | Show a [event] paywall instead of [current] on [placement] from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event |
+| New placement | Show [paywall] at [moment], on a new placement | Purchases from that placement, and total revenue | — | That moment |
+| Localization | Translate [paywall] into [language] on [placement], for [countries] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall |
+| Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion | That change on that paywall | That change on that paywall |
+| Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Conversion to purchase | That change on that flow | That change on that flow |
 
 A rule-out is keyed to its target. Adding a trial to annual and losing rules out a trial on
 annual; it says nothing about a trial on monthly. A ruled-out idea is not deleted: say
