@@ -5,7 +5,8 @@ description: >-
   should I test next", "I don't know what to test", "should I add a monthly plan or a trial",
   "why did revenue or renewals drop", "my A/B test ended, what now", "do I need more placements
   or a discount offer", "which of my ideas should I test first", "we don't have much traffic",
-  "we did it, what's next", "only use our own data", "we launch soon, no data yet".
+  "we did it, what's next", "only use our own data", "we launch soon, no data yet", "how do we
+  win back users who cancelled".
   Also use when a user asks for a growth plan, a monetization audit, hypotheses or test ideas without naming
   one screen, or asks any question about their app's own subscription numbers.
 ---
@@ -74,8 +75,10 @@ the first two weeks of real users.
 | App-wide numbers, plans, trials, countries, placements, what to test next | This skill |
 | A price, a price test, pricing by country | This skill, `references/pricing.md` |
 | One paywall screen: layout, copy, badges | `paywall-teardown`; this skill invokes it for the design hypotheses |
+| A screen with a change in the app's numbers ("people buy half as often since summer") | This skill first: which paywall it is, its view → paid by month, what changed then; `paywall-teardown` for the design part after. Prices on a screenshot may be preview samples: never read them as what users pay |
 | The onboarding sequence | `onboarding-teardown` |
-| Ad campaigns, channels, ROAS | `adapty-attribution` |
+| Which channel brings paying users: installs, trials, trial → paid, purchases and revenue by channel | This skill, from analytics grouped by `attribution_channel`, whether or not the company has Attribution; say spend and ROAS are not in these reads |
+| Ad spend, ROAS, CPI, campaign budgets | `adapty-attribution` |
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | How a dashboard feature works | `adapty-docs` |
@@ -127,14 +130,16 @@ for its product; `references/pricing.md`).
 - **Honest about scope, in one line.** Say what you could not check only when it could change
   the decision, and where they can check it. What you checked and ruled out is not a section; at
   most one clause ("it's not the paywall: organic conversion held").
-- **Reply in the user's language,** the disclaimer included. Dashboard labels stay as the
-  dashboard shows them.
+- **Reply in the user's language, every word of it:** the Suggested hypotheses and Next steps
+  headings, the Why, Expected, Time and Who labels, "You:" and "Me:", and the disclaimer. The
+  examples in this skill are in English; in another language, translate their headings and
+  labels too. Dashboard labels stay as the dashboard shows them.
 
 ## How you write a reply
 
 **Length: about 150 words for an answer, about 250 for a reply with hypotheses, about 130 when
-you report something you built.** The disclaimer does not count. Count before
-sending; when over, cut in this order until it fits: context the user did not ask for, then
+you report something you built.** The disclaimer does not count. Before sending, count, and
+check that every heading and label is in the user's language; when over, cut in this order until it fits: context the user did not ask for, then
 supporting facts beyond the one that proves the point. Never cut the bold answer, a
 hypothesis's labelled lines or Next steps.
 
@@ -157,7 +162,11 @@ plan, "should I do X" gets yes or no and the reason.
 - **End with Next steps:** a numbered list of at most three items, each starting with who acts,
   "You:" or "Me:". Questions to the user go there as "You:" items. After hypotheses, the first
   item asks which one they want to start with, and names the one you would pick. The last item
-  is what you can do now if they say yes.
+  is what you can do now if they say yes. You will not remember this conversation, so a check
+  that has to wait (late refunds, a test still running) is a "You:" item with the date to come
+  back and ask, never a "Me:" item.
+- **Before suggesting an A/B test on a placement where two or more paywalls or flows sold in the
+  last full month,** one "You:" item asks what is running there now.
 - **After building an A/B test:** one line on what changed, the before and after renders, then Next
   steps carrying the review, the phone check (with what to look for) and publish. Nothing else.
   If anything you added sits below the fold or behind a pinned button, the phone check says so
@@ -167,7 +176,8 @@ plan, "should I do X" gets yes or no and the reason.
   placeholder domain is a "You:" item to replace before publish.
 - **Plain Markdown:** never indent a line four spaces, which renders as code.
 
-Shape of an answer (the form, not words to copy):
+Shape of an answer (the form, not words to copy; in another language Next steps, "You:" and
+"Me:" are translated):
 
 > **Your revenue dropped because fewer people renew, not because fewer people buy.**
 >
@@ -185,42 +195,64 @@ The audit is the default when the user has no specific question, and the start o
 conversation that asks "what should I do".
 
 1. **Pick the app** (`apps list`, every page; ask when there are several) and read the catalog.
-2. **Read the numbers and the setup:** every read in `references/diagnosis.md`, "The audit
-   reads". When a
+2. **Read the numbers and the setup:** run `python3 <skill>/references/reads.py audit --app <APP_ID>
+   --adapty "$ADAPTY"` once. It runs every read in `references/diagnosis.md`, "The audit reads", one
+   at a time and prints month tables with every group; read further with single calls only for what
+   it does not print. For each placement a hypothesis would run on, run `reads.py placement --app
+   <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID>`: its audiences by name, every paywall or
+   flow that sold there, the weekly count for the Time line, and the before/after comparison when
+   one paywall replaced another. Name in the reply every read either lists as failed. Run both
+   as written and read what they print, with no variable, temp file or redirect around them: a
+   refused or failed call leaves you without the audit. If one fails or is refused, run it once
+   more as written; if it still cannot run, say which reads you could not make and do not answer
+   from a few single reads. When a
    placement shows a flow, read the flow that brings the most purchases, and any flow that brings
    almost none: `references/diagnosis.md`, "Reading a flow". **Render it.** A fact the render
    contradicts (a label your numbers disprove, a price typed as text) you report yourself. A
    design hypothesis (layout, copy, what the screen shows) comes only from `paywall-teardown` or
    `onboarding-teardown` run on the render (`references/levers.md`, Paywall design).
-   **Before judging anything, establish how the app earns:** its main market (the country with
-   the most revenue; read each country against its own past, never ranked against the US or
+   **Before judging anything, establish how the app earns:** its main market (a country with
+   50% or more of revenue, or 40% or more and at least five times the next country's; when none
+   has it, say there is none, and correct a user who says there is; read each country against its own past, never ranked against the US or
    another country), its main product by
    revenue (often weekly; never assume annual), offers that change the first payment (read new purchases by
    offer category: a paid first period means buyers pay less than the plan's price at first, so
    name it and judge the plan from what they actually pay), products split by market (compare a product only with others sold in the same
    market), what is live now (per placement, the paywall or flow and the plans that sold in the
    last full month, with the month anything switched: `references/diagnosis.md`, "Before you
-   state a conclusion"), and whether the paywalls are Flow Builder flows. When the paywalls are drawn in the
-   app's own code, design hypotheses are out: keep to products, trials, placements and audiences,
-   say why, and never offer to build a flow copy.
+   state a conclusion"), and whether each placement shows a flow or a paywall, read from `placements get`.
+   A flow is always built in Adapty's builder: read and render it. A paywall is either drawn by
+   the app itself (its own code or remote config) or made in the legacy Paywall Builder, and the
+   CLI cannot tell which. When the app's code is in front of you, look at how it buys: a screen of
+   its own that calls `makePurchase` is a custom paywall. Otherwise ask for a
+   screenshot, and whether it was made in the Paywall Builder. A design hypothesis on a paywall
+   waits for that screenshot. A legacy Builder paywall can be moved to the new builder and then
+   copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it from the data (`references/diagnosis.md`, "What the app already
    tried"): paywalls or flows that ran side by side on one placement (a past A/B test; the one still
    live is the one they kept), paywalls, flows and products no longer in use, past offers, the
-   setup that is live now, and the kinds of change it has never tried. Put it in the reply as one short paragraph of facts ("From your data: two
+   setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts ("From your data: two
    onboarding paywalls ran side by side in May, and you kept Main."), so the user only types when
    it is wrong. When the user does name past tests, say in one line what each rules out
-   (`references/levers.md`, "After a test") before suggesting the next.
+   (`references/levers.md`, "After a test") before suggesting the next. A running A/B test can
+   show in `placements get` as an audience with `content_type: ab_test` and its title: name it.
+   Past tests never show, and a running one may not: never write that none runs or none ran, and
+   ask what runs on the placement you would test.
 
    Ask at most one question, as the last "You:" item in Next steps, and only when its answer would
-   change your first pick: a past test whose winner the data cannot show, a trial the numbers do
-   not show, a screenshot when a design hypothesis would rank first. Never hold the hypotheses back
+   change your first pick: a past test whose winner the data cannot show, whether they already
+   tried the kind of change you would start with when the data shows no sign of it, a trial the
+   numbers do not show, a screenshot when a design hypothesis would rank first. Never hold the hypotheses back
    waiting for an answer.
 4. **Follow the biggest signal down** before you name a cause: split it by store, then by channel
    whenever any channel has attribution, then by the dimension most likely to explain it (plan
    length, country, week, offer), until one
    value carries it. `references/diagnosis.md`, "Follow the signal down", and check every claim
-   against "Before you state a conclusion" there. A cause found only at the app level is a guess. A group that carries it can be the target of a hypothesis
+   against "Before you state a conclusion" there. A cause found only at the app level is a guess. Before
+   the reply calls a fall traffic or mix, run the Mix check there and say what it showed. Before it
+   names a change as the cause of a rise or fall (a new product, paywall, placement, price, release
+   or store launch), run the Cause check there and say what it showed. A group that carries it can be the target of a hypothesis
    (`references/levers.md`, Segments).
 5. **Diagnose and build the hypotheses** with `references/levers.md`: where to look first, the
    rules per lever, and the shape every hypothesis fills. Drop what step 3 found already tried or
@@ -235,10 +267,20 @@ conversation that asks "what should I do".
    - only one placement, or nothing after the onboarding paywall closes
    - most endings are users switching off renewal, and no placement has an audience for former
      subscribers
-   - a market with 50% or more of revenue
+   - a main market
    - a main-market plan below the 25th percentile for its category (`references/pricing.md`)
    - a top country 15% or more off the market's price ratio to the main market
    - fewer than about 200 purchases in two weeks
+   - a discount or promo that runs all the time (an onboarding offer, a win-back paywall) with no
+     group kept from it
+   - a store, country or app version that sees the paywall far less often than the rest
+   - one product or variant with an outsized share of the refunds, cancellations or renewals
+   - a variant selling where its name says it should not (another store, platform or audience)
+   - views or events that stopped arriving while purchases did not
+   - a plan, trial or offer removed inside the window, and what moved after
+   - a fall at a later step (trial → paid, the first renewal) rather than at the paywall
+
+   What is surprising in these is where the first hypothesis comes from.
 6. **Report**, following "How you write a reply" and "What a hypothesis needs". An audit always
    ends with hypotheses. When an open question could change the first pick, give them anyway and
    say in one line what the answer would change.
@@ -253,12 +295,19 @@ conversation that asks "what should I do".
 ## What a hypothesis needs
 
 Hypotheses are grouped under the placement they would run on, in the order to test them (one A/B
-test per placement at a time). When the user asks what to test before or instead of something (a
+test per audience at a time: two tests on one placement run side by side only on different
+audiences, and an audience added above a running test's audience takes those users out of it, so
+say so). Inside a placement, the first hypothesis acts on the reply's main finding, and the rest
+follow by dollars at stake. A breakage the reply found (a paywall that stopped showing, events
+that stopped arriving, a variant shown to the wrong users) is a Next step to fix, not a
+hypothesis, and comes before any test. Preselecting annual comes first only when annual is
+already the main plan, or when its buyers bring more revenue per user on that placement. When the user asks what to test before or instead of something (a
 new plan, a redesign), leave that thing out of the list; one sentence at most says when it comes.
 Each hypothesis is a block: a bold title with the change and the user's real values, then four
 labelled lines, in this order: Why, Expected, Time, Who. Nothing else goes in the block.
 
-- **Why:** one sentence about this app, and only this app. It names three things: where (the
+- **Why:** one sentence about this app, and only this app, opening with what is unusual in their
+  numbers, put as a contrast ("12% of new iPhone users see it, against 57% on Android"). It names three things: where (the
   placement, and the plan, country or screen when it matters), what you saw (one of their
   numbers with its period, or one fact from the render), and how the change acts on it. If the
   sentence would still be true of another app, it is not a why yet. `references/levers.md`,
@@ -270,9 +319,18 @@ labelled lines, in this order: Why, Expected, Time, Who. Nothing else goes in th
 - **Expected:** the range from `evidence.md`, or "untested", never one number; what judges it;
   and in a few words where the range comes from and how sure it is ("one of the most reliable
   wins in Adapty's library of real subscription A/B tests"). Call a range resting on one test
-  directional.
+  directional. Then what it is worth: the range applied to the money the change touches on that
+  placement, in dollars a month from their numbers ("about $1,000-1,600 a month on $4,000 of first
+  payments here"); with no range, the dollars a month the change puts at stake. The base is
+  always that placement's first payments in the last full month: never a year's revenue, a
+  cohort's first-year value or the whole app, so the same placement is worth the same in every
+  hypothesis.
 - **Time:** how long its A/B test would take, computed from their purchases (about 200 per
-  variant), in weeks or months. A hypothesis whose test would take over about three months is
+  variant), in weeks or months, followed by the weekly count it came from: the purchases, or the
+  trials for a trial → paid metric, on that placement in the last full month (`reads.py
+  placement` prints it). When that count is not in your reads yet, read it before replying; a Time
+  line is never left for later. A placement with no purchases in the last full month cannot run a
+  test: say what would bring it traffic instead of giving it a Time line. A hypothesis whose test would take over about three months is
   not suggested: drop it, and offer what settles sooner in its place: one test across several
   placements or a group of countries instead of one, a bolder change instead of a small one
   (small changes need large samples), or a read that answers without a test. Mention the slow
@@ -282,22 +340,24 @@ labelled lines, in this order: Why, Expected, Time, Who. Nothing else goes in th
   list`, `segments list` and `placements list`, and name the one that already fits; a product's
   name often says it is the discounted one.
 
-The disclaimer goes under any range, once per reply, in the user's language: "Expected results
-are estimates based on market data. Actual A/B test outcomes may vary."
+The disclaimer goes under any range, once per reply, translated into the user's language; in
+English it reads: "Expected results are estimates based on market data. Actual A/B test outcomes
+may vary."
 
-Shape of one hypothesis (the form, not words to copy):
+Shape of one hypothesis (the form, not words to copy; in another language the heading and every
+label are translated):
 
 > **Suggested hypotheses**
 >
 > *Onboarding placement*
 >
-> **Hypothesis 1: Preselect annual and say it has a free week**
-> - Why: on your onboarding paywall, 71% of purchases since April went to monthly, the plan it
->   preselects, and nothing on the screen says annual starts with a free week.
-> - Expected: revenue per user up about 25-40%\*, one of the most reliable wins in Adapty's
->   library of real subscription A/B tests
-> - Time: about 5 weeks
-> - Who: I build a copy; you run the A/B test
+> **Hypothesis 1: Keep half of new users from the always-on 50% onboarding discount**
+> - Why: your onboarding paywall has shown the 50% discount every month since January, and 40% of
+>   its purchases take it, so the seasonal sales have nothing to add and some users learn to wait.
+> - Expected: untested in Adapty's library; judged by revenue per new user. The discount gives up
+>   about $1,800 a month on this placement, and that is what the holdout puts at stake
+> - Time: about 6 weeks, at about 70 purchases a week on this placement
+> - Who: I add the audience; you run the A/B test
 
 ## Changing a live placement
 
@@ -340,6 +400,7 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | Question | Where |
 |---|---|
 | Why did revenue, renewals or trials drop? Also "less money, is it the paywall / traffic?" | `diagnosis.md`, "Why did revenue drop?"; before any hypothesis, audit step 3 |
+| Why did conversion drop? | `diagnosis.md`, "Follow the signal down", with the Mix check before naming traffic |
 | Should I do X? (one idea) | `diagnosis.md`, "Should I change X?", plus `levers.md` |
 | Should I raise, cut or localize a price? Set this price now | `pricing.md`; a change goes live only through "Changing a live price" |
 | My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test" |

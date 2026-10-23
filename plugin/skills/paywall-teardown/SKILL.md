@@ -62,6 +62,31 @@ because it is on screen.
 If an image is too cropped or low-res to read prices, plans, or the CTA, say what you can't see
 and give your read of the rest rather than guessing details.
 
+**Prices on a screenshot may not be real.** A builder preview and a design in progress show
+sample prices. Until the user confirms the prices on the screen are the ones people pay, no row
+quotes a price, a saving percentage or a billed amount from it; the asks list carries the
+question.
+
+## A screen with a question about the numbers
+
+A screen can be asked about in two ways, and the user may phrase both the same: what is wrong
+with the design, or why the app's numbers moved. Only `growth-advisor` reads the numbers. When
+the message names a change in the app's own numbers ("since summer people buy half as often",
+"conversion dropped on this paywall"):
+
+- **It asks only why the numbers moved:** invoke `growth-advisor` with the screen. It reads the
+  data first and calls this skill back for the design part.
+- **It also asks what to change on the screen, or you cannot tell which it wants:** ask one
+  question before reading the screen. Use `AskUserQuestion` if your harness has it; otherwise ask
+  in one message with the options numbered, and wait. The shape, not words to copy:
+
+  > Do you want me to review the screen's design and suggest changes, or look at your numbers to
+  > find what changed since summer and suggest an A/B test?
+
+  Design: this skill, in Audit. Numbers, or both: `growth-advisor` first.
+
+When `growth-advisor` or `flow-generator` invoked this skill, never ask: answer the design part.
+
 ## Reference
 
 Read [references/patterns.md](references/patterns.md) before writing anything. It is the pattern
