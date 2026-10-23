@@ -384,11 +384,11 @@ test needs with a read. Never assume a thing exists because the user said they w
 | The test needs | It exists when | Who makes it |
 |---|---|---|
 | The content the placement shows now (arm A) | `placements get` names a paywall or flow on the audience the test would run on | Nothing to make |
-| A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
+| A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
 | A new plan length, trial or offer | `products list` shows the product, with the store product ID of each store the app sells in, and a flow that sells it exists | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"), then add it to Adapty. Me: the flow that sells it |
 | A paywall arm (legacy Paywall Builder or custom paywall) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
 | A segment | `segments list` shows one with the filter the hypothesis targets | Me: `audiences`, on a yes (segment steps only) |
-| A placement with traffic | `placements list` shows it, with the content type of the arms (paywall or flow), and the Time line found purchases on it | Me: `ab-tests` creates a new one, on a yes to its developer ID. You: the one call in the app that fetches it (`adapty-integration`), and a release. No purchases: no test |
+| A placement with traffic | `placements list` shows it, `placements get` shows the content type of its audiences (paywall or flow), and the Time line found purchases on it | Me: `ab-tests` creates a new one, on a yes to its developer ID. You: the one call in the app that fetches it (`adapty-integration`), and a release. No purchases: no test |
 | No other A/B test on that audience | `placements get` shows no test entry on the audience | A start ends a running test. The "You:" item asks how it is going first |
 
 Then, in the Next steps:
@@ -418,8 +418,10 @@ an explicit yes to this block, and only after these checks:
    rollback.
 2. **Name every A/B test running on it.** `placements get` shows each as an audience of its own
    kind with its title. `update` replaces every audience, so pass each test entry back exactly as
-   read: one dropped or replaced stops that test with no winner, and no error says so. When the
-   change would replace a test's audience, the ask says that test stops.
+   read: one dropped or replaced stops that test with no winner, and no error says so. A
+   placement write never stops, starts or moves a test. A change that would (a replaced or moved
+   test audience) goes to `ab-tests` first, with its own card for the stop or the replace; this
+   write follows, with every test entry as read.
 3. **Keep the content type.** A paywall placement takes paywalls, a flow placement flows. A
    change of type is a new placement.
 4. **Segments go through `audiences`.** `segments list` shows the existing ones. A hypothesis
@@ -427,7 +429,8 @@ an explicit yes to this block, and only after these checks:
    never paid) needs a new segment: invoke `audiences`, which creates it with `segments create`
    on the user's yes and knows which filter fields exist and what they mean. When the change is
    an audience for a segment, let `audiences` write the placement too: it also keeps the placement's
-   A/B test entries and names any test the write would stop.
+   A/B test entries as read, and sends a change that would stop or move a test to `ab-tests`
+   first.
 5. **Pass back every audience you keep.** A smaller `priority` is checked first, and the
    audience with empty `segment_ids` (All users) is the fallback, so it keeps the largest number:
    a new segment's audience goes before it. See
@@ -441,7 +444,7 @@ Shape of the ask (the form, not words to copy):
 >
 > This goes live for those users as soon as I run it, and nothing will measure whether it
 > helped. An A/B test would, and I can set one up instead. No A/B test runs on this placement, so
-> none stops.
+> none is touched.
 > Shall I go ahead? To undo it, I put back the audiences saved in `onboarding.before.json`.
 
 On a yes, run it, read the placement back, and say what changed in one line.
