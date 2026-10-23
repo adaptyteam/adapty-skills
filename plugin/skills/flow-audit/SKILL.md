@@ -187,6 +187,9 @@ already owns. `audit-flow.py` is this skill's own script: the six completeness f
 stdlib-only and take the bare config, never the envelope. Both read the flow's text through its
 localization catalog (`references/localization.py`, shipped beside `audit-flow.py`), so an
 untranslated field is reported as showing the default language, which is what users see.
+`audit-flow.py` also checks the custom fonts' iOS and Android names against what the app
+bundle can carry. It downloads each font file to read the name stored in it; when a download
+fails, the report asks the user to check that font in Font Book and the run goes on.
 
 `audit-flow.py` also runs fourteen **store-review** checks, which ask whether this flow
 carries a shape that has actually drawn a store rejection: six on the paywall

@@ -978,7 +978,11 @@ check('the Play 12-testers/14-days account bullet is GONE (cut, not gated)',
       '12 testers' not in bys and '14 consecutive' not in bys, bys)
 
 # Gated reminders: a flow that sells nothing is not told to get products approved.
-rc, nosell = run(os.path.join(FIX, 'vpn-timer-draft.json'), catalog=None, report=True)
+# The list prints only once nothing blocks, and the fixture's real font names block, so
+# this reads a copy without fonts.
+_vpn = json.load(open(os.path.join(FIX, 'vpn-timer-draft.json')))
+_vpn['_meta']['fonts'] = []
+rc, nosell = run(_vpn, catalog=None, report=True)
 nosell_bys = nosell.split('**Check these yourself', 1)[1] if '**Check these yourself' in nosell else ''
 check('a flow that binds no products gets no App Store Connect products reminder',
       'Ready to Submit' not in nosell_bys, nosell)

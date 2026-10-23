@@ -123,6 +123,10 @@ const url = `${appUrl}/flow-preview?screen=${encodeURIComponent(screen)}&device=
 const chromium = await loadChromium()
 
 let browser
+// Thrown instead of process.exit() inside the capture, so `finally` still closes the browser;
+// exiting from inside the try left the browser running after a failed render.
+const STOP = Symbol('stop')
+
 try {
   browser = await chromium.launch({headless: true})
 } catch (error) {
@@ -146,7 +150,7 @@ try {
       `Could not open ${url}\n${brief(error)}\n` +
         'Check --app-url / $ADAPTY_APP_URL — it must point at a host that is up.',
     )
-    process.exit(1)
+    throw STOP
   }
 
   await page.locator(CONFIG_INPUT_SELECTOR).setInputFiles({
@@ -167,12 +171,15 @@ try {
       `The render page never drew ${SCREEN_CONTENT_SELECTOR} within ${TIMEOUT_MS / 1000}s.\n` +
         (shown.trim() ? `Page says: ${shown.trim().slice(0, 300)}` : brief(error)),
     )
-    process.exit(1)
+    throw STOP
   }
 
   await page.waitForTimeout(SETTLE_MS)
   await content.screenshot({path: resolve(args.out), type: 'png'})
   console.log(resolve(args.out))
+} catch (error) {
+  if (error !== STOP) throw error
+  process.exitCode = 1
 } finally {
   await browser.close()
 }

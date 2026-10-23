@@ -28,6 +28,7 @@ Every skill below is part of the `adapty-skills` plugin. Install the plugin once
 | Skill | What it does | Needs |
 |---|---|---|
 | [`adapty-integration`](#integrating-the-sdk) | Sets up in-app purchases end to end — dashboard, SDK, paywall, store config — or moves you over from another purchase system | Adapty CLI |
+| [`growth-advisor`](#growing-revenue) | Reads your subscription numbers, finds where the app leaves money, and suggests hypotheses per placement — a different audience, product set or flow design, plans, trials, offers, localization — then sets up the one you pick through the CLI and gives you the steps for the rest | Adapty CLI |
 | [`adapty-attribution`](#reading-ad-attribution) | Reads your Adapty Attribution data: which channels, campaigns, ads and countries pay back, trial quality, weekly changes, predicted payback, and why an ad network's numbers differ from Adapty's | Adapty CLI, Adapty Attribution |
 | [`ads-manager`](#managing-apple-search-ads) | Runs your Apple Search Ads: performance across campaigns and keywords, bid and budget changes, search-term harvesting, campaigns on and off, a segment per campaign routed to its own paywall | Adapty CLI, Apple Ads account |
 | [`flow-audit`](#auditing-a-flow) | Answers "did I forget anything?" before you publish a flow — triggers, products, variables — with a verdict and ranked fixes | Adapty CLI |
@@ -51,6 +52,8 @@ Say what you want the way you'd brief a colleague. You don't need to name a skil
 - "Add a German translation to my paywall flow."
 - "Before I ship this paywall flow to paying users, did I miss anything?"
 - "Here's my paywall. What should I test to convert better?"
+- "Audit my app. What should I test next to grow revenue?"
+- "Revenue dropped last month. Why?"
 - "Which of my ad channels actually pays back? Should I move budget from TikTok to Meta?"
 - "How did my Apple Search Ads campaigns do last week, and which keywords should I pause?"
 - "Show users from my brand campaign a different paywall."
@@ -181,6 +184,18 @@ You'll be asked for your Adapty credentials and a few decisions along the way �
 - **Flow Builder** (recommended) — Adapty renders paywalls *and* onboarding in a no-code editor; nothing to build. On Unity and Capacitor this is Paywall Builder, the previous generation, which does paywalls only
 - **Custom paywall** — you build the UI; Adapty provides products and handles purchases
 - **Observer mode** — keep your existing StoreKit / Billing code; Adapty tracks events only
+
+## Growing revenue
+
+A growth review of your app from its own numbers, the way a subscription growth manager would run one.
+
+```
+/growth-advisor
+```
+
+It reads your revenue, renewals, trials, installs and refunds through `adapty analytics`, with your placements, paywalls and products, then asks what it cannot see: what you have tested before, your trials if the numbers do not show them, and your paywall if you want design ideas too. It does not cover pricing yet: it neither reads nor recommends prices. You get back what your numbers say and a short list of suggested hypotheses grouped by placement, in the order to test them. Each one names why your app in particular needs it — the placement, a number from your data or something on your screen, and how the change acts on it — plus the metric that decides it and an expected range from real A/B tests on subscription apps, or says plainly that it is untested. You pick which one to start with, and it helps you choose if you're unsure; the one you pick becomes an A/B test.
+
+**It changes nothing live without your yes.** For the hypothesis you pick it sets up what the CLI reaches, after your yes: a copy of the flow with the new design or product set (an offer after the paywall closes, a paywall at a new moment in the app) built by `flow-generator`, or a new audience on a placement. You choose how users get it: an A/B test in the dashboard (the default, and the only way to know what it did), a new placement, or an existing placement for some or all of its users. Before it changes an existing placement it saves what is there, asks you to confirm no A/B test is running on it, and tells you exactly who will see what. New plans, trials and A/B tests are yours to change in the store and the dashboard; it gives you the steps. After an A/B test ends, tell it what won and it suggests the next hypothesis.
 
 ## Reading ad attribution
 
@@ -326,11 +341,12 @@ One constraint it will tell you about rather than quietly working around: **a fl
 - **Placement changes show their before and after.** `audiences` never moves users in your existing segments to a different paywall without asking.
 - **Ad spend changes wait for you.** `ads-manager` names each bid, budget, keyword or campaign change in chat and runs it only after your yes.
 - **You see your account before anything is created.** `adapty-integration` reads what already exists in your Adapty dashboard and tells you what it will use and what it will add, then writes code only in your project.
+- **Growth plans change a live placement only on your yes.** `growth-advisor` reads your numbers, saves a placement before changing it, and asks you to confirm no A/B test is running there first, since the CLI cannot see one.
 - **Five skills only read.** `flow-audit`, `adapty-attribution`, `adapty-docs`, `paywall-teardown` and `onboarding-teardown` change nothing in your account.
 
 ## Where it works
 
-The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Eight of the eleven need a shell and the Adapty CLI signed in to your account.
+The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Nine of the twelve need a shell and the Adapty CLI signed in to your account.
 
 `paywall-teardown`, `onboarding-teardown` and `adapty-docs` need neither, so they also work in Claude chat and Cowork, where the other skills cannot reach your Adapty account.
 
@@ -362,7 +378,7 @@ The skills are instructions and a few local helper scripts. They run nothing on 
 |---|---|---|
 | The **Adapty CLI** (`npm install -g adapty`, or `npx adapty` where a global install is not possible) | Every skill except the two teardowns, to read and change your Adapty dashboard | `api-admin.adapty.io`, and `api-asa-admin.adapty.io` for Apple Search Ads, signed in as you through the CLI's own `adapty auth login` |
 | **Adapty docs pages** | Before the agent writes code or answers a product question | `adapty.io/docs`. The fetch carries a `?ref=skill-<token>` tag: a random token the agent makes up for that session, so Adapty can see which pages get read together. It contains nothing about you or your project |
-| **A feedback note** | Once per task, at the end of a `flow-generator` or `purchase-testing` task; once `adapty-integration` has the app building with the SDK in, or is stopped; and from `flow-audit` only when one of its checks was wrong. Also right away when you object to something the agent did, with your objection quoted. The agent tells you in one line that it sent one. Tell it "don't send feedback" to turn it off | Adapty, through the CLI's `adapty feedback`: how the task went for the agent (positive, neutral or negative), what it did, and, when it did not go smoothly, what helped and what got in the way; plus the IDs of what the task touched (app, flow, placement), the platform and SDK version for an integration, and the kind of task. No code, no files, no conversation, no copy or brand names, nothing about how your account is set up |
+| **A feedback note** | Once per task, at the end of a `flow-generator` or `purchase-testing` task; once `adapty-integration` has the app building with the SDK in, or is stopped; once per question `growth-advisor` answers from your data, with the kind of question and how it was answered in a few generic words, never a number or a name from your account; and from `flow-audit` only when one of its checks was wrong. Also right away when you object to something the agent did, with your objection quoted. The agent tells you in one line that it sent one. Tell it "don't send feedback" to turn it off | Adapty, through the CLI's `adapty feedback`: how the task went for the agent (positive, neutral or negative), what it did, and, when it did not go smoothly, what helped and what got in the way; plus the IDs of what the task touched (app, flow, placement), the platform and SDK version for an integration, and the kind of task. No code, no files, no conversation, no copy or brand names, nothing about how your account is set up |
 | **SDK version lookups** | Once per integration, to pin the current SDK release | `api.github.com`, `pub.dev`, Maven Central, depending on the platform |
 | **Flow config schema** | When `flow-generator` checks a config | `app.adapty.io/flow-schema/latest.json`, cached in your temp directory |
 | **Flow previews** | When `flow-generator` renders a screen for you to look at | Your flow config is opened in Adapty's preview page (`app.adapty.io`) in a local headless Chrome. The preview link for a phone is `mobile-app.adapty.io` |

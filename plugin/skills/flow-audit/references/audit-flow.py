@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Is this flow ready for production?
 
-Structural, offline half of the `flow-audit` skill. Takes a flow config and the app's
-product catalog; returns findings. No network, no CLI calls -- `SKILL.md` owns those, so
-this script stays testable against fixtures.
+Structural half of the `flow-audit` skill. Takes a flow config and the app's product
+catalog; returns findings. No CLI calls -- `SKILL.md` owns those, so this script stays
+testable against fixtures. The one network read is the fonts family downloading each
+custom font file named in `_meta.fonts` to read its PostScript name; when a download
+fails, that part degrades to a question and the run goes on.
 
 Severity is a verdict input, not a mood:
   blocker  -- the flow will not work for a real user, OR will show them something false
@@ -27,7 +29,8 @@ from `flows list`, not the config, and feed `render()`'s header and the
 `flow-untitled` check. `--placements` is a JSON array of `placements get` bodies; with
 `--flow-id` it answers whether any placement shows this flow.
 """
-import ast, json, os, re, sys
+import ast, json, os, re, struct, sys, urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 # The localization catalog reader, shipped beside this file (a byte-identical copy of
 # flow-generator's, so a directory-copy install of this skill alone still has it). Every check
@@ -43,7 +46,7 @@ finally:
 
 SEVERITIES = ('blocker', 'risk', 'question')
 FAMILIES = ('triggers', 'compliance', 'products', 'variables', 'localization',
-            'placeholders', 'placement', 'navigation')
+            'placeholders', 'placement', 'navigation', 'fonts')
 
 
 def finding(severity, family, check, message, fix, screen=None, element=None):
@@ -2575,6 +2578,208 @@ def check_sibling_locales(config, siblings):
         f'If people who use your app in {langs} see this flow, translate it too.')]
 
 
+# --- FONTS. Adapty does not send custom fonts to the device: the app bundle carries every
+# face, and the flow finds each one by the names set in the Builder's font settings. A name
+# that does not match draws SF Pro (iOS) or Roboto (Android) silently, while every Builder
+# preview still looks right, because the preview draws the uploaded file. The naming rules
+# are the docs' "Add the font files to your app's bundle" section of
+# using-custom-fonts-in-flow-builder: iOS finds a face by the PostScript name stored in the
+# file (name ID 6), unique across the app; Android by the file name in `res/font/` without
+# the extension, lowercase letters, numbers and underscores only.
+#
+# Every fix points at the Builder's font settings, never at a flow edit: `_meta.fonts` is a
+# copy of the app's font record, and the next Builder save overwrites it. An empty iOS name
+# is not checked here -- the transform service refuses it as `font_face_missing_ios_name`
+# and `flows config validate` reports it.
+ANDROID_FONT_NAME_RE = re.compile(r'^[a-z0-9_]+$')
+FONT_TIMEOUT = 15
+FONT_MAX_BYTES = 30 * 1024 * 1024
+SFNT_VERSIONS = (b'\x00\x01\x00\x00', b'OTTO', b'true')
+
+
+def _font_faces(config):
+    """Yield (font, face) for every face in `_meta.fonts`. An older entry has no `faces`
+    and is its own single face."""
+    for font in (config.get('_meta') or {}).get('fonts') or []:
+        if isinstance(font, dict):
+            for face in font.get('faces') or [font]:
+                if isinstance(face, dict):
+                    yield font, face
+
+
+def _face_label(font, face):
+    """How the Builder's font settings name this face: the family, plus the face's weight
+    and style when the entry lists its faces."""
+    label = f'"{font.get("name") or font.get("id") or "custom font"}"'
+    if face is font:
+        return label
+    style = ' '.join(str(x) for x in (face.get('weight'), 'italic' if face.get('italic')
+                                      else None) if x)
+    return f'{label} ({style})' if style else label
+
+
+def _sfnt_tables(data):
+    """{tag: bytes} for the first font in an sfnt file or TrueType collection, or None
+    when `data` is neither (WOFF, an image, an error page)."""
+    off = 0
+    if data[:4] == b'ttcf':
+        if len(data) < 16:
+            return None
+        off = struct.unpack('>I', data[12:16])[0]
+    if data[off:off + 4] not in SFNT_VERSIONS or len(data) < off + 12:
+        return None
+    tables = {}
+    for i in range(struct.unpack('>H', data[off + 4:off + 6])[0]):
+        rec = data[off + 12 + 16 * i:off + 28 + 16 * i]
+        if len(rec) < 16:
+            return None
+        tag, _, start, length = struct.unpack('>4sIII', rec)
+        tables[tag.decode('latin-1')] = data[start:start + length]
+    return tables
+
+
+def _postscript_name(table):
+    """Name ID 6 from a `name` table: the Windows (UTF-16) record first, then Unicode,
+    then Mac Roman. None when the file declares none."""
+    if len(table) < 6:
+        return None
+    _, count, storage = struct.unpack('>HHH', table[:6])
+    best = None
+    for i in range(count):
+        rec = table[6 + 12 * i:18 + 12 * i]
+        if len(rec) < 12:
+            break
+        platform, _, _, name_id, length, start = struct.unpack('>6H', rec)
+        if name_id != 6 or platform not in (0, 1, 3):
+            continue
+        raw = table[storage + start:storage + start + length]
+        text = raw.decode('mac_roman' if platform == 1 else 'utf-16-be', 'replace').strip()
+        rank = {3: 0, 0: 1, 1: 2}[platform]
+        if text and (best is None or rank < best[0]):
+            best = (rank, text)
+    return best[1] if best else None
+
+
+def read_font(url):
+    """(PostScript name or None, is variable) for the font file at `url`, or None when it
+    cannot be downloaded or is not a font file. Never raises: a font that cannot be read
+    degrades to a question, it never stops the audit."""
+    if not isinstance(url, str) or not url.startswith(('https://', 'http://')):
+        return None
+    try:
+        with urllib.request.urlopen(url, timeout=FONT_TIMEOUT) as r:
+            data = r.read(FONT_MAX_BYTES + 1)
+    except Exception:
+        return None
+    tables = _sfnt_tables(data) if len(data) <= FONT_MAX_BYTES else None
+    if tables is None:
+        return None
+    return _postscript_name(tables.get('name') or b''), 'fvar' in tables
+
+
+def _font_list(items, cap=4, sep=None):
+    """Distinct items, capped; joined with 'and', or with `sep` when an item carries its
+    own commas."""
+    items = list(dict.fromkeys(items))
+    shown = items[:cap]
+    if len(items) > cap:
+        shown.append(f'{len(items) - cap} more')
+    return sep.join(shown) if sep else _join_and(shown)
+
+
+FONT_SETTINGS = ('In the Flow Builder, open the font settings (Edit custom font in any font '
+                 'dropdown) and click the row of each face named above')
+
+
+def check_fonts(config, fetch=read_font):
+    """Do the custom fonts' iOS and Android names match what the app bundle can carry?
+
+    One finding per check, listing every face it applies to: the user fixes them on one
+    settings screen, and a template with four fonts would otherwise print eight rows.
+    `fetch` is `read_font`; each distinct url is downloaded once, in parallel.
+    """
+    faces = list(_font_faces(config))
+    if not faces:
+        return []
+    urls = list(dict.fromkeys(face.get('url') for _, face in faces
+                              if isinstance(face.get('url'), str)))
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        files = dict(zip(urls, pool.map(fetch, urls)))
+
+    bad_android, bad_ios, variable, unread, by_ios = [], [], [], [], {}
+    for font, face in faces:
+        label = _face_label(font, face)
+        android = face.get('androidName') or ''
+        if not ANDROID_FONT_NAME_RE.match(android):
+            bad_android.append(f'{label} has "{android}"' if android else
+                               f'{label} has none')
+        ios = face.get('iosName') or ''
+        if ios:
+            by_ios.setdefault(ios, {}).setdefault(font.get('id'), label)
+        file = files.get(face.get('url'))
+        if file is None or (file[0] is None and not file[1]):
+            unread.append(f'"{font.get("name") or font.get("id")}"')
+            continue
+        postscript, is_variable = file
+        if is_variable:
+            variable.append(f'"{font.get("name") or font.get("id")}"')
+        # A variable file's faces are named instances, and an instance's iOS name can
+        # legitimately differ from the file's own PostScript name, so a variable face
+        # fires only when its iOS name is Android-shaped -- the Android name copied
+        # across, which no PostScript name looks like.
+        if ios and postscript and ios != postscript and (
+                not is_variable or ANDROID_FONT_NAME_RE.match(ios)):
+            bad_ios.append(f'{label} has "{ios}", its file says "{postscript}"')
+
+    out = []
+    if bad_android:
+        out.append(finding(
+            'blocker', 'fonts', 'android-font-name',
+            f'On Android, text in these fonts will show in Roboto instead. Android finds a '
+            f'font by its file name, and these Android font names cannot be one: '
+            f'{_font_list(bad_android, sep="; ")}. The Builder preview still looks right '
+            f'because it draws the uploaded file.',
+            f'{FONT_SETTINGS}. Set its Android font name to the font file\'s name in your '
+            f'app\'s res/font/ folder, without the extension, using only lowercase '
+            f'letters, numbers and underscores (for example inter_medium), and name the '
+            f'file in your app the same.'))
+    if bad_ios:
+        out.append(finding(
+            'blocker', 'fonts', 'ios-font-name',
+            f'On iPhone, text in these fonts will show in SF Pro instead. iOS finds a font '
+            f'by the PostScript name stored in its file, and these iOS font names do not '
+            f'match it: {_font_list(bad_ios, sep="; ")}. The Builder preview still looks '
+            f'right because it draws the uploaded file.',
+            f'{FONT_SETTINGS}. Set its iOS font name to the name its file says.'))
+    dupes = [(ios, labels) for ios, labels in by_ios.items() if len(labels) > 1]
+    for ios, labels in dupes:
+        out.append(finding(
+            'risk', 'fonts', 'duplicate-ios-font-name',
+            f'{_join_and(sorted(labels.values()))} share the iOS font name "{ios}". iOS '
+            f'keeps one font per name, so one of them will show in the other\'s typeface.',
+            f'{FONT_SETTINGS}. Give each one the PostScript name stored in its own file.'))
+    if variable:
+        out.append(finding(
+            'question', 'fonts', 'variable-font',
+            f'{_font_list(variable)} {"is a variable font" if len(set(variable)) == 1 else "are variable fonts"}. '
+            f'Adapty makes one face per named style in the file, and the iOS font name of '
+            f'each face has to match that style in your app, which the file alone does '
+            f'not settle.',
+            f'Open the font file in Font Book on a Mac and compare each style\'s '
+            f'PostScript name with the iOS font name of its face. {FONT_SETTINGS} to '
+            f'change one.'))
+    if unread:
+        out.append(finding(
+            'question', 'fonts', 'font-file-unread',
+            f'I could not read the font file of {_font_list(unread)}, so I could not check '
+            f'{"its iOS font name" if len(set(unread)) == 1 else "their iOS font names"} '
+            f'against the file.',
+            f'Open each font file in Font Book on a Mac and compare its PostScript name with '
+            f'the iOS font name in the Flow Builder font settings (Edit custom font in any '
+            f'font dropdown).'))
+    return out
+
+
 def audit(config, catalog=None, stores=None, answers=None):
     findings = []
     findings += check_triggers(config)
@@ -2596,6 +2801,7 @@ def audit(config, catalog=None, stores=None, answers=None):
     findings += check_permission_screens(config, answers, stores)
     findings += check_rating_and_signup(config, answers, stores)
     findings += check_exit_and_cta(config, stores)
+    findings += check_fonts(config)
     return findings
 
 
@@ -2684,6 +2890,8 @@ CHECK_LABELS = {
     'publication-failed': 'flow failed to publish',
     'custom-action-unhandled': "action your app doesn't handle",
     'dead-end-screen': 'screen with no way forward',
+    'android-font-name': 'wrong Android font names',
+    'ios-font-name': 'wrong iOS font names',
 }
 
 # Plural forms that a naive trailing-'s' gets wrong (a leading noun, not the last
@@ -3158,6 +3366,13 @@ CHECK_TO_GROUP = {
     # The app's code is the only place an unhandled custom action can be fixed short of
     # rewiring the button, and neither the flow nor the dashboard reaches it.
     'custom-action-unhandled': GROUP_APP,
+    # `_meta.fonts` is a copy of the app's font record that the next Builder save
+    # overwrites, so a flow edit cannot fix a font name: only the font settings can.
+    'android-font-name': GROUP_DASHBOARD,
+    'ios-font-name': GROUP_DASHBOARD,
+    'variable-font': GROUP_DASHBOARD,
+    'duplicate-ios-font-name': GROUP_DASHBOARD,
+    'font-file-unread': GROUP_DASHBOARD,
 }
 
 # Checks whose severity for THIS instance is a question that an answer could turn
