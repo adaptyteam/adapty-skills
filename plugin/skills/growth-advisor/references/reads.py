@@ -618,16 +618,23 @@ def audit(a):
     print(f'# audit {f} .. {t} (the last full month is marked *)')
     names, lists = name_map(a.adapty, a.app, ('placements', 'paywalls', 'flows', 'products', 'segments'))
     print('\n## lists, every page: ' + ', '.join(f'{n} {len(r)}' for n, r in lists.items()))
-    print('\n## audiences of every placement, lowest priority first (every placement read)')
-    print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
-          'Past tests never show: never write that no test ran.')
-    for p in lists['placements']:
-        print(f"   placement {p.get('title')!r} id {p.get('id')}"
-              f"{'' if p.get('is_active', True) else ' (inactive)'}")
-        print_audiences(a.adapty, a.app, p.get('id'), names)
 
     def R(title, args, conv=False, top=None, cols=None):
         return read(a.adapty, a.app, title, args, names, conv, top, cols)
+    # the top countries by revenue, so each audience can say which of them its segments cover
+    first_countries = segments(cli(a.adapty, chart('revenue', f, t, 'country') + ['--app', a.app])[0])
+    top_codes = [s.get('key') for s in sorted((s for s in first_countries if not s.get('is_total') and s.get('key')),
+                                              key=lambda s: -(s.get('value') or 0))[:8]]
+    print('\n## audiences of every placement, lowest priority first (every placement read)')
+    print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
+          'Past tests never show: never write that no test ran.')
+    print('   Under each audience, its segments\' filters. Before a hypothesis says who sees a paywall, read it here: '
+          'a country group sees a paywall only when its segment takes that country in.')
+    seg_cache = {}
+    for p in lists['placements']:
+        print(f"   placement {p.get('title')!r} id {p.get('id')}"
+              f"{'' if p.get('is_active', True) else ' (inactive)'}")
+        print_audiences(a.adapty, a.app, p.get('id'), names, top_codes, seg_cache)
     split_money(R('1. revenue by payment: Activation is first payments, Renewal N the later ones',
                   chart('revenue', f, t, 'period')))
     R('revenue by store', chart('revenue', f, t, 'store'))
@@ -768,7 +775,34 @@ def switch_report(names, months, sh, conv, whole, old, new, products=(), store=N
           '   lowest month. Before/after is not an A/B test: name every other change in the same months.')
 
 
-def print_audiences(adapty, app, pid, names):
+COUNTRY_FIELDS = ('ip_country', 'store_country', 'country')
+
+
+def segment_filters(adapty, app, sid, cache, top):
+    """One line per segment: its filters, and for a country filter which of the app's top revenue countries it
+    takes in, so no hypothesis assumes a group sees a paywall its segment does not cover."""
+    if sid in cache:
+        return cache[sid]
+    body, err = cli(adapty, ['segments', 'get', sid, '--app', app])
+    parts = []
+    for f in ((body or {}).get('data') or body or {}).get('filters') or [] if not err else []:
+        field, op = f.get('field_name'), (f.get('operator') or '').upper()
+        vals = f.get('value_list') if f.get('value_list') is not None else [f.get('value')]
+        vals = [v for v in vals if v is not None]
+        if field in COUNTRY_FIELDS and top:
+            covered = [c for c in top if (c in vals) != op.startswith('NOT')]
+            left = [c for c in top if c not in covered]
+            parts.append(f'{field} {op} {len(vals)} countries; of your top countries by revenue, in: '
+                         f'{", ".join(covered) or "none"}; not in: {", ".join(left) or "none"}')
+        else:
+            shown = ', '.join(map(str, vals[:6])) + (f' and {len(vals) - 6} more' if len(vals) > 6 else '')
+            parts.append(f'{field} {op} {shown}')
+    cache[sid] = '; '.join(parts) if parts else ('could not read' if err else 'no filters')
+    return cache[sid]
+
+
+def print_audiences(adapty, app, pid, names, top=None, cache=None):
+    cache = {} if cache is None else cache
     body, err = cli(adapty, ['placements', 'get', pid, '--app', app])
     if err:
         print(f'   FAILED: {err}')
@@ -783,6 +817,8 @@ def print_audiences(adapty, app, pid, names):
             cid = x.get('paywall_id') or x.get('flow_id')
             target = names.get(cid, cid)
         print(f"   {x.get('priority'):>3}  {' + '.join(map(str, segs))[:64]:64} -> {target}")
+        for sid in x.get('segment_ids') or []:
+            print(f"        {names.get(sid, sid)}: {segment_filters(adapty, app, sid, cache, top)}")
     tests = sorted({x.get('ab_test_title') or x.get('ab_test_id') for x in aud
                     if x.get('content_type') == 'ab_test' or x.get('ab_test_id')})
     if tests:
@@ -859,13 +895,13 @@ def placement(a):
 
 
 EVERY = re.compile(
-    r'\b(every|all|each)\s+(\w+\s+)?(country|countries|store|stores|market|markets|channel|channels|placement|'
+    r'\b(every|all)\s+(\w+\s+)?(country|countries|store|stores|market|markets|channel|channels|placement|'
     r'placements|paywall|paywalls|platform|platforms|version|versions|segment|segments)\b|\beverywhere\b|'
     r'\bacross the board\b|\b(во всех|по всем|в каждой|в каждом|каждой|каждом|везде|повсюду|все страны|всех стран)\b',
     re.I)
 TIMING = re.compile(
     r'\b(when|after|since|right after|the (week|day|month)|coincid\w*)\b.*\b(switch\w*|'
-    r'launch\w*|went live|started|changed|moved|replaced|released|turned on|rolled out|stopped|disappeared|'
+    r'launch\w*|went live|started(?! a trial| trials)|changed|moved|replaced|released|turned on|rolled out|stopped|disappeared|'
     r'went away|ended|turned off|dropped out)\b|'
     r'(когда|после того как|с тех пор как|совпал\w*|в ту (же )?неделю|в тот (же )?день|сразу после).*'
     r'(переключ|запуст|выш(ел|ла|ли)|выкат|смен|поменя|замен|включ|начал|стартова|перестал|пропал|исчез|'
@@ -878,6 +914,35 @@ MONEY = r'[-−+]?\$\s?\d[\d.,]*\s?[kKmM]?'
 FIRST = re.compile(rf'(first[- ]payments?|перв\w* (платеж|оплат)\w*)[^.\n]{{0,60}}{MONEY}|{MONEY}[^.\n]{{0,60}}'
                    rf'(first[- ]payments?|перв\w* (платеж|оплат))', re.I)
 RENEW = re.compile(rf'(renewals?|продлени\w*)[^.\n]{{0,60}}{MONEY}|{MONEY}[^.\n]{{0,60}}(renewals?|продлени)', re.I)
+
+
+HYP = re.compile(r'^\*\*(?:Hypothesis|Гипотеза)\s*(\d+)', re.M | re.I)
+STAKE = re.compile(r'(at stake|на кону|под угрозой|puts? [^.\n]{0,40}at stake)', re.I)
+AMOUNT = re.compile(r'\$\s?([\d.,]+)\s?([kKmMкК]?)(?:\s?[–-]\s?\$?([\d.,]+)\s?([kKmMкК]?))?')
+
+
+def dollars(num_s, unit):
+    v = float(num_s.replace(',', '').replace(' ', '') or 0)
+    return v * (1e3 if unit.lower() in ('k', 'к') else 1e6 if unit.lower() == 'm' else 1)
+
+
+def stakes(text):
+    """The money at stake each hypothesis names, in the order the reply gives them: the largest amount in the
+    sentence that says "at stake" (the upper end of a range)."""
+    marks = list(HYP.finditer(text))
+    out = []
+    for i, m in enumerate(marks):
+        block = text[m.start():marks[i + 1].start() if i + 1 < len(marks) else len(text)]
+        best = None
+        # the Expected line carries the money in the skill's format; "at stake" sentences when there is none
+        expected = [l for l in block.split('\n') if re.match(r'\s*-\s*\**\s*(Expected|Ожида)', l, re.I)]
+        for sent in expected or re.split(r'(?<=[.!?])\s+|\n', block):
+            if expected or STAKE.search(sent):
+                for a in AMOUNT.finditer(sent):
+                    hi = dollars(a.group(3), a.group(4) or a.group(2)) if a.group(3) else dollars(a.group(1), a.group(2))
+                    best = max(best or 0, hi)
+        out.append((m.group(1), best))
+    return out
 
 
 def check_reply(path):
@@ -896,6 +961,13 @@ def check_reply(path):
             print(f'CHECK timing: "{s[:220]}"\n   A cause from timing needs both dates from reads at the same grain: '
                   'the week (or day) the change acted and the week the rate moved. If you have not read when the '
                   'change happened, say you cannot tell when it changed, or drop the link.')
+    st = [(n, v) for n, v in stakes(text) if v]
+    for (n0, v0), (n1, v1) in zip(st, st[1:]):
+        if v1 > v0:
+            found += 1
+            print(f'CHECK order: hypothesis {n1} puts ${num(v1)} a month at stake, hypothesis {n0} only ${num(v0)}. '
+                  'Order the hypotheses by money at stake, or say in the reply why the smaller one comes first '
+                  '(a running test, a breakage to fix first).')
     if DROP.search(text) and not (FIRST.search(text) and RENEW.search(text)):
         found += 1
         print('CHECK split: the reply says revenue fell but does not give both sides in dollars, first payments and '

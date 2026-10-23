@@ -329,6 +329,10 @@ against these before it goes in a reply:
   the drop they leave unexplained.
 - **A span quotes its lowest and highest month.** "Stable at 4.7–4.9%" is wrong when one month in
   that span read 4.2%: give the range over every month the sentence covers, or name the months.
+- **Who sees a paywall comes from its audience.** `reads.py audit` prints each audience's segment
+  filters, and for a country filter which of the app's top revenue countries it takes in. A
+  hypothesis that changes a paywall for a group of users names a paywall that group's audience
+  shows; when the audience points elsewhere, the hypothesis changes that paywall instead.
 - **A placement is called a placement.** Names come from `placements list` and `paywalls list`;
   "the Settings placement", never "the Settings paywall" when Settings is a placement.
 - **"It's the traffic" needs the rate inside traffic that held.** Before saying a fall is mix
