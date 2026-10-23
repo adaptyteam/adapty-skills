@@ -187,7 +187,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 - **Read-only; installs nothing.**
 - **"Ready to publish" only with zero blockers and every open question put to the user.**
-- **The six store-review checks stay advisory** (`risk`/`question`, own section, fixed disclaimer) and never move the verdict; missing-mechanism checks stay blockers. Never re-add `subscription-under-7-days`.
+- **The store-review checks stay advisory** (`risk`/`question`, own section, fixed disclaimer) and never move the verdict; missing-mechanism checks stay blockers. Never re-add `subscription-under-7-days`.
 - **Nothing parses finding message text;** tests key on check names. Read `checks.md` or `store-review.md` before changing a check.
 
 ### `flow-generator`

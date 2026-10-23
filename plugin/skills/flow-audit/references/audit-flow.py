@@ -19,7 +19,7 @@ data, and the traps are recorded there.
 Usage:
   audit-flow.py <config.json> [--catalog <catalog.json>] [--stores ios,android]
                 [--json | --report] [--name <name>] [--flow-id <id>] [--status <status>]
-                [--placements <placements.json>]
+                [--placements <placements.json>] [--custom-actions id=kind,...]
 Exit: 0 no blockers, 1 at least one blocker, 2 usage or unreadable input.
 
 `--json` prints the raw findings; `--report` prints the user-facing report (verdict,
@@ -2074,6 +2074,476 @@ def check_navigation(config):
     return out
 
 
+# --- CUSTOM ACTIONS. A flow cannot ask for a permission, open the rating sheet or sign
+# anyone in: a button that does any of these fires a `custom` action whose ID the app's
+# code matches, and an ID the app does not handle does nothing at all (Adapty's actions
+# doc: "A custom action does nothing on its own"). So every ID is put to the user once,
+# and the answers (`--custom-actions`) decide which store rules apply to which screen.
+#
+# Before an answer, a guess from the ID and the button's text lets the store checks
+# speak in "if" form. An answer always replaces the guess.
+# Read on the ID's words (split on `_`, `-`, spaces and camelCase), never on substrings:
+# `\b` treats `_` as a word character, so `rate_us` and `request_att` read as nothing, while
+# a bare "tracking" or "location" also matches a habit tracker or a city picker. A word that
+# names the thing outright counts alone; one that is ambiguous counts only beside a word
+# that asks for something.
+ASKING = {'request', 'ask', 'allow', 'enable', 'permission', 'prompt', 'grant', 'access'}
+CUSTOM_GUESS = (
+    ('tracking', {'att', 'idfa'}, {'tracking', 'track'}),
+    ('permission', {'notification', 'notifications', 'notif', 'notify', 'camera', 'microphone',
+                    'mic', 'contacts', 'healthkit'},
+     {'push', 'location', 'photo', 'photos', 'health', 'reminders'}),
+    ('review', {'rate', 'rating', 'review'}, set()),
+    ('sign-in', {'login', 'signin', 'signup', 'register'}, set()),
+)
+
+
+def _id_words(cid):
+    spaced = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', cid)
+    return [w for w in re.split(r'[_\-\s.]+', spaced.lower()) if w]
+
+
+def _guess_kind(cid):
+    words = _id_words(cid)
+    joined = set(words) | {a + b for a, b in zip(words, words[1:])}  # sign_in -> signin
+    if {'create', 'new'} & joined and 'account' in joined:
+        return 'sign-in'
+    for kind, alone, beside in CUSTOM_GUESS:
+        if alone & joined or (beside & joined and ASKING & joined):
+            return kind
+    return 'unknown'
+
+
+def _custom_ids(node):
+    """Every custom action ID inside `node`, conditional branches included -- a quiz
+    answer can fire one, and missing it would leave that button out of the question."""
+    out = []
+    if isinstance(node, dict):
+        if node.get('type') == 'custom' and isinstance(node.get('payload'), dict):
+            cid = node['payload'].get('id')
+            if isinstance(cid, str) and cid:
+                out.append(cid)
+        for v in node.values():
+            out += _custom_ids(v)
+    elif isinstance(node, list):
+        for v in node:
+            out += _custom_ids(v)
+    return out
+
+
+def custom_sites(config):
+    """custom action ID -> [(screen id, element id, label)], one entry per element.
+
+    A button is a `stack` whose words live in descendant `text` elements, so the label
+    is `card_text`'s descendant walk in the default locale; an icon-only button gets
+    the same wording `escape_labels` uses."""
+    dl = default_locale(config)
+    screens = {s['id']: s for s in config.get('screens') or []}
+    out = {}
+    for s, eid, e in elements(config):
+        for _, a in actions_of(e):
+            for cid in _custom_ids(a):
+                sites = out.setdefault(cid, [])
+                if any(x[:2] == (s['id'], eid) for x in sites):
+                    continue
+                label = (card_text(config, screens[s['id']], eid, dl)
+                         or flat_text((e.get('props') or {}).get('content'), dl)
+                         or 'an icon with no text')
+                sites.append((s['id'], eid, label))
+    return out
+
+
+def custom_kinds(config, answers=None):
+    """custom action ID -> (kind, answered). An answer wins; otherwise the first guess
+    the ID matches; otherwise ('unknown', False).
+
+    The ID only, never the button's text: measured on a real activity onboarding, an
+    "Add a pregnancy" button naming a health app (ID `add_pregnancy`) read as a permission prompt
+    from its label and put a Skip finding on a screen that asks for nothing. An ID is
+    the developer naming what the code does; a label is copy."""
+    answers = answers or {}
+    out = {}
+    for cid in custom_sites(config):
+        if cid in answers:
+            out[cid] = (answers[cid], True)
+            continue
+        guess = _guess_kind(cid)
+        out[cid] = (guess, False)
+    return out
+
+
+def _site_phrase(config, cid, sites):
+    where = _join_and(dict.fromkeys(f'"{screen_name(config, sid)}"' for sid, _, _ in sites))
+    labels = [lbl for _, _, lbl in sites if lbl != 'an icon with no text']
+    on = f' ("{labels[0][:40]}")' if labels else ''
+    return f'"{cid}" on {where}{on}'
+
+
+def check_custom_actions(config, answers=None):
+    answers = answers or {}
+    sites = custom_sites(config)
+    out = []
+    open_ids = [cid for cid in sites if cid not in answers]
+    if open_ids:
+        listed = '; '.join(_site_phrase(config, cid, sites[cid]) for cid in open_ids)
+        out.append(finding(
+            'question', 'triggers', 'custom-action-unconfirmed',
+            f'These buttons fire custom actions that only your app\'s code can carry out: '
+            f'{listed}. If your app does not handle one, its button does nothing when '
+            f'tapped. I cannot see your app\'s code, so I do not know what each one does.',
+            'Tell me what each one does: asks for a permission, shows the tracking prompt, '
+            'shows the rating sheet, signs people in, something else, or nothing yet.'))
+    for cid, kind in answers.items():
+        if kind == 'none' and cid in sites:
+            sid, eid, _ = sites[cid][0]
+            out.append(finding(
+                'blocker', 'triggers', 'custom-action-unhandled',
+                f'{_site_phrase(config, cid, sites[cid])} does nothing: your app does not '
+                f'handle this custom action, so tapping it does nothing.',
+                'Handle this action ID in your app\'s code, or give the button a '
+                'different action in the Flow Builder.', sid, eid))
+    return out
+
+
+# --- PERMISSION SCREENS (store review, advisory). A flow cannot show a system permission
+# prompt itself; it shows the screen before it, whose button fires a custom action the
+# app turns into the prompt. Apple's HIG wants that screen to have ONE button, worded
+# like "Continue" or "Next", never "Allow", and no way round it: the person declines in
+# the system prompt. 2023-2026 rejections under 5.1.1(iv) removed a "Skip"/"Not now"
+# or an "Enable" button. Google's guidance asks the opposite (always offer a cancel), so
+# every check here is iOS-only and never tells anyone to add a Skip. Evidence and
+# calibration: `store-review.md`, "Onboarding".
+PERMISSION_KINDS = ('permission', 'tracking')
+GRANT_WORDS = re.compile(r'\b(allow|enable|turn on|grant)\b', re.I)
+# An OFFER, not a word: "feel free", "ad-free", "deals and discounts" and "unlock daily
+# reminders" are ordinary primer copy and fired on bare `free`/`discount`/`unlock`.
+REWARD_WORDS = re.compile(
+    r'\b\d+\s*(day|week|month|year)s?\s+free\b|\bfree\s+(trial|day|week|month|year)\b|'
+    r'\ba\s+free\b|\d+\s*%\s*off\b|\b(bonus|gift|reward)\b', re.I)
+SYSTEM_ALERT_WORDS = re.compile(r'ask app not to track|allow tracking|'
+                                r'\b(tap|press|click)\s+["“]?allow\b', re.I)
+
+
+def screen_text(config, screen):
+    dl = default_locale(config)
+    return ' '.join(flat_text((e.get('props') or {}).get('content'), dl)
+                    for e in ((screen.get('elements') or {}).get('map') or {}).values()
+                    if e.get('type') == 'text')
+
+
+def primer_screens(config, kinds):
+    """screen id -> the permission/tracking custom action IDs fired on it."""
+    out = {}
+    for cid, sites in custom_sites(config).items():
+        if kinds.get(cid, ('unknown',))[0] in PERMISSION_KINDS:
+            for sid, _, _ in sites:
+                out.setdefault(sid, [])
+                if cid not in out[sid]:
+                    out[sid].append(cid)
+    return out
+
+
+def _if_unanswered(kinds, cid, what):
+    """The conditional opening a finding takes while the user has not said what `cid`
+    does -- the guess may be wrong, so the sentence must not state it as fact."""
+    return '' if kinds[cid][1] else f'If "{cid}" {what}, '
+
+
+def _cap(text):
+    """The first letter upper-cased: a message that may start after an empty `lead`."""
+    return text[:1].upper() + text[1:]
+
+
+def check_permission_screens(config, answers=None, stores=None):
+    if stores is not None and 'ios' not in stores:
+        return []
+    kinds = custom_kinds(config, answers)
+    sites = custom_sites(config)
+    screens = {s['id']: s for s in config.get('screens') or []}
+    out = []
+    for sid, cids in primer_screens(config, kinds).items():
+        s = screens[sid]
+        cid = cids[0]
+        lead = _if_unanswered(kinds, cid, 'shows a system permission prompt')
+        carriers = {eid for c in cids for x, eid, _ in sites[c] if x == sid}
+        m = (s.get('elements') or {}).get('map') or {}
+        around = [eid for eid, e in m.items() if eid not in carriers and any(
+            t in ('navigate', 'navigateNext', 'closeFlow') for _, a in actions_of(e)
+            for t in _action_types(a))]
+        if around:
+            # Named by its own words: a round's agents told users to "remove the other way
+            # out" when the finding did not say which button that was.
+            way = (card_text(config, s, around[0], default_locale(config))
+                   or flat_text((m[around[0]].get('props') or {}).get('content'),
+                                default_locale(config)))
+            way = f'"{way[:40]}"' if way else 'an icon with no text'
+            out.append(finding(
+                'risk', 'compliance', 'primer-skip',
+                _cap(f'{lead}{way} on the "{screen_name(config, sid)}" screen lets people go '
+                f'past the permission prompt without seeing it. Apple has rejected onboardings '
+                f'for a "Skip" or "Not now" on the screen before a permission prompt: people '
+                f'are meant to decline in the prompt itself.'),
+                f'Keep one button on this screen, worded like "Continue", that always shows '
+                f'the prompt, and remove {way}. (App Store 5.1.1(iv))',
+                sid, around[0]))
+        for c in cids:
+            for x, eid, label in sites[c]:
+                if x == sid and GRANT_WORDS.search(label):
+                    out.append(finding(
+                        'risk', 'compliance', 'primer-grant-wording',
+                        _cap(f'{_if_unanswered(kinds, c, "shows a system permission prompt")}'
+                        f'the button that leads to the permission prompt says "{label[:40]}". '
+                        f'Apple asks for a word like "Continue" or "Next" here, because the '
+                        f'real choice is made in the prompt that follows.'),
+                        'Change the button text to "Continue". (Apple Human Interface '
+                        'Guidelines, Privacy)', sid, eid))
+        reward = REWARD_WORDS.search(screen_text(config, s))
+        if reward:
+            out.append(finding(
+                'risk', 'compliance', 'permission-incentive',
+                _cap(f'{lead}the "{screen_name(config, sid)}" screen offers something '
+                f'("{reward.group(0)}") for turning the permission on. Apple does not allow a '
+                f'reward for granting notifications, location or tracking.'),
+                'Take the offer off this screen. (App Store 5.1.2(i))', sid))
+    for s in config.get('screens') or []:
+        alert = SYSTEM_ALERT_WORDS.search(screen_text(config, s))
+        if alert:
+            out.append(finding(
+                'risk', 'compliance', 'att-fake-alert',
+                f'The "{screen_name(config, s["id"])}" screen says "{alert.group(0)}", which '
+                f'copies or points at the system permission prompt. Apple says a screen like '
+                f'this before the tracking prompt leads to rejection.',
+                'Explain what the permission is for in your own words, and leave the '
+                'choice to the prompt. (App Store 5.1.2(i))', s['id']))
+    return out
+
+
+def check_rating_and_signup(config, answers=None, stores=None):
+    """Two onboarding steps that have drawn rejections (store review, advisory).
+
+    `rating-in-onboarding`: Apple's HIG says not to ask for a rating during onboarding,
+    5.6.1 disallows custom review prompts, and 2026 rejections removed a rating step
+    shown before the person had used the app; Google's in-app review guidance also says
+    not to trigger it from a button. Both stores, so it is not store-gated. Only a flow
+    of two or more screens is an onboarding: a rating button on a one-screen flow is not
+    a step anybody is walked through.
+
+    `signup-wall`: 5.1.1(v) -- an app may not require an account unless its core
+    features need one. Whether they do is the user's answer, so it is a question, and
+    it fires only when signing in is the ONLY way past the screen."""
+    kinds = custom_kinds(config, answers)
+    sites = custom_sites(config)
+    out = []
+    if len(config.get('screens') or []) > 1:
+        rated = []
+        for cid, (kind, answered) in kinds.items():
+            if kind == 'review':
+                for sid, eid, _ in sites[cid]:
+                    rated.append((sid, eid, _if_unanswered(kinds, cid,
+                                                           'opens the rating sheet')))
+        for s, eid, e in elements(config):
+            for _, a in actions_of(e):
+                url = (a.get('payload') or {}).get('url') if a.get('type') == 'openUrl' else None
+                if isinstance(url, str) and 'write-review' in url:
+                    rated.append((s['id'], eid, ''))
+        for sid, eid, lead in rated:
+            out.append(finding(
+                'risk', 'compliance', 'rating-in-onboarding',
+                _cap(f'{lead}the "{screen_name(config, sid)}" screen asks for a rating while '
+                f'people are still going through the onboarding, before they have used '
+                f'your app. Apple has rejected onboardings for this.'),
+                'Take the rating step out of the onboarding and ask later, once people '
+                'have used the app, through the store\'s own rating prompt. (App Store '
+                '5.6.1; Apple Human Interface Guidelines, Ratings and reviews)', sid, eid))
+    if stores is None or 'ios' in stores:
+        # A way past is a navigate or close, or a custom action that is not itself a
+        # sign-in: a "Continue as guest" button wired to the app's own code is still one.
+        forward = {}
+        for s, eid, e in elements(config):
+            for _, a in actions_of(e):
+                if any(t in ('navigate', 'navigateNext', 'closeFlow')
+                       for t in _action_types(a)) or any(
+                        kinds.get(c, ('unknown',))[0] != 'sign-in' for c in _custom_ids(a)):
+                    forward.setdefault(s['id'], set()).add(eid)
+        # One finding per screen: a sign-in screen with Apple, Google and email buttons is
+        # one wall, and every one of those buttons is a carrier, not a way past it.
+        walls = {}
+        for cid, (kind, _) in kinds.items():
+            if kind == 'sign-in':
+                for sid, eid, _ in sites[cid]:
+                    walls.setdefault(sid, []).append((cid, eid))
+        for sid, carried in walls.items():
+            if forward.get(sid, set()) - {eid for _, eid in carried}:
+                continue
+            cid, eid = carried[0]
+            out.append(finding(
+                'question', 'compliance', 'signup-wall',
+                _cap(f'{_if_unanswered(kinds, cid, "signs people in")}signing in is the only '
+                f'way past the "{screen_name(config, sid)}" screen. Apple allows that '
+                f'only when the app\'s core features need an account.'),
+                'If your app works without an account, add a way to continue without '
+                'one, such as "Continue as guest" or "Skip". (App Store 5.1.1(v))',
+                sid, eid))
+    return out
+
+
+CLOSE_WORDS = re.compile(r'\b(close|no thanks|not now|maybe later|skip)\b', re.I)
+
+
+def _norm_label(text):
+    return re.sub(r'\s+', ' ', text or '').strip().lower()
+
+
+def check_exit_and_cta(config, stores=None):
+    """Two paywall-in-onboarding shapes (store review, advisory).
+
+    `exit-offer-on-dismiss` (iOS): closing a selling screen opens another selling
+    screen. Rejected under 5.6 with the reviewer's own words about manipulating people
+    into purchases (Nov 2024); the same shape had passed earlier versions, so it is a
+    risk on any update, not a certainty. Not the deferred `escape-gated` idea: that
+    names any close that does not close, which has no rejection behind it yet.
+
+    `purchase-looks-like-continue` (Android): Google Play's Subscriptions policy lists
+    "multiple screens in the purchase flow that lead users into accidentally clicking
+    the subscribe button". The observable form is the purchase button carrying the same
+    words as the forward buttons on the two screens before it."""
+    out = []
+    selling = selling_screens(config)
+    if not selling:
+        return out
+    screens = {s['id']: s for s in config.get('screens') or []}
+    dl = default_locale(config)
+
+    def label(sid, eid):
+        e = (screens[sid].get('elements') or {}).get('map', {}).get(eid) or {}
+        return (card_text(config, screens[sid], eid, dl)
+                or flat_text((e.get('props') or {}).get('content'), dl))
+
+    if stores is None or 'ios' in stores:
+        for s, eid, e in elements(config):
+            if s['id'] not in selling:
+                continue
+            types, targets = [], []
+            for _, a in actions_of(e):
+                types += _action_types(a)
+                targets += _nav_targets(a, s['id'], list(screens))
+            text = label(s['id'], eid)
+            offers = [t for t in targets if t in selling and t != s['id']]
+            if offers and 'purchase' not in types and (not text or CLOSE_WORDS.search(text)):
+                out.append(finding(
+                    'risk', 'compliance', 'exit-offer-on-dismiss',
+                    f'Closing the "{screen_name(config, s["id"])}" screen opens another '
+                    f'offer ("{screen_name(config, offers[0])}") instead of letting people '
+                    f'leave. Apple has rejected this as pushing people into a purchase they '
+                    f'did not want.',
+                    'Make the close button close the flow ("Close Flow"), and show the '
+                    'second offer somewhere people choose to open it. (App Store 5.6)',
+                    s['id'], eid))
+    if stores is None or 'android' in stores:
+        forward = {}
+        for s, eid, e in elements(config):
+            if s['id'] in selling:
+                continue
+            if any(t in ('navigate', 'navigateNext') for _, a in actions_of(e)
+                   for t in _action_types(a)):
+                forward.setdefault(s['id'], set()).add(_norm_label(label(s['id'], eid)))
+        path = _reachable(config)
+        for s, eid, e in elements(config):
+            if s['id'] not in selling or not any(
+                    a.get('type') == 'purchase' for _, a in actions_of(e)):
+                continue
+            before = [x for x in path[:path.index(s['id'])] if x in forward][-2:] if (
+                s['id'] in path) else []
+            words = _norm_label(label(s['id'], eid))
+            if len(before) == 2 and words and all(words in forward[x] for x in before):
+                out.append(finding(
+                    'risk', 'compliance', 'purchase-looks-like-continue',
+                    f'The purchase button on the "{screen_name(config, s["id"])}" screen '
+                    f'says "{label(s["id"], eid)[:40]}", the same as the buttons that moved '
+                    f'people through the screens before it, so someone tapping through can '
+                    f'subscribe without meaning to. Google Play lists this as a policy '
+                    f'violation.',
+                    'Word the purchase button for what it does, such as "Subscribe" or '
+                    '"Start free trial". (Google Play Subscriptions policy)', s['id'], eid))
+    return out
+
+
+# --- DEAD ENDS. Adapty's screen map flags "a screen with no way forward" and says it
+# passes the publish check yet strands users on a device. A way forward is anything
+# that leaves the screen or hands control to the app: a navigate, a Navigate Next with a
+# screen after it, Close Flow, a purchase, or a custom action. Navigate Back alone is not
+# one -- it only returns to the screen that led here. A custom action counts because
+# Adapty's own pattern for a step that depends on the app ends the flow on one and lets
+# the app close it, and what the app does with it is the custom-action question's job.
+FORWARD_ACTIONS = ('navigate', 'closeFlow', 'purchase', 'custom')
+
+
+def _action_types(node):
+    out = []
+    if isinstance(node, dict):
+        if isinstance(node.get('type'), str):
+            out.append(node['type'])
+        for v in node.values():
+            out += _action_types(v)
+    elif isinstance(node, list):
+        for v in node:
+            out += _action_types(v)
+    return out
+
+
+def forward_screens(config):
+    """Screens with at least one way forward, conditional branches included."""
+    order = [s['id'] for s in config.get('screens') or []]
+    out = set()
+    for s, eid, e in elements(config):
+        for _, a in actions_of(e):
+            types = _action_types(a)
+            if any(t in FORWARD_ACTIONS for t in types) or (
+                    'navigateNext' in types and order.index(s['id']) < len(order) - 1):
+                out.add(s['id'])
+    return out
+
+
+def _reachable(config):
+    order = [s['id'] for s in config.get('screens') or []]
+    if not order:
+        return []
+    edges, seen, queue = nav_graph(config), [order[0]], [order[0]]
+    while queue:
+        for nxt in sorted(edges.get(queue.pop(0), ())):
+            if nxt in edges and nxt not in seen:
+                seen.append(nxt)
+                queue.append(nxt)
+    return seen
+
+
+def end_screens(config):
+    """Reachable screens with nowhere further to go -- each one reports itself to the app
+    as the last screen, and a branching flow can have several."""
+    edges = nav_graph(config)
+    return [sid for sid in _reachable(config) if not edges.get(sid)]
+
+
+def check_dead_ends(config):
+    # A flow that never closes itself relies on the host app to dismiss it -- the reason
+    # `no-escape-in-flow` is a question -- so a dead end there is not a certain strand.
+    # The gate is Close Flow, not `escape_screens()`: that also counts Navigate Back, and a
+    # Back-only flow then got a blocker where a flow with no actions got a question.
+    # Unreachable screens are left to `verify-config.py`, which already warns on them.
+    if not any(a.get('type') == 'closeFlow' or 'closeFlow' in _action_types(a)
+               for _, _, e in elements(config) for _, a in actions_of(e)):
+        return []
+    forward = forward_screens(config)
+    return [finding(
+        'blocker', 'navigation', 'dead-end-screen',
+        f'Someone who reaches the "{screen_name(config, sid)}" screen cannot leave it: '
+        f'nothing on it moves on, closes the flow or buys, and going back only returns to '
+        f'the screen before. The builder publishes this anyway.',
+        'Give one button on this screen a way forward: "Navigate" to the next screen, or '
+        '"Close Flow" if this is where the flow ends.', sid)
+        for sid in _reachable(config) if sid not in forward]
+
+
 def check_sibling_locales(config, siblings):
     """Languages the app's other published flows offer and this one does not.
 
@@ -2310,7 +2780,7 @@ def check_fonts(config, fetch=read_font):
     return out
 
 
-def audit(config, catalog=None, stores=None):
+def audit(config, catalog=None, stores=None, answers=None):
     findings = []
     findings += check_triggers(config)
     findings += check_compliance(config)
@@ -2326,6 +2796,11 @@ def audit(config, catalog=None, stores=None):
     findings += check_fake_carousel(config)
     findings += check_variables(config)
     findings += check_navigation(config)
+    findings += check_custom_actions(config, answers)
+    findings += check_dead_ends(config)
+    findings += check_permission_screens(config, answers, stores)
+    findings += check_rating_and_signup(config, answers, stores)
+    findings += check_exit_and_cta(config, stores)
     findings += check_fonts(config)
     return findings
 
@@ -2366,6 +2841,10 @@ STORE_REVIEW_CHECKS = frozenset({
     # `_merge_disclosure`). It must be listed here or `render()`'s partition would
     # route it into RISKS instead of the advisory section.
     'trial-terms-incomplete-merged',
+    # Onboarding shapes; evidence in `store-review.md`, "Onboarding".
+    'primer-skip', 'primer-grant-wording', 'permission-incentive', 'att-fake-alert',
+    'rating-in-onboarding', 'signup-wall', 'exit-offer-on-dismiss',
+    'purchase-looks-like-continue',
 })
 
 # Verbatim. Both directions are stated on purpose: a clean section is not a pass, and a
@@ -2409,6 +2888,8 @@ CHECK_LABELS = {
     'variable-no-consumer': 'unused variable',
     'flow-untitled': 'flow untitled',
     'publication-failed': 'flow failed to publish',
+    'custom-action-unhandled': "action your app doesn't handle",
+    'dead-end-screen': 'screen with no way forward',
     'android-font-name': 'wrong Android font names',
     'ios-font-name': 'wrong iOS font names',
 }
@@ -2824,8 +3305,8 @@ def _collapse_for_report(findings, config):
 # finding missing from this section entirely is the one failure this must never
 # have, and "assume I can fix it" is the least surprising wrong guess for a check
 # nobody has taught this table about yet.
-GROUP_ANSWER, GROUP_FLOW, GROUP_DASHBOARD, GROUP_OPTIONAL = 1, 2, 3, 4
-NEXT_STEP_ORDER = (GROUP_ANSWER, GROUP_FLOW, GROUP_DASHBOARD, GROUP_OPTIONAL)
+GROUP_ANSWER, GROUP_FLOW, GROUP_DASHBOARD, GROUP_OPTIONAL, GROUP_APP = 1, 2, 3, 4, 5
+NEXT_STEP_ORDER = (GROUP_ANSWER, GROUP_FLOW, GROUP_DASHBOARD, GROUP_APP, GROUP_OPTIONAL)
 
 # Default group per check name: where the FIX lives, regardless of this instance's
 # severity. GROUP_FLOW means "the agent can do it" -- a flow edit, a placement, or
@@ -2872,6 +3353,19 @@ CHECK_TO_GROUP = {
     'trial-terms-incomplete': GROUP_FLOW,
     'trial-terms-incomplete-merged': GROUP_FLOW,
     'external-purchase-link': GROUP_FLOW,
+    'custom-action-unconfirmed': GROUP_FLOW,
+    'dead-end-screen': GROUP_FLOW,
+    'primer-skip': GROUP_FLOW,
+    'primer-grant-wording': GROUP_FLOW,
+    'permission-incentive': GROUP_FLOW,
+    'att-fake-alert': GROUP_FLOW,
+    'rating-in-onboarding': GROUP_FLOW,
+    'signup-wall': GROUP_FLOW,
+    'exit-offer-on-dismiss': GROUP_FLOW,
+    'purchase-looks-like-continue': GROUP_FLOW,
+    # The app's code is the only place an unhandled custom action can be fixed short of
+    # rewiring the button, and neither the flow nor the dashboard reaches it.
+    'custom-action-unhandled': GROUP_APP,
     # `_meta.fonts` is a copy of the app's font record that the next Builder save
     # overwrites, so a flow edit cannot fix a font name: only the font settings can.
     'android-font-name': GROUP_DASHBOARD,
@@ -2889,7 +3383,7 @@ CHECK_TO_GROUP = {
 # `catalog-not-fetched` and `publication-failed` are deliberately excluded: none of
 # them is a question whose ANSWER changes whether the finding is a problem.
 VERDICT_CONDITIONAL = {'no-terms-link', 'no-privacy-link', 'no-escape-in-flow',
-                        'product-store-gap'}
+                        'product-store-gap', 'custom-action-unconfirmed'}
 
 # The Flow Builder's own status labels, so the header says what the dashboard says.
 # `dirty` reads as "Dirty" there, which means nothing to a newcomer, so it carries
@@ -2899,11 +3393,19 @@ STATUS_LABELS = {'draft': 'Draft', 'dirty': 'Dirty (unpublished changes)',
                  'published': 'Published', 'archived': 'Archived'}
 
 
+# Questions whose answer IS the whole next step: there is nothing to fix until the user
+# has said what each thing does, so they get the GROUP_ANSWER line and nothing else --
+# "I can fix it for you" under an unanswered question promises a fix nobody can name.
+ANSWER_ONLY = {'custom-action-unconfirmed'}
+
+
 def _next_step_groups(f):
     """Which next-step group(s) get this finding. Never zero."""
     groups = []
     if f['check'] in VERDICT_CONDITIONAL and f['severity'] == 'question':
         groups.append(GROUP_ANSWER)
+        if f['check'] in ANSWER_ONLY:
+            return groups
     groups.append(CHECK_TO_GROUP.get(f['check'], GROUP_FLOW))
     return groups
 
@@ -2924,6 +3426,9 @@ def _answer_prompt(f, n):
     if check == 'no-escape-in-flow':
         return ('Does your app show this flow with its own close button or '
                 f'swipe-to-dismiss? If not, finding {n} needs a close button.')
+    if check == 'custom-action-unconfirmed':
+        return (f'What does each custom action in finding {n} do in your app? One your '
+                f'app does not handle is a button that does nothing.')
     return f'Look at finding {n}: your answer may change the verdict.'
 
 
@@ -2983,7 +3488,7 @@ def check_placements(placements, flow_id, status=None):
     return out, shown_by
 
 
-def render(findings, config, meta=None, stores=None):
+def render(findings, config, meta=None, stores=None, answers=None):
     """The user-facing report, in the order a reader acts on it: the verdict as one
     bold line, the flow it is about, the numbered findings grouped by how much they
     matter, the languages table when there is more than one, the advisory
@@ -3164,6 +3669,11 @@ def render(findings, config, meta=None, stores=None):
             where = 'it' if len(nums) == 1 else 'each'
             lines += [f'{_nums(nums).capitalize()} {verb} yours to do in the Adapty '
                       f'dashboard; the steps are under {where}.', '']
+        if groups[GROUP_APP]:
+            nums = [num for num, _ in groups[GROUP_APP]]
+            verb = 'is' if len(nums) == 1 else 'are'
+            lines += [f'{_nums(nums).capitalize()} {verb} yours to do in your app\'s '
+                      f'code.', '']
         if groups[GROUP_OPTIONAL]:
             nums = [num for num, _ in groups[GROUP_OPTIONAL]]
             verb = 'is' if len(nums) == 1 else 'are'
@@ -3200,6 +3710,13 @@ def render(findings, config, meta=None, stores=None):
                       'privacy policy URL in the Privacy Policy field, and Terms of Use '
                       'in the app description or the License Agreement field. Apple '
                       'checks both.')
+    ends = end_screens(config) if len(config.get('screens') or []) > 1 else []
+    if not blockers and ends:
+        names = _join_and(f'"{screen_name(config, sid)}"' for sid in ends)
+        checks.append(f'Your app knows when this flow is done: it ends on {names}, and '
+                      f'each of those screens tells your app it is the last one. Mark the '
+                      f'onboarding as done on every one of them, or when the flow closes, '
+                      f'so it is not shown again.')
     if checks:
         lines += ['', '**Check these yourself, I cannot see them from here**', '']
         lines += [f'- {c}' for c in checks]
@@ -3236,7 +3753,29 @@ def _voice(line):
 
 
 VALUE_FLAGS = ('--catalog', '--stores', '--name', '--flow-id', '--status',
-               '--placements', '--sibling-locales')
+               '--placements', '--sibling-locales', '--custom-actions')
+
+# What the user said each custom action ID does. A flow cannot request a permission,
+# show the rating sheet or sign anyone in: each of those is a `custom` action whose
+# meaning only the app's code knows, so the store rules for those screens can only be
+# applied once the user has named it.
+CUSTOM_KINDS = ('permission', 'tracking', 'review', 'sign-in', 'other', 'none')
+
+
+def parse_custom_actions(value):
+    """`id=kind[,id=kind...]` -> {id: kind}. Spaces are trimmed and empty items skipped;
+    a missing `=` or an unknown kind raises ValueError naming the item."""
+    out = {}
+    for item in value.split(','):
+        if not item.strip():
+            continue
+        cid, sep, kind = item.partition('=')
+        cid, kind = cid.strip(), kind.strip()
+        if not sep or not cid or kind not in CUSTOM_KINDS:
+            raise ValueError(f'--custom-actions: "{item.strip()}" is not id=kind, where '
+                             f'kind is one of {", ".join(CUSTOM_KINDS)}')
+        out[cid] = kind
+    return out
 
 
 def parse_args(argv):
@@ -3303,8 +3842,14 @@ def main(argv):
         placements = placements.get('data') or []
     stores = (set(flags['--stores'].split(','))
               if isinstance(flags.get('--stores'), str) else None)
+    try:
+        answers = (parse_custom_actions(flags['--custom-actions'])
+                   if isinstance(flags.get('--custom-actions'), str) else None)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 2
 
-    findings = audit(config, catalog, stores)
+    findings = audit(config, catalog, stores, answers)
     meta = {'name': flags.get('--name') if isinstance(flags.get('--name'), str) else None,
             'flow_id': flags.get('--flow-id') if isinstance(flags.get('--flow-id'), str)
             else None,
@@ -3316,7 +3861,7 @@ def main(argv):
     findings += placement_findings
     findings += check_sibling_locales(config, siblings)
     if flags.get('--report'):
-        print(render(findings, config, meta, stores))
+        print(render(findings, config, meta, stores, answers))
     elif flags.get('--json'):
         print(json.dumps({'findings': [{k: v for k, v in f.items() if not k.startswith('_')}
                                        for f in findings]}, indent=1))

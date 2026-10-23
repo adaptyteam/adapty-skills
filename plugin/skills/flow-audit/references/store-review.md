@@ -1,8 +1,9 @@
 # `flow-audit` store-review reference
 
-Per-check evidence for the six **advisory** store-review checks in `audit-flow.py`:
-`trial-toggle`, `billed-amount-not-shown`, `derived-price-louder`,
-`no-period-disclosed`, `trial-terms-incomplete` and `external-purchase-link`.
+Per-check evidence for the fourteen **advisory** store-review checks in `audit-flow.py`:
+six on the paywall — `trial-toggle`, `billed-amount-not-shown`, `derived-price-louder`,
+`no-period-disclosed`, `trial-terms-incomplete` and `external-purchase-link` — and eight
+on the onboarding around it, under [Onboarding](#onboarding).
 
 Same contract as [`checks.md`](checks.md), which stays the owner of every pre-existing
 check: per check, what it looks at, its severity and **why** that severity, its
@@ -55,7 +56,7 @@ reviewer will read a design, never to a missing action.
 
 ### Isolation is a tested property, not a read one
 
-`render()` partitions the six checks out of the findings list **before** the
+`render()` partitions these checks out of the findings list **before** the
 severity loop and the verdict line run, so the verdict is isolated by construction
 rather than by a special case in the verdict code. That partition is negative-tested:
 removing the partition line so store findings flow back into the severity groups turns
@@ -665,13 +666,86 @@ Recorded so nobody re-litigates these from the guideline text alone.
 - **Anything needing a render** — obscured close buttons, contrast, a price hidden behind
   an image. `flow-audit` is a config-and-catalog question by its own boundaries;
   `flow-generator`'s preview loop owns pixels.
+- **Onboarding shapes teams worry about and the stores show nothing against:** quiz
+  questions about age, gender, weight or health; "building your plan" loading screens;
+  countdown timers; testimonials; a close button that appears late; a hard paywall by
+  itself. Searched in Apple's and Google's policy text, the developer forums, public
+  GitHub changes and vendor blogs: no rejection found for any of them, and Apple has no
+  rule that an onboarding paywall must be closable. Vendor checklists that call these
+  risky are not evidence. Re-add one only with a rejection behind it.
 
 ### Deferred, not rejected
 
 - **`escape-gated`** and **`fabricated-urgency`** are structurally detectable and worth
   having. They have the least evidence behind them of anything proposed, so they were
   kept off the change that shipped the two rejection-notice checks. Deferred, not ruled
-  out.
+  out. `escape-gated` is **not** `exit-offer-on-dismiss`: that check is the one shape
+  with a rejection behind it, a close that opens a second offer. A close that does
+  anything else instead of closing still has none, so it stays here.
+- **The Android side of the permission screen.** Google's guidance asks for a way to
+  cancel the screen before a permission prompt, and Play's prominent-disclosure rule for
+  location wants an accept and a decline — the opposite of Apple's one-button rule. No
+  check covers it yet, so nothing tells an Android app to remove a decline, and
+  `primer-skip` stays iOS-only.
+- **The rest of the onboarding list** — an age gate that names the cut-off, answers sent
+  to a third-party AI without a disclosure, account deletion after a sign-up step,
+  "free" before a paywall with no way past it, a required step after a purchase, a
+  sign-in action followed by a navigate (the user moves on even when it fails), a
+  consent screen the app shows only once. Each has policy text and no rejection report
+  yet.
+
+## Onboarding
+
+Eight checks for the screens around the paywall. A flow cannot ask for a permission,
+show the rating sheet or sign anyone in on its own: the button fires a `custom` action
+whose ID the app's code handles. So these checks read what the user said each ID does
+(`--custom-actions`, asked through `custom-action-unconfirmed`, see `checks.md`), and
+until then guess the kind from **the ID only**, read as words (`rate_us`, `rateApp`,
+`request_att`; an ambiguous word such as "location" or "tracking" counts only beside one
+that asks, so `select_location` and `habit_tracking_setup` stay unknown), and word the
+finding "If `<id>` …". The
+label is never used for the guess: on a real activity onboarding, an "Add a pregnancy"
+button (ID `add_pregnancy`) read as a permission prompt from its label and put a
+Skip finding on a screen that asks for nothing.
+
+Evidence comes from Apple's App Review Guidelines (dated October 16, 2026), Apple's Human
+Interface Guidelines (Privacy; Ratings and reviews), Google Play's Subscriptions policy
+and in-app review guidance, and rejection reports on the Apple Developer Forums, the
+RevenueCat community and public GitHub changes, 2023–2026. Reddit could not be read.
+Several shapes passed review in one version and were rejected in a later one, so a
+finding says "Apple has rejected", never "will reject".
+
+Calibration corpus: every tracked fixture, plus 36 real onboardings with custom actions
+kept locally (gitignored, `tests/fixtures-raw/custom/`; several are named after real
+apps). Two are tracked, sanitized: `onboarding-custom-actions.json` (a 14-screen language
+onboarding with a "Rate us!" step) and `onboarding-permission-primer.json` (a 4-screen
+activity onboarding whose notifications screen has one "Continue" button).
+
+| Check | Fires when | Store | Severity | Evidence | Calibration |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `primer-skip` | a screen carrying a permission or tracking action has another button that navigates on or closes the flow (a Back arrow does not count); the finding quotes that button's words | iOS | risk | 5.1.1(iv); HIG Privacy wants one button and no cancel, the decline happens in the prompt; about six rejection reports 2023–2026 whose fix removed a Skip or "Not now" | **fires** four times in the corpus, all true positives: "No, I'll do this on my own", "Not now" and twice "maybe later" beside the prompt button; on an injected "Not now". **silent** on the real one-button primer, on the same screen answered `other`, with `--stores android` |
+| `primer-grant-wording` | the button carrying that action says allow, enable, turn on or grant | iOS | risk | HIG Privacy: "Continue" or "Next", never "Allow"; a 2023 rejection over an "Enable" button | **fires** three times in the corpus, on "Turn on reminders" buttons (true positives by the HIG); on an injected "Allow notifications" |
+| `permission-incentive` | that screen's text makes an offer: "1 week free", "a free month", "free trial", "20% off", a bonus, a gift or a reward | iOS | risk | 5.1.2(i), no compensation for enabling system features; Apple's user-privacy FAQ says no to incentivizing tracking | fires on three injected offers; **silent** on "Feel free to change this later", "ad-free", "deals and discounts", "Unlock daily reminders" (each fired on bare `free`/`discount`/`unlock` first) and on the corpus |
+| `att-fake-alert` | any screen's text copies the system prompt ("Ask App Not to Track", "Allow Tracking") or points at it ("tap Allow") | iOS | risk | HIG Privacy: such a screen before the tracking prompt "will lead to rejection" | fires on both injected forms; silent on a plain tracking explainer and the corpus |
+| `rating-in-onboarding` | a `review` action, or an Open URL to a write-review page, in a flow of two or more screens | both | risk | 5.6.1 disallows custom review prompts; HIG says not to ask during onboarding; a 2026 rejection of a rating step shown before use; Google says not to trigger the review flow from a button | **fires** on the tracked language onboarding's real "Rate us!" step (true positive); on an injected write-review link. silent once answered `other`, and on a one-screen flow |
+| `signup-wall` | signing in is the only way past a screen: every forward, close or other custom-action button on it is a sign-in action; one per screen | iOS | question | 5.1.1(v): an account only when core features need one; 5+ forum rejections 2023–2026 | **fires** on three corpus screens whose only exits are sign-in actions — true walls, and a question because whether the app needs an account is the user's answer. silent with a close kept, with a guest button that is its own custom action, with `--stores android` |
+| `exit-offer-on-dismiss` | on a selling screen, a close-like button (close, no thanks, not now, maybe later, skip, or icon-only) navigates to another selling screen | iOS | risk | 5.6; one rejection with the reviewer's own words about manipulating purchases (Nov 2024), after earlier versions passed | fires on an injected close re-wired to a second paywall; silent on the corpus and with `--stores android` |
+| `purchase-looks-like-continue` | the purchase button's words equal the forward buttons' words on the two screens before it on the path | Android | risk | Google Play Subscriptions policy lists screens that lead users to subscribe by accident | fires on an injected "Next"; silent on "Start free trial", with `--stores ios`, on the corpus. The real 14-screen onboarding's "Continue" purchase button is silent because the screens before it say other things |
+
+Agent behaviour: two consecutive clean rounds on two real onboardings (a reminders screen with
+a way round its prompt; a "Rate us!" step). With this skill, 6 of 6 runs asked what the custom
+action does, re-ran with the answer, flagged the step and kept it out of the verdict; without it,
+0 of 6 asked and 0 of 6 flagged it. The checks no round drove rest on the tests and the corpus.
+
+### Traps — Onboarding
+
+| Trap | What would have shipped |
+| :--- | :--- |
+| Guessing the kind from the button's label | An "Add a pregnancy" button whose label named a health app became a permission prompt and a Skip finding on a screen that asks for nothing. The ID only. |
+| Telling an iOS app to add a Skip | Google's guidance asks for one; Apple's HIG and the 2026 rejections ask for the opposite. Every permission check is iOS-only. |
+| Counting a Back arrow as a way round the prompt | Nearly every onboarding screen has one; the rejections were about Skip and "Not now". |
+| One sign-up finding per sign-in button | A screen with Apple, Google and email sign-in fired three times. One per screen, every sign-in button a carrier. |
+| Comparing the purchase label with every screen before it | A long onboarding varies its button words, so the check never fired. The two screens before the paywall are where an accidental tap happens. |
 
 ## Tier 4 — the reminders
 
@@ -729,7 +803,7 @@ restates a store-review risk as a blocker.
 The section sits after the findings and the languages table and before **What happens
 next**, so the verdict is already printed and closed by the time a reader reaches it —
 it reads as an addendum, never as a hedge. Its findings continue the report's single `n`
-counter, so **What happens next** can never silently drop one; all six checks route to
+counter, so **What happens next** can never silently drop one; every one of them routes to
 the **I can fix** line, and **nothing routes to "Answer these first"**, which holds only
 questions whose answer can change the verdict, and by construction these cannot.
 
