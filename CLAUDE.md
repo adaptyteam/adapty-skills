@@ -198,7 +198,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 - **Read-only; installs nothing.**
 - **"Ready to publish" only with zero blockers and every open question put to the user.**
-- **The six store-review checks stay advisory** (`risk`/`question`, own section, fixed disclaimer) and never move the verdict; missing-mechanism checks stay blockers. Never re-add `subscription-under-7-days`.
+- **The store-review checks stay advisory** (`risk`/`question`, own section, fixed disclaimer) and never move the verdict; missing-mechanism checks stay blockers. Never re-add `subscription-under-7-days`.
 - **Nothing parses finding message text;** tests key on check names. Read `checks.md` or `store-review.md` before changing a check.
 
 ### `flow-generator`
@@ -220,7 +220,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **One owner per number:** uplift ranges from `evidence.md`, market medians and win rates from `market.md`. No Autopilot impact numbers.
 - **Pricing is out of scope:** no price is read, compared or proposed, and price is mentioned only in the skill's fixed sentence. Don't restore the deleted competitor-price reads.
 - **Two words for users: a hypothesis, and once picked, an A/B test.** Ask which one to start with, never for a verdict on each.
-- **A live placement changes only through the confirmation block:** `placements get` omits A/B-test audiences and `update` replaces them all.
+- **A live placement changes only through the confirmation block:** `update` replaces every audience, so a running A/B test entry not passed back as read stops that test.
 - **Filter values come from `analytics values`, never from a group's `key`;** read funnel and retention groups from the grouped answer. New segments go through `audiences`.
 
 ### `migrate-placements`

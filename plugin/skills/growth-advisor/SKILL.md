@@ -169,8 +169,8 @@ and the reason.
   is what you can do now if they say yes. You will not remember this conversation, so a check
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
   back and ask, never a "Me:" item.
-- **Before suggesting an A/B test on a placement where two or more paywalls or flows sold in the
-  last full month,** one "You:" item asks what is running there now.
+- **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
+  it), one "You:" item asks how it is going and when it ends.
 - **After building an A/B test:** one line on what changed, the before and after renders, then Next
   steps carrying the review, the phone check (with what to look for) and publish. Nothing else.
   If anything you added sits below the fold or behind a pinned button, the phone check says so
@@ -241,10 +241,10 @@ conversation that asks "what should I do".
    setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts ("From your data: two
    onboarding paywalls ran side by side in May, and you kept Main."), so the user only types when
    it is wrong. When the user does name past tests, say in one line what each rules out
-   (`references/levers.md`, "After a test") before suggesting the next. A running A/B test can
-   show in `placements get` as an audience with `content_type: ab_test` and its title: name it.
-   Past tests never show, and a running one may not: never write that none runs or none ran, and
-   ask what runs on the placement you would test.
+   (`references/levers.md`, "After a test") before suggesting the next. A running A/B test shows
+   in `placements get` as an audience of its own kind (`ab_test` or `flow_ab_test`; `cross_ab_test`
+   or `flow_cross_ab_test` for one test across placements) with its title: name it. A placement
+   with no such audience runs no test now. Past tests never show: never write that none ran.
 
    Ask at most one question, as the last "You:" item in Next steps, and only when its answer would
    change your first pick: a past test whose winner the data cannot show, whether they already
@@ -378,17 +378,18 @@ an explicit yes to this block, and only after these checks:
 
 1. **Read the placement** (`placements get`) and save the response to a file. That is the
    rollback.
-2. **Ask whether an A/B test is running on it.** `placements get` leaves A/B-test audiences out
-   of its answer, and `update` replaces every audience, so writing back what you read deletes a
-   running test without an error. Only the dashboard shows it: the placement's page.
+2. **Name every A/B test running on it.** `placements get` shows each as an audience of its own
+   kind with its title. `update` replaces every audience, so pass each test entry back exactly as
+   read: one dropped or replaced stops that test with no winner, and no error says so. When the
+   change would replace a test's audience, the ask says that test stops.
 3. **Keep the content type.** A paywall placement takes paywalls, a flow placement flows. A
    change of type is a new placement.
 4. **Segments go through `audiences`.** `segments list` shows the existing ones. A hypothesis
    that targets users no segment covers yet (a country, a channel, an app version, users who
    never paid) needs a new segment: invoke `audiences`, which creates it with `segments create`
    on the user's yes and knows which filter fields exist and what they mean. When the change is
-   an audience for a segment, let `audiences` write the placement too: it also catches a hidden
-   A/B test from the placement's priorities.
+   an audience for a segment, let `audiences` write the placement too: it also keeps the placement's
+   A/B test entries and names any test the write would stop.
 5. **Pass back every audience you keep.** A smaller `priority` is checked first, and the
    audience with empty `segment_ids` (All users) is the fallback, so it keeps the largest number:
    a new segment's audience goes before it. See
@@ -401,8 +402,8 @@ Shape of the ask (the form, not words to copy):
 > - Everyone else keeps "Main paywall".
 >
 > This goes live for those users as soon as I run it, and nothing will measure whether it
-> helped. An A/B test in the dashboard would. Is an A/B test running on this placement? If not,
-> shall I go ahead? To undo it, I put back the audiences saved in `onboarding.before.json`.
+> helped. An A/B test in the dashboard would. No A/B test runs on this placement, so none stops.
+> Shall I go ahead? To undo it, I put back the audiences saved in `onboarding.before.json`.
 
 On a yes, run it, read the placement back, and say what changed in one line.
 

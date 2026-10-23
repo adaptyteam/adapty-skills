@@ -24,7 +24,7 @@ CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
 fails = []
 
 
-def run(config, catalog=CATALOG, stores=None):
+def run(config, catalog=CATALOG, stores=None, custom=None):
     """Return (rc, findings). `config` is a path or a dict."""
     with tempfile.TemporaryDirectory() as tmp:
         if isinstance(config, dict):
@@ -37,6 +37,8 @@ def run(config, catalog=CATALOG, stores=None):
             cmd += ['--catalog', catalog]
         if stores:
             cmd += ['--stores', stores]
+        if custom is not None:
+            cmd += ['--custom-actions', custom]
         r = subprocess.run(cmd, capture_output=True, text=True)
     try:
         return r.returncode, json.loads(r.stdout)['findings']
@@ -1888,6 +1890,200 @@ check('placement findings keep the exact 7-key contract',
       all(set(f) == {'severity', 'family', 'check', 'screen', 'element', 'message',
                       'fix'} for f in _placements_run([_shown[1]])[1]))
 
+print('\ncustom-action answers')
+CUSTOM = os.path.join(FIX, 'onboarding-custom-actions.json')
+PRIMER = os.path.join(FIX, 'onboarding-permission-primer.json')
+
+
+def _cli(*args):
+    return subprocess.run([sys.executable, AUDIT, *args], capture_output=True, text=True)
+
+
+_parse = getattr(audit_mod, 'parse_custom_actions', None)
+check('parse_custom_actions trims spaces and skips empty items',
+      _parse is not None and _parse(' a = permission, b=review ,')
+      == {'a': 'permission', 'b': 'review'})
+for _bad in ('a=maybe', 'a'):
+    _r = _cli(os.path.join(FIX, 'tabs-paywall.json'), '--json', '--custom-actions', _bad)
+    check(f'--custom-actions {_bad!r} is a usage error naming the item',
+          _r.returncode == 2 and f'--custom-actions: "{_bad}"' in _r.stderr,
+          (_r.returncode, _r.stderr[-200:]))
+_plain = run(os.path.join(FIX, 'tabs-paywall.json'))
+_extra = run(os.path.join(FIX, 'tabs-paywall.json'), custom='unknown_id=other')
+check('an answered ID that is not in the flow changes nothing',
+      _extra[0] == _plain[0] and _extra[1] == _plain[1])
+
+print('\ncustom-action inventory')
+QUIZ = os.path.join(FIX, 'onboarding-quiz-paywall.json')
+
+
+def _custom(cid):
+    return {'id': f'act_{cid}', 'type': 'custom', 'payload': {'id': cid}}
+
+
+def _with_custom(sites, nested=None):
+    """A quiz copy with a custom action prepended on each (screen caption, element id).
+    `nested` puts one more inside the Quiz screen's conditional "rock" branch."""
+    c = load(QUIZ)
+    by_cap = {s['caption']: s for s in c['screens']}
+    for cap, eid, cid in sites:
+        e = by_cap[cap]['elements']['map'][eid]
+        e['interactions'][0]['actions'].insert(0, _custom(cid))
+    if nested:
+        cond = by_cap['Quiz']['elements']['map']['el_TyXZ9eIxZo']['interactions'][0]['actions'][0]
+        cond['payload']['cases'][0][1]['value'].insert(0, _custom(nested))
+    return c
+
+
+_one = _with_custom([('Welcome', 'el_XKEBYBDCuP', 'notif_prompt')])
+_rc, _f = run(_one)
+check('one unanswered custom action raises exactly one custom-action-unconfirmed question',
+      [f['severity'] for f in of(_f, 'custom-action-unconfirmed')] == ['question'], _f)
+_p = os.path.join(tempfile.gettempdir(), 'ca.json')
+json.dump(_one, open(_p, 'w'))
+_rep = _cli(_p, '--report', '--catalog', CATALOG).stdout
+_answer_first = _rep.split('Answer these first', 1)[1].split('\n\n', 1)[0] if (
+    'Answer these first' in _rep) else ''
+check('...and the report asks it under "Answer these first"',
+      'custom action' in _answer_first, _rep[-900:])
+
+_many = _with_custom([('Welcome', 'el_XKEBYBDCuP', 'notif_prompt'),
+                      ('Rock', 'el_P9W4raTmIO', 'notif_prompt')], nested='rate_app')
+_f = run(_many)[1]
+_sites = audit_mod.custom_sites(_many) if hasattr(audit_mod, 'custom_sites') else {}
+check('the same ID on two screens plus one nested in a quiz branch is still ONE finding',
+      len(of(_f, 'custom-action-unconfirmed')) == 1, _f)
+check('...and the inventory has both IDs, the repeated one at both sites, the nested one too',
+      set(_sites) == {'notif_prompt', 'rate_app'} and len(_sites.get('notif_prompt', [])) == 2,
+      _sites)
+
+_icon = _with_custom([('Paywall After', 'el_WaTCB9iWLJ', 'notif_prompt')])
+_isites = audit_mod.custom_sites(_icon) if hasattr(audit_mod, 'custom_sites') else {}
+check('an icon-only element carrying the action reads "an icon with no text"',
+      [s[2] for s in _isites.get('notif_prompt', [])] == ['an icon with no text'], _isites)
+_wsites = audit_mod.custom_sites(_one) if hasattr(audit_mod, 'custom_sites') else {}
+check('a button\'s label is its descendants\' text in the default locale',
+      bool(_wsites.get('notif_prompt')) and _wsites['notif_prompt'][0][2] not in
+      ('', 'an icon with no text'), _wsites)
+
+_f = run(_many, custom='notif_prompt=other,rate_app=review')[1]
+check('every ID answered: no custom-action question or blocker',
+      not [f for f in _f if f['check'].startswith('custom-action-')], _f)
+_rc, _f = run(_many, custom='notif_prompt=none,rate_app=other')
+check('an ID answered "none" is one custom-action-unhandled blocker',
+      [f['severity'] for f in of(_f, 'custom-action-unhandled')] == ['blocker'] and _rc == 1,
+      _f)
+check('...and the answered IDs no longer raise the question',
+      not of(_f, 'custom-action-unconfirmed'), _f)
+_p = os.path.join(tempfile.gettempdir(), 'cn.json')
+json.dump(_many, open(_p, 'w'))
+_rep = _cli(_p, '--report', '--catalog', CATALOG, '--custom-actions',
+            'notif_prompt=none,rate_app=other').stdout
+check('...and the report routes it to the app\'s code',
+      "yours to do in your app's code" in _rep, _rep[-700:])
+
+_rep = _cli(PRIMER, '--report').stdout
+check('the custom-action question is only asked, never offered as a fix I can make',
+      'custom action' in _rep and 'I can fix' not in _rep, _rep[-700:])
+
+for _name in sorted(os.listdir(FIX)):
+    _f = run(os.path.join(FIX, _name))[1]
+    _n = len(of(_f, 'custom-action-unconfirmed'))
+    _want = 1 if _name in ('onboarding-custom-actions.json',
+                           'onboarding-permission-primer.json') else 0
+    check(f'{_name}: {_want} custom-action-unconfirmed, no unhandled blocker',
+          _n == _want and not of(_f, 'custom-action-unhandled'), _f)
+
+print('\ndead-end screens')
+
+
+def _profile(actions):
+    """The multilocale onboarding with both Profile buttons' actions replaced."""
+    c = load(FLOW)
+    prof = next(s for s in c['screens'] if s['id'] == 'scr_profile')
+    for eid in ('el_022S', 'el_029S'):
+        if actions is None:
+            prof['elements']['map'][eid].pop('interactions', None)
+        else:
+            prof['elements']['map'][eid]['interactions'][0]['actions'] = copy.deepcopy(actions)
+    return c
+
+
+for _name in sorted(os.listdir(FIX)):
+    check(f'{_name}: no dead-end-screen', not of(run(os.path.join(FIX, _name))[1],
+                                                  'dead-end-screen'))
+_f = run(_profile([{'id': 'act_b', 'type': 'navigateBack'}]))[1]
+check('a screen whose only button goes Back is one dead-end-screen blocker on that screen',
+      [(f['severity'], f['screen']) for f in of(_f, 'dead-end-screen')]
+      == [('blocker', 'scr_profile')], of(_f, 'dead-end-screen'))
+_f = run(_profile(None))[1]
+check('a screen with no actions at all is a dead end too',
+      [f['screen'] for f in of(_f, 'dead-end-screen')] == ['scr_profile'], _f)
+_f = run(_profile([_custom('save_profile')]))[1]
+check('a screen whose only button fires a custom action is NOT a dead end',
+      not of(_f, 'dead-end-screen'), of(_f, 'dead-end-screen'))
+
+_t = load(os.path.join(FIX, 'timeline-anchored.json'))
+_second = copy.deepcopy(_t['screens'][0])
+_second['id'], _second['caption'] = 'scr_second', 'Second'
+_t['screens'].append(_second)
+_first_map = _t['screens'][0]['elements']['map']
+next(iter(_first_map.values()))['interactions'] = [
+    {'id': 'int_n', 'trigger': 'tap',
+     'actions': [{'id': 'act_n', 'type': 'navigate',
+                  'payload': {'type': 'screen', 'screen': 'scr_second'}}]}]
+_f = run(_t)[1]
+check('a dead end in a flow with no way out anywhere is left to no-escape-in-flow',
+      not of(_f, 'dead-end-screen') and of(_f, 'no-escape-in-flow'), _f)
+
+_b = load(PRIMER)
+_bn = next(s for s in _b['screens'] if s['id'] == 'scr_notifications')
+_bn['elements']['map']['el_099S']['interactions'][0]['actions'] = [
+    {'id': 'act_bk', 'type': 'navigateBack'}]
+_f = run(_b)[1]
+check('a dead end in a flow whose only escape is Back is not a blocker (nothing closes it)',
+      not of(_f, 'dead-end-screen'), of(_f, 'dead-end-screen'))
+
+_guess = {cid: audit_mod.custom_kinds({'screens': [{'id': 's', 'elements': {
+    'map': {'e': {'type': 'stack', 'interactions': [{'trigger': 'tap', 'actions': [
+        {'type': 'custom', 'payload': {'id': cid}}]}]}}, 'hierarchy': {'id': 'root',
+        'children': [{'id': 'e'}]}}}]})[cid][0] for cid in (
+    'rate_us', 'rateApp', 'request_att', 'att_prompt', 'request_mic', 'request_notifications',
+    'enablePush', 'request_location', 'sign_in_apple', 'createAccount', 'log_in',
+    'start_tracking', 'habit_tracking_setup', 'select_location', 'upload_photo',
+    'push_to_paywall', 'account_type', 'no_bank_account')}
+check('the kind guess reads underscore and camelCase IDs',
+      [_guess[c] for c in ('rate_us', 'rateApp', 'request_att', 'att_prompt', 'request_mic',
+                           'request_notifications', 'enablePush', 'request_location',
+                           'sign_in_apple', 'createAccount', 'log_in')]
+      == ['review', 'review', 'tracking', 'tracking', 'permission', 'permission',
+          'permission', 'permission', 'sign-in', 'sign-in', 'sign-in'], _guess)
+check('...and does not guess from a word that only looks like one',
+      all(_guess[c] == 'unknown' for c in ('start_tracking', 'habit_tracking_setup',
+                                           'select_location', 'upload_photo',
+                                           'push_to_paywall', 'account_type',
+                                           'no_bank_account')), _guess)
+
+_u = load(FLOW)
+_orphan = copy.deepcopy(next(s for s in _u['screens'] if s['id'] == 'scr_profile'))
+_orphan['id'], _orphan['caption'] = 'scr_orphan', 'Orphan'
+for _e in _orphan['elements']['map'].values():
+    _e.pop('interactions', None)
+_u['screens'].append(_orphan)
+check('an unreachable dead end is silent (unreachability is the structural checker\'s)',
+      not of(run(_u)[1], 'dead-end-screen'))
+
+_ends = audit_mod.end_screens(load(PRIMER)) if hasattr(audit_mod, 'end_screens') else None
+check('end_screens lists the screens with nowhere further to go',
+      _ends == ['scr_notifications'], _ends)
+_rep = _cli(PRIMER, '--report', '--custom-actions',
+            'add_pregnancy=other,set_move_goal_lightly=other,set_move_goal_moderately=other,'
+            'set_move_goal_highly=other,request_notifications=permission').stdout
+_mine = _rep.split('Check these yourself', 1)[1] if 'Check these yourself' in _rep else ''
+check('"Check these yourself" names the screen where the flow ends',
+      'it ends on' in _mine and '"Notifications"' in _mine, _rep[-800:])
+_rep = _cli(os.path.join(FIX, 'reviews-carousel.json'), '--report').stdout
+check('...and a one-screen flow gets no such line', 'it ends on' not in _rep)
 print('\nfonts')
 import http.server, struct, threading  # noqa: E402
 

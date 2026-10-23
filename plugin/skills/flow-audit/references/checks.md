@@ -39,6 +39,8 @@ fixture/live flow it fires on, or both — a check with only one half proven is 
 | `action-nothing` — an action explicitly typed `nothing` | risk | a forgotten stub the schema allows (`ActionNothing`) | absent from the whole corpus and the five live flows — **untested in both directions** until injected |
 | `openurl-no-url` — an `openUrl` action with no address in the default locale (the url is a catalog entry, read through the catalog; every other locale falls back to the default's value) | blocker | the button does nothing when tapped | 0 occurrences in the corpus — **untested in both directions** until injected |
 | `interaction-no-actions` — an interaction with an empty `actions` array | risk | wired but does nothing | 0 occurrences across 5 flows, so no false positives measured; not proven to fire on real data (fires on injection in `test-audit-flow.py`) |
+| `custom-action-unconfirmed` — one finding per flow listing every custom action ID not yet answered through `--custom-actions`, each with its screen and button text (an icon-only button reads "an icon with no text"); IDs inside conditional branches included, a repeated ID listed once | question | Adapty's actions doc: "A custom action does nothing on its own" — the app must handle each ID, and only the user knows whether it does and what it does. It routes to **Answer these first** only, never to "I can fix", because nothing can be fixed before the answer | fires exactly once on every one of the 38 flows with custom actions (2 tracked, 36 local); silent on the 7 tracked fixtures without one and once every ID is answered |
+| `custom-action-unhandled` — an ID the user answered `none` | blocker | the button does nothing when tapped | fires on an injected `none` answer; routes to **yours to do in your app's code** |
 
 ### False-positive traps — Triggers
 
@@ -148,6 +150,12 @@ cases compare `<groupId>.selectedOptionId` with an answer's `customId`.
 | `dead-branch` — a branch names an answer ID that no answer in the question has | blocker | that branch can never fire: everyone takes the other path, silently | silent on all 23 real configs (tracked, raw and sandbox); fires when the quiz fixture's `rock` answer is renamed to `rock_music` |
 | `branch-mismatch` — a branch leads to a screen NAMED after a different answer (Rock → "Rap") | risk | the likeliest reading is a swapped target | silent on all 23; fires when the quiz fixture's two targets are swapped |
 | `fallthrough-to-answer-screen` — the "otherwise" path leads to a screen named after ONE answer while other answers also fall through to it | risk | those answers land on another answer's screen | silent on all 23; fires when a third answer is added to the quiz with no branch |
+| `dead-end-screen` — a screen reachable from the first one with no navigate, Navigate Next (with a screen after it), Close Flow, purchase or custom action, branches and timer-end included; only when the flow has a Close Flow somewhere (a flow that never closes itself relies on the host app, `no-escape-in-flow`'s question) | blocker | Adapty's screen map says such a screen passes the publish check and strands users on a device | silent on every tracked fixture and all 36 local custom-action onboardings; fires on an injected Back-only screen and on a screen with no actions. silent in a flow with no Close Flow anywhere, including one whose only escape is Navigate Back, on a screen whose only button is a custom action, and on an unreachable screen (`verify-config.py` warns on those) |
+
+The end screens — reachable screens with nowhere further to go — are not a finding. Each one
+reports itself to the app as the last screen, and a branching flow can have several, so once
+nothing blocks, **Check these yourself** names them and tells the user to mark the onboarding
+done on every one, or when the flow closes. A one-screen flow gets no such line.
 
 ### False-positive traps — Navigation
 
@@ -156,6 +164,8 @@ cases compare `<groupId>.selectedOptionId` with an answer's `customId`.
 | Counting the quiz's Next button as an answer | The builder makes the submit button a member of the answer group (caption "Button" in the quiz fixture, no `customId`). Counted as an answer, it "fell through" to the Hip hop screen and the correctly wired quiz reported a defect. The element that carries the branch on its own group is excluded. |
 | Firing on every answer that has no branch of its own | Sending everyone past beginner to one "Accelerated path" screen is a design (the sandbox "Language onboarding" flow does exactly that). The two risk checks need a NAME signal — the target screen is named after a specific answer — or they stay silent. |
 | Walking only top-level actions for reachability | A way off a screen reached through a conditional branch was invisible, so a paywall whose close button lived behind a branch read as a trap. `nav_graph` now follows branches. |
+| Counting Navigate Back as a way forward | Back only returns to the screen that led here; Adapty's screen map counts a Back-only screen as a dead end. |
+| Counting a custom action as a dead end | Adapty's own pattern for a step that depends on the app (signing in) ends the flow on a custom action and lets the app close it, and a purchase already counts although the flow does not close itself after one either. Calling it a dead end would also put a blocker on every advisory `signup-wall` screen. What the app does with the action is `custom-action-unconfirmed`'s question. |
 
 ## Placeholders
 
