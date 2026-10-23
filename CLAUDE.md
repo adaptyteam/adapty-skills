@@ -155,7 +155,8 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Start, stop, replace and archive run only after the user's yes to the exact effect:** who sees what from when, what stops, what cannot be undone; then `--yes`. The CLI asks only at a terminal and refuses with exit 6 elsewhere, so the skill's card is the confirmation. An unattended run never does these four.
 - **Read the test and the placement before each of the four; read the placement again just before a start, stop or replace.** Changed since the user saw it: a new card, a new question.
 - **Never start a test that is not a draft** (it would start again with old users on their old arms); offer a new test, or `replace` for a live one.
-- **Never write a placement.** Only `ab-tests` commands start, stop and replace tests; a placement write that carries a test entry belongs to `audiences`, which keeps entries as read.
+- **Never update a placement.** Only `ab-tests` commands start, stop and replace tests; a placement write that carries a test entry belongs to `audiences`, which keeps entries as read. The one placement write is `placements create` for a placement that does not exist, after a yes to its permanent developer ID; say the app needs the fetch call (`adapty-integration`).
+- **Make missing pieces, check the rest:** a flow arm needs `status` `published` in `flows get` (`draft` and `dirty` are published first); a paywall arm that differs only in products is `paywalls create` on a yes; a new design, a new store product and the app code are the user's. A segment comes from `audiences`, segment only. A start puts a segment without a row at the top; a lower position is an `audiences` row first, then the start on it.
 - **`update` sends the whole test again:** a flag left out is cleared. On a started test it changes only title and goal, with the arms and placement as read.
 - **`list` shows flow tests unless `--type paywall` is given;** look at both types.
 
@@ -221,6 +222,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Pricing is out of scope:** no price is read, compared or proposed, and price is mentioned only in the skill's fixed sentence. Don't restore the deleted competitor-price reads.
 - **Two words for users: a hypothesis, and once picked, an A/B test.** Ask which one to start with, never for a verdict on each.
 - **A live placement changes only through the confirmation block:** `update` replaces every audience, so a running A/B test entry not passed back as read stops that test.
+- **A picked hypothesis becomes an A/B test through `ab-tests`, offered unasked, and only after a read shows each thing it needs exists** (published flow copy, product with store IDs, segment, placement with traffic). A missing one is a Next step with who makes it, never a placeholder arm; this skill runs no `ab-tests` command itself.
 - **Filter values come from `analytics values`, never from a group's `key`;** read funnel and retention groups from the grouped answer. New segments go through `audiences`.
 
 ### `migrate-placements`
