@@ -13,12 +13,18 @@ the user has seen their exact effect and said yes.
 
 It does not own:
 
-- **Building the paywall or flow** → `flow-generator`. A flow joins a test only once it is
-  `published`.
+- **Building a flow** → `flow-generator`. A flow joins a test only once it is `published`.
+- **A paywall's design** → the dashboard's Paywall Builder, or the app's own code for a custom
+  paywall. A paywall that differs only in the products it sells you create here (Workflow, step 1).
 - **Who sees what on a placement without a test** (segments, audiences) → `audiences`. It also
-  makes the segment a test starts on.
+  makes the segment a test starts on, and the row a test starts on when the row must not go to the
+  top (Workflow, step 4).
+- **The app code that fetches a new placement** → `adapty-integration`. You create the placement
+  ("A new placement"); a test on it reaches no user until the app fetches it.
 - **Results of a test, tests across several placements, onboarding tests** — not in the CLI. The
   user reads them in the dashboard: https://adapty.io/docs/add-audience-paywall-ab-test.
+- **Which test to run, and what to test after a stop** → `growth-advisor`. When it hands a test
+  over, its brief settles the plan; read each id again before the draft.
 - **Apple Search Ads product-page tests** → `ads-manager`.
 
 ## How you sound
@@ -62,6 +68,9 @@ Write a literal `adapty` in a command you show the user. Every command takes `--
 | `ab-tests stop <id>` | exactly one of `--winner <id>` (the `paywall_id` or `flow_id` of an arm of the test), `--other <id>` (the `paywall_id` or `flow_id` of other content, not an arm), `--no-content`, `--yes` |
 | `ab-tests replace <id>` | `--title`, `--goal`, `--placement`, exactly one of `--paywalls` / `--flows`, `--yes`; no audience flag |
 | `ab-tests archive <id>` | `--yes` |
+| `flows get <id>` | `status`: `draft`, `dirty` or `published` |
+| `paywalls create` | `--title`, `--product-id <id>` once per product; a paywall with no design of its own |
+| `placements create` | `--title`, `--developer-id`, `--audiences '<json>'` ("A new placement") |
 
 Arms are a JSON array: `[{"paywall_id":"<id>","weight":50,"title":"A"}, …]`, or the same with
 `flow_id`; `title` is optional. The weights sum to 100; the server checks that and the number of
@@ -129,10 +138,36 @@ own text. These come back often:
 5. **Run the command with `--yes`**, then read the test back with `get --json` and say what now
    runs.
 
-**An unattended run never does these four** (a scheduled run, a script, no user to answer). It may
-list, get, create and update. For the four it stops and reports the card and the command for the
+**An unattended run never does these four** (a scheduled run, a script, no user to answer), nor
+`paywalls create` or `placements create`, which wait for a yes too. It may list, get, create and
+update tests. For the four it stops and reports the card and the command for the
 user to run, written with a literal `adapty` and **without** `--yes`: at their terminal the CLI asks
 again.
+
+## A new placement
+
+When no placement fits, you create it, and the developer ID needs its own yes: it is unique across
+every placement in the app whatever its type, cannot be renamed, and the CLI cannot delete it. Take
+the ID from the user or the app's code; never invent one silently.
+
+> Ready to create the **Settings** placement for the test.
+> - Developer ID: **`settings`**, the string the app fetches it with.
+> - Everyone sees the Monthly paywall there until the test starts.
+> - No user sees it until the app fetches `settings`: that is a code change and an app release.
+> - **Permanent.** A wrong ID is spent.
+>
+> Create it?
+
+This shows the shape, not words to copy. On the yes, create it with arm A on the default
+audience, `paywall_id` for a paywall test or `flow_id` for a published flow:
+
+```bash
+$ADAPTY placements create --app <app> --title "<title>" --developer-id "<id>" \
+  --audiences '[{"content_type":"paywall","paywall_id":"<arm A id>","segment_ids":[],"priority":0}]' --json
+```
+
+Then say the app needs the fetch call, and offer `adapty-integration` to write it. A test on this
+placement has no users until that release is out.
 
 ## Workflow
 
@@ -141,14 +176,28 @@ again.
    line. Take content ids from `paywalls list --page-size 100` or `flows list`, and the placement
    from `placements list --page-size 100 --json`. A paywall test belongs on a paywall placement and
    a flow test on a flow placement (the `content_type` of its audiences); on a mismatch say so and
-   ask. Find the segment with `segments list --page-size 100`; none matches → make it with the
-   `audiences` skill's segment steps, not its placement steps.
+   ask. Then check that each piece exists, and make what is missing:
+   - **A flow arm:** `flows get <id> --json` shows `status` `published`. A `draft` or `dirty`
+     flow (unpublished changes) cannot join a test: `flow-generator` publishes it first.
+   - **A paywall arm that does not exist yet,** when it differs only in its products: take the
+     product ids from `products list --page-size 100 --json`, only products the user named, then on
+     their yes run `paywalls create --app <app> --title "<title>" --product-id <id> [--product-id
+     <id> …] --json`. No user sees it until the test starts. A new product is made in the store
+     first, then added to Adapty: say so and wait. A paywall with a new design is the user's to
+     make in the dashboard or the app's code: say which and wait.
+   - **A placement that does not exist:** "A new placement".
+   - **A segment:** `segments list --page-size 100`. None matches → invoke `audiences` for the
+     segment only, saying it is for an A/B test: it creates the segment, returns its id and writes
+     no placement.
 2. **Create the draft:** `ab-tests create … --json`. A draft shows to no user, so it needs no
    card. Read it back and say the arms and weights as the user will see them.
 3. **Change a draft:** `ab-tests update`, with every flag resent as read.
 4. **Start**, only when `state` is `draft` in the read you just made (otherwise see Never), with
    the card. `--placement` and the audience flag name where it runs; planned values on the draft
-   change nothing until then.
+   change nothing until then. A segment with no row on the placement gets a new row at the top, and
+   a start cannot put it anywhere else. When the test must sit below another audience (its users
+   keep what they see), first have `audiences` add the segment as a regular row at that position,
+   showing the content those users see now, so nobody's screen changes; then start on that row.
 5. **Change a started test.** Rename or new goal: `update`, which keeps the test, its start time
    and its draw; resend the arms and placement exactly as `get` returned them (arm titles too) and
    pass no audience flag. New arms or weights on a live test: `replace`, with its card. On a
@@ -168,10 +217,10 @@ again.
   situation**, and never on a placement that changed since they saw it.
 - **Never put `--yes` on a command the user will run themselves.** It deletes the question the CLI
   would ask.
-- **Never write a placement.** No `placements update` or `placements create`, no `--audiences`, to
+- **Never update a placement.** No `placements update`, and no test entry in `--audiences`, to
   start, stop, move or "attach" a test: that write starts and stops tests without a card. Only
-  `ab-tests` commands start, stop and replace tests. A placement that does not exist yet is
-  `flow-generator`'s or the dashboard's to make.
+  `ab-tests` commands start, stop and replace tests. The one placement write is `placements create`
+  for a placement that does not exist, after its card ("A new placement").
 - **Never run a one-way command without `--yes` to "see the effect".** Build the card from your
   two reads.
 - **Never guess an id.** Take each one from a list or a read. Never send an arm id you did not read.

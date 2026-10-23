@@ -24,6 +24,13 @@ This skill owns segments and audiences. It does not own:
 - **Starting, stopping, replacing or building an A/B test** → `ab-tests`. It owns the life of a
   regular paywall or flow test and shows the user the exact effect before each one-way step. This
   skill reads the tests on a placement and keeps them (next section); it never starts or stops one.
+  Two requests from `ab-tests` are yours, not a hand-back:
+  - **A segment for a test:** Workflow steps 2–4 only (translate, reuse, create). Return the
+    segment's id and title, and read or write no placement.
+  - **A row for a test to start on,** at a position below another audience: add the segment as a
+    regular audience at that position, showing the content those users see now, so nobody's
+    screen changes. The full workflow applies, its table included. Return; `ab-tests` starts the
+    test on that row.
 
 ## A/B tests on a placement: the CLI reads and keeps them
 
