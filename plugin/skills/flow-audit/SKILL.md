@@ -188,15 +188,18 @@ stdlib-only and take the bare config, never the envelope. Both read the flow's t
 localization catalog (`references/localization.py`, shipped beside `audit-flow.py`), so an
 untranslated field is reported as showing the default language, which is what users see.
 
-`audit-flow.py` also runs six **store-review** checks — `trial-toggle`,
-`billed-amount-not-shown`, `derived-price-louder`, `no-period-disclosed`,
-`trial-terms-incomplete` and `external-purchase-link` — which ask whether this paywall
-carries a shape that has actually drawn a store rejection. **Their findings are
+`audit-flow.py` also runs fourteen **store-review** checks, which ask whether this flow
+carries a shape that has actually drawn a store rejection: six on the paywall
+(`trial-toggle`, `billed-amount-not-shown`, `derived-price-louder`, `no-period-disclosed`,
+`trial-terms-incomplete`, `external-purchase-link`) and eight on the onboarding around it
+(`primer-skip`, `primer-grant-wording`, `permission-incentive`, `att-fake-alert`,
+`rating-in-onboarding`, `signup-wall`, `exit-offer-on-dismiss`,
+`purchase-looks-like-continue`). **Their findings are
 advisory: they never change the verdict.** They are `risk`/`question` only, they are
 printed in their own section, and **every `question` among them is excluded from the
-pending count** — `external-purchase-link` always asks one, and
+pending count** — `external-purchase-link` and `signup-wall` always ask one, and
 `billed-amount-not-shown` degrades to one when a catalogued product's row states no
-billing period, so "the one question" is two checks, not one. A store-review section
+billing period, so "the one question" is three checks, not one. A store-review section
 can be full and the verdict can still read a clean **Ready to publish** — that is
 correct, not a bug. Evidence and calibration:
 `references/store-review.md`.
@@ -210,6 +213,26 @@ audit can't confirm the app ships on), **ask the user which stores they ship on*
 never guess — then re-run `audit-flow.py` with `--stores ios,android` (or whichever
 subset applies). That re-run promotes any matching question to a blocker or clears it;
 report the second run's verdict, not the first.
+
+If a `custom-action-unconfirmed` question fires, **ask the user what each listed custom
+action does**, in one message, naming each by its screen and button as the finding does.
+A flow cannot ask for a permission, open the rating sheet or sign anyone in on its own: the
+button fires an action ID that the app's code carries out, and only the user knows which.
+Map each plain-words answer to one kind and re-run with
+`--custom-actions id=kind[,id=kind…]`:
+
+| kind | the action… |
+|---|---|
+| `permission` | shows a system permission prompt (notifications, location, camera, health…) |
+| `tracking` | shows the App Tracking Transparency prompt |
+| `review` | shows the store's rating sheet |
+| `sign-in` | signs the user in or creates an account |
+| `other` | does anything else in the app |
+| `none` | is not handled by the app yet |
+
+Never guess a kind for the user. Report the second run's verdict, not the first; `none`
+becomes a blocker, and the answers decide which store-review checks apply to which screen.
+Before the answers, those checks speak in "if" form from the action ID alone.
 
 ## Phase 5 — report
 
@@ -320,6 +343,10 @@ user how to check it themselves.
   placements show this flow and whether they are switched on (Phase 3); it cannot see
   the app's code. If a placement shows the flow, say which, and that the app has to
   fetch it by that ID.
+- **What a custom action does.** The audit lists every custom action ID and asks; it
+  never assumes one asks for a permission or signs anyone in. Until the user answers,
+  the verdict cannot read **Ready to publish**, and the store-review checks that depend
+  on it say "if".
 - **Whether the host app provides its own dismiss.** A paywall whose only action is
   `purchase` is fine if the app presents the flow modally with a system dismiss — the
   audit cannot see the host app, so this is a `question`, not a blocker, unless no
@@ -410,7 +437,7 @@ for the traps each one closes; most were wrong on first contact with real data.
 at, its severity and why, its calibration in both directions, and the false-positive trap
 it closes. Read it before changing a check.
 
-`references/store-review.md` — the same contract for the six advisory store-review
+`references/store-review.md` — the same contract for the fourteen advisory store-review
 checks: the two rejection notices verbatim with their dates, the evidence tiers, the
 framing rule and why it is a rule, per-check calibration and negative-test outcomes, the
 two accepted false-negative classes, the blind spots, and what was ruled out (so nobody
