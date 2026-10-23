@@ -44,10 +44,12 @@ test's running content, so a test entry is not something you build or edit here.
   shows read-only. Send each such entry back **unchanged** and never add, edit or reorder one. The
   backend counts its priorities and its default audience **apart** from the regular ones, so both
   groups can hold priority 0 and a default. You add and reorder only regular audiences.
-- **A write that only changes priorities, or adds a row below every test row, leaves the tests as
-  they are.** A new row placed above a test row takes the users that match both from that test:
-  they leave the test. Say so and name the test in the table the user sees. Test rows go back as
-  read, so the start time stays.
+- **A write that adds or moves a row below every test row leaves the tests as they are.** A row
+  added or moved above a test row takes the users that match both from that test: they leave the
+  test. Say so and name the test in the table the user sees. Every test row goes back as read, so
+  the start time stays.
+- **A rename** (`placements update` with a new title) sends every audience row back exactly as
+  read, test rows included.
 - **A write that changes a test is not safe, and this skill does not make it.** Three writes do:
   a running test's audience is replaced by a paywall or flow, or is missing from the list; its
   audience gets other segments; or the list carries a test id the placement does not run now.

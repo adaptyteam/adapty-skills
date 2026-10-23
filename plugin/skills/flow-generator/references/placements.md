@@ -67,8 +67,9 @@ about it. Route it to the `ab-tests` skill: `ab-tests stop` (with `--winner`, `-
 `--no-content`) shows the user the exact effect and waits for the yes. Write the placement after
 the test has stopped, and read it again just before the write: if it changed since the read the
 user saw, show the new before/after table and ask again (an unattended run stops and reports). No
-answer means the change is made in the dashboard instead. A write that only adds a segment audience
-or reorders priorities leaves the test running. Starting, stopping or replacing a test on purpose
+answer means the change is made in the dashboard instead. A segment audience added or moved above a
+test's audience takes the users that match both from that test; below it, the test is not
+touched. Either way every test row goes back as read. Starting, stopping or replacing a test on purpose
 belongs to the `ab-tests` skill.
 
 **Never `--paywall-id`.** It is deprecated in favour of `--audiences` (the CLI prints a warning to

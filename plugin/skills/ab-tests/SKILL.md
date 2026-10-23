@@ -174,9 +174,9 @@ placement has no users until that release is out.
 1. **Plan.** Settle in one message what is missing: paywall test or flow test; the arms (content
    and weight, 50/50 for two); the placement; the audience (All users or one segment); a goal in a
    line. Take content ids from `paywalls list --page-size 100` or `flows list`, and the placement
-   from `placements list --page-size 100 --json` (it gives only the id, title, developer ID and
-   whether it is live). A paywall test belongs on a paywall placement and a flow test on a flow
-   placement: read `placements get` for the `content_type` of its audiences; on a mismatch say so
+   from `placements list --page-size 100 --json` (it gives only the id, title and developer ID, and
+   may show whether it is live). A paywall test belongs on a paywall placement and a flow test on
+   a flow placement: read `placements get` for the `content_type` of its audiences; on a mismatch say so
    and ask. Then check that each piece exists, and make what is missing:
    - **A flow arm:** `flows get <id> --json` shows `status` `published` (`flows list` may leave
      the status out). A `draft` or `dirty` flow (unpublished changes) cannot join a test:
