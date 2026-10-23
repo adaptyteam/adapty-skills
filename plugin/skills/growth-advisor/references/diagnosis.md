@@ -215,7 +215,7 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 | One paywall stops and another starts the same week | A change they made and kept. |
 | A paywall or flow in `paywalls list` / `flows list` that no placement shows | Something tried and dropped. Its name often says what it tried. |
 | A placement, paywall, flow or product whose name names a change ("No Free Trial", "Exit Offer Test", "ex-Winback", "Weekly Trial And Yearly") | That change was tried, whatever its numbers. Say "it looks like you tested X; what came out?", never that it was never tried. |
-| Two paywalls or flows both selling on one placement in the last full month | Possibly an A/B test running now. A running test shows in `placements get` only sometimes, as an audience with `content_type: ab_test`: ask what is running there before suggesting a test on that placement, and never describe it in the past tense. |
+| Two paywalls or flows both selling on one placement in the last full month | An A/B test or two audiences, if `placements get` shows one. A running test shows there as an audience of its own kind with its title: name it and never describe it in the past tense. With neither there, the two ran side by side earlier in the month: a past test, and the one live now is the one they kept. |
 | A product with purchases earlier and none lately | A plan or trial they dropped. |
 | An offer with purchases in one stretch only | A past promo or intro offer, and when it ran. |
 | Audiences and segments on placements now | Targeting they already do. |

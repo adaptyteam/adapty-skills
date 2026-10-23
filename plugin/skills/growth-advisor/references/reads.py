@@ -271,8 +271,8 @@ def audit(a):
     names, lists = name_map(a.adapty, a.app, ('placements', 'paywalls', 'flows', 'products', 'segments'))
     print('\n## lists, every page: ' + ', '.join(f'{n} {len(r)}' for n, r in lists.items()))
     print('\n## audiences of every placement, lowest priority first (every placement read)')
-    print('   A/B tests: a running one can show below as "A/B test <title>"; name it. Past tests never show, and a '
-          'running one may not: never write that no test runs or ran; ask what runs on the placement you would test.')
+    print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
+          'Past tests never show: never write that no test ran.')
     for p in lists['placements']:
         print(f"   placement {p.get('title')!r} id {p.get('id')}"
               f"{'' if p.get('is_active', True) else ' (inactive)'}")
@@ -435,7 +435,7 @@ def print_audiences(adapty, app, pid, names):
               'nothing on this placement as before/after across its start, and ask its result before suggesting '
               'another test on these audiences.')
     if aud and all(x.get('segment_ids') for x in aud):
-        print('   no All users audience: users outside these segments see nothing here, or an A/B test is hidden')
+        print('   no All users audience: users outside these segments see nothing here')
 
 
 def placement(a):
@@ -444,8 +444,8 @@ def placement(a):
     print(f'# placement {pid}, {f} .. {t} (the last full month is marked *)')
     names, _ = name_map(a.adapty, a.app, ('placements', 'paywalls', 'flows', 'segments'))
     print(f"\n## audiences of {names.get(pid, pid)}, lowest priority first")
-    print('   A/B tests: a running one can show below as "A/B test <title>"; name it. Past tests never show, and a '
-          'running one may not: never write that no test runs or ran; ask what runs on the placement you would test.')
+    print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
+          'Past tests never show: never write that no test ran.')
     print_audiences(a.adapty, a.app, pid, names)
 
     def R(title, args, conv=False):
