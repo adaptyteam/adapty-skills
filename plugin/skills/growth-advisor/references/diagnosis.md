@@ -190,7 +190,7 @@ this file. A new segment is created through `audiences`, on the user's yes.
 From these: which placements exist and are active, what each one shows (a paywall or a flow, per
 audience), which products each paywall sells, and whether there is anything after the onboarding
 paywall. Trials are set in the store, not in Adapty: read which products carry one from chart 4
-by `store_product_id`, or ask the user. Prices are out of scope; do not look them up.
+by `store_product_id`, or ask the user.
 
 ## What the app already tried
 
@@ -491,6 +491,7 @@ be asking about a plan that is not where their money is. Read only what the idea
 | A plan length | chart 2 and chart 4 per length, read 12 |
 | A trial | charts 4 and 5, read 9 (trial pairs), read 11 with and without `--use-trial` |
 | A country | charts 1 and 4 filtered to it, chart 3 |
+| A price | the price CSV and the reads in `pricing.md`, "Reading the app's prices" |
 | A new placement or offer | chart 8 by placement; the setup reads; ask where users hit limits in the app |
 | Winning back users who left | chart 6 by reason, per store; `subscriptions_renewal_cancelled`; `trial-paid`; `billing-issue-paid` and `grace-period-paid` |
 | A paywall or flow's design | read 8 by paywall or flow, `view-paid` for that paywall, then the screen itself (`levers.md`, Paywall design) |

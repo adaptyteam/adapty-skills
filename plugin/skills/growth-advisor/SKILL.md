@@ -22,15 +22,14 @@ placement's audiences, through `audiences`. New store
 products, trials and launching the A/B test happen in the store and the Adapty dashboard, so for
 those you give the user the steps.
 
-**Pricing analysis is not supported yet.** You do not know the app's prices or anyone else's,
-and you never propose, compare or ask for one. When the cause may be price (a gap in one market,
-at the paywall or at the charge, or refunds concentrated in one market), say it in these words:
-"This may be price, and pricing analysis is not supported yet." That sentence is all you say
-about price: never "probably" or "most likely" price, never "it is not the price", and price
-never ranks above a cause you can check. A gap in one market is checked for localization first:
-the paywall's languages against the market's language. Do not route the user anywhere else for
-it. When the whole question is about price (raise it, set it by country), the reply is that
-sentence alone. A new product's price is the user's to set.
+**Prices** follow `references/pricing.md`. Before you say anything about a price, download the
+price CSV of each product it concerns and name the price as the store charges it, in its local
+currency ("€34.99 in Germany"); revenue ÷ new subscriptions is only the conversion to USD. Then place it
+against the market with the pricing index, and suggest price hypotheses in the same list as the
+rest. A gap in one market is checked for localization first: the paywall's languages
+against the market's language. A price is tested on a copy of the product; a live price changes
+only through "Changing a live price" in `pricing.md`. Existing subscribers keep their price
+unless the user asks. Competitors' prices are not read.
 
 Two things decide every answer: the user's numbers, and `references/evidence.md`, a library of
 real A/B tests run on subscription apps. Neither is replaced by general advice.
@@ -74,7 +73,7 @@ the first two weeks of real users.
 | The request is about | Where it goes |
 |---|---|
 | App-wide numbers, plans, trials, countries, placements, what to test next | This skill |
-| A price, a price test, pricing by country | Not supported yet; say so |
+| A price, a price test, pricing by country | This skill, `references/pricing.md` |
 | One paywall screen: layout, copy, badges | `paywall-teardown`; this skill invokes it for the design hypotheses |
 | A screen with a change in the app's numbers ("people buy half as often since summer") | This skill first: which paywall it is, its view → paid by month, what changed then; `paywall-teardown` for the design part after. Prices on a screenshot may be preview samples: never read them as what users pay |
 | The onboarding sequence | `onboarding-teardown` |
@@ -112,9 +111,10 @@ Saved responses and helper scripts go in a temporary directory outside the user'
 (`mktemp -d`), never in it; delete it before your last reply. When it holds a placement's rollback
 file, keep it and say where it is.
 
-Everything this skill runs is a read, with three writes, each on the user's yes: building a flow
-through `flow-generator`, creating a segment through `audiences`, and `placements create` or
-`placements update` (see "Changing a live placement").
+Everything this skill runs is a read, with four writes, each on the user's yes: building a flow
+through `flow-generator`, creating a segment through `audiences`, `placements create` or
+`placements update` (see "Changing a live placement"), and a price CSV upload (`products create`
+for its product; `references/pricing.md`).
 
 ## How you sound
 
@@ -268,6 +268,8 @@ conversation that asks "what should I do".
    - most endings are users switching off renewal, and no placement has an audience for former
      subscribers
    - a main market
+   - a main-market plan below the 25th percentile for its category (`references/pricing.md`)
+   - a top country 15% or more off the market's price ratio to the main market
    - fewer than about 200 purchases in two weeks
    - a discount or promo that runs all the time (an onboarding offer, a win-back paywall) with no
      group kept from it
@@ -400,6 +402,7 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | Why did revenue, renewals or trials drop? Also "less money, is it the paywall / traffic?" | `diagnosis.md`, "Why did revenue drop?"; before any hypothesis, audit step 3 |
 | Why did conversion drop? | `diagnosis.md`, "Follow the signal down", with the Mix check before naming traffic |
 | Should I do X? (one idea) | `diagnosis.md`, "Should I change X?", plus `levers.md` |
+| Should I raise, cut or localize a price? Set this price now | `pricing.md`; a change goes live only through "Changing a live price" |
 | My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test" |
 | I don't know what to test | Run the audit |
 | I have ideas, which first? | `levers.md`, "Ideas the user brings" |
@@ -415,7 +418,8 @@ test of that paywall against the current one in the same placement. A trial or d
 in the store first, and each store does it differently: on the App Store a trial needs a second
 product, while on Google Play it is an offer on the existing plan (`references/levers.md`, "By
 store"). The "How" line starts with that store step:
-[A/B tests](https://adapty.io/docs/ab-tests.md). The new product's price is the user's to set.
+[A/B tests](https://adapty.io/docs/ab-tests.md). A new product's prices are set with the price
+CSV (`references/pricing.md`, "Setting up a price A/B test").
 
 ## Framing rules
 
@@ -446,3 +450,5 @@ store"). The "How" line starts with that store step:
 | `references/levers.md` | Building or ranking a hypothesis, and after a test |
 | `references/evidence.md` | Stating any expected impact or grading an idea |
 | `references/market.md` | Comparing the app with the market: conversion, plan mix, trials, discounts, timing |
+| `references/pricing.md` | Any price: reading, placing, a price hypothesis, its test, a live price change |
+| `references/price-index.csv`, `references/price-response.csv` | Searched from `pricing.md`; never read whole |
