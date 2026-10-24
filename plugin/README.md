@@ -81,10 +81,14 @@ claude plugin install adapty-skills@adapty
 
 Then run `/reload-plugins` inside Claude Code.
 
-**Turn on auto-update, or new skills won't reach you.** Claude Code updates only its official marketplaces by itself. In Claude Code, open `/plugin`, go to **Marketplaces**, select `adapty` and choose **Enable auto-update**. Without it, update by hand:
+**Turn on auto-update, or new skills won't reach you.** Claude Code updates only its official marketplaces by itself. In Claude Code, open `/plugin`, go to **Marketplaces**, select `adapty` and choose **Enable auto-update**. Without it, update by hand: the first command refreshes the catalog, the second updates the plugin. Restart Claude Code afterwards.
 
 ```bash
 claude plugin marketplace update adapty
+```
+
+```bash
+claude plugin update adapty-skills@adapty
 ```
 
 <details>
