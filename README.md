@@ -21,6 +21,8 @@ claude plugin marketplace add adaptyteam/adapty-skills
 claude plugin install adapty-skills@adapty
 ```
 
+Then turn on auto-update: `/plugin` → **Marketplaces** → `adapty` → **Enable auto-update**. Claude Code doesn't update third-party marketplaces on its own.
+
 **Codex**
 
 ```bash
