@@ -3,7 +3,7 @@
 
     python3 <skill>/references/reads.py audit --app <APP_ID> --adapty "$ADAPTY" [--months 6]
     python3 <skill>/references/reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID> [--months 12]
-    python3 <skill>/references/reads.py check-reply --file <DRAFT>
+    python3 <skill>/references/reads.py check-reply <<'DRAFT'   # the draft on stdin, or --file <DRAFT>
 
 `check-reply` reads no data: it flags the sentences of a draft reply that claim "every" group, a cause
 from timing, or less money without the first-payment / renewal split.
@@ -947,7 +947,7 @@ def stakes(text):
 
 def check_reply(path):
     """Flag the sentences of a draft reply that make a claim the reads rarely back on their own."""
-    text = open(path).read()
+    text = open(path).read() if path else sys.stdin.read()
     # questions to the user claim nothing
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+|\n+', text) if s.strip() and not s.strip().endswith('?')]
     found = 0
@@ -980,15 +980,13 @@ def run():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('command', choices=('audit', 'placement', 'check-reply'))
     ap.add_argument('--app')
-    ap.add_argument('--file', help='check-reply: the draft reply to check')
+    ap.add_argument('--file', help='check-reply: the draft reply to check (default: stdin)')
     ap.add_argument('--adapty', default='adapty', help='the resolved $ADAPTY command string')
     ap.add_argument('--placement')
     ap.add_argument('--months', type=int)
     ap.add_argument('--to', help='YYYY-MM-DD; the window ends with the last full month before it')
     a = ap.parse_args()
     if a.command == 'check-reply':
-        if not a.file:
-            ap.error('check-reply needs --file <draft>')
         check_reply(a.file)
         return 0
     if not a.app:

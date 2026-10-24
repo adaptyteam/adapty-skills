@@ -110,9 +110,8 @@ multi-word `$ADAPTY`. Pass the command and every flag as separate words: `"place
 in quotes is one word, and the CLI answers that no such command exists. When you show a command
 to the user, write a literal `adapty` in it.
 
-Saved responses and helper scripts go in a temporary directory outside the user's project
-(`mktemp -d`), never in it; delete it before your last reply. When it holds a placement's rollback
-file, keep it and say where it is.
+The only file this skill writes is a placement's rollback (see "Changing a live placement"). Read
+every response from the command's output; never save one to a file.
 
 Everything this skill runs is a read, with three writes, each on the user's yes: building a flow
 through `flow-generator`, creating a segment through `audiences`, and `placements create` or
@@ -287,10 +286,17 @@ conversation that asks "what should I do".
    What is surprising in these is where the first hypothesis comes from.
 6. **Report**, following "How you write a reply" and "What a hypothesis needs". An audit always
    ends with hypotheses. When an open question could change the first pick, give them anyway and
-   say in one line what the answer would change. Before sending any reply with numbers, write the
-   draft to a file in your scratch folder and run `python3 <skill>/references/reads.py check-reply
-   --file <draft>`. Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped),
-   then send.
+   say in one line what the answer would change. Before sending any reply with numbers, pass the
+   draft to `check-reply` on stdin, with the quoted `'DRAFT'` so the shell leaves every `$` amount
+   as written:
+
+   ```bash
+   python3 <skill>/references/reads.py check-reply <<'DRAFT'
+   <the draft reply>
+   DRAFT
+   ```
+
+   Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped), then send.
 7. **Offer to build** the hypothesis the user picked, when it is a flow. On a yes, invoke `flow-generator`
    with the brief. Offer two ways to put the flow in front of users, the first as the default:
    - **A/B test it** against what the placement shows now, in the dashboard. This is the only
@@ -396,8 +402,9 @@ The user may want a change live from this session: an existing placement showing
 paywall, or a segment of its users getting their own. You can do it with `placements update`, on
 an explicit yes to this block, and only after these checks:
 
-1. **Read the placement** (`placements get`) and save the response to a file. That is the
-   rollback.
+1. **Read the placement** (`placements get`) and save the response as `<placement>.before.json`
+   in a new `mktemp -d` directory, never in the user's project. That is the rollback: keep it,
+   and give its full path in the ask.
 2. **Name every A/B test running on it.** `placements get` shows each as an audience of its own
    kind with its title. `update` replaces every audience, so pass each test entry back exactly as
    read: one dropped or replaced stops that test with no winner, and no error says so. When the
