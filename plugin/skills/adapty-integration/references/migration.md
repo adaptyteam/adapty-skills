@@ -141,6 +141,7 @@ Then:
 
 1. **Verify against your `<source>` dashboard** — open the Migration section with this when you worked without access to the source's account, which is the default. The code was your only source and the account almost certainly holds entities you could not see. Concrete checkboxes:
    - Products you did NOT create because their store IDs were not in the code — include the ready-to-run `products create` commands with `<REAL_PRODUCT_ID>` slots.
+   - Store offers whose offer IDs were not in the code (promotional, win-back, and every Google Play offer, trials included) — include the ready-to-run `product-offers create` commands with `<STORE_OFFER_ID>` slots.
    - Entitlements beyond the ones referenced in code.
    - Offerings and paywalls that exist only in the dashboard. Each needs a decision: recreate as placement + paywall, or rebuild as a flow if it used a visual paywall builder.
    - Offering metadata that should become paywall remote config.

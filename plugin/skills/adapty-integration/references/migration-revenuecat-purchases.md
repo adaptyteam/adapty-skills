@@ -35,11 +35,13 @@ win-back offers, and the app passes the chosen one into the purchase call. Adapt
 offer automatically, based on how the offer is attached to the product in that paywall. There is no
 parameter to pass one in.
 
-So the app-side selection code is deleted, and the intent behind it moves to the dashboard: the offer
-has to be attached to the right product on the right paywall or it will never apply. That is
-configuration you cannot do from the CLI, so it belongs in `ADAPTY_SETUP.md`
-(`references/migration.md` section 5, subsection 3), stated next to the paywall it affects and naming
-which offers the RC code was selecting. An app that silently stops applying a win-back offer looks
+So the app-side selection code is deleted, and the intent behind it moves to Adapty, in two parts.
+The offer is added to its product with `product-offers create` (SKILL.md Step 4, "Offers on these
+products") when its store offer ID is in the code or config; never infer one. Then it has to be
+picked for the right product on the right paywall, or it will never apply. That part is paywall
+configuration the CLI cannot do (a flow picks it through `flow-generator`), so it belongs in
+`ADAPTY_SETUP.md` (`references/migration.md` section 5, subsection 3), stated next to the paywall it
+affects and naming which offers the RC code was selecting. An app that silently stops applying a win-back offer looks
 fine and quietly loses the winbacks.
 
 **And when several offers could apply, the precedence is fixed and not yours to change.** Adapty
