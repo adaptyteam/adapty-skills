@@ -431,9 +431,10 @@ def short_breaks(a, names):
                 print('   first payments in that store, by week: '
                       + '  '.join(f'{x} ${num(val)}' + (' (the break week)' if j == i else '')
                                   for j, (x, val) in enumerate(v[i - 3:i + 4], i - 3)))
-    print('   A BREAKAGE week is something that stopped working, not the design: the reply names it with its dates and '
-          'store, never says the paywall is not broken without it, and asks what shipped that week. Say what came back '
-          'by the line above: the trial rate, and the first payments only if they did.')
+    print('   A BREAKAGE week is something that stopped working, not the design. One the rate came back from is '
+          'history: leave it out of the reply, unless the user asks about those weeks or the reply would say the '
+          'paywall never broke; then one clause with its dates and store. One that has not come back is a Next step '
+          'to fix, with its dates and store, asking what shipped that week.')
 
 
 def still_down(a, names):

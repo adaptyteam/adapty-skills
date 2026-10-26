@@ -107,7 +107,9 @@ If `$ADAPTY analytics catalog --help` still reports no such command, try `npx --
 analytics catalog --help` once before telling the user analytics is unavailable. `--yes` is
 required: without it npx waits for a confirmation nobody will give. In `zsh`, run `setopt shwordsplit` before using a
 multi-word `$ADAPTY`. Pass the command and every flag as separate words: `"placements list"`
-in quotes is one word, and the CLI answers that no such command exists. When you show a command
+in quotes is one word, and the CLI answers that no such command exists. `$ADAPTY` is the only
+variable: write each command and its flags out in full at every call, never in a variable of
+their own, which zsh passes as one word. When you show a command
 to the user, write a literal `adapty` in it.
 
 The only file this skill writes is a placement's rollback (see "Changing a live placement"). Read
@@ -127,7 +129,9 @@ the [feedback note](#feedback-note).
 - **After the audit, say where the user is** in the first line of each reply: "A/B test 1 of 3
   (trial on annual) is in week 2 of about 4."
 - **Raw values only when the user will type or see them elsewhere:** a product id, a
-  placement's developer ID. Never chart ids, filter keys or tool names.
+  placement's developer ID. Never chart ids, filter keys or tool names, and never this skill's
+  own scripts, checks or feedback note: when a read could not run, name the data you lack
+  ("refunds by country"), not what failed or why.
 - **Full links to the exact docs page.** Find pages through `adapty-docs` when one is not here.
 - **Honest about scope, in one line.** Say what you could not check only when it could change
   the decision, and where they can check it. What you checked and ruled out is not a section; at
@@ -207,14 +211,17 @@ conversation that asks "what should I do".
    one paywall replaced another. Name in the reply every read either lists as failed. Run both
    as written and read what they print, with no variable, temp file or redirect around them: a
    refused or failed call leaves you without the audit. If one fails or is refused, run it once
-   more as written; if it still cannot run, say which reads you could not make and do not answer
-   from a few single reads. When a
+   more as written; if it still cannot run, make every read in "The audit reads" as a single call,
+   all of them, and name the ones that failed; never answer from a few. When a
    placement shows a flow, read the flow that brings the most purchases, and any flow that brings
    almost none: `references/diagnosis.md`, "Reading a flow". **Render it.** A fact the render
    contradicts (a label your numbers disprove, a price typed as text) you report yourself. A
    design hypothesis (layout, copy, what the screen shows) comes only from `paywall-teardown` or
    `onboarding-teardown` run on the render (`references/levers.md`, Paywall design).
-   **Before judging anything, establish how the app earns:** its main market (a country with
+   **Before judging anything, establish how the app earns:** which store brings the money
+   (revenue by store: most apps earn mostly on the App Store, so lead with the store that earns,
+   and a store with under about a fifth of revenue gets one line at most unless its dollars at
+   stake rank first), its main market (a country with
    50% or more of revenue, or 40% or more and at least five times the next country's; when none
    has it, say there is none, and correct a user who says there is; read each country against its own past, never ranked against the US or
    another country), its main product by
@@ -230,7 +237,10 @@ conversation that asks "what should I do".
    its own that calls `makePurchase` is a custom paywall. Otherwise ask for a
    screenshot, and whether it was made in the Paywall Builder. A hypothesis about what the screen
    shows (its copy, a trial explanation, a badge, the layout, which plan is selected by default)
-   needs that screen seen: a rendered flow, a screenshot or the app's code. Until then it is not
+   needs that screen seen: a rendered flow, a screenshot or the app's code. So does adding or
+   removing a trial, plan or offer on a paywall, and seeing the screen is where that check starts,
+   not where it ends: removing a trial follows `references/levers.md`, Trials, which drops it on a
+   screen built around the trial. A paywall's name never tells you its design. Until then it is not
    suggested; a "You:" Next step asks for the screenshot and names what it would let you check. A legacy Builder paywall can be moved to the new builder and then
    copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
@@ -259,6 +269,12 @@ conversation that asks "what should I do".
    names a change as the cause of a rise or fall (a new product, paywall, placement, price, release
    or store launch), run the Cause check there and say what it showed. A group that carries it can be the target of a hypothesis
    (`references/levers.md`, Segments).
+
+   **Set the app against the market in every audit, unasked.** On the App Store, filtered to the
+   main region's countries, put paywall view → paid and trial → paid next to that region's
+   medians in `references/market.md`, and the plan mix next to its category's; the user does not
+   have to ask. Say in the reply which one sits furthest from its median, either way, as one
+   sentence naming the median; a rate far below it is a candidate for the first hypothesis.
 5. **Diagnose and build the hypotheses** with `references/levers.md`: where to look first, the
    rules per lever, and the shape every hypothesis fills. Drop what step 3 found already tried or
    already live (`levers.md`, "Already tried, already live, or standard"). When no split and no
@@ -297,6 +313,9 @@ conversation that asks "what should I do".
    ```
 
    Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped), then send.
+   If it cannot run, check the draft for the same three things yourself: a claim about every
+   group names each group's number, a cause found from timing has the Cause check behind it, and
+   less money is split into first payments and renewals, each in dollars.
 7. **Offer to build** the hypothesis the user picked, when it is a flow. On a yes, invoke `flow-generator`
    with the brief. Offer two ways to put the flow in front of users, the first as the default:
    - **A/B test it** against what the placement shows now, in the dashboard. This is the only
@@ -372,6 +391,11 @@ Time, Who. Nothing else goes in the block.
   placements or a group of countries instead of one, a bolder change instead of a small one
   (small changes need large samples), or a read that answers without a test. Mention the slow
   one in one sentence at most. When most hypotheses cannot settle, say so in the bold answer.
+- **Settle what would void it first.** When you would write "if X, this test shows nothing" (the
+  store cannot charge in that country, the plan is not on the paywall), read X before suggesting
+  it: a country whose trial → paid is far below the rest gets billing-issue endings for that
+  country and store first (read 6). When no read settles X, it is a "You:" question, not a
+  hypothesis.
 - **Who:** what you build, what they change in the store or the dashboard. Before writing that
   something must be created (a discounted product, a segment, a placement), check `products
   list`, `segments list` and `placements list`, and name the one that already fits; a product's
