@@ -152,7 +152,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 ### `ab-tests`
 
-- **Every command, flag and output field comes from `src/cli/commands/ab-tests/*` in `adapty-cli`,** not from help text. CLI 0.13.0 is the first release with the `ab-tests` commands.
+- **Every command, flag and output field comes from `src/cli/commands/ab-tests/*` in `adapty-cli`,** not from help text. Older CLI releases have no `ab-tests` commands; the skill checks `ab-tests --help`, never a version number.
 - **Start, stop, replace and archive run only after the user's yes to the exact effect:** who sees what from when, what stops, what cannot be undone; then `--yes`. The CLI asks only at a terminal and refuses with exit 6 elsewhere, so the skill's card is the confirmation. An unattended run never does these four.
 - **Read the test and the placement before each of the four; read the placement again just before a start, stop or replace.** Changed since the user saw it: a new card, a new question.
 - **Never start a test that is not a draft** (it would start again with old users on their old arms); offer a new test, or `replace` for a live one.

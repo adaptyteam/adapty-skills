@@ -50,7 +50,7 @@ adapty ab-tests --help >/dev/null 2>&1 && ADAPTY="adapty" || {
   npm i -g adapty@latest >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
 ```
 
-CLI 0.13.0 is the first release with the `ab-tests` commands. If `$ADAPTY ab-tests --help` still
+Older CLI releases have no `ab-tests` commands. If `$ADAPTY ab-tests --help` still
 reports no such topic, try `npx --yes adapty@beta ab-tests --help` once; if that fails too, tell
 the user their CLI has no `ab-tests` commands yet and the test is made in the dashboard (link
 above). Do not compare version numbers. `--yes` on `npx` is required: without it `npx` waits for a
