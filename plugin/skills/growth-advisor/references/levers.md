@@ -130,6 +130,13 @@ app's US numbers) when you compare, and call the target "the market median", nev
 - The trial goes on the leading length; with no clear leader, on the longest.
 - A trial that exists is changed (its length) or moved (to another length). Removing a trial
   outright is a test only where trial-to-paid is very low; see `evidence.md`.
+- **Before suggesting a trial's removal, list what on the screen is about the trial,** from the
+  render or screenshot: a timeline of the trial days, "how your free trial works", a reminder
+  promise, a "Start free trial" button, trial wording in the title. Any one of them means the
+  screen is built around the trial, and without it the screen says things that are no longer
+  true: the change is not one change, so it is not suggested on that paywall, whatever the
+  trial-to-paid. With none of them, the Why names that the screen does not depend on the trial.
+  With no render or screenshot, ask for one first.
 - Testing a trial on two different lengths is two tests run one after the other.
 
 ## Placements and flows
