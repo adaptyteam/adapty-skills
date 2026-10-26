@@ -292,10 +292,11 @@ $ADAPTY access-levels list --app <APP_ID>
 > - **Yes, I want to use what's already there** — I'll retrieve your existing IDs and skip creation
 > - **Yes, but I want to create new ones** — I'll show what exists, then create new items alongside them
 
-Then run list commands to see what's already configured regardless of the answer — the output determines what to create. **Before telling the user something is missing, look at one item's raw output** and check you are reading the field the CLI actually uses: a product's stores sit under `vendor_products` as `app_store` and `play_store`, so a filter on any other name finds nothing on every product. "None of your products has a Google Play ID" is a claim about every product — read them all, every page while `meta.pagination` says there are more.
+Then run list commands to see what's already configured regardless of the answer — the output determines what to create. **Before telling the user something is missing, look at one item's raw output** and check you are reading the field the CLI actually uses: a product's stores sit under `vendor_products` as `app_store` and `play_store`, so a filter on any other name finds nothing on every product. "None of your products has a Google Play ID" is a claim about every product — read them all, every page while `meta.pagination` says there are more. A product's `offers_count` is how many offers are added to it in Adapty; `product-offers list` names them, all on one page, and a reused product keeps them. It never reads the stores: 0 means nothing is added in Adapty yet, not that the store has no offers, so Step 4 still asks.
 
 ```bash
 $ADAPTY products list --app <APP_ID>
+$ADAPTY product-offers list --app <APP_ID> --product <PRODUCT_UUID>   # each product with offers_count above 0
 $ADAPTY paywalls list --app <APP_ID>
 $ADAPTY placements list --app <APP_ID>
 ```
@@ -398,6 +399,28 @@ $ADAPTY products create \
 
 Repeat for each product to create.
 
+**Offers on these products.** An offer set up in the store applies only once it is also added to the product in Adapty, and a missing one fails silently: the buyer pays full price and nothing reports it. What gets added ([Add offers to Adapty](https://adapty.io/docs/create-offer.md)):
+
+- App Store promotional and win-back offers.
+- **Every Google Play offer on a base plan, free trials included:** on Google Play a trial is an offer, so an Android trial that is not added never applies.
+- Never an App Store introductory offer (an iOS free trial or intro price). It applies on its own, and the CLI has no type for it.
+
+Once the products exist, ask once, naming only the stores the app targets: "Do any of these products have offers in App Store Connect or Google Play — a Google Play free trial, a promotional or a win-back offer?" A "no" or an empty answer skips this. Per offer, take the product, its store offer ID in each store, and whether it is win-back. Like a store product ID, an offer ID comes from the user, the code or config, never from a guess: `product-offers update` can correct an ID, but there is no `product-offers delete`.
+
+```bash
+# --type: promotional, or win_back (App Store only: never with --android-offer-id).
+# A Google Play trial or discount is promotional, with --android-offer-id.
+# Every offer carries at least one real store offer ID; the CLI refuses one with none.
+$ADAPTY product-offers create \
+  --app <APP_ID> \
+  --product <PRODUCT_UUID> \
+  --title "Free trial" \
+  --type promotional \
+  --android-offer-id "<STORE_OFFER_ID>"
+```
+
+An added offer applies only where a paywall or flow picks it for that product. A flow picks it in `flow-generator` (Step 5 hands the offer over with the product). A paywall picks it in the dashboard, because `paywalls create` takes products only: put that step in `ADAPTY_SETUP.md` beside the paywall. A deferred product defers its offers too: write their `product-offers create` commands into `ADAPTY_SETUP.md` after its `products create`, with `<STORE_OFFER_ID>` slots.
+
 ### Step 5: Create paywall/flow and placement
 
 **Prerequisite: do not start this step until at least one product has been successfully created (or confirmed to exist) in Step 4.** A paywall/flow without products is a non-functional empty shell — if Step 4 deferred product creation, defer this step the same way: create nothing now and put the full command sequence (paywall, then placement) into ADAPTY_SETUP.md right after the deferred `products create` commands, keeping the placement ID consistent with the one used in code. On the Flow Builder path that sequence has no paywall and no placement command in it at all — see the rule in that branch below.
@@ -465,7 +488,7 @@ Then ask once per location, with the options that actually apply — offer the f
 
 > "Describe the flow you want, or give me a visual reference — a screenshot, a design, a paywall whose look you want. Whatever you already know helps: how many screens, what it should say, which plans it offers."
 
-Then invoke the **`flow-generator`** skill with that answer, once per confirmed location. It owns everything from there — authenticating, creating the flow, binding the products from Step 4, previewing it for the user's approval, saving, then offering to publish it and to attach a placement, each behind its own confirmation. Do not author flow JSON yourself and do not answer its questions on the user's behalf. It hands back the flow id — your `<FLOW_ID>` — and, when the user took its placement step, the **developer ID**, which is then already live.
+Then invoke the **`flow-generator`** skill with that answer, once per confirmed location. It owns everything from there — authenticating, creating the flow, binding the products from Step 4 with the offers you added to them, previewing it for the user's approval, saving, then offering to publish it and to attach a placement, each behind its own confirmation. Do not author flow JSON yourself and do not answer its questions on the user's behalf. It hands back the flow id — your `<FLOW_ID>` — and, when the user took its placement step, the **developer ID**, which is then already live.
 
 **Route C — an empty placeholder.** This unblocks the placement and the code, and it publishes a blank screen to a live placement. **Disclose that and get an explicit yes before running anything** — the user picked "not now", which is not the same as agreeing to ship a placeholder:
 

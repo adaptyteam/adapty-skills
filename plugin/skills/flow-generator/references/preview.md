@@ -237,20 +237,24 @@ one it shows that is not there:
   this render is not evidence about the face on a phone, and a font-carrying screen goes into the
   handoff as a named device check.
 
-- **Any device but the frames the page knows, so a short-phone check is not available here.**
-  `--device` defaults to `iphone-14`; `ipad-pro` appears in the CLI's own example. **The valid set
-  is not enumerable** — it is not in the CLI package (`grep`ped) and not in the render page's
-  entry bundle, and an id the page does not know renders `Unknown device "iphone-se".` as a
-  **page**, with exit 0, which passes any "did something draw" check. So a layout whose safety
-  depends on viewport height — `scrollable: false`, fixed heights, a tall content column
-  ([flow-schema.md trap 10b](flow-schema.md)) — cannot be validated against a small phone from
-  here. `iphone-13-mini` renders, but at 375×812 it is narrower than the default, not short: it
-  says nothing about a 667pt-tall screen. Reason about it structurally instead (does the content
-  column plus the pinned footer fit in 667pt?), and name it in the handoff. Note `--window-size` is
-  **not** a substitute: the page draws its own device frame, so a smaller window crops the
-  screenshot rather than re-laying-out the screen (measured — a 375×667 window returned
-  the same 390pt-wide screen with its right edge cut off, which reads exactly like an overflow bug
-  that is not there).
+- **Any device but the frames the page knows.** `--device` defaults to `iphone-14` (390×844).
+  The ids the page knows:
+
+  | Use it for | `--device` |
+  |---|---|
+  | a short phone | `iphone-se-3` (375×667) |
+  | a tall phone | `google-pixel-9` (412×924) |
+  | the others | `iphone-17-pro`, `iphone-17`, `iphone-16-pro`, `iphone-16`, `iphone-15-pro`, `iphone-15`, `iphone-14-pro`, `iphone-14`, `iphone-13-mini`, `google-pixel-8`, `samsung-s24`, `samsung-s23`, `ipad-mini-8-3`, `ipad-air-11`, `ipad-air-13`, `ipad-pro-11`, `ipad-pro-13` |
+
+  `shoot.sh` takes one as `DEVICE=<id>`. Any layout whose look depends on viewport height (a
+  fill-height hero, a spread, a fixed height, a tall content column) gets rendered at both ends
+  of that table. There is no Pro Max frame (440×956), so the tallest iPhone stays a device
+  check. An id the page does not know renders `Unknown device "iphone-se".` as a **page**, with
+  exit 0, which passes any "did something draw" check; `shoot.sh`'s flat-render guard catches it.
+  `--window-size` is **not** a substitute for a device: the page draws its own device frame, so
+  a smaller window crops the screenshot rather than re-laying-out the screen (measured — a
+  375×667 window returned the same 390pt-wide screen with its right edge cut off, which reads
+  exactly like an overflow bug that is not there).
 
 - **The device's own chrome — a notch, a Dynamic Island, a home indicator — because the render
   draws none of it.** A screen authored with `safeArea: false` put its back chevron and title into

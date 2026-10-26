@@ -689,8 +689,17 @@ All three parts are load-bearing, each isolated by removing it from one rendered
 | after its siblings with `zIndex: -10`, inside an ancestor with a fill | paints behind that fill — **draws nothing** |
 
 `height: auto` therefore means nothing on its own — it is half of a pair, and the other half is the
-anchors. Paint order is the hierarchy order, so put the element first rather than reaching for
-`zIndex`. That orders the drawing, not the taps: on a device a screen-sized `absolute` image
+anchors. Among `absolute` siblings, paint order is the hierarchy order, so put the element first
+rather than reaching for `zIndex`.
+
+**An `absolute` element paints over every `relative` sibling, wherever either one is listed, and a
+`zIndex` on a `relative` element does nothing** (preview render; no device run). So never raise a
+`relative` element's `zIndex` to put text over a fade, a hero image or a scrim; `verify-config.py`
+warns on one. Put the text inside the overlay (the fade as a container, content aligned to its
+end), or make the fade a fill layer of the hero's container so there is no overlay element. A
+small control pinned to a corner, such as a close X, is `absolute` and listed after the overlay.
+
+Paint order orders the drawing, not the taps: on a device a screen-sized `absolute` image
 listed first still took every option's taps, so a background goes in the screen's `fill`
 ([media.md](media.md#binding-the-url-two-different-shapes)), and `verify-config.py` warns. `zIndex` lives *inside* `position`, not at the top level of props, and a negative value
 sends the element behind every ancestor that has a fill; `verify-config.py` warns on that. (An earlier note here said `zIndex` appeared in no real export; that export now exists.)
@@ -750,12 +759,15 @@ void below it, which is what a user sees as "the layout is broken everywhere". M
 across four screens: replacing dock-plus-padding with one `space-between` root removed both
 defects and deleted the padding arithmetic entirely.
 
-**A spread mode needs free space, so the container must have a definite height.** On a screen that
-means `props.scrollable: false`; a scrollable screen's root is content-height, and a spread there
-behaves like `gap: 0`. That is a real trade, not a detail — `scrollable: false` **clips** content
-taller than the viewport, and the CLI preview cannot show it to you, because `--device` ids are not
-enumerable (see [preview.md](preview.md)). So: **spread the short screens, scroll the tall ones**,
-and decide per screen by rendering rather than by preference.
+**A spread mode needs free space, and a vertical scrollable screen has it.** The transform service
+gives such a screen's content a minimum height of one viewport on the device, so a root spread
+works with `scrollable: true`, and the screen still scrolls when its content is taller than the
+phone. Prefer that to `scrollable: false`, which **clips** taller content. An inner stack needs a
+`fill` or `fixed` height before its own spread does anything.
+
+**A spread leaves the surplus as empty space at its seam.** On a screen with a hero, give the
+surplus to the hero instead: [patterns.md → A tall phone's extra height goes to the
+hero](patterns.md#a-tall-phones-extra-height-goes-to-the-hero).
 
 `flowkit.layout()`/`stack()`/`screen()` take `distribution='space-between'`. The helper emitted
 only the `gap` form for its first release, and that alone is why the other three modes went unused

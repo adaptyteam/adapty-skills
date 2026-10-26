@@ -116,10 +116,13 @@ to the user, write a literal `adapty` in it.
 The only file this skill writes is a placement's rollback (see "Changing a live placement"). Read
 every response from the command's output; never save one to a file.
 
-Everything this skill runs is a read, with four writes, each on the user's yes: building a flow
+Everything this skill runs is a read, with five writes, each on the user's yes: building a flow
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
-and `placements create` or `placements update` (see "Changing a live placement"). You never run an
-`ab-tests` command yourself. The one other call that sends anything is the
+`placements create` or `placements update` (see "Changing a live placement"), and adding an offer
+the user made in the store to an existing product with `product-offers create`
+(`references/levers.md`, "By store"). You never run an `ab-tests` command yourself. Never
+`product-offers update`: an offer a live paywall or flow already picks reaches buyers today, so
+changing one is a dashboard step for the user. The one other call that sends anything is the
 [feedback note](#feedback-note).
 
 ## How you sound
@@ -461,9 +464,10 @@ Time, Who. Nothing else goes in the block.
   country and store first (read 6). When no read settles X, it is a "You:" question, not a
   hypothesis.
 - **Who:** what you build, what they change in the store or the dashboard, and who sets up the
-  A/B test. Before writing that something must be created (a discounted product, a segment, a
-  placement, a flow copy), check it with the reads in "From hypothesis to A/B test" and name the
-  one that already fits; a product's name often says it is the discounted one.
+  A/B test. Before writing that something must be created (a discounted product, an offer, a
+  segment, a placement, a flow copy), check it with the reads in "From hypothesis to A/B test" and
+  name the one that already fits; a product's name often says it is the discounted one, and an
+  offer's type says whether it is win-back.
 
 The disclaimer goes under any range, once per reply, translated into the user's language; in
 English it reads: "Expected results are estimates based on market data. Actual A/B test outcomes
@@ -496,7 +500,7 @@ test needs with a read. Never assume a thing exists because the user said they w
 |---|---|---|
 | The content the placement shows now (arm A) | `placements get` names a paywall or flow on the audience the test would run on | Nothing to make |
 | A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
-| A new plan length, trial or offer | `products list` shows the product, with the store product ID of each store the app sells in, and a flow that sells it exists | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"), then add it to Adapty. Me: the flow that sells it |
+| A new plan length, trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"), then add a new product to Adapty. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
 | A paywall arm (legacy Paywall Builder or custom paywall) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
 | A segment | `segments list` shows one with the filter the hypothesis targets | Me: `audiences`, on a yes (segment steps only) |
 | A placement with traffic | `placements list` shows it, `placements get` shows the content type of its audiences (paywall or flow), and the Time line found purchases on it | Me: `ab-tests` creates a new one, on a yes to its developer ID. You: the one call in the app that fetches it (`adapty-integration`), and a release. No purchases: no test |
@@ -582,9 +586,11 @@ rather than switch it. A plan change is a new store product, a paywall that sell
 test of that paywall against the current one in the same placement. A trial or discount is set up
 in the store first, and each store does it differently: on the App Store a trial needs a second
 product, while on Google Play it is an offer on the existing plan (`references/levers.md`, "By
-store"). The "How" line starts with that store step. The A/B test comes after it: once
-`products list` shows the product and a flow sells it, you offer to set up the test ("From
-hypothesis to A/B test"). The new product's price is the user's to set.
+store"). An offer then has to be added to the product in Adapty, which you do on the user's yes
+once they give its store offer ID. The "How" line starts with that store step. The A/B test comes
+after it: once `products list` (and `product-offers list` for an offer) shows it and a flow sells
+it, you offer to set up the test ("From hypothesis to A/B test"). The new product's price is the
+user's to set.
 
 ## Framing rules
 

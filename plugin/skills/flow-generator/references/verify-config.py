@@ -1425,6 +1425,35 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"the element draws behind that fill and disappears. Drop the zIndex and "
                         f"declare it before the sibling it should sit under")
 
+    # A zIndex on a relative element does nothing: in the preview render an absolute sibling paints
+    # over it at zIndex 10 or 1000, listed before or after. Two field reports raised a headline and
+    # a close button that way and both stayed under an absolute overlay. The fix is to make the
+    # element absolute and list it after the overlay. No real export carries a relative zIndex.
+    def _rel_z(m, node):
+        ch = [m.get(c.get('id')) for c in node.get('children') or []]
+        ch = [e for e in ch if isinstance(e, dict)]
+        pos = lambda e: (e.get('props') or {}).get('position')
+        # An absolute sibling at a negative zIndex is not named: one at zIndex 0 already drew
+        # under a relative sibling in the render, so a negative one is not claimed to cover it.
+        abs_ = [e['id'] for e in ch if isinstance(pos(e), dict) and pos(e).get('type') == 'absolute'
+                and not (isinstance(pos(e).get('zIndex'), (int, float)) and pos(e)['zIndex'] < 0)]
+        for e in ch:
+            p = pos(e)
+            if isinstance(p, dict) and p.get('type') == 'relative' and 'zIndex' in p:
+                yield e, abs_
+        for c in node.get('children') or []:
+            yield from _rel_z(m, c)
+    for s in d.get('screens', []):
+        els_ = s.get('elements') or {}
+        if not isinstance(els_, dict):
+            continue
+        for e, abs_ in _rel_z(els_.get('map') or {}, els_.get('hierarchy') or {}):
+            over = f"; its absolute sibling {abs_[0]} paints over it" if abs_ else ""
+            warn.append(f"{s['id']}/{e['id']}: zIndex on a relative element does nothing{over}. "
+                        f"To draw it over an absolute overlay, put it inside the overlay or make "
+                        f"the overlay a fill layer of the container (a corner control goes "
+                        f"absolute, listed after it); otherwise drop the zIndex")
+
     # A screen-sized image or video taken out of flow (absolute or fixed) is a background made the
     # wrong way. Device-reported: listed first on each screen, it still sat over its siblings and
     # took the taps of every option, and a box wider than the screen widened the screen. Preview
@@ -2025,6 +2054,17 @@ def check(path, baseline_text=None, baseline_images=None):
             if not (m[k].get('props') or {}).get('fill'):
                 warn.append(f'screen {s["id"]}: footer {k} has no fill, and a footer overlays the '
                             f'scrolling content — the content will show through the bar')
+            # DEVICE-CONFIRMED: beside a footer, a fill-height root child is sized as if the
+            # footer were not there, so the footer covers the content under it until the user
+            # scrolls. The preview reserves the footer and draws it correctly.
+            fills = [c['id'] for c in s['elements']['hierarchy'].get('children') or []
+                     if ((m.get(c['id'], {}).get('props') or {}).get('height') or {}).get('type') == 'fill']
+            if fills:
+                warn.append(f'screen {s["id"]}: footer {k} beside the fill-height root child '
+                            f'{fills[0]} — on a device the fill child ignores the footer, so the '
+                            f'footer covers the content under it until the user scrolls (the '
+                            f'preview cannot show this). Keep the fill and put the bar in flow as '
+                            f'the last root child, or keep the footer and drop the fill')
             pos = ((m[k].get('props') or {}).get('position') or {}).get('type')
             if pos and pos != 'relative':
                 warn.append(f'screen {s["id"]}: footer {k} is positioned {pos!r} — a footer is '
@@ -2075,6 +2115,65 @@ def check(path, baseline_text=None, baseline_images=None):
                             f'footer. A `footer` element pins itself, needs no offsets, and needs '
                             f'no `padding.bottom` reservation (authoring one adds dead space at '
                             f'full scroll); see patterns.md')
+
+    # A TALL PHONE'S EXTRA HEIGHT needs one place to go. A vertical scrollable screen's content is
+    # at least the viewport tall on a device (the transformer's min-screen mode), so on a tall
+    # phone a top-aligned `gap` root with the bar as its last child leaves the surplus as a dead
+    # band UNDER the bar — device-confirmed, and the layout users report as "does not adapt to
+    # screen sizes". Any one of a footer, a root spread, a fill-height root child or a
+    # centre/end alignment gives the surplus a place. Warning: a screen taller than every phone
+    # never has a surplus, and only a render on a tall frame can tell.
+    for s in d.get('screens', []):
+        props = s.get('props') or {}
+        lay = props.get('layout') if isinstance(props.get('layout'), dict) else {}
+        if props.get('scrollable') is not True or lay.get('direction', 'vertical') != 'vertical':
+            continue
+        m = s['elements']['map']
+        roots = [c for c in s['elements']['hierarchy'].get('children') or []
+                 if ((m.get(c['id'], {}).get('props') or {}).get('position') or {}).get('type',
+                                                                                 'relative') == 'relative']
+        # One relative root child is the whole screen, not content-plus-bar; a docked (`fixed`)
+        # bar is already pinned to the bottom, which is how three real exports place their CTAs.
+        if len(roots) < 2 or any(
+                m.get(c['id'], {}).get('type') in ('footer', 'sliding-sheet')
+                or ((m.get(c['id'], {}).get('props') or {}).get('position') or {}).get('type') == 'fixed'
+                for c in s['elements']['hierarchy'].get('children') or []):
+            continue
+        if ((lay.get('distribution') or {}).get('type', 'gap') != 'gap'
+                or lay.get('alignV') in ('center', 'end')
+                or any(((m.get(c['id'], {}).get('props') or {}).get('height') or {}).get('type') == 'fill'
+                       for c in roots)):
+            continue
+        def _tappable(n):
+            if m.get(n['id'], {}).get('interactions'):
+                return True
+            return any(_tappable(c) for c in n.get('children') or [])
+        if _tappable(roots[-1]):
+            warn.append(
+                f'screen {s["id"]}: nothing takes a tall phone\'s extra height, so it lands as a '
+                f'dead band under {roots[-1]["id"]}. Give it one place: a fill height on the hero '
+                f'(a direct child of the root), or with no hero to the headline block at fill height. Then '
+                f'render it with DEVICE=google-pixel-9 and DEVICE=iphone-se-3; see patterns.md')
+
+    # A SPREAD ACROSS A LIST: space-* on a fill-height stack spreads every row apart on a tall
+    # phone — the second shape users report. A fixed-height card spreading its own title and
+    # price is deliberate and stays silent.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+        def _spread(n):
+            for c in n.get('children') or []:
+                p = m.get(c['id'], {}).get('props') or {}
+                lay = p.get('layout') if isinstance(p.get('layout'), dict) else {}
+                if ((lay.get('distribution') or {}).get('type', 'gap') != 'gap'
+                        and (p.get('height') or {}).get('type') == 'fill'
+                        and len(c.get('children') or []) >= 3):
+                    warn.append(
+                        f'screen {s["id"]}: {c["id"]} spreads its {len(c["children"])} children '
+                        f'with {lay["distribution"]["type"]} at fill height, so on a tall phone '
+                        f'the gaps between them grow. Give the extra height one seam instead; see '
+                        f'patterns.md')
+                _spread(c)
+        _spread(s['elements']['hierarchy'])
 
     # A FAKE CAROUSEL or FAKE PROGRESS BAR: a slider or a step indicator faked as a static card
     # plus a hand-built indicator row. The real `carousel` is swipeable and renders its OWN dots
