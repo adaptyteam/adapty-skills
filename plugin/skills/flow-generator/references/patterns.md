@@ -821,8 +821,9 @@ can break. **Connect the steps with a thin line, not a track:** in each row but 
 2pt `stack` with `position: absolute`, `top` just below the icon, `bottom` just short of the next
 icon (a negative value about half the list gap), `left` centred under the icon, `height: auto`,
 filled with the done colour for completed steps and a muted one after. **Declare it first in the
-row, before the icon, and give it no `zIndex`**: later siblings paint over earlier ones, so the
-icon and the next row cover the line's ends. A rail as
+row, before the icon, and give it no `zIndex`**, and keep its ends clear of the icons: an
+`absolute` rail paints over the in-flow icon wherever it is listed
+([flow-schema.md](flow-schema.md#9-offsets-must-resolve-against-an-axis-something-defines--the-parent-for-absolute-the-screen-for-fixed)). A rail as
 wide as the icon reads as a row of pills; a hairline reads as one timeline. The anchoring rules
 below still apply to it.
 

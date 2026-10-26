@@ -116,6 +116,7 @@ python3 tests/test-migrate-cli.py                                        # migra
 python3 tests/test-existing-flows.py                                     # flows the account already has, and the name match
 python3 tests/test-stub-flow.py                                          # the shipped stub's publishable floor
 python3 tests/test-negative-zindex.py                                    # a negative zIndex under a filled ancestor draws nothing
+python3 tests/test-relative-zindex.py                                    # a zIndex on a relative element does nothing
 ```
 
 Exit codes match the repo's lint convention: `0` clean, `1` findings, `2` infrastructure

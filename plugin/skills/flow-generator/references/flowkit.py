@@ -238,10 +238,14 @@ def size(kind='fill', value=None):
 
 
 def relative(z=None):
-    p = {'type': 'relative'}
+    """An in-flow element. It takes no `zIndex`: on a `relative` element the render ignores it, and
+    an `absolute` sibling paints over it wherever either is listed (flow-schema.md trap 9)."""
     if z is not None:
-        p['zIndex'] = z
-    return p
+        raise ValueError('relative() takes no z: a zIndex on a relative element does nothing, and '
+                         'an absolute sibling still paints over it. To draw over an absolute '
+                         'overlay, put this element inside the overlay, or make the overlay a fill '
+                         'layer of the container; a corner control goes absolute() after it')
+    return {'type': 'relative'}
 
 
 def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
@@ -256,9 +260,11 @@ def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
     next row. Measured, all three parts load-bearing: drop `bottom` and the element collapses to
     nothing; swap `auto` for `fill` and it stops 2px short.
 
-    To sit behind its siblings, list it FIRST among them and leave `z` unset: later siblings
-    paint over earlier ones. A negative `z` also works, but only until an ancestor has a fill —
-    then the element draws behind that fill and disappears.
+    It paints over every `relative` sibling, wherever either is listed. To sit behind its
+    `absolute` siblings, list it FIRST among them and leave `z` unset: later absolute siblings
+    paint over earlier ones. Text that must sit on it goes inside it; a corner control goes
+    absolute too, listed after (flow-schema.md trap 9). A negative `z` also works, but only until an ancestor has a fill — then
+    the element draws behind that fill and disappears.
     """
     p = {'type': 'absolute'}
     for k, v in (('top', top), ('left', left), ('right', right), ('bottom', bottom),

@@ -689,8 +689,17 @@ All three parts are load-bearing, each isolated by removing it from one rendered
 | after its siblings with `zIndex: -10`, inside an ancestor with a fill | paints behind that fill — **draws nothing** |
 
 `height: auto` therefore means nothing on its own — it is half of a pair, and the other half is the
-anchors. Paint order is the hierarchy order, so put the element first rather than reaching for
-`zIndex`. That orders the drawing, not the taps: on a device a screen-sized `absolute` image
+anchors. Among `absolute` siblings, paint order is the hierarchy order, so put the element first
+rather than reaching for `zIndex`.
+
+**An `absolute` element paints over every `relative` sibling, wherever either one is listed, and a
+`zIndex` on a `relative` element does nothing** (preview render; no device run). So never raise a
+`relative` element's `zIndex` to put text over a fade, a hero image or a scrim; `verify-config.py`
+warns on one. Put the text inside the overlay (the fade as a container, content aligned to its
+end), or make the fade a fill layer of the hero's container so there is no overlay element. A
+small control pinned to a corner, such as a close X, is `absolute` and listed after the overlay.
+
+Paint order orders the drawing, not the taps: on a device a screen-sized `absolute` image
 listed first still took every option's taps, so a background goes in the screen's `fill`
 ([media.md](media.md#binding-the-url-two-different-shapes)), and `verify-config.py` warns. `zIndex` lives *inside* `position`, not at the top level of props, and a negative value
 sends the element behind every ancestor that has a fill; `verify-config.py` warns on that. (An earlier note here said `zIndex` appeared in no real export; that export now exists.)

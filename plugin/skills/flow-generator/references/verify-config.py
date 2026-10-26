@@ -1425,6 +1425,35 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"the element draws behind that fill and disappears. Drop the zIndex and "
                         f"declare it before the sibling it should sit under")
 
+    # A zIndex on a relative element does nothing: in the preview render an absolute sibling paints
+    # over it at zIndex 10 or 1000, listed before or after. Two field reports raised a headline and
+    # a close button that way and both stayed under an absolute overlay. The fix is to make the
+    # element absolute and list it after the overlay. No real export carries a relative zIndex.
+    def _rel_z(m, node):
+        ch = [m.get(c.get('id')) for c in node.get('children') or []]
+        ch = [e for e in ch if isinstance(e, dict)]
+        pos = lambda e: (e.get('props') or {}).get('position')
+        # An absolute sibling at a negative zIndex is not named: one at zIndex 0 already drew
+        # under a relative sibling in the render, so a negative one is not claimed to cover it.
+        abs_ = [e['id'] for e in ch if isinstance(pos(e), dict) and pos(e).get('type') == 'absolute'
+                and not (isinstance(pos(e).get('zIndex'), (int, float)) and pos(e)['zIndex'] < 0)]
+        for e in ch:
+            p = pos(e)
+            if isinstance(p, dict) and p.get('type') == 'relative' and 'zIndex' in p:
+                yield e, abs_
+        for c in node.get('children') or []:
+            yield from _rel_z(m, c)
+    for s in d.get('screens', []):
+        els_ = s.get('elements') or {}
+        if not isinstance(els_, dict):
+            continue
+        for e, abs_ in _rel_z(els_.get('map') or {}, els_.get('hierarchy') or {}):
+            over = f"; its absolute sibling {abs_[0]} paints over it" if abs_ else ""
+            warn.append(f"{s['id']}/{e['id']}: zIndex on a relative element does nothing{over}. "
+                        f"To draw it over an absolute overlay, put it inside the overlay or make "
+                        f"the overlay a fill layer of the container (a corner control goes "
+                        f"absolute, listed after it); otherwise drop the zIndex")
+
     # A screen-sized image or video taken out of flow (absolute or fixed) is a background made the
     # wrong way. Device-reported: listed first on each screen, it still sat over its siblings and
     # took the taps of every option, and a box wider than the screen widened the screen. Preview
