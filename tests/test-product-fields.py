@@ -42,7 +42,8 @@ GROUP = 'group-relative price variable on unknown product group'
 DOCUMENTED = ['prod_title', 'prod_price', 'prod_price_per_day', 'prod_price_per_week',
               'prod_price_per_month', 'prod_price_per_year', 'offer_price',
               'offer_billing_period', 'offer_full_duration', 'is_free_trial',
-              'is_pay_up_front', 'is_pay_as_you_go']
+              'is_pay_up_front', 'is_pay_as_you_go', 'prod_billing_price',
+              'prod_billing_period', 'is_monthly_plan']
 
 fails = []
 
@@ -112,6 +113,12 @@ fires('a group-relative offer variable on an unknown group',
 print('\nSILENT on every documented field (the set must not be under-inclusive):')
 for f in DOCUMENTED:
     silent(f'{REAL_UUID[:8]}….{f}', swapped(f'{REAL_UUID}.{f}'))
+
+print('\nSILENT on a monthly binding, named `<id>@monthly` as the builder writes it:')
+for f in ('prod_billing_price', 'prod_billing_period', 'prod_price'):
+    silent(f'{REAL_UUID[:8]}…@monthly.{f}', swapped(f'{REAL_UUID}@monthly.{f}'))
+fires('a bogus product uuid behind @monthly',
+      swapped('00000000-dead-beef-0000-000000000000@monthly.prod_billing_price'), HEAD)
 
 print('\nSILENT on the other variable shapes — these are not product variables:')
 for other in ('email.value', 'first_name.value', 'plans.selectedProduct',
