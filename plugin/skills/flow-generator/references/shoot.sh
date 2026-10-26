@@ -4,6 +4,8 @@
 #   shoot.sh draft.json                                  # the default screen
 #   shoot.sh draft.json scr_a scr_b scr_c                # three screens, one strip
 #   OUT=/tmp/x shoot.sh draft.json scr_a                 # choose the output dir
+#   DEVICE=iphone-se-3 shoot.sh draft.json scr_a         # a short phone (375x667)
+#   DEVICE=google-pixel-9 shoot.sh draft.json scr_a      # a tall phone (412x924)
 #
 # Renders go next to the config, unless the config sits inside a git work tree -- an app repo,
 # usually -- in which case they go to $TMPDIR/adapty-flow-shots, so no PNG lands in the user's
@@ -36,7 +38,11 @@ fi
 BUDGET="${BUDGET:-8000}"
 # 520 wide, not the phone's own 430: the render page centres its phone frame with a margin, so at
 # 430 the frame starts ~55px in and its right edge is cut off, which reads as a layout overflow.
-WINDOW="${WINDOW:-520,900}"
+# A named device can be taller than the default frame (google-pixel-9 is 924pt), and a window
+# shorter than the frame crops it, so a device run gets a taller window.
+DEVICE="${DEVICE:-}"
+if [ -n "$DEVICE" ]; then WINDOW="${WINDOW:-520,1100}"; else WINDOW="${WINDOW:-520,900}"; fi
+DEVFLAG="${DEVICE:+--device $DEVICE}"; DEVTAG="${DEVICE:+-$DEVICE}"
 [ -f "$CFG" ] || { echo "shoot: no such file: $CFG" >&2; exit 2; }
 mkdir -p "$OUT"
 
@@ -179,9 +185,9 @@ shots=""; n=0
 [ -n "$SCREENS" ] || SCREENS="__default__"
 for s in $SCREENS; do
   if [ "$s" = "__default__" ]; then
-    url="$($ADAPTY_BIN flows config preview "$CFG" 2>&1)"; png="$OUT/shot-$CFGSIG.png"
+    url="$($ADAPTY_BIN flows config preview "$CFG" $DEVFLAG 2>&1)"; png="$OUT/shot-$CFGSIG$DEVTAG.png"
   else
-    url="$($ADAPTY_BIN flows config preview "$CFG" --screen "$s" 2>&1)"; png="$OUT/shot-$CFGSIG-$s.png"
+    url="$($ADAPTY_BIN flows config preview "$CFG" --screen "$s" $DEVFLAG 2>&1)"; png="$OUT/shot-$CFGSIG-$s$DEVTAG.png"
   fi
   case "$url" in
     http*) ;;
@@ -212,8 +218,8 @@ def strip(o):
 json.dump(strip(json.load(open(sys.argv[1], encoding="utf-8"))), open(sys.argv[2], "w", encoding="utf-8"))
 ' "$CFG" "$lean" 2>/dev/null
     if [ -s "$lean" ]; then
-      if [ "$s" = "__default__" ]; then lurl="$($ADAPTY_BIN flows config preview "$lean" 2>&1)"
-      else lurl="$($ADAPTY_BIN flows config preview "$lean" --screen "$s" 2>&1)"; fi
+      if [ "$s" = "__default__" ]; then lurl="$($ADAPTY_BIN flows config preview "$lean" $DEVFLAG 2>&1)"
+      else lurl="$($ADAPTY_BIN flows config preview "$lean" --screen "$s" $DEVFLAG 2>&1)"; fi
       case "$lurl" in
         http*) if [ "${#lurl}" -le "${URL_LIMIT:-$limit}" ]; then
                  echo "   URL is ${#url} chars — rendering $s from a copy without image previews" >&2
@@ -231,7 +237,7 @@ json.dump(strip(json.load(open(sys.argv[1], encoding="utf-8"))), open(sys.argv[2
       # the cache dir and the render fails (or lands where nobody looks).
       ABS_CFG="$(cd "$(dirname "$CFG")" && pwd)/$(basename "$CFG")"
       ABS_PNG="$(cd "$(dirname "$png")" && pwd)/$(basename "$png")"
-      ( cd "$PW_DIR" && node "$HERE/preview-with-playwright.mjs" --config "$ABS_CFG" \
+      ( cd "$PW_DIR" && node "$HERE/preview-with-playwright.mjs" --config "$ABS_CFG" $DEVFLAG \
           ${s:+$( [ "$s" != "__default__" ] && printf -- '--screen %s' "$s")} --out "$ABS_PNG" ) >&2 || rm -f "$png"
       if [ -s "$png" ]; then echo "   rendered $s -> $(basename "$png")"; shots="$shots $png"; n=$((n+1)); continue; fi
     fi
@@ -299,7 +305,7 @@ done
 if [ "$n" -eq 1 ]; then
   echo; echo "LOOK AT:$shots"
 else
-  strip="$OUT/strip-$CFGSIG.png"
+  strip="$OUT/strip-$CFGSIG$DEVTAG.png"
   $PY "$HERE/montage.py" "$strip" $shots >/dev/null
   echo; echo "LOOK AT: $strip  ($n screens, left to right in the order given)"
 fi

@@ -69,12 +69,14 @@ A reference with a device frame needs its screen bounds located before any measu
 - **Size and spacing** — match the reference's *proportions* with relative layout
   (`fill`/`hug`/`relative`). Never hardcode fixed container widths or heights to match image
   pixels; fixed geometry breaks across devices (team-diagnosed).
-- **Layout** — reach for the layout props before padding or docking. A bar the content scrolls
-  past is the `footer` element, not something you position ([patterns.md](patterns.md));
-  `distribution` has four modes, and `space-between` on the screen root spreads a short screen's
-  content away from its bar ([flow-schema.md trap 10b](flow-schema.md)). A screen assembled from
-  gaps plus reserved padding is the shape that reads as "broken everywhere": a dead void under the
-  content on a tall device, or a bar sitting on top of it.
+- **Layout** — reach for the layout props before padding or docking. A reference is one phone's
+  height; on a taller phone the surplus has to go somewhere, and on a screen with a hero it goes
+  to the hero at `height: fill`, with the bar in flow
+  ([patterns.md → A tall phone's extra height goes to the
+  hero](patterns.md#a-tall-phones-extra-height-goes-to-the-hero)). A bar that content taller than
+  the phone scrolls past is the `footer` element, not something you position. A screen assembled
+  from gaps plus reserved padding is the shape that reads as "broken everywhere": a dead void
+  under the content on a tall device, or a bar sitting on top of it.
 - **Gradients and glows** — rebuild them as a `fill` with `stops`; do not flatten to a solid.
 
 ### Where each kind of graphic goes

@@ -707,6 +707,20 @@ screen with a watchdog, joins them left-to-right and prints the one path to open
 image and look at it**, against what the user asked for and — if they gave one — against the
 reference image file, re-opened, not remembered.
 
+**A screen that ends in a button bar is rendered twice more, on a short and a tall phone:**
+
+```bash
+DEVICE=iphone-se-3 references/shoot.sh draft.json scr_paywall      # 375x667
+DEVICE=google-pixel-9 references/shoot.sh draft.json scr_paywall   # 412x924
+```
+
+On the tall one, look for an empty band: under the bar, above it, or between rows of a list
+(`render-measure.py --column <x>` reports it as a gap). A band means nothing on the screen takes
+a tall phone's extra height; on a screen with a hero it goes to the hero
+([patterns.md](references/patterns.md#a-tall-phones-extra-height-goes-to-the-hero)). On the short
+one, a photo hero should keep about 160pt; if it draws smaller, give it a fixed height and put
+the bar in a `footer`, so the small phone scrolls.
+
 **Render only what you changed.** A screenshot is ~18 s of Chrome cold start, so the number of
 renders *is* the cost of this phase, and re-shooting seven screens to check an edit to one is six
 wasted launches. One strip is also one *look* instead of N, and a before/after or

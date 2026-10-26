@@ -589,12 +589,12 @@ content height, so the hero's number can only be judged against the rest of the 
 it and measure that gap; do not carry 220 over from the template on the strength of it being the
 template's value.
 
-Two limits on that check, both worth knowing before you trust it. It answers **first paint** only
-— content passing behind a pinned footer at full scroll is what a `footer` does, by design (see
-the `footer` section). And the small-device case, which is where a tall hero actually bites, is
-**not locally checkable**: `--device` ids are not enumerable, and a guess (`iphone-se`) renders an
-*unknown-device page* rather than a small frame — caught here by `shoot.sh`'s flat-render guard,
-which is the guard doing its job. A short phone stays a device/handoff check.
+That check answers **first paint** only — content passing behind a pinned footer at full scroll
+is what a `footer` does, by design (see the `footer` section). Render the small-device case too,
+which is where a tall hero actually bites: `DEVICE=iphone-se-3 references/shoot.sh draft.json
+<screen>`. A screen whose height should adapt is better built with a fill-height hero than with a
+tuned number: [A tall phone's extra height goes to the
+hero](#a-tall-phones-extra-height-goes-to-the-hero).
 
 Three rules, each measured
 ([media.md → The video placeholder](media.md#the-video-placeholder)):
@@ -659,12 +659,57 @@ There is no `button` element — see the request map in
 
 Actions nested inside a `conditional` case carry `"id": ""` instead of an `act_…` id.
 
+### A tall phone's extra height goes to the hero
+
+A screen whose content fits on a phone has height left over on a taller one: the builder previews
+874pt, an iPhone 15 is 852pt, a Pro Max 956pt. Decide where that surplus goes before you build the
+screen, from what the screen holds:
+
+| The screen holds | The surplus goes to | Build |
+|---|---|---|
+| a photo or colour-block hero | **the hero** | the hero at `height: fill`, a direct child of the root; the content; the bar **in flow** as the last root child. `scrollable: true`, **no footer** |
+| a round or fixed-size illustration | **the band around it** | a root-level `stack` at `height: fill`, `alignH`/`alignV` `center`, carrying the hero's background; the illustration at its fixed size inside it. Then content and bar as above |
+| no hero | **the headline block** | the headline and subtitle in a root-level `stack` at `height: fill`, `alignH`/`alignV` `center`; then the plans and the bar together below it. No spread: it opens a hole between the plans and the button |
+
+```python
+fk.screen('scr_paywall', [
+    fk.image(url, media_id=mid, preview=pv, fit='cover', height='fill'),   # takes the surplus
+    content,                                                               # hugs
+    fk.stack([cta, legal_row], gap=12),                                    # the bar, in flow
+], scrollable=True)
+```
+
+On a short phone it runs the other way: the fill-height block gives up height first, and the
+content and bar keep theirs. A band with an illustration or a headline inside never shrinks
+below what it holds; **a photo can shrink to a strip.** So render the screen with
+`DEVICE=iphone-se-3`: if the photo draws under about 160pt there, the content is too tall for a
+flexible hero. Give the photo a fixed height and put the bar in a `footer`; the small phone
+then scrolls. The same goes for any screen whose content is taller than a phone (a long list, a
+comparison table).
+
+**Device-confirmed** (iPhone 15): a fill-height colour block, a fill-height photo and a fill band
+around a round illustration each grew, and the bar sat on the bottom edge, with no empty band
+anywhere. Measured on a 924pt frame, a pinned `footer` or a spread on the same
+fitting screen left a **120-220pt empty band**, between the plans and the button or under the
+links. That band is what users report as "doesn't adapt to big screens".
+
+**Never pair a fill-height root child with a `footer`.** On a device the fill child is sized as
+if the footer were not there, so the footer covers the plans until the user scrolls. The preview
+reserves the footer and draws it correctly, so no render can show you this. `flowkit.screen()`
+refuses the pair and `verify-config.py` warns on it.
+
+**Render both ends before you hand the screen over:** `DEVICE=google-pixel-9` (412×924) and
+`DEVICE=iphone-se-3` (375×667) on `references/shoot.sh`. `verify-config.py` warns when nothing
+on a screen takes the surplus, and when a spread is set across a list of rows.
+
 ### A bar that stays at the bottom: use `footer`
 
 `footer` is a real element type, and it is the one thing on this page you do **not** build out of
 `fixed` stacks. It is lifted out of the layout flow and pinned to the bottom of the viewport while
 the content scrolls past it — which is exactly what a CTA bar, a legal row or a plan-picker dock
-is for.
+is for **on a screen whose content is taller than a phone**. On a screen that fits, a footer
+leaves the tall phone's surplus as an empty band above the bar; there the surplus goes to the
+hero instead ([the section above](#a-tall-phones-extra-height-goes-to-the-hero)).
 
 Take the shape from the builder's own template rather than authoring it:
 
@@ -725,8 +770,8 @@ Five rules follow. The first is a hard requirement and the local render cannot s
    to `flows config validate`. `flowkit.screen()` now refuses the pair and `verify-config.py`
    errors on it. If a screen must not scroll, it cannot have a footer — use the root's own
    [`space-between`](#putting-a-short-screens-content-and-bar-apart-the-roots-own-distribution)
-   instead. That gives a clean split with no judgement in it: **`scrollable: true` -> `footer`;
-   `scrollable: false` -> a spread distribution.**
+   instead. And a screen whose content fits on a phone does not need a footer at all: see
+   [A tall phone's extra height goes to the hero](#a-tall-phones-extra-height-goes-to-the-hero).
 
 1. **One `footer` per screen.** A second one is silently dropped, so a CTA and a legal row go
    inside the *same* footer as children, never as two footers.
@@ -751,13 +796,15 @@ look at the render.
 
 ### Putting a *short* screen's content and bar apart: the root's own distribution
 
-Different job, and still the right tool for it. A `footer` pins the bar and leaves the void
-**above** it; when a short screen should instead spread its content out to fill the height, that
-is the root's `distribution`. Give the screen root exactly two children — a content stack and a
-bar stack — and set:
+Not for a paywall: there the surplus goes to the hero or the headline block ([A tall phone's
+extra height goes to the hero](#a-tall-phones-extra-height-goes-to-the-hero)), because a spread
+opens a hole between the plans and the button. For other short screens, a
+`footer` pins the bar and leaves the void **above** it; when a short screen should instead spread
+its content out to fill the height, that is the root's `distribution`. Give the screen root
+exactly two children — a content stack and a bar stack — and set:
 
 ```json
-"props": {"scrollable": false,
+"props": {"scrollable": true,
           "layout": {"direction": "vertical", "alignH": "center", "alignV": "start",
                      "distribution": {"type": "space-between"}}}
 ```
@@ -766,14 +813,14 @@ The free space lands between the two, with **no** `fixed` positioning, no `paddi
 reservation, and no arithmetic to get wrong. Measured across four screens, this
 removed both of the failure modes the `fixed` alternatives carry: a footnote that had slid under a
 docked CTA, and the dead void an in-flow bar leaves on a tall device.
-`flowkit.screen(..., distribution='space-between', scrollable=False)`.
+`flowkit.screen(..., distribution='space-between')`.
 
-**Choose per screen, because the cost is real:** a spread mode needs a definite-height container,
-so it wants `scrollable: false`, and that **clips** content taller than the viewport. So: a bar
-that content must scroll past is a `footer`; a short screen whose content should breathe is a
-spread; a screen that needs both is a `footer` plus a spread on the content above it. See
-[flow-schema.md trap 10b](flow-schema.md) for the vocabulary and
-[preview.md](preview.md) for why you cannot check the clipping locally.
+**Keep `scrollable: true`.** On a device a vertical scrollable screen's content is at least one
+viewport tall, so the spread has room on a tall phone, and the screen still scrolls on a short
+one. `scrollable: false` clips content taller than the viewport, and takes a footer away
+entirely (rule 0 above). Spread across the two halves of the screen, never across a list of
+rows: on a tall phone every gap in the list grows. See [flow-schema.md trap 10b](flow-schema.md)
+for the vocabulary.
 
 ### A bottom-docked button
 
