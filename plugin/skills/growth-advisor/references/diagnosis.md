@@ -54,11 +54,9 @@ Rules for reading any answer:
 - For the funnel and retention, read a group's number from the grouped answer. The same query
   filtered to that group can give a different number (a `0` becomes `null`, a `no_offer` group
   loses its paid steps). Charts agree both ways.
-- Two reads differ from the dashboard on purpose. The funnel applies a `cancellation_reason`
-  filter, which the dashboard's funnel ignores, so with that filter its numbers will not match the
-  dashboard. Retention groups by the backend's list of groupings, which is not the dashboard's, so
-  take retention groupings from the catalog, never from the dashboard's menu. Say so when the
-  user compares a number with what they see there.
+- A filter or grouping that a report does not take is refused with exit 4, never ignored. The
+  funnel refuses a `cancellation_reason` filter, which the dashboard's funnel ignores: leave it off
+  the funnel. Take each report's groupings and filters from the catalog.
 
 The conversion ids, as the dashboard titles them:
 
