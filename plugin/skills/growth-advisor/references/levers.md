@@ -165,7 +165,7 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
   `evidence.md` has no win-back test: Expected is untested. The size of the discount and the
   discounted price are the user's: never name one, not even as an example ("annual for $29.99",
   "40% off"); ask. An existing product counts as a win-back product only when it has no trial and
-  its name says it is the discounted one. Its Time comes from how many of the target group
+  its name says it is the discounted one, or when `product-offers list` shows it a `win_back` offer. Its Time comes from how many of the target group
   come back a month at today's rate, never from a count of shows.
 - **Escalating discounts** over days after a close are a growth-team estimate with no A/B
   evidence here: label them untested.
@@ -278,6 +278,18 @@ Adapty](https://adapty.io/docs/create-offer.md).
 | A discount for former subscribers | A win-back offer on the existing product, added to it in Adapty and picked on the paywall. Only churned users are eligible; no new product | An offer on the base plan with "Developer determined" eligibility, shown only to the win-back audience |
 | A discount for anyone (an offer on close) | A promotional offer on the existing product, or a second product | An offer on the base plan |
 
+- **The Adapty side of an offer is yours to add.** Once the user has created the offer in the
+  store and given its offer ID (never guess one), add it on their yes; a Google Play trial or
+  discount is `promotional` with only `--android-offer-id`, and `win_back` takes only
+  `--ios-offer-id`. An App Store introductory offer is never added: it applies on its own.
+
+  ```bash
+  $ADAPTY product-offers create --app <APP_ID> --product <PRODUCT_ID> --title "<OFFER_TITLE>" \
+    --type <promotional|win_back> --ios-offer-id "<STORE_OFFER_ID>"
+  ```
+
+  The offer reaches buyers only once a paywall or flow picks it for that product: a flow copy
+  through `flow-generator`, a paywall copy in the dashboard.
 - **A paywall's products and offers lock** once it has sales or is over 30 days old: a test
   needs a copy of the paywall. A flow can change them at any time.
 - **Billing failures differ by store.** When one store has a much larger share of billing-issue

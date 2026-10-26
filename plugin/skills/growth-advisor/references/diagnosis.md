@@ -177,6 +177,7 @@ $ADAPTY placements list --app <APP_ID> --page-size 100 --json
 $ADAPTY placements get <PLACEMENT_ID> --app <APP_ID> --json   # one per placement
 $ADAPTY paywalls list --app <APP_ID> --json
 $ADAPTY products list --app <APP_ID> --json
+$ADAPTY product-offers list --app <APP_ID> --product <PRODUCT_ID> --json   # each product with offers_count above 0
 $ADAPTY flows list --app <APP_ID> --json
 ```
 
@@ -191,7 +192,10 @@ this file. A new segment is created through `audiences`, on the user's yes.
 From these: which placements exist and are active, what each one shows (a paywall or a flow, per
 audience), which products each paywall sells, and whether there is anything after the onboarding
 paywall. Trials are set in the store, not in Adapty: read which products carry one from chart 4
-by `store_product_id`, or ask the user. Prices are out of scope; do not look them up.
+by `store_product_id`, or ask the user. `product-offers list` shows the offers added to a product
+in Adapty, by type (`promotional`, `win_back`, `introductory`) and store: an offer there is
+available to a paywall, not proof that one shows it. An App Store trial applies without being
+added, so a product with no `introductory` offer listed may still have one: chart 4 settles it. Prices are out of scope; do not look them up.
 
 ## What the app already tried
 

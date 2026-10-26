@@ -113,9 +113,12 @@ to the user, write a literal `adapty` in it.
 The only file this skill writes is a placement's rollback (see "Changing a live placement"). Read
 every response from the command's output; never save one to a file.
 
-Everything this skill runs is a read, with three writes, each on the user's yes: building a flow
-through `flow-generator`, creating a segment through `audiences`, and `placements create` or
-`placements update` (see "Changing a live placement"). The one other call that sends anything is
+Everything this skill runs is a read, with four writes, each on the user's yes: building a flow
+through `flow-generator`, creating a segment through `audiences`, `placements create` or
+`placements update` (see "Changing a live placement"), and adding an offer the user made in the
+store to an existing product with `product-offers create` (`references/levers.md`, "By store").
+Never `product-offers update`: an offer a live paywall or flow already picks reaches buyers today,
+so changing one is a dashboard step for the user. The one other call that sends anything is
 the [feedback note](#feedback-note).
 
 ## How you sound
@@ -373,9 +376,9 @@ Time, Who. Nothing else goes in the block.
   (small changes need large samples), or a read that answers without a test. Mention the slow
   one in one sentence at most. When most hypotheses cannot settle, say so in the bold answer.
 - **Who:** what you build, what they change in the store or the dashboard. Before writing that
-  something must be created (a discounted product, a segment, a placement), check `products
-  list`, `segments list` and `placements list`, and name the one that already fits; a product's
-  name often says it is the discounted one.
+  something must be created (a discounted product, an offer, a segment, a placement), check `products
+  list`, `product-offers list`, `segments list` and `placements list`, and name the one that already fits; a product's
+  name often says it is the discounted one, and an offer's type says whether it is win-back.
 
 The disclaimer goes under any range, once per reply, translated into the user's language; in
 English it reads: "Expected results are estimates based on market data. Actual A/B test outcomes
@@ -455,7 +458,8 @@ rather than switch it. A plan change is a new store product, a paywall that sell
 test of that paywall against the current one in the same placement. A trial or discount is set up
 in the store first, and each store does it differently: on the App Store a trial needs a second
 product, while on Google Play it is an offer on the existing plan (`references/levers.md`, "By
-store"). The "How" line starts with that store step:
+store"). An offer then has to be added to the product in Adapty, which you do on the user's yes
+once they give its store offer ID. The "How" line starts with that store step:
 [A/B tests](https://adapty.io/docs/ab-tests.md). The new product's price is the user's to set.
 
 ## Framing rules
