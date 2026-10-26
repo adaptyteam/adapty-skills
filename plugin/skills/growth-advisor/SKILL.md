@@ -146,7 +146,7 @@ and `placements create` or `placements update` (see "Changing a live placement")
 ## How you write a reply
 
 **Length: about 150 words for an answer, about 150 plus about 80 per hypothesis for a reply
-with hypotheses, about 130 when you report something you built.** The disclaimer does not count. Before sending, count, and
+with hypotheses, about 130 when you report something you built.** The disclaimer and tables do not count. Before sending, count, and
 check that every heading and label is in the user's language; when over, cut in this order until it fits: context the user did not ask for, then
 supporting facts beyond the one that proves the point. Never cut the bold answer, a
 hypothesis's labelled lines or Next steps.
@@ -158,8 +158,14 @@ and the reason.
 - **Open with the answer in one bold sentence.** No heading above it.
 - **Facts in short sentences, one fact each,** at most one number per sentence. Keep a number
   only if it changes what the user does; shares, counts, splits and "I also checked X" wait
-  until they ask. When a number isn't obviously theirs, say where it comes from in a few words
+  until they ask, except in the audit's scorecard. When a number isn't obviously theirs, say where it comes from in a few words
   ("the US market median").
+- **A table when the numbers run across months or groups.** An audit, or an answer to "why did
+  X drop", may show up to two Markdown tables: the audit's scorecard, and one table that proves
+  the main finding (months across, the groups that carry it down the side). Keep each one to
+  about six rows and seven columns, put the store that earns first, and bold the cell the
+  sentence under it talks about. Each table is followed by one sentence saying what it shows. A
+  table is never a list of what you checked, and a hypothesis block never holds one.
 - **Evidence is part of the argument, not a labelled slot.** Say what their numbers show, then
   what tends to happen when apps make this change and how sure that is, naming the source in
   passing: "in Adapty's library of real subscription A/B tests", "Adapty's State of Paywalls
@@ -198,10 +204,28 @@ Shape of an answer (the form, not words to copy; in another language Next steps,
 > 1. You: did anything else change in March, such as a new paywall?
 > 2. Me: suggest hypotheses for winning those subscribers back. Want me to?
 
+Shape of an audit's opening (the form, not words to copy; the scorecard's labels are translated
+too):
+
+> **Your app converts like a typical US app; renewals are what cost you most.**
+>
+> | Part | Yours | Against | |
+> |---|---|---|---|
+> | Money | 84% App Store, 61% US, 55% renewals | | |
+> | Paywall view → paid | 3.1% | 2.75% US median | typical |
+> | Trial → paid | 29% | 26.2% US median | strong |
+> | Plan mix | 70% weekly | weekly leads in your category | typical |
+> | First renewal, monthly | **41%** | 58% six months ago | weak |
+> | Setup | 1 placement, nothing after onboarding | | weak |
+>
+> Monthly renewals cost the most: about $5k a month against your own level in spring.
+
 ## The audit
 
 The audit is the default when the user has no specific question, and the start of every
-conversation that asks "what should I do".
+conversation that asks "what should I do". It looks at the whole business over the window, not at
+what changed last: a part that has been weak for all six months costs more than a dip that just
+started, and it never shows up as a change.
 
 1. **Pick the app** (`apps list`, every page; ask when there are several) and read the catalog.
 2. **Read the numbers and the setup:** run `python3 <skill>/references/reads.py audit --app <APP_ID>
@@ -237,13 +261,15 @@ conversation that asks "what should I do".
    the app itself (its own code or remote config) or made in the legacy Paywall Builder, and the
    CLI cannot tell which. When the app's code is in front of you, look at how it buys: a screen of
    its own that calls `makePurchase` is a custom paywall. Otherwise ask for a
-   screenshot, and whether it was made in the Paywall Builder. A hypothesis about what the screen
+   screenshot. Ask whether it was made in the Paywall Builder only when the user picks a
+   hypothesis that changes it and you offer to build the copy. A hypothesis about what the screen
    shows (its copy, a trial explanation, a badge, the layout, which plan is selected by default)
    needs that screen seen: a rendered flow, a screenshot or the app's code. So does adding or
    removing a trial, plan or offer on a paywall, and seeing the screen is where that check starts,
    not where it ends: removing a trial follows `references/levers.md`, Trials, which drops it on a
    screen built around the trial. A paywall's name never tells you its design. Until then it is not
-   suggested; a "You:" Next step asks for the screenshot and names what it would let you check. A legacy Builder paywall can be moved to the new builder and then
+   suggested; a "You:" Next step asks for the screenshot and names what it would let you check (in an
+   audit, through the **Send me screenshots** section: "What a hypothesis needs"). A legacy Builder paywall can be moved to the new builder and then
    copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it from the data (`references/diagnosis.md`, "What the app already
@@ -262,7 +288,24 @@ conversation that asks "what should I do".
    tried the kind of change you would start with when the data shows no sign of it, a trial the
    numbers do not show, a screenshot when a change on the screen would rank first. Never hold the hypotheses back
    waiting for an answer.
-4. **Follow the biggest signal down** before you name a cause: split it by store, then by channel
+4. **Score the whole business before you chase what changed.** From the audit reads, put each
+   part below against a yardstick: the market median where `references/market.md` has one, the
+   app's own six-month level otherwise. Judge each part on the store that earns, in the main
+   market when there is one.
+   - where the money comes from: store, main market, first payments against renewals
+   - the funnel: install → trial or paid, paywall view → paid, trial → paid
+   - the plan mix, and which length leads by LTV
+   - renewals: the main plan's first renewal, and why subscribers leave
+   - refunds as a share of revenue
+   - the setup: how many placements, what follows the onboarding paywall, an audience for former
+     subscribers, offers that run all the time
+
+   Call each part strong, typical or weak, and rank the weak ones by dollars a month at stake.
+   That ranking, not the newest change, decides the main finding and the first hypothesis. A
+   recent change leads only when its dollars rank first. Every part is scored even when a
+   recent change is large, because the user asked about the whole app.
+
+   **Follow the biggest signal down** before you name a cause: split it by store, then by channel
    whenever any channel has attribution, then by the dimension most likely to explain it (plan
    length, country, week, offer), until one
    value carries it. `references/diagnosis.md`, "Follow the signal down", and check every claim
@@ -301,9 +344,13 @@ conversation that asks "what should I do".
    - a plan, trial or offer removed inside the window, and what moved after
    - a fall at a later step (trial → paid, the first renewal) rather than at the paywall
 
-   What is surprising in these is where the first hypothesis comes from.
-6. **Report**, following "How you write a reply" and "What a hypothesis needs". An audit always
-   ends with hypotheses. When an open question could change the first pick, give them anyway and
+   What is surprising in these goes into the score from step 4; the weakest part by dollars is
+   where the first hypothesis comes from, and the other weak or typical parts are where the rest
+   come from, or the screenshots to ask for ("What a hypothesis needs").
+6. **Report**, following "How you write a reply" and "What a hypothesis needs". The bold answer
+   is about the business as a whole: where it stands and which part costs it most. Under it goes
+   the scorecard from step 4 as a table, one row per part, then the paragraph on what the app
+   already tried, then the main finding. An audit always ends with hypotheses. When an open question could change the first pick, give them anyway and
    say in one line what the answer would change. Before sending any reply with numbers, pass the
    draft to `check-reply` on stdin, with the quoted `'DRAFT'` so the shell leaves every `$` amount
    as written:
@@ -332,7 +379,21 @@ conversation that asks "what should I do".
 A reply with hypotheses gives every one that passes the rules below, up to five; never add one
 to reach a count. When fewer than three pass, the Next step that asks for a screenshot names
 the hypotheses it would let you check ("with a screenshot of offer_31 I can check the default
-plan and how the trial is explained"). Waiting for a fix, a cause or an answer holds none back:
+plan and how the trial is explained").
+
+**An audit asks for the screenshots it needs, and says what they unlock.** The CLI never shows a
+paywall's screen, so an audit of an app on paywalls usually holds back the changes that need one:
+copy, layout, languages, the default plan, a trial or plan on the paywall. When any weak or
+typical part of the scorecard points at such a change, a section under the hypotheses, headed
+**Send me screenshots** (translated), lists one line per screen, at most four: the paywall by
+its name, the store and the country or language to capture it in, and the hypothesis it would let
+you check ("savings_Y39.99-T3W7.99 on Android, in Spanish: whether Latin America gets translated
+copy, the next hypothesis by dollars"). Ask for the paywall that sells most on each placement the
+line names. A screen the app's code in front of you shows is read there, never asked for. The
+Next step that asks for a screenshot then points to that section instead of repeating it.
+
+A test running on a placement delays a hypothesis there, never drops it: suggest it with the
+Time line saying it starts when that test ends, and the "You:" item about the running test. Waiting for a fix, a cause or an answer holds none back:
 a breakage is a Next step, and the hypotheses still come. Each one is a different change: the same change on a second placement is one
 hypothesis that names both placements, never two.
 
