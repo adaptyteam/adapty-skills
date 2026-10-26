@@ -207,9 +207,13 @@ def layout(direction='vertical', gap=0, align_h='start', align_v='start',
     the free space instead — which is how a footer reaches the bottom of a screen
     without docking or padding arithmetic.
 
-    A spread mode needs free space to distribute, so the container must have a
-    definite height — on a screen that means `scrollable: False`. On a scrollable
-    screen the root is content-height and a spread behaves like `gap: 0`.
+    A spread mode needs free space to distribute. A vertical scrollable screen has it: on a
+    device its content is at least the viewport tall, so a root spread works with
+    `scrollable: True` and still scrolls when the content is taller than the phone. An inner
+    stack needs a fill or fixed height for its spread to do anything.
+
+    A spread leaves the surplus as empty space at its seam. On a screen with a hero, give the
+    surplus to the hero instead: `screen()` explains.
     """
     if distribution is not None and distribution not in SPREAD_MODES:
         raise ValueError(
@@ -2360,13 +2364,21 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
            distribution=None, scrollable=True, status_bar=False,
            status_bar_theme='light', safe_area=False, selectable_groups=(),
            progress_bar=False):
-    """A bar that must stay put while content scrolls past it is `footer()`, not a
-    distribution — the pinning is that element's own behaviour.
+    """A tall phone's extra height needs ONE place to go, chosen per screen:
 
-    `distribution='space-between'` with `scrollable=False` is the different job: a SHORT
-    screen whose content should spread to fill the height, with the bar as the second of two
-    children. It does not pin anything, and `scrollable=False` clips content taller than the
-    viewport. See `layout()` for why a spread needs it anyway."""
+    - A screen with a hero image or block: give the hero `height='fill'` as a direct child of
+      the root and put the bar in flow as the last root child, no footer. DEVICE-CONFIRMED: the
+      hero grows on a tall phone and the bar sits on the bottom edge; on a short one the hero
+      shrinks first.
+    - A bar that must stay put while content taller than the phone scrolls past it is
+      `footer()` -- the pinning is that element's own behaviour. Never pair it with a
+      fill-height root child: on a device the hero is sized as if the footer were not there,
+      and the footer covers the content under it. This function refuses that pair.
+    - A screen with no hero: the headline block takes it, as a root-level `stack` at
+      `height='fill'` centred both ways, with the plans and the bar together below it. A root
+      spread opens a hole between the plans and the button instead.
+    - A photo shrinks first on a short phone. If it draws under about 160pt on iphone-se-3, give
+      it a fixed height and put the bar in a footer, so the small phone scrolls."""
     node_map, hierarchy = flatten(list(nodes))
     feet = [k for k, v in node_map.items() if v.get('type') == 'footer']
     # Where a sheet and a footer may sit. A sheet is a root singleton: the transform service reads
@@ -2399,6 +2411,15 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
             'The preview draws it in both modes, so no local check can see this. Either '
             'scrollable=True, or drop the footer and put the bar at the bottom with '
             "distribution='space-between'.")
+    fill_kids = [c['id'] for c in hierarchy['children']
+                 if (node_map[c['id']].get('props', {}).get('height') or {}).get('type') == 'fill']
+    if feet and fill_kids:
+        raise ValueError(
+            f'screen {screen_id!r} pairs a footer ({feet[0]}) with a fill-height root child '
+            f'({fill_kids[0]}). DEVICE-CONFIRMED: the fill child is sized as if the footer were '
+            'not there, so the footer covers the content under it until the user scrolls. The '
+            'preview draws it correctly, so no local check can see this. Keep the fill hero and '
+            'put the bar in flow as the last root child, or keep the footer and drop the fill.')
     if len(feet) > 1:
         raise ValueError(
             f'{len(feet)} footer elements on screen {screen_id!r} ({", ".join(sorted(feet))}) — '

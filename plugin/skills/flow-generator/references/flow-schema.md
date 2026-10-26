@@ -759,12 +759,15 @@ void below it, which is what a user sees as "the layout is broken everywhere". M
 across four screens: replacing dock-plus-padding with one `space-between` root removed both
 defects and deleted the padding arithmetic entirely.
 
-**A spread mode needs free space, so the container must have a definite height.** On a screen that
-means `props.scrollable: false`; a scrollable screen's root is content-height, and a spread there
-behaves like `gap: 0`. That is a real trade, not a detail — `scrollable: false` **clips** content
-taller than the viewport, and the CLI preview cannot show it to you, because `--device` ids are not
-enumerable (see [preview.md](preview.md)). So: **spread the short screens, scroll the tall ones**,
-and decide per screen by rendering rather than by preference.
+**A spread mode needs free space, and a vertical scrollable screen has it.** The transform service
+gives such a screen's content a minimum height of one viewport on the device, so a root spread
+works with `scrollable: true`, and the screen still scrolls when its content is taller than the
+phone. Prefer that to `scrollable: false`, which **clips** taller content. An inner stack needs a
+`fill` or `fixed` height before its own spread does anything.
+
+**A spread leaves the surplus as empty space at its seam.** On a screen with a hero, give the
+surplus to the hero instead: [patterns.md → A tall phone's extra height goes to the
+hero](patterns.md#a-tall-phones-extra-height-goes-to-the-hero).
 
 `flowkit.layout()`/`stack()`/`screen()` take `distribution='space-between'`. The helper emitted
 only the `gap` form for its first release, and that alone is why the other three modes went unused
