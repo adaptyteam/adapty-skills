@@ -299,8 +299,8 @@ started, and it never shows up as a change.
    - the plan mix, and which length leads by LTV
    - renewals: the main plan's first renewal, and why subscribers leave
    - refunds as a share of revenue
-   - the setup: how many placements, what follows the onboarding paywall, an audience for former
-     subscribers, offers that run all the time
+   - the setup: how many placements, what follows the onboarding paywall, offers that run all the
+     time
 
    Call each part strong, typical or weak, and rank the weak ones by dollars a month at stake.
    A conversion (paywall view → paid, paywall view → trial, trial → paid) is graded by its row in
@@ -336,8 +336,6 @@ started, and it never shows up as a change.
    - only one plan length on the paywall
    - a plan length with under 5% of purchases
    - only one placement, or nothing after the onboarding paywall closes
-   - most endings are users switching off renewal, and no placement has an audience for former
-     subscribers
    - a main market
    - fewer than about 200 purchases in two weeks
    - a discount or promo that runs all the time (an onboarding offer, a win-back paywall) with no
