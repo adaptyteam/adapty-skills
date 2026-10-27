@@ -21,6 +21,35 @@ their category, and never present a median as their target.
   the median says the app is typical, not that it is done.
 - **App Store only.** For a Google Play question, say there is no market median here.
 
+## The full grid
+
+`market-grid.csv`, next to this file, holds the report's own tables: one row per measure, plan,
+region and category, with the median, the 25th, 75th and 90th percentiles, and for `view-paid`
+the number of apps behind it. The headline numbers on this page come from it.
+
+- **Measures:** `view-paid`, `view-trial` and `trial-paid` match the app's conversions of the same
+  id. `trial-cancelled-1h` and `trial-cancelled-24h` are the share of trials with auto-renew
+  turned off within an hour and a day; the CLI has no read that matches them, so they are context
+  only.
+- **Pick the row:**
+  - the plan the rate is about (`Weekly`, `Monthly`, `Annual`), or `All plans` for the app's
+    rate across plans;
+  - the main market's region: `US` on its own, or `Europe`, `APAC`, `LATAM` or `MEA` by the
+    main market's country; `All regions` when no market leads;
+  - the app's App Store primary category when it is one of the eight (Education, Entertainment,
+    Graphics & Design, Health & Fitness, Lifestyle, Photo & Video, Productivity, Utilities),
+    `All categories` otherwise. The CLI does not show the category: use the one the user or the
+    app's code names, else `All categories`, and say which row you used.
+
+  ```bash
+  grep '^trial-paid,Annual,US,' <skill>/references/market-grid.csv
+  ```
+- **An empty cell** means fewer than 20 apps qualified: step up to `All categories`, then
+  `All plans`, and say so.
+- **Grade a rate by its row:** below p25 is weak, above p75 strong, in between typical. Name the
+  row in the reply ("the US median for annual plans in Photo & Video, 22.2%"), never the grade's
+  cutoffs.
+
 ## Conversion
 
 | Measure | Median | Notes |
@@ -66,6 +95,9 @@ Six-month revenue per subscriber, against full price:
 | Up to 30% off | 90% |
 | 31-60% off | 70% |
 | Over 60% off | 46% |
+
+Discounted subscribers also renew less: 6.3 points below full price up to 30% off, 7.9 points at
+31-60%, 10.5 points over 60% (same-app comparisons).
 
 Offers work far better for win-back: 56% of returning subscribers who take an offer still pay
 three months later, against about 1 in 10 new users who start with one.
