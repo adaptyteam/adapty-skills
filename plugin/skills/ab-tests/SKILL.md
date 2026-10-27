@@ -63,7 +63,7 @@ Write a literal `adapty` in a command you show the user. Every command takes `--
 | `ab-tests list` | `--type paywall\|flow` (default **flow**: a paywall test is missing from a default list, so ask for both), `--state live\|draft\|completed\|inactive\|archived`, `--placement` (may repeat), `--segment` (may repeat: the tests of that segment's audience, drafts with that planned segment too), `--search`, `--page`, `--page-size` (use 100) |
 | `ab-tests get <id>` | the test and its arms |
 | `ab-tests create` | `--title`, `--goal`, `--placement` (required, of the test's kind: paywall or flow), `--segment <id>` or `--all-users` (a plan only), exactly one of `--paywalls '<json>'` / `--flows '<json>'` |
-| `ab-tests update <id>` | the same flags as create (`--placement` optional). **The whole test is sent again:** a flag you leave out is cleared (goal, placement, planned audience). A started test changes only title and goal: send the same arms, placement and audience again; a completed or archived test cannot change |
+| `ab-tests update <id>` | the same flags as create (`--placement` optional). **The whole test is sent again:** a flag you leave out is cleared (goal, placement, planned audience). A started test changes only title and goal: send the same arms, placement and audience again (`--all-users` when `segment_ids` is `[]`, else `--segment <id>`); a completed or archived test cannot change |
 | `ab-tests start <id>` | only a draft; `--placement`, exactly one of `--segment <id>` / `--all-users`, `--yes` |
 | `ab-tests stop <id>` | exactly one of `--winner <id>` (the `paywall_id` or `flow_id` of an arm of the test), `--other <id>` (the `paywall_id` or `flow_id` of other content, not an arm), `--no-content` (not on All users), `--yes` |
 | `ab-tests replace <id>` | `--title`, `--goal`, `--placement` (required), exactly one of `--paywalls` / `--flows` with the same number of arms as the live test, `--yes`; no audience flag |
@@ -87,7 +87,7 @@ own text. These come back often:
 |---|---|---|
 | `The sum of the weights must equal 100, but has N.` | the arms | fix the weights |
 | `Flow(<id>) must be published before adding to AB test.` | an unpublished flow | `flow-generator` publishes it first |
-| `Paywalls cannot be changed in non-draft ab tests.`, `Placement cannot be changed in non-draft ab tests.` | an update on a started test changed arms or placement | send the arms and placement as read, or use `replace` |
+| `Paywalls cannot be changed in non-draft ab tests.`, `Placement cannot be changed in non-draft ab tests.` | an update on a started test changed arms or placement | send the arms, placement and audience as read, or use `replace` |
 | `AB Test from default audience can not be stopped.` | `--no-content` on All users | `--winner` or `--other` instead |
 | `Only a draft can start. To run it again, make a copy: get, then create.` | a start of a test that is not a draft | offer a copy: `get` the old test, `create` a new one |
 | `Completed and archived ab tests cannot be changed.`, `Audience cannot be changed in non-draft ab tests.` | an update of a finished test, or of the audience of a started one | a new test; for a live test `replace` or the title and goal only |
@@ -209,9 +209,9 @@ placement has no users until that release is out.
    keep what they see), first have `audiences` add the segment as a regular row at that position,
    showing the content those users see now, so nobody's screen changes; then start on that row.
 5. **Change a started test.** Only the title and the goal: `update`, which keeps the test, its start
-   time and its draw; resend the arms and placement exactly as `get` returned them (arm titles too)
-   and pass no audience flag: the audience of a started test never changes. New arms or weights
-   on a live test: `replace`, with its card, with the same number of arms. A completed or archived
+   time and its draw; resend the arms, the placement and the audience exactly as `get`
+   returned them (arm titles too; `--all-users` when `segment_ids` is `[]`, else `--segment <id>`):
+   the audience of a started test never changes. New arms or weights on a live test: `replace`, with its card, with the same number of arms. A completed or archived
    test cannot change: create a new test.
 6. **Stop**, with the card, when the user names the winner or the other content, or says "no
    content". Ask which if they only say "stop it". "No content" is impossible on All users: offer
