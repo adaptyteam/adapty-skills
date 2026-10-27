@@ -166,6 +166,31 @@ def flat_text(value, locale=None):
     return ' '.join(''.join(out).split())
 
 
+def branch_text(value, locale=None):
+    """`flat_text`, plus the text of every branch of a conditional-text `switch`.
+
+    `flat_text` renders a switch as '' (see `_has_content`), so a price line written as
+    "7 days free, then $4.99/week" inside a switch on the trial flag was invisible to the
+    disclosure checks and `trial-terms-incomplete` fired on a screen that states its terms.
+    Used by `check_disclosure` only: the other text readers are calibrated against
+    `flat_text` as it is. Branches are joined with ' | ', as elements are, so a term in one
+    branch never runs into the next. Recursed the way `_has_content` recurses, so a switch
+    nested in a branch is read too.
+    """
+    parts = [flat_text(value, locale)]
+    v = value
+    if isinstance(v, dict) and 'values' in v:
+        vals = v['values'] or {}
+        v = vals.get(locale) if locale in vals else next(iter(vals.values()), None)
+    if isinstance(v, dict) and v.get('type') == 'switch':
+        branches = [c[1] for c in (v.get('cases') or [])
+                    if isinstance(c, (list, tuple)) and len(c) == 2]
+        if 'default' in v:
+            branches.append(v['default'])
+        parts += [branch_text(b.get('value'), locale) for b in branches if isinstance(b, dict)]
+    return ' | '.join(p for p in parts if p)
+
+
 def node_kinds(value, locale=None):
     """The node `type`s present in a localizable/rich-text value."""
     if isinstance(value, dict) and 'values' in value:
@@ -1320,8 +1345,10 @@ def check_disclosure(config, catalog):
         if bound and bound <= lifetime_only:
             continue
         emap = (s.get('elements') or {}).get('map') or {}
+        # `branch_text`, not `flat_text`: a disclosure written inside a conditional-text
+        # switch (the price line switching on the trial flag) is still on the screen.
         blob = ' | '.join(
-            flat_text((e.get('props') or {}).get('content'), dl)
+            branch_text((e.get('props') or {}).get('content'), dl)
             for e in emap.values() if e.get('type') == 'text')
         if not period_terms(blob):
             out.append(finding(
@@ -1351,7 +1378,7 @@ def check_disclosure(config, catalog):
         # cheapest to create and most expensive to keep.
         #
         # A fourth, `VAR_RE.search(blob)` (a price VARIABLE), was here and was DEAD
-        # CODE: `blob` comes from `flat_text`, which renders a variable node as '' by
+        # CODE: `blob` comes from `branch_text`/`flat_text`, which render a variable node as '' by
         # design (see its docstring), so no variable id ever reaches this string and
         # the branch could not match. Removing it reddened nothing. Do not re-add it --
         # this file's own history is full of assertions that shipped unable to fail,
@@ -1513,9 +1540,11 @@ def _has_content(value, locale):
 
     KNOWN LIMITATION, deliberately not fixed here: `flat_text` still returns '' for a
     switch, so a conditional field is invisible to the `same`-as-base parity count and to
-    every other check that reads visible text. Widening `flat_text` reaches the price and
-    store-review checks, which are calibrated against measured false positives, so it
-    needs its own calibration rather than a ride on this one.
+    every other check that reads visible text, except the two disclosure checks
+    (`no-period-disclosed`, `trial-terms-incomplete`), which read `branch_text` after a
+    false positive on trial terms written inside a switch. Widening `flat_text` itself
+    reaches the price checks, which are calibrated against measured false positives, so
+    each further reader needs its own calibration rather than a ride on this one.
     """
     if flat_text(value, locale):
         return True

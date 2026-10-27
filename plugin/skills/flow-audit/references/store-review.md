@@ -450,9 +450,17 @@ saying something — a currency amount (`MONEY_RE`), a billing verb (`BILLING_VE
 a period term — a **deliberately generous bar**, because this check reads copy, and copy
 is where false positives are cheapest to create and most expensive to keep.
 
+**The copy includes every branch of a conditional-text `switch`.** The screen's text is
+read with `branch_text`, not `flat_text`, which renders a switch as `''`: a real audit
+fired this check on a price line written as a switch on the trial flag ("7 days free, then
+$4.99/week" when the trial applies). Any branch counts, the same generous bar: one branch
+stating the terms clears the screen, and a trial promised only inside a branch is now seen.
+Pinned by inline-shape, catalog-shape and promise-only-in-a-branch cases, and
+negative-tested by running the same screen through a copy that reads `flat_text` again.
+
 **A fourth satisfier was advertised and did not exist.** `after` also tested
 `VAR_RE.search(blob)` — a price *variable* — and that branch was **dead code**: `blob`
-comes from `flat_text`, which renders a variable node as `''` by design, so no variable
+comes from `branch_text`, which like `flat_text` renders a variable node as `''`, so no variable
 id ever reaches the string. Removing it reddened nothing, which is this repo's own
 "assertions shipped unable to fail" class one level over. Removed, with the reason
 pinned in a comment at the call site. If a variable-backed price should ever count here,

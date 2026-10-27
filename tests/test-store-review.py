@@ -15,7 +15,7 @@ stay clean when store-review findings are the only ones that fired.
 
 Usage: python3 tests/test-store-review.py     # 0 all pass, 1 a case regressed
 """
-import copy, glob, json, os, re, subprocess, sys, tempfile
+import copy, glob, json, os, re, shutil, subprocess, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from v13 import localization  # noqa: E402
 
@@ -592,6 +592,87 @@ check('...and the fixture no longer raises hardcoded-price blockers as a side ef
       'outside every product card, so nothing else is reported alongside it)',
       not of(findings, 'hardcoded-price'),
       str([f['element'] for f in of(findings, 'hardcoded-price')]))
+
+# Conditional text. A price line written as a `switch` on the trial flag ("7 days free,
+# then $4.99/week" when the trial applies, "$4.99/week" otherwise) states the terms, and
+# `flat_text` renders a switch as '' -- so `trial-terms-incomplete` fired on it, reported
+# from a real audit. The disclosure blob now reads `branch_text`. Both value shapes are
+# built: the inline one (the per-locale value is the switch) and the catalog one after
+# `localization.resolve` (the property is the switch and each branch holds `{values}`).
+def _blocks(text):
+    return [{'type': 'paragraph', 'content': [{'type': 'text', 'text': text}]}]
+
+
+TRIAL_FLAG = {'type': '==', 'left': {'type': 'var', 'variableId': 'products.selectedProduct.hasTrial'},
+              'right': {'type': 'const', 'value': True}}
+
+
+def _inline_switch(on, off):
+    return {'values': {'en': {'type': 'switch',
+                              'cases': [[TRIAL_FLAG, {'type': 'const', 'value': _blocks(on)}]],
+                              'default': {'type': 'const', 'value': _blocks(off)}}}}
+
+
+def _catalog_switch(on, off):
+    return {'type': 'switch',
+            'cases': [[TRIAL_FLAG, {'type': 'const', 'value': {'values': {'en': _blocks(on)}}}]],
+            'default': {'type': 'const', 'value': {'values': {'en': _blocks(off)}}}}
+
+
+def _with_second_text(doc, content, first=None):
+    """Copy of `doc` whose scr_paywall second text element carries `content` (and the
+    first, when given, says `first` instead of the trial promise)."""
+    d = copy.deepcopy(doc)
+    for s in d['screens']:
+        if s['id'] != 'scr_paywall':
+            continue
+        texts = [e for e in ((s.get('elements') or {}).get('map') or {}).values()
+                 if e.get('type') == 'text']
+        if first is not None:
+            texts[0]['props']['content'] = {'values': {'en': _blocks(first)}}
+        texts[1]['props']['content'] = content
+    return d
+
+
+switch_terms = _with_second_text(bare, _inline_switch('7 days free, then $4.99/week', '$4.99/week'))
+rc, findings = run(switch_terms)
+check('silent when the trial terms are written inside a conditional-text switch (inline shape)',
+      not of(findings, 'trial-terms-incomplete'), str(of(findings, 'trial-terms-incomplete')))
+check('...and the period inside the switch satisfies no-period-disclosed',
+      not of(findings, 'no-period-disclosed'), str(of(findings, 'no-period-disclosed')))
+
+rc, findings = run(_with_second_text(bare, _catalog_switch('7 days free, then $4.99/week', '$4.99/week')))
+check('silent when the trial terms are inside a switch in the catalog shape (branches hold {values})',
+      not of(findings, 'trial-terms-incomplete'), str(of(findings, 'trial-terms-incomplete')))
+
+# FIRES: the trial is promised ONLY inside a switch branch and nothing states what follows.
+# Before `branch_text` the promise itself was invisible, so this screen was silent: a miss,
+# now a finding.
+rc, findings = run(_with_second_text(
+    bare, _inline_switch('Start your 7-day free trial', 'Everything you need'),
+    first='Everything you need'))
+check('fires when the only trial promise sits inside a switch and no terms follow it',
+      len(of(findings, 'trial-terms-incomplete')) == 1, str(of(findings, 'trial-terms-incomplete')))
+
+# Negative test of the mechanism: the same switch-terms screen against a copy of the
+# script whose disclosure blob reads `flat_text` again must fire, or the silence above
+# is caused by something other than `branch_text`.
+with tempfile.TemporaryDirectory() as tmp:
+    src = open(AUDIT).read()
+    marker = "branch_text((e.get('props') or {}).get('content'), dl)"
+    check('the disclosure blob is built with branch_text (the negative test can find it)',
+          src.count(marker) == 1, str(src.count(marker)))
+    # The whole references dir, since the script imports its siblings (`localization.py`).
+    refs = os.path.join(tmp, 'references')
+    shutil.copytree(os.path.dirname(AUDIT), refs)
+    old = os.path.join(refs, 'audit-flow.py')
+    open(old, 'w').write(src.replace(marker, "flat_text((e.get('props') or {}).get('content'), dl)"))
+    cpath = os.path.join(tmp, 'c.json')
+    json.dump(switch_terms, open(cpath, 'w'))
+    r = subprocess.run([sys.executable, old, cpath, '--json', '--catalog', CATALOG],
+                       capture_output=True, text=True)
+    check('...and with flat_text instead, the switch-terms screen fires trial-terms-incomplete',
+          len(of(json.loads(r.stdout)['findings'], 'trial-terms-incomplete')) == 1, r.stderr[-300:])
 
 # A screen with neither period nor trial terms produces BOTH findings -- the two
 # `check_disclosure` halves read the same per-screen blob independently. Uses the
