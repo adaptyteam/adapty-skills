@@ -163,8 +163,12 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
 - **Win-back offer:** former subscribers (paid before, no active subscription now), or users whose
   trial ended without paying (subscription state "trial cancelled"), get their own
   audience on an in-app placement with a discounted paywall; everyone else keeps the current one.
-  A candidate when most endings are users switching off renewal (read 6 in `diagnosis.md`) and no
-  placement has an audience for former subscribers. Offers keep far more revenue on returning
+  When the user did not ask for win-back, it is a candidate only when the scorecard grades renewals
+  weak, or renewals carry a fall in revenue, and no placement has an audience for former
+  subscribers. Most endings being users switching off renewal is the norm, not a signal (read 6 in
+  `diagnosis.md`). Until a segment for former subscribers exists it cannot be sized: it comes after
+  every sized hypothesis, as one Next step (create the segment, then size it), never a hypothesis
+  block. When renewals are not weak, it gets one line at most. Offers keep far more revenue on returning
   subscribers than on new users (`market.md`, Discounts), which is why the offer must not reach
   new users. It needs a segment, created through `audiences`: subscription state "subscription
   cancelled" is the direct signal, and total revenue above 0 keeps out anyone who never paid. It
@@ -216,8 +220,7 @@ stake. It questions money they already spend, which a dashboard never shows them
 
 When no split shows one group carrying a gap and no step of the funnel is clearly weak, say so in
 the bold answer ("nothing is broken; these are bets"). Then suggest growth bets, still ranked by
-purchases at stake: a lever the app has not touched (a placement at a value moment, a win-back
-audience, a plan length or lifetime it does not sell), a strong part copied to a group that lacks
+purchases at stake: a lever the app has not touched (a placement at a value moment, a plan length or lifetime it does not sell), a strong part copied to a group that lacks
 it ("Build on what works"), something rare in the market with evidence
 behind it (`market.md`, How paywalls look; `evidence.md`), a bet aimed at a segment, and at least
 one bolder change sized to their traffic. Never fill the list with standard moves the app already

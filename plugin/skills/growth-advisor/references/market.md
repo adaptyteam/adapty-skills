@@ -100,7 +100,8 @@ Discounted subscribers also renew less: 6.3 points below full price up to 30% of
 31-60%, 10.5 points over 60% (same-app comparisons).
 
 Offers work far better for win-back: 56% of returning subscribers who take an offer still pay
-three months later, against about 1 in 10 new users who start with one.
+three months later, against about 1 in 10 new users who start with one. That is who stays among
+the people who took an offer, not what an offer adds: never use it as an expected gain.
 
 ## Timing and placements
 
