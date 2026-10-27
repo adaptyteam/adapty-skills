@@ -217,10 +217,27 @@ stake. It questions money they already spend, which a dashboard never shows them
 When no split shows one group carrying a gap and no step of the funnel is clearly weak, say so in
 the bold answer ("nothing is broken; these are bets"). Then suggest growth bets, still ranked by
 purchases at stake: a lever the app has not touched (a placement at a value moment, a win-back
-audience, a plan length or lifetime it does not sell), something rare in the market with evidence
+audience, a plan length or lifetime it does not sell), a strong part copied to a group that lacks
+it ("Build on what works"), something rare in the market with evidence
 behind it (`market.md`, How paywalls look; `evidence.md`), a bet aimed at a segment, and at least
 one bolder change sized to their traffic. Never fill the list with standard moves the app already
 makes.
+
+## Build on what works
+
+A strong part of the scorecard (`SKILL.md`, step 4) is a source of hypotheses too: when the app
+set something up differently where it is strong, the hypothesis copies that setup to a similar
+group that does not have it yet. A part becomes a hypothesis only when all three hold:
+
+1. **It beats its comparison on real volume:** the market median or the rest of the app, by a
+   third or more, on at least about 20 purchases or trials (`diagnosis.md`, "Small numbers are
+   noise").
+2. **A read shows what the app does differently there:** its own paywall, flow or audience, a
+   translated paywall, another plan or trial, a placement at another moment. When the strong group
+   gets the same setup as everyone, its users are the reason, not the setup: say so in one line
+   and suggest nothing.
+3. **There is a group to copy it to** that lacks the setup and resembles the strong one: a country
+   with the same language or a neighboring market, the other store, a similar moment in the app.
 
 ## Segments
 
