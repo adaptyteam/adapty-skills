@@ -29,7 +29,8 @@ Resolve `$ADAPTY` once and use it for every call:
 
 ```bash
 adapty attribution --help >/dev/null 2>&1 && ADAPTY="adapty" || {
-  npm i -g adapty@latest >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
+  npm i -g adapty@latest >/dev/null 2>&1
+  adapty attribution --help >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
 ```
 
 If `$ADAPTY attribution --help` still reports no such topic, try `npx --yes adapty@beta attribution

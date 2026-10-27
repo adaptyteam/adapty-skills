@@ -57,6 +57,17 @@ def cli(adapty, args):
     return None, 'rate limited twice'
 
 
+def has_analytics(adapty):
+    """Whether this CLI has the analytics topic. An older install answers every read with "command not
+    found", which would print as dozens of failed reads instead of one fix."""
+    try:
+        p = subprocess.run(shlex.split(adapty) + ['analytics', 'catalog', '--help'], capture_output=True,
+                           text=True)
+    except OSError:
+        return False
+    return p.returncode == 0
+
+
 def every_page(adapty, app, topic):
     rows, page = [], 1
     while True:
@@ -995,6 +1006,12 @@ def run():
     if a.command == 'placement' and not a.placement:
         ap.error('placement needs --placement <PLACEMENT_ID>')
     a.months = a.months or (6 if a.command == 'audit' else 12)
+    if not has_analytics(a.adapty):
+        print(f'STOP: `{a.adapty}` has no analytics commands, so no read was made. It is an adapty CLI older '
+              'than the analytics topic, or not the one npm just updated (another install comes first on '
+              'PATH). Resolve $ADAPTY again as "The CLI" says; if `adapty analytics catalog --help` still '
+              'fails, use `npx --yes adapty@latest`. Then rerun this command with --adapty "$ADAPTY".')
+        return 2
     (audit if a.command == 'audit' else placement)(a)
     if FAILED:
         print('\n## could not read: say so in the reply, and what it leaves open')
