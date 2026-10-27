@@ -155,11 +155,11 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Every command, flag and output field comes from `src/cli/commands/ab-tests/*` in `adapty-cli`,** not from help text. Older CLI releases have no `ab-tests` commands; the skill checks `ab-tests --help`, never a version number.
 - **Start, stop, replace and archive run only after the user's yes to the exact effect:** who sees what from when, what stops, what cannot be undone; then `--yes`. The CLI asks only at a terminal and refuses with exit 6 elsewhere, so the skill's card is the confirmation. An unattended run never does these four.
 - **Read the test and the placement before each of the four; read the placement again just before a start, stop or replace.** Changed since the user saw it: a new card, a new question.
-- **Never start a test that is not a draft** (it would start again with old users on their old arms); offer a new test, or `replace` for a live one.
+- **Never start a test that is not a draft** (the server refuses it); offer a new test (`get`, then `create`), or `replace` for a live one.
 - **Never update a placement.** Only `ab-tests` commands start, stop and replace tests; a placement write that carries a test entry belongs to `audiences`, which keeps entries as read. The one placement write is `placements create` for a placement that does not exist, after a yes to its permanent developer ID; say the app needs the fetch call (`adapty-integration`).
 - **Make missing pieces, check the rest:** a flow arm needs `status` `published` in `flows get` (`draft` and `dirty` are published first); a paywall arm that differs only in products is `paywalls create` on a yes; a new design, a new store product and the app code are the user's. A segment comes from `audiences`, segment only. A start puts a segment without a row at the top; a lower position is an `audiences` row first, then the start on it.
-- **`update` sends the whole test again:** a flag left out is cleared. On a started test it changes only title and goal, with the arms and placement as read.
-- **`list` shows flow tests unless `--type paywall` is given;** look at both types.
+- **`update` sends the whole test again:** a flag left out is cleared. On a started test it changes only title and goal, with the arms and placement as read, never the audience; a completed or archived test cannot change. `create` needs a placement of the test's kind; `replace` keeps the number of arms.
+- **`list` shows flow tests unless `--type paywall` is given;** look at both types. `--placement` and `--segment` may repeat.
 
 ### `adapty-attribution`
 

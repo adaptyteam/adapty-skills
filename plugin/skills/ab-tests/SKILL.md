@@ -60,14 +60,14 @@ Write a literal `adapty` in a command you show the user. Every command takes `--
 
 | Command | Flags |
 |---|---|
-| `ab-tests list` | `--type paywall\|flow` (default **flow**: a paywall test is missing from a default list, so ask for both), `--state live\|draft\|completed\|inactive\|archived`, `--placement`, `--search`, `--page`, `--page-size` (use 100) |
+| `ab-tests list` | `--type paywall\|flow` (default **flow**: a paywall test is missing from a default list, so ask for both), `--state live\|draft\|completed\|inactive\|archived`, `--placement` and `--segment` (each may repeat), `--search`, `--page`, `--page-size` (use 100) |
 | `ab-tests get <id>` | the test and its arms |
-| `ab-tests create` | `--title`, `--goal`, `--placement`, `--segment <id>` or `--all-users` (a plan only), exactly one of `--paywalls '<json>'` / `--flows '<json>'` |
-| `ab-tests update <id>` | the same flags as create. **The whole test is sent again:** a flag you leave out is cleared (goal, placement, planned audience) |
-| `ab-tests start <id>` | `--placement`, exactly one of `--segment <id>` / `--all-users`, `--yes` |
-| `ab-tests stop <id>` | exactly one of `--winner <id>` (the `paywall_id` or `flow_id` of an arm of the test), `--other <id>` (the `paywall_id` or `flow_id` of other content, not an arm), `--no-content`, `--yes` |
-| `ab-tests replace <id>` | `--title`, `--goal`, `--placement`, exactly one of `--paywalls` / `--flows`, `--yes`; no audience flag |
-| `ab-tests archive <id>` | `--yes` |
+| `ab-tests create` | `--title`, `--goal`, `--placement` (required, of the test's kind: paywall or flow), `--segment <id>` or `--all-users` (a plan only), exactly one of `--paywalls '<json>'` / `--flows '<json>'` |
+| `ab-tests update <id>` | the same flags as create. **The whole test is sent again:** a flag you leave out is cleared (goal, placement, planned audience). A started test changes only title and goal, never the audience; a completed or archived test cannot change |
+| `ab-tests start <id>` | only a draft; `--placement`, exactly one of `--segment <id>` / `--all-users`, `--yes` |
+| `ab-tests stop <id>` | exactly one of `--winner <id>` (the `paywall_id` or `flow_id` of an arm of the test), `--other <id>` (the `paywall_id` or `flow_id` of other content, not an arm), `--no-content` (not on All users), `--yes` |
+| `ab-tests replace <id>` | `--title`, `--goal`, `--placement`, exactly one of `--paywalls` / `--flows` with the same number of arms as the live test, `--yes`; no audience flag |
+| `ab-tests archive <id>` | `--yes` (an archived test cannot be archived again) |
 | `flows get <id>` | `status`: `draft`, `dirty`, `publishing`, `published` or `publication_failed` (`flows list` may leave it out) |
 | `paywalls create` | `--title`, `--product-id <id>` once per product; a paywall with no design of its own |
 | `placements create` | `--title`, `--developer-id`, `--audiences '<json>'` ("A new placement") |
@@ -89,6 +89,12 @@ own text. These come back often:
 | `Flow(<id>) must be published before adding to AB test.` | an unpublished flow | `flow-generator` publishes it first |
 | `Paywalls cannot be changed in non-draft ab tests.`, `Placement cannot be changed in non-draft ab tests.` | an update on a started test changed arms or placement | send the arms and placement as read, or use `replace` |
 | `AB Test from default audience can not be stopped.` | `--no-content` on All users | `--winner` or `--other` instead |
+| `Only a draft can start. To run it again, make a copy: get, then create.` | a start of a test that is not a draft | offer a copy: `get` the old test, `create` a new one |
+| `Completed and archived ab tests cannot be changed.`, `Audience cannot be changed in non-draft ab tests.` | an update of a finished test, or of the audience of a started one | a new test; for a live test `replace` or the title and goal only |
+| `ABTest should contain similar types for paywalls and placement.` | a paywall test on a flow placement, or the reverse | pick a placement of the test's kind |
+| `The number of variants cannot be changed in a live ab test.` | a replace with another number of arms | send the same number |
+| `This test is already archived.` | an archive of an archived test | nothing to do |
+| `Archived paywall can not be used.`, `Flow is deleted.` | a start of a draft whose content is gone | change the draft's arms (`update`), then start |
 | `AB Test to stop must be live.` | a stop or replace of a test that is not live | say so; a new test is the way |
 | `Live Ab Test can not be deleted.` | an archive of a live test | stop it first (a stop has its own card) |
 
@@ -122,13 +128,12 @@ own text. These come back often:
      `flow_cross_ab_test`) is not yours: send the user to the dashboard.
    - **Stop.** Say which content the audience shows afterwards (the winner, the other content, or
      nothing: its row leaves the placement and its users get the next audience they match). The
-     test becomes completed; **it does not run again unless started again**, and this skill does not
-     start it again (see Never).
+     test becomes completed and **does not run again**: a completed test cannot start (see Never).
    - **Replace.** The live test stops and becomes completed, its results stay on its id. A new test
      with a new id starts on the same audience with new arms, and every user of the audience gets a
-     new draw. Another `--placement` moves the audience there (refused on All users).
+     new draw. The new arms keep the number of arms of the live test. Another `--placement` moves the audience there (refused on All users).
    - **Archive.** The test leaves the lists and **cannot be unarchived.** Only a test that does not
-     run; a live one is stopped first.
+     run; a live one is stopped first. An archived test cannot be archived again.
 3. **Wait for the user's yes.** Only an answer to this card counts, not an earlier "go ahead"
    about the plan. "No", silence or a change of plan: send nothing.
 4. **Read the placement again** just before a start, stop or replace and compare its audiences
@@ -203,21 +208,21 @@ placement has no users until that release is out.
    a start cannot put it anywhere else. When the test must sit below another audience (its users
    keep what they see), first have `audiences` add the segment as a regular row at that position,
    showing the content those users see now, so nobody's screen changes; then start on that row.
-5. **Change a started test.** Rename or new goal: `update`, which keeps the test, its start time
-   and its draw; resend the arms and placement exactly as `get` returned them (arm titles too) and
-   pass no audience flag. New arms or weights on a live test: `replace`, with its card. On a
-   completed test: create a new test.
+5. **Change a started test.** Only the title and the goal: `update`, which keeps the test, its start
+   time and its draw; resend the arms and placement exactly as `get` returned them (arm titles too)
+   and pass no audience flag: the audience of a started test never changes. New arms or weights
+   on a live test: `replace`, with its card, with the same number of arms. A completed or archived
+   test cannot change: create a new test.
 6. **Stop**, with the card, when the user names the winner or the other content, or says "no
-   content". Ask which if they only say "stop it".
+   content". Ask which if they only say "stop it". "No content" is impossible on All users: offer a winner or other content.
 7. **Archive** old tests with the card, one at a time.
 8. **Close** with what runs now and one next step. The results are in the dashboard.
 
 ## Never
 
-- **Never start a test that is not a draft.** A completed, inactive or archived test would start
-  again with the same id, and users who were in it get their old arm again. Say that and offer a
-  new test (`get` the old one and `create` a copy), or `replace` for a live one. A live test is
-  already running: there is no start.
+- **Never start a test that is not a draft.** The server refuses it. Say so and offer a new test
+  (`get` the old one and `create` a copy), or `replace` for a live one. A live test is already
+  running: there is no start.
 - **Never run start, stop, replace or archive without the user's yes to the card of this
   situation**, and never on a placement that changed since they saw it.
 - **Never put `--yes` on a command the user will run themselves.** It deletes the question the CLI
