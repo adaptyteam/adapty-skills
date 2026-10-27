@@ -26,7 +26,11 @@ $ADAPTY analytics values --app <APP_ID> --dimension country --json
   a filter value; never pass it to `--filter`.
 - Take filter values from `analytics values`; pass the `value`, not the `label`. A value is sent
   exactly as written, spaces included; an empty one (`--filter country=`) selects the "No Data"
-  group.
+  group. A product's value is `<store>:<store product id>` (`app_store:com.app.weekly`), never
+  the Adapty product id from `products list`.
+- To compare every product, store or country on one conversion, group instead of looping over
+  filters: conversions take `--group-by store_product_id` (and the other groupings the catalog
+  lists), so one call answers every group.
 - If `analytics catalog` says the command does not exist, try `npx --yes adapty@beta analytics
   catalog --help` once. If that fails too, the user's CLI has no analytics yet: ask them for the
   numbers below from the dashboard's Analytics page, and say which ones you need.
@@ -133,6 +137,18 @@ onboarding and one shown on a feature limit see different users. An LTV
 point the cohort has not reached is `null`: compare lengths only at a point every one of them
 reached. `analytics cohort` gives revenue per install cohort with a prediction; read it when the
 question is whether a recent month's users are worth less.
+
+The subscription path per plan is one grouped call per step, never a loop of filters:
+
+```bash
+# Each renewal step by product: run it for paid-2period, then 2period-3period, 3period-4period, 4period-5period
+$ADAPTY analytics conversion --app <APP_ID> --conversion paid-2period --date-from $FROM --date-to $TO --granularity month --group-by store_product_id --json
+```
+
+Each group is one product; `trial-paid` grouped the same way gives the step before. Leave out a
+product whose step has under about 20 subscriptions behind it. An empty answer can mean the
+window's subscribers have not reached that step yet: widen `FROM`, or take
+`meta.recommended_period`.
 
 Then the main market and the top countries:
 
@@ -501,8 +517,8 @@ to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
    for renewal (a past promo, a change to the plans, a weak acquisition month a year earlier for
    annual). Billing issues point to grace period and payment retries: `billing-issue-paid` and
    `grace-period-paid` say how many are recovered. Read the renewal-step conversions
-   (`paid-2period` and on) by `duration`, read 11 and `analytics cohort` to find the cohort that
-   renews worse. Ask what changed then; the CLI shows no release
+   (`paid-2period` and on) by `duration`, or by product (the grouped call after read 13), read 11
+   and `analytics cohort` to find the cohort that renews worse. Ask what changed then; the CLI shows no release
    history.
 3. **New revenue fell:** chart 3 and chart 4. Installs down is traffic (`adapty-attribution` owns
    campaigns). Installs flat and new subscriptions down is the funnel or the paywall: read 9 with
