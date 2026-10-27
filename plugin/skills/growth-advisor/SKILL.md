@@ -345,10 +345,13 @@ started, and it never shows up as a change.
    - views or events that stopped arriving while purchases did not
    - a plan, trial or offer removed inside the window, and what moved after
    - a fall at a later step (trial → paid, the first renewal) rather than at the paywall
+   - a country, paywall, placement or store a third or more above its median or the rest of the
+     app, with a setup of its own (`references/levers.md`, "Build on what works")
 
    What is surprising in these goes into the score from step 4; the weakest part by dollars is
-   where the first hypothesis comes from, and the other weak or typical parts are where the rest
-   come from, or the screenshots to ask for ("What a hypothesis needs").
+   where the first hypothesis comes from, and the other weak or typical parts, and strong ones
+   with a setup to copy, are where the rest come from, or the screenshots to ask for ("What a
+   hypothesis needs").
 6. **Report**, following "How you write a reply" and "What a hypothesis needs". The bold answer
    is about the business as a whole: where it stands and which part costs it most. Under it goes
    the scorecard from step 4 as a table, one row per part, then the paragraph on what the app
