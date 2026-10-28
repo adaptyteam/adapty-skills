@@ -293,6 +293,17 @@ What is not defensible is arriving at a sequence by inertia.
 - **The same skeleton twice in a row is a smell.** If your last flow used this shape, check that
   you are choosing it rather than carrying a previous build's script forward.
 
+## After a trial starts, the reminder is the reason
+
+**When notifications are asked after a paywall that starts a free trial, whether they are already
+there or rule 3 moves them, the ask goes right after the trial starts, and its first reason is the
+trial reminder:** "We'll remind you 2 days before
+your trial ends. Turn on notifications?" The user wants that one more than anything the app sends
+later, so it carries the opt-in. Keep the app's own reason on the same screen, after it (a bedtime
+reminder that uses their answer). Only a reminder the app really sends can be promised, so the
+asks carry "Do you send a reminder before the trial charges?"; when the answer is no, the row is
+to start sending one, then ask. With no trial, the app's own reason leads.
+
 ## The tracking prompt stays early
 
 **The App Tracking Transparency (ATT) prompt is not covered by rule 3 or by the permissions-timing
