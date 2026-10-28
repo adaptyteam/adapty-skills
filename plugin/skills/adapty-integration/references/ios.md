@@ -280,7 +280,18 @@ let products = try await Adapty.getPaywallProducts(flow: flow)
 
 **v4 note:** Even for custom paywalls, the v4 SDK uses `getFlow` / `AdaptyFlow` for the fetch — but products are still `AdaptyPaywallProduct` and `getPaywallProducts(flow:)` is the right call to fetch them. `getPaywallProductsWithoutDeterminingOffer` is removed; all products now include offer information.
 
-**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the sandbox purchase dialog. A restore button calls `restorePurchases()`.
+**Log each view of the paywall.** Adapty records every purchase on a custom paywall but cannot see
+when your own screen appears, so the app reports it. Call `logShowFlow` once each time the paywall
+screen is shown to the user, not when the data loads. Without it, the paywall's views stay at zero,
+and its view → paid conversion and every A/B test result on it stay empty, with no error. Only for a
+custom paywall: a Flow Builder flow logs its own views, and a second call counts each view twice.
+
+```swift
+// Once, when the custom paywall screen appears
+try await Adapty.logShowFlow(flow)
+```
+
+**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the sandbox purchase dialog. A restore button calls `restorePurchases()`. Opening the paywall calls `logShowFlow` once.
 
 **Gotcha:** Empty products array → paywall in the dashboard has no products assigned, or placement has no audience.
 
@@ -491,7 +502,7 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 > 3. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
 > 4. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
 > 5. **Kids mode** — COPPA-compliant mode that disables IDFA and ad data collection
-> 6. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
+> 6. **A/B testing** — test two paywalls or flows against each other, with no app update
 > 7. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
 
 For each item the user picks, fetch the relevant doc and implement it:
@@ -503,7 +514,7 @@ For each item the user picks, fetch the relevant doc and implement it:
 | Promotional offers | `app-store-offers`, `create-offer` |
 | Onboardings | `get-onboardings`, `ios-present-onboardings`, `ios-handling-onboarding-events` |
 | Kids mode | `kids-mode` |
-| A/B testing | `ab-tests`, `run_stop_ab_tests` |
+| A/B testing | None to implement: nothing changes in the app. Invoke the `ab-tests` skill, which creates the test and starts it on the user's yes |
 | Custom access levels | `create-access-level`, `assigning-access-level-to-a-product` |
 
 ```bash

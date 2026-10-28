@@ -21,9 +21,16 @@ This skill owns segments and audiences. It does not own:
   Come back here to route the segment it returns.
 - **An attribute the app has to send** (custom attributes, age, gender, customer user ID) →
   `adapty-integration` owns the SDK call. A segment over an attribute nobody sets matches nobody.
-- **Starting, stopping or building an A/B test** — not in the CLI. The CLI reads the tests on a
-  placement and keeps them (next section). For the rest, send the user to
-  https://adapty.io/docs/add-audience-paywall-ab-test.
+- **Starting, stopping, replacing or building an A/B test** → `ab-tests`. It owns the life of a
+  regular paywall or flow test and shows the user the exact effect before each one-way step. This
+  skill reads the tests on a placement and keeps them (next section); it never starts or stops one.
+  Two requests from `ab-tests` are yours, not a hand-back:
+  - **A segment for a test:** Workflow steps 2–4 only (translate, reuse, create). Return the
+    segment's id and title, and read or write no placement.
+  - **A row for a test to start on,** at a position below another audience: add the segment as a
+    regular audience at that position, showing the content those users see now, so nobody's
+    screen changes. The full workflow applies, its table included. Return; `ab-tests` starts the
+    test on that row.
 
 ## A/B tests on a placement: the CLI reads and keeps them
 
@@ -37,25 +44,28 @@ test's running content, so a test entry is not something you build or edit here.
   shows read-only. Send each such entry back **unchanged** and never add, edit or reorder one. The
   backend counts its priorities and its default audience **apart** from the regular ones, so both
   groups can hold priority 0 and a default. You add and reorder only regular audiences.
-- **A write that only adds a segment audience or only changes priorities is safe.** The test keeps
-  running with the same start time, so the table needs no test line.
-- **A write that changes a test is not, and the table must say so.** Three writes do: a running
-  test's audience is replaced by a paywall or flow, or is missing from the list; its audience gets
-  other segments; or the list carries a test id the placement does not run now. In the
-  before/after table, show each test by its **title** and add one line per test: "test X stops with
-  no winner; Y starts" (a stopped test shows as Completed with no winner), or "test X starts again
-  with a new start time". Then **wait for the user's answer**, and write only after they confirm
-  that table.
+- **A write that adds or moves a row below every test row leaves the tests as they are.** A row
+  added or moved above a test row takes the users that match both from that test: they leave the
+  test. Say so and name the test in the table the user sees. Every test row goes back as read, so
+  the start time stays.
+- **A rename** (`placements update` with a new title) sends every audience row back exactly as
+  read, test rows included.
+- **A write that changes a test is not safe, and this skill does not make it.** Three writes do:
+  a running test's audience is replaced by a paywall or flow, or is missing from the list; its
+  audience gets other segments; or the list carries a test id the placement does not run now.
+  Stopping a test belongs to `ab-tests` (`ab-tests stop` with `--winner`, `--other` or
+  `--no-content`) and starting one to `ab-tests start`; each shows the user the exact effect
+  first. Say so, hand the user to `ab-tests`, and come back for the placement write after the
+  test has stopped (read the placement again then).
 - **Read again just before the write.** Run `placements get` once more. If the placement differs
   from the read the user saw, show the new before/after table and ask again. An unattended run
   stops there and reports; it does not write.
-- **Put on an audience only the test id it already carries.** The one exception is a test the user
-  names as still a draft, and the table then says "test X starts on <who>". Never put the id of a
-  test that runs on another audience or placement: the backend would move that test.
-- **An unattended run may write a placement when the table has no test line.** A test line with no
-  answer from the user means no write: give the exact dashboard change instead (which audience,
-  which segment, which paywall or flow, which position), where the test keeps running. Creating
-  the segment through the CLI is still fine.
+- **Put on an audience only the test id it already carries.** Never put any other test id on an
+  audience, a draft included: starting a test belongs to `ab-tests`. The id of a test that runs on
+  another audience or placement would move that test.
+- **An unattended run may write a placement when the write leaves every test as it is.** A write
+  that would change a test is not made: report it and name the `ab-tests` step. Creating the
+  segment through the CLI is still fine.
 
 An older CLI (CLI 0.10.0 and older) refuses these entries on write (see Never below). Tell the user
 to update the CLI, and re-resolve `$ADAPTY`, which fetches the latest; do not compare version
@@ -94,7 +104,7 @@ problems, so do not retry with variations:
 | `segments update --app <app> <id> --title <t> --filter <f> […]` | **replaces the whole segment** |
 | `placements list --app <app> --page-size 100 --json` | the default page is 20, so a short list hides placements |
 | `placements get --app <app> <id> --json` | `title`, `developer_id`, `audiences[]` (A/B test entries included) |
-| `placements update --app <app> <id> --title <t> --developer-id <d> --audiences '<json>'` | **replaces every audience, so send every entry back, test entries included.** Nothing in the CLI warns when the list stops, starts or moves a test: the table does (see above) |
+| `placements update --app <app> <id> --title <t> --developer-id <d> --audiences '<json>'` | **replaces every audience, so send every entry back, test entries included.** Nothing in the CLI warns when the list would stop, start or move a test: keep every test entry as read (see above) |
 
 `--app` is the **Adapty** app UUID from `$ADAPTY apps list`. A filter is `field:OPERATOR:value[,value…]`:
 `IN`, `NOT IN`, `>`, `>=`, `<`, `<=`, `BETWEEN`, or `field:IS NULL` / `field:IS NOT NULL` with no
@@ -181,9 +191,9 @@ building, and say what each option means. Labels are the dashboard's (https://ad
    "paywall_id":…}` or `{"content_type":"flow","flow_id":…}`, plus `segment_ids` (one id, or `[]`
    for the default) and `priority`. The CLI refuses an entry without them before sending. An A/B or
    shared test entry goes back as read.
-7. **Confirm with the before/after table**, test lines included (see above). An interactive run
-   waits for the user's yes; only an unattended run writes without a wait, and only when no test
-   stops, starts or moves. Read the placement again, then write all entries back with one
+7. **Confirm with the before/after table**, each test entry shown by its title, and a test that a new row above it takes users from marked in the table. An interactive run
+   waits for the user's yes; only an unattended run writes without a wait, and only when every
+   test entry goes back as read. Read the placement again, then write all entries back with one
    `placements update`, reusing `title` and `developer_id` exactly.
 8. **Verify** with `placements get --json`: same entries, your new one where you put it, one
    default, last, and every test entry still there with its `ab_test_id` and segments.
@@ -193,10 +203,10 @@ building, and say what each option means. Labels are the dashboard's (https://ad
 
 ## Never
 
-- **Never write a placement whose test would stop, start or move before the user has confirmed a
-  table that names the test**, and never on a placement that changed since the read they saw.
-- **Never put a test id on an audience that does not already carry it**, except a draft the user
-  named. A test id of another audience or placement moves that test.
+- **Never write a placement that would stop, start or move a test.** That is `ab-tests`. Never
+  write on a placement that changed since the read the user saw.
+- **Never put a test id on an audience that does not already carry it.** Starting a test is
+  `ab-tests`; the id of a test that runs elsewhere moves that test.
 - **Never edit, reorder or drop a shared-test entry** (`cross_ab_test`, `flow_cross_ab_test`).
 - **Never change what a user outside the request sees without their explicit answer** — not when
   the user said "go ahead", not when the order "seems right". Moving a new audience above an
@@ -235,9 +245,9 @@ Quotes are verbatim from baseline runs without this skill (2026-10-12).
 - A new audience with a lower `priority` number than an existing segment's, and no answer from the
   user about who wins
 - An `--audiences` array with fewer entries than `placements get` returned, plus one
-- A write that stops, starts or moves a test, and no confirmed table that names it
+- A placement write that stops, starts or moves a test
 - A `placements update` with no `placements get` just before it
-- An `ab_test_id` in the array that no audience of this placement carried when you read it, except a draft test the user named
+- An `ab_test_id` in the array that no audience of this placement carried when you read it
 - A `field_name` or a value not in the table, or a custom attribute key nobody read off a segment, the code or the user
 - An app version with fewer than three parts
 - An entry from `placements get` removed after the CLI refused it

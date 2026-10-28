@@ -362,7 +362,18 @@ Adapty.getFlow(AppConstants.PLACEMENT_ID) { result ->
 
 **v4 note:** Even for custom paywalls, the v4 SDK uses `getFlow` / `AdaptyFlow` for the fetch — but products are still `AdaptyPaywallProduct`, and `getPaywallProducts(flow)` is the right call to fetch them.
 
-**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the Google Play sandbox purchase dialog. A restore button calls `Adapty.restorePurchases()`.
+**Log each view of the paywall.** Adapty records every purchase on a custom paywall but cannot see
+when your own screen appears, so the app reports it. Call `logShowFlow` once each time the paywall
+screen is shown to the user, not when the data loads. Without it, the paywall's views stay at zero,
+and its view → paid conversion and every A/B test result on it stay empty, with no error. Only for a
+custom paywall: a Flow Builder flow logs its own views, and a second call counts each view twice.
+
+```kotlin
+// Once, when the custom paywall screen appears
+Adapty.logShowFlow(flow)
+```
+
+**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the Google Play sandbox purchase dialog. A restore button calls `Adapty.restorePurchases()`. Opening the paywall calls `logShowFlow` once.
 
 **Gotcha:** Empty products array → paywall in the dashboard has no products assigned, or placement has no audience.
 
@@ -616,7 +627,7 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 > 2. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
 > 3. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
 > 4. **Kids mode** — complies with Google Play Families policy by disabling GAID and ad data collection
-> 5. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
+> 5. **A/B testing** — test two paywalls or flows against each other, with no app update
 > 6. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
 > 7. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
 
@@ -628,7 +639,7 @@ For each item the user picks, fetch the relevant doc and implement it:
 | Custom user attributes | `android-setting-user-attributes` |
 | Onboardings | `android-get-onboardings`, `android-present-onboardings`, `android-handle-onboarding-events` |
 | Kids mode | `kids-mode-android` |
-| A/B testing | `ab-tests`, `run_stop_ab_tests` |
+| A/B testing | None to implement: nothing changes in the app. Invoke the `ab-tests` skill, which creates the test and starts it on the user's yes |
 | Custom access levels | `create-access-level`, `assigning-access-level-to-a-product` |
 | Promotional offers | `create-offer` |
 

@@ -477,7 +477,21 @@ public class CustomPaywallManager : MonoBehaviour
 }
 ```
 
-**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the sandbox purchase dialog. A restore button calls `RestorePurchases()`.
+**Log each view of the paywall.** Adapty records every purchase on a custom paywall but cannot see
+when your own screen appears, so the app reports it. Call `LogShowFlow` once each time the paywall
+screen is shown to the user, not when the data loads. Without it, the paywall's views stay at zero,
+and its view → paid conversion and every A/B test result on it stay empty, with no error. Only for a
+custom paywall: a Flow Builder flow logs its own views, and a second call counts each view twice.
+
+```csharp
+// Once, when the custom paywall screen appears
+Adapty.LogShowFlow(flow, (error) =>
+{
+    if (error != null) { /* log it; never block the paywall */ }
+});
+```
+
+**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the sandbox purchase dialog. A restore button calls `RestorePurchases()`. Opening the paywall calls `LogShowFlow` once.
 
 **Gotcha:** Empty products array → paywall in the dashboard has no products assigned, or placement has no audience.
 
@@ -753,7 +767,7 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 > 3. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
 > 4. **Onboardings** — build them as flows in Flow Builder. On SDK 4.x the legacy `GetOnboarding` API still compiles but is deprecated in favour of `GetFlow` and will be removed
 > 5. **Kids mode** — COPPA-compliant mode that disables IDFA/GAID and ad data collection
-> 6. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
+> 6. **A/B testing** — test two paywalls or flows against each other, with no app update
 > 7. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
 > 8. **App Tracking Transparency (ATT)** — handle ATT prompt timing relative to Adapty initialization on iOS
 
@@ -767,7 +781,7 @@ For each item the user picks, fetch the relevant doc and implement it:
 | Onboardings (Flow Builder) | `unity-quickstart-paywalls`, `adapty-flow-builder` |
 | Flow screen-view analytics | `unity-flow-screen-views` |
 | Kids mode | `kids-mode-unity` |
-| A/B testing | `ab-tests`, `run_stop_ab_tests` |
+| A/B testing | None to implement: nothing changes in the app. Invoke the `ab-tests` skill, which creates the test and starts it on the user's yes |
 | Custom access levels | `create-access-level`, `assigning-access-level-to-a-product` |
 | ATT | `unity-deal-with-att` |
 
