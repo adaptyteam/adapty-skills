@@ -947,6 +947,10 @@ def main():
           fk.on_selected(fk.text(fk.rich('x'), preset='plan'),
                          font={'preset': 'plan', 'weight': 'bold'})
           ['propsByState']['selected']['font']['weight'] == 'bold')
+    check('on_selected accepts a manual font with its own size in place of the preset',
+          fk.on_selected(fk.text(fk.rich('x'), preset='plan'),
+                         font={'size': 16, 'weight': 'bold'})
+          ['propsByState']['selected']['font']['size'] == 16)
     check('on_selected accepts a colour switched to another variant (not a partial value)',
           fk.on_selected(fk.text(fk.rich('x'), color_id='ink'),
                          color=fk.hex_color('#FFFFFF'))['propsByState']['selected']['color']

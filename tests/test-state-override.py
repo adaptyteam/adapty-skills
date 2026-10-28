@@ -97,6 +97,13 @@ silent('a colour switched from a token to a hex is a new value, not a partial on
        card({'color': {'type': 'hex', 'hex': '#FFFFFF'}},
             base_extra={'color': {'type': 'color-style', 'colorId': 'ink'}}))
 silent('a prop the base does not have at all', card({'margin': {'bottom': 8}}))
+# The two false positives a test round produced, each on real agent output.
+silent('a manual font (own size) in place of the preset draws the same',
+       card({'font': {'size': 16, 'weight': 'bold'}}))
+silent('a border without `style` draws the same (only `none` changes it)',
+       card({'border': {'width': 2, 'color': {'type': 'color-style', 'colorId': 'ink'}}},
+            base_extra={'border': {'width': 1, 'style': 'solid',
+                                   'color': {'type': 'color-style', 'colorId': 'ink'}}}))
 silent('a list prop (fill) is replaced as a value, not compared by key',
        card({'fill': [{'type': 'color', 'color': {'type': 'hex', 'hex': '#FFFFFF'}}]},
             base_extra={'fill': [{'type': 'color', 'color': {'type': 'hex', 'hex': '#000000',

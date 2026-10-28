@@ -1229,12 +1229,9 @@ Rule: **every object you put in a state carries every sub-field that state needs
 its `width` and `color`, `font` with its `preset` or the full manual set, `padding` with all four
 sides. Copy the base prop and change what differs. Every real export does exactly this: each of
 its state overrides repeats every key of the base prop it replaces. `flowkit.on_selected()`
-refuses an override that drops a key of the base, and `verify-config.py` warns on one.
-
-Older notes and flows say the opposite. Until October 2026 the transformer deep-merged a state
-into the base, so a left-out sub-field was inherited: a selected border colour with no opacity
-took the base's opacity 0 and was invisible on device while the preview drew it. A complete
-override is right under both behaviours.
+refuses an override that drops a key of the base, and `verify-config.py` warns on one. Until
+October 2026 the transformer deep-merged states instead, so older notes and flows may say a
+left-out sub-field is inherited; it no longer is.
 
 ### 18. `props.verticalAlign` on text is emitted by the builder and ignored by the SDK
 

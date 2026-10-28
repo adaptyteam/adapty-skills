@@ -2461,7 +2461,10 @@ def check(path, baseline_text=None, baseline_images=None):
     # author writes from the old rule, and it now loses the preset. Every state override in every
     # real export and catalog template repeats each key of the base prop it replaces (407 of 407
     # measured), so this never fires on builder output. A colour switched to another variant
-    # (`type` differs) is a new value, not a partial one.
+    # (`type` differs) is a new value, not a partial one. Two left-out keys draw the same and are
+    # not reported, both measured as false positives in a test round: `font.preset` when the
+    # override sets its own `size` (a manual font in place of the preset), and `border.style`
+    # (only `none` changes the drawing).
     for where, k, e in iter_elements(d):
         base = e.get('props') or {}
         for state, over in ((e.get('propsByState') or {}).items()):
@@ -2472,7 +2475,9 @@ def check(path, baseline_text=None, baseline_images=None):
                     continue
                 if 'type' in b and 'type' in v and b['type'] != v['type']:
                     continue
-                dropped += [f'{name}.{x}' for x in b if x not in v]
+                dropped += [f'{name}.{x}' for x in b if x not in v
+                            and not (name == 'font' and x == 'preset' and 'size' in v)
+                            and not (name == 'border' and x == 'style')]
             if dropped:
                 warn.append(
                     f'{where}: {k} `propsByState.{state}` leaves out {", ".join(dropped)} — a '
