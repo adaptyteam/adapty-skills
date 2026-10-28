@@ -431,7 +431,7 @@ The skills are instructions and a few local helper scripts. They run nothing on 
 
 ## Privacy, license and support
 
-- **Privacy.** The skills process data only inside your agent session and through the calls above. Whatever the Adapty CLI returns, such as campaign numbers, product IDs or flow content, enters your agent's context and reaches the model provider you use with it, like any other tool result. Your Adapty account is covered by [Adapty's privacy policy](https://adapty.io/privacy/) and [terms](https://adapty.io/terms/).
+- **Privacy.** The skills process data only inside your agent session and through the calls above. Whatever the Adapty CLI returns, such as campaign numbers, product IDs or flow content, enters your agent's context and reaches the model provider you use with it, like any other tool result. Adapty keeps the feedback notes and docs page requests it receives for as long as it reasonably needs them, as section 12 of [Adapty's privacy policy](https://adapty.io/privacy/) describes; there is no fixed deletion period. Your Adapty account is covered by the same policy and Adapty's [terms](https://adapty.io/terms/).
 - **License.** [MIT](LICENSE).
 - **Security.** Report a vulnerability privately — see [SECURITY.md](https://github.com/adaptyteam/adapty-skills/blob/main/SECURITY.md).
 - **Support.** Open an [issue](https://github.com/adaptyteam/adapty-skills/issues), or email [support@adapty.io](mailto:support@adapty.io).
