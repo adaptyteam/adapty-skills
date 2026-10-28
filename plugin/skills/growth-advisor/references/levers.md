@@ -122,7 +122,13 @@ app's US numbers) when you compare, and call the target "the market median", nev
   and is judged on revenue per user: cutting plans has lost on revenue in `evidence.md`.
 - "Remove X and add Y" is one swap test, not two.
 - Never propose a 2-, 3- or 6-month plan; nothing here can justify one.
-- A lifetime option next to annual is a legitimate test (see `evidence.md`).
+- **A lifetime option next to annual** is a candidate only on a sign that buyers resist renewing:
+  the user asks for it; annual's first renewal is graded weak against its row in `market.md`,
+  Renewals; or reviews or the user ask for a one-time purchase or complain about paying on a
+  subscription. Name that sign in the Why. Never
+  for an app that pays to serve each user for as long as they use it (live market data, AI
+  generation, cloud storage, licensed content): a lifetime buyer keeps costing money. Without a
+  sign it is not suggested, not even as a growth bet.
 
 ## Trials
 
@@ -220,7 +226,7 @@ stake. It questions money they already spend, which a dashboard never shows them
 
 When no split shows one group carrying a gap and no step of the funnel is clearly weak, say so in
 the bold answer ("nothing is broken; these are bets"). Then suggest growth bets, still ranked by
-purchases at stake: a lever the app has not touched (a placement at a value moment, a plan length or lifetime it does not sell), a strong part copied to a group that lacks
+purchases at stake: a lever the app has not touched (a placement at a value moment, a plan length it does not sell), a strong part copied to a group that lacks
 it ("Build on what works"), something rare in the market with evidence
 behind it (`market.md`, How paywalls look; `evidence.md`), a bet aimed at a segment, and at least
 one bolder change sized to their traffic. Never fill the list with standard moves the app already

@@ -319,6 +319,7 @@ started, and it never shows up as a change.
    Call each part strong, typical or weak, and rank the weak ones by dollars a month at stake.
    A conversion (paywall view → paid, paywall view → trial, trial → paid) is graded by its row in
    `references/market-grid.csv` (`market.md`, "The full grid"): below p25 weak, above p75 strong.
+   An annual plan's first renewal is graded against its row in `market.md`, Renewals.
    That ranking, not the newest change, decides the main finding and the first hypothesis. A
    recent change leads only when its dollars rank first. Every part is scored even when a
    recent change is large, because the user asked about the whole app.
@@ -692,4 +693,5 @@ shape to follow, not words to copy:
 | `references/evidence.md` | Stating any expected impact or grading an idea |
 | `references/market.md` | Comparing the app with the market: conversion, plan mix, trials, discounts, timing |
 | `references/market-grid.csv` | A conversion's median and percentiles for one plan, region and category |
+| `references/renewals.csv` | The annual first-renewal rate for one category, region and start |
 | `references/without-account.md` | A store link, screenshots or code, and no account to read |

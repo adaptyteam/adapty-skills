@@ -679,6 +679,12 @@ def audit(a):
     weakest(a, names, placements, top_country)
     R('11. retention by plan length', ['analytics', 'retention', '--date-from', f, '--date-to', t,
                                          '--group-by', 'duration'], cols=13)
+    td = dt.date.fromisoformat(t)
+    rf, rt = dt.date(td.year - (td.month < 12), td.month % 12 + 1, 1).isoformat(), t
+    R(f'first renewal by plan length, {rf[:7]}..{rt[:7]}: a renewal here belongs to a buyer one period earlier, '
+      'so annual renewals are in it even when the data starts less than a year ago; '
+      'grade the annual row by market.md, Renewals, never against weekly or monthly',
+      conversion('paid-2period', rf, rt) + ['--group-by', 'duration'], conv=True)
     lf, lt = window(6, (dt.date.fromisoformat(t) - dt.timedelta(days=364)).isoformat())
     R(f'12. LTV by plan length, by day, cohorts {lf[:7]}..{lt[:7]}: every plan has reached day 365, so the plans compare',
       ['analytics', 'ltv', '--date-from', lf, '--date-to', lt, '--group-by', 'duration',

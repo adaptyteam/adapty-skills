@@ -7,7 +7,8 @@ app by app so the largest apps do not skew them.
 
 This file owns market medians and how often each kind of test wins. `evidence.md` owns the uplift
 ranges from winning tests. When you use a number from here, name it as the market median from
-Adapty's State of Paywalls 2026. Never call it the user's category average unless the row is for
+Adapty's State of Paywalls 2026, except the annual renewal rates under Renewals, which come from
+Adapty's State of In-App Subscriptions 2026. Never call it the user's category average unless the row is for
 their category, and never present a median as their target.
 
 ## Read this before comparing
@@ -85,6 +86,28 @@ not carry over.
   the US). Fewer early cancellations go with higher trial → paid.
 - Longer trials get fewer day-one cancellations, but convert better only on monthly and annual
   plans. On weekly plans, 3-day trials do better.
+
+## Renewals
+
+`renewals.csv`, next to this file, holds the share of annual subscriptions that renew at the end of
+their first year, from Adapty's [State of In-App Subscriptions
+2026](https://adapty.io/state-of-in-app-subscriptions-report/): one rate per category, region and
+start (after a trial, or a direct purchase). Name it as that report's, never as State of Paywalls.
+
+- **Compare it with** the app's `paid-2period` rate for the annual plan over the last 12 months
+  (`reads.py audit` prints it as "first renewal by plan length").
+- **Pick the row:** the app's category when it is one of the eight, `All categories` otherwise;
+  the main market's region (`North America` for the US), `All regions` when no market leads; and
+  the start most of the annual plan's buyers have (read 4).
+
+  ```bash
+  grep '^Photo & Video,North America,after trial,' <skill>/references/renewals.csv
+  ```
+- **Grade it by the ratio:** under about two thirds of the row's rate is weak, over about one and a
+  half times is strong, typical between. The file has no percentiles, so say the grade is rough.
+- **Annual only.** First renewals of different plan lengths are not comparable: an annual plan's
+  first renewal sits far below a weekly's or monthly's by nature. Never grade annual against the
+  app's other plans.
 
 ## Discounts
 
