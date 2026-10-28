@@ -145,7 +145,10 @@ The subscription path per plan is one grouped call per step, never a loop of fil
 $ADAPTY analytics conversion --app <APP_ID> --conversion paid-2period --date-from $FROM --date-to $TO --granularity month --group-by store_product_id --json
 ```
 
-Each group is one product; `trial-paid` grouped the same way gives the step before. Leave out a
+Each group is one product; `trial-paid` grouped the same way gives the step before. **An annual
+plan's renewals are in the data even when the data starts less than a year ago:** a renewal in
+the window belongs to someone who bought the year before. Run the step for the annual product over
+the last 12 months before saying its renewals are not in yet; only an empty answer says so. Leave out a
 product whose step has under about 20 subscriptions behind it. An empty answer can mean the
 window's subscribers have not reached that step yet: widen `FROM`, or take
 `meta.recommended_period`.
