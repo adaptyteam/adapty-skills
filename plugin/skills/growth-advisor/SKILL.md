@@ -9,6 +9,9 @@ description: >-
   win back users who cancelled".
   Also use when a user asks for a growth plan, a monetization audit, hypotheses or test ideas without naming
   one screen, or asks any question about their app's own subscription numbers.
+  Also use with no Adapty data, from a store link, the app's code, or onboarding plus paywall
+  screens: "here's our app, how do we make more money", "where are we losing money". Paywall or
+  onboarding screens alone, with no data, go to the teardown skills.
 ---
 
 # Growth advisor
@@ -63,6 +66,12 @@ question was about, for example "Want data-backed ideas on what to test to impro
 (an example of the shape, not words to copy). When the answer already points at one change worth
 testing, name that change in the offer instead.
 
+## Without an Adapty account
+
+The user sends an App Store or Google Play link, screenshots, or the app's code, and no account can
+be read: follow `references/without-account.md`. It answers in full from what they sent, and its
+last Next step offers Adapty in the app, so the next answer runs on their own numbers.
+
 ## No data yet
 
 A new app, or an app whose analytics are empty, gets a starting plan instead of an audit. Say
@@ -76,6 +85,9 @@ the first two weeks of real users.
 | The request is about | Where it goes |
 |---|---|
 | App-wide numbers, plans, trials, countries, placements, what to test next | This skill |
+| A store link, the app's code, or screenshots of the onboarding and the paywall, with "how do we make more money" or "what should we test" and no Adapty account to read | This skill, `references/without-account.md`; it runs the teardowns for the design part |
+| One paywall screenshot and no numbers ("improve this paywall") | `paywall-teardown` alone; this skill adds nothing without the numbers |
+| Onboarding screens alone and no numbers ("improve our onboarding") | `onboarding-teardown` alone, for the same reason |
 | A price, a price test, pricing by country | Not supported yet; say so |
 | One paywall screen: layout, copy, badges | `paywall-teardown`; this skill invokes it for the design hypotheses |
 | A screen with a change in the app's numbers ("people buy half as often since summer") | This skill first: which paywall it is, its view → paid by month, what changed then; `paywall-teardown` for the design part after. Prices on a screenshot may be preview samples: never read them as what users pay |
@@ -635,3 +647,4 @@ shape to follow, not words to copy:
 | `references/evidence.md` | Stating any expected impact or grading an idea |
 | `references/market.md` | Comparing the app with the market: conversion, plan mix, trials, discounts, timing |
 | `references/market-grid.csv` | A conversion's median and percentiles for one plan, region and category |
+| `references/without-account.md` | A store link, screenshots or code, and no account to read |
