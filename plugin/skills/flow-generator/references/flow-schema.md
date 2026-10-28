@@ -247,7 +247,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 14c | Every action payload has a required field, and one code covers all of them |
 | 15 | Stale and degenerate sizing values persist, and the transformer believes them |
 | 16 | `purchase` hard-terminates the flow — nothing can be shown after it |
-| 17 | State overrides deep-merge manual values and replace referenced styles wholesale |
+| 17 | A state override replaces each prop it names whole — nothing is inherited from the base |
 | 18 | `props.verticalAlign` on text is emitted by the builder and ignored by the SDK |
 | 19 | A theme colour must be exactly `#RRGGBB` — and only a theme colour |
 | 20 | A screen background is bound to a token in every real export — never a literal hex |
@@ -1214,16 +1214,27 @@ author a screen that is reachable only after a purchase**: it is dead content th
 accepts. A second (discount) paywall is reachable only via an explicit `navigate` on something the
 user taps *instead* of buying — the close button is the standing pattern.
 
-### 17. State overrides deep-merge manual values and replace referenced styles wholesale
+### 17. A state override replaces each prop it names whole — nothing is inherited from the base
 
-A `propsByState` override written as **manual values** is deep-merged with the base state, and the
-merge leaks: a selected border colour inherited the *default's* opacity and rendered invisible on
-device while the preview showed it (team-diagnosed); a manually-set selected font weight rendered wrong
-the same way. A **reference** — a typography `preset` or a colour *style* — propagates wholesale
-and overrides cleanly ("the Selected override contains its own preset and overwrites the Default",
-team-verified, reporter-confirmed). Rule: **in `propsByState`, prefer preset and style references
-over inline values**, and when an inline colour must be used, make sure the base state's colour is
-opaque, because its opacity is what leaks.
+A prop in `propsByState.<state>` (`selected`, `focused`, `invalid`, any state) replaces the base
+prop **whole**, one level deep: the state's `border` is the whole border, its `font` the whole
+font. A sub-field the override leaves out is **not** taken from the base; it falls back to its
+default. Read from the transformer's source and its golden output: a selected `font` of
+`{"size": 16, "weight": "light"}` over a base `{"preset": "h1"}` draws in the system font, not
+`h1`; a selected `padding: {}` drops the base padding to 0; a selected border colour with no
+`opacity` is opaque. The builder preview and properties panel resolve states the same way, so
+the preview shows what the device draws.
+
+Rule: **every object you put in a state carries every sub-field that state needs** — `border` with
+its `width` and `color`, `font` with its `preset` or the full manual set, `padding` with all four
+sides. Copy the base prop and change what differs. Every real export does exactly this: each of
+its state overrides repeats every key of the base prop it replaces. `flowkit.on_selected()`
+refuses an override that drops a key of the base, and `verify-config.py` warns on one.
+
+Older notes and flows say the opposite. Until October 2026 the transformer deep-merged a state
+into the base, so a left-out sub-field was inherited: a selected border colour with no opacity
+took the base's opacity 0 and was invisible on device while the preview drew it. A complete
+override is right under both behaviours.
 
 ### 18. `props.verticalAlign` on text is emitted by the builder and ignored by the SDK
 

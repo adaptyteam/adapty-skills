@@ -328,7 +328,7 @@ diagnosis and a guess. Four layers can own a defect: the **config data** you are
 | What you observe | The layer to suspect first |
 | :--- | :--- |
 | wrong in the preview **and** on the device | the **config data** — and that is the good case, because it is the only layer you can fix |
-| right in the preview, wrong on the device | the **transformer or the SDK**. Check the known one-way blindnesses on this page before concluding it is a bug: an unsupported element type, a `propsByState` merge, a font, an id, an emoji |
+| right in the preview, wrong on the device | the **transformer or the SDK**. Check the known one-way blindnesses on this page before concluding it is a bug: an unsupported element type, a font, an id, an emoji |
 | right on the device, wrong in the preview | the **preview page**. Do not restyle a config to make a screenshot look right — see the section above; that has broken working configs |
 | the transform is green and the device is wrong | not a validation problem at all. Nothing you can publish differently will help; the defect is in one of the two layers downstream of the document |
 | the flow will not open in the **builder** | the config data again, but a shape the *authoring tool* rejects rather than one the SDK does — a different renderer with its own failures, and both configs that broke it in this project's history render fine here |
