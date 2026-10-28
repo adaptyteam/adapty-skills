@@ -153,7 +153,7 @@ paywall?**
 > Follow up if not already answered: what's immediately before it — a loader, a plan summary, a
 > permission prompt?
 
-**Q6. When do you ask for permissions (notifications, health, camera)?**
+**Q6. When do you ask for permissions (tracking, notifications, health, camera)?**
 - Early in onboarding
 - At the end, before the paywall
 - After the paywall
@@ -293,13 +293,35 @@ What is not defensible is arriving at a sequence by inertia.
 - **The same skeleton twice in a row is a smell.** If your last flow used this shape, check that
   you are choosing it rather than carrying a previous build's script forward.
 
+## The tracking prompt stays early
+
+**The App Tracking Transparency (ATT) prompt is not covered by rule 3 or by the permissions-timing
+order in `patterns.md`.** A permission is ATT when its screen or button mentions tracking, ads
+personalization or Apple's tracking prompt, or the app's action for it is named for ATT or IDFA.
+ATT exists for attribution, not for a feature: the ad networks and the attribution provider get
+the user's answer only once it is asked, so every user who leaves before a late ask is an install
+with no attribution. Rule 3's range measures purchases, not opt-in, and says nothing about ATT.
+
+- **Never recommend moving ATT past the paywall or later in the flow.** It belongs in the first
+  screens; where it is already there, leave it.
+- **When ATT shares a screen with other prompts, the other prompts move:** notifications past the
+  paywall (rule 3), a feature's permission to the moment the feature needs it. ATT stays where it
+  is, asked first.
+- **A soft prompt before ATT is fine and usually helps;** it says what tracking is used for and
+  offers nothing in return for allowing it, and its button says Continue, not Allow. The rest of
+  Apple's review rules for it are `flow-audit`'s store-review checks.
+- **The app sends the answer to Adapty right after the prompt,** so the integrations get it in
+  time — [Deal with App Tracking Transparency](https://adapty.io/docs/ios-deal-with-att) on iOS;
+  other platforms through `adapty-docs`. ATT is iOS only.
+
 ## Process (internal — do NOT show these steps in the output)
 
 1. **Reconstruct the flow** as an ordered sequence from whatever you were given.
 2. **Inventory** what's present: opening type, goal capture, personalization payoff, loader, social
    proof, progress indication, permissions timing, paywall position, trial presence.
 3. **Run the contradiction rules** in `patterns.md`. These fire on *combinations*, not single
-   answers, and they are where the real findings are.
+   answers, and they are where the real findings are. Rule 3 never moves the tracking prompt
+   ([The tracking prompt stays early](#the-tracking-prompt-stays-early)).
 4. **Cross-check** every candidate recommendation: never suggest adding something the flow already
    has. Improve it instead.
 5. **Apply the category playbook** — tone, media, proof type, and especially whether trials help or
