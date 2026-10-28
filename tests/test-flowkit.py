@@ -1433,6 +1433,50 @@ def main():
     check('a timer with visible digits beside other copy is accepted',
           fk.timer([fk.stack([fk.text(fk.rich('Loading')), fk.timer_digits(('seconds',))])], seconds=2, actions=_nav)['type'] == 'timer')
 
+    # --- the 12-month commitment plan: a monthly binding is its own identity ---------------
+    # Vectors from the builder's own schema tests: `|bil:monthly` is appended to the frozen
+    # string, so every plan-less id stays byte-identical.
+    check('flow_product_id appends the plan for a monthly binding',
+          fk.flow_product_id('screen-1', 'annual', None, 'monthly') == '8df64459-897f-5c1b-840c-764c04fe5c1c')
+    check('flow_product_id appends the plan after the offer',
+          fk.flow_product_id('screen-1', 'annual', 'promo', 'monthly') == '6159a111-ba8a-59d8-b542-3d255d1d6234')
+    check('product() writes billingPlanId after offerId, in the builder key order',
+          list(fk.product([], product_id='p_year', group_id='plans', offer_id='promo',
+                          billing_plan='monthly')['props']['product']) == ['id', 'offerId', 'billingPlanId'])
+    check('product() refuses a plan other than monthly, with the reason',
+          'monthly' in _message(lambda: fk.product([], product_id='p', group_id='plans', billing_plan='upfront')))
+    check('product() refuses a fallback offer without the monthly plan',
+          'fallback' in _message(lambda: fk.product([], product_id='p', group_id='plans',
+                                                    fallback_offer_id='spring')))
+    _plan = fk.screen('scr_m', [
+        fk.product([fk.text(fk.rich(fk.Var('p_year.prod_price')))],
+                   product_id='p_year', group_id='plans', default=True),
+        fk.product([fk.text(fk.rich(fk.Var('p_year@monthly.prod_billing_price'), ' / ',
+                                    fk.Var('p_year@monthly.prod_billing_period')))],
+                   product_id='p_year', group_id='plans', billing_plan='monthly',
+                   fallback_offer_id='spring'),
+    ], selectable_groups=_groups)
+    check('upfront and monthly of one product are two registry entries, the fallback on the monthly one',
+          _plan['products'] == [{'id': 'p_year'},
+                                {'id': 'p_year', 'billingPlanId': 'monthly', 'fallbackOfferId': 'spring'}],
+          _plan['products'])
+    check('the fallback offer never reaches the element props',
+          'fallbackOfferId' not in json.dumps([e['props'] for e in _plan['elements']['map'].values()]))
+    _found = _refs(_plan)
+    check('an @monthly variable resolves to the monthly binding',
+          {'target': {'kind': 'product', 'id': 'p_year', 'billingPlanId': 'monthly'},
+           'field': 'prod_billing_price'} in _found, _found)
+    check('a plain variable resolves to the upfront binding beside a monthly one',
+          {'target': {'kind': 'product', 'id': 'p_year'}, 'field': 'prod_price'} in _found, _found)
+    _meta = fk.predeclare('scr_m', _plan['products'])['scr_m']['products']
+    check('predeclare takes registry entries and carries plan and fallback',
+          _meta[1] == {'id': 'p_year', 'billingPlanId': 'monthly', 'fallbackOfferId': 'spring',
+                       'flowProductId': fk.flow_product_id('scr_m', 'p_year', None, 'monthly')}, _meta)
+    check('predeclare keeps the plan-less entry byte-identical',
+          _meta[0] == {'id': 'p_year', 'flowProductId': fk.flow_product_id('scr_m', 'p_year')}, _meta)
+    check('the billing price, period and monthly-plan fields are product variables',
+          {'prod_billing_price', 'prod_billing_period', 'is_monthly_plan'} <= set(fk.PRODUCT_VAR_NAMES))
+
     print()
     if FAILURES:
         print(f'{len(FAILURES)} failure(s): ' + ', '.join(FAILURES))

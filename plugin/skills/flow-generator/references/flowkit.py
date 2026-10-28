@@ -1482,7 +1482,14 @@ def on_selected(node, **props):
     return node
 
 
-def product(children=(), *, product_id, group_id, default=False, offer_id=None, **kw):
+#: The only billing plan a binding names; upfront is the default and is never written down.
+BILLING_PLAN_MONTHLY = 'monthly'
+# Where `product()` parks a fallback offer until `screen()` moves it into the registry.
+_FALLBACK_KEY = '_flowkitFallbackOfferId'
+
+
+def product(children=(), *, product_id, group_id, default=False, offer_id=None,
+            billing_plan=None, fallback_offer_id=None, **kw):
     """A selectable plan card — the member type for a `product` group. For any other group
     type (`single_choice`, `multi_choice`, `toggle`) use `selectable()` instead.
 
@@ -1496,17 +1503,36 @@ def product(children=(), *, product_id, group_id, default=False, offer_id=None, 
     the same product with and without an offer is two bindings, two registry entries and two
     `flowProductId`s. Binding an offer is also the reason the structured product ref exists —
     a dotted `<productId>.offer_price` cannot say which offer it means.
+
+    `billing_plan='monthly'` sells a yearly App Store product under its 12-month commitment
+    plan. The plan is identity too: upfront and monthly of one product are two bindings, so a
+    screen offering both binds the product twice. `offer_id` must then be an offer OF THAT PLAN.
+    `fallback_offer_id` is the upfront offer sold where the plan does not apply (older iOS or
+    SDK, a country without the plan); it is not identity, so it lives only in the screen's
+    registry -- `screen()` moves it there and it never reaches the element's props.
     """
-    value = {'id': product_id} if not offer_id else {'id': product_id, 'offerId': offer_id}
+    if billing_plan not in (None, BILLING_PLAN_MONTHLY):
+        raise ValueError(
+            f'product(): billing_plan={billing_plan!r}. The only plan is {BILLING_PLAN_MONTHLY!r}; '
+            'upfront is the default and is never written down, so omit the argument for it.')
+    if fallback_offer_id and billing_plan != BILLING_PLAN_MONTHLY:
+        raise ValueError(
+            'product(): a fallback offer belongs to a monthly binding only -- it is the upfront '
+            "offer sold where the monthly plan does not apply. Pass billing_plan='monthly', or "
+            'use offer_id for an upfront binding.')
+    value = _product_value(product_id, offer_id, billing_plan)
     node = stack(children, **kw)
     node['type'] = 'product'
     node['props'].update({'groupId': group_id, 'default': default, 'product': value})
     if not node['states']:
         node['states'] = [{'id': 'selected', 'type': 'system'}]
+    if fallback_offer_id:
+        node[_FALLBACK_KEY] = fallback_offer_id
     return node
 
 
-def single_plan(children, *, product_id, group_id, offer_id=None, **kw):
+def single_plan(children, *, product_id, group_id, offer_id=None, billing_plan=None,
+                fallback_offer_id=None, **kw):
     """A single-plan screen's product: the block of text that names and prices the plan.
 
     On a screen that sells one plan, the copy describing it -- name, price, period, trial line --
@@ -1533,7 +1559,8 @@ def single_plan(children, *, product_id, group_id, offer_id=None, **kw):
             'single_plan() is the visible plan block, so it takes no `visibility`. Hiding it hides '
             'the plan copy with it.')
     return product(children, product_id=product_id, group_id=group_id, default=True,
-                   offer_id=offer_id, **kw)
+                   offer_id=offer_id, billing_plan=billing_plan,
+                   fallback_offer_id=fallback_offer_id, **kw)
 
 
 def attach_point(**_):
@@ -2163,28 +2190,41 @@ def flatten(nodes):
 #: variable and is never touched.
 PRODUCT_VAR_NAMES = (
     'prod_title', 'prod_price', 'prod_price_per_day', 'prod_price_per_week',
-    'prod_price_per_month', 'prod_price_per_year', 'is_free_trial', 'is_pay_up_front',
-    'is_pay_as_you_go', 'offer_price', 'offer_billing_period', 'offer_full_duration')
+    'prod_price_per_month', 'prod_price_per_year', 'prod_billing_price', 'prod_billing_period',
+    'is_free_trial', 'is_pay_up_front', 'is_pay_as_you_go', 'is_monthly_plan',
+    'offer_price', 'offer_billing_period', 'offer_full_duration')
 
 _SELECTED_PRODUCT = 'selectedProduct'
 
 
-def _binding(pid, offer_id):
-    """One `{kind: 'product'}` target. `offerId` is OMITTED rather than null for a base
-    binding -- the transformer rejects an empty string outright (`empty_offer_id`) and reads a
-    missing key as the base."""
-    return {'kind': 'product', 'id': pid} if not offer_id else {
-        'kind': 'product', 'id': pid, 'offerId': offer_id}
+def _binding(pid, offer_id, plan=None):
+    """One `{kind: 'product'}` target. `offerId` and `billingPlanId` are OMITTED rather than
+    null for a base, upfront binding -- the transformer rejects an empty string outright
+    (`empty_offer_id`) and reads a missing key as the base."""
+    return {'kind': 'product', **_product_value(pid, offer_id, plan)}
 
 
-def _product_value(pid, offer_id):
-    """One registry entry. Same omit-don't-null rule as `_binding`, and the same key order the
-    builder writes: `id`, then `offerId` when there is one."""
-    return {'id': pid} if not offer_id else {'id': pid, 'offerId': offer_id}
+def _product_value(pid, offer_id, plan=None):
+    """One binding value. Same omit-don't-null rule as `_binding`, and the same key order the
+    builder writes: `id`, then `offerId`, then `billingPlanId`, each only when there is one."""
+    value = {'id': pid}
+    if offer_id:
+        value['offerId'] = offer_id
+    if plan:
+        value['billingPlanId'] = plan
+    return value
+
+
+def _split_product_segment(segment):
+    """`(product_id, plan)` from a dotted id's product segment: the builder names a monthly
+    binding `<id>@monthly`, so both prices of one product in one text stay distinct."""
+    pid, sep, plan = segment.partition('@')
+    return (pid, plan) if sep and plan == BILLING_PLAN_MONTHLY else (segment, None)
 
 
 def screen_products(node_map):
-    """Every Product + Offer pair this screen binds, in first-seen order, deduplicated.
+    """Every Product + Offer + plan binding this screen binds, as registry entries, in
+    first-seen order, deduplicated -- the first entry of a binding keeps its fallback offer.
 
     Two sources, because they are the two ways a screen names a product: a `product` element's
     `props.product`, and a `const` purchase payload -- which products.md documents as binding
@@ -2194,21 +2234,24 @@ def screen_products(node_map):
     can hand the same pairs to `predeclare()` instead of listing them twice:
 
         scr = fk.screen('scr_x', nodes, selectable_groups=[...])
-        meta = fk.predeclare('scr_x', [(p['id'], p.get('offerId')) for p in scr['products']])
+        meta = fk.predeclare('scr_x', scr['products'])
     """
-    pairs, seen = [], set()
+    entries, seen = [], set()
 
-    def add(value):
+    def add(value, fallback=None):
         if not isinstance(value, dict):
             return
         pid = value.get('id')
         if not isinstance(pid, str) or not pid:
             return
-        offer = value.get('offerId') or None
-        if (pid, offer) in seen:
+        key = (pid, value.get('offerId') or None, value.get('billingPlanId') or None)
+        if key in seen:
             return
-        seen.add((pid, offer))
-        pairs.append((pid, offer))
+        seen.add(key)
+        entry = _product_value(*key)
+        if fallback and key[2]:
+            entry['fallbackOfferId'] = fallback
+        entries.append(entry)
 
     def purchases(obj):
         if isinstance(obj, list):
@@ -2224,10 +2267,15 @@ def screen_products(node_map):
 
     for el in node_map.values():
         if el.get('type') == 'product':
-            add((el.get('props') or {}).get('product'))
+            add((el.get('props') or {}).get('product'), el.get(_FALLBACK_KEY))
     for el in node_map.values():
         purchases(el.get('interactions'))
-    return pairs
+    return entries
+
+
+def _binding_keys(entries):
+    """`(product_id, offer_id, plan)` per registry entry, for reference resolution."""
+    return [(e['id'], e.get('offerId'), e.get('billingPlanId')) for e in entries]
 
 
 def _split_product_var(variable_id):
@@ -2250,7 +2298,10 @@ def _ref_target(prefix, pairs, product_groups):
     group, sep, tail = prefix.rpartition('.')
     if sep and tail == _SELECTED_PRODUCT:
         return {'kind': 'selected', 'groupId': group} if group in product_groups else None
-    matches = [p for p in pairs if p[0] == prefix]
+    # A plain id names only the upfront bindings and `<id>@monthly` only the monthly ones, as in
+    # the builder: the plan never resolves implicitly, even when only one plan is bound.
+    pid, plan = _split_product_segment(prefix)
+    matches = [p for p in pairs if p[0] == pid and p[2] == plan]
     return _binding(*matches[0]) if len(matches) == 1 else None
 
 
@@ -2467,7 +2518,10 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
         props['padding'] = padding
     # Product refs and the registry, from the screen just built. Order matters only in that
     # both read the same bindings: the refs resolve against them and the registry IS them.
-    pairs = screen_products(node_map)
+    entries = screen_products(node_map)
+    for el in node_map.values():
+        el.pop(_FALLBACK_KEY, None)
+    pairs = _binding_keys(entries)
     product_groups = {gid for gid, g in groups.items() if g.get('type') == 'product'}
     _apply_product_refs(node_map, pairs, product_groups)
 
@@ -2476,8 +2530,8 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
            'selectableGroups': [dict(g) for g in selectable_groups]}
     # Absent, never empty, on a screen that binds no product: the builder reads `products: []`
     # as a registry it was told is empty, which is not the same claim as no registry.
-    if pairs:
-        out['products'] = [_product_value(pid, offer) for pid, offer in pairs]
+    if entries:
+        out['products'] = entries
     if caption:
         out['caption'] = caption
     return out
@@ -2525,8 +2579,9 @@ def _typo(entry):
     return {'id': i, 'name': n, 'settings': settings}
 
 
-def flow_product_id(screen_id, product_id, offer_id=None):
-    """The builder's `flowProductId` for one Product + optional Offer pair on one screen.
+def flow_product_id(screen_id, product_id, offer_id=None, billing_plan=None):
+    """The builder's `flowProductId` for one Product + optional Offer + optional plan binding on
+    one screen.
 
     An RFC-4122 v5 UUID over the UTF-8 bytes of `screenId:productId[:offerId]`, with an EMPTY
     namespace -- a zero-LENGTH prefix, not sixteen zero bytes. So do not reach for
@@ -2538,12 +2593,15 @@ def flow_product_id(screen_id, product_id, offer_id=None):
 
     Matches how the builder mints it (a code path the builder marks frozen):
 
-        getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}`)
+        getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : productId}${billingPlanId ? `|bil:${billingPlanId}` : ''}`)
 
+    The plan suffix is appended only for a monthly binding, so every plan-less id is unchanged.
     Nine vectors from real builder output are pinned in `tests/test-flowkit.py` -- run it if you
     touch this.
     """
     name = f'{screen_id}:{product_id}:{offer_id}' if offer_id else f'{screen_id}:{product_id}'
+    if billing_plan:
+        name += f'|bil:{billing_plan}'
     digest = bytearray(hashlib.sha1(name.encode('utf-8')).digest()[:16])
     digest[6] = (digest[6] & 0x0F) | 0x50   # version 5
     digest[8] = (digest[8] & 0x3F) | 0x80   # RFC-4122 variant
@@ -2561,15 +2619,16 @@ def predeclare(screen_id, products):
     after someone opens the flow in the builder and saves it. "Publish it to preview it" is not
     a workflow you can hand a user.
 
-    Pass `products` as exact Product + optional Offer pairs: each item is either a bare product id
-    or a `(product_id, offer_id)` tuple.
+    Pass `products` as exact bindings: each item is a bare product id, a `(product_id, offer_id)`
+    or `(product_id, offer_id, billing_plan)` tuple, or a registry entry -- so a screen built
+    with `screen()` declares as `predeclare(scr['id'], scr['products'])`, fallback offers included.
 
-        predeclare('scr_x', ['annual', ('annual', 'trial')])
+        predeclare('scr_x', ['annual', ('annual', 'trial'), ('annual', None, 'monthly')])
 
     The emitted ids are the ones the builder mints, so a draft carrying them previews on a real
     device with no publish and no builder visit, and the builder's next save rewrites them to the
-    same values. Entry key order matches the builder's: `id`, `offerId` when there is one, then
-    `flowProductId`.
+    same values. Entry key order matches the builder's: `id`, then `offerId`, `billingPlanId` and
+    `fallbackOfferId` when there are some, then `flowProductId`.
 
     When REWRITING a flow, carry the live `_meta.screens` forward instead of calling this. A live
     declaration can hold pairs your rewrite does not know about -- component-owned bindings among
@@ -2577,11 +2636,18 @@ def predeclare(screen_id, products):
     """
     entries = []
     for item in products:
-        pid, offer_id = item if isinstance(item, (tuple, list)) else (item, None)
-        entry = {'id': pid}
-        if offer_id:
-            entry['offerId'] = offer_id
-        entry['flowProductId'] = flow_product_id(screen_id, pid, offer_id)
+        fallback = None
+        if isinstance(item, dict):
+            pid, offer_id, plan = item['id'], item.get('offerId'), item.get('billingPlanId')
+            fallback = item.get('fallbackOfferId')
+        elif isinstance(item, (tuple, list)):
+            pid, offer_id, plan = (tuple(item) + (None, None))[:3]
+        else:
+            pid, offer_id, plan = item, None, None
+        entry = _product_value(pid, offer_id, plan)
+        if fallback and plan:
+            entry['fallbackOfferId'] = fallback
+        entry['flowProductId'] = flow_product_id(screen_id, pid, offer_id, plan)
         entries.append(entry)
     return {screen_id: {'products': entries}}
 

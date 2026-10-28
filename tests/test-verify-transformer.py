@@ -144,6 +144,14 @@ fires('productRef: a groupId on a product target',
       with_visibility({'type': 'productRef',
                        'target': {'kind': 'product', 'id': 'p', 'groupId': 'g'}}),
       'not allowed on this target')
+silent('productRef: a monthly binding of the 12-month commitment plan',
+       with_visibility({'type': 'productRef',
+                        'target': {'kind': 'product', 'id': 'p', 'billingPlanId': 'monthly'},
+                        'field': 'is_monthly_plan'}))
+fires('productRef: a billing plan other than monthly',
+      with_visibility({'type': 'productRef',
+                       'target': {'kind': 'product', 'id': 'p', 'billingPlanId': 'upfront'}}),
+      'billingPlanId')
 fires('productRef: a field outside the product vocabulary',
       with_visibility({'type': 'productRef', 'target': {'kind': 'product', 'id': 'p'},
                        'field': 'prod_colour'}), 'is not a product variable')

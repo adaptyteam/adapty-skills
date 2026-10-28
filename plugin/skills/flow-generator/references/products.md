@@ -229,7 +229,7 @@ Three rules follow, and the last is the one that costs work:
 
   ```python
   scr = fk.screen('scr_x', nodes, selectable_groups=[{'id': 'plans', 'type': 'product'}])
-  meta = fk.predeclare('scr_x', [(p['id'], p.get('offerId')) for p in scr['products']])
+  meta = fk.predeclare('scr_x', scr['products'])
   ```
 
   A registry assembled by hand from memory is how a binding goes missing, and nothing downstream
@@ -297,6 +297,46 @@ Two contracts a `productRef` must never enter, both enforced in `flowkit` and bo
 hand: a **purchase payload**, which keeps its own `dynamicProduct` var/const node, and
 **`assign.left`**, which the service requires to be a `var`.
 
+### A yearly product can be sold under its monthly plan
+
+An annual App Store product can carry a 12-month commitment plan: the user pays monthly for a
+year instead of the yearly price at once. A screen sells the product **upfront** (the default,
+never written down) or under the **monthly** plan, and the plan is identity exactly like an offer:
+upfront and monthly of one product are two bindings, two registry entries and two
+`flowProductId`s. To offer both, bind the product twice.
+
+```python
+fk.product(upfront_card, product_id='<uuid>', group_id='plans', default=True)
+fk.product(monthly_card, product_id='<uuid>', group_id='plans',
+           billing_plan='monthly', fallback_offer_id='<upfront-offer-id>')
+```
+
+`flowkit` writes the rest. Registry and `_meta` entries carry `billingPlanId: "monthly"` after
+`offerId`, plus `fallbackOfferId` on the monthly entry only, and the `flowProductId` hashes
+`screenId:productId[:offerId]|bil:monthly`. A structured target gains the same `billingPlanId`. A
+dotted variable names the monthly binding `<uuid>@monthly.<field>`. **A plain `<uuid>.<field>`
+names only the upfront binding**, even on a screen that binds only the monthly one, so write the
+`@monthly` form for every variable meant for the monthly plan.
+
+Three rules the builder enforces at publish, so check them before you write:
+
+- **The product must have the plan turned on in Adapty.** Nothing you can read from here proves it;
+  ask the user. A monthly binding of a product without it blocks publishing.
+- **`offer_id` must be an offer of the binding's own plan.** An introductory offer is never a
+  monthly-plan offer.
+- **`fallback_offer_id` is an upfront offer**, sold where the plan does not apply: Apple devices
+  before iOS 26.4, countries without the plan, SDKs before 4.3. Without one, those users buy upfront
+  with no offer. Android apps don't receive the monthly binding at all, so a flow that also runs on
+  Android binds the upfront product too.
+
+**Apple requires the screen to show the monthly payment and the yearly total before the purchase.**
+Bind `<uuid>@monthly.prod_billing_price` and `<uuid>@monthly.prod_billing_period` for the payment,
+and `<uuid>@monthly.prod_price` for the yearly total. Gate monthly-only copy on `is_monthly_plan`,
+because users the plan does not apply to buy upfront. The billing fields need iOS SDK 4.3.1; an
+older SDK shows `prod_price` and the subscription period in their place, the yearly total and
+"1 year" for a monthly binding. That fallback is consistent but not the payment, so say so when you
+hand the flow over.
+
 ### Declare the products yourself, and a new flow previews on a device immediately
 
 **This is the route to prefer for a flow you authored.** Write the `_meta.screens` declaration in
@@ -308,9 +348,10 @@ the config you send:
   {"id": "<product-uuid>", "offerId": "<offer-id>", "flowProductId": "<derived>"}]}}}
 ```
 
-`flowkit.predeclare(screen_id, products)` generates it. Pass **exact Product + Offer pairs** — a
-bare product id, or a `(product_id, offer_id)` tuple. The offer is part of the id, so a product
-bound with an offer and the same product bound without one are two entries:
+`flowkit.predeclare(screen_id, products)` generates it. Pass **exact bindings** — a bare product
+id, a `(product_id, offer_id)` or `(product_id, offer_id, billing_plan)` tuple, or the screen's own
+registry, `scr['products']`. The offer and the plan are part of the id, so a product bound with an
+offer and the same product bound without one are two entries:
 
 ```python
 fk.predeclare('scr_x', ['annual', ('annual', 'trial')])

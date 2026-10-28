@@ -408,10 +408,12 @@ Worth having in full, because it is the answer to "what do I bind instead of typ
 | `prod_title` | the localized product title |
 | `prod_price` | the price for one billing period |
 | `prod_price_per_{day,week,month,year}` | that price converted; empty for non-subscriptions |
+| `prod_billing_price`, `prod_billing_period` | one payment's price and period; differ from `prod_price` and the subscription period only under the [monthly plan](products.md#a-yearly-product-can-be-sold-under-its-monthly-plan) |
 | `offer_price` | the intro/promo offer price |
 | `offer_billing_period` | the offer's billing period |
 | `offer_full_duration` | the offer's full length — **this is the trial-length one** |
 | `is_free_trial`, `is_pay_up_front`, `is_pay_as_you_go` | booleans, for conditional visibility |
+| `is_monthly_plan` | boolean: this user buys the binding under the monthly plan |
 
 Two things to carry with them. **Every `offer_*` field is empty when the user is not eligible for
 an offer**, so a line built around one silently loses its number for everyone else — gate it on
@@ -422,7 +424,7 @@ an offer**, so a line built around one silently loses its number for everyone el
 A boolean is for visibility, never for text: the transform service refuses one inside rich text
 (`boolean_product_var_in_text`).
 
-**The set is closed.** A field outside those twelve is refused as `unknown_product_field` — and the
+**The set is closed.** A field outside those fifteen is refused as `unknown_product_field` — and the
 service treats that as the author's own typo rather than a registry problem, so it is on you to get
 right. `verify-config.py` errors on one, and on a bad product id in *any* of the three families
 (`prod_*`, `offer_*`, `is_*`).

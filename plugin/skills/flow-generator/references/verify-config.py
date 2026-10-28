@@ -102,8 +102,9 @@ UNMAPPED_ELEMENT_TYPES = {
 PRODUCT_FIELDS = {
     'prod_title', 'prod_price',
     'prod_price_per_day', 'prod_price_per_week', 'prod_price_per_month', 'prod_price_per_year',
+    'prod_billing_price', 'prod_billing_period',
     'offer_price', 'offer_billing_period', 'offer_full_duration',
-    'is_free_trial', 'is_pay_up_front', 'is_pay_as_you_go',
+    'is_free_trial', 'is_pay_up_front', 'is_pay_as_you_go', 'is_monthly_plan',
 }
 
 # ---- prices, discounts and durations written as literal text -----------------------------
@@ -220,7 +221,9 @@ def bad_expr_path(v, path):
             if 'offerId' in target and not (isinstance(target['offerId'], str)
                                             and target['offerId']):
                 return f'{path}.target.offerId (omit the key for a base binding, never "")'
-            extra = set(target) - {'kind', 'id', 'offerId'}
+            if 'billingPlanId' in target and target['billingPlanId'] != 'monthly':
+                return f'{path}.target.billingPlanId (only "monthly"; omit the key for upfront)'
+            extra = set(target) - {'kind', 'id', 'offerId', 'billingPlanId'}
         elif target.get('kind') == 'selected':
             if not (isinstance(target.get('groupId'), str) and target['groupId']):
                 return f'{path}.target.groupId'
@@ -1598,7 +1601,8 @@ def check(path, baseline_text=None, baseline_images=None):
                        f'refuses it (`unknown_product_field`). The set is closed: '
                        f'{", ".join(sorted(PRODUCT_FIELDS))}')
             continue
-        head = v.split('.')[0]
+        # A monthly binding's product segment is `<id>@monthly`; the declaration names the id.
+        head = v.split('.')[0].removesuffix('@monthly')
         if '.selectedProduct.' in v:
             if head not in product_groups:
                 bad.append(f'group-relative price variable on unknown product group: {v}')

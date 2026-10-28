@@ -28,15 +28,18 @@ Everything else is reachable: product UUIDs from `adapty products list` (or `pro
 `references/icons.py` ships.
 
 **`flowProductId`** — the per-screen declaration in `_meta.screens[].products[]` — is derived, not
-waited for. `flowkit.predeclare(screen_id, products)` writes the block; pass exact Product + Offer
-pairs, a bare product id or a `(product_id, offer_id)` tuple, because the offer is part of the id.
+waited for. `flowkit.predeclare(screen_id, products)` writes the block; pass exact bindings, a bare product
+id, a `(product_id, offer_id)` tuple or the screen's `scr['products']`, because the offer is part of
+the id.
 Omit the declaration and device preview 422s. When *rewriting* a flow, carry the live
 `_meta.screens` forward instead of regenerating it — **and `screens[].products` with it**, the
 screen-owned registry that `_meta` is derived from. Never write `"products": []`: absent and empty
 mean opposite things to the builder. When *authoring*, `flowkit.screen()` writes the registry and
 the structured product refs for you, from the screen's own bindings — bind an offer with
 `product(..., offer_id=...)` and a dotted price variable picks it up
-([products.md](references/products.md)).
+([products.md](references/products.md)). A yearly product sold in monthly payments is
+`product(..., billing_plan='monthly')`, with its own `<uuid>@monthly.<field>` variables
+([products.md → A yearly product can be sold under its monthly plan](references/products.md#a-yearly-product-can-be-sold-under-its-monthly-plan)).
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
