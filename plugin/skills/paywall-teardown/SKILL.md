@@ -269,6 +269,14 @@ does not buy must be able to leave. Never move it out of the table as a
 strategy question. That is the whole reason: do not add
 that store review may reject it, which nothing here has checked.
 
+**A trial paywall that never promises a reminder is a row too.** When the screen sells a free
+trial and nothing on it says the user will hear from you before the first charge, add one under
+Trust signals near CTA, with that pattern's range: a line by the button ("We'll remind you 2 days
+before your trial ends"), or a reminder step in a trial timeline. Forgetting to cancel is the main
+reason people hold back from a trial, and "Cancel anytime" does not answer it. Only a reminder the
+app really sends can be promised, so the asks carry "Do you send a reminder before the trial
+charges?"; when the answer is no, the row is to start sending one, then say so.
+
 ## Output — design
 
 For the forward pass. Same library, same numbers, different columns — there is nothing to compare against
