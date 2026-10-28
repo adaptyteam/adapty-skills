@@ -2454,6 +2454,36 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'identical and nothing carries `propsByState.selected`, so a user cannot '
                     f'tell which one is selected. If the design marks selection some other way '
                     f'(a radio dot with its own state) this is fine. Members: {names}')
+    # A STATE OVERRIDE THAT DROPS A SUB-FIELD. A prop in `propsByState.<state>` replaces the base
+    # prop whole, on device and in the preview alike: a key it leaves out falls back to its
+    # default, it is not inherited (flow-schema.md, trap 17). The transformer deep-merged until
+    # October 2026, so a delta override (`font: {weight}` over `font: {preset}`) is the shape an
+    # author writes from the old rule, and it now loses the preset. Every state override in every
+    # real export and catalog template repeats each key of the base prop it replaces (407 of 407
+    # measured), so this never fires on builder output. A colour switched to another variant
+    # (`type` differs) is a new value, not a partial one. Two left-out keys draw the same and are
+    # not reported, both measured as false positives in a test round: `font.preset` when the
+    # override sets its own `size` (a manual font in place of the preset), and `border.style`
+    # (only `none` changes the drawing).
+    for where, k, e in iter_elements(d):
+        base = e.get('props') or {}
+        for state, over in ((e.get('propsByState') or {}).items()):
+            dropped = []
+            for name, v in (over or {}).items():
+                b = base.get(name)
+                if not (isinstance(b, dict) and isinstance(v, dict)):
+                    continue
+                if 'type' in b and 'type' in v and b['type'] != v['type']:
+                    continue
+                dropped += [f'{name}.{x}' for x in b if x not in v
+                            and not (name == 'font' and x == 'preset' and 'size' in v)
+                            and not (name == 'border' and x == 'style')]
+            if dropped:
+                warn.append(
+                    f'{where}: {k} `propsByState.{state}` leaves out {", ".join(dropped)} — a '
+                    f'state replaces each prop whole, so the left-out key falls back to its '
+                    f'default in that state instead of keeping the base value. Repeat it in the '
+                    f'override. See flow-schema.md, trap 17')
     # A `product` ELEMENT WITH NOTHING IN IT. The single-plan shape where the plan's name and price
     # are loose text beside an empty (often hidden) `product` "attach point". The builder draws the
     # empty element as a 1x1 box the user has to find and delete by hand, and it breaks the layout

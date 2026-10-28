@@ -1451,6 +1451,27 @@ def date_time_picker(custom_id, *, date_format='yyyy-mm-dd', time_format='24h',
 SELECTED_STATE = [{'id': 'selected', 'type': 'system'}]
 
 
+def state_override_drops(base, override):
+    """`prop.key` for every key of a base prop object that a state override of it leaves out.
+
+    A colour switched to another variant (`type` differs, e.g. a token for a hex) is a new value,
+    not a partial one, so its keys are not compared. Two left-out keys draw the same as the base
+    and are not reported: `font.preset` when the override sets its own `size` (a manual font in
+    place of the preset), and `border.style` (only `none` changes the drawing).
+    """
+    out = []
+    for name, v in override.items():
+        b = base.get(name)
+        if not (isinstance(b, dict) and isinstance(v, dict)):
+            continue
+        if 'type' in b and 'type' in v and b['type'] != v['type']:
+            continue
+        out += [f'{name}.{k}' for k in b if k not in v
+                and not (name == 'font' and k == 'preset' and 'size' in v)
+                and not (name == 'border' and k == 'style')]
+    return out
+
+
 def on_selected(node, **props):
     """Give `node` a different look while its group member is selected.
 
@@ -1472,10 +1493,19 @@ def on_selected(node, **props):
     Give every member the SAME base look; `default=True` picks which one starts selected, never
     how it looks. A real export repeats the props it touches (fill, padding, borderRadius)
     rather than sending a delta, so pass the full set you want applied in that state.
+
+    Each prop replaces the base prop whole, so this refuses one that leaves out a base key
+    (flow-schema.md, trap 17).
     """
     if not props:
         raise ValueError('on_selected() with no props does nothing — pass the overrides that '
                          'should apply while selected, e.g. fill=fill("planOn").')
+    dropped = state_override_drops(node.get('props') or {}, props)
+    if dropped:
+        raise ValueError(
+            'on_selected() override leaves out ' + ', '.join(dropped) + ' — a state replaces '
+            'each prop whole, so a left-out key falls back to its default instead of the base '
+            'value. Repeat it in the override (copy the base prop and change what differs).')
     if node.get('type') in ('product', 'selectable', 'tab-item'):
         node['states'] = list(SELECTED_STATE)
     node.setdefault('propsByState', {})['selected'] = props

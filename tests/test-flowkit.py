@@ -938,6 +938,23 @@ def main():
     check('...and does NOT declare states on a non-member element', _txt.get('states') == [])
     check('on_selected with no overrides raises (it would silently do nothing)',
           raises(lambda: fk.on_selected(fk.text(fk.rich('x')))))
+    # A state replaces each prop whole (flow-schema.md, trap 17): a delta font over a preset
+    # draws in the system font, so the helper refuses an override that drops a base key.
+    check('on_selected refuses a font override that drops the base preset',
+          'font.preset' in _message(lambda: fk.on_selected(
+              fk.text(fk.rich('x'), preset='plan'), font={'weight': 'bold'})))
+    check('on_selected accepts the same override with the preset repeated',
+          fk.on_selected(fk.text(fk.rich('x'), preset='plan'),
+                         font={'preset': 'plan', 'weight': 'bold'})
+          ['propsByState']['selected']['font']['weight'] == 'bold')
+    check('on_selected accepts a manual font with its own size in place of the preset',
+          fk.on_selected(fk.text(fk.rich('x'), preset='plan'),
+                         font={'size': 16, 'weight': 'bold'})
+          ['propsByState']['selected']['font']['size'] == 16)
+    check('on_selected accepts a colour switched to another variant (not a partial value)',
+          fk.on_selected(fk.text(fk.rich('x'), color_id='ink'),
+                         color=fk.hex_color('#FFFFFF'))['propsByState']['selected']['color']
+          ['hex'] == '#FFFFFF')
 
     # --- carousel margin: the dot band is the last few px of the carousel's own box and the
     # next element starts immediately after, so clearance is a margin and nothing else.
