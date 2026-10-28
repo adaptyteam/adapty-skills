@@ -302,7 +302,26 @@ your trial ends. Turn on notifications?" The user wants that one more than anyth
 later, so it carries the opt-in. Keep the app's own reason on the same screen, after it (a bedtime
 reminder that uses their answer). Only a reminder the app really sends can be promised, so the
 asks carry "Do you send a reminder before the trial charges?"; when the answer is no, the row is
-to start sending one, then ask. With no trial, the app's own reason leads.
+to start sending one, then ask. With no trial, the app's own reason leads. A flow that asks for no
+notifications at all gets this only as a test idea (see the next section), never as a fault.
+
+## Question screens: ideas to test
+
+These are not faults; either wording can win. Write the findings first, with the priorities they
+earn on their own; these ideas never change how many findings there are or how high they rank.
+Then, only when the flow has question screens and there are fewer than 6 findings, add **at most
+two ideas in all**, the post-trial notification idea above included, as `Low` rows written as a
+test against what the screen does now, at the copy tier. With 6 or more findings, add none.
+
+- **Say why you ask:** one line under the question with what the answer changes ("We'll pick
+  tonight's sounds from this").
+- **Show the personalization:** when options change with an earlier answer, say so ("Based on
+  your goal").
+- **A Skip that names the cost:** "Skip personalization" instead of "Skip", where a later screen
+  reads the answer.
+- **Goals as the state they want:** "Fall asleep easily" against "I can't fall asleep".
+- **Fewer choices:** a long single-choice list cut to the five or six most picked, or grouped; a
+  multi-select grid can stay, with a "pick up to 3" hint.
 
 ## The tracking prompt stays early
 
