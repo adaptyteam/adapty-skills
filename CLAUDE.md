@@ -227,7 +227,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 ### `growth-advisor`
 
 - **`references/evidence.md` is vendored byte-for-byte from the growth team.** Repo-specific facts go elsewhere; never quote the raw test library, which names customers.
-- **One owner per number:** uplift ranges from `evidence.md`, market medians and win rates from `market.md`. No Autopilot impact numbers.
+- **One owner per number:** uplift ranges from `evidence.md`, market medians and win rates from `market.md`, onboarding and flow figures that `evidence.md` lacks from `references/onboarding-evidence.md` (each with its label and public link, linking to `market.md` for a number it owns). No Autopilot impact numbers.
 - **Prices come from the price CSV and the vendored index, never from competitors;** a price is tested on a copy and goes live only through "Changing a live price". Don't restore the deleted competitor-price reads.
 - **Two words for users: a hypothesis, and once picked, an A/B test.** Ask which one to start with, never for a verdict on each.
 - **A live placement changes only through the confirmation block:** `update` replaces every audience, so a running A/B test entry not passed back as read stops that test.
