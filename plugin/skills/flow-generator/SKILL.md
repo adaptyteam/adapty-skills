@@ -1056,6 +1056,20 @@ unlucky timing needed. Their untouched config is the only copy that survives it
 saving is where you stop by default. Publishing is a separate, explicitly confirmed step the user
 asks for — never something you fold into a write.
 
+**Before a publish of a flow a placement shows, read who it reaches**: in this callout, and when
+the user saved in the builder and asks what is next. The seven-day read of phase 6:
+
+```bash
+$ADAPTY flows metrics get "$FLOW" --app "$APP" --based-on placement \
+  --date-from <seven days ago> --date-to <today> --date-type purchase_date --json
+```
+
+`unique_profiles_views` on each placement's node is how many people started the flow there; that
+number goes in step 3. When the edit changes what buyers see (copy, plans, layout), the same line
+offers an A/B test of a copy once, through **`ab-tests`**; publishing in place stays the default.
+No placement shows the flow, or `flows metrics --help` says the command does not exist: leave the
+line out.
+
 **Then end with this callout, every time.** A save is not a release, and it takes their word to
 finish it. Fill the slots and keep all three steps plus the closing line — that line is the
 point. **If the user asked you to publish and you did,** the heading becomes "Published — live
@@ -1082,6 +1096,9 @@ come back.
 >    Want a QR code to scan with the Adapty mobile app? Just say so and I'll make one.
 > 3. Publish: say the word and I'll do it, or use Publish at the top right of the editor. After
 >    that I can attach it to a placement, which is what makes your app show it.
+>    `<only if a placement shows this flow:>` About `<n>` people a week start it on
+>    `<placement>`, and a publish changes it for all of them. `<only for a change buyers see:>`
+>    To measure the change first, I can set up an A/B test of a copy against the live version.
 >    `<only if a product card has no product chosen:>` Publishing is blocked until you choose
 >    the products for `<the cards, by label>` — tell me which, or pick them in the builder.
 >

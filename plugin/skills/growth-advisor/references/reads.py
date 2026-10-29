@@ -648,7 +648,7 @@ def audit(a):
         print(f"   placement {p.get('title')!r} id {p.get('id')}"
               f"{'' if p.get('is_active', True) else ' (inactive)'}")
         auds[p.get('id')] = print_audiences(a.adapty, a.app, p.get('id'), names, top_codes, seg_cache)
-    ab_tests(a, names, auds, cap=40)
+    flows_reach(a, names, lists['flows'], auds, ab_tests(a, names, auds, cap=40) or [])
     split_money(R('1. revenue by payment: Activation is first payments, Renewal N the later ones',
                   chart('revenue', f, t, 'period')))
     R('revenue by store', chart('revenue', f, t, 'store'))
@@ -896,6 +896,7 @@ def ab_tests(a, names, auds, pid=None, cap=None):
             FAILED.append(f"ab-tests get {x.get('title')}: {err}")
             continue
         arms = (body.get('paywalls') or []) + (body.get('flows') or [])
+        x['_arms'] = arms
         ids = {r.get('paywall_id') or r.get('flow_id') for r in arms}
         def arm(r):
             cid = r.get('paywall_id') or r.get('flow_id')
@@ -921,6 +922,39 @@ def ab_tests(a, names, auds, pid=None, cap=None):
     if len(shown) < len(tests):
         print(f'   {len(tests) - len(shown)} more not shown: the oldest, and drafts')
     return tests
+
+
+def flows_reach(a, names, flows, auds, tests):
+    """Every flow's lifetime viewers and purchases, and where it shows now: a flow on no placement that
+    users started ran before; one nobody started never reached users, so it was not tried."""
+    if not flows:
+        return
+    where = {}
+    for pid, aud in auds.items():
+        for x in aud or []:
+            if x.get('flow_id'):
+                where.setdefault(x['flow_id'], []).append(str(names.get(pid, pid)))
+    for x in tests:
+        if x.get('state') == 'live':
+            for r in x.get('_arms') or []:
+                if r.get('flow_id'):
+                    where.setdefault(r['flow_id'], []).append(f"running test {x.get('title')!r}")
+    rows = {}
+    for i in range(0, len(flows), 50):
+        body, err = cli(a.adapty, ['flows', 'metrics', 'list', '--app', a.app,
+                                   '--ids', ','.join(f.get('id') for f in flows[i:i + 50])])
+        if err:
+            print(f'\n## flows: FAILED: {err}')
+            FAILED.append(f'flows metrics list: {err}')
+            return
+        rows.update({r.get('flow_id'): r for r in body.get('data') or []})
+    print('\n## flows: lifetime viewers and purchases, and where each shows now')
+    for f in sorted(flows, key=lambda f: -((rows.get(f.get('id')) or {}).get('unique_profiles_views') or 0)):
+        r = rows.get(f.get('id')) or {}
+        v = r.get('unique_profiles_views') or 0
+        fin = f"{100 * (r.get('total_uniq_completions') or 0) / v:.0f}%" if v else '-'
+        print(f"   {str(f.get('name'))[:44]:44} {str(f.get('status') or ''):10} viewers {num(v):>7}  finished "
+              f"{fin:>4}  purchases {num(r.get('purchases') or 0):>6}  on {', '.join(where.get(f.get('id'), [])) or 'no placement'}")
 
 
 def flow_metrics(a, pid, f, t, test=None):
