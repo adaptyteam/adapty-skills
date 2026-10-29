@@ -244,7 +244,8 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 | A test in the A/B test list | A test they ran, with its dates and arms. The arm its audience shows now is the one they kept; say "kept", not "won". One that ran under a week is not a result. |
 | Two paywalls or flows selling on one placement in the same weeks, then one stops | The test the list shows there then: name it. With none listed, a test across placements or a change of audiences: say what sold when, never that a test ran. The one still selling is the one they kept. |
 | One paywall stops and another starts the same week | A change they made and kept. |
-| A paywall or flow in `paywalls list` / `flows list` that no placement shows | Something tried and dropped. Its name often says what it tried. |
+| A paywall in `paywalls list` that no placement shows | Something tried and dropped. Its name often says what it tried. |
+| A flow on no placement | The audit's flows table says whether users ever started it. With viewers it ran and was dropped, and its name often says what it tried; with none it never reached users. |
 | A placement, paywall, flow or product whose name names a change ("No Free Trial", "Exit Offer Test", "ex-Winback", "Weekly Trial And Yearly") | That change was tried, whatever its numbers. Say "it looks like you tested X; what came out?", never that it was never tried. |
 | Two paywalls or flows both selling on one placement in the last full month | An A/B test or two audiences, if `placements get` shows one. A running test shows there as an audience of its own kind with its title: name it and never describe it in the past tense. With neither there, the two ran side by side earlier in the month: the test the list shows there then, or a change they made, and the one live now is the one they kept. |
 | A product with purchases earlier and none lately | A plan or trial they dropped. |
@@ -535,6 +536,10 @@ $ADAPTY placements metrics get <PLACEMENT_ID> --app <APP_ID> --type flow --based
   on the flow's [Funnel tab](https://adapty.io/docs/flow-funnel.md), which the CLI does not read:
   when a low share would change a hypothesis, ask for a screenshot of it. A screen row's views in
   this answer are not that funnel: they count only users who started the flow on that screen.
+- **A flow on several placements, or two flows compared:** `flows metrics list --ids <FLOW_ID>,…`
+  gives lifetime rows, and `flows metrics get <FLOW_ID> --based-on placement --date-from … --date-to
+  … --date-type purchase_date` splits one flow by placement (the dates are required). Compare
+  placements inside it, never one placement's number with another flow's total.
 
 ## "Why did revenue drop?"
 

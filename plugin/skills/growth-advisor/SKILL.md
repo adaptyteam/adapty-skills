@@ -58,7 +58,8 @@ These are the only two words for what you suggest, and the user sees them exactl
 A question about the app's own numbers ("who buys annual", "which country refunds most", "do
 people who start a trial renew better") is answered from the numbers. Find the operation, the
 grouping and the filter that answer it in the catalog (`references/diagnosis.md`, "Before the
-first read"), run them, and answer in the reply shape. Do not run the audit, read the test history
+first read"), run them, and answer in the reply shape. A question about one flow (how it does, how
+many finish it) is read from its metrics (`references/diagnosis.md`, "Flow placement metrics"). Do not run the audit, read the test history
 or suggest hypotheses unless the user asks what to do. A problem the user brings (a drop, a fall,
 "help", "take a look", "what's wrong") asks what to do: it gets the explanation and then the
 hypotheses, not an offer of them. For a question about the numbers alone, end with one offer that names the metric the
