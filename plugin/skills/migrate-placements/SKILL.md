@@ -148,9 +148,10 @@ read it and check your input; **3** means an invariant inside the script broke a
 almost certainly fine, so stop and report it rather than editing files. A vague message on a 2 is
 the script declining to guess, not a bug.
 
-`placements list` returns `{developer_id, id, title}` with **no audiences** — only `placements get`
-returns them, so classifying N placements costs N GETs and there is no bulk read
-([api-surface.md](references/api-surface.md#summary-vs-detail)).
+`placements list` returns `{developer_id, id, title, type}` with **no audiences** — only
+`placements get` returns them, and there is no bulk read. The command reads no flow or onboarding
+placement, so classifying costs one GET per paywall placement, or per placement when the list has no
+`type` ([api-surface.md](references/api-surface.md#summary-vs-detail)).
 
 **The same command also reads `flows list` and `paywalls list`** — the flows the account already
 has, and the paywall **titles** to match them against, since an audience carries `paywall_id` and
@@ -225,8 +226,9 @@ distinct paywall**, shared by every placement and audience that uses it, so the 
 one flow instead of many.
 
 **Report the counts and the grouping, never one row per placement** — migratable placements,
-migratable audiences, distinct paywalls, already-flow, no-audience, skipped A/B tests. A 150-row
-dump is not a report.
+migratable audiences, distinct paywalls, already-flow, no-audience, skipped A/B tests, and
+onboarding placements (`summary.onboarding`, not this skill's: name the count). A 150-row dump is
+not a report.
 Name the distinct paywall count as the number of flows the next phase creates.
 
 **When `summary.unwritable_multi_segment` is not zero, report it here and treat those placements as
@@ -631,6 +633,18 @@ do not write app code here.
 placement ID compiled in and cannot reach the flow until they update, so retiring the paywall
 placement early takes the paywall away from everyone who has not updated. Both placements run side
 by side, each measured on its own metrics, until v4 adoption is high enough.
+
+**Tell them how to see the release reach the new placements.** Once the app ships the call change,
+one read shows how many users started each new flow placement; a placement with none is not fetched
+by any build users run yet:
+
+```bash
+$ADAPTY placements metrics list --app "$APP" --type flow --ids <new placement id>,<new placement id> --json
+```
+
+`unique_profiles_views` is that count; it updates every few minutes. Run it when the user comes back
+after the release, or give them the command; when `placements metrics --help` says there is no such
+command, point them at each placement's page in the dashboard instead.
 
 **No rollback file is needed, and say why:** nothing existing was modified, so **the untouched
 paywall placements are the rollback.** Until the app ships the call change, users are on the old

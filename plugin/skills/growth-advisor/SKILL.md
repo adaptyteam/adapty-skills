@@ -101,8 +101,9 @@ the first two weeks of real users.
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
 funnel, retention, LTV and install cohorts, and breaks most of them down by placement, paywall,
-flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates. A/B
-test results and benchmarks for the app's own category are not in the CLI. `references/market.md` holds the market
+flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates, and
+reads a flow placement's dashboard metrics by audience and test arm. Which arm of a test wins, and
+benchmarks for the app's own category, are not in the CLI. `references/market.md` holds the market
 medians from Adapty's State of Paywalls 2026, which cover a lot of this at the level of region
 and category. A benchmark matched to the app's own category is not available; if the user
 pastes one, use it and say where it came from.
@@ -198,7 +199,9 @@ and the reason.
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
   back and ask, never a "Me:" item.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
-  it), one "You:" item asks how it is going and when it ends.
+  it), one "You:" item asks when it ends. On a flow placement, say how far each arm is from about
+  200 purchases (`references/diagnosis.md`, "Flow placement metrics"), never which one leads; on a
+  paywall placement, the item also asks how it is going.
 - **After building an A/B test:** one line on what changed, the before and after renders, then Next
   steps carrying the review, the phone check (with what to look for) and publish. Nothing else.
   If anything you added sits below the fold or behind a pinned button, the phone check says so
@@ -250,8 +253,10 @@ started, and it never shows up as a change.
    at a time and prints month tables with every group; read further with single calls only for what
    it does not print. For each placement a hypothesis would run on, run `reads.py placement --app
    <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID>`: its audiences by name, every paywall or
-   flow that sold there, the weekly count for the Time line, and the before/after comparison when
-   one paywall replaced another. Name in the reply every read either lists as failed. Run both
+   flow that sold there, the weekly count for the Time line, the before/after comparison when
+   one paywall replaced another, and on a flow placement the dashboard's metrics by audience, test
+   arm and store (`references/diagnosis.md`, "Flow placement metrics"). Name in the reply every read
+   either lists as failed. Run both
    as written and read what they print, with no variable, temp file or redirect around them: a
    refused or failed call leaves you without the audit. If one fails or is refused, run it once
    more as written; if it still cannot run, make every read in "The audit reads" as a single call,

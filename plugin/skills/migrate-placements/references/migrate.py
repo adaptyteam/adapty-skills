@@ -562,10 +562,18 @@ def migratable_summary(placements):
     referenced = {pid for refs in groups.values() for pid, _ in refs}
     already_flow = 0
     empty = 0
+    onboarding = 0
     skipped_entries = 0
     skipped_placements = 0
     for placement in placements:
         audiences = placement.get('audiences') or []
+        # A type the list named and `fetch_details` did not read
+        if placement.get('type') == 'onboarding':
+            onboarding += 1
+            continue
+        if placement.get('type') == 'flow' and not audiences:
+            already_flow += 1
+            continue
         if not audiences:
             empty += 1
             continue
@@ -595,6 +603,9 @@ def migratable_summary(placements):
         'empty': empty,
         'unwritable_multi_segment': unwritable,
     }
+    if onboarding:
+        # Present only when the list named one, as `ab_tests` below
+        summary['onboarding'] = onboarding
     if skipped_entries:
         # Present only when a test was read, so an account with no test has
         # the same summary as before. Never a silent drop: the entries are
@@ -739,8 +750,17 @@ def fetch_paywalls(adapty, app_id, page_size=MAX_PAGE_SIZE):
     return fetch_list(adapty, app_id, 'paywalls', 'paywall', page_size=page_size)
 
 
+SKIPPED_TYPES = ('flow', 'onboarding')
+
+
 def fetch_details(adapty, app_id, placements):
     """One `placements get` per placement -- `list` returns no audiences.
+
+    A list row that names its `type` as `flow` or `onboarding` is not read: a
+    flow placement is already migrated and an onboarding one is not this
+    skill's, so neither has an audience to convert. Its row is kept, with no
+    audiences and its type, so `migratable_summary` counts it and its developer
+    id stays taken. A row with no `type` (an older CLI) is read as before.
 
     The `id` read is routed through `CliError` rather than left to subscript,
     because a summary with no usable id is the API or the CLI misbehaving --
@@ -756,6 +776,9 @@ def fetch_details(adapty, app_id, placements):
                 f'`placements list` returned a row at index {index} with no '
                 f'usable "id" (got {placement_id!r}), so its audiences cannot '
                 'be fetched')
+        if summary.get('type') in SKIPPED_TYPES:
+            out.append(dict(summary, audiences=[]))
+            continue
         out.append(cli_json(adapty, ['placements', 'get', '--app', app_id,
                                      placement_id]))
     return out

@@ -513,6 +513,29 @@ The config is the flow's screens, copy and products. Before any claim about a sc
 Read 8 by `flow_screen_id` shows which screen of the flow the purchases came from. Never write
 to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
 
+## Flow placement metrics
+
+On a flow placement, `reads.py placement` also prints the dashboard's metrics in one call: each
+audience, A/B test arm and store, with viewers, the share who finish the flow, purchases, trials,
+revenue per viewer, and purchases by product. Only flow placements have them.
+
+```bash
+$ADAPTY placements metrics get <PLACEMENT_ID> --app <APP_ID> --type flow --based-on audience --group-by store --date-from $FROM --date-to $TO --date-type purchase_date --json
+```
+
+- **Viewers are unique users who started the flow,** the count view → paid starts from (read 9).
+  In an onboarding flow that is everyone who began onboarding, not only those who reached its
+  paywall.
+- **Revenue here counts renewals.** A hypothesis's base stays first-payment revenue, and the Time
+  line stays the weekly purchase count, both from the analytics reads.
+- **A running test's arms show progress, not a result.** Read them in the section that starts on
+  the test's start date: over the whole window an arm also holds what its audience sold before
+  the test. Say how far each arm is from about 200 purchases; never which one leads or wins.
+- **Finished is the share of viewers who reach the flow's last screen.** Where the others leave is
+  on the flow's [Funnel tab](https://adapty.io/docs/flow-funnel.md), which the CLI does not read:
+  when a low share would change a hypothesis, ask for a screenshot of it. A screen row's views in
+  this answer are not that funnel: they count only users who started the flow on that screen.
+
 ## "Why did revenue drop?"
 
 1. Chart 1 (new vs renewal) over the period the user means and the months before it, at

@@ -1103,10 +1103,48 @@ check('SILENT: the same plan over an inventory with no test prints no `skipped` 
           [sys.executable, str(MIGRATE), 'plan', '--inventory', str(inv)],
           capture_output=True, text=True).stderr)
 
+print()
+# A list that names each placement's `type`: flow and onboarding rows are never
+# read with `get` (the shim exits 9 on one), are counted, and keep their ids taken.
+typed = TMP / 'fake-adapty-typed.py'
+typed.write_text('''#!/usr/bin/env python3
+import json, sys
+a = sys.argv[1:]
+PL = [
+    {"id": "pl-a", "developer_id": "main", "title": "Main", "type": "paywall"},
+    {"id": "pl-f", "developer_id": "main-flow", "title": "Main flow", "type": "flow"},
+    {"id": "pl-o", "developer_id": "intro", "title": "Intro", "type": "onboarding"},
+]
+if a[:2] == ["placements", "list"]:
+    print(json.dumps({"data": PL, "meta": {"pagination": {"count": 3, "page": 1, "pages": 1}}}))
+    sys.exit(0)
+if a[:2] == ["placements", "get"] and a[a.index("--app") + 2] == "pl-a":
+    print(json.dumps(dict(PL[0], audiences=[{"content_type": "paywall", "paywall_id": "pw-1",
+                                             "segment_ids": [], "priority": 0}])))
+    sys.exit(0)
+print("unexpected: " + " ".join(a), file=sys.stderr)
+sys.exit(9)
+''')
+inv_typed = TMP / 'inventory-typed.json'
+r = subprocess.run([sys.executable, str(MIGRATE), 'inventory', '--app', 'app-1', '--no-existing',
+                    '--adapty', f'{sys.executable} {typed}', '--out', str(inv_typed)],
+                   capture_output=True, text=True)
+check('typed list: inventory exits 0 without a get on the flow or onboarding row',
+      r.returncode == 0, r.stderr.strip()[:300])
+r2 = subprocess.run([sys.executable, str(MIGRATE), 'plan', '--inventory', str(inv_typed)],
+                    capture_output=True, text=True)
+plan = json.loads(r2.stdout) if r2.returncode == 0 else {}
+summary = plan.get('summary') or {}
+check('typed list: the flow row counts as already-flow and the onboarding row as onboarding',
+      summary.get('already_flow') == 1 and summary.get('onboarding') == 1 and summary.get('empty') == 0,
+      str(summary))
+check('typed list: the skipped flow row keeps its developer id taken',
+      [p['proposed_developer_id'] for p in plan.get('placements', [])] not in (['main-flow'], []),
+      str(plan.get('placements')))
+
 for f in sorted(TMP.rglob('*'), reverse=True):
     f.unlink() if f.is_file() else f.rmdir()
 TMP.rmdir()
 
-print()
 print(f'{len(failures)} failure(s)' if failures else 'all checks passed')
 sys.exit(1 if failures else 0)

@@ -868,7 +868,7 @@ def ab_tests(a, names, auds, pid=None, cap=None):
     elif not tests:
         print('   none listed')
     if not tests:
-        return
+        return tests
     # live first, then the ones that ran, newest first, then drafts
     order = {'live': 0, 'draft': 2}
     tests.sort(key=lambda x: x.get('started_at') or '', reverse=True)
@@ -920,6 +920,56 @@ def ab_tests(a, names, auds, pid=None, cap=None):
                 ' (an arm; a later test ran on this audience)' if later else ' (an arm: the one they kept)'))
     if len(shown) < len(tests):
         print(f'   {len(tests) - len(shown)} more not shown: the oldest, and drafts')
+    return tests
+
+
+def flow_metrics(a, pid, f, t, test=None):
+    """The dashboard's metrics of a flow placement in one call: each audience, A/B test arm and store, with
+    viewers, the share who finish the flow, purchases, trials, revenue per viewer and purchases by product. Also
+    flags an arm that sells in a store its name excludes. Returns None when it could not be read."""
+    args = ['placements', 'metrics', 'get', pid, '--app', a.app, '--type', 'flow', '--based-on', 'audience',
+            '--group-by', 'store', '--date-from', f, '--date-to', t, '--date-type', 'purchase_date']
+    print(f"\n## arms of the running A/B test {test!r} since it started, {f} .. {t}" if test else
+          f'\n## flow metrics of this placement by audience, A/B test arm and store, {f} .. {t}')
+    print('   adapty ' + ' '.join(args))
+    body, err = cli(a.adapty, args)
+    if err:
+        print(f'   FAILED: {err}')
+        FAILED.append(f'placements metrics get: {err}')
+        return None
+    print('   viewers: unique users who started the flow, the count view -> paid starts from. finished: the share of '
+          'them who reached its last screen. Revenue here counts renewals too, so it is never a hypothesis\'s base: '
+          'that is first-payment revenue. A running test\'s arms show how far each is from about 200 purchases, '
+          'never which one wins.')
+    print(f"   {'':56} {'viewers':>8} {'finished':>8} {'purchases':>9} {'trials':>7} {'rev/viewer':>10}")
+    ios_words, android_words = ('ios', 'iphone', 'apple', 'app store'), ('android', 'google', 'play')
+    other = {'app store': android_words, 'google play': ios_words, 'play store': ios_words}
+
+    def walk(n, depth, path):
+        if n.get('level') in ('screen', 'product', 'period'):
+            return
+        v = n.get('unique_profiles_views') or 0
+        fin = f"{100 * (n.get('total_uniq_completions') or 0) / v:.0f}%" if v else '-'
+        name = ('  ' * depth + f"{n.get('level') or 'total'} {n.get('title') or ''}")[:56]
+        print(f"   {name:56} {num(v):>8} {fin:>8} {num(n.get('purchases') or 0):>9} {num(n.get('trials') or 0):>7} "
+              f"{(n.get('revenue') or 0) / v if v else 0:>10.2f}")
+        kids = n.get('items') or []
+        prods = {}
+        for p in [k for s in kids if s.get('level') == 'screen' for k in s.get('items') or []] + kids:
+            if p.get('level') == 'product' and p.get('purchases'):
+                prods[p.get('title')] = prods.get(p.get('title'), 0) + p['purchases']
+        if prods:
+            print('   ' + '  ' * (depth + 1) + 'purchases by product: '
+                  + ', '.join(f'{k} {num(c)}' for k, c in sorted(prods.items(), key=lambda x: -x[1])))
+        if n.get('level') == 'segment' and n.get('purchases'):
+            arm = ' / '.join(path[1:])
+            if any(w in arm.lower() for w in other.get(str(n.get('title') or '').lower(), ())):
+                print(f'   NOTE: "{arm}" names another platform but sold {num(n["purchases"])} in {n.get("title")}. '
+                      'Say so; it may be shown to users it was not meant for.')
+        for c in kids:
+            walk(c, depth + 1, path + [str(n.get('title') or '')])
+    walk(body.get('data') or {}, 0, [])
+    return body
 
 
 def placement(a):
@@ -930,7 +980,9 @@ def placement(a):
     print(f"\n## audiences of {names.get(pid, pid)}, lowest priority first")
     print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
           'Past tests are in "A/B tests" below.')
-    ab_tests(a, names, {pid: print_audiences(a.adapty, a.app, pid, names)}, pid=pid)
+    aud = print_audiences(a.adapty, a.app, pid, names)
+    tests = ab_tests(a, names, {pid: aud}, pid=pid) or []
+    is_flow = any(x.get('flow_id') or str(x.get('content_type') or '').startswith('flow') for x in aud)
 
     def R(title, args, conv=False):
         return read(a.adapty, a.app, title, args, names, conv)
@@ -948,9 +1000,16 @@ def placement(a):
         segs = R(f'new subscriptions on this placement by {gb}, every one that sold', chart('subscriptions_new', f, t, gb, filters=flt))
         if any(not s.get('is_total') and s.get('key') not in (None, NO_DATA) and s.get('value') for s in segs):
             contents.append((gb, segs))
+    tree = flow_metrics(a, pid, f, t) if is_flow else None
+    # over the window an arm holds what its audience sold before the test too, so arms are read from the start
+    for x in tests if tree is not None else []:
+        if x.get('state') == 'live' and x.get('type') == 'flow' and x.get('started_at'):
+            flow_metrics(a, pid, x['started_at'][:10], dt.date.today().isoformat(), test=x.get('title'))
     # the same per store: a paywall can sell in one store only, or leak into a store its name excludes
     every_store = [s.get('key') for s in store_segs if not s.get('is_total') and s.get('key')][:3]
     for gb, _ in contents:
+        if gb == 'flow_id' and tree is not None:
+            continue
         for store in every_store:
             segs = R(f'new subscriptions on this placement by {gb}, store {store}',
                      chart('subscriptions_new', f, t, gb, filters=flt + [f'store={store}']))
