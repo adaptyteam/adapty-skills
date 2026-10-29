@@ -221,9 +221,15 @@ added, so a product with no `introductory` offer listed may still have one: char
 Read this in every audit; the user will rarely tell you. Use 12 months, not six. `reads.py audit`
 prints which paywalls sold on which placement over 13 months and notes a paywall that sold on
 several: a promo, a seasonal offer or a test can run through a placement other than the one named
-for it, so read that table before saying something did not run or was never tried.
+for it, so read that table before saying something did not run or was never tried. It also lists the
+app's paywall and flow A/B tests (`reads.py placement`, the ones on that placement): each with its
+placement, audience, dates and arms, and what that audience shows now.
 
 ```bash
+# A/B tests in every state, one type per call: --type paywall, then --type flow (add --placement <ID> for one)
+$ADAPTY ab-tests list --app <APP_ID> --type paywall --page-size 100 --json
+# One test's arms and their weights
+$ADAPTY ab-tests get <AB_TEST_ID> --app <APP_ID> --json
 # Paywalls and flows week by week, one call per active placement
 $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FROM12 --date-to $TO --granularity week --group-by paywall_id --filter placement_id=<VALUE> --json
 # (or --group-by flow_id for a flow placement)
@@ -235,18 +241,19 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 
 | What you see | What it means |
 |---|---|
-| Two paywalls or flows selling on one placement in the same weeks, then one stops | A past A/B test. The one still selling is the one they kept; say "kept", not "won". |
+| A test in the A/B test list | A test they ran, with its dates and arms. The arm its audience shows now is the one they kept; say "kept", not "won". One that ran under a week is not a result. |
+| Two paywalls or flows selling on one placement in the same weeks, then one stops | The test the list shows there then: name it. With none listed, a test across placements or a change of audiences: say what sold when, never that a test ran. The one still selling is the one they kept. |
 | One paywall stops and another starts the same week | A change they made and kept. |
 | A paywall or flow in `paywalls list` / `flows list` that no placement shows | Something tried and dropped. Its name often says what it tried. |
 | A placement, paywall, flow or product whose name names a change ("No Free Trial", "Exit Offer Test", "ex-Winback", "Weekly Trial And Yearly") | That change was tried, whatever its numbers. Say "it looks like you tested X; what came out?", never that it was never tried. |
-| Two paywalls or flows both selling on one placement in the last full month | An A/B test or two audiences, if `placements get` shows one. A running test shows there as an audience of its own kind with its title: name it and never describe it in the past tense. With neither there, the two ran side by side earlier in the month: a past test, and the one live now is the one they kept. |
+| Two paywalls or flows both selling on one placement in the last full month | An A/B test or two audiences, if `placements get` shows one. A running test shows there as an audience of its own kind with its title: name it and never describe it in the past tense. With neither there, the two ran side by side earlier in the month: the test the list shows there then, or a change they made, and the one live now is the one they kept. |
 | A product with purchases earlier and none lately | A plan or trial they dropped. |
 | An offer with purchases in one stretch only | A past promo or intro offer, and when it ran. |
 | Audiences and segments on placements now | Targeting they already do. |
 | A placement with segment audiences and no All users audience | Either an A/B test the CLI did not return or users outside the segments see nothing there. The CLI cannot tell which: name it as a finding and ask them to check the placement's page. Never call it "probably an A/B test". |
 
-Say it as facts with the dates, and say what the data cannot show: the winner of a test whose
-variants both stopped, and ideas they discussed but never ran.
+Say it as facts with the dates, and say what the data cannot show: which arm of a test won (the
+one its audience shows now is only the one they kept), and ideas they discussed but never ran.
 
 Then sort what you found by kind of change, from `paywalls list` (which products each paywall
 sells):
@@ -549,8 +556,10 @@ be asking about a plan that is not where their money is. Read only what the idea
 
 ## "My test ended, what next?"
 
-The CLI shows no A/B results. Ask, in one message: which test it was, which variant won (or
-inconclusive), how long it ran and roughly how many purchases each variant had. Until you know,
+Find the test in the A/B test list first (`reads.py placement` on its placement): its name, arms,
+audience and dates, so the user is not asked what you can read. The CLI shows no A/B results.
+Ask, in one message: which variant won (or inconclusive) and roughly how many purchases each
+variant had, and which test it was only when the list leaves it unclear. Until you know,
 never tell them to roll the winner out: the bold answer is conditional ("roll B out if each
 variant had about 200 purchases; with fewer, it has not won yet"). Then apply `levers.md`, "After
 a test", and propose the next test for that placement. The same questions come first when the
