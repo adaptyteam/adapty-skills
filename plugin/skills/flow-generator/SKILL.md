@@ -217,7 +217,8 @@ Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph
 any phase), `localization.py` (phase 2, the catalog), `verify-config.py` (phase 3),
 `validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py`,
 `render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (when a render fails),
-`mobile-preview.mjs` (phase 5, the device-preview QR).
+`mobile-preview.mjs` (phase 5, the device-preview QR), `weigh-config.py` (phase 2 before an
+upload, phase 5 before a write or a publish).
 
 ## The CLI surface
 
@@ -559,6 +560,8 @@ you were shown.
 For every asset the screen needs, one of three states, decided before you write the element:
 
 1. **You have a path that reads** — one they gave you, or a project file you found and *named*.
+   A PNG, JPEG or GIF over 500 KB is converted first, and you upload the WebP and say so:
+   `python3 references/weigh-config.py webp <file> media/<name>.webp`.
    Upload it now and take **three** values off that one call, `--json` into a file that outlives
    the command so the preview blob stays out of your context:
    ```bash
@@ -883,6 +886,37 @@ cannot trace is someone else's work**: name it and ask, never write past it. Exi
 is non-empty, not that anything is wrong — deleting a screen is a supported transform, doing it
 silently is not ([merge.md](references/merge.md)).
 
+**Then weigh it: the user's phones download every byte of it.** On the same bytes:
+
+```bash
+python3 references/weigh-config.py draft.json      # exit 1 = something heavy to tell them
+```
+
+It weighs the config itself (mostly image previews, one per image per locale that has its own
+value) and asks the asset host for each file's size and pixel size; nothing is downloaded whole.
+**Exit 1 fills the weight slot of the ask below** with the three sentences it prints under "Say
+this"; its details are for the user's questions and for the fixes. Exit 0 drops the slot. Files it
+lists as not measured get one more sentence: their size was not checked. The weight never blocks a save: it is the user's call. On their yes to a fix, apply it
+to the draft, run phase 3's gates and the weigh again, and re-render a screen whose image changed:
+
+- **A copy of the default's image in another locale:** delete it. Nothing on screen changes
+  ([flow-schema.md](references/flow-schema.md) trap 1).
+- **A heavy PNG, JPEG or GIF:** download it, convert it, upload the WebP and rebind every place
+  that uses it. `--max-width` is 3× the widest box it fills, in points; the default, 1290, fits a
+  full-width image. The old file stays in their media library: the upload cannot delete.
+  ```bash
+  mkdir -p media && curl -sSfo media/hero-src.png "<url the weigh printed>"
+  python3 references/weigh-config.py webp media/hero-src.png media/hero.webp [--max-width <px>]
+  $ADAPTY flows media upload --app "$APP" media/hero.webp --json > media/hero.json
+  python3 references/weigh-config.py swap draft.json "<url the weigh printed>" media/hero.json
+  ```
+- **An image with its own file in many languages:** offered in the slot like the others, as one
+  choice between two routes. On "one image": move the words into a text element and show that
+  screen like any other change. On "split": build one flow per language group here and hand the
+  audiences to the `audiences` skill.
+- **A heavy video:** theirs to re-encode and upload again in the builder; say the size it should
+  get under.
+
 **Then show them the change — an approval on a description is not an approval on the screen.**
 Split it in two, because the two halves need different things from the reader.
 
@@ -931,7 +965,21 @@ show. **Identical screenshots do not mean an identical config**
 > Removes: <each `REMOVES` line in plain words, traced to the request that asked for it — or "nothing">.
 > I kept a copy of the current version, so I can put it back if you need it.
 >
-> Save it?
+> `<only if the weigh exited 1:>` Load time: <the three sentences the weigh printed under "Say
+> this", as they are: what is heavy, what it does to the person opening the flow, what I can do>.
+>
+> `<the last line, one question:>` Save it? `<or, with the weight slot, in its place:>` Fix
+> the weight first, or save as is?
+
+An example of the weight slot's shape, not words to copy:
+
+> Load time: the image on Welcome is a 2.3 MB JPEG, 4× wider than any phone screen shows, and it
+> also has a separate file in 4 languages. On a slow mobile connection people see a blurred
+> placeholder there for about 13 s, while they decide whether to go on. I can convert it to WebP
+> (usually 70-90% smaller, it looks the same), or use one image for every language or split the
+> flow by language: tell me which, or keep it as it is.
+>
+> Fix the weight first, or save as is?
 
 Do not paraphrase this into "shall I save?" — the flow name, the status, what it removes and the
 way back are the content, and an approval given without them is not informed. Wait for a yes; a
@@ -996,7 +1044,8 @@ registry it derives from ([products.md](references/products.md)) and every manua
 
 When the user asked for a file rather than a write, there is no approval gate — the contract lives
 in phase 2, **at the moment the file is written**, and your closing report repeats which
-`status`/`id` shape you chose. A file handed over without that sentence is undelivered.
+`status`/`id` shape you chose. A file handed over without that sentence is undelivered. Weigh the
+file too, and put the weight slot's findings and fixes in the same report.
 
 **Tell them to back up before importing it.** A shape-invalid config can open **empty** in the
 builder, and the next save writes that emptiness over the real flow — no error to act on, no
@@ -1017,6 +1066,11 @@ the rest stays.
 ([transforms.md](references/transforms.md) decision 10), but on a published paywall `flow-audit`
 calls it a blocker and both stores reject it. Before a publish you were asked to make, get the
 two URLs; without them, save, don't publish, and say why.
+
+**Weigh before a publish too,** on `flow.working.json`. A finding the user has not heard yet (the
+flow was saved in the builder, or by another run) goes to them before the publish, with the fixes:
+once it is published, every user downloads it. Findings they already answered at this save do not
+come back.
 
 > **Saved as a draft — your users can't see this yet.**
 >
