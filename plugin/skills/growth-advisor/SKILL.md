@@ -101,8 +101,8 @@ the first two weeks of real users.
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
 funnel, retention, LTV and install cohorts, and breaks most of them down by placement, paywall,
-flow and flow screen. A/B test results and benchmarks
-for the app's own category are not in the CLI either. `references/market.md` holds the market
+flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates. A/B
+test results and benchmarks for the app's own category are not in the CLI. `references/market.md` holds the market
 medians from Adapty's State of Paywalls 2026, which cover a lot of this at the level of region
 and category. A benchmark matched to the app's own category is not available; if the user
 pastes one, use it and say where it came from.
@@ -133,7 +133,8 @@ Everything this skill runs is a read, with five writes, each on the user's yes: 
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
 `placements create` or `placements update` (see "Changing a live placement"), and adding an offer
 the user made in the store to an existing product with `product-offers create`
-(`references/levers.md`, "By store"). You never run an `ab-tests` command yourself. Never
+(`references/levers.md`, "By store"). Of the `ab-tests` commands you run only the reads, `list`
+and `get`; every other one is the `ab-tests` skill's. Never
 `product-offers update`: an offer a live paywall or flow already picks reaches buyers today, so
 changing one is a dashboard step for the user. The one other call that sends anything is the
 [feedback note](#feedback-note).
@@ -288,16 +289,22 @@ started, and it never shows up as a change.
    audit, through the **Send me screenshots** section: "What a hypothesis needs"). A legacy Builder paywall can be moved to the new builder and then
    copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
-   type a test history, so read it from the data (`references/diagnosis.md`, "What the app already
-   tried"): paywalls or flows that ran side by side on one placement (a past A/B test; the one still
-   live is the one they kept), paywalls, flows and products no longer in use, past offers, the
-   setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts ("From your data: two
-   onboarding paywalls ran side by side in May, and you kept Main."), so the user only types when
-   it is wrong. When the user does name past tests, say in one line what each rules out
+   type a test history, so read it (`references/diagnosis.md`, "What the app already tried"): the
+   A/B tests `reads.py` lists (each paywall and flow test with its placement, audience, dates and
+   arms, and what that audience shows now: the arm they kept), paywalls or flows that ran side by
+   side on one placement with no test listed, paywalls, flows and products no longer in use, past
+   offers, the setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts ("From your data: you
+   tested two onboarding paywalls in May and kept Main."), so the user only types when it is wrong.
+   A test that ran under a week is not a result: name it, never as won or lost. Re-running a past
+   test is a new hypothesis like any other: a change on the screen waits for the screen to be seen,
+   and it is built as a fresh copy of the live screen, never with the old arm, which is older than
+   the live screen. When the user does name past tests, say in one line what each rules out
    (`references/levers.md`, "After a test") before suggesting the next. A running A/B test shows
    in `placements get` as an audience of its own kind (`ab_test` or `flow_ab_test`; `cross_ab_test`
    or `flow_cross_ab_test` for one test across placements) with its title: name it. A placement
-   with no such audience runs no test now. Past tests never show: never write that none ran.
+   with no such audience runs no test now. The list leaves out tests across placements and
+   onboarding tests, and the CLI shows no test's result: never write that no test ran, or that an
+   arm won.
 
    Ask at most one question, as the last "You:" item in Next steps, and only when its answer would
    change your first pick: a past test whose winner the data cannot show, whether they already

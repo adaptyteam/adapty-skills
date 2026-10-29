@@ -8,9 +8,10 @@
 `check-reply` reads no data: it flags the sentences of a draft reply that claim "every" group, a cause
 from timing, or less money without the first-payment / renewal split.
 
-`audit` runs "The audit reads" in diagnosis.md over the last full months. `placement` reads one
-placement: its audiences by name, every paywall or flow that sold on it, the weekly purchase count
-a Time line needs, and, when one paywall replaced another, the before/after comparison.
+`audit` runs "The audit reads" in diagnosis.md over the last full months, and lists the app's paywall
+and flow A/B tests. `placement` reads one placement: its audiences by name, the A/B tests that ran on
+it, every paywall or flow that sold on it, the weekly purchase count a Time line needs, and, when one
+paywall replaced another, the before/after comparison.
 
 Every table prints every group, sorted by the last full month, and says how many groups had a
 value in it. The last full month is marked with `*`. Conversions print the rate in percent and the
@@ -68,10 +69,10 @@ def has_analytics(adapty):
     return p.returncode == 0
 
 
-def every_page(adapty, app, topic):
+def every_page(adapty, app, topic, extra=()):
     rows, page = [], 1
     while True:
-        body, err = cli(adapty, [topic, 'list', '--app', app, '--page-size', '100', '--page', str(page)])
+        body, err = cli(adapty, [topic, 'list', '--app', app, '--page-size', '100', '--page', str(page)] + list(extra))
         if err:
             FAILED.append(f'{topic} list: {err}')
             return rows
@@ -639,14 +640,15 @@ def audit(a):
                                               key=lambda s: -(s.get('value') or 0))[:8]]
     print('\n## audiences of every placement, lowest priority first (every placement read)')
     print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
-          'Past tests never show: never write that no test ran.')
+          'Past tests are in "A/B tests" below.')
     print('   Under each audience, its segments\' filters. Before a hypothesis says who sees a paywall, read it here: '
           'a country group sees a paywall only when its segment takes that country in.')
-    seg_cache = {}
+    seg_cache, auds = {}, {}
     for p in lists['placements']:
         print(f"   placement {p.get('title')!r} id {p.get('id')}"
               f"{'' if p.get('is_active', True) else ' (inactive)'}")
-        print_audiences(a.adapty, a.app, p.get('id'), names, top_codes, seg_cache)
+        auds[p.get('id')] = print_audiences(a.adapty, a.app, p.get('id'), names, top_codes, seg_cache)
+    ab_tests(a, names, auds, cap=40)
     split_money(R('1. revenue by payment: Activation is first payments, Renewal N the later ones',
                   chart('revenue', f, t, 'period')))
     R('revenue by store', chart('revenue', f, t, 'store'))
@@ -825,7 +827,7 @@ def print_audiences(adapty, app, pid, names, top=None, cache=None):
     if err:
         print(f'   FAILED: {err}')
         FAILED.append(f'placements get {names.get(pid, pid)}: {err}')
-        return
+        return []
     aud = sorted((body.get('data') or body).get('audiences') or [], key=lambda x: x.get('priority', 0))
     for x in aud:
         segs = [names.get(s, s) for s in x.get('segment_ids') or []] or ['All users']
@@ -845,6 +847,79 @@ def print_audiences(adapty, app, pid, names, top=None, cache=None):
               'another test on these audiences.')
     if aud and all(x.get('segment_ids') for x in aud):
         print('   no All users audience: users outside these segments see nothing here')
+    return aud
+
+
+def ab_tests(a, names, auds, pid=None, cap=None):
+    """Every paywall and flow A/B test of the app, or of one placement, in every state: its audience, its dates,
+    its arms, and what that audience shows now. The CLI has no results; what the audience shows after a test is
+    what they kept, not a winner."""
+    where = f' on {names.get(pid, pid)}' if pid else ''
+    print(f'\n## A/B tests{where}, paywall and flow, every state (tests across placements and onboarding tests '
+          'are not listed)')
+    print('   Results are not in the CLI: say what ran, on which audience, when, and what that audience shows now '
+          '("kept", never "won").')
+    tests, failed = [], len(FAILED)
+    for ty in ('paywall', 'flow'):
+        tests += every_page(a.adapty, a.app, 'ab-tests', ['--type', ty] + (['--placement', pid] if pid else []))
+    if len(FAILED) > failed:
+        print('   FAILED: the test list could not be read; read past tests from the sales below, and never write '
+              'that no test ran')
+    elif not tests:
+        print('   none listed')
+    if not tests:
+        return
+    # live first, then the ones that ran, newest first, then drafts
+    order = {'live': 0, 'draft': 2}
+    tests.sort(key=lambda x: x.get('started_at') or '', reverse=True)
+    tests.sort(key=lambda x: order.get(x.get('state'), 1))
+    # what an audience shows now speaks for the last test that ran on it, never an earlier one
+    latest = {}
+    for x in tests:
+        key = ((x.get('placement') or {}).get('placement_id'), tuple(sorted(x.get('segment_ids') or [])))
+        if x.get('state') not in ('live', 'draft') and x.get('started_at') and key not in latest:
+            latest[key] = x.get('ab_test_id')
+    shown = tests[:cap] if cap else tests
+    for x in shown:
+        plc = x.get('placement') or {}
+        segs = x.get('segment_ids')
+        aud = ' + '.join(str(names.get(s, s)) for s in segs) if segs else ('All users' if segs == [] else 'no audience')
+        start, stop = (x.get('started_at') or '')[:10], (x.get('stopped_at') or '')[:10]
+        if start:
+            days = ((dt.date.fromisoformat(stop) if stop else dt.date.today()) - dt.date.fromisoformat(start)).days
+            when = f"{start}..{stop or 'now'}, {days} days" + (' SHORT: under a week, not a result' if stop and days < 7 else '')
+        else:
+            when = 'never started'
+        print(f"   {x.get('state', ''):9} {x.get('type', ''):7} {x.get('title')!r} on {plc.get('title')!r} / {aud}: {when}")
+        body, err = cli(a.adapty, ['ab-tests', 'get', x.get('ab_test_id'), '--app', a.app])
+        if err:
+            FAILED.append(f"ab-tests get {x.get('title')}: {err}")
+            continue
+        arms = (body.get('paywalls') or []) + (body.get('flows') or [])
+        ids = {r.get('paywall_id') or r.get('flow_id') for r in arms}
+        def arm(r):
+            cid = r.get('paywall_id') or r.get('flow_id')
+            name = r.get('paywall_title') or r.get('flow_name') or names.get(cid, cid)
+            return f'{name!r}' + (f" as {r.get('title')!r}" if r.get('title') and r.get('title') != name else '')
+        print('      arms: ' + ', '.join(f"{arm(r)} {r.get('weight')}%" for r in arms))
+        key = (plc.get('placement_id'), tuple(sorted(segs or [])))
+        if x.get('state') in ('live', 'draft') or not start or key[0] not in auds:
+            continue
+        later = latest.get(key) != x.get('ab_test_id')
+        now = next((y for y in auds[key[0]] if sorted(y.get('segment_ids') or []) == list(key[1])), None)
+        if now is None:
+            print('      that audience is no longer on the placement')
+        elif now.get('ab_test_id') == x.get('ab_test_id'):
+            continue
+        elif now.get('content_type') == 'ab_test' or now.get('ab_test_id'):
+            print(f"      that audience runs A/B test {now.get('ab_test_title') or now.get('ab_test_id')!r} now")
+        else:
+            cid = now.get('paywall_id') or now.get('flow_id')
+            print(f"      that audience shows {names.get(cid, cid)!r} now" + (
+                ' (neither arm)' if cid not in ids else
+                ' (an arm; a later test ran on this audience)' if later else ' (an arm: the one they kept)'))
+    if len(shown) < len(tests):
+        print(f'   {len(tests) - len(shown)} more not shown: the oldest, and drafts')
 
 
 def placement(a):
@@ -854,8 +929,8 @@ def placement(a):
     names, _ = name_map(a.adapty, a.app, ('placements', 'paywalls', 'flows', 'segments'))
     print(f"\n## audiences of {names.get(pid, pid)}, lowest priority first")
     print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
-          'Past tests never show: never write that no test ran.')
-    print_audiences(a.adapty, a.app, pid, names)
+          'Past tests are in "A/B tests" below.')
+    ab_tests(a, names, {pid: print_audiences(a.adapty, a.app, pid, names)}, pid=pid)
 
     def R(title, args, conv=False):
         return read(a.adapty, a.app, title, args, names, conv)
