@@ -38,8 +38,8 @@ of them for you; a hypothesis outside the table fills them itself.
 | Seasonal paywall | Show a [event] paywall instead of [current] on [placement] from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event |
 | New placement | Show [paywall] at [moment], on a new placement | Purchases from that placement, and total revenue | — | That moment |
 | Localization | Translate [paywall] into [language] on [placement], for [countries] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall |
-| Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion | That change on that paywall | That change on that paywall |
-| Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Conversion to purchase | That change on that flow | That change on that flow |
+| Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion; on a flow paywall, purchases and trials per user who reached it | That change on that paywall | That change on that paywall |
+| Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Purchases (or trials) per user who entered the flow | That change on that flow | That change on that flow |
 
 A rule-out is keyed to its target. Adding a trial to annual and losing rules out a trial on
 annual; it says nothing about a trial on monthly. A ruled-out idea is not deleted: say
@@ -85,6 +85,29 @@ weak steps are not paywall tests:
 problem. Run the step by `store` and `attribution_channel` first; a channel that converts far worse
 is traffic for its own part, which `adapty-attribution` owns. Before calling the rest traffic too,
 check the step inside traffic that held (`diagnosis.md`, "It's the traffic").
+
+**In an onboarding flow,** the step that loses users is read from the flow's funnel
+(`diagnosis.md`, "Reading a flow"), not from the purchases per screen. It fills the Onboarding
+change hypothesis:
+
+- **Why:** the screen by its title, the users it loses and its share of the users who entered,
+  from the period named, and how the change acts on that.
+- **Dollars,** when the lever has no range: the users lost at the step in a month times the
+  first-purchase revenue per user who reached the paywall (the paywall step's `revenue` over its
+  `reached`; the funnel's revenue has no renewals). Say it is the first-purchase money the step
+  puts at stake, not lifetime value and not a forecast. A flow with no paywall has no such
+  revenue: say the dollars are unknown. Never size it from a completion rate.
+- **Design:** the funnel names the screen; what to change on it comes from `onboarding-teardown`
+  on the render of that screen (`diagnosis.md`, "Reading a flow").
+- **Expected:** `onboarding-evidence.md` for an onboarding or flow lever, `evidence.md` for the
+  rest; a lever in neither is untested. The levers this skill names (the paywall earlier or later
+  in the flow, sign-up later, a permission prompt after the value screens) are in the untested
+  table of `onboarding-evidence.md`.
+- **Judged on** purchases (or trials) per user who entered the flow. Reach of the next screen or
+  finishing the flow is never the main metric, only a guardrail with trial-to-paid, refunds and
+  D30 retention; a win in trial starts alone is not a win. A flow with no paywall of its own: the
+  purchases per entered user at the app's later paywall or placement, when they can be counted
+  for those users; when none can, say the test cannot be judged yet.
 
 ## Which placement to test first
 
@@ -340,7 +363,7 @@ or ask. A flow paywall gets its locales from `flow-generator`, which this skill 
 ## Paywall design
 
 Design hypotheses come from the teardown skills, not from your own reading of the screen:
-invoke `paywall-teardown` on a paywall (the render, or the config when you have no render) and
+invoke `paywall-teardown` on a paywall (the render of it; `diagnosis.md`, "Reading a flow") and
 `onboarding-teardown` on a multi-screen flow, in their audit direction. Take back at most one
 design test, its pattern and its range, and rank it with the others. If neither skill is
 installed, say design was not reviewed and suggest installing them.
@@ -361,6 +384,11 @@ the offer is real.
   then the copy.
 - **Say what it rests on:** the teardown's reading of the screen and the evidence library, plus
   this paywall's view → paid rate and its purchases per screen (reads 8 and 9 in `diagnosis.md`).
+  For a paywall in a flow, add what its funnel shows: the paywall screen's `reached`, `trials`,
+  `purchases` and `revenue` (`diagnosis.md`, "Reading a flow"). The Why and the dollars come
+  from there; what one read can say about a paywall is in `diagnosis.md`, "Reading a flow".
+- **Two examples this skill names for a flow paywall:** an opt-in trial (a trial the user
+  switches on) and a multi-page paywall: Expected is untested (`onboarding-evidence.md`).
 
 ## After a test
 
