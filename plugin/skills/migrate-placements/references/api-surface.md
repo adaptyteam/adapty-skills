@@ -162,9 +162,16 @@ is there to be read, and a run that ignores it looks exactly like a run on a sma
 
 ## Summary vs detail
 
-**`placements list` returns `PlacementSummaryDTO` — `{developer_id, id, title}`, with no
-`audiences`.** Only `placements get` returns `PlacementDetailDTO`, which carries `audiences?`.
-There is no bulk read, so classifying N placements costs N GETs.
+**`placements list` returns `PlacementSummaryDTO` — `{developer_id, id, title}` and `type`
+(`paywall`, `flow` or `onboarding`; `null` when a placement has none), with no `audiences`.** Only
+`placements get` returns `PlacementDetailDTO`, which carries `audiences?`. There is no bulk read, so
+classifying costs one GET per paywall placement: `migrate.py` reads no flow or onboarding row, and
+reads every row of a list that carries no `type`. `placements list --type paywall|flow|onboarding`
+lists one type.
+
+**`placements metrics` answers flow placements only.** `--type flow` is the one value the server
+takes (`type: Input should be 'flow'` for `paywall`), so it cannot say whether a shipped app still
+calls a paywall placement. It can say whether any build calls a new flow placement: phase 8.
 
 **`paywalls placements <paywall_id>` is un-paginated** — no `paginationFlags`, and `printList` is
 called without pagination — and returns summaries only. It answers *which* placements use a

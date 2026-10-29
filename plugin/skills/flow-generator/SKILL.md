@@ -374,8 +374,8 @@ command needs.
 
 **Then check where the request actually starts, because not every run is an edit.** *"I published
 my flow"*, *"how do I get this into my app"*, *"nothing shows up in the app"* is a **phase 6**
-request: the flow exists and is published, and what is missing is the placement pointing at it and
-the app's own call site. Go straight to phase 6 — phases 2-5 have no work to do — and say that is
+request: the flow exists and is published, and what is missing is the placement pointing at it,
+the app's own call site, or users reaching it. Go straight to phase 6 — phases 2-5 have no work to do — and say that is
 what you are doing, so a user who did want an edit can redirect you.
 
 *"How are my screens connected"*, *"where does this button lead"* is a **read**: `flows config get`
@@ -1172,13 +1172,32 @@ location already has a placement and whether the ID you would propose is free:
 $ADAPTY placements list --app "$APP" --page-size 100 --json    # the default page size is 20
 ```
 
+Each placement's `type` is `flow`, `paywall` or `onboarding`. A list without `type` (an older CLI)
+leaves it to `placements get` on the candidate: the `content_type` of its audiences.
+
 | What `list` shows | What you do |
 | :--- | :--- |
 | nothing for this location | `placements create` with a new developer ID |
 | a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping, A/B test entries (`flow_ab_test`) and shared ones (`flow_cross_ab_test`) exactly as `placements get` returned them. A write that replaces a running test, for instance this flow on the default audience a test holds, **stops that test**, and a placement write does not do that: route it to the **`ab-tests`** skill (`ab-tests stop`, which shows the user the exact effect first), then write the placement and read it again just before (changed: show the before/after table and ask again; unattended: stop and report). No answer → the change goes in the dashboard |
-| a **paywall** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
+| a **paywall** or **onboarding** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
+| a **flow** placement that already points at this flow, and *"nothing shows up in the app"* | Read whether anyone has started it, below, before sending them on |
 | a placement where only **some** users should get this flow — a country, a version, a segment | The **`audiences`** skill. It adds a segment audience beside the existing ones without changing what anyone else sees |
 | the user wants to **test this flow against another** (an A/B test: "split traffic", "run it 50/50", "start the test", "stop the test") | The **`ab-tests`** skill. It creates the test as a draft and starts, stops or replaces it only after the user sees the exact effect. Never start or stop a test with a `placements update` |
+
+**When a placement already points at this flow and nothing shows up, read who started it** over the
+last seven days, to today:
+
+```bash
+$ADAPTY flows metrics get "$FLOW" --app "$APP" --based-on placement \
+  --date-from <seven days ago> --date-to <today> --date-type purchase_date --json
+```
+
+`unique_profiles_views` on a placement's node is how many users started the flow there; it updates
+every few minutes, and the dates are required. Viewers on the placement the app fetches: the app
+shows the flow, so ask what the user sees, on which build, and which audience they fall in. None:
+the app does not fetch or render that placement yet, or the user is outside its audiences; the
+app side is **`adapty-integration`**'s, with the developer ID. When `flows metrics --help` says the
+command does not exist, skip this read and send them on the same way.
 
 **The ID needs an explicit yes, and this is the fourth fixed block.** It is irreversible in a way
 the phase-5 write is not: unique across every placement in the app whatever its type, no rename, no
