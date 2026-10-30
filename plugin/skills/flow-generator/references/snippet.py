@@ -727,7 +727,9 @@ def rewrite_ids(payload, el_renames, group_renames):
     already, silently), any
     `variableId` string is rewritten generically wherever it occurs under an element,
     keyed on the FIELD NAME `variableId` -- never on an arbitrary string value, so the
-    `tabs` trap stays closed."""
+    `tabs` trap stays closed. Element ids an action names (`showElement`/`hideElement`
+    `elements`, `selectProduct` `element`) follow their element the same way, keyed on the
+    action type."""
     def fix_hierarchy(node):
         if node.get('id') in el_renames:
             node['id'] = el_renames[node['id']]
@@ -738,6 +740,20 @@ def rewrite_ids(payload, el_renames, group_renames):
         if isinstance(o.get('variableId'), str):
             o['variableId'] = _rewrite_head(o['variableId'], group_renames)
 
+    def _fix_element_refs(o):
+        # The actions that name an ELEMENT, keyed on the action type and its payload field:
+        # show/hide carry a list, selectProduct one id. A renamed target left behind would
+        # show, hide or select the destination's own element of that id.
+        payload = o.get('payload')
+        if not isinstance(payload, dict):
+            return
+        if o.get('type') in ('showElement', 'hideElement') and isinstance(
+                payload.get('elements'), list):
+            payload['elements'] = [el_renames.get(t, t) if isinstance(t, str) else t
+                                   for t in payload['elements']]
+        elif o.get('type') == 'selectProduct' and isinstance(payload.get('element'), str):
+            payload['element'] = el_renames.get(payload['element'], payload['element'])
+
     def fix_element(el):
         if el.get('id') in el_renames:
             el['id'] = el_renames[el['id']]
@@ -745,6 +761,7 @@ def rewrite_ids(payload, el_renames, group_renames):
         if isinstance(props, dict) and isinstance(props.get('groupId'), str):
             props['groupId'] = group_renames.get(props['groupId'], props['groupId'])
         walk(el, _fix_variable_id)
+        walk(el.get('interactions') or [], _fix_element_refs)
 
     scoped = payload.get('screen') or payload
     emap = scoped.get('map') or (scoped.get('elements') or {}).get('map')

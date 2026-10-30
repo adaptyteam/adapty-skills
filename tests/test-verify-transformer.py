@@ -73,6 +73,15 @@ def silent(name, doc):
         print(f'  ok    {name}')
 
 
+def no_error(name, doc, fragment):
+    found = [e for e in errors(doc) if fragment in e]
+    if found:
+        fails.append(f'{name}: expected no error containing {fragment!r}, got {found!r}')
+        print(f'  FAIL  {name}')
+    else:
+        print(f'  ok    {name}')
+
+
 # ---------------------------------------------------------------- SILENT: the real corpus
 print('SILENT on every real export (the false-positive half):')
 for path in sorted(glob.glob(os.path.join(CORPUS, '*.json'))):
@@ -290,8 +299,65 @@ if len(prods) > 1:
         _v[k] = [node]
     fires('one text referencing two distinct products', d,
           'mixed_product_targets_in_text')
+    # One string printing the selected plan's price AND a fixed product's: the message names the
+    # exact variable to print instead, read off the group the string already names.
+    d = load()
+    _s, _eid, _e = first_element(d, lambda e: isinstance((e.get('props') or {}).get('content'),
+                                                         dict))
+    _v = values_of(d, _e['props']['content'])
+    for k in list(_v):
+        _v[k] = [{'type': 'paragraph', 'content': [
+            {'type': 'variable', 'variableId': 'products.selectedProduct.prod_price'},
+            {'type': 'variable', 'variableId': f'{prods[0]}.prod_price'}]}]
+    fires('one string printing the selected price and a fixed one names the variable to use', d,
+          f'replace `{prods[0]}.prod_price` with `products.selectedProduct.prod_price`')
+    # A switch branch is its own string and a predicate is not text. Published flows carry both
+    # shapes and transformed without error: a switch on `<group>.selectedProduct == <id>` whose
+    # branch prints `<id>.prod_price`, and branches printing different fixed products.
+    d = load()
+    _s, _eid, _e = first_element(d, lambda e: isinstance((e.get('props') or {}).get('content'),
+                                                         dict) and e.get('type') == 'text')
+    _v = values_of(d, _e['props']['content'])
+    for k in list(_v):
+        _v[k] = {'type': 'switch', 'cases': [[
+            {'type': '==', 'left': {'type': 'var', 'variableId': 'products.selectedProduct'},
+             'right': {'type': 'const', 'value': prods[0]}},
+            {'type': 'const', 'value': [{'type': 'paragraph', 'content': [
+                {'type': 'variable', 'variableId': f'{prods[0]}.prod_price'}]}]}]],
+            'default': {'type': 'const', 'value': [{'type': 'paragraph', 'content': [
+                {'type': 'variable', 'variableId': f'{prods[1]}.prod_price'}]}]}}
+    no_error('a selected-plan switch whose branches each print one fixed price', d,
+             'mixed_product_targets_in_text')
 else:
     print('  skip  mixed_product_targets_in_text (fixture has <2 declared products)')
+
+# The same shapes as `flowkit.config()` stores them: a catalogued switch whose condition operands
+# are STRUCTURED (`productRef`, no `variableId`).
+sys.path.insert(0, os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references'))
+sys.dont_write_bytecode = True
+import flowkit as fk  # noqa: E402
+_P1, _P2 = '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'
+
+
+def plan_screen(branch_parts):
+    cards = [fk.product([fk.text(fk.rich('Plan'), color_id='ink')], product_id=p,
+                        group_id='plans', default=(p == _P1)) for p in (_P1, _P2)]
+    price = fk.text(fk.switch_rich([(fk.eq(fk.ref('plans.selectedProduct'), _P1), branch_parts)],
+                                   default=['Pick a plan']), color_id='ink')
+    scr = fk.screen('scr_pay', [fk.stack(cards, gap=8), price], fill_=fk.fill(hexval='#FFFFFF'),
+                    selectable_groups=[{'id': 'plans', 'type': 'product'}])
+    return fk.config(screens=[scr], colors=[('ink', 'Ink', '#111111', '#111111')],
+                     typography=[('body', 'Body', 16, 'regular')],
+                     meta_screens=fk.predeclare('scr_pay', scr['products']))
+
+
+silent('flowkit: a selected-plan switch printing a fixed price (structured predicate)',
+       plan_screen(['Only ', fk.Var(f'{_P1}.prod_price')]))
+silent('flowkit: the same switch printing the selected-plan price',
+       plan_screen(['Only ', fk.Var('plans.selectedProduct.prod_price')]))
+fires('flowkit: one branch printing the selected price and a fixed one',
+      plan_screen([fk.Var('plans.selectedProduct.prod_price'), ', was ', fk.Var(f'{_P1}.prod_price')]),
+      f'replace `{_P1}.prod_price` with `plans.selectedProduct.prod_price`')
 
 # --- theme colour hexes, position-scoped (see THEME_HEX in verify-config.py).
 for _tag, _hex in (('3-digit', '#fff'), ('empty', ''), ('no-hash', 'FFFFFF'),
@@ -319,6 +385,26 @@ fires('selectedOptionId read from a multi_choice group', _d, 'multi_choice')
 # false-positive guard for the check above.
 silent('the same read on a single_choice group (the corpus form)',
        load(os.path.join(CORPUS, 'onboarding-quiz-paywall.json')))
+
+# A stub draft carries no theme, and a published flow can carry a theme with no typography;
+# both used to crash the checker (exit 2, CHECKER ERROR) instead of being checked.
+print('\nno crash on a missing theme or typography:')
+for _what, _mutate in (('a theme with no typography', lambda t: t.pop('typography', None)),
+                       ('no theme at all', None)):
+    _d = load(os.path.join(CORPUS, 'onboarding-quiz-paywall.json'))
+    if _mutate:
+        _mutate(_d['theme'])
+    else:
+        _d.pop('theme', None)
+    with tempfile.TemporaryDirectory() as _tmp:
+        _p = os.path.join(_tmp, 'c.json')
+        json.dump(_d, open(_p, 'w'))
+        _r = subprocess.run([sys.executable, VERIFY, _p], capture_output=True, text=True)
+    if _r.returncode == 2 or 'CHECKER ERROR' in _r.stdout or 'Traceback' in _r.stderr:
+        fails.append(f'{_what}: the checker crashed: {(_r.stderr or _r.stdout)[-300:]}')
+        print(f'  FAIL  {_what}')
+    else:
+        print(f'  ok    {_what}')
 
 print()
 if fails:

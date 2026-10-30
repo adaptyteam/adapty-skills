@@ -1215,6 +1215,21 @@ s0['elements']['map'][eid0]['interactions'] = [
 check('variable-no-consumer stays SILENT when a predicate elsewhere reads the variable',
       len(of(run(c2)[1], 'variable-no-consumer')) == 0)
 
+# The schema's payload is a LIST of `assign` expressions (`flowkit.set_variable` emits it);
+# reading it as an object crashed the whole audit on published flows.
+c3 = load()
+s0 = c3['screens'][0]
+eid0 = next(iter(s0['elements']['map']))
+s0['elements']['map'][eid0]['interactions'] = [
+    {'id': 'int_test', 'trigger': 'tap', 'actions': [
+        {'id': 'act_test', 'type': 'setVariable', 'payload': [
+            {'type': 'assign', 'left': {'type': 'var', 'variableId': 'test.orphan'},
+             'right': {'type': 'const', 'value': 'x'}}]}]}]
+rc3, f3 = run(c3)
+check('a list-shaped setVariable payload does not crash the audit', rc3 in (0, 1), f'rc {rc3}')
+check('variable-no-consumer FIRES on an orphaned list-shaped setVariable',
+      len(of(f3 or [], 'variable-no-consumer')) == 1)
+
 print('\nplaceholders + variables: six-fixture calibration')
 # `onboarding-multilocale.json` (== FLOW) is covered by the "is SILENT on the fixture"
 # checks above; this loop covers the other five real, shipped exports. A firing here is

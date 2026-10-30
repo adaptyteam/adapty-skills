@@ -894,7 +894,8 @@ def main():
           fk.email_input('e')['props']['validateEmailFormat'] is True)
 
     def _two_inputs(id_a, id_b):
-        return fk.config(screens=[fk.screen('s1', [fk.email_input(id_a), fk.text_input(id_b)])])
+        return fk.config(screens=[fk.screen('s1', [fk.email_input(id_a), fk.text_input(id_b)])],
+                         typography=[('body', 'Body', 16, 'regular')])
 
     check('config() refuses two inputs sharing one customId', raises(lambda: _two_inputs('x', 'x')))
     check('config() accepts distinct customIds', bool(_two_inputs('x', 'y')['screens']))
@@ -902,7 +903,8 @@ def main():
     def _gated(vid):
         return fk.config(screens=[fk.screen('s1', [
             fk.email_input('email'),
-            fk.stack([fk.text('Go')], visibility=fk.when(fk.not_empty(fk.ref(vid))))])])
+            fk.stack([fk.text('Go')], visibility=fk.when(fk.not_empty(fk.ref(vid))))])],
+            typography=[('body', 'Body', 16, 'regular')])
 
     check('an input PRODUCES the variable a condition consumes', bool(_gated('email.value')))
     check('...and a typo in that variable is still caught', raises(lambda: _gated('emial.value')))
@@ -1493,6 +1495,159 @@ def main():
           _meta[0] == {'id': 'p_year', 'flowProductId': fk.flow_product_id('scr_m', 'p_year')}, _meta)
     check('the billing price, period and monthly-plan fields are product variables',
           {'prod_billing_price', 'prod_billing_period', 'is_monthly_plan'} <= set(fk.PRODUCT_VAR_NAMES))
+
+    # --- show/hide: the payload is a LIST under `elements` (ActionShowElement/HideElement in
+    # the published schema), and a single `element` id passes validate while the schema
+    # refuses it, so the helper cannot emit the singular form at all.
+    print('\nshow and hide:')
+    _sheet = fk.stack([fk.text(fk.rich('Plans'))], visibility=fk.hidden(), node_id='el_sheet')
+    check('show_elements emits the schema shape',
+          fk.show_elements(['el_sheet']) == {'id': 'act_show', 'type': 'showElement',
+                                             'payload': {'elements': ['el_sheet']}})
+    check('hide_elements emits the schema shape, several targets in order',
+          fk.hide_elements(['el_a', 'el_b'], action_id='act_x')
+          == {'id': 'act_x', 'type': 'hideElement', 'payload': {'elements': ['el_a', 'el_b']}})
+    check('a node built here is taken for its id', fk.show_elements([_sheet])['payload']
+          == {'elements': ['el_sheet']})
+    check('a bare string is refused, naming the list form',
+          "show_elements(['el_sheet'])" in _message(lambda: fk.show_elements('el_sheet'),
+                                                    TypeError))
+    check('a bare node is refused too', raises(lambda: fk.hide_elements(_sheet), TypeError))
+    check('an empty list is refused', raises(lambda: fk.show_elements([])))
+    _cta = fk.stack([fk.text(fk.rich('Open'))], actions=[fk.show_elements([_sheet])])
+    _sh_cfg = fk.config(screens=[fk.screen('scr_sh', [_cta, _sheet])],
+                        typography=[('body', 'Body', 16, 'regular')])
+    _acts = [a for e in _sh_cfg['screens'][0]['elements']['map'].values()
+             for i in e.get('interactions') or [] for a in i['actions']]
+    check('the payload reaches the document as built', _acts and _acts[0]['payload']
+          == {'elements': ['el_sheet']}, _acts)
+    check('config() refuses a target the document does not contain, naming it',
+          "'el_gone'" in _message(lambda: fk.config(screens=[fk.screen('scr_sh2', [
+              fk.stack([], actions=[fk.hide_elements(['el_gone'])])])])))
+    check('...and a dangling select_product target, nested in a conditional',
+          "'el_none'" in _message(lambda: fk.config(screens=[fk.screen('scr_sh3', [
+              fk.stack([], actions=[fk.conditional_action(
+                  [(fk.eq(fk.lit(1), 1), [fk.select_product('el_none')])])])])])))
+
+    # --- visibility: text takes the argument stack takes, same name, same three shapes
+    print('\nvisibility:')
+    for name, build in (('text', lambda v: fk.text(fk.rich('x'), visibility=v)),
+                        ('stack', lambda v: fk.stack([], visibility=v)),
+                        ('icon', lambda v: fk.icon('X', visibility=v)),
+                        ('image', lambda v: fk.image(fk.PLACEHOLDER, fixed_h=10, visibility=v)),
+                        ('video', lambda v: fk.video(fixed_h=10, visibility=v)),
+                        ('spinner', lambda v: fk.spinner('spinner1', visibility=v)),
+                        ('text_input', lambda v: fk.text_input('t', visibility=v))):
+        check(f'{name}() takes visibility=hidden()',
+              build(fk.hidden())['props']['visibility'] == {'type': 'hidden'})
+        check(f'{name}() takes visibility=when(...)',
+              build(fk.when(fk.not_empty(fk.ref('e.value'))))['props']['visibility']['type']
+              == 'conditional')
+        check(f'{name}() refuses a bare condition, naming when()',
+              'when(' in _message(lambda: build(fk.not_empty(fk.ref('e.value'))), TypeError))
+    check('text() omits visibility when not given (the builder default)',
+          'visibility' not in fk.text(fk.rich('x'))['props'])
+    check('a hidden text reaches config() and the schema shape',
+          fk.config(screens=[fk.screen('scr_v', [fk.text(fk.rich('x'), visibility=fk.hidden())])],
+                    typography=[('body', 'Body', 16, 'regular')])['screens'][0]['elements']
+          ['map'] is not None)
+
+    # --- left AND right: the width is auto, and fill is refused (the render drew a fill-width
+    # anchored text past the right edge; auto fixed it, and the builder's docked CTAs carry it)
+    print('\nhorizontal anchors:')
+    _lr = fk.absolute(top=8, left=16, right=16)
+    for name, build in (('stack', lambda **k: fk.stack([], **k)),
+                        ('text', lambda **k: fk.text(fk.rich('x'), **k)),
+                        ('image', lambda **k: fk.image(fk.PLACEHOLDER, fixed_h=10, **k)),
+                        ('video', lambda **k: fk.video(fixed_h=10, **k)),
+                        ('text_input', lambda **k: fk.text_input('t', **k)),
+                        ('timer', lambda **k: fk.timer(**k))):
+        check(f'{name}(): anchored left and right, the width defaults to auto',
+              build(position=_lr)['props']['width'] == {'type': 'auto'})
+        check(f"{name}(): width='fill' with both anchors is refused, naming width='auto'",
+              "width='auto'" in _message(lambda: build(position=_lr, width='fill')))
+    check('a docked CTA with left and right gets width auto',
+          fk.stack([], position=fk.docked(bottom=18, left=16, right=16))['props']['width']
+          == {'type': 'auto'})
+    check('one anchor keeps the fill default',
+          fk.text(fk.rich('x'), position=fk.absolute(top=0, left=16))['props']['width']
+          == {'type': 'fill'})
+    check('an in-flow element keeps the fill default',
+          fk.stack([])['props']['width'] == {'type': 'fill'})
+    check('a timer keeps its hug default in flow', fk.timer()['props']['width'] == {'type': 'hug'})
+    check('a fixed width with both anchors is the author\'s call and passes',
+          fk.stack([], fixed_w=120, position=_lr)['props']['width']
+          == {'type': 'fixed', 'value': 120})
+
+    # --- inputs: the preset defaults to body, so config() refuses a theme that lacks it
+    print('\ninput presets:')
+    _in_scr = lambda: [fk.screen('scr_in', [fk.text_input('name', fill_=fk.fill('field'))])]
+    _msg_in = _message(lambda: fk.config(screens=_in_scr(),
+                                         colors=[('field', 'Field', '#FFFFFF', '#FFFFFF')],
+                                         typography=[('h1', 'H1', 28, 'bold')]))
+    check('an input whose default preset the theme lacks is refused, naming the input and body',
+          "'body'" in _msg_in and 'text-input' in _msg_in and 'typography=' in _msg_in, _msg_in)
+    check('declaring body clears it',
+          bool(fk.config(screens=_in_scr(), colors=[('field', 'Field', '#FFFFFF', '#FFFFFF')],
+                         typography=[('body', 'Body', 16, 'regular')])['screens']))
+    check('an input given a declared preset passes',
+          bool(fk.config(screens=[fk.screen('scr_in', [fk.text_input('name', preset='h1')])],
+                         typography=[('h1', 'H1', 28, 'bold')])['screens']))
+    check('an empty preset is refused at the helper', raises(lambda: fk.text_input('n', preset='')))
+
+    # --- meta_screens: several predeclare() results, merged
+    print('\npredeclare across screens:')
+    _a, _b = fk.predeclare('scr_a', ['p1']), fk.predeclare('scr_b', ['p2', ('p2', 'trial')])
+    check('config(meta_screens=[...]) merges one predeclare() per screen',
+          fk.config(screens=[], meta_screens=[_a, _b])['_meta']['screens'] == {**_a, **_b})
+    check('a single predeclare() still works', fk.config(screens=[], meta_screens=_a)
+          ['_meta']['screens'] == _a)
+    check('the same screen declared two ways is refused',
+          'twice' in _message(lambda: fk.config(screens=[], meta_screens=[
+              _a, fk.predeclare('scr_a', ['p9'])])))
+    check('the same declaration twice is harmless',
+          fk.config(screens=[], meta_screens=[_a, _a])['_meta']['screens'] == _a)
+    check('a non-dict item is refused', raises(lambda: fk.config(screens=[],
+                                                                  meta_screens=[_a, 'scr_b']),
+                                                TypeError))
+
+    # --- ids_after(): a screen built for a FETCHED config cannot reuse its ids
+    print('\nids after a fetched config:')
+    _live = json.load(open(os.path.join(HERE, 'fixtures', 'onboarding-quiz-paywall.json')))
+    _live = _live.get('config', _live)
+    _taken = set()
+    for _s in _live['screens']:
+        _taken |= set(_s['elements']['map'])
+    _old_ids = fk._ids
+    try:
+        fk._ids = fk.Ids()
+        _clash = fk.screen('scr_patch', [fk.stack([fk.text(fk.rich('x'))]) for _ in range(40)])
+        _flowkit_style = {'screens': [{'id': 's', 'elements': {'map': {
+            k: {} for k in _clash['elements']['map']}, 'hierarchy': {'id': 'root'}}}]}
+        installed = fk.ids_after(_flowkit_style)
+        check('ids_after() installs the counter every helper mints through',
+              installed is fk._ids)
+        _fresh = fk.screen('scr_patch', [fk.stack([fk.text(fk.rich('x'))]) for _ in range(40)])
+        check('a rebuilt screen shares no id with the config it is patched into',
+              not set(_fresh['elements']['map']) & set(_clash['elements']['map']))
+        check('the counter starts past the highest number in the config',
+              min(int(k[3:6]) for k in _fresh['elements']['map']) == 81,
+              sorted(_fresh['elements']['map'])[:2])
+        fk.ids_after(_live)
+        _real = fk.screen('scr_patch', [fk.stack([]) for _ in range(5)])
+        check('a builder export (random ids) is avoided too',
+              not set(_real['elements']['map']) & _taken)
+        fk.ids_after({'config': _live, 'status': 'draft'})
+        check('the envelope form is accepted', fk.eid().startswith('el_'))
+        _path = os.path.join(tempfile.mkdtemp(), 'live.json')
+        json.dump(_flowkit_style, open(_path, 'w'))
+        fk.ids_after(_path)
+        check('a path is accepted', fk.eid() not in _flowkit_style['screens'][0]['elements']['map'])
+        _skip = fk.Ids(start=0, taken={'el_001S'})
+        check('an id the config holds is skipped even below the start', _skip('S') == 'el_002S')
+        check('a document with no screens is refused', raises(lambda: fk.ids_after({'a': 1})))
+    finally:
+        fk._ids = _old_ids
 
     print()
     if FAILURES:

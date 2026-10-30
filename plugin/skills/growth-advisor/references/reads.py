@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
-"""Run growth-advisor's reads one at a time and print them as month tables.
+"""Run growth-advisor's reads and print them as month tables.
 
     python3 <skill>/references/reads.py audit --app <APP_ID> --adapty "$ADAPTY" [--months 6]
-    python3 <skill>/references/reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID> [--months 12]
+    python3 <skill>/references/reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID> [--placement <ID> ...] [--months 12]
     python3 <skill>/references/reads.py check-reply <<'DRAFT'   # the draft on stdin, or --file <DRAFT>
 
 `check-reply` reads no data: it flags the sentences of a draft reply that claim "every" group, a cause
 from timing, or less money without the first-payment / renewal split.
 
 `audit` runs "The audit reads" in diagnosis.md over the last full months, and lists the app's paywall
-and flow A/B tests. `placement` reads one placement: its audiences by name, the A/B tests that ran on
-it, every paywall or flow that sold on it, the weekly purchase count a Time line needs, and, when one
-paywall replaced another, the before/after comparison.
+and flow A/B tests. `placement` reads each placement given: its audiences by name, the A/B tests that
+ran on it, every paywall or flow that sold on it, the weekly purchase count a Time line needs, and, when
+one paywall replaced another, the before/after comparison.
+
+Reads run side by side inside the CLI's limits: each analytics route takes 2 calls a second per app, so
+calls to one route start at least PACE apart, and a throttled call waits the time the server names and
+runs again. Run one reads.py at a time and nothing else against the app meanwhile: two at once share
+the same limit and throttle each other.
 
 Every table prints every group, sorted by the last full month, and says how many groups had a
 value in it. The last full month is marked with `*`. Conversions print the rate in percent and the
@@ -19,13 +24,16 @@ number at the first step. A read that fails is printed as FAILED and listed agai
 in the reply what could not be read. Every call is a read; nothing here writes.
 """
 import argparse
+import concurrent.futures as cf
 import datetime as dt
 import json
 import math
+import random
 import re
 import shlex
 import subprocess
 import sys
+import threading
 import time
 
 FAILED = []
@@ -33,11 +41,45 @@ NOTED = []
 NO_DATA = '00000000-0000-0000-0000-000000000000'
 FEW = 20   # paid users behind a rate below which the rate is noise
 
+DATA = ('chart', 'conversion', 'funnel', 'retention', 'ltv', 'cohort')   # the rate-limited analytics routes
+PACE = 0.7      # seconds between two starts on one limited route: each takes 2 calls a second per app, and a
+                # call reaches the server a variable moment after it starts
+TRIES = 6       # a throttled call runs at most this many times, about half a minute of waiting in all
+_LOCK = threading.Lock()
+_NEXT = {}      # limited route -> the earliest moment its next call may start
+_CALLS = {}     # (adapty, args) -> Future: a read asked for twice runs once
+_POOLS = {None: cf.ThreadPoolExecutor(6)}   # one pool per limited route, so one route's queue never holds up another's
 
-def cli(adapty, args):
-    """Run one CLI read; on a rate limit wait once and retry once. Returns (body, error)."""
+
+def route(args):
+    """The rate-limited route a call goes to, or None: the analytics data commands and the flow and placement
+    metrics are limited per app; the other lists and gets are not."""
+    if len(args) > 1 and args[0] == 'analytics' and args[1] in DATA:
+        return args[1]
+    if len(args) > 2 and args[0] in ('flows', 'placements') and args[1] == 'metrics':
+        return ' '.join(args[:3])
+    return None
+
+
+def slot(rt, after=0.0):
+    """Wait for the route's next free start. `after` (a throttle's wait) also moves every later start back."""
+    with _LOCK:
+        now = time.monotonic()
+        start = max(now + after, _NEXT.get(rt, 0.0))
+        _NEXT[rt] = start + PACE
+    time.sleep(max(0.0, start - now))
+
+
+def run_read(adapty, args):
+    """Run one CLI read. A throttle (status 429, or 503) waits the server's `retry_after_seconds` or 1, 2, 4,
+    8, 16 s, whichever is longer, and runs the call again, TRIES times at most. Returns (body, error)."""
     cmd = shlex.split(adapty) + list(args) + ['--json']
-    for attempt in (1, 2):
+    rt, wait = route(args), 0.0
+    for attempt in range(1, TRIES + 1):
+        if rt:
+            slot(rt, wait)
+        elif wait:
+            time.sleep(wait)
         p = subprocess.run(cmd, capture_output=True, text=True)
         out, body = p.stdout, None
         if '{' in out:
@@ -46,16 +88,41 @@ def cli(adapty, args):
             except ValueError:
                 body = None
         if p.returncode == 0 and isinstance(body, dict) and 'error' not in body:
-            time.sleep(0.6)
             return body, None
         err = body.get('error') if isinstance(body, dict) else None
-        wait = err.get('retry_after_seconds') if isinstance(err, dict) else None
-        if p.returncode == 4 and wait and attempt == 1:
-            time.sleep(float(wait) + 0.5)
+        err = err if isinstance(err, dict) else {}
+        status = err.get('status') or err.get('status_code') or err.get('statusCode')
+        if status in (429, 503) and attempt < TRIES:
+            # the server's wait, growing on each throttle in a row, with jitter so waiting calls do not collide
+            wait = max(float(err.get('retry_after_seconds') or 0), 2.0 ** (attempt - 1)) + random.uniform(0.2, 1.0)
             continue
-        msg = err.get('message') if isinstance(err, dict) else None
+        msg = err.get('message')
+        if status == 429:
+            msg = f'throttled {TRIES} times: {msg}'
         return None, msg or ((p.stderr.strip().splitlines() or ['exit %d' % p.returncode])[-1][:200])
-    return None, 'rate limited twice'
+    return None, 'throttled'
+
+
+def call(adapty, args):
+    """The read as a future, started once."""
+    key, rt = (adapty,) + tuple(args), route(args)
+    with _LOCK:
+        f = _CALLS.get(key)
+        if f is None:
+            pool = _POOLS.get(rt) or _POOLS.setdefault(rt, cf.ThreadPoolExecutor(2))
+            f = _CALLS[key] = pool.submit(run_read, adapty, list(args))
+    return f
+
+
+def cli(adapty, args):
+    """One CLI read, waited for. Returns (body, error)."""
+    return call(adapty, args).result()
+
+
+def prefetch(adapty, calls):
+    """Start reads the code below reads in order, so they run side by side; cli() then waits for each."""
+    for args in calls:
+        call(adapty, args)
 
 
 def has_analytics(adapty):
@@ -69,18 +136,26 @@ def has_analytics(adapty):
     return p.returncode == 0
 
 
+def list_args(app, topic, page=1, extra=()):
+    return [topic, 'list', '--app', app, '--page-size', '100', '--page', str(page)] + list(extra)
+
+
 def every_page(adapty, app, topic, extra=()):
-    rows, page = [], 1
-    while True:
-        body, err = cli(adapty, [topic, 'list', '--app', app, '--page-size', '100', '--page', str(page)] + list(extra))
+    """Every row of a list: page 1 says how many pages there are, and the rest are read side by side."""
+    body, err = cli(adapty, list_args(app, topic, 1, extra))
+    if err:
+        FAILED.append(f'{topic} list: {err}')
+        return []
+    rows = body.get('data') or []
+    pages = ((body.get('meta') or {}).get('pagination') or {}).get('pages') or 1
+    prefetch(adapty, [list_args(app, topic, p, extra) for p in range(2, pages + 1)])
+    for p in range(2, pages + 1):
+        body, err = cli(adapty, list_args(app, topic, p, extra))
         if err:
-            FAILED.append(f'{topic} list: {err}')
+            FAILED.append(f'{topic} list, page {p}: {err}')
             return rows
         rows += body.get('data') or []
-        pages = ((body.get('meta') or {}).get('pagination') or {}).get('pages') or 1
-        if page >= pages:
-            return rows
-        page += 1
+    return rows
 
 
 def window(months, to=None):
@@ -129,9 +204,16 @@ def show(title, cmd, body, err, names=None, conv=False, top=None, cols=None):
         FAILED.append(f'{title}: {err}')
         return []
     segs = segments(body)
+    whole = ((body or {}).get('data') or {}).get('value')
     if not segs:
-        print('   (no data)')
+        print(f'   no groups and no periods: {num(whole)} for the whole window' if whole else '   (no data)')
         return []
+    if not any(s.get('values') for s in segs):
+        # one number per group and no periods: the window's numbers, never "no data"
+        for s in segs:
+            name = (names or {}).get(s.get('key')) or s.get('title') or s.get('key') or '?'
+            print(f"   {str(name)[:37]:37} {num(s.get('value')):>9}  for the whole window")
+        return segs
     if conv and 'view-paid' in cmd and not NOTED:
         NOTED.append(1)
         print('   view-paid: rate % paid/paywall views. Its paid users include renewals of people already subscribed and\n'
@@ -321,6 +403,36 @@ def country_value(a, title):
     return next((r.get('value') for r in rows if r.get('label') == title), None) if not err else None
 
 
+def store_value(a, key, title):
+    """The `--filter store=` value of a store group, from `analytics values` by its title (a group's key is not
+    a filter value), or None when the store is not listed there."""
+    body, err = cli(a.adapty, ['analytics', 'values', '--dimension', 'store', '--app', a.app])
+    rows = [r for r in (body or {}).get('data') or [] if r.get('value')] if not err else []
+    return next((r['value'] for r in rows if r.get('label') == title),
+                next((r['value'] for r in rows if r['value'] == key), None))
+
+
+STORES = {'app_store': 'ios', 'app store': 'ios', 'play_store': 'android', 'play store': 'android',
+          'google play': 'android'}
+PLATFORM = {'ios': 'iOS', 'android': 'Android'}
+NAMED = (('ios', re.compile(r'(?<![a-z])(ios|iphone|ipad|apple|app ?store)(?![a-z])')),
+         ('android', re.compile(r'(?<![a-z])(android|google|google ?play|play ?store)(?![a-z])')))
+
+
+def platform_named(text):
+    """The one platform a name names in whole words ("ios", "iPhone", "Android", "Google Play"), or None when it
+    names none or both. "Display" or "scenarios" name no platform."""
+    found = {p for p, rx in NAMED if rx.search(str(text or '').lower())}
+    return found.pop() if len(found) == 1 else None
+
+
+def other_platform(name, store):
+    """The platform a paywall, flow or arm name names when it sold in the other platform's store, else None.
+    The store is the one the sales were read in (its key or title), never a guess from the name."""
+    named, sold = platform_named(name), STORES.get(str(store or '').lower())
+    return named if named and sold and named != sold else None
+
+
 def rate(rev, views):
     return sum(rev) / sum(views) if sum(views) else None
 
@@ -336,11 +448,17 @@ def weakest(a, names, placements, top_country):
     top = sorted((s for s in placements if not s.get('is_total') and s.get('key') not in (None, NO_DATA)),
                  key=lambda s: -last_value(s))[:3]
     print(f'\n## weakest points: first-payment revenue per paywall view, {where}, the last 3 full months')
-    lines = []
-    for p in top:
+    lines, titles = [], {}
+
+    def reads(p):
         flt = [f"placement_id={p['key']}"] + scope
-        rb, re_ = cli(a.adapty, chart('revenue', f, t, 'store', filters=flt + ['renewal_period=1']) + ['--app', a.app])
-        vb, ve = cli(a.adapty, conversion('view-paid', f, t, filters=flt) + ['--group-by', 'store', '--app', a.app])
+        return (chart('revenue', f, t, 'store', filters=flt + ['renewal_period=1']) + ['--app', a.app],
+                conversion('view-paid', f, t, filters=flt) + ['--group-by', 'store', '--app', a.app])
+    prefetch(a.adapty, [x for p in top for x in reads(p)])
+    for p in top:
+        rargs, vargs = reads(p)
+        rb, re_ = cli(a.adapty, rargs)
+        vb, ve = cli(a.adapty, vargs)
         if re_ or ve:
             FAILED.append(f"weakest points on {names.get(p['key'], p['key'])}: {re_ or ve}")
             continue
@@ -361,6 +479,7 @@ def weakest(a, names, placements, top_country):
             best = max(((rate(r[i:i + 3], views[i:i + 3]) or 0, xs[i], xs[i + 2]) for i in range(1, len(pts) - 5)),
                        default=(0, None, None))
             stores[s.get('key')] = (s.get('title') or s.get('key'), now, sum(views[-3:]) / 3, best)
+            titles[s.get('key')] = s.get('title')
         pname = names.get(p['key']) or p.get('title') or p['key']
         for key, (sname, now, vmonth, best) in stores.items():
             if now is None:
@@ -386,13 +505,16 @@ def weakest(a, names, placements, top_country):
     if ref:
         ff, tt = window(1, a.to)
 
-        def top_paywalls(store):
+        def top_paywalls(store, title):
+            sv = store_value(a, store, title)
+            if sv is None:
+                return []
             body, err = cli(a.adapty, chart('subscriptions_new', ff, tt, 'paywall_id',
-                                            filters=[f'placement_id={pkey}', f'store={store}'] + scope) + ['--app', a.app])
+                                            filters=[f'placement_id={pkey}', f'store={sv}'] + scope) + ['--app', a.app])
             sold = sorted((s for s in segments(body) if not s.get('is_total') and s.get('value')), key=lambda s: -s['value'])
             total = sum(s['value'] for s in sold)
             return [(s.get('key'), names.get(s.get('key')) or s.get('title'), s['value'] / total) for s in sold]
-        theirs, ours = top_paywalls(ref), top_paywalls(key)
+        theirs, ours = top_paywalls(ref, titles.get(ref)), top_paywalls(key, titles.get(key))
         if theirs:
             best_key, best_name, _ = theirs[0]
             here = next(((n, sh) for k, n, sh in ours if k == best_key), None)
@@ -409,14 +531,18 @@ def weakest(a, names, placements, top_country):
         print('  ' + form)
 
 
+def breaks_read(a):
+    t = dt.date.fromisoformat(a.to) if a.to else dt.date.today()
+    end = t - dt.timedelta(days=t.weekday() + 1)              # the last Sunday: weeks run Monday to Sunday
+    start = end - dt.timedelta(days=13 * 7 - 1)
+    return start, end, conversion('view-trial', start.isoformat(), end.isoformat(), gran='week') + ['--group-by', 'store']
+
+
 def short_breaks(a, names):
     """Per store, week by week over the last 13 full weeks: any week where paywall view -> trial fell under half
     the store's median. A break that short never shows at month grain, and it decides whether "the paywall is not
     broken" is true."""
-    t = dt.date.fromisoformat(a.to) if a.to else dt.date.today()
-    end = t - dt.timedelta(days=t.weekday() + 1)              # the last Sunday: weeks run Monday to Sunday
-    start = end - dt.timedelta(days=13 * 7 - 1)
-    args = conversion('view-trial', start.isoformat(), end.isoformat(), gran='week') + ['--group-by', 'store']
+    start, end, args = breaks_read(a)
     print(f'\n## one-week breaks, by store, weeks {start.isoformat()}..{end.isoformat()}')
     body, err = cli(a.adapty, args + ['--app', a.app])
     if err:
@@ -433,16 +559,21 @@ def short_breaks(a, names):
         name = names.get(s.get('key')) or s.get('title') or s.get('key')
         for p in pts:
             if (p.get('value') or 0) < 0.5 * med:
-                found.append((s.get('key'), label(p.get('x'))))
+                found.append((store_value(a, s.get('key'), s.get('title')), label(p.get('x'))))
                 print(f'   BREAKAGE {name}, week of {label(p.get("x"))}: paywall view -> trial (not install -> trial) '
                       f'{num(p.get("value"))}% on {num(p.get("value_from"))} views, against a {num(med)}% weekly median')
     if not found:
         print('   none: no store had a week under half its median')
         return
     # whether the money came back too: first payments per week in that store, same weeks
-    for key, week in found:
-        rb, re_ = cli(a.adapty, chart('revenue', start.isoformat(), end.isoformat(), gran='week',
-                                      filters=[f'store={key}', 'renewal_period=1']) + ['--app', a.app])
+    def money(sv):
+        return chart('revenue', start.isoformat(), end.isoformat(), gran='week',
+                     filters=[f'store={sv}', 'renewal_period=1']) + ['--app', a.app]
+    prefetch(a.adapty, [money(sv) for sv, _ in found if sv is not None])
+    for sv, week in found:
+        if sv is None:
+            continue
+        rb, re_ = cli(a.adapty, money(sv))
         segs = [s for s in segments(rb) if s.get('is_total')] if not re_ else []
         if segs:
             v = [(label(p.get('x')), p.get('value') or 0) for p in segs[0].get('values') or []]
@@ -525,6 +656,7 @@ def split_new(a, f, t, names, start=0, flt=(), suffix=''):
             xs.extend(label(p.get('x'))[:7] for p in segs[0].get('values') or [])
         return {(names.get(s.get('key')) or s.get('title') or s.get('key')) + suffix:
                 [p.get('value') or 0 for p in s.get('values') or []] for s in segs if not s.get('is_total')}
+    prefetch(a.adapty, [chart(c, f, t, 'store', filters=flt) + ['--app', a.app] for c in ('installs', 'subscriptions_new')])
     inst, subs = series('installs'), series('subscriptions_new')
     if len(xs) <= start + 1:
         return {}
@@ -568,13 +700,18 @@ def conversion(conv_id, f, t, gran='month', filters=()):
     return a
 
 
+def yoy_reads(a):
+    f, t = window(15, a.to)
+    return [('installs', chart('installs', f, t, 'store')),
+            ('new subscriptions', chart('subscriptions_new', f, t, 'store')),
+            ('first-payment revenue', chart('revenue', f, t, 'store', filters=['renewal_period=1']))]
+
+
 def year_over_year(a):
     """The last three full months against the same three a year earlier, by store, and any store launch:
     a six-month window cannot show either."""
     f, t = window(15, a.to)
-    reads = [('installs', chart('installs', f, t, 'store')),
-             ('new subscriptions', chart('subscriptions_new', f, t, 'store')),
-             ('first-payment revenue', chart('revenue', f, t, 'store', filters=['renewal_period=1']))]
+    reads = yoy_reads(a)
     rows, launches = {}, []
     for title, args in reads:
         body, err = cli(a.adapty, args + ['--app', a.app])
@@ -628,6 +765,7 @@ def main_market(segs):
 
 def name_map(adapty, app, topics):
     names, lists = {}, {}
+    prefetch(adapty, [list_args(app, n) for n in topics])
     for n in topics:
         lists[n] = every_page(adapty, app, n)
         for r in lists[n]:
@@ -635,14 +773,50 @@ def name_map(adapty, app, topics):
     return names, lists
 
 
+def audit_reads(a, f, t):
+    """Every analytics read of the audit that waits on no other read, in the order the audit prints them."""
+    f12, t12 = window(12, a.to)
+    wf = (dt.date.fromisoformat(t) - dt.timedelta(days=27)).isoformat()
+    td = dt.date.fromisoformat(t)
+    rf = dt.date(td.year - (td.month < 12), td.month % 12 + 1, 1).isoformat()
+    lf, lt = window(6, (td - dt.timedelta(days=364)).isoformat())
+    reads = [chart('revenue', f, t, 'country'), chart('revenue', f, t, 'period'), chart('revenue', f, t, 'store')]
+    reads += [args for _, args in yoy_reads(a)]
+    reads += [chart('revenue', f, t, 'duration'), chart('installs', f, t, 'country'), chart('installs', f, t, 'store'),
+              chart('installs', f, t, 'attribution_channel'), chart('subscriptions_new', f, t, 'offer_category'),
+              chart('subscriptions_new', f, t, 'duration'), chart('trials_new', f, t, 'store_product_id'),
+              chart('subscriptions_expired', f, t, 'cancellation_reason'), chart('refund_money', f, t, 'country'),
+              chart('subscriptions_new', f, t, 'placement_id'), chart('subscriptions_new', f, t, 'paywall_id'),
+              chart('revenue', f, t, 'placement_id', filters=['renewal_period=1']),
+              chart('subscriptions_new', wf, t, 'placement_id', 'week')]
+    reads += [conversion(c, f, t) for c in ('install-trial', 'trial-paid', 'install-paid', 'view-paid')]
+    reads += [breaks_read(a)[2]]
+    reads += [conversion(c, f12, t12) + ['--group-by', 'store'] for c in ('install-trial', 'view-trial', 'view-paid')]
+    reads += [['analytics', 'values', '--dimension', 'country'], ['analytics', 'values', '--dimension', 'store'],
+              ['analytics', 'retention', '--date-from', f, '--date-to', t, '--group-by', 'duration'],
+              conversion('paid-2period', rf, t) + ['--group-by', 'duration'],
+              ['analytics', 'ltv', '--date-from', lf, '--date-to', lt, '--group-by', 'duration',
+               '--period-type', 'days', '--renewal-days', '30,90,180,365']]
+    f13, t13 = window(13, a.to)
+    reads += [chart('subscriptions_new', f13, t13, 'placement_id')]
+    return [r + ['--app', a.app] for r in reads]
+
+
 def audit(a):
     f, t = window(a.months, a.to)
     print(f'# audit {f} .. {t} (the last full month is marked *)')
+    prefetch(a.adapty, audit_reads(a, f, t))
     names, lists = name_map(a.adapty, a.app, ('placements', 'paywalls', 'flows', 'products', 'segments'))
     print('\n## lists, every page: ' + ', '.join(f'{n} {len(r)}' for n, r in lists.items()))
 
     def R(title, args, conv=False, top=None, cols=None):
         return read(a.adapty, a.app, title, args, names, conv, top, cols)
+    # every placement's audiences, then every segment they name, read side by side before printing
+    gets = [['placements', 'get', p.get('id'), '--app', a.app] for p in lists['placements']]
+    prefetch(a.adapty, gets + flow_chunks(a, lists['flows'])
+             + [list_args(a.app, 'ab-tests', 1, ['--type', ty]) for ty in ('paywall', 'flow')])
+    sids = {sid for g in gets for x in audiences(cli(a.adapty, g)[0]) for sid in x.get('segment_ids') or []}
+    prefetch(a.adapty, [['segments', 'get', sid, '--app', a.app] for sid in sorted(sids)])
     # the top countries by revenue, so each audience can say which of them its segments cover
     first_countries = segments(cli(a.adapty, chart('revenue', f, t, 'country') + ['--app', a.app])[0])
     top_codes = [s.get('key') for s in sorted((s for s in first_countries if not s.get('is_total') and s.get('key')),
@@ -700,13 +874,15 @@ def audit(a):
     R(f'12. LTV by plan length, by day, cohorts {lf[:7]}..{lt[:7]}: every plan has reached day 365, so the plans compare',
       ['analytics', 'ltv', '--date-from', lf, '--date-to', lt, '--group-by', 'duration',
        '--period-type', 'days', '--renewal-days', '30,90,180,365'])
-    for s in placements:
-        if s.get('is_total') or s.get('key') in (None, NO_DATA) or not last_value(s):
-            continue
+    sold = [s for s in placements if not s.get('is_total') and s.get('key') not in (None, NO_DATA) and last_value(s)]
+    prefetch(a.adapty, [conversion('view-paid', f, t, filters=[f"placement_id={s['key']}"]) + ['--app', a.app]
+                        for s in sold])
+    for s in sold:
         R(f"13. view-paid on {names.get(s['key']) or s.get('title')}",
           conversion('view-paid', f, t, filters=[f"placement_id={s['key']}"]), conv=True)
     paywall_map(a, names, lists['placements'])
-    print('\nNext, for every placement a hypothesis would run on: reads.py placement --placement <id>')
+    print('\nNext, for the placements a hypothesis would run on, in one run: reads.py placement --placement <id> '
+          '[--placement <id> ...]')
 
 
 def paywall_map(a, names, placements):
@@ -717,11 +893,13 @@ def paywall_map(a, names, placements):
     print(f'\n## paywalls that sold, by placement, {f[:7]}..{t[:7]} (every placement with a sale read)')
     body, err = cli(a.adapty, chart('subscriptions_new', f, t, 'placement_id') + ['--app', a.app])
     sold = {s.get('key') for s in segments(body) if not s.get('is_total') and s.get('value')} if not err else None
+    placements = [p for p in placements if sold is None or p.get('id') in sold]
+
+    def per(p):
+        return chart('subscriptions_new', f, t, 'paywall_id', filters=[f"placement_id={p.get('id')}"]) + ['--app', a.app]
+    prefetch(a.adapty, [per(p) for p in placements])
     for p in placements:
-        if sold is not None and p.get('id') not in sold:
-            continue
-        body, err = cli(a.adapty, chart('subscriptions_new', f, t, 'paywall_id', filters=[f"placement_id={p.get('id')}"])
-                        + ['--app', a.app])
+        body, err = cli(a.adapty, per(p))
         if err:
             FAILED.append(f"paywalls on {p.get('title')}: {err}")
             continue
@@ -830,6 +1008,11 @@ def segment_filters(adapty, app, sid, cache, top):
     return cache[sid]
 
 
+def audiences(body):
+    """A `placements get` answer's audiences, lowest priority first."""
+    return sorted(((body or {}).get('data') or body or {}).get('audiences') or [], key=lambda x: x.get('priority', 0))
+
+
 def print_audiences(adapty, app, pid, names, top=None, cache=None):
     cache = {} if cache is None else cache
     body, err = cli(adapty, ['placements', 'get', pid, '--app', app])
@@ -837,7 +1020,7 @@ def print_audiences(adapty, app, pid, names, top=None, cache=None):
         print(f'   FAILED: {err}')
         FAILED.append(f'placements get {names.get(pid, pid)}: {err}')
         return []
-    aud = sorted((body.get('data') or body).get('audiences') or [], key=lambda x: x.get('priority', 0))
+    aud = audiences(body)
     for x in aud:
         segs = [names.get(s, s) for s in x.get('segment_ids') or []] or ['All users']
         if x.get('content_type') == 'ab_test' or x.get('ab_test_id'):
@@ -869,8 +1052,10 @@ def ab_tests(a, names, auds, pid=None, cap=None):
     print('   Results are not in the CLI: say what ran, on which audience, when, and what that audience shows now '
           '("kept", never "won").')
     tests, failed = [], len(FAILED)
-    for ty in ('paywall', 'flow'):
-        tests += every_page(a.adapty, a.app, 'ab-tests', ['--type', ty] + (['--placement', pid] if pid else []))
+    kinds = [['--type', ty] + (['--placement', pid] if pid else []) for ty in ('paywall', 'flow')]
+    prefetch(a.adapty, [list_args(a.app, 'ab-tests', 1, k) for k in kinds])
+    for k in kinds:
+        tests += every_page(a.adapty, a.app, 'ab-tests', k)
     if len(FAILED) > failed:
         print('   FAILED: the test list could not be read; read past tests from the sales below, and never write '
               'that no test ran')
@@ -889,6 +1074,7 @@ def ab_tests(a, names, auds, pid=None, cap=None):
         if x.get('state') not in ('live', 'draft') and x.get('started_at') and key not in latest:
             latest[key] = x.get('ab_test_id')
     shown = tests[:cap] if cap else tests
+    prefetch(a.adapty, [['ab-tests', 'get', x.get('ab_test_id'), '--app', a.app] for x in shown])
     for x in shown:
         plc = x.get('placement') or {}
         segs = x.get('segment_ids')
@@ -933,6 +1119,12 @@ def ab_tests(a, names, auds, pid=None, cap=None):
     return tests
 
 
+def flow_chunks(a, flows):
+    """`flows metrics list` takes 50 ids a call."""
+    return [['flows', 'metrics', 'list', '--app', a.app, '--ids', ','.join(f.get('id') for f in flows[i:i + 50])]
+            for i in range(0, len(flows), 50)]
+
+
 def flows_reach(a, names, flows, auds, tests):
     """Every flow's lifetime viewers and purchases, and where it shows now: a flow on no placement that
     users started ran before; one nobody started never reached users, so it was not tried."""
@@ -949,9 +1141,10 @@ def flows_reach(a, names, flows, auds, tests):
                 if r.get('flow_id'):
                     where.setdefault(r['flow_id'], []).append(f"running test {x.get('title')!r}")
     rows = {}
-    for i in range(0, len(flows), 50):
-        body, err = cli(a.adapty, ['flows', 'metrics', 'list', '--app', a.app,
-                                   '--ids', ','.join(f.get('id') for f in flows[i:i + 50])])
+    chunks = flow_chunks(a, flows)
+    prefetch(a.adapty, chunks)
+    for args in chunks:
+        body, err = cli(a.adapty, args)
         if err:
             print(f'\n## flows: FAILED: {err}')
             FAILED.append(f'flows metrics list: {err}')
@@ -985,8 +1178,6 @@ def flow_metrics(a, pid, f, t, test=None):
           'that is first-payment revenue. A running test\'s arms show how far each is from about 200 purchases, '
           'never which one wins.')
     print(f"   {'':56} {'viewers':>8} {'finished':>8} {'purchases':>9} {'trials':>7} {'rev/viewer':>10}")
-    ios_words, android_words = ('ios', 'iphone', 'apple', 'app store'), ('android', 'google', 'play')
-    other = {'app store': android_words, 'google play': ios_words, 'play store': ios_words}
 
     def walk(n, depth, path):
         if n.get('level') in ('screen', 'product', 'period'):
@@ -1006,8 +1197,9 @@ def flow_metrics(a, pid, f, t, test=None):
                   + ', '.join(f'{k} {num(c)}' for k, c in sorted(prods.items(), key=lambda x: -x[1])))
         if n.get('level') == 'segment' and n.get('purchases'):
             arm = ' / '.join(path[1:])
-            if any(w in arm.lower() for w in other.get(str(n.get('title') or '').lower(), ())):
-                print(f'   NOTE: "{arm}" names another platform but sold {num(n["purchases"])} in {n.get("title")}. '
+            named = other_platform(arm, n.get('title'))
+            if named:
+                print(f'   NOTE: "{arm}" names {PLATFORM[named]} but sold {num(n["purchases"])} in {n.get("title")}. '
                       'Say so; it may be shown to users it was not meant for.')
         for c in kids:
             walk(c, depth + 1, path + [str(n.get('title') or '')])
@@ -1015,11 +1207,21 @@ def flow_metrics(a, pid, f, t, test=None):
     return body
 
 
-def placement(a):
+def placement_reads(a, pid, f, t):
+    """The analytics reads of one placement that wait on no other read, in the order they print."""
+    flt = [f'placement_id={pid}']
+    wf = (dt.date.fromisoformat(t) - dt.timedelta(days=27)).isoformat()
+    reads = [chart('revenue', f, t, 'store', filters=flt), chart('subscriptions_new', wf, t, gran='week', filters=flt),
+             chart('trials_new', wf, t, gran='week', filters=flt),
+             chart('subscriptions_new', f, t, 'store_product_id', filters=flt)]
+    reads += [chart('subscriptions_new', f, t, gb, filters=flt) for gb in ('paywall_id', 'flow_id')]
+    return [r + ['--app', a.app] for r in reads + [['analytics', 'values', '--dimension', 'store']]]
+
+
+def placement(a, pid, names):
     f, t = window(a.months, a.to)
-    pid, flt = a.placement, [f'placement_id={a.placement}']
-    print(f'# placement {pid}, {f} .. {t} (the last full month is marked *)')
-    names, _ = name_map(a.adapty, a.app, ('placements', 'paywalls', 'flows', 'segments'))
+    flt = [f'placement_id={pid}']
+    print(f'# placement {names.get(pid, pid)} ({pid}), {f} .. {t} (the last full month is marked *)')
     print(f"\n## audiences of {names.get(pid, pid)}, lowest priority first")
     print('   A/B tests: a running one shows below as "A/B test <title>"; name it. None below means none runs now. '
           'Past tests are in "A/B tests" below.')
@@ -1030,9 +1232,11 @@ def placement(a):
     def R(title, args, conv=False):
         return read(a.adapty, a.app, title, args, names, conv)
     store_segs = R('revenue on this placement by store', chart('revenue', f, t, 'store', filters=flt))
+    # a store's filter value comes from `analytics values`, never from the group's key
+    sval = {s.get('key'): store_value(a, s.get('key'), s.get('title')) for s in store_segs if not s.get('is_total')}
     rev = sum(s.get('value') or 0 for s in store_segs if not s.get('is_total'))
-    stores = [s.get('key') for s in sorted((s for s in store_segs if not s.get('is_total')), key=lambda s: -(s.get('value') or 0))
-              if s.get('key') and rev and (s.get('value') or 0) >= 0.15 * rev] or [None]
+    stores = [sval.get(s.get('key')) for s in sorted((s for s in store_segs if not s.get('is_total')), key=lambda s: -(s.get('value') or 0))
+              if sval.get(s.get('key')) and rev and (s.get('value') or 0) >= 0.15 * rev] or [None]
     wf = (dt.date.fromisoformat(t) - dt.timedelta(days=27)).isoformat()
     R('new subscriptions per week on this placement, the last 4 weeks (the count a Time line uses)',
       chart('subscriptions_new', wf, t, gran='week', filters=flt))
@@ -1048,24 +1252,31 @@ def placement(a):
     for x in tests if tree is not None else []:
         if x.get('state') == 'live' and x.get('type') == 'flow' and x.get('started_at'):
             flow_metrics(a, pid, x['started_at'][:10], dt.date.today().isoformat(), test=x.get('title'))
-    # the same per store: a paywall can sell in one store only, or leak into a store its name excludes
-    every_store = [s.get('key') for s in store_segs if not s.get('is_total') and s.get('key')][:3]
-    for gb, _ in contents:
-        if gb == 'flow_id' and tree is not None:
-            continue
-        for store in every_store:
-            segs = R(f'new subscriptions on this placement by {gb}, store {store}',
-                     chart('subscriptions_new', f, t, gb, filters=flt + [f'store={store}']))
-            other = {'app_store': ('android', 'google', 'play'), 'play_store': ('ios', 'iphone', 'apple', 'app store')}.get(store, ())
-            for s in segs:
-                name = str(s.get('title') or '')
-                if s.get('is_total') or not s.get('value') or not any(w in name.lower() for w in other):
-                    continue
-                months = [f"{label(p.get('x'))[:7]} {p.get('value')}" for p in s.get('values') or [] if p.get('value')]
-                print(f'   NOTE: "{name}" names another platform but sold {num(s.get("value"))} in {store}: '
-                      + ', '.join(months) + '. Say so; it may be shown to users it was not meant for.')
+    # the same per store: a paywall can sell in one store only, or sell in the other platform's store than the one
+    # its name names; the store is the one these sales were read in
+    every_store = [(sval[s.get('key')], s.get('title')) for s in store_segs
+                   if not s.get('is_total') and sval.get(s.get('key'))][:3]
+    by_store = [(gb, sv, title) for gb, _ in contents if not (gb == 'flow_id' and tree is not None)
+                for sv, title in every_store]
+    prefetch(a.adapty, [chart('subscriptions_new', f, t, gb, filters=flt + [f'store={sv}']) + ['--app', a.app]
+                        for gb, sv, _ in by_store])
+    for gb, sv, title in by_store:
+        segs = R(f'new subscriptions on this placement by {gb}, store {title}',
+                 chart('subscriptions_new', f, t, gb, filters=flt + [f'store={sv}']))
+        for s in segs:
+            name = str(names.get(s.get('key')) or s.get('title') or '')
+            named = other_platform(name, sv)
+            if s.get('is_total') or not s.get('value') or not named:
+                continue
+            months = [f"{label(p.get('x'))[:7]} {p.get('value')}" for p in s.get('values') or [] if p.get('value')]
+            print(f'   NOTE: "{name}" names {PLATFORM[named]} but sold {num(s.get("value"))} in {title}: '
+                  + ', '.join(months) + '. Say so; it may be shown to users it was not meant for.')
+
+    def view_paid(filters):
+        return conversion('view-paid', f, t, filters=filters) + ['--app', a.app]
+
     def conv_read(title, filters):
-        b, e = cli(a.adapty, conversion('view-paid', f, t, filters=filters) + ['--app', a.app])
+        b, e = cli(a.adapty, view_paid(filters))
         return series(show(title, ' '.join(conversion('view-paid', f, t, filters=filters)), b, e, names, True))
     for gb, segs in contents:
         total = next((s for s in segs if s.get('is_total')), None)
@@ -1082,6 +1293,7 @@ def placement(a):
             keys = big if i == 0 else sorted({k for pair in pairs for k in pair})
             if i and not keys:
                 continue
+            prefetch(a.adapty, [view_paid(sflt)] + [view_paid(sflt + [f'{gb}={k}']) for k in keys])
             whole = conv_read(f'view-paid on this placement, store {store or "all"}', sflt)
             conv = {k: conv_read(f'view-paid of {names.get(k, k)}, store {store or "all"}', sflt + [f'{gb}={k}'])
                     for k in keys}
@@ -1177,7 +1389,7 @@ def run():
     ap.add_argument('--app')
     ap.add_argument('--file', help='check-reply: the draft reply to check (default: stdin)')
     ap.add_argument('--adapty', default='adapty', help='the resolved $ADAPTY command string')
-    ap.add_argument('--placement')
+    ap.add_argument('--placement', action='append', help='placement: repeat it to read several in one run')
     ap.add_argument('--months', type=int)
     ap.add_argument('--to', help='YYYY-MM-DD; the window ends with the last full month before it')
     a = ap.parse_args()
@@ -1195,7 +1407,16 @@ def run():
               'PATH). Resolve $ADAPTY again as "The CLI" says; if `adapty analytics catalog --help` still '
               'fails, use `npx --yes adapty@latest`. Then rerun this command with --adapty "$ADAPTY".')
         return 2
-    (audit if a.command == 'audit' else placement)(a)
+    if a.command == 'audit':
+        audit(a)
+    else:
+        f, t = window(a.months, a.to)
+        prefetch(a.adapty, [r for pid in a.placement for r in placement_reads(a, pid, f, t)]
+                 + [['placements', 'get', pid, '--app', a.app] for pid in a.placement])
+        names, _ = name_map(a.adapty, a.app, ('placements', 'paywalls', 'flows', 'segments'))
+        for i, pid in enumerate(a.placement):
+            print('\n' if i else '', end='')
+            placement(a, pid, names)
     if FAILED:
         print('\n## could not read: say so in the reply, and what it leaves open')
         for x in FAILED:

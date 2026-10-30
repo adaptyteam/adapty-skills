@@ -255,7 +255,8 @@ Two things make it worth a decision rather than a footnote:
 - **The repair is expensive once the translations exist.** When the locale's `id` is the same
   string as its code, renaming means the entry in `localization.locales`, the key in every catalog
   `values` map, and `remote_configs` — so getting it right
-  costs nothing now and a full pass later.
+  costs nothing now and a full pass later. That pass, once the user says yes, is
+  `python3 references/localization.py rename IN.json pt-br pt-BR`; it refuses a code already present.
 - **A code that arrives in a config you FETCHED is not yours to rewrite in passing.** Report it
   and ask. `verify-config.py` warns for exactly that case; `flowkit.config()` refuses to emit one,
   because a code you are writing now has no excuse.

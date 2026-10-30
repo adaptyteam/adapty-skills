@@ -1311,6 +1311,40 @@ _f1g_ren = sn.plan_renames(_f1g_snippet, _f1g_config)
 case('finding1 (groups): the minted group id is EXACTLY plan_3 -- not plan_2, '
      'which the snippet itself already carries', _f1g_ren['groups'], {'plan': 'plan_3'})
 
+# An action that names an ELEMENT follows the element when the graft renames it: a show/hide
+# list and a selectProduct target, including one nested in a conditional. Left behind, the
+# grafted button would open the destination's own `sheet`.
+_er_open = {'id': 'act_show', 'type': 'showElement', 'payload': {'elements': ['sheet', 'keep']}}
+_er_nested = {'id': 'act_cond', 'type': 'conditional', 'payload': {
+    'type': 'switch', 'cases': [[{'type': 'const', 'value': True}, {'type': 'const', 'value': [
+        {'id': 'act_hide', 'type': 'hideElement', 'payload': {'elements': ['sheet']}}]}]],
+    'default': {'type': 'const', 'value': [
+        {'id': 'act_sel', 'type': 'selectProduct', 'payload': {'element': 'sheet'}}]}}}
+_er_snippet = json.loads(json.dumps(_f1_snippet))
+_er_snippet['payload'] = {
+    'rootId': 'btn',
+    'map': {'btn': {'id': 'btn', 'type': 'stack', 'props': {},
+                    'interactions': [{'id': 'int_btn', 'trigger': 'tap',
+                                      'actions': [_er_open, _er_nested]}]},
+            'sheet': {'id': 'sheet', 'type': 'stack', 'props': {}}},
+    'hierarchy': {'id': 'btn', 'children': [{'id': 'sheet', 'children': []}]},
+}
+_er_config = json.loads(json.dumps(_f1_config))
+_er_config['screens'][0]['elements']['map'] = {'sheet': {'id': 'sheet', 'type': 'stack',
+                                                         'props': {}}}
+_er_config['screens'][0]['elements']['hierarchy']['children'] = [{'id': 'sheet', 'children': []}]
+_er_plan = sn.build_plan(_er_snippet, _er_config, 'scr_f1', None, None, None)
+_er_out = sn.apply_plan(_er_config, _er_snippet, _er_plan)
+_er_btn = _er_out['screens'][0]['elements']['map']['btn']['interactions'][0]['actions']
+case('element refs: the grafted sheet was renamed', 'sheet_2' in
+     _er_out['screens'][0]['elements']['map'], True)
+case('element refs: showElement names the renamed sheet, and leaves an id outside the '
+     'snippet alone', _er_btn[0]['payload']['elements'], ['sheet_2', 'keep'])
+case('element refs: a hideElement nested in a conditional follows too',
+     _er_btn[1]['payload']['cases'][0][1]['value'][0]['payload']['elements'], ['sheet_2'])
+case('element refs: a selectProduct target follows too',
+     _er_btn[1]['payload']['default']['value'][0]['payload']['element'], 'sheet_2')
+
 # --- Final fix wave, Finding 2 (Critical, crash): a valid-JSON but wrong-typed
 # --config or --snippet must fail cleanly, never with a traceback ----------------
 _BAD_SHAPES = (('list', [1, 2, 3]), ('string', 'hello'), ('int', 42))

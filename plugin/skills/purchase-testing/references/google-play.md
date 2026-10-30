@@ -83,3 +83,16 @@ immutable once created.
 **Products list is empty** — check the product ID *and the base plan ID* against the
 console, character for character. A subscription whose base plan is not activated returns
 nothing, with no error to read.
+
+**Play said the payment went through, but the app got billing response code 6** (`ERROR`,
+the SDK's `BILLING_ERROR`) and the paywall stayed up — an internal Google Play error, often
+transient, so the purchase can exist while the app was told it failed. Check the
+[Event Feed](https://app.adapty.io/event-feed) for that purchase and the profile's access
+level, then restore: restoring brings the purchase in. What the code means and how Google
+says to handle it: https://developer.android.com/google/play/billing/errors#error_error_code_6;
+Adapty's side of it: https://adapty.io/docs/android-sdk-error-handling.md
+
+**The Play Store on an emulator calls the closed-testing build incompatible** — the
+emulator's verdict, not a setup error. Test on a real device signed in as the license
+tester; Adapty's Android testing guide recommends one and says an emulator needs Google Play
+installed: https://adapty.io/docs/testing-on-android.md

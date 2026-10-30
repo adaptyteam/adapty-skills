@@ -72,6 +72,47 @@ for name, d in [
     out = run(d)
     check(f'SILENT: {name}', BAND not in out, out[:400])
 
+# A screen taller than every phone scrolls everywhere and has no surplus to place. The config
+# bounds the height from below (fixed heights, one line per text, gaps and padding), and a bound
+# past the 956pt Pro Max skips the screen; it had fired on a long scrollable screen.
+long_rows = fk.stack([fk.stack([t(f'Row {i}')], fixed_h=64) for i in range(12)], gap=8)
+out = run(doc([hero(), long_rows, bar()]))
+check('SILENT: twelve 64pt rows under a 300pt hero (over 1,100pt fixed)', BAND not in out, out[:400])
+long_text = fk.stack([t(f'Line {i}') for i in range(40)], gap=8)
+out = run(doc([hero(), long_text, bar()]))
+check('SILENT: forty lines of 16pt text under the hero (one line each is already too tall)',
+      BAND not in out, out[:400])
+out = run(doc([hero(), fk.stack([fk.stack([t(f'Row {i}')], fixed_h=64) for i in range(6)], gap=8),
+               bar()]))
+check('FIRES: six rows, short of the tallest phone, and the message says how to tell',
+      BAND in out and 'the config fixes at least' in out and 'google-pixel-9 render' in out,
+      out[:600])
+_hidden = doc([hero(), long_rows, bar()])
+_m = _hidden['screens'][0]['elements']['map']
+_m[_hidden['screens'][0]['elements']['hierarchy']['children'][1]['id']]['props']['visibility'] = {
+    'type': 'hidden'}
+out = run(_hidden)
+check('FIRES: the same rows hidden do not count toward the height', BAND in out, out[:400])
+# Tab panes show one at a time: three 4-row panes in a VERTICAL wrapper are one pane tall, not three.
+_tabs = doc([hero(), fk.stack([fk.stack([fk.stack([t(f'Row {i}')], fixed_h=64) for i in range(4)],
+                                        gap=8) for _ in range(3)]), bar()])
+_tm = _tabs['screens'][0]['elements']
+_wrap = _tm['map'][_tm['hierarchy']['children'][1]['id']]
+_wrap['type'] = 'tab-content-wrapper'
+_wrap['props'].setdefault('layout', {})['direction'] = 'vertical'
+out = run(_tabs)
+check('FIRES: three tab panes in a vertical wrapper count as one pane', BAND in out, out[:400])
+# Real exports carry `visibility: "hidden"` as a bare string, a bare-number `padding` and a list
+# one; the height bound read them as objects and crashed the checker on a real flow.
+_odd = doc([hero(), long_rows, bar()])
+_om = _odd['screens'][0]['elements']
+_om['map'][_om['hierarchy']['children'][0]['id']]['props']['visibility'] = 'hidden'
+_om['map'][_om['hierarchy']['children'][1]['id']]['props']['padding'] = 8
+_om['map'][_om['hierarchy']['children'][2]['id']]['props']['padding'] = [4, 16, 4, 16]
+out = run(_odd)
+check('NO CRASH: visibility "hidden" string, number padding, list padding', 'CHECKER ERROR' not in out,
+      out[:400])
+
 rows = fk.stack([t('One'), t('Two'), t('Three')], height='fill', distribution='space-between')
 out = run(doc([hero(), fk.stack([t('Title'), rows]), bar()], distribution='space-between'))
 check('FIRES: space-between on a fill-height list', out.count(SPREAD) == 1, out[:400])

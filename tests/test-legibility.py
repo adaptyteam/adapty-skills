@@ -281,6 +281,137 @@ fires('a gradient SCREEN fill is resolved too, not just an element fill',
            card_fill=None, text_color=hexc('#04040A'), tokens=PLAIN),
       'effectively invisible')
 
+# --------------------------------------------- what is under the text, when it is not computable
+# Four agent runs in one week: white type over a footer filled with a gradient theme style, over an
+# absolute fade, inside a fade-filled block over a photo, and floated over a hero image -- each
+# reported as "white on white" because the walk fell through to the PAGE fill. An unresolvable fill
+# now makes the background unknown, and so does an overlay: an out-of-flow sibling that paints.
+print('\nWhat is under the text cannot be computed — skip:')
+
+WHITE = colorfill(hexc('#FFFFFF'))
+
+
+def beside(doc, el, *, first=True, in_card=False):
+    """`doc` with one more element next to the card (or next to the text, inside the card)."""
+    s = doc['screens'][0]['elements']
+    s['map'][el['id']] = el
+    parent = s['hierarchy']['children'][0] if in_card else s['hierarchy']
+    parent['children'].insert(0 if first else len(parent['children']), {'id': el['id'], 'children': []})
+    return doc
+
+
+def box(i, *, fill=None, place='absolute', w=None, h=None, kind='stack'):
+    size = lambda v: {'type': 'fill'} if v is None else {'type': 'fixed', 'value': v}
+    pr = {'position': {'type': place, 'left': 0, 'top': 0}, 'width': size(w), 'height': size(h)}
+    if fill is not None:
+        pr['fill'] = fill
+    if kind == 'image':
+        pr['image'] = {'_localizable': True, 'values': {'en': {'id': '1', 'url': 'https://example.invalid/a.png'}}}
+    return {'id': i, 'type': kind, 'states': [], 'props': pr}
+
+
+FADE = [{'type': 'gradient', 'angle': 180, 'stops': [
+    {'color': hexc('#000000', opacity=0), 'position': 0},
+    {'color': hexc('#000000', opacity=80), 'position': 100}]}]
+GRAD_STYLE = PLAIN + [{'id': 'brand', 'light': [{'type': 'gradient', 'angle': 90, 'stops': [
+    {'color': hexc('#6A3FA0'), 'position': 0}, {'color': hexc('#1B1464'), 'position': 100}]}]}]
+
+silent('white text in a footer filled with a GRADIENT theme style',
+       flow(screen_fill=WHITE, card_fill=colorfill(tok('brand')),
+            text_color=hexc('#FFFFFF'), tokens=GRAD_STYLE))
+silent('white text in a block filled with a translucent fade (over a photo)',
+       flow(screen_fill=WHITE, card_fill=FADE, text_color=hexc('#FFFFFF'), tokens=PLAIN))
+silent('white text in a block with an IMAGE fill',
+       flow(screen_fill=WHITE, card_fill=[{'type': 'image', 'image': {
+           'id': '1', 'url': 'https://example.invalid/a.png'}}],
+            text_color=hexc('#FFFFFF'), tokens=PLAIN))
+silent('white text beside an absolute full-width fade sibling',
+       beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FFFFFF'), tokens=PLAIN),
+              box('el_fade', fill=FADE, h=240)))
+silent('white text beside an absolute image sibling (a hero behind the headline)',
+       beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FFFFFF'), tokens=PLAIN),
+              box('el_hero', kind='image', h=320)))
+_float = flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FFFFFF'), tokens=PLAIN)
+_float['screens'][0]['elements']['map']['el_card']['props']['position'] = {
+    'type': 'absolute', 'left': 16, 'right': 16, 'bottom': 24}
+silent('a headline floated (absolute) over an in-flow hero image',
+       beside(_float, box('el_hero', kind='image', place='relative', h=320)))
+silent('white text on a 60% black scrim over white is flattened to grey, and legible',
+       flow(screen_fill=WHITE, card_fill=colorfill(hexc('#000000', opacity=60)),
+            text_color=hexc('#FFFFFF'), tokens=PLAIN))
+
+print('\n...and what stays computable still fires:')
+fires('white text on a 10% black scrim over white (flattened, still near-white)',
+      flow(screen_fill=WHITE, card_fill=colorfill(hexc('#000000', opacity=10)),
+           text_color=hexc('#FFFFFF'), tokens=PLAIN),
+      'the fill of el_card')
+fires('an 8pt absolute rail BESIDE the text is not an overlay',
+      beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FDFDFD'), tokens=PLAIN),
+             box('el_rail', fill=colorfill(hexc('#E9910B')), w=8), in_card=True),
+      'the screen fill')
+fires('a 1pt absolute hairline divider is not an overlay',
+      beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FDFDFD'), tokens=PLAIN),
+             box('el_line', fill=colorfill(hexc('#DDDDDD')), h=1)),
+      'effectively invisible')
+fires('an in-flow image NEXT to the text does not sit under it',
+      beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FDFDFD'), tokens=PLAIN),
+             box('el_pic', kind='image', place='relative', h=200)),
+      'effectively invisible')
+fires('an absolute sibling that paints nothing (an icon-less empty box) is not an overlay',
+      beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FDFDFD'), tokens=PLAIN),
+             box('el_empty', h=240)),
+      'effectively invisible')
+# An opaque solid drawn IN FRONT of the branch covers only where it sits. Counting it silenced
+# dark-mode text at the top of real screens whose one absolute element was the bottom CTA bar.
+GREEN = colorfill(hexc('#19A249'))
+fires('an opaque absolute CTA bar drawn after the content is not an overlay',
+      beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FDFDFD'), tokens=PLAIN),
+             box('el_cta', fill=GREEN, h=56), first=False),
+      'the screen fill')
+_panel = beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FDFDFD'), tokens=PLAIN),
+                box('el_panel', h=200), first=False)
+_panel['screens'][0]['elements']['map']['el_btn'] = box('el_btn', fill=GREEN, place='relative', h=56)
+_panel['screens'][0]['elements']['hierarchy']['children'][-1]['children'] = [
+    {'id': 'el_btn', 'children': []}]
+fires('an absolute panel holding a filled button, drawn after the content, is not an overlay',
+      _panel, 'the screen fill')
+silent('the same opaque block drawn BEHIND the text (earlier) may be under it — skip',
+       beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FDFDFD'), tokens=PLAIN),
+              box('el_back', fill=GREEN, h=240), first=True))
+_behind = beside(flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FDFDFD'), tokens=PLAIN),
+                 box('el_back', fill=GREEN, h=240), first=False)
+_behind['screens'][0]['elements']['map']['el_back']['props']['zIndex'] = -1
+silent('an opaque block drawn later but with a lower zIndex sits behind the text — skip', _behind)
+
+# ------------------------------------------------------------- a delay's hidden digits
+# patterns.md's auto-advance screen: a `timer` with a `timer-end` action fires only with its
+# digits inside it, and the recipe colours them like the background so the wait stays invisible.
+# That is the skill's own shape, so it must not read as "1.00:1 against the screen fill".
+print('\nA delay timer\'s digits, hidden on purpose:')
+
+
+def timer_doc(spans, *, ends=True):
+    d = flow(screen_fill=WHITE, card_fill=None, text_color=hexc('#FFFFFF'), tokens=PLAIN)
+    s = d['screens'][0]['elements']
+    s['map']['el_txt']['props']['content']['values']['en'] = [
+        {'type': 'paragraph', 'content': spans}]
+    s['map']['el_card']['type'] = 'timer'
+    if ends:
+        s['map']['el_card']['interactions'] = [{'id': 'int_end', 'trigger': 'timer-end',
+                                               'actions': [{'id': 'act_next',
+                                                            'type': 'navigateNext'}]}]
+    return d
+
+
+tok_ = lambda u: {'type': 'token', 'attrs': {'token': f'timer_{u}'}}
+sep_ = {'type': 'text', 'text': ':'}
+silent('background-coloured digits inside a timer with a timer-end action (the recipe)',
+       timer_doc([tok_('minutes'), sep_, tok_('seconds')]))
+fires('the same digits in a visible countdown (no timer-end) are still checked',
+      timer_doc([tok_('minutes'), sep_, tok_('seconds')], ends=False), 'effectively invisible')
+fires('a WORD inside the delay timer is copy, not digits, and is still checked',
+      timer_doc([{'type': 'text', 'text': 'Loading '}, tok_('seconds')]), 'effectively invisible')
+
 _paths = sorted(glob.glob(os.path.join(CORPUS, '*.json'))) + \
          sorted(glob.glob(os.path.join(RAW, '*.json')))
 _genuine = [p for p in _paths if os.path.basename(p) != HYBRID]

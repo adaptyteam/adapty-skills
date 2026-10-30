@@ -250,14 +250,16 @@ started, and it never shows up as a change.
 
 1. **Pick the app** (`apps list`, every page; ask when there are several) and read the catalog.
 2. **Read the numbers and the setup:** run `python3 <skill>/references/reads.py audit --app <APP_ID>
-   --adapty "$ADAPTY"` once. It runs every read in `references/diagnosis.md`, "The audit reads", one
-   at a time and prints month tables with every group; read further with single calls only for what
-   it does not print. For each placement a hypothesis would run on, run `reads.py placement --app
-   <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID>`: its audiences by name, every paywall or
+   --adapty "$ADAPTY"` once. It runs every read in `references/diagnosis.md`, "The audit reads", side
+   by side within the CLI's rate limits, and prints month tables with every group; read further with
+   single calls only for what it does not print. For the placements a hypothesis would run on, run
+   `reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID>` once, with one
+   `--placement` per placement: its audiences by name, every paywall or
    flow that sold there, the weekly count for the Time line, the before/after comparison when
    one paywall replaced another, and on a flow placement the dashboard's metrics by audience, test
    arm and store (`references/diagnosis.md`, "Flow placement metrics"). Name in the reply every read
-   either lists as failed. Run both
+   either lists as failed. Run one `reads.py` at a time, and no other read while it runs: they
+   share one limit per app and throttle each other. Run both
    as written and read what they print, with no variable, temp file or redirect around them: a
    refused or failed call leaves you without the audit. If one fails or is refused, run it once
    more as written; if it still cannot run, make every read in "The audit reads" as a single call,

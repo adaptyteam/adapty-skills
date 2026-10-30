@@ -18,7 +18,7 @@ open its own page) -- including actions nested in conditional actions, and eleme
 `components`. `LOCALIZABLE` and `LOCALIZABLE_ACTION_FIELDS` below are that list, read off the
 schema.
 
-Three jobs, one per public function:
+Four jobs:
 
   catalog(flow)   Move every inline localizable value into the catalog and stamp schemaVersion
                   13. A port of the builder's own migration 013, so a document it produces is the
@@ -41,6 +41,14 @@ Three jobs, one per public function:
                   editing its `values` changes all of them; an independent copy needs its own
                   entry, which `copy_entry` mints.
 
+  rename_locale(doc, old, new)
+                  Rename a locale everywhere the document keys by it: the `locales` entry (its
+                  `id`, and its `code` when that is the same string), `defaultLocale`, every
+                  catalog and inline `values` map, and, in a `flows config get` envelope, each
+                  `remote_configs` entry. The repair for a code the SDK cannot match (`pt-br`
+                  publishes nothing; `pt-BR` does). It refuses a target already in the document
+                  and one that is not `language[-Script][-REGION]` with the SDK's casing.
+
 Two semantics every edit has to keep:
   * `values` is keyed by locale ID (`localization.locales[].id`), not by language code. They are
     often equal and nothing guarantees it.
@@ -51,6 +59,10 @@ Two semantics every edit has to keep:
 CLI:
     python3 localization.py catalog IN.json [--out OUT.json]    # default: rewrite IN in place
     python3 localization.py resolve IN.json                     # print the read view
+    python3 localization.py rename IN.json OLD NEW [--out OUT.json]   # e.g. pt-br pt-BR
+
+`rename` exits 2 and writes nothing when it refuses. When it renamed `remote_configs`, send them
+back with the config: `flows config update` takes them as `--remote-configs`.
 
 `catalog` prints each migration warning to stderr and exits 1 when there were any: a warning means
 a value was DROPPED (a locale nobody declared, a conditional branch whose shape does not match the
@@ -88,6 +100,9 @@ LOCALIZABLE_ACTION_FIELDS = {
 }
 
 _CONTENT_ID = re.compile(r'^lc_(\d+)$')
+#: `language[-Script][-REGION]` with the SDK's casing: region UPPERCASE, script in Title case.
+#: Same pattern as `flowkit.LOCALE_CODE` and `verify-config.py`'s.
+LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?\Z')
 _NO_LOCALE_FALLBACK = 'en'
 _SAFE_INT = 2 ** 53 - 1
 _ABSENT = object()
@@ -698,22 +713,154 @@ def copy_entry(flow, ref):
     return new_entry(flow, e['kind'], copy.deepcopy(e['values']))
 
 
+# --- renaming a locale ------------------------------------------------------------------------
+
+class RenameError(ValueError):
+    """The locale cannot be renamed as asked; the message says why and nothing was changed."""
+
+
+def _values_maps(cfg):
+    """Every `values` map keyed by locale: catalog entries, and inline localizable values
+    anywhere in the document (a fragment not yet catalogued, a pre-013 flow)."""
+    out = []
+    content = (cfg.get('localization') or {}).get('content') if is_catalog(cfg) else None
+    for e in (content.values() if _rec(content) else ()):
+        if _rec(e) and _rec(e.get('values')):
+            out.append(e)
+
+    def walk(o):
+        if isinstance(o, list):
+            for x in o:
+                walk(x)
+        elif _rec(o):
+            if o.get('_localizable') is True and _rec(o.get('values')):
+                out.append(o)
+            for k, x in o.items():
+                if k != 'localization':
+                    walk(x)
+    walk(cfg)
+    return out
+
+
+def _locale_lists(cfg):
+    """The `locales` lists and the holders of `defaultLocale`: the catalog's and the legacy
+    top-level echo a saved document also carries."""
+    holders = [cfg]
+    if is_catalog(cfg):
+        holders.append(cfg['localization'])
+    return holders
+
+
+def rename_locale(doc, old, new):
+    """Return `(new_doc, counts)` with locale `old` renamed to `new`. Never mutates `doc`.
+
+    `doc` is a bare config or a `flows config get` envelope. `counts` says what changed:
+    `locales`, `defaultLocale`, `values` and `remote_configs`. Raises `RenameError`, changing
+    nothing, when `new` is not a code the SDK matches, when the document already has `new`
+    anywhere (merging two locales is a decision, not a rename), or when it has no `old`.
+    """
+    if not (isinstance(old, str) and old and isinstance(new, str) and new):
+        raise RenameError(f'rename needs two locale ids, got {old!r} and {new!r}')
+    if old == new:
+        raise RenameError(f'{old!r} is already the name')
+    if not LOCALE_CODE.fullmatch(new):
+        raise RenameError(
+            f'{new!r} is not `language[-Script][-REGION]` with the SDK\'s casing: region in '
+            f'UPPERCASE (`pt-BR`), script in Title case (`zh-Hans`, `sr-Latn`). The transform '
+            f'service refuses it at publish, so it cannot be the target.')
+    if not _rec(doc):
+        raise RenameError('not a flow config (expected a JSON object)')
+    envelope = 'screens' not in doc and _rec(doc.get('config'))
+    out = copy.deepcopy(doc)
+    cfg = out['config'] if envelope else out
+    remotes = out.get('remote_configs') if envelope else None
+    remotes = [r for r in remotes if _rec(r)] if isinstance(remotes, list) else []
+
+    holders = _locale_lists(cfg)
+    maps = _values_maps(cfg)
+    clash = []
+    for h in holders:
+        for l in h.get('locales') if isinstance(h.get('locales'), list) else ():
+            if _rec(l) and new in (l.get('id'), l.get('code')):
+                clash.append('a declared locale')
+        if h.get('defaultLocale') == new:
+            clash.append('defaultLocale')
+    if any(new in m['values'] for m in maps):
+        clash.append(f'{sum(1 for m in maps if new in m["values"])} values map(s)')
+    if any(r.get('locale') == new for r in remotes):
+        clash.append('remote_configs')
+    if clash:
+        raise RenameError(
+            f'{new!r} is already in this document ({", ".join(sorted(set(clash)))}), so renaming '
+            f'{old!r} onto it would merge two locales and overwrite one side\'s values. Decide '
+            f'which values to keep with the user first.')
+
+    counts = {'locales': 0, 'defaultLocale': 0, 'values': 0, 'remote_configs': 0}
+    for h in holders:
+        for l in h.get('locales') if isinstance(h.get('locales'), list) else ():
+            if _rec(l) and old in (l.get('id'), l.get('code')):
+                for k in ('id', 'code'):
+                    if l.get(k) == old:
+                        l[k] = new
+                counts['locales'] += 1
+        if h.get('defaultLocale') == old:
+            h['defaultLocale'] = new
+            counts['defaultLocale'] += 1
+    for m in maps:
+        if old in m['values']:
+            # Same key order, so a diff of the document shows a rename and nothing else.
+            m['values'] = {(new if k == old else k): v for k, v in m['values'].items()}
+            counts['values'] += 1
+    for r in remotes:
+        if r.get('locale') == old:
+            r['locale'] = new
+            counts['remote_configs'] += 1
+    if not any(counts.values()):
+        declared = [l.get('id') for h in holders for l in (h.get('locales') or []) if _rec(l)]
+        raise RenameError(f'no locale {old!r} in this document; it declares {declared}')
+    return out, counts
+
+
 # --- CLI ------------------------------------------------------------------------------------
 
+def _rename_main(doc, src, out_path, old, new):
+    try:
+        out, counts = rename_locale(doc, old, new)
+    except RenameError as exc:
+        print(f'not renamed: {exc}', file=sys.stderr)
+        return 2
+    with open(out_path, 'w', encoding='utf-8') as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
+    print(f'renamed {old} -> {new} in {out_path}: {counts["locales"]} locale entr'
+          f'{"y" if counts["locales"] == 1 else "ies"}, {counts["values"]} values map(s)'
+          + (', defaultLocale' if counts['defaultLocale'] else '')
+          + (f', {counts["remote_configs"]} remote config(s)' if counts['remote_configs'] else ''))
+    if counts['remote_configs']:
+        print('send the renamed remote_configs back with the config: '
+              '`flows config update --remote-configs`')
+    return 0
+
+
 def _main(argv):
-    if len(argv) < 2 or argv[0] not in ('catalog', 'resolve'):
+    out_path = None
+    if '--out' in argv:
+        i = argv.index('--out')
+        out_path = argv[i + 1] if i + 1 < len(argv) else ''
+        argv = argv[:i] + argv[i + 2:]
+    if (len(argv) < 2 or argv[0] not in ('catalog', 'resolve', 'rename') or out_path == ''
+            or (argv[0] == 'rename' and len(argv) != 4)):
         print(__doc__.split('CLI:')[1].split('`catalog` prints')[0].strip(), file=sys.stderr)
         return 2
     cmd, src = argv[0], argv[1]
-    out_path = src
-    if '--out' in argv:
-        out_path = argv[argv.index('--out') + 1]
+    out_path = out_path or src
     try:
         with open(src, encoding='utf-8') as f:
             doc = json.load(f)
     except (OSError, ValueError) as exc:
         print(f'cannot read {src}: {exc}', file=sys.stderr)
         return 2
+    if cmd == 'rename':
+        return _rename_main(doc, src, out_path, argv[2], argv[3])
     # A `flows config get` envelope is catalogued inside and written back as an envelope, so the
     # working file keeps the shape `config update` and `diff-config.py` expect.
     envelope = _rec(doc) and 'screens' not in doc and _rec(doc.get('config'))

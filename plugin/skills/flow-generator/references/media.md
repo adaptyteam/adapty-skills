@@ -504,3 +504,27 @@ should not have to.
 **Not observed in any real export.** 0 `video` elements across the 12 tracked and raw configs,
 so this shape is authored from the schema plus the measurements above — evidence tier 3, not a
 read off builder output. Treat the device check as load-bearing rather than ceremonial.
+
+**Once the user has uploaded the clip, read the config back and check every locale.** `video` is a
+catalog ref like an image's, and its value — `{previewUrl, videoUrl, width?, height?}` — is kept
+per locale. A builder upload has landed only under a non-default locale (reported); every other
+language then falls back to the empty default and shows no clip. So after the upload,
+`flows config get`, follow the element's `video` (and `videoDark`) ref into
+`localization.content`, and confirm the default locale holds a `videoUrl`. If only another locale
+does, ask the user to switch the builder to the default language and upload it there.
+
+**Weigh the clip, and say what to upload.** The builder serves the file as uploaded (reported: one
+rendition, no smaller variant), so its size is what every phone downloads. `weigh-config.py` reads
+a bound clip's size with a HEAD request and flags one over 5 MB. For a file the user has not
+uploaded yet: `stat -f%z clip.mp4` (macOS) or `stat -c%s clip.mp4` (Linux) for the bytes, and,
+when `ffprobe` is installed, its codec, size, bit rate and whether it has an audio track:
+
+```bash
+ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,bit_rate -of compact clip.mp4
+```
+
+A stock Mac has no `ffprobe`, and in a test here neither `mdls` nor `afinfo` read a clip's
+streams, so without it report the bytes and say the rest was not checked. `avconvert`, which a
+Mac does have, is not a way to shrink one: its presets set the resolution, and a 720p preset made a
+4.3 MB clip 11 MB (measured). What to ask for: H.264, about 720 px wide, under 5 MB, and no audio
+track on a silent loop — the element has no mute setting, so a track is weight at best.

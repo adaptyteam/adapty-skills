@@ -54,7 +54,10 @@ if [ -z "$ADAPTY_BIN" ] && [ -n "$APP" ]; then
 fi
 
 fail=0
-md5="$( { md5 -q "$CFG" 2>/dev/null || md5sum "$CFG" | cut -d' ' -f1; } )"
+# The digest through Python, which this script already requires: `md5` is not on PATH in every
+# shell (a sandboxed one on a Mac lacks it) and macOS has no `md5sum`, so the old fallback chain
+# printed "command not found" and an empty digest.
+md5="$($PY -c 'import hashlib, sys; print(hashlib.md5(open(sys.argv[1], "rb").read()).hexdigest())' "$CFG")"
 echo "== gates over $CFG  (md5 ${md5:0:12})"
 
 echo "-- 1/3 structure (verify-config.py)"
@@ -102,8 +105,49 @@ if [ -z "$APP" ] || [ -z "$FLOW" ]; then
   echo "   SKIPPED — pass APP_UUID and FLOW_ID to run it. A green local pass is NOT a publish gate."
   fail=1
 else
+  # ONE `validate` at a time across every gates.sh run on this machine. Gates over several flows
+  # at once made validate answer http_502 for most of them; validate.md says to run it alone, but
+  # agents run this script, so the script enforces it. `mkdir` is the lock because it is atomic
+  # everywhere and macOS has no `flock`. The holder writes its pid; a lock whose holder is gone,
+  # or that never got a pid, is taken over, and after ten minutes this run goes ahead anyway.
+  LOCK="${TMPDIR:-/tmp}/adapty-gates-validate.lock"
+  unlock_validate() { [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] && rm -rf "$LOCK"; return 0; }
+  held=1; waited=0; misses=0
+  while ! mkdir "$LOCK" 2>/dev/null; do
+    if [ ! -d "$LOCK" ]; then                     # released just now, or no lock can be made here
+      misses=$((misses + 1)); [ "$misses" -lt 5 ] && continue
+      held=0; break                               # run unserialized rather than not at all
+    fi
+    holder="$(cat "$LOCK/pid" 2>/dev/null || true)"
+    if { [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; } \
+        || { [ -z "$holder" ] && [ "$waited" -ge 10 ]; }; then
+      rm -rf "$LOCK"; continue
+    fi
+    if [ "$waited" -ge 600 ]; then
+      echo "   still locked by pid $holder after 10 minutes — validating anyway"; held=0; break
+    fi
+    [ "$waited" -eq 0 ] && echo "   waiting: another gates.sh run is validating (pid ${holder:-?}); validate runs one at a time, because parallel calls answer http_502"
+    sleep 1; waited=$((waited + 1))
+  done
+  if [ "$held" -eq 1 ]; then
+    echo "$$" > "$LOCK/pid"
+    trap unlock_validate EXIT
+    trap 'unlock_validate; exit 130' INT TERM
+    [ "$waited" -gt 0 ] && echo "   validating now (waited ${waited}s)"
+  fi
+
+  run_validate() {  # $1 = config file -> the CLI's raw JSON answer, one 502 retried
+    local raw
+    raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>&1)"
+    case "$raw" in *http_502*|*http_504*)
+      echo "   validate answered a gateway error (the server, not your config); retrying once in 5 s" >&2
+      sleep 5
+      raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>&1)" ;;
+    esac
+    printf '%s\n' "$raw"
+  }
   verdict_of() {  # $1 = config file -> the verdict, one line
-    $ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>&1 | $PY -c '
+    run_validate "$1" | $PY -c '
 import json,sys
 try: d=json.load(sys.stdin)
 except Exception: print("UNPARSEABLE"); raise SystemExit
@@ -113,7 +157,7 @@ elif v is False:
     iss=d.get("issues") or []
     print("valid: false — " + "; ".join(str(i.get("message")) for i in iss[:3] or ["(no issues listed)"]))
 else:
-    print("API ERROR (not a verdict — retry): " + json.dumps(d)[:160])
+    print("API ERROR (not a verdict — retry this run alone, not beside another): " + json.dumps(d)[:160])
 ' 2>/dev/null
   }
   verdict="$(verdict_of "$CFG")"

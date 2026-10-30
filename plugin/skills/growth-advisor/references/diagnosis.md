@@ -1,10 +1,11 @@
 # Diagnosis
 
 The commands that answer each question, and how to read what they return. Every command here is
-a read. Run them one at a time: each analytics command allows 2 requests per second per app (and
-360 per minute across everyone calling it), a data command is sent once and never retried, and
-over a limit it exits 4 with the wait as `retry_after_seconds` in the `--json` error. Wait that
-long and run it once more, never in a loop.
+a read. Run them one at a time, and never while `reads.py` runs: each analytics command, and the
+flow and placement metrics, allow 2 requests per second per app (and 360 per minute across everyone
+calling them), a data command is sent once and never retried, and over a limit it exits 4 with
+`"code": "throttled"` and the wait as `retry_after_seconds` in the `--json` error. Wait that long
+and run it once more, never in a loop. `reads.py` paces and retries its own calls.
 
 ## Before the first read
 
@@ -39,7 +40,11 @@ Rules for reading any answer:
 
 - Every data command answers in one shape: `data.value` is the number of the whole period,
   `data.segments` starts with the total, then one segment per group. Tell the total from a group
-  by `is_total` alone: a group's `key` can be null too.
+  by `is_total` alone: a group's `key` can be null too. A segment's own `value` is its number for
+  the whole window, and its `values` list holds one `{"x", "value"}` per period (`x` is the period's
+  start; a conversion adds `value_from` and `value_to`). Read every chart this way, `billing_issue`
+  and `grace_period` included; there is no `points` field. A segment with a `value` and no `values`
+  answers the window only: report that number, never "no data".
 - `null` means the value cannot be computed (an LTV period the cohort has not reached, a cohort
   that cannot be predicted). Never read it as zero, and never fill it in. `segments: []` means no
   data for that window, which is not the same as zeros.
@@ -503,6 +508,10 @@ The config is the flow's screens, copy and products. Before any claim about a sc
 - **Render it** with `flow-generator`'s preview recipe (`flows config preview`, then a
   screenshot). A render shows what users see, which the JSON cannot. Check it against the
   numbers yourself: a label the data disproves, a plan the paywall hides, a price typed as text.
+  The size of a config is never a reason to skip the render. `flows config preview` packs the whole
+  config into the URL, so a large flow (hundreds of KB, many languages or images) can come back
+  slow, blank or as an error page: then render it the way `flow-generator`'s recipe does when a
+  render fails, through the render page's file input, not with a smaller copy of the config.
 - **For design hypotheses, hand the render to `paywall-teardown` or `onboarding-teardown`.** Never
   propose a layout, copy or visual change from your own reading.
 - **Hand the config itself** to the teardown only when the preview cannot run, and say the screen

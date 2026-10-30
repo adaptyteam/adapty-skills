@@ -95,13 +95,31 @@ fires('a _meta.icons entry with no weight', doc([{'id': 'X', 'name': 'X', 'type'
 fires('a _meta.icons entry with no name', doc([{'id': 'X', 'weight': 'regular', 'type': 'custom',
                                                 'raw': SVG}], GOOD_EL), "has no 'name'")
 fires('a _meta.icons entry that is not a dict at all', doc(['X'], GOOD_EL), '_meta.icons[0]')
-fires('an icon ELEMENT with no weight — the other half of the same line',
-      doc(GOOD_META, {'name': 'X', 'size': 22, 'type': 'custom'}), 'icon.weight')
+fires('a phosphor icon ELEMENT with no weight — the other half of the same line',
+      doc(GOOD_META, {'name': 'X', 'size': 22, 'type': 'phosphor'}), 'icon.weight')
 fires('an icon ELEMENT with no name',
       doc(GOOD_META, {'weight': 'regular', 'size': 22, 'type': 'custom'}), 'icon.name')
+# A `custom` icon has no weight in the schema (IconPropCustom refuses the key) and none in the
+# builder's own export, so requiring one put this check and the schema check at odds. It is
+# matched to its declaration by name; an undeclared one still has nothing to draw.
+fires('a custom icon with no _meta.icons entry at all',
+      doc([], {'name': 'X', 'size': 22, 'type': 'custom'}), 'no _meta.icons entry')
+# A custom icon that DOES carry a weight is looked up by name AND weight on the server:
+# `flows config validate` returned valid for `regular` over a `regular` entry and refused `bold`
+# over the same entry ("Icon … with weight "bold" is missing from flow._meta.icons").
+fires('a weighted custom icon whose weight has no _meta.icons entry',
+      doc(GOOD_META, {'name': 'X', 'weight': 'bold', 'size': 22, 'type': 'custom'}),
+      "[('X', 'bold')]")
 
 print('\nSILENT on well-formed declarations:')
 silent('name + weight on both sides', doc(GOOD_META, GOOD_EL))
+silent('a custom icon with NO weight, declared by name (the schema-legal shape)',
+       doc(GOOD_META, {'name': 'X', 'size': 22, 'type': 'custom'}))
+silent('a weighted custom icon whose name and weight are declared',
+       doc(GOOD_META, {'name': 'X', 'weight': 'regular', 'size': 22, 'type': 'custom'}))
+silent('a custom icon with NO weight, declared only under another weight (name alone matches)',
+       doc([{'id': 'X', 'name': 'X', 'weight': 'bold', 'type': 'custom', 'raw': SVG}],
+           {'name': 'X', 'size': 22, 'type': 'custom'}))
 # Declared and used agree, with the element typed `phosphor` rather than `custom`. (First
 # written as "no icons at all" with an EMPTY _meta.icons while the element still used one, which
 # correctly tripped the pre-existing used-but-absent check and tested nothing about this one.)

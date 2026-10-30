@@ -11,7 +11,8 @@ Scope is deliberately narrow. This owns the parts that are *error-prone but not 
     moves every such value into `localization.content` and leaves a `{"_lid": ...}` ref in its
     place, through `localization.catalog()`, a port of the builder's own migration 013. A
     fragment you graft into a FETCHED config is still inline: run `localization.py catalog` over
-    the document before you validate or write it.
+    the document before you validate or write it. Build such a fragment after
+    `ids_after(fetched)`, so its element ids miss the live ones.
   * one canonical rich-text builder, with the span kinds named instead of guessed.
 
 Not in scope: anything with a design opinion. Element shapes, card recipes, spacing — those are
@@ -75,17 +76,81 @@ SCHEMA_VERSION = localization.SCHEMA_VERSION
 # --- ids ---------------------------------------------------------------------------------
 
 class Ids:
-    """Sequential element ids. One instance per document, so ids are stable across a rebuild."""
+    """Sequential element ids. One instance per document, so ids are stable across a rebuild.
 
-    def __init__(self, prefix='el'):
-        self.prefix, self.n = prefix, 0
+    `start` is the number the next id counts up from, and `taken` is a set of ids never to
+    return; `ids_after()` sets both from a fetched config.
+    """
+
+    def __init__(self, prefix='el', *, start=0, taken=()):
+        self.prefix, self.n, self.taken = prefix, start, set(taken)
 
     def __call__(self, kind='S'):
-        self.n += 1
-        return f'{self.prefix}_{self.n:03d}{kind}'
+        while True:
+            self.n += 1
+            out = f'{self.prefix}_{self.n:03d}{kind}'
+            if out not in self.taken:
+                return out
 
 
 _ids = Ids()
+
+
+def _config_element_ids(cfg):
+    """Every element id a config already holds: screen maps and hierarchies, and components."""
+    out = set()
+
+    def hier(node):
+        if isinstance(node, dict):
+            if isinstance(node.get('id'), str):
+                out.add(node['id'])
+            for kid in node.get('children') or []:
+                hier(kid)
+
+    for s in cfg.get('screens') or []:
+        els = (s or {}).get('elements') or {}
+        out.update(k for k in (els.get('map') or {}) if isinstance(k, str))
+        hier(els.get('hierarchy'))
+    for c in (cfg.get('components') or {}).values():
+        out.update(k for k in ((c or {}).get('map') or {}) if isinstance(k, str))
+        hier((c or {}).get('hierarchy'))
+    out.discard('root')
+    return out
+
+
+def ids_after(config, *, prefix='el'):
+    """Make every id minted from here on miss every element id in `config`.
+
+        fetched = json.load(open('flow.backup.json'))
+        fk.ids_after(fetched)          # once, before building anything
+        scr = fk.screen('scr_offer', [...])
+
+    Call it when the screens you build go INTO a config you fetched -- one screen regenerated
+    and patched in, or a new screen added. Ids count from 1 per run, so without this the
+    patched screen reuses ids the live screens already carry: the generated script is one per
+    flow, so a reused id collides there, and `verify-config.py` refuses the document.
+
+    `config` is the fetched document (the bare config or the `flows config get` envelope) or a
+    path to it. The counter starts past the highest `<prefix>_<number>` id in it and skips any
+    id it holds anyway; every helper here mints through it. Returns the installed `Ids`.
+    """
+    if isinstance(config, (str, os.PathLike)):
+        with open(config, encoding='utf-8') as fh:
+            config = json.load(fh)
+    if not isinstance(config, dict):
+        raise TypeError(f'ids_after() takes a fetched config (a dict or a path to one), not '
+                        f'{type(config).__name__}')
+    if 'screens' not in config and isinstance(config.get('config'), dict):
+        config = config['config']
+    if not isinstance(config.get('screens'), list):
+        raise ValueError('ids_after() was given a document with no `screens` list -- pass the '
+                         'config you fetched, or the `flows config get` envelope around it')
+    taken = _config_element_ids(config)
+    number = re.compile(re.escape(prefix) + r'_(\d+)[A-Za-z]?\Z')
+    start = max((int(m.group(1)) for m in map(number.match, taken) if m), default=0)
+    global _ids
+    _ids = Ids(prefix, start=start, taken=taken)
+    return _ids
 
 # An id that reaches the generated runtime script as an identifier: element ids, group ids,
 # input customIds, custom variable ids. Screen ids are excluded -- real published exports use
@@ -99,7 +164,8 @@ LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}
 
 
 def eid(kind='S'):
-    """Mint an id from the module-level counter. Use your own `Ids()` for several documents."""
+    """Mint an id from the module-level counter. Use your own `Ids()` for several documents;
+    `ids_after(fetched)` when what you build goes into a fetched config."""
     return _ids(kind)
 
 
@@ -264,6 +330,10 @@ def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
     next row. Measured, all three parts load-bearing: drop `bottom` and the element collapses to
     nothing; swap `auto` for `fill` and it stops 2px short.
 
+    The horizontal pair works the same way: `left` AND `right` stretch it between them with
+    `width='auto'`, which the element helpers default to for such a position. A `fill` width is
+    refused: rendered, it takes the parent's whole width shifted by `left`, past the right edge.
+
     It paints over every `relative` sibling, wherever either is listed. To sit behind its
     `absolute` siblings, list it FIRST among them and leave `z` unset: later absolute siblings
     paint over earlier ones. Text that must sit on it goes inside it; a corner control goes
@@ -283,7 +353,8 @@ def docked(*, bottom, left=None, right=None, top=None, z=None):
 
     Each docked item must be its OWN fixed element with its own action — a fixed container
     holding relative children swallows the taps. And never set both `left` and `right` on one
-    of a side-by-side pair, or it stretches full width and they overlap (patterns.md).
+    of a side-by-side pair, or it stretches full width and they overlap (patterns.md). With both
+    set, the element's width is `auto` (see `absolute()`).
     """
     p = {'type': 'fixed', 'bottom': bottom}
     for k, v in (('left', left), ('right', right), ('top', top), ('zIndex', z)):
@@ -811,13 +882,52 @@ def _check_stretch(props):
             "a bottom offset; on its own it collapses to nothing. Use absolute(top=…, bottom=…)")
 
 
-def stack(children=(), *, width='fill', height='hug', fixed_w=None, fixed_h=None,
+def _width(width, fixed_w, position, default='fill'):
+    """The width of an element that may be positioned: the horizontal half of `_check_stretch`.
+
+    An `absolute` or `fixed` element carrying BOTH `left` and `right` is stretched between
+    those anchors, and only `width: auto` lets the anchors decide. Rendered side by side: a
+    `fill` element takes the parent's WHOLE width and is then shifted by `left`, so it draws
+    past the parent's right edge by that offset, while `auto` sits exactly between the anchors
+    -- and the builder's own docked CTAs carry `auto`. So the width defaults to `auto` on such
+    an element and `fill` is refused. Elsewhere the default is the helper's own.
+    """
+    if fixed_w is not None:
+        return size('fixed', fixed_w)
+    pos = position or {}
+    anchored = (pos.get('type') in ('absolute', 'fixed')
+                and pos.get('left') is not None and pos.get('right') is not None)
+    if width is None:
+        width = 'auto' if anchored else default
+    if anchored and width == 'fill':
+        raise ValueError(
+            "an absolute or fixed element anchored left AND right needs width='auto' to "
+            "stretch between them, not 'fill' -- a fill width takes the parent's whole width, "
+            "shifted by `left`, and draws past the right edge. Leave width unset (it defaults to "
+            "auto here) or pass width='auto'")
+    return size(width)
+
+
+def _check_visibility(value, where):
+    """`props.visibility` is one of the three shapes `hidden()`, `visible()` and `when()`
+    build. A bare condition or a string is refused by the schema."""
+    if value is None:
+        return None
+    if not (isinstance(value, dict) and value.get('type') in ('visible', 'hidden', 'conditional')):
+        raise TypeError(f'{where}(visibility=...) takes hidden(), visible() or when(condition), '
+                        f'not {value!r}. A condition goes inside when().')
+    return value
+
+
+def stack(children=(), *, width=None, height='hug', fixed_w=None, fixed_h=None,
           direction='vertical', gap=0, align_h='start', align_v='start',
           distribution=None, fill_=None, padding=None, margin=None, corner=None,
           border=None, border_width=1, effects=None, position=None,
           visibility=None, **kw):
+    """A container. `width` defaults to `fill`, or to `auto` when `position` anchors it left and
+    right (see `absolute()`)."""
     props = {
-        'width': size('fixed', fixed_w) if fixed_w is not None else size(width),
+        'width': _width(width, fixed_w, position),
         'height': size('fixed', fixed_h) if fixed_h is not None else size(height),
         'layout': layout(direction, gap, align_h, align_v, distribution),
         'position': position or relative(),
@@ -831,7 +941,7 @@ def stack(children=(), *, width='fill', height='hug', fixed_w=None, fixed_h=None
     # builder drops it on save — 85 of 85 borders in builder-saved v12 configs omit it.
     if border is not None:    props['border'] = {'color': color(border), 'width': border_width}
     if effects is not None:   props['effects'] = effects
-    if visibility is not None: props['visibility'] = visibility
+    if visibility is not None: props['visibility'] = _check_visibility(visibility, 'stack')
     return _node('stack', props, children=list(children), **kw)
 
 
@@ -944,7 +1054,7 @@ def _dot_color(value, default):
     return hex_color(value) if value.startswith('#') else color(value)
 
 
-def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width='fill',
+def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width=None,
              dots=True, dot_size=6, dot_gap=6, dot_color=None, dot_active_color=None,
              fill_=None, padding=None, margin=None, corner=None, position=None,
              visibility=None, node_id=None, **kw):
@@ -986,7 +1096,7 @@ def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width='fill',
             'stack per SLIDE (the card itself) and let the carousel draw the dots.')
     props = {
         'gap': gap,
-        'width': size(width),
+        'width': _width(width, None, position),
         'height': size('fixed', slide_h if height is None else height),
         'slideWidth': size('fixed', slide_w),
         'slideHeight': size('fixed', slide_h),
@@ -1004,23 +1114,32 @@ def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width='fill',
     if margin is not None:     props['margin'] = margin
     if corner is not None:     props['borderRadius'] = corner
     if position is not None:   props['position'] = position
-    if visibility is not None: props['visibility'] = visibility
+    if visibility is not None: props['visibility'] = _check_visibility(visibility, 'carousel')
     return _node('carousel', props, children=slides, node_id=node_id, **kw)
 
-def text(content, *, preset='body', color_id=None, align='left', width='fill',
-         margin=None, position=None, **kw):
+def text(content, *, preset='body', color_id=None, align='left', width=None,
+         margin=None, position=None, visibility=None, **kw):
+    """A text element. `preset` names a `typography` entry the document must declare.
+
+    `visibility` is the same argument `stack()` takes: `hidden()`, `visible()` or
+    `when(condition)`, and hiding collapses the space (trap 14). `width` defaults to `fill`, or
+    to `auto` when `position` anchors the text left and right (see `absolute()`).
+    """
     props = {'font': {'preset': preset}, 'align': align,
-             'width': size(width), 'height': size('hug'), 'layout': 'auto-height',
+             'width': _width(width, None, position), 'height': size('hug'),
+             'layout': 'auto-height',
              'content': content, 'position': position or relative(), 'decoration': 'none'}
     if color_id is not None:
         props['color'] = color(color_id)
     if margin is not None:
         props['margin'] = margin
+    if visibility is not None:
+        props['visibility'] = _check_visibility(visibility, 'text')
     return _node('text', props, **kw)
 
 
 def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None,
-         static_loader=False, **kw):
+         static_loader=False, visibility=None, **kw):
     """A `phosphor` glyph. The name is resolved against the renderer's OWN bundle here, and an
     unknown one raises with suggestions.
 
@@ -1046,11 +1165,13 @@ def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None,
              'position': position or relative()}
     if color_id is not None:
         props['icon']['color'] = color(color_id)
+    if visibility is not None:
+        props['visibility'] = _check_visibility(visibility, 'icon')
     return _node('icon', props, **kw)
 
 
 def spinner(icon_name, *, size_pt=32, color_id=None, hexval=None, duration_ms=1000,
-            position=None, **kw):
+            position=None, visibility=None, **kw):
     """A rotating loading indicator. `icon_name` must name a `_meta.icons` entry you declared.
 
     Two things this exists to stop, both from `patterns.md`. **The icon type must be `custom`**:
@@ -1080,8 +1201,10 @@ def spinner(icon_name, *, size_pt=32, color_id=None, hexval=None, duration_ms=10
         ic['color'] = color(color_id)
     elif hexval is not None:
         ic['color'] = hex_color(hexval)
-    return _node('spinner', {'icon': ic, 'duration': duration_ms,
-                             'position': position or relative()}, **kw)
+    props = {'icon': ic, 'duration': duration_ms, 'position': position or relative()}
+    if visibility is not None:
+        props['visibility'] = _check_visibility(visibility, 'spinner')
+    return _node('spinner', props, **kw)
 
 
 #: The deliberate "no asset exists" content for `image()`. Spelled as a constant so an empty
@@ -1171,9 +1294,10 @@ def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hex
     return [layer]
 
 
-def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fill', height='hug',
+def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width=None, height='hug',
           fixed_w=None, fixed_h=None, corner=None, margin=None, position=None,
-          locale='en', dark=None, dark_preview=_PREVIEW_UNSET, dark_media_id=None, **kw):
+          locale='en', dark=None, dark_preview=_PREVIEW_UNSET, dark_media_id=None,
+          visibility=None, **kw):
     """An `image` element bound to an uploaded asset.
 
     `url` is the CDN URL that `flows media upload` printed, `media_id` the id it printed
@@ -1213,11 +1337,13 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width='fil
             f'never {url!r}')
     props = {
         'image': content,
-        'width': size('fixed', fixed_w) if fixed_w is not None else size(width),
+        'width': _width(width, fixed_w, position),
         'height': size('fixed', fixed_h) if fixed_h is not None else size(height),
         'objectFit': fit,
         'position': position or relative(),
     }
+    if visibility is not None:
+        props['visibility'] = _check_visibility(visibility, 'image')
     if dark is not None:
         if not (isinstance(dark, str) and dark.strip()):
             raise TypeError(f'image(dark=...) wants the URL the dark file\'s upload printed, '
@@ -1240,8 +1366,8 @@ _VIDEO_SOURCE_ARGS = ('url', 'video', 'src', 'source', 'media_id', 'customMediaI
                       'custom_media_id', 'video_url', 'videoUrl', 'preview_url', 'previewUrl')
 
 
-def video(*, fixed_h, width='fill', fit='cover', loop=True, corner=None, border=None,
-          margin=None, opacity=None, position=None, **kw):
+def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=None,
+          margin=None, opacity=None, position=None, visibility=None, **kw):
     """A `video` element with NO source, styled to the box the user's clip will land in.
 
     There is no CLI upload path for a clip, so this helper cannot bind one and deliberately
@@ -1291,12 +1417,13 @@ def video(*, fixed_h, width='fill', fit='cover', loop=True, corner=None, border=
             'placeholder draws an arbitrary 256pt box (measured) that the real clip will not '
             'match, so the layout you preview and approve is not the one that ships.')
     props = {
-        'width': size(width),
+        'width': _width(width, None, position),
         'height': size('fixed', fixed_h),
         'objectFit': fit,
         'loop': loop,
         'position': position or relative(),
     }
+    if visibility is not None: props['visibility'] = _check_visibility(visibility, 'video')
     if corner is not None:   props['borderRadius'] = corner
     if border is not None:   props['border'] = border
     if margin is not None:   props['margin'] = margin
@@ -1324,10 +1451,21 @@ NUMBER_FORMATS = ('integer', 'decimal-point', 'decimal-comma')
 PASSWORD_RULES = ('lowercase', 'uppercase', 'number', 'specialChar', 'minLength', 'maxLength')
 
 
-def _input(kind, custom_id, *, placeholder=None, locale='en', width='fill', height_pt=56,
+def _input(kind, custom_id, *, placeholder=None, locale='en', width=None, height_pt=56,
            preset='body', fill_=None, border=None, border_width=1, corner=None, padding=None,
            margin=None, position=None, visibility=None, node_id=None, extra=None, **kw):
-    """Shared shape for all eight. Every default below is the real export's own value."""
+    """Shared shape for all eight. Every default below is the real export's own value.
+
+    `preset` sets the typed text's font and defaults to `body`, so declare a `body` preset in
+    `config(typography=...)` or pass one you did declare: `flows config validate` refuses an
+    input whose preset the theme lacks, and `config()` refuses it first.
+
+    **Nothing sets the typed text's colour.** The input props have no `color`, `Font` has none,
+    and a typography preset carries size, weight, family, alignment and spacing only; no real
+    export colours it either. The renderer draws it dark: on a dark fill it could not be seen on a
+    device in light mode, in dark mode, or with the screen's `statusBarTheme` set to dark. So
+    give the field a light `fill_` and carry a dark look in the screen and the border instead.
+    """
     if kind not in INPUT_TYPES:
         raise ValueError(f'input kind must be one of {INPUT_TYPES}, not {kind!r}')
     if not (isinstance(custom_id, str) and custom_id):
@@ -1336,8 +1474,11 @@ def _input(kind, custom_id, *, placeholder=None, locale='en', width='fill', heig
             f'"{custom_id}.value" — the handle a conditional-visibility gate reads. Without it '
             f'any condition naming this field compiles to a bare identifier and the flow is '
             f'refused with script_type_violation.')
+    if not (isinstance(preset, str) and preset):
+        raise ValueError(f'{kind} needs a typography preset id, got {preset!r} -- it sets the '
+                         f'typed text\'s font, and the id must be declared in typography=(...)')
     props = {
-        'width': size(width),
+        'width': _width(width, None, position),
         'height': size('fixed', height_pt),
         'font': {'preset': preset},
         'customId': custom_id,
@@ -1369,13 +1510,18 @@ def _input(kind, custom_id, *, placeholder=None, locale='en', width='fill', heig
         props['border'] = {'color': color(border), 'width': border_width}
     if corner is not None:     props['borderRadius'] = corner
     if margin is not None:     props['margin'] = margin
-    if visibility is not None: props['visibility'] = visibility
+    if visibility is not None: props['visibility'] = _check_visibility(visibility, kind)
     props.update(extra or {})
     return _node(kind, props, node_id=node_id, **kw)
 
 
 def text_input(custom_id, **kw):
-    """A free-text field. Exposes `<custom_id>.value`."""
+    """A free-text field. Exposes `<custom_id>.value`.
+
+    Every input takes the same arguments. The font is the `preset` you declared (`body` by
+    default), and the typed text's colour cannot be set at all -- keep `fill_` light. Both are
+    explained on `_input`.
+    """
     return _input('text-input', custom_id, **kw)
 
 
@@ -1783,6 +1929,49 @@ def close(action_id='act_close'):
     return {'id': action_id, 'type': 'closeFlow'}
 
 
+def _element_targets(element_ids, what):
+    """The `elements` list of a show/hide payload: element ids, or nodes built here."""
+    if isinstance(element_ids, (str, dict)):
+        raise TypeError(
+            f'{what}() takes a LIST of element ids, got {element_ids!r}. The payload is '
+            f'`{{"elements": [...]}}` even for one element -- a single `element` id passes '
+            f'`flows config validate` and is refused by the schema. Write '
+            f"{what}(['el_sheet']).")
+    out = []
+    for i, target in enumerate(element_ids):
+        if isinstance(target, dict):
+            target = target.get('id')
+        if not (isinstance(target, str) and target):
+            raise ValueError(f'{what}() target {i} is not an element id or a node built here: '
+                             f'{target!r}')
+        out.append(target)
+    if not out:
+        raise ValueError(f'{what}() needs at least one element id; an empty list does nothing')
+    return out
+
+
+def show_elements(element_ids, action_id='act_show'):
+    """`showElement`: make hidden elements of this screen visible -- a bottom sheet, a hint.
+
+    `element_ids` is a list of element ids, or of the nodes themselves, and the target starts
+    with `visibility=hidden()`. The payload is `{"elements": [...]}`, a LIST even for one
+    element: the schema requires that shape, and `flows config validate` also accepts a single
+    `element` id, so the wrong one passes the check you would run. A bare string is refused.
+
+    `config()` refuses a target the document does not contain. The render never runs the tap,
+    so whether it fires is a device check (patterns.md, the bottom sheet).
+    """
+    return {'id': action_id, 'type': 'showElement',
+            'payload': {'elements': _element_targets(element_ids, 'show_elements')}}
+
+
+def hide_elements(element_ids, action_id='act_hide'):
+    """`hideElement`, the inverse of `show_elements()`: same list payload, same refusals. Hiding
+    collapses the space the element took (trap 14)."""
+    return {'id': action_id, 'type': 'hideElement',
+            'payload': {'elements': _element_targets(element_ids, 'hide_elements')}}
+
+
 # --- the rest of the action vocabulary ----------------------------------------------------
 # `invalid_action_payload` was the 5th most common transformer refusal in the 40 days to
 # 2026-08-28 (208 failed requests), and it is one code covering sixteen distinct required-field
@@ -1960,7 +2149,7 @@ def timer_digits(units=('hours', 'minutes', 'seconds'), *, sep=':', preset='h2',
 
 
 def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds=0,
-          behavior='start_at_every_appear', width='hug', height='hug', fixed_w=None,
+          behavior='start_at_every_appear', width=None, height='hug', fixed_w=None,
           fixed_h=None, fill_=None, padding=None, corner=None, align_h='center',
           align_v='center', visibility=None, position=None, actions=None, node_id=None,
           **kw):
@@ -1997,7 +2186,7 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     props = {
         'customId': custom_id, 'behavior': behavior,
         'duration': {'days': days, 'hours': hours, 'minutes': minutes, 'seconds': seconds},
-        'width': size('fixed', fixed_w) if fixed_w is not None else size(width),
+        'width': _width(width, fixed_w, position, default='hug'),
         'height': size('fixed', fixed_h) if fixed_h is not None else size(height),
         'layout': layout('horizontal', 0, align_h, align_v),
         'position': position or relative(),
@@ -2005,7 +2194,7 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     if fill_ is not None:     props['fill'] = fill_
     if padding is not None:   props['padding'] = padding
     if corner is not None:    props['borderRadius'] = corner
-    if visibility is not None: props['visibility'] = visibility
+    if visibility is not None: props['visibility'] = _check_visibility(visibility, 'timer')
     if actions and 'caption' not in kw:
         # The builder shows a timer with background-coloured digits as an empty frame; a
         # layer name says it is the screen's auto-advance, not something left behind.
@@ -2660,6 +2849,14 @@ def predeclare(screen_id, products):
     same values. Entry key order matches the builder's: `id`, then `offerId`, `billingPlanId` and
     `fallbackOfferId` when there are some, then `flowProductId`.
 
+    The result is `{screen_id: {...}}`, one screen per call. For a flow with several screens,
+    hand `config()` the list -- it merges them, and refuses one screen declared two ways:
+
+        config(screens=scrs, meta_screens=[predeclare(s['id'], s['products'])
+                                           for s in scrs if s.get('products')])
+
+    The results are dicts, so `+` does not combine them; `{**a, **b}` does, without the check.
+
     When REWRITING a flow, carry the live `_meta.screens` forward instead of calling this. A live
     declaration can hold pairs your rewrite does not know about -- component-owned bindings among
     them -- and regenerating drops them.
@@ -2816,7 +3013,11 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
     `_meta.screens` defaults to EMPTY, which is correct when rewriting a flow -- it is
     builder-owned bookkeeping and you should merge the live value in rather than inventing one.
     For a NEW flow, pass `meta_screens=predeclare(screen_id, [product_ids])` so it previews on a
-    device without being published first.
+    device without being published first -- or a LIST of `predeclare()` results, one per screen
+    that binds products, which is merged here.
+
+    Every input's `font.preset` must be declared in `typography` -- inputs default to `body` --
+    because `flows config validate` refuses an undeclared one, so this raises.
     """
     declared = [c for c, _ in locales]
     written = set()
@@ -3045,6 +3246,34 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             f'open, and no other gate sees it. Rename one side (e.g. a colour `ctaFill` beside a '
             f'preset `ctaLabel`).')
 
+    # An INPUT whose preset the theme does not declare: `flows config validate` refuses the
+    # flow. An input carries `body` without being asked, so a theme whose presets all have
+    # other names meets this without anyone having written the id. (`verify-config.py` errors
+    # on any element's undeclared preset; inputs are the case raised here.)
+    undeclared = [(e, t, p) for e, t, p in _presets_used(screens, components, INPUT_TYPES)
+                  if p not in typo_ids]
+    if undeclared:
+        shown = ', '.join(f'{e} ({t}) uses {p!r}' for e, t, p in undeclared[:6])
+        more = f' and {len(undeclared) - 6} more' if len(undeclared) > 6 else ''
+        raise ValueError(
+            f'input typography preset(s) {sorted({p for _, _, p in undeclared})} are not '
+            f'declared: {shown}{more}. `flows config validate` refuses the flow. Declare each '
+            f'in typography=(...), e.g. ("body", "Body", 16, "regular"), or pass the input a '
+            f'preset= you declared; every input defaults to "body".')
+
+    # Show/hide and select-product actions name ELEMENTS by id. One naming nothing is a tap
+    # that does nothing, and no check sees it.
+    every_id = set()
+    for m in _element_maps(screens, components):
+        every_id.update(m)
+    dangling = sorted({(owner, t) for owner, t in _element_targets_used(screens, components)
+                       if t not in every_id})
+    if dangling:
+        raise ValueError(
+            'action target(s) name no element in this document: '
+            + ', '.join(f'{t!r} (from {o})' for o, t in dangling)
+            + '. Pass the node itself, show_elements([sheet]), or the id it was built with.')
+
     meta_icons = _resolve_icons(screens, components, icons)
     theme_colors = [_theme_color(c) for c in colors]
     _check_layered_styles(theme_colors, typography, screens, components)
@@ -3060,7 +3289,7 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             'typography': [_typo(t) for t in typography],
         },
         '_meta': {'icons': meta_icons, 'fonts': [],
-                  'screens': dict(meta_screens) if meta_screens else {}},
+                  'screens': _merge_meta_screens(meta_screens)},
         'screens': list(screens),
     }
     out, dropped = localization.catalog(doc)
@@ -3069,6 +3298,64 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             'the localization catalog would DROP values you wrote: '
             + '; '.join(f'{w["path"]}: {w["message"]}' for w in dropped)
             + ' Give every locale of a conditional text the same cases, in the same order.')
+    return out
+
+
+def _merge_meta_screens(meta_screens):
+    """`_meta.screens` from one `predeclare()` result or a list of them."""
+    if not meta_screens:
+        return {}
+    parts = [meta_screens] if isinstance(meta_screens, dict) else list(meta_screens)
+    out = {}
+    for i, part in enumerate(parts):
+        if not isinstance(part, dict):
+            raise TypeError(f'meta_screens item {i} is {type(part).__name__}; pass predeclare() '
+                            f'results -- one dict, or a list of them')
+        for sid, decl in part.items():
+            if sid in out and out[sid] != decl:
+                raise ValueError(
+                    f'meta_screens declares screen {sid!r} twice, differently. Pass every '
+                    f'product of a screen to ONE predeclare() call: predeclare(scr["id"], '
+                    f'scr["products"]).')
+            out[sid] = decl
+    return out
+
+
+def _element_maps(screens, components):
+    maps = [((s or {}).get('elements') or {}).get('map') or {} for s in screens]
+    maps += [((c or {}).get('map') or {}) for c in (components or {}).values()]
+    return maps
+
+
+def _presets_used(screens, components, types):
+    """`(element id, type, preset)` for every `font.preset` on an element of `types`, state
+    overrides included."""
+    out = []
+    for m in _element_maps(screens, components):
+        for el_id, e in m.items():
+            if e.get('type') not in types:
+                continue
+            for props in [e.get('props') or {}] + list((e.get('propsByState') or {}).values()):
+                font = props.get('font') if isinstance(props, dict) else None
+                if isinstance(font, dict) and isinstance(font.get('preset'), str):
+                    out.append((el_id, e.get('type'), font['preset']))
+    return out
+
+
+def _element_targets_used(screens, components):
+    """`(element id, target id)` for every element an action names, nested actions included."""
+    out = []
+    for m in _element_maps(screens, components):
+        for el_id, e in m.items():
+            for a in _walk_dicts(e.get('interactions') or []):
+                payload = a.get('payload')
+                if not isinstance(payload, dict):
+                    continue
+                if a.get('type') in ('showElement', 'hideElement'):
+                    out += [(el_id, t) for t in payload.get('elements') or []
+                            if isinstance(t, str)]
+                elif a.get('type') == 'selectProduct' and isinstance(payload.get('element'), str):
+                    out.append((el_id, payload['element']))
     return out
 
 

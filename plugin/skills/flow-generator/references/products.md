@@ -456,11 +456,14 @@ The standing recipe for a fallback price (an offer the store may not return — 
 geography are the store's call and the config cannot force it) is a **duplicate of the product
 without the offer, hidden on the screen**. It works, and it carries a measured trap:
 
-**Android matches a price variable to a product by `vendorProductId` + `basePlanId` only —
-`offerId` is ignored** (team-read from SDK source, `FlowStateFactory.kt`). Two Product elements for
-the same store product therefore both resolve to whichever comes **first in the config's product
-list**, and if the base product is first, `offer_price` silently renders empty or undiscounted.
-Three facts that follow, all team-stated, with a real fix tracked by the team:
+**Android SDK 4.0.0 through 4.2.1 match a price variable to a product by `vendorProductId` +
+`basePlanId` only — `offerId` is ignored** (SDK source, `FlowStateFactory.kt`; from 4.2.2 each
+binding resolves by its own `flowProductId`, offer included). Two Product elements for the same
+store product therefore both resolve to whichever comes **first in the config's product list**, and
+if the base product is first, `offer_price` silently renders empty or undiscounted and
+`is_free_trial` reads false. Ask for the app's Android SDK version before trusting an offer price
+or condition. On every version, a user Google Play finds ineligible for the offer reads
+`is_free_trial` false. Below 4.2.2, three facts follow, all team-stated:
 
 - **The order is the `screens[].products` array's own**, and on a screen with no registry of its
   own it is the order the usage walk finds — effectively the creation order of the Product

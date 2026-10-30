@@ -219,9 +219,14 @@ Resolve `$ADAPTY` once; every CLI call in this skill goes through it.
 npm i -g adapty@latest >/dev/null 2>&1 \
   && ADAPTY="adapty" \
   || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
-$ADAPTY auth login
-$ADAPTY auth whoami   # verify login succeeded
+$ADAPTY auth whoami   # succeeds: already logged in, skip the login
 ```
+
+**If `whoami` fails, log in in the background.** From your shell `auth login` opens no browser: it
+prints a code and a link, then waits in the foreground for the user to approve, holding your shell,
+and some agents kill it at their command timeout. Run `$(command -v setsid) nohup $ADAPTY auth login > "$L" 2>&1 < /dev/null &`
+with `L` a log file, read the code and the link off it, and send both to the user at once: the
+code expires within minutes. Then run `auth whoami` every few seconds until it succeeds.
 
 **Install once; do not wrap every call in `npx`.** The wrapper costs ~1 s per call against
 0.07 s installed, and this phase makes a dozen. On the fallback `--yes` is not optional:

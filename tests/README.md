@@ -310,6 +310,21 @@ breakage `plan` did not predict.
 python3 tests/test-snippet.py
 ```
 
+## `test-render-scripts.py` — the render scripts, offline
+
+```bash
+python3 tests/test-render-scripts.py
+```
+
+Runs `shoot.sh`, `preview-with-playwright.mjs` and `montage.py` as subprocesses with no network:
+`shoot.sh` gets a stand-in browser, a stand-in `adapty` and a local HTTP server; the in-page helpers
+run on a `setContent` page, and only when Playwright and a Chromium-based browser are installed.
+Four groups: `montage` (flags anywhere, the argument order on a bad flag), `locale` (the copy that
+renders another language, and its fallback for values the language lacks), `shoot.sh` (a browser
+that exits without a file, progress per screen, `TIME_LIMIT`, a stopped run keeping what it
+finished) and `in-page` (overlays beside the screen hidden, the scroller found). Point
+`RENDER_REF=<copy of references/>` at a mutated copy to confirm a check can fail.
+
 ## `mobile-preview-check.py` — the device-preview link
 
 Runs [`mobile-preview.mjs`](../plugin/skills/flow-generator/references/mobile-preview.mjs) over every

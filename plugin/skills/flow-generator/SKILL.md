@@ -206,7 +206,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
-| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, plan cards |
+| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, an element that appears after a delay, plan cards |
 | [placements.md](references/placements.md) | **Phase 6** — every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
 | the **`paywall-teardown`** skill | **Phase 2** when *you* choose the design of a **screen that sells**, **phase 4** to grade what you built. It owns whether the screen sells; this skill owns the JSON |
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
@@ -216,14 +216,14 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph lookup,
 any phase), `localization.py` (phase 2, the catalog), `verify-config.py` (phase 3),
 `validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py`,
-`render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (when a render fails),
+`render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (phase 4, through `shoot.sh`),
 `mobile-preview.mjs` (phase 5, the device-preview QR), `weigh-config.py` (phase 2 before an
 upload, phase 5 before a write or a publish).
 
 ## The CLI surface
 
 ```
-$ADAPTY auth login                                             # browser flow
+$ADAPTY auth login                                             # code + link, waits; run it as phase 1 says
 $ADAPTY auth whoami                                            # verifies the token server-side
 $ADAPTY apps list --json                                       # to get <APP_UUID>
 
@@ -252,18 +252,20 @@ npm i -g adapty@latest >/dev/null 2>&1 \
   || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
 ```
 
+**In `zsh` — the macOS default — a multi-word `$ADAPTY` is not split into words**, so every command
+below fails with `command not found: npx --yes adapty@latest`. Run `setopt shwordsplit` once in the
+same shell (verified), or call `npx --yes adapty@latest` in full. That error is a shell problem,
+never evidence the command or the CLI is missing. A letter after `$VAR:` is a zsh modifier too
+(`$FLOW:l` lowercases the value), so a colon that follows a variable gets braces: `${FLOW}:`.
+`gates.sh` and `shoot.sh` run in `bash` and split it themselves, so hand them the command as a
+prefix: `ADAPTY='npx --yes adapty@latest' references/gates.sh …`.
+
 **Install once; do not wrap every call in `npx`.** The wrapper costs ~1 s *per call* against
 0.07 s installed, and a run makes dozens. Where the global prefix is not writable the `npx` form
 still works, and there `--yes` is not optional: without it npx stops to ask permission to install.
 
 Declare a command unavailable only after `npx --yes adapty@latest` *and* `npx --yes adapty@beta`
 both lack it — never from a version number you read somewhere.
-
-**In `zsh` — the macOS default — a multi-word `$ADAPTY` is not split into words**, so every command
-below fails with `command not found: npx --yes adapty@latest`. Run `setopt shwordsplit` once in the
-same shell (verified), or call `npx --yes adapty@latest` in full. That error is a shell problem,
-never evidence the command or the CLI is missing. `gates.sh` and `shoot.sh` run in `bash` and split
-it themselves, so hand them the command as a prefix: `ADAPTY='npx --yes adapty@latest' references/gates.sh …`.
 
 **On Windows, run the `.sh` scripts from Git Bash, and where this skill writes `python3`, call
 `python -X utf8` (or `py -3 -X utf8`).** `python3` there is usually the Microsoft Store stub, and
@@ -302,6 +304,12 @@ is the answer to *why*:** its envelope carries `publication_status`, `transform_
 objection. It is a raw string — a JSON issues payload or a summary — with no CLI helper to parse it,
 so read it and quote it rather than re-deriving a cause. Where the API does not send those fields
 they are simply absent; that is not an error, and it does not mean the publish succeeded.
+
+**Only `publication_failed` is a failure.** While `flows get` reads `publishing`, an HTTP 503 or
+"busy" in `transform_error` is the transform service under load, and the publication goes on:
+keep polling, and never publish again over it. If `flows publish` itself answers 503, run
+`flows get`: `publishing` means it was taken; the status from before means it was not, so run it
+once more.
 
 **Two things gate this, and neither of them is the account.** One is the **CLI version**, above. The
 other is the **API deployment**: `flows publish` has been observed answering `http_404` and
@@ -368,9 +376,30 @@ Then `$ADAPTY auth whoami`. It hits the server and prints the name and companies
 token works. Prefer it to `auth status`, which only reports what is stored locally and does not
 verify it — it prints the stored name and token prefix even when the token no longer works.
 
-If it fails, `$ADAPTY auth login` opens a browser. That is the user's to complete; wait for them
-rather than retrying in a loop. Then `$ADAPTY apps list --json` for the `<APP_UUID>` every later
-command needs.
+If it fails with `Could not reach …` (`network_error`), the network is the problem, not the token,
+so do not log in. With `HTTPS_PROXY` or `https_proxy` set, Node is ignoring the proxy:
+`ADAPTY="env NODE_USE_ENV_PROXY=1 $ADAPTY"` carries the fix into every call, the scripts' included
+(Node 22.21 or later, or 24; `adapty --version` names the Node it runs on).
+
+Any other failure: log in. **`auth login` opens a browser only at a terminal: from your shell it
+prints a code and a link, then waits in the foreground** for the user to approve, holding your
+shell, and some agents kill it at their command timeout. Run it detached and read the link off its
+log:
+
+```bash
+L="${TMPDIR:-/tmp}/adapty-login.log"
+$(command -v setsid) nohup $ADAPTY auth login > "$L" 2>&1 < /dev/null &   # setsid only where it exists
+for i in $(seq 20); do grep -q 'visit:' "$L" && break; sleep 1; done; cat "$L"
+```
+
+Send the code and the link as your next message, on their own: the code expires within minutes.
+With a display, also `open` the link for them (`xdg-open` on Linux). Then run
+`$ADAPTY auth whoami` every few seconds until it succeeds; the login is saved to disk, so later
+shells have it. Never start a second login while the first waits: its code voids the link the
+user is opening. When the log says `The code expired before authorization`, start one more and
+say why there is a new link.
+
+Then `$ADAPTY apps list --json` for the `<APP_UUID>` every later command needs.
 
 **Then check where the request actually starts, because not every run is an edit.** *"I published
 my flow"*, *"how do I get this into my app"*, *"nothing shows up in the app"* is a **phase 6**
@@ -388,8 +417,11 @@ Decide this explicitly and say which you chose, because the two paths differ in 
 destroy.
 
 **Existing flow** — the user names it, or `flows list` and confirm the match back to them
-before touching it. Then `flows config get`, and **keep its `updated_at`** for the write, not
-the one `flows get` or `flows list` printed.
+before touching it. Read its `status` with `flows get`: `archived` is a flow deleted in the
+dashboard, and every write to it is refused with `Flow is deleted`, so say so and offer a new flow
+on a yes (`flows create`, seeded from this config if `config get` still returns it). Then
+`flows config get`, and **keep its `updated_at`** for the write, not the one `flows get` or
+`flows list` printed.
 
 **Take a backup before the first edit.** `config update` replaces the whole config and there is no
 undo, so the copy you fetched is the only way back:
@@ -714,6 +746,13 @@ screen with a watchdog, joins them left-to-right and prints the one path to open
 image and look at it**, against what the user asked for and — if they gave one — against the
 reference image file, re-opened, not remembered.
 
+**Run a batch of three or more screens in the background and wait for it.** A screen takes a few
+seconds and can take minutes on a slow host. Each prints a line when it lands; the run stops
+itself after `TIME_LIMIT` seconds (default 300), names what it did not reach and keeps every
+finished render, so re-run only those. A screen that scrolls comes back as every scroll position,
+left to right, and `LOCALE=<code>` renders another language
+([preview.md](references/preview.md#what-a-render-costs-and-which-knobs-do-nothing)).
+
 **A screen that ends in a button bar is rendered twice more, on a short and a tall phone:**
 
 ```bash
@@ -726,9 +765,10 @@ On the tall one, look for an empty band: under the bar, above it, or between row
 a tall phone's extra height; on a screen with a hero it goes to the hero
 ([patterns.md](references/patterns.md#a-tall-phones-extra-height-goes-to-the-hero)). On the short
 one, a photo hero should keep about 160pt; if it draws smaller, give it a fixed height and put
-the bar in a `footer`, so the small phone scrolls.
+the bar in a [`footer`](references/patterns.md#a-bar-that-stays-at-the-bottom-use-footer), so the
+small phone scrolls.
 
-**Render only what you changed.** A screenshot is ~18 s of Chrome cold start, so the number of
+**Render only what you changed.** Each screenshot costs seconds, and minutes on a slow host, so the number of
 renders *is* the cost of this phase, and re-shooting seven screens to check an edit to one is six
 wasted launches. One strip is also one *look* instead of N, and a before/after or
 default-vs-selected pair only reads as a *difference* when the halves are adjacent.
@@ -736,7 +776,7 @@ default-vs-selected pair only reads as a *difference* when the halves are adjace
 **Do not try to speed the screenshot itself up** — shrinking `--virtual-time-budget` does nothing
 on a fast host, and parallel Chrome is slower than serial. But **raise it when a shot comes back
 empty**: on a slow render host 8 s yields no file where 60 s renders correctly, so *no file* is
-usually a slow host, not a broken config — `shoot.sh` retries at 60 s for you, and after that,
+usually a slow host, not a broken config — `shoot.sh` retries once by itself and says so, and after that,
 load the URL in a real browser before suspecting your work
 ([preview.md](references/preview.md#what-a-render-costs-and-which-knobs-do-nothing)). A dead render
 is never a reason to report the work finished.
@@ -772,7 +812,8 @@ deliverable, not this pass. What to inventory and what to do with each gap:
 before you report what a screenshot proves** — every blindness on it measured, and two of them run
 the *wrong* way: the render draws things a device will not. Two you act on here: it draws no notch
 and no home indicator, so author `safeArea: true` and hand short-device clipping over as a device
-check.
+check; and even then it measures an `absolute` element's `top` from the screen's top edge, not
+from below the status bar ([patterns.md](references/patterns.md#under-safearea-true-check-where-an-absolute-element-lands)).
 
 **Never downgrade a correct element to a preview-visible lookalike to make the screenshot look
 complete.** When an element is preview-blind — a `spinner` that draws nothing on this screen, a
@@ -811,9 +852,10 @@ once the user has checked, colour them like the background; never delete them. T
 shape is in [patterns.md](references/patterns.md).
 
 **Confirm you screenshotted the flow at all.** A bad `--device`, a broken fragment and a wrong host
-all render as *pages* that pass a "did anything draw" check. If the render is blank, slow or wrong,
-switch to [`preview-with-playwright.mjs`](references/preview-with-playwright.mjs), which uses the
-page's file input instead of the URL — do not shrink the config. If you cannot render at all, say
+all render as *pages* that pass a "did anything draw" check. `shoot.sh` uses the page's file
+input ([`preview-with-playwright.mjs`](references/preview-with-playwright.mjs)) whenever it can; if
+it fell back to the URL route and the render is blank, slow or wrong, run the install command it
+prints — do not shrink the config. If you cannot render at all, say
 so and ask the user to look; never report the work finished on a clean validate.
 
 **A missing element may not be your bug, and a clean preview is not the builder opening the flow.**
@@ -937,7 +979,7 @@ four screenshots will otherwise assume the pictures were the whole change:
 
 > - Daily goal: the Continue button now opens the paywall instead of closing the flow.
 > - The two new plan cards are registered with their products, so the flow can publish.
-> - 38 texts translated into German. The 4 images stay the same in every language. The preview only draws English, so check German on a device.
+> - 38 texts translated into German, checked for overflow in a German render. The 4 images stay the same in every language.
 
 **Open exactly one of them live, and mark which row it is.** You are on their machine, so open it
 rather than handing over a command to paste:
@@ -1035,10 +1077,15 @@ saved in between, and write again. Never force
 past it and never re-send your local copy — that is the content that would erase their work. If
 their version differs in ways you did not author, ask rather than restore.
 
+**On `Flow is deleted`** someone deleted the flow in the dashboard after you read it: nothing was
+written, and no write to that id can succeed. Say so; your draft is intact, so on a yes
+`flows create` a new flow and write the draft there, with no `--expected-updated-at`.
+
 **If you rebuilt the config from a script rather than patching the fetched one, you have the wrong
 document** — a rebuild replaces the live flow, taking `_meta.screens` and the `screens[].products`
 registry it derives from ([products.md](references/products.md)) and every manual edit with it. Patch the fetched config;
-[merge.md](references/merge.md) names the only two cases where a rebuild is right.
+[merge.md](references/merge.md) names the only two cases where a rebuild is right. A screen you build
+in a script and patch in is built after `fk.ids_after(fetched)`, so its ids miss the live ones.
 
 #### The file deliverable
 
@@ -1139,7 +1186,7 @@ Why the QR and the link work this way, the `--md-base` rule, and why there is no
 [preview.md](references/preview.md#the-mobile-app-link-and-why-it-is-not-the-render-url).
 
 **Fill that slot with the actual list, never with "check it works".** You know which of your
-choices the render could not reach — a branch that fires on tap, a toggle, a non-default locale, a
+choices the render could not reach — a branch that fires on tap, a toggle, a locale you did not render, a
 progress bar that advances, a screen that advances itself, glyph metrics that differ on iOS. A
 generic instruction gets skipped; three named things get tapped, and every defect this skill has
 shipped to a user came through a gap this slot exists to hand over

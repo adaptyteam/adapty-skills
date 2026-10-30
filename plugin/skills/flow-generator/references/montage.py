@@ -8,6 +8,9 @@ default-vs-selected pair next to each other, which is what makes a difference vi
 
     montage.py out.png a.png b.png c.png          # left to right, 8px white gutter
     montage.py --gutter 0 out.png a.png b.png     # flush, for a pixel-diff comparison
+    montage.py -o out.png a.png b.png             # the same; -o/--out may go anywhere
+
+Without -o, the FIRST path is the output and the rest are the inputs.
 
 Pure stdlib: no Pillow, no install. Handles 8-bit RGB/RGBA/greyscale non-interlaced PNGs,
 which is what headless Chrome emits. Images of different heights are top-aligned and padded.
@@ -99,19 +102,52 @@ def write_png(path, width, height, rows_rgb):
                            + chunk(b'IEND', b''))
 
 
+USAGE = ('usage: montage.py [--gutter N] [-o OUT.png] OUT.png|IN.png IN.png ...\n'
+         '    montage.py strip.png a.png b.png        # the first path is the output\n'
+         '    montage.py -o strip.png a.png b.png     # or name it with -o/--out, anywhere')
+
+
+def parse(argv):
+    """-> (out, sources, gutter), or a message saying what is wrong."""
+    gutter, out, rest, i = 8, None, [], 0
+    while i < len(argv):
+        a = argv[i]
+        name, eq, val = a.partition('=')
+        if name in ('--gutter', '-o', '--out', '--output'):
+            if not eq:
+                if i + 1 >= len(argv):
+                    return f'{name} needs a value'
+                val, i = argv[i + 1], i + 1
+            if name == '--gutter':
+                try:
+                    gutter = int(val)
+                except ValueError:
+                    return f'--gutter takes a number of pixels, not {val!r}'
+            else:
+                out = val
+        elif a.startswith('-') and a != '-':
+            return f'unknown option {a}'
+        else:
+            rest.append(a)
+        i += 1
+    if out is None:
+        if len(rest) < 2:
+            return 'need an output and at least one input'
+        out, rest = rest[0], rest[1:]
+    if not rest:
+        return 'need at least one input image'
+    return out, rest, gutter
+
+
 def main(argv):
-    gutter = 8
-    if argv and argv[0] == '--gutter':
-        gutter, argv = int(argv[1]), argv[2:]
-    if len(argv) < 2:
+    if not argv or argv[0] in ('-h', '--help'):
         print(__doc__)
+        return 0 if argv else 2
+    parsed = parse(argv)
+    if isinstance(parsed, str):
+        print(f'montage: {parsed}\n{USAGE}', file=sys.stderr)
         return 2
-    flags = [a for a in argv if a.startswith('-')]
-    if flags:
-        print(f'montage: unknown option {flags[0]}. The output file comes first, with no flag:\n'
-              f'    montage.py out.png a.png b.png', file=sys.stderr)
-        return 2
-    out, sources = argv[0], argv[1:]
+    out, sources, gutter = parsed
     # The output comes first, so `montage.py a.png b.png` used to overwrite the render a.png with
     # a strip of b.png alone, silently. Refuse to write over any file this script did not make.
     try:
@@ -121,7 +157,7 @@ def main(argv):
     if out in sources or (prior is not None and MARK not in prior):
         print(f'montage: {out} already exists and is not a strip this script made, so writing it '
               f'would destroy it. The output file comes first and must be a new name:\n'
-              f'    montage.py strip.png {" ".join(argv)}', file=sys.stderr)
+              f'    montage.py strip.png {" ".join([out] + sources)}', file=sys.stderr)
         return 2
     try:
         imgs = [read_png(p) for p in sources]
