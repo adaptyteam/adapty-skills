@@ -47,8 +47,8 @@ relative path (name it in backticks), and never reach into another skill's files
 
 ## Layout
 
-- **Only `plugin/` ships** (manifests, `skills/`, `assets/`, the user-facing `README.md`,
-  `LICENSE`). It cannot be renamed without a new directory submission.
+- **Only `plugin/` ships** (manifests, `.mcp.json` with the Adapty MCP server, `skills/`, `assets/`,
+  the user-facing `README.md`, `LICENSE`). It cannot be renamed without a new directory submission.
 - Everything else is maintainer-only: `CLAUDE.md`, `scripts/` (lints and allowlists), `tests/`
   (the `flow-generator` fixture corpus and repo-only test scripts), `docs/` (maintainer notes,
   `green-round-gate.md`), `.github/`.

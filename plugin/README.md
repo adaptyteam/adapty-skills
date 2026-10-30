@@ -44,7 +44,7 @@ Every skill below is part of the `adapty-skills` plugin. Install the plugin once
 
 The Adapty CLI comes from `npm install -g adapty`. You don't have to keep it current — the skills check the version themselves and fetch a newer one when they need it, rather than telling you a command doesn't exist.
 
-Every skill that needs the Adapty CLI also works through the Adapty MCP server, `https://mcp.adapty.io/mcp`. A skill checks which of the two your agent has and uses it. With both, `ab-tests`, `adapty-attribution`, `adapty-integration`, `ads-manager` and `purchase-testing` use the MCP server; `audiences`, `flow-audit`, `flow-generator`, `growth-advisor` and `migrate-placements` use the CLI, because their scripts or segment writes run through it. With neither, the skill asks which one to set up and gives you the steps.
+Every skill that needs the Adapty CLI also works through the Adapty MCP server, `https://mcp.adapty.io/mcp`, and the `adapty-skills` plugin adds that server for you. Sign in once: in Claude Code, open `/mcp`, pick `plugin:adapty-skills:adapty` and choose **Authenticate**; until then it shows as needing authentication. A skill checks which of the two your agent has and uses it. With both, `ab-tests`, `adapty-attribution`, `adapty-integration`, `ads-manager` and `purchase-testing` use the MCP server; `audiences`, `flow-audit`, `flow-generator`, `growth-advisor` and `migrate-placements` use the CLI, because their scripts or segment writes run through it. With neither, the skill asks which one to set up and gives you the steps.
 
 ## What you can ask
 

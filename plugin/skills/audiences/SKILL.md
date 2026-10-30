@@ -121,12 +121,15 @@ options.
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
   https://adapty.io/docs/developer-cli-cowork.md
-- **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser.
-  - Claude Code: `claude mcp add --transport http --scope user adapty https://mcp.adapty.io/mcp`,
-    then `/mcp`, pick `adapty`, **Authenticate**.
-  - Codex CLI: `codex mcp add adapty --url https://mcp.adapty.io/mcp`, then
-    `codex mcp login adapty`.
-  - The Claude app: Settings → Connectors → **Add custom connector**, with the URL above.
+- **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
+  `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
+  sign-in is left.
+  - Claude Code: `/mcp`, pick `plugin:adapty-skills:adapty`, **Authenticate**. Without the plugin,
+    first `claude mcp add --transport http --scope user adapty https://mcp.adapty.io/mcp`.
+  - Codex CLI: the plugin's connect prompt signs in. Without the plugin:
+    `codex mcp add adapty --url https://mcp.adapty.io/mcp`, then `codex mcp login adapty`.
+  - The Claude app: connect it on the plugin's **Connectors** tab. Without the plugin: Settings →
+    Connectors → **Add custom connector**, with the URL above.
   - Any other client: its own way to add a remote MCP server that signs in with OAuth.
 
   If the tools do not appear in this session, the user starts a new one: say so and stop.
