@@ -41,6 +41,64 @@ It does not own:
 - Full, clickable links. Reply in the user's language; the dashboard's own words stay ("Modify" is
   `replace`).
 
+## CLI or MCP
+
+This skill reaches Adapty through the Adapty CLI or the Adapty MCP server. Its commands are written
+for the CLI, and over MCP each one is a tool call. Before the first call, check both, pick one way,
+and keep it for the run:
+
+- **The CLI is ready** when `adapty auth whoami` shows an account. Install nothing for this check.
+- **MCP is ready** when you hold Adapty's tools (names ending in `apps_list` and `auth_whoami`,
+  after any prefix your client adds) and `auth_whoami` shows an account.
+
+| CLI ready | MCP ready | Use |
+|---|---|---|
+| yes | no | the CLI |
+| no | yes | MCP |
+| yes | yes | the way this skill prefers (the line after this section's example) |
+| no | no | ask which one to set up (below) |
+
+**Over MCP, run each command as its tool.** `$ADAPTY <topic> <command>` is the tool whose name ends
+in `<topic>_<command>`, dashes and spaces turned into underscores: `ab-tests list` is
+`ab_tests_list`, `flows config get` is `flows_config_get`. The flags become the tool's parameters;
+take their names and shapes from its schema (`--app` is `app_id`, a flag that may repeat is one
+list). The tools return JSON, so drop `--json`. `--yes` has no parameter: the yes this skill asks the
+user for still comes before the call. Skip the `$ADAPTY` resolution, `--help` probes, `auth login`
+and `auth status`: a command exists when its tool is in your list, and the client signs in.
+
+**A command with no tool, and a script that runs `$ADAPTY`, need the CLI** (`feedback` and
+`segments create` have no tool). Run that step with the CLI when it is ready. Otherwise skip the
+feedback note without a word, and for any other step say it needs the CLI and offer to set it up.
+
+**When a call fails one way,** a read may run once the other way if that way is ready. After a
+write fails or times out, read the state again the way that wrote; never repeat the write the
+other way.
+
+**Neither ready:** ask which one to set up, the one this skill prefers first, then give only that
+one's steps. Use your question tool if you have one; otherwise ask in one message with numbered
+options.
+
+- **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
+  the user's sign-in. The Claude app also needs Adapty's domains allowed first:
+  https://adapty.io/docs/developer-cli-cowork.md
+- **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser.
+  - Claude Code: `claude mcp add --transport http --scope user adapty https://mcp.adapty.io/mcp`,
+    then `/mcp`, pick `adapty`, **Authenticate**.
+  - Codex CLI: `codex mcp add adapty --url https://mcp.adapty.io/mcp`, then
+    `codex mcp login adapty`.
+  - The Claude app: Settings → Connectors → **Add custom connector**, with the URL above.
+  - Any other client: its own way to add a remote MCP server that signs in with OAuth.
+
+  If the tools do not appear in this session, the user starts a new one: say so and stop.
+
+Example of the question's shape, not words to copy:
+
+> I can reach your Adapty account in two ways. Which one should I set up?
+> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
+
+**This skill prefers MCP** when both are ready.
+
 ## The CLI
 
 Resolve `$ADAPTY` once and use it for every call:

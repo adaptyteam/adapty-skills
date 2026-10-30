@@ -41,9 +41,9 @@ relative path (name it in backticks), and never reach into another skill's files
   that handle; it keeps old installs updating.
 - **Never create anything at `adaptyteam/adapty-sdk-integration-skill`**: it kills GitHub's
   redirect from the old repo name. `raw.githubusercontent.com` does not follow renames.
-- **No telemetry.** The only outbound data besides the CLI's own calls is the docs
-  `?ref=skill-<token>` marker and the `adapty feedback` note. Don't add a call home without a
-  privacy policy, an `adapty.io` host and a README disclosure in the same change.
+- **No telemetry.** The only outbound data besides the CLI's and the MCP server's own calls is
+  the docs `?ref=skill-<token>` marker and the `adapty feedback` note. Don't add a call home
+  without a privacy policy, an `adapty.io` host and a README disclosure in the same change.
 
 ## Layout
 
@@ -133,9 +133,12 @@ template, not the rule. A condition the agent cannot observe is not followed; ma
   only what ships: never put `CLAUDE.md` or `tests/` in one arm only.
 - **Every CLI call goes through `$ADAPTY`, resolved once per run:** `npm i -g adapty@latest`, with
   `npx --yes adapty@latest` as the fallback. Never a bare `adapty` or a per-call `npx` at a call
-  site. `flow-audit` alone resolves straight to the npx form. Keep `--yes` and the `zsh`
+  site; the one bare call is the readiness check, `adapty auth whoami`, which installs nothing.
+  `flow-audit` alone resolves straight to the npx form. Keep `--yes` and the `zsh`
   word-splitting note beside the block. A command is missing only after `--help` says so and one
-  `npx --yes adapty@beta` attempt; never gate on a version number.
+  `npx --yes adapty@beta` attempt; never gate on a version number. Over MCP the command is the
+  tool `<topic>_<command>`: `## CLI or MCP` is one text in every skill that calls Adapty, so change
+  every copy together and keep each skill's preference line after it.
 - **Verify CLI facts against each command's own source** (`static flags`, description) in
   `adaptyteam/adapty-cli`, not prose, `--help` or flag-set composition; enumerate `dist/commands/`.
   Print `--version` with anything you test.
