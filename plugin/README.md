@@ -111,7 +111,7 @@ claude plugin update adapty-skills@adapty
 
 <br>
 
-That handle still works and still updates, so nothing breaks if you do nothing. To move over, install the new one and remove the old one — leaving both installed loads the same skills twice:
+That handle no longer updates, so it misses every new skill and fix. To move over, install the new one and remove the old one — leaving both installed loads the same skills twice:
 
 ```bash
 claude plugin install adapty-skills@adapty
