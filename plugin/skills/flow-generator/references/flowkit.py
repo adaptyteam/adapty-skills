@@ -1675,7 +1675,8 @@ def product(children=(), *, product_id, group_id, default=False, offer_id=None,
     built from the bindings on the screen — so bind the product here and put the price in the
     copy.
 
-    `offer_id` names an offer on this binding. It is part of the product's identity everywhere:
+    `offer_id` names an offer on this binding: the offer's `id` from `product-offers list`, a
+    UUID, never the store code in its `store_offers`. It is part of the product's identity everywhere:
     the same product with and without an offer is two bindings, two registry entries and two
     `flowProductId`s. Binding an offer is also the reason the structured product ref exists —
     a dotted `<productId>.offer_price` cannot say which offer it means.
@@ -1703,7 +1704,7 @@ def product(children=(), *, product_id, group_id, default=False, offer_id=None,
     if not node['states']:
         node['states'] = [{'id': 'selected', 'type': 'system'}]
     if fallback_offer_id:
-        node[_FALLBACK_KEY] = fallback_offer_id
+        node[_FALLBACK_KEY] = _check_offer_id(fallback_offer_id, 'fallback_offer_id')
     return node
 
 
@@ -2423,12 +2424,28 @@ def _binding(pid, offer_id, plan=None):
     return {'kind': 'product', **_product_value(pid, offer_id, plan)}
 
 
+_OFFER_ID_RE = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+                          r'[0-9a-fA-F]{12}\Z')
+
+
+def _check_offer_id(offer_id, arg='offer_id'):
+    """An offer is bound by its Adapty id, the `id` in `product-offers list` -- a UUID. The same
+    list carries the store's code as `store_offers.<store>.offer_id`, and `validate` passes that
+    code, so it is refused here, before it reaches a draft."""
+    if offer_id and not (isinstance(offer_id, str) and _OFFER_ID_RE.match(offer_id)):
+        raise ValueError(
+            f'{arg}={offer_id!r} is not an Adapty offer id. Pass the offer\'s `id` from '
+            f'`product-offers list --product <product_id>`, never `store_offers.<store>.offer_id`: '
+            f'that is the store\'s code, and the builder refuses to publish it.')
+    return offer_id
+
+
 def _product_value(pid, offer_id, plan=None):
     """One binding value. Same omit-don't-null rule as `_binding`, and the same key order the
     builder writes: `id`, then `offerId`, then `billingPlanId`, each only when there is one."""
     value = {'id': pid}
     if offer_id:
-        value['offerId'] = offer_id
+        value['offerId'] = _check_offer_id(offer_id)
     if plan:
         value['billingPlanId'] = plan
     return value
@@ -2842,7 +2859,7 @@ def predeclare(screen_id, products):
     or `(product_id, offer_id, billing_plan)` tuple, or a registry entry -- so a screen built
     with `screen()` declares as `predeclare(scr['id'], scr['products'])`, fallback offers included.
 
-        predeclare('scr_x', ['annual', ('annual', 'trial'), ('annual', None, 'monthly')])
+        predeclare('scr_x', ['annual', ('annual', TRIAL_OFFER_ID), ('annual', None, 'monthly')])
 
     The emitted ids are the ones the builder mints, so a draft carrying them previews on a real
     device with no publish and no builder visit, and the builder's next save rewrites them to the
@@ -2873,7 +2890,7 @@ def predeclare(screen_id, products):
             pid, offer_id, plan = item, None, None
         entry = _product_value(pid, offer_id, plan)
         if fallback and plan:
-            entry['fallbackOfferId'] = fallback
+            entry['fallbackOfferId'] = _check_offer_id(fallback, 'fallbackOfferId')
         entry['flowProductId'] = flow_product_id(screen_id, pid, offer_id, plan)
         entries.append(entry)
     return {screen_id: {'products': entries}}

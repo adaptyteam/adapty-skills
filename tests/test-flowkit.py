@@ -265,16 +265,16 @@ def main():
           == [fk.flow_product_id('scr_pro', p) for p in pids])
 
     # exact pairs: a product bound WITH an offer is a different entry and a different id
-    paired = fk.predeclare('scr_pro', [pids[0], (pids[0], 'trial')])['scr_pro']['products']
+    paired = fk.predeclare('scr_pro', [pids[0], (pids[0], '7d1a0e5c-1b2c-4d3e-8f40-000000000001')])['scr_pro']['products']
     check('predeclare accepts a (product, offer) pair', len(paired) == 2)
     check('predeclare carries offerId, in the builder key order',
           list(paired[1]) == ['id', 'offerId', 'flowProductId'], json.dumps(paired[1]))
     check('an offer-bound pair gets its own id',
           paired[0]['flowProductId'] != paired[1]['flowProductId'])
     check('the offer-bound id is the builder\'s',
-          paired[1]['flowProductId'] == fk.flow_product_id('scr_pro', pids[0], 'trial'))
+          paired[1]['flowProductId'] == fk.flow_product_id('scr_pro', pids[0], '7d1a0e5c-1b2c-4d3e-8f40-000000000001'))
     check('a list is accepted where a tuple is',
-          fk.predeclare('scr_pro', [[pids[0], 'trial']])['scr_pro']['products'] == [paired[1]])
+          fk.predeclare('scr_pro', [[pids[0], '7d1a0e5c-1b2c-4d3e-8f40-000000000001']])['scr_pro']['products'] == [paired[1]])
     check('config(meta_screens=...) carries it through',
           fk.config(screens=[], meta_screens=dec)['_meta']['screens'] == dec)
     check('opacity, when given, is a percentage not a fraction',
@@ -1190,7 +1190,7 @@ def main():
 
     _groups = [{'id': 'plans', 'type': 'product'}]
     _bound = fk.screen('scr_p', [
-        fk.product([], product_id='p_year', group_id='plans', default=True, offer_id='trial7'),
+        fk.product([], product_id='p_year', group_id='plans', default=True, offer_id='7d1a0e5c-1b2c-4d3e-8f40-000000000007'),
         fk.product([], product_id='p_month', group_id='plans'),
         fk.text(fk.rich('then ', fk.Var('p_year.prod_price'))),
         fk.text(fk.rich('now ', fk.Var('plans.selectedProduct.prod_price'))),
@@ -1198,7 +1198,7 @@ def main():
     ], selectable_groups=_groups)
     _found = _refs(_bound)
     check('a bound product resolves, carrying its offer id',
-          {'target': {'kind': 'product', 'id': 'p_year', 'offerId': 'trial7'},
+          {'target': {'kind': 'product', 'id': 'p_year', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-000000000007'},
            'field': 'prod_price'} in _found, _found)
     check("a product group's selectedProduct resolves",
           {'target': {'kind': 'selected', 'groupId': 'plans'},
@@ -1209,25 +1209,25 @@ def main():
           not any('my_custom' in json.dumps(r) for r in _found))
     check('a base binding omits offerId rather than nulling it',
           {'id': 'p_month'} in _bound['products'] and
-          {'id': 'p_year', 'offerId': 'trial7'} in _bound['products'], _bound['products'])
+          {'id': 'p_year', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-000000000007'} in _bound['products'], _bound['products'])
 
     # A DSL operand, which is REPLACED rather than dual-written: an expression has one type.
     # This is a separate branch from the rich-text spans above and needs its own case — a
     # field-value comparison migrates on its own, independently of the identity pair below.
     _dsl = fk.screen('scr_v', [
-        fk.product([], product_id='p_a', group_id='plans', default=True, offer_id='intro'),
+        fk.product([], product_id='p_a', group_id='plans', default=True, offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000aa'),
         fk.stack([fk.text('Trial')],
                  visibility=fk.when(fk.eq(fk.ref('p_a.is_free_trial'), fk.lit(True)))),
     ], selectable_groups=_groups)
     check('a DSL var operand becomes a productRef node, offer and all',
-          {'target': {'kind': 'product', 'id': 'p_a', 'offerId': 'intro'},
+          {'target': {'kind': 'product', 'id': 'p_a', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000aa'},
            'field': 'is_free_trial'} in _refs(_dsl), _refs(_dsl))
     check('its literal operand is untouched', '"value": true' in json.dumps(_dsl))
 
     # Migration 011's leftovers taxonomy, one case each. All three stay legacy.
     _ambiguous = fk.screen('scr_a', [
-        fk.product([], product_id='p', group_id='plans', default=True, offer_id='t1'),
-        fk.product([], product_id='p', group_id='plans', offer_id='t2'),
+        fk.product([], product_id='p', group_id='plans', default=True, offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000b1'),
+        fk.product([], product_id='p', group_id='plans', offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000b2'),
         fk.text(fk.rich(fk.Var('p.prod_price'))),
     ], selectable_groups=_groups)
     check('two offers of one product on a screen: no ref, the offer is unguessable',
@@ -1288,10 +1288,10 @@ def main():
         fk.stack([fk.text('buy')], actions=[
             {'id': 'a1', 'type': 'purchase',
              'payload': {'product': {'type': 'const',
-                                     'value': {'id': 'p_const', 'offerId': 'intro'}}}}]),
+                                     'value': {'id': 'p_const', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000aa'}}}}]),
     ])
     check('a const purchase product reaches the registry with no product element',
-          _const['products'] == [{'id': 'p_const', 'offerId': 'intro'}], _const['products'])
+          _const['products'] == [{'id': 'p_const', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000aa'}], _const['products'])
 
 
     # --- catalog templates -----------------------------------------------------------------
@@ -1460,24 +1460,32 @@ def main():
     check('flow_product_id appends the plan after the offer',
           fk.flow_product_id('screen-1', 'annual', 'promo', 'monthly') == '6159a111-ba8a-59d8-b542-3d255d1d6234')
     check('product() writes billingPlanId after offerId, in the builder key order',
-          list(fk.product([], product_id='p_year', group_id='plans', offer_id='promo',
+          list(fk.product([], product_id='p_year', group_id='plans', offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000c0',
                           billing_plan='monthly')['props']['product']) == ['id', 'offerId', 'billingPlanId'])
+    check('product() refuses a store offer code, naming where the offer id comes from',
+          'product-offers list' in _message(lambda: fk.product([], product_id='p', group_id='plans',
+                                                               offer_id='free-trial-7d')))
+    check('predeclare() refuses a store offer code too',
+          raises(lambda: fk.predeclare('scr_x', [('p', 'free-trial-7d')])))
+    check('a fallback offer is held to the same rule',
+          raises(lambda: fk.product([], product_id='p', group_id='plans', billing_plan='monthly',
+                                    fallback_offer_id='spring_promo')))
     check('product() refuses a plan other than monthly, with the reason',
           'monthly' in _message(lambda: fk.product([], product_id='p', group_id='plans', billing_plan='upfront')))
     check('product() refuses a fallback offer without the monthly plan',
           'fallback' in _message(lambda: fk.product([], product_id='p', group_id='plans',
-                                                    fallback_offer_id='spring')))
+                                                    fallback_offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000d0')))
     _plan = fk.screen('scr_m', [
         fk.product([fk.text(fk.rich(fk.Var('p_year.prod_price')))],
                    product_id='p_year', group_id='plans', default=True),
         fk.product([fk.text(fk.rich(fk.Var('p_year@monthly.prod_billing_price'), ' / ',
                                     fk.Var('p_year@monthly.prod_billing_period')))],
                    product_id='p_year', group_id='plans', billing_plan='monthly',
-                   fallback_offer_id='spring'),
+                   fallback_offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000d0'),
     ], selectable_groups=_groups)
     check('upfront and monthly of one product are two registry entries, the fallback on the monthly one',
           _plan['products'] == [{'id': 'p_year'},
-                                {'id': 'p_year', 'billingPlanId': 'monthly', 'fallbackOfferId': 'spring'}],
+                                {'id': 'p_year', 'billingPlanId': 'monthly', 'fallbackOfferId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000d0'}],
           _plan['products'])
     check('the fallback offer never reaches the element props',
           'fallbackOfferId' not in json.dumps([e['props'] for e in _plan['elements']['map'].values()]))
@@ -1489,7 +1497,7 @@ def main():
           {'target': {'kind': 'product', 'id': 'p_year'}, 'field': 'prod_price'} in _found, _found)
     _meta = fk.predeclare('scr_m', _plan['products'])['scr_m']['products']
     check('predeclare takes registry entries and carries plan and fallback',
-          _meta[1] == {'id': 'p_year', 'billingPlanId': 'monthly', 'fallbackOfferId': 'spring',
+          _meta[1] == {'id': 'p_year', 'billingPlanId': 'monthly', 'fallbackOfferId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000d0',
                        'flowProductId': fk.flow_product_id('scr_m', 'p_year', None, 'monthly')}, _meta)
     check('predeclare keeps the plan-less entry byte-identical',
           _meta[0] == {'id': 'p_year', 'flowProductId': fk.flow_product_id('scr_m', 'p_year')}, _meta)
@@ -1597,7 +1605,7 @@ def main():
 
     # --- meta_screens: several predeclare() results, merged
     print('\npredeclare across screens:')
-    _a, _b = fk.predeclare('scr_a', ['p1']), fk.predeclare('scr_b', ['p2', ('p2', 'trial')])
+    _a, _b = fk.predeclare('scr_a', ['p1']), fk.predeclare('scr_b', ['p2', ('p2', '7d1a0e5c-1b2c-4d3e-8f40-000000000001')])
     check('config(meta_screens=[...]) merges one predeclare() per screen',
           fk.config(screens=[], meta_screens=[_a, _b])['_meta']['screens'] == {**_a, **_b})
     check('a single predeclare() still works', fk.config(screens=[], meta_screens=_a)

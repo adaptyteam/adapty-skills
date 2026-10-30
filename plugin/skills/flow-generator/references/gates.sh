@@ -2,7 +2,7 @@
 # All of phase 3 in ONE tool call. Runs every gate over the SAME bytes and prints one verdict.
 #
 #   gates.sh draft.json                          # local gates only
-#   gates.sh draft.json <APP_UUID> <FLOW_ID>     # + the publish gate
+#   gates.sh draft.json <APP_UUID> <FLOW_ID>     # + the ids read and the publish gate
 #
 # Why this exists: the gates were three separate commands, i.e. three agent turns at ~30 s of
 # round-trip each — far more than the checks themselves cost. Order is deliberate: the local
@@ -60,7 +60,7 @@ fail=0
 md5="$($PY -c 'import hashlib, sys; print(hashlib.md5(open(sys.argv[1], "rb").read()).hexdigest())' "$CFG")"
 echo "== gates over $CFG  (md5 ${md5:0:12})"
 
-echo "-- 1/3 structure (verify-config.py)"
+echo "-- 1/4 structure (verify-config.py)"
 # BASELINE does double duty: the schema step uses it to suppress a v9 flow's pre-existing
 # findings, and verify-config.py uses it to tell a price THIS draft invented from one the flow
 # already had. Both are already absolute (see above), and this runs before any `cd`.
@@ -70,7 +70,7 @@ else
   if $PY "$HERE/verify-config.py" "$CFG"; then :; else fail=1; fi
 fi
 
-echo "-- 2/3 schema shape (ADVISORY — does not decide the verdict)"
+echo "-- 2/4 schema shape (ADVISORY — does not decide the verdict)"
 # --config, not a positional. Pass BASELINE=flow.backup.json when editing a fetched config, or a
 # v9 flow buries you in pre-existing findings that are not yours.
 # ajv is installed ONCE into a cache dir, never resolved through `npx` per run. Measured: the
@@ -100,7 +100,91 @@ fi
 # Advisory on purpose: `validate` outranks the schema in both directions, and configs the builder
 # itself saves still disagree with it in places (a `border.style`, an icon's `width`). Read its
 # findings — on an element you wrote they are usually real — but do not let them gate.
-echo "-- 3/3 publish gate (flows config validate)"
+
+# `validate` answers `valid: true` for a product id the app does not have, a store code in place
+# of an Adapty id, and an offer that is not one of its product's offers (all measured, adapty
+# 0.15.0); the builder then refuses the publish. So the ids are read against the app here: one
+# `products list`, and one `product-offers list` per product bound with an offer. A flow that binds
+# nothing makes no call.
+echo "-- 3/4 bound products and offers exist in the app"
+if [ -z "$APP" ]; then
+  echo "   SKIPPED — pass APP_UUID to read them"
+else
+  if $PY - "$CFG" "$APP" "$ADAPTY_BIN" <<'PYEOF'
+import json, re, shlex, subprocess, sys
+cfg, app, cli = json.load(open(sys.argv[1], encoding='utf-8')), sys.argv[2], shlex.split(sys.argv[3])
+pairs, where = set(), {}
+def bind(pid, oid, at):
+    if isinstance(pid, str) and pid:
+        oid = oid if isinstance(oid, str) and oid else None
+        pairs.add((pid, oid)); where.setdefault((pid, oid), at)
+def walk(o, at):
+    if isinstance(o, dict):
+        if o.get('type') == 'product' and isinstance((o.get('props') or {}).get('product'), dict):
+            p = o['props']['product']; bind(p.get('id'), p.get('offerId'), at)
+        bought = (o.get('payload') or {}).get('product') if o.get('type') == 'purchase' else None
+        if isinstance(bought, dict) and bought.get('type') == 'const' and isinstance(bought.get('value'), dict):
+            bind(bought['value'].get('id'), bought['value'].get('offerId'), at)
+        if o.get('kind') == 'product':
+            bind(o.get('id'), o.get('offerId'), at)
+        if isinstance(o.get('fallbackOfferId'), str):
+            bind(o.get('id'), o['fallbackOfferId'], at)
+        v = o.get('variableId')
+        if isinstance(v, str) and re.match(r'[0-9a-fA-F-]{36}(@\w+)?\.', v):
+            bind(v[:36], None, at)
+        for v in o.values(): walk(v, at)
+    elif isinstance(o, list):
+        for v in o: walk(v, at)
+for s in cfg.get('screens') or []:
+    walk(s, s.get('id'))
+    for p in s.get('products') or []: bind(p.get('id'), p.get('offerId'), s.get('id'))
+for sid, m in ((cfg.get('_meta') or {}).get('screens') or {}).items():
+    for p in m.get('products') or []: bind(p.get('id'), p.get('offerId'), sid)
+walk(cfg.get('components') or {}, 'a component')
+if not pairs:
+    print('   no products bound'); sys.exit(0)
+def read(args):
+    r = subprocess.run(cli + args + ['--app', app, '--json'], capture_output=True, text=True)
+    try: d = json.loads(r.stdout)
+    except Exception: d = None
+    if not isinstance(d, dict) or 'data' not in d:
+        raise RuntimeError((r.stdout or r.stderr).strip()[:200])
+    return d
+try:
+    prods, page = {}, 1
+    while True:
+        d = read(['products', 'list', '--page-size', '100', '--page', str(page)])
+        prods.update({p['id']: p for p in d['data']})
+        if page >= ((d.get('meta') or {}).get('pagination') or {}).get('pages', 1): break
+        page += 1
+except RuntimeError as e:
+    print(f'   COULD NOT READ products list ({e}) — check each id with `products get` before publishing')
+    sys.exit(1)
+bad = 0
+for pid in sorted({p for p, _ in pairs}):
+    if pid not in prods:
+        bad += 1
+        at = next(a for (p, _), a in sorted(where.items(), key=str) if p == pid)
+        print(f'   NOT IN THIS APP: product {pid} (on {at}). validate passes it; rebind it to a'
+              f' product from `products list`')
+for pid in sorted({p for p, o in pairs if o and p in prods}):
+    try:
+        offers = {o['id']: o for o in read(['product-offers', 'list', '--product', pid])['data']}
+    except RuntimeError as e:
+        print(f'   COULD NOT READ the offers of {prods[pid].get("title", pid)} ({e})'); bad += 1; continue
+    for oid in sorted(o for p, o in pairs if p == pid and o and o not in offers):
+        bad += 1
+        have = '; '.join(f'{o.get("title")} = {i}' for i, o in offers.items()) or 'none'
+        print(f'   NOT AN OFFER OF {prods[pid].get("title", pid)}: {oid}. Bind an `id` from'
+              f' `product-offers list` (its offers: {have})')
+if not bad:
+    print(f'   ok — {len({p for p, _ in pairs})} product(s), {len({o for _, o in pairs if o})} offer(s), all in this app')
+sys.exit(1 if bad else 0)
+PYEOF
+  then :; else fail=1; fi
+fi
+
+echo "-- 4/4 publish gate (flows config validate)"
 if [ -z "$APP" ] || [ -z "$FLOW" ]; then
   echo "   SKIPPED — pass APP_UUID and FLOW_ID to run it. A green local pass is NOT a publish gate."
   fail=1

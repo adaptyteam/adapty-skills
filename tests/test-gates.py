@@ -14,10 +14,11 @@ its `validate` call across every gates.sh run on the machine, and retries a gate
     LOCK    -- three parallel runs never overlap inside `validate`, and the waiters say so
     STALE   -- a lock left by a dead process is taken over at once
     RETRY   -- a 502 then a verdict reads as the verdict
+    IDS     -- a product the app lacks, or an offer not of its product, stops the gate
 
 Usage: python3 tests/test-gates.py     # 0 all pass, 1 a case regressed
 """
-import os, re, shutil, stat, subprocess, sys, tempfile, time
+import json, os, re, shutil, stat, subprocess, sys, tempfile, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GATES = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'gates.sh')
@@ -110,6 +111,65 @@ with tempfile.TemporaryDirectory() as tmp:
     out = gates(env_for(tmp, FAKE_502='2'), APP, FLOW).communicate(timeout=120)[0]
     check('RETRY: two 502s are a failed call, not a verdict, and say to run alone',
           'API ERROR (not a verdict' in out and 'NOT CLEAR' in out, out)
+
+# The ids step. `validate` passes an unknown product, a store code as offerId and an offer of
+# another product, so the script reads them: one `products list`, one `product-offers list` per
+# product bound with an offer. This fake answers those two from fixed data, validate as valid.
+YEARLY, MONTHLY = '8fb58c50-7c05-42f9-a8e3-8d0fde19505a', '7658234e-f95b-474e-bf5c-4b9ae634029e'
+TRIAL = '0d7e4b19-8c2a-4e6f-a5b3-71c9d0e2f4a6'
+FAKE_IDS = r'''#!/bin/bash
+case "$1 $2" in
+  "products list") printf '{"data": [{"id": "%s", "title": "Pro Yearly"}, {"id": "%s", "title": "Pro Monthly"}], "meta": {"pagination": {"page": 1, "pages": 1}}}\n' "$Y" "$M" ;;
+  "product-offers list") printf '{"data": [{"id": "%s", "title": "7-day free trial", "store_offers": {"play_store": {"offer_id": "free-trial-7d"}}}]}\n' "$T" ;;
+  *) printf '{"valid": true, "issues": []}\n' ;;
+esac
+'''
+SEED = os.path.join(ROOT, 'tests', 'fixtures', 'onboarding-quiz-paywall.json')
+
+
+def json_swap(doc, old, new):
+    return json.loads(json.dumps(doc).replace(old, new))
+
+
+def ids_run(tmp, mutate):
+    fake = os.path.join(tmp, 'adapty-ids')
+    open(fake, 'w').write(FAKE_IDS)
+    os.chmod(fake, os.stat(fake).st_mode | stat.S_IEXEC)
+    doc = json.load(open(SEED))
+    mutate(doc)
+    path = os.path.join(tmp, 'c.json')
+    json.dump(doc, open(path, 'w'))
+    env = env_for(tmp, ADAPTY=fake, Y=YEARLY, M=MONTHLY, T=TRIAL)
+    return subprocess.run(['/bin/bash', GATES, path, APP, FLOW], env=env, capture_output=True,
+                          text=True, timeout=120).stdout
+
+
+def offer_on_card(oid):
+    def mutate(doc):
+        for s in doc['screens']:
+            for e in s['elements']['map'].values():
+                if e.get('type') == 'product' and e['props']['product']['id'] == YEARLY:
+                    e['props']['product']['offerId'] = oid
+    return mutate
+
+
+with tempfile.TemporaryDirectory() as tmp:
+    out = ids_run(tmp, lambda d: None)
+    check('IDS: every bound product is in the app -> ok, and the gate passes',
+          '2 product(s), 0 offer(s), all in this app' in out and 'ALL GATES PASS' in out, out)
+with tempfile.TemporaryDirectory() as tmp:
+    out = ids_run(tmp, offer_on_card(TRIAL))
+    check('IDS: an offer of its own product -> ok',
+          '1 offer(s), all in this app' in out, out)
+with tempfile.TemporaryDirectory() as tmp:
+    out = ids_run(tmp, offer_on_card('free-trial-7d'))
+    check('IDS: the store code as offerId -> NOT AN OFFER, naming the right id, gate not clear',
+          'NOT AN OFFER OF Pro Yearly: free-trial-7d' in out and TRIAL in out and 'NOT CLEAR' in out, out)
+with tempfile.TemporaryDirectory() as tmp:
+    ghost = '22222222-3333-4444-8555-666666666666'
+    out = ids_run(tmp, lambda d: d.update(json_swap(d, YEARLY, ghost)))
+    check('IDS: a product the app does not have -> NOT IN THIS APP, gate not clear',
+          f'NOT IN THIS APP: product {ghost}' in out and 'NOT CLEAR' in out, out)
 
 print()
 if fails:

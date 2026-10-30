@@ -326,7 +326,9 @@ Adapty](https://adapty.io/docs/create-offer.md).
   ```
 
   The offer reaches buyers only once a paywall or flow picks it for that product: a flow copy
-  through `flow-generator`, a paywall copy in the dashboard.
+  through `flow-generator`, a paywall copy in the dashboard. An App Store trial is never picked:
+  with no promotional offer on the card, iPhone buyers get the product's introductory offer, and a
+  Google Play trial on the same card does not take it away.
 - **A paywall's products and offers lock** once it has sales or is over 30 days old: a test
   needs a copy of the paywall. A flow can change them at any time.
 - **Billing failures differ by store.** When one store has a much larger share of billing-issue

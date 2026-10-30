@@ -1626,6 +1626,42 @@ def check(path, baseline_text=None, baseline_images=None):
                             f'_meta.screens, so device preview returns HTTP 422 '
                             f'missing_flow_product_id until the builder saves. For an authored '
                             f'flow, declare it yourself: flowkit.predeclare()')
+            else:
+                # The offer is part of the binding's identity, so a card given an offer whose
+                # declaration still names the bare product is bound to a pair nobody declared.
+                # A hand patch that sets `offerId` on the card alone produces exactly this.
+                oid = (e.get('props') or {}).get('product', {}).get('offerId') or None
+                pairs = {(p.get('id'), p.get('offerId') or None)
+                         for p in ms.get(s['id'], {}).get('products', [])}
+                if (pid, oid) not in pairs:
+                    warn.append(f'the product card {e["id"]} on screen {s["id"]} binds product '
+                                f'{pid} with offer {oid or "(none)"}, but _meta.screens declares '
+                                f'that product only with '
+                                f'{sorted(str(o or "(no offer)") for p_, o in pairs if p_ == pid)}. '
+                                f'Declare the exact pair: flowkit.predeclare(screen_id, '
+                                f'[(product_id, offer_id)]), or carry the screen registry')
+
+    # An `offerId` is the Adapty offer id, the `id` that `product-offers list` returns, which is
+    # a UUID. The same list carries the store's own code under `store_offers.<store>.offer_id`, a
+    # field named like flowkit.product()'s parameter, and `flows config validate` answers
+    # `valid: true` for that code and for an unknown offer id alike (measured, adapty 0.15.0).
+    # The builder then refuses the publish with "This offer no longer exists".
+    uuid_re = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+                         r'[0-9a-fA-F]{12}\Z')
+    store_codes = set()
+
+    def offer_shape(o):
+        for k in ('offerId', 'fallbackOfferId'):
+            v = o.get(k)
+            if isinstance(v, str) and v and not uuid_re.match(v):
+                store_codes.add((k, v))
+
+    walk(d, offer_shape)
+    for k, v in sorted(store_codes):
+        bad.append(f'{k} {v!r} is not an Adapty offer id. Bind the offer\'s `id` from '
+                   f'`adapty product-offers list --product <product_id>`, never '
+                   f'`store_offers.<store>.offer_id`, which is the store\'s code: validate passes '
+                   f'it and the builder refuses the publish ("This offer no longer exists")')
 
     # A `const` purchase action names a product with no element behind it, so the
     # declaration harvester — which walks `product` elements only — never sees it.

@@ -24,8 +24,8 @@ cannot be synthesized:
   flag.
 
 Everything else is reachable: product UUIDs from `adapty products list` (or `products create`),
-`theme` colours sampled off a reference screenshot, and icon markup resolved from the bundle
-`references/icons.py` ships.
+offer ids from `adapty product-offers list`, `theme` colours sampled off a reference screenshot,
+and icon markup resolved from the bundle `references/icons.py` ships.
 
 **`flowProductId`** — the per-screen declaration in `_meta.screens[].products[]` — is derived, not
 waited for. `flowkit.predeclare(screen_id, products)` writes the block; pass exact bindings, a bare product
@@ -561,7 +561,10 @@ screen that sells, resolve the products **before the design**, in this order, an
 step silently:
 
 1. `$ADAPTY products list` and show what exists — title, period, store bindings — and ask which
-   of these belong on the screen. Most accounts already have the right products.
+   of these belong on the screen. Most accounts already have the right products. An offer on a
+   card (a trial, an intro or promo price) is bound by its `id` from `product-offers list`, and an
+   App Store trial by no offer at all
+   ([products.md → Where offer ids come from](references/products.md#where-offer-ids-come-from)).
 2. Only if nothing fits: ask for their **store product ids** (App Store product id; Google
    product id **plus base plan id** for subscriptions) — those are the bindings `products create`
    cannot run without, so asking later just stalls the create.
@@ -671,16 +674,17 @@ act on it, never paste it through.
 ### 3. Check the shape, then clear the publish gate
 
 Walk [Verify](#verify) first — it is local and free and it finds every defect at once, which the
-commands below do not. Then **all three gates in one call**:
+commands below do not. Then **all four gates in one call**:
 
 ```bash
 BASELINE=flow.backup.json references/gates.sh draft.json <APP_UUID> <FLOW_ID>
 ```
 
-It runs the structural walk, the schema shape check and the publish gate over the *same bytes*,
-prints one verdict, and exits non-zero only when something blocking was found. **One call, not
-three** — the gates cost well under a second each while an extra round trip costs tens of seconds,
-so the turns were the expensive part. Drop the app and flow ids and it says so rather than
+It runs the structural walk, the schema shape check, a read of every bound product and offer
+against the app (`validate` passes ids the app does not have) and the publish gate over the *same
+bytes*, prints one verdict, and exits non-zero only when something blocking was found. **One call,
+not four** — the gates cost well under a second each while an extra round trip costs tens of
+seconds, so the turns were the expensive part. Drop the app and flow ids and it says so rather than
 pretending a local pass is a publish gate. The three underlying commands, if you need to run one
 alone, are in [validate.md](references/validate.md).
 
