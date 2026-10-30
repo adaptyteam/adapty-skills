@@ -106,9 +106,12 @@ list). The tools return JSON, so drop `--json`. `--yes` has no parameter: the ye
 user for still comes before the call. Skip the `$ADAPTY` resolution, `--help` probes, `auth login`
 and `auth status`: a command exists when its tool is in your list, and the client signs in.
 
-**A command with no tool, and a script that runs `$ADAPTY`, need the CLI** (`feedback` and
-`segments create` have no tool). Run that step with the CLI when it is ready. Otherwise skip the
-feedback note without a word, and for any other step say it needs the CLI and offer to set it up.
+**`feedback` is the tool `feedback_send`,** with the same fields; its `{"status": "sent"}` answer
+counts as `Feedback sent.`
+
+**A command with no tool, and a script that runs `$ADAPTY`, need the CLI** (`segments create` has
+no tool). Run that step with the CLI when it is ready. Otherwise say it needs the CLI and offer to
+set it up.
 
 **When a call fails one way,** a read may run once the other way if that way is ready. After a
 write fails or times out, read the state again the way that wrote; never repeat the write the
