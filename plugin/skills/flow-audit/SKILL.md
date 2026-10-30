@@ -76,7 +76,15 @@ the list and ask which one.
 ## Phase 2 — select the flow
 
 ```bash
-$ADAPTY flows list --app "$APP" --json --page-size 100 > flows.json
+mkdir -p flows; page=1
+while :; do
+  $ADAPTY flows list --app "$APP" --json --page-size 100 --page $page > flows/$page.json
+  pages=$(python3 -c "import json; m = json.load(open('flows/$page.json')).get('meta') or {}; \
+print((m.get('pagination') or {}).get('pages') or 1)")
+  [ "$page" -ge "$pages" ] && break; page=$((page + 1))
+done
+python3 -c "import glob, json; json.dump({'data': [f for p in glob.glob('flows/*.json') \
+for f in json.load(open(p))['data']]}, open('flows.json', 'w'))"
 ```
 
 Returns `{id, name, status, updated_at}` per flow — `status` alone is a finding source
@@ -94,7 +102,15 @@ checked.
 $ADAPTY flows config get "$FLOW" --app "$APP" --json > flow.envelope.json
 python3 -c "import json; d = json.load(open('flow.envelope.json')); \
 json.dump(d['config'], open('flow.config.json', 'w'))"
-$ADAPTY products list --app "$APP" --json > catalog.json
+mkdir -p catalog; page=1
+while :; do
+  $ADAPTY products list --app "$APP" --json --page-size 100 --page $page > catalog/$page.json
+  pages=$(python3 -c "import json; m = json.load(open('catalog/$page.json')).get('meta') or {}; \
+print((m.get('pagination') or {}).get('pages') or 1)")
+  [ "$page" -ge "$pages" ] && break; page=$((page + 1))
+done
+python3 -c "import glob, json; json.dump({'data': [p for f in glob.glob('catalog/*.json') \
+for p in json.load(open(f))['data']]}, open('catalog.json', 'w'))"
 ```
 
 `flows config get` returns an **envelope** — `{config, remote_configs, updated_at,
@@ -119,8 +135,8 @@ while :; do
   $ADAPTY placements list --app "$APP" --json --page-size 100 --page $page > placements.page.json
   python3 -c "import json; d = json.load(open('placements.page.json')); \
 print('\n'.join(p['id'] for p in d['data']))" >> placement-ids.txt
-  pages=$(python3 -c "import json; \
-print(json.load(open('placements.page.json'))['meta']['pagination']['pages'])")
+  pages=$(python3 -c "import json; m = json.load(open('placements.page.json')).get('meta') or {}; \
+print((m.get('pagination') or {}).get('pages') or 1)")
   [ "$page" -ge "$pages" ] && break; page=$((page + 1))
 done
 xargs -P 8 -I{} sh -c "$ADAPTY placements get {} --app $APP --json > placements/{}.json" \
@@ -146,14 +162,16 @@ for l in (json.load(open(p))['config'].get('localization') or {}).get('locales')
 for p in glob.glob('siblings/*.json')}, open('sibling-locales.json', 'w'))"
 ```
 
-`flows.json` is the Phase 2 `flows list --json` output, saved to that name (page through it
-the same way as placements). If this fetch fails, leave `--sibling-locales` off; nothing
-else depends on it.
+`flows.json` is the Phase 2 list, every page. If this fetch fails, leave
+`--sibling-locales` off; nothing else depends on it.
 
-**Read every page.** `--page-size` defaults to 20, and stopping at page 1 reports "no
-placement shows this flow" for a flow a later page attaches. If the fetch fails, run the
-audit without `--placements`: the report then tells the user where to check it
-themselves, instead of claiming an answer.
+**Read every page of all three lists.** `--page-size` defaults to 20 and stops at 100, and a
+short read gives a wrong finding, not a smaller one: a product on a later page reads as "not in
+the catalog", a blocker; a placement on a later page as "no placement shows this flow"; a flow
+on a later page drops out of the name match and the sibling languages. A list with nothing in it
+can answer `pagination: null`, which is one page. If the placement fetch fails, run the audit
+without `--placements`: the report then tells the user where to check it themselves, instead
+of claiming an answer.
 
 ## Phase 4 — check
 
