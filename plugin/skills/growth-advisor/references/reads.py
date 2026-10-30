@@ -277,6 +277,15 @@ def split_money(segs):
           'side that carries most of the fall, and its first fact gives both numbers.')
 
 
+def refund_share(refunds, revenue):
+    """Refunds over revenue for the same months: the share market.md, Refunds grades."""
+    tot = [sum(p.get('value') or 0 for p in s.get('values') or [])
+           for segs in (refunds, revenue) for s in segs if s.get('is_total')]
+    if len(tot) == 2 and tot[1]:
+        print(f'   refunds are {tot[0] / tot[1]:.1%} of revenue over these months; '
+              'grade the share by its row in market.md, Refunds')
+
+
 def same_windows(segs):
     """Installs per store for the same two comparisons split_money prints, so traffic and money in one reply
     always compare the same months."""
@@ -666,7 +675,7 @@ def audit(a):
     R('new paid subscriptions by plan length', chart('subscriptions_new', f, t, 'duration'))
     R('5. new trials by product (whether a plan has a trial)', chart('trials_new', f, t, 'store_product_id'))
     R('6. endings by reason', chart('subscriptions_expired', f, t, 'cancellation_reason'))
-    R('7. refunds by country', chart('refund_money', f, t, 'country'), top=12)
+    refund_share(R('7. refunds by country', chart('refund_money', f, t, 'country'), top=12), by_country)
     placements = R('8. new subscriptions by placement', chart('subscriptions_new', f, t, 'placement_id'))
     R('new subscriptions by paywall', chart('subscriptions_new', f, t, 'paywall_id'))
     R('first-payment revenue by placement (the base for a hypothesis\'s dollars a month)',
