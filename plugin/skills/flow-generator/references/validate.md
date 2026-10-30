@@ -74,6 +74,8 @@ config as broken and a failed call as a defect.
 
 **`http_502` is a failed call, never a verdict on the config.** Validating many flows in parallel
 returns it for most of them. Validate one flow at a time, and on a 502 retry that one call once.
+`gates.sh` enforces both: a second run waits for the first one's `validate` (it prints
+`waiting:`), and it retries a gateway error once.
 
 `code` and `path` come back `null` on every message measured. The location, when there is one, is
 inside the `message` string.
@@ -116,8 +118,9 @@ Each row measured by injecting the defect into a real, previously-clean config.
 | An id in `hierarchy` with no `elements.map` entry | `Element "<id>" referenced in hierarchy but missing from element map (…)` |
 | `localization.defaultLocale` naming no configured locale id | `Default locale "<id>" does not match a configured locale` — match on that prefix, not the path in brackets |
 | A pre-catalog document: top-level `locales` / `defaultLocale`, inline localizable values | refused — the service takes the catalog form only. `references/verify-config.py` names it first, with the way through |
+| An input whose `font.preset` is not a `theme.typography` id | `Unsupported flow input: Input element references unknown typography preset "<preset>" (…props.font.preset)` |
 | A malformed hex colour (e.g. `#FFf`) | `Generated JSON failed schema validation` |
-| An `icon` used but not declared in `_meta.icons` — **including a `custom` icon whose name is a builtin** | `Unsupported flow input: Icon "<name>" with weight "<w>" is missing from flow._meta.icons (screens[…].props.icon)` |
+| An `icon` used but not declared in `_meta.icons` — **including a `custom` icon whose name is a builtin**, and a `custom` icon carrying a `weight` (a key the schema refuses) that its entry lacks: `regular` passes, `bold` against a `regular` entry is refused | `Unsupported flow input: Icon "<name>" with weight "<w>" is missing from flow._meta.icons (screens[…].props.icon)` |
 
 That last row surprised a real build and is worth stating on its own: a **`spinner`** whose
 `props.icon` is `{"type": "custom", "name": "spinner1"}` — a name lifted straight out of
@@ -130,6 +133,15 @@ Note also what the render then does with it: `config preview` drew **its own** a
 than the authored `raw` path — the same authored-versus-bundled ambiguity
 [patterns.md](patterns.md) records for icon names, so the `raw` you ship is what the device gets
 and the preview cannot confirm it.
+
+**`Localized rich-text value has invalid shape` names the element and the locale, not the node.**
+A hand-written `variable` node with `variableId` beside `attrs` instead of inside it gives
+`Unsupported flow input: Localized rich-text value has invalid shape
+(screens["<sid>"].elements.map["<eid>"].props.content.values["<locale>"])`, with or without an
+`attrs` key (measured). `verify-config.py` passes that node (measured); `validate-with-schema.mjs`
+names it — `/localization/content/<lid>/values/<locale>/<block>/content/<n>`, `unknown property
+"variableId"`. The node shapes are in
+[flow-schema.md](flow-schema.md#2-rich-text-is-two-levels-of-node-and-two-of-the-three-inline-types-carry-no-text).
 
 The first four are the ones that matter most in practice, because they are the ones an ordinary
 transform produces: removing a screen strands a `navigate`, moving an element strands a `groupId`,

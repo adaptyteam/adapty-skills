@@ -438,9 +438,9 @@ The skills are instructions and a few local helper scripts. They run nothing on 
 | **The Adapty Mail MCP server** | Only with `adapty-mail`, after you add the server to your agent and approve the connection | `api-mail.adapty.io`, signed in as you through OAuth. It reads and changes your Adapty Mail project and can send email, each change on your yes |
 | **SDK version lookups** | Once per integration, to pin the current SDK release | `api.github.com`, `pub.dev`, Maven Central, depending on the platform |
 | **Flow config schema** | When `flow-generator` checks a config | `app.adapty.io/flow-schema/latest.json`, cached in your temp directory |
-| **Flow previews** | When `flow-generator` renders a screen for you to look at | Your flow config is opened in Adapty's preview page (`app.adapty.io`) in a local headless Chrome. The preview link for a phone is `mobile-app.adapty.io` |
+| **Flow previews** | When `flow-generator` renders a screen for you to look at | Your flow config is opened in Adapty's preview page (`app.adapty.io`) in a Chromium-based browser already on your machine (Chrome, Edge, Brave or Chromium), run headless. The preview link for a phone is `mobile-app.adapty.io` |
 | **Images you hand over** | Only when you give `flow-generator` an image for a flow | Uploaded to your Adapty account's media library through the CLI |
-| **Optional helper packages** (`ajv`, `playwright`, `qrcode`) | Only for the schema check, the Playwright preview and the QR code, each installed once into `~/.cache/` | The npm registry |
+| **Optional helper packages** (`ajv`, `playwright-core`, `qrcode`) | Only for the schema check, the preview and the QR code, each installed once into `~/.cache/`; `flow-generator` installs `playwright-core` the first time it renders, when npm is available | The npm registry |
 
 `ab-tests` starts, stops and replaces A/B tests in your Adapty account. It shows the effect of each and waits for your yes before it runs one.
 

@@ -333,15 +333,24 @@ dropdown, not the JSON, and followed literally it gives a screen that never adva
 loader must be pinned, the `fixed` position goes on a **container**, not on the Loader element
 itself.
 
-**Under `safeArea: true`, check where an absolute element lands.** In the render, an absolute
-`top` was measured from the top of the full screen rather than from below the status bar, so a
-timer or back button at `top: 0` sat under the clock. Look for it in the render and move the
-element down rather than trusting the number.
-
 **A `spinner`'s `duration` is its ROTATION PERIOD, not a completion time.** It loops forever and
 fires nothing, on every surface. The field reads exactly like a delay — a user looking at
 `duration: 1000` reasonably asked why the screen never advanced after a second — so when a
 spinner and a Countdown share a screen, say in the handoff which one moves the flow.
+
+**An element that appears after a delay — a close button after five seconds — is the same
+timer.** The element starts `visibility: hidden`, and the timer's `timer-end` fires `showElement`
+on it (`fk.show_elements`) instead of a `navigate`; the timer keeps its digits, background-coloured,
+exactly as above. On a device this shape showed the X after five seconds, and the X closed the flow; the preview never
+fires a timer, so it draws the screen without it. **The `animation` field's `showAfterDelay` is
+not this**: it is a setting of the Pulse animation, and an element carrying it showed at once on a
+device.
+
+### Under `safeArea: true`, check where an absolute element lands
+
+In the render, an absolute `top` was measured from the top of the full screen rather than from
+below the status bar, so a timer or back button at `top: 0` sat under the clock. Look for it in
+the render and move the element down rather than trusting the number.
 
 ### A loading screen — fill the `loader-spinner-label` template; never fake the spinner
 
@@ -1279,10 +1288,17 @@ that is not at the root, and refuses two.
   | the image's size | what the band draws |
   | :--- | :--- |
   | `width` fixed | inset by the screen padding and the top safe area like the rows below — **not** edge to edge, and not under the status bar. With `height` hug and an image that fits the band, it keeps that width from the leading padding and narrows where the band is narrower. Otherwise the width is ignored and the `width` fill row with the same height applies. For a hero that runs under the status bar, use the screen `fill` |
-  | `width` fill, `height` fill | fills the band, inset by the screen padding and the top safe area |
+  | `width` fill, `height` fill | fills the band, inset by the screen padding and the top safe area. Drawn from its top edge: a taller image loses its bottom, not its top and bottom evenly (rendered, with and without a `previewValue`, and the same on a device), so keep the subject high in the file |
   | `width` fill, `height` fixed | exactly that height, top-aligned; the rest of the band shows the screen fill |
   | `width` fill, `height` hug | its natural height if that fits the band, cropped to the band if it is taller. The call is made from the image's **`previewValue`**; without one the image is treated as fitting, so a tall image letterboxes instead of cropping. Carry the preview ([`media.md`](media.md)) |
 
+- **A fade over the hero: a fill layer, or an overlay pinned to the band's bottom.** All three
+  drew in the render: a gradient layer above the image in the screen `fill` (its stops span the
+  whole screen, so the band shows only their top part); a cover `stack` at `height` fill whose
+  `fill` is the image plus the gradient; and an `absolute` stack at `bottom: 0, left: 0, right: 0`,
+  `width` auto, fixed height, listed before or after the image — that last one also drew on a
+  device, with the sheet riding up over it on scroll. **Never anchor it `top` and
+  `bottom` too**: that one stretched over the whole screen and painted over the sheet.
 - **The footer goes inside the sheet, as its last child, or at the root.** Either way it is the
   screen's one pinned bar, and rule 0 of the footer section still holds: `scrollable` must stay
   `true`.

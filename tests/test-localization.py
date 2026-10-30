@@ -73,6 +73,10 @@ print('\ncatalog() on the stored corpus')
 corpus = sorted(glob.glob(os.path.join(HERE, 'fixtures', '*.json')))
 for path in corpus:
     doc = json.load(open(path))
+    if L._version(doc) < L.MIN_SOURCE_VERSION:
+        # A pre-v12 export (the custom-actions one is v10) is refused by design; that refusal
+        # is pinned in the next section, so it is not an idempotence case.
+        continue
     out, w = L.catalog(doc)
     check(f'{os.path.basename(path)} comes back unchanged', out == doc and not w)
 
@@ -160,9 +164,10 @@ def fires(name, d, fragment, level='ERROR'):
     check(name, any(fragment in l and level in l for l in out.splitlines()), out[-400:])
 
 
-check('the stored corpus has no catalog finding',
+check('the stored corpus has no catalog finding (pre-v12 exports are refused by design)',
       not any('catalog' in verify(json.load(open(p))) and 'ERROR' in verify(json.load(open(p)))
-              for p in corpus))
+              for p in corpus
+              if L._version(json.load(open(p))) >= L.MIN_SOURCE_VERSION))
 
 d = copy.deepcopy(multi)
 d['locales'] = d['localization'].pop('locales')
@@ -264,6 +269,104 @@ d = copy.deepcopy(tabs)
 d['localization']['content'][url_entries(d)[0]['_lid']]['values'] = {
     'en': [{'type': 'text', 'text': 'https://x/'}, {'type': 'text', 'text': 'terms'}]}
 check('text nodes are an address', 'openUrl' not in verify(d) and 'address' not in verify(d))
+
+print('\nrename_locale(): the repair for a code the SDK cannot match')
+# A real multi-locale export with a lowercase-region locale added the way a dashboard language
+# list has served it: declared, translated in a few entries, and the default of nothing.
+pt = copy.deepcopy(multi)
+pt['localization']['locales'].append({'id': 'pt-br', 'code': 'pt-br', 'name': 'Portuguese'})
+_with_pt = [cid for cid, e in pt['localization']['content'].items()
+            if 'sr' in e.get('values', {})][:5]
+for cid in _with_pt:
+    vals = pt['localization']['content'][cid]['values']
+    pt['localization']['content'][cid]['values'] = dict(
+        list(vals.items())[:1] + [('pt-br', copy.deepcopy(vals['sr']))] + list(vals.items())[1:])
+env = {'config': pt, 'remote_configs': [{'locale': 'en', 'data': '{}'},
+                                         {'locale': 'pt-br', 'data': '{"a": 1}'}],
+       'status': 'draft', 'updated_at': 1}
+_before = json.dumps(env)
+out_env, counts = L.rename_locale(env, 'pt-br', 'pt-BR')
+check('nothing named pt-br is left anywhere', '"pt-br"' not in json.dumps(out_env),
+      json.dumps(out_env)[:200])
+check('the input document is not mutated', json.dumps(env) == _before)
+check('the locale entry carries the new id and code, name kept',
+      {'id': 'pt-BR', 'code': 'pt-BR', 'name': 'Portuguese'}
+      in out_env['config']['localization']['locales'])
+check('every values map that had the locale is renamed, and counted',
+      counts == {'locales': 1, 'defaultLocale': 0, 'values': len(_with_pt), 'remote_configs': 1},
+      counts)
+_vals = out_env['config']['localization']['content'][_with_pt[0]]['values']
+check('a renamed key keeps its position in the map, so the diff is the rename alone',
+      list(_vals)[1] == 'pt-BR', list(_vals))
+check('the renamed value is the same value',
+      _vals['pt-BR'] == env['config']['localization']['content'][_with_pt[0]]['values']['pt-br'])
+check('remote_configs follow, the other entries untouched',
+      out_env['remote_configs'] == [{'locale': 'en', 'data': '{}'},
+                                    {'locale': 'pt-BR', 'data': '{"a": 1}'}])
+check('the envelope keeps its other keys',
+      out_env['status'] == 'draft' and out_env['updated_at'] == 1)
+_warn = 'are not `language[-Script][-REGION]`'
+check('verify-config warns on the misshapen code before the rename', _warn in verify(pt))
+_after = verify(out_env['config'])
+check('...and not after it', _warn not in _after, _after[-300:])
+
+_def = copy.deepcopy(pt)
+_def['localization']['defaultLocale'] = 'pt-br'
+_def['defaultLocale'] = 'pt-br'
+_out, _c = L.rename_locale(_def, 'pt-br', 'pt-BR')
+check('defaultLocale follows, in the catalog and in the legacy echo',
+      _out['localization']['defaultLocale'] == 'pt-BR' and _out['defaultLocale'] == 'pt-BR'
+      and _c['defaultLocale'] == 2, _c)
+
+inline = {'schemaVersion': 12, 'locales': [{'id': 'en', 'code': 'en', 'name': 'English'},
+                                          {'id': 'pt-br', 'code': 'pt-br', 'name': 'Portuguese'}],
+          'defaultLocale': 'en',
+          'screens': [{'id': 's', 'elements': {'map': {'t': {'id': 't', 'type': 'text', 'props': {
+              'content': {'_localizable': True, 'values': {'en': 'Hi', 'pt-br': 'Oi'}}}}},
+              'hierarchy': {'id': 'root', 'children': [{'id': 't'}]}}}]}
+_out, _c = L.rename_locale(inline, 'pt-br', 'pt-BR')
+check('an inline (not yet catalogued) value is renamed too',
+      _out['screens'][0]['elements']['map']['t']['props']['content']['values']
+      == {'en': 'Hi', 'pt-BR': 'Oi'} and _c['values'] == 1, _c)
+
+
+def _refusal(fn):
+    try:
+        fn()
+    except L.RenameError as exc:
+        return str(exc)
+    return ''
+
+
+check('a target the document already has is refused: renaming onto it merges two locales',
+      'already' in _refusal(lambda: L.rename_locale(multi, 'sr', 'sr-Latn')))
+_stray = copy.deepcopy(inline)
+_stray['screens'][0]['elements']['map']['t']['props']['content']['values']['pt-BR'] = 'Olá'
+check('a target only a values map carries (undeclared) is refused too',
+      'values map' in _refusal(lambda: L.rename_locale(_stray, 'pt-br', 'pt-BR')))
+check('a target the SDK cannot match is refused, with the casing rule',
+      'UPPERCASE' in _refusal(lambda: L.rename_locale(pt, 'sr', 'pt-br')))
+check('a locale the document does not have is refused, naming what it has',
+      "'de'" in _refusal(lambda: L.rename_locale(multi, 'de', 'de-DE')))
+check('renaming to the same name is refused', bool(_refusal(lambda: L.rename_locale(multi, 'en', 'en'))))
+
+with tempfile.TemporaryDirectory() as tmp:
+    src, dst = os.path.join(tmp, 'in.json'), os.path.join(tmp, 'out.json')
+    json.dump(env, open(src, 'w'))
+    r = subprocess.run([sys.executable, GEN, 'rename', src, 'pt-br', 'pt-BR', '--out', dst],
+                       capture_output=True, text=True)
+    check('the CLI renames into --out and exits 0', r.returncode == 0
+          and json.load(open(dst)) == out_env, r.stdout + r.stderr)
+    check('the CLI says remote configs must go back with the config',
+          '--remote-configs' in r.stdout, r.stdout)
+    os.unlink(dst)
+    r = subprocess.run([sys.executable, GEN, 'rename', src, 'en', 'pt-br', '--out', dst],
+                       capture_output=True, text=True)
+    check('a refused rename exits 2 and writes nothing',
+          r.returncode == 2 and not os.path.exists(dst), r.stdout + r.stderr)
+    r = subprocess.run([sys.executable, GEN, 'rename', src, 'pt-br'], capture_output=True,
+                       text=True)
+    check('rename without a target prints usage and exits 2', r.returncode == 2, r.stderr)
 
 print('\ncopies')
 a, b = open(GEN, 'rb').read(), open(AUD, 'rb').read()

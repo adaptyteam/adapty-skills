@@ -45,7 +45,9 @@ Usage: verify-config.py [--baseline <config.json>] <config.json> [more.json ...]
 `--baseline` additionally reports prices, discounts and durations written as literal text that
 the baseline does not contain. It is off by default because real exports legitimately carry
 hand-typed ones -- only a literal a document ADDS is evidence of a fabricated claim. Pass the
-config you fetched (phase 2's backup) when checking a draft you are about to write.
+config you fetched (phase 2's backup) when checking a draft you are about to write. It also lists
+every finding the baseline already had under ALREADY IN, apart from this edit's own, and those do
+not count toward the exit code.
 
 Exit 0 if every file is clean (warnings allowed), 1 if any invariant is violated.
 """
@@ -305,6 +307,22 @@ def all_var_ids(o, out=None):
     elif isinstance(o, list):
         for v in o:
             all_var_ids(v, out)
+    return out
+
+
+def _product_refs(o, out=None):
+    """Every expression `productRef` operand in a subtree. A rich-text variable's
+    `attrs.productRef` is not one: it rides beside a `variableId` that already says the same."""
+    out = [] if out is None else out
+    if isinstance(o, dict):
+        if o.get('type') == 'productRef':
+            out.append(o)
+        for k, v in o.items():
+            if k != 'attrs':
+                _product_refs(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            _product_refs(v, out)
     return out
 
 
@@ -625,6 +643,56 @@ def fill_backgrounds(fill, pal):
             return None
         out.append(got[0])
     return tuple(out)
+
+def fill_below(fill, pal, under):
+    """What an element's fill leaves under its children, given what is under the element.
+
+    `under` and the result are a tuple of rgb (as `fill_backgrounds` returns) or None for UNKNOWN.
+    No fill, or one that paints nothing, keeps `under`. An opaque solid or gradient replaces it. A
+    translucent SOLID is flattened onto `under` when that is known. Anything else -- an image or a
+    video layer, several layers, a translucent gradient (a fade), a theme style holding a gradient,
+    a colour that does not resolve -- paints something this cannot compute, so the result is
+    UNKNOWN and every text below it is skipped. Falling through to the background further up was
+    the wrong answer: four runs had white text over a gradient footer, a fade and a photo reported
+    as white on the white page.
+    """
+    layers = fill if isinstance(fill, list) else [fill] if isinstance(fill, dict) and fill else []
+    if not layers or all(isinstance(l, dict) and l.get('type') == 'gradient' and not l.get('stops')
+                         for l in layers):
+        return under
+    own = fill_backgrounds(fill, pal)
+    if own:
+        return own
+    solid = solid_fill(fill)
+    got = resolve_color(solid, pal) if solid is not None else None
+    if got and under:
+        return tuple(composite(got[0], got[1], b) for b in under)
+    return None
+
+def _digits_only(content):
+    """True when every locale of a text is `timer_*` tokens and separators only -- a timer's own
+    digits, with no word in them."""
+    tokens, words = [], []
+
+    def grab(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'token':
+                tokens.append(str((o.get('attrs') or {}).get('token', '')))
+            elif o.get('type') == 'variable':
+                words.append('x')
+            elif isinstance(o.get('text'), str):
+                words.append(o['text'])
+            for k, v in o.items():
+                if k not in ('attrs', 'text', 'type') and not k.startswith('_'):
+                    grab(v)
+        elif isinstance(o, list):
+            for v in o:
+                grab(v)
+    if isinstance(content, str):                  # a catalog template's bare string
+        words.append(content)
+    grab(content)
+    return (bool(tokens) and all(t.startswith('timer_') for t in tokens)
+            and not any(ch.isalnum() for w in words for ch in w))
 
 def luminance(rgb):
     def lin(c):
@@ -1138,7 +1206,12 @@ def check(path, baseline_text=None, baseline_images=None):
                    + '; '.join(f'{k} on {", ".join(v)}' for k, v in sorted(shared.items())[:4])
                    + (', …' if len(shared) > 4 else '')
                    + " — one generated script per flow, so the second declaration collides "
-                     "with the first")
+                     "with the first. Give each element of the screen you added or rebuilt an id "
+                     "the flow does not use yet, and move every reference to it (hierarchy, "
+                     "show/hide actions) to the new id: a build script that numbers ids from 1 on "
+                     "each run repeats ids the fetched flow already has — build it after "
+                     "`flowkit.ids_after(<fetched config>)`, which makes every minted id miss "
+                     "the live ones")
 
     # Inside ONE screen a map is keyed by id, so a second element with an id the screen already
     # holds does not sit beside the first — merging it into `map` replaces it, and the screen's
@@ -1354,14 +1427,25 @@ def check(path, baseline_text=None, baseline_images=None):
     # `remote_configs`), so it is a report-and-ask rather than something to rewrite in passing.
     # If THIS run wrote the code, fix the code; `flowkit.config()` refuses to emit one.
     misshapen = [c for c in codes if not LOCALE_CODE.fullmatch(str(c))]
+
+    def _cased(c):
+        """The code in the SDK's casing: language lower, a 4-letter script Title, region UPPER."""
+        parts = str(c).replace('_', '-').split('-')
+        return '-'.join([parts[0].lower()] + [p.title() if len(p) == 4 and p.isalpha()
+                                              else p.upper() for p in parts[1:]])
     if misshapen:
+        _to = _cased(misshapen[0])
+        _to = _to if LOCALE_CODE.fullmatch(_to) else 'pt-BR'
+        _from = misshapen[0] if LOCALE_CODE.fullmatch(_cased(misshapen[0])) else 'pt-br'
         warn.append(f"locale code(s) {', '.join(misshapen)} are not `language[-Script][-REGION]` "
                     f"with the SDK's casing (`pt-BR`, `zh-Hans`, `sr-Latn`) — the transform "
                     f"service refuses the flow at publish with a pattern violation on "
                     f"`/localizations/N/id`, although `flows config validate` returns valid: "
                     f"true for it, so fix it before any publish. Renaming a code whose locale id is the same string "
                     f"means the id too: the entry in `localization.locales`, every catalog "
-                    f"`values` key and `remote_configs`")
+                    f"`values` key and `remote_configs` — `python3 references/localization.py "
+                    f"rename <config> {_from} {_to}` does all three and refuses a target already "
+                    f"present")
 
     # Stale sizing values persist through the editor and the transformer BELIEVES them:
     # hug carrying value -> min:<value> on device (team-diagnosed; content vanished at
@@ -1790,8 +1874,10 @@ def check(path, baseline_text=None, baseline_images=None):
                 bad.append(f'no path from these screens to any end of the flow '
                            f'(navigation loop): {trapped}')
 
-    presets = {t['id'] for t in d['theme']['typography']}
-    colors = {c['id'] for c in d['theme']['colors']}
+    # A stub draft can carry no theme, and a published flow a theme with no typography.
+    theme = d.get('theme') if isinstance(d.get('theme'), dict) else {}
+    presets = {t['id'] for t in theme.get('typography') or [] if isinstance(t, dict) and 'id' in t}
+    colors = {c['id'] for c in theme.get('colors') or [] if isinstance(c, dict) and 'id' in c}
     up, uc = set(), set()
     def themerefs(o):
         if isinstance(o.get('preset'), str):
@@ -1858,16 +1944,30 @@ def check(path, baseline_text=None, baseline_images=None):
     # `KeyError: 'theme'` caused. Calibrated before choosing the severity: 0 of 21 `_meta.icons`
     # entries, 0 of 60 icon elements and 0 of 76 catalog templates omit either field, so an
     # absent one is malformed authored input and worth reporting rather than defaulting away.
-    used = set()
+    # A `custom` icon is the exception: the schema gives it no `weight` at all (it refuses the
+    # key), and the builder's own export writes none -- the spinner in
+    # `onboarding-custom-actions.json`. With no weight its declaration is matched by name alone.
+    # With one, the server matches name AND weight like a phosphor icon: `flows config validate`
+    # returns valid for `weight: "regular"` over a `regular` entry and refuses `weight: "bold"`
+    # over the same entry ("Icon … with weight "bold" is missing from flow._meta.icons").
+    used, used_custom, used_custom_w = set(), set(), set()
     for sid_e, e in els():
         if e['type'] != 'icon':
             continue
         ic = ((e.get('props') or {}).get('icon') or {})
+        if isinstance(ic, dict) and ic.get('type') == 'custom' and ic.get('name'):
+            if ic.get('weight') is None:
+                used_custom.add(ic['name'])
+            else:
+                used_custom_w.add((ic['name'], ic['weight']))
+            continue
         if not isinstance(ic, dict) or not ic.get('name') or ic.get('weight') is None:
             miss = 'name' if not (isinstance(ic, dict) and ic.get('name')) else 'weight'
             bad.append(f'{sid_e.get("id")}/{e.get("id")}: icon element has no icon.{miss} — '
                        f'the renderer resolves a phosphor glyph by name AND weight, so it '
-                       f'cannot resolve this one')
+                       f'cannot resolve this one'
+                       + (' (a `custom` icon needs no weight; set icon.type to "custom" if '
+                          'this one draws its own markup)' if miss == 'weight' else ''))
             continue
         used.add((ic['name'], ic['weight']))
     meta = set()
@@ -1880,6 +1980,16 @@ def check(path, baseline_text=None, baseline_images=None):
         meta.add((i['name'], i['weight']))
     if used - meta:
         bad.append(f'icons used but absent from _meta.icons: {sorted(used - meta)}')
+    undeclared = sorted(used_custom - {n for n, _ in meta})
+    if undeclared:
+        bad.append(f'custom icon(s) {undeclared} have no _meta.icons entry, so there is no markup '
+                   f'to draw — declare each as {{"name", "weight": "regular", "raw": "<svg…>"}}')
+    if used_custom_w - meta:
+        bad.append(f'custom icon(s) carrying a weight have no _meta.icons entry with that name AND '
+                   f'weight: {sorted(used_custom_w - meta)} — the server looks a weighted custom '
+                   f'icon up by both and refuses the flow. Drop icon.weight from the element (a '
+                   f'custom icon\'s schema has no weight, and without one the name alone '
+                   f'matches), or declare that weight in _meta.icons')
 
     # A `phosphor` icon resolves from the renderer's OWN bundle by name, so a name the bundle
     # lacks draws NOTHING — and an authored `raw` does not rescue it. Measured: correct
@@ -2126,7 +2236,53 @@ def check(path, baseline_text=None, baseline_images=None):
     # band UNDER the bar — device-confirmed, and the layout users report as "does not adapt to
     # screen sizes". Any one of a footer, a root spread, a fill-height root child or a
     # centre/end alignment gives the surplus a place. Warning: a screen taller than every phone
-    # never has a surplus, and only a render on a tall frame can tell.
+    # never has a surplus. The config bounds the height from below -- fixed heights, one line per
+    # text, padding and gaps, children of a vertical stack stacked -- and a bound past the tallest
+    # phone skips the screen; it fired on a long scrollable screen. Short of that bound only a
+    # render on a tall frame can tell, so the message says how.
+    TALLEST_PHONE = 956            # a Pro Max, the tallest frame patterns.md plans for
+    typo = {t.get('id'): t.get('settings') or {}
+            for t in (d.get('theme') or {}).get('typography') or [] if isinstance(t, dict)}
+
+    def _pt(v):
+        return v if isinstance(v, (int, float)) and not isinstance(v, bool) else 0
+
+    def _obj(v):
+        return v if isinstance(v, dict) else {}
+
+    def _min_h(n, m):
+        """A lower bound on an in-flow node's height, from what the config fixes. Every prop is
+        read through `_obj`: real exports carry `visibility: "hidden"`, a bare-number `padding`
+        and a list one."""
+        e = _obj(m.get(n.get('id')))
+        pr = _obj(e.get('props'))
+        vis = pr.get('visibility')
+        vis = vis.get('type', 'visible') if isinstance(vis, dict) else vis or 'visible'
+        if (n.get('type') == 'global' or vis != 'visible'
+                or _obj(pr.get('position')).get('type', 'relative') != 'relative'):
+            return 0
+        mg = _obj(pr.get('margin'))
+        pad = _obj(pr.get('padding'))
+        own = _pt(mg.get('top')) + _pt(mg.get('bottom'))
+        h = _obj(pr.get('height'))
+        if h.get('type') == 'fixed':
+            return _pt(h.get('value')) + own
+        if e.get('type') == 'text':
+            f = _obj(pr.get('font'))
+            st = _obj(typo.get(f.get('preset')) if isinstance(f.get('preset'), str) else None)
+            line = [x for x in (f.get('size') or st.get('size'), f.get('lineHeight') or st.get('lineHeight'))
+                    if _pt(x) > 4]     # a lineHeight of 1.2 is a multiplier, not points
+            return (min(line) if line else 0) + own
+        kids = [_min_h(c, m) for c in n.get('children') or [] if isinstance(c, dict)]
+        lay = _obj(pr.get('layout'))
+        # Tab panes and carousel slides show one at a time, whatever direction the wrapper says.
+        if lay.get('direction') == 'vertical' and e.get('type') not in ('tab-content-wrapper',
+                                                                         'carousel'):
+            inner = sum(kids) + _pt(_obj(lay.get('distribution')).get('gap')) * max(0, len(kids) - 1)
+        else:
+            inner = max(kids, default=0)
+        return inner + _pt(pad.get('top')) + _pt(pad.get('bottom')) + own
+
     for s in d.get('screens', []):
         props = s.get('props') or {}
         lay = props.get('layout') if isinstance(props.get('layout'), dict) else {}
@@ -2152,12 +2308,22 @@ def check(path, baseline_text=None, baseline_images=None):
             if m.get(n['id'], {}).get('interactions'):
                 return True
             return any(_tappable(c) for c in n.get('children') or [])
+        pad = _obj(props.get('padding'))
+        least = (sum(_min_h(c, m) for c in roots)
+                 + _pt(_obj(lay.get('distribution')).get('gap')) * (len(roots) - 1)
+                 + _pt(pad.get('top')) + _pt(pad.get('bottom')))
+        if least > TALLEST_PHONE:
+            continue                 # it scrolls on every phone, so there is no surplus
         if _tappable(roots[-1]):
             warn.append(
                 f'screen {s["id"]}: nothing takes a tall phone\'s extra height, so it lands as a '
                 f'dead band under {roots[-1]["id"]}. Give it one place: a fill height on the hero '
                 f'(a direct child of the root), or with no hero to the headline block at fill height. Then '
-                f'render it with DEVICE=google-pixel-9 and DEVICE=iphone-se-3; see patterns.md')
+                f'render it with DEVICE=google-pixel-9 and DEVICE=iphone-se-3; see patterns.md. '
+                f'Exception: content taller than a phone scrolls and leaves no surplus (the config '
+                f'fixes at least {round(least)}pt here; a Pro Max is {TALLEST_PHONE}pt). If '
+                f'{roots[-1]["id"]} is cut off at the bottom of the 924pt google-pixel-9 render, '
+                f'this is that screen: leave its layout as it is')
 
     # A SPREAD ACROSS A LIST: space-* on a fill-height stack spreads every row apart on a tall
     # phone — the second shape users report. A fixed-height card spreading its own title and
@@ -2234,12 +2400,15 @@ def check(path, baseline_text=None, baseline_images=None):
                 and (ic.get('size') or 0) <= 16)
 
     def _dot_text(e):
-        """A whole text node whose visible characters are only bullet glyphs -- `● ○ ○`."""
+        """A whole text node whose visible characters are only bullet glyphs -- `● ○ ○`.
+
+        One locale at a time: joined across locales, a single `·` separator in a three-language
+        flow counted as three bullets and fired as a whole indicator row.
+        """
         if e.get('type') != 'text':
             return False
-        chars = []
 
-        def _grab(o):
+        def _grab(o, chars):
             # ONLY the `text` key of a span, never every string in the subtree: a rich-text
             # node carries 'paragraph' and 'text' as TYPE names, and collecting those made
             # every dot row look like ordinary prose.
@@ -2247,19 +2416,23 @@ def check(path, baseline_text=None, baseline_images=None):
                 if isinstance(o.get('text'), str):
                     chars.append(o['text'])
                 for v in o.values():
-                    _grab(v)
+                    _grab(v, chars)
             elif isinstance(o, list):
                 for v in o:
-                    _grab(v)
+                    _grab(v, chars)
+            return chars
 
         content = (e.get('props') or {}).get('content')
-        if isinstance(content, str):        # catalog templates use a bare string
-            chars.append(content)
+        if isinstance(content, dict) and isinstance(content.get('values'), dict):
+            values = list(content['values'].values())
         else:
-            _grab(content)
-        s = ''.join(chars)
-        visible = [c for c in s if not c.isspace()]
-        return len(visible) >= 3 and all(c in DOT_GLYPHS for c in visible)
+            values = [content]
+        for v in values:
+            s = v if isinstance(v, str) else ''.join(_grab(v, []))   # a catalog template's bare string
+            visible = [c for c in s if not c.isspace()]
+            if len(visible) >= 3 and all(c in DOT_GLYPHS for c in visible):
+                return True
+        return False
 
     def _dotlike(e):
         return _dot_stack(e) or _dot_icon(e) or _dot_text(e)
@@ -2329,6 +2502,23 @@ def check(path, baseline_text=None, baseline_images=None):
             _dot_h = {_sz((m.get(i) or {}).get('props') or {}, 'height') for i in dots}
             _dot_h = {h for h in _dot_h if isinstance(h, (int, float))}
             if len(_dot_h) > 2 and not solo_text:
+                dots = []
+            # SEPARATOR GUARD. `Restore · Terms · Privacy` puts one dot in each GAP between items
+            # that carry text, and patterns.md names that link row as legitimate; a small rounded
+            # stack or a phosphor `Dot` is the natural way to draw its separators. An indicator
+            # row's dots sit side by side, so a row where every dot has a text-bearing item on
+            # both sides is a separated list, not a pager.
+            _at = {c['id']: i for i, c in enumerate(kids)}
+
+            def _texty(c):
+                ce = m.get(c.get('id')) or {}
+                if ce.get('type') == 'text' and not _dot_text(ce):
+                    return True
+                return any(_texty(g) for g in c.get('children') or [])
+            if dots and all(0 < _at[i] < len(kids) - 1
+                            and kids[_at[i] - 1]['id'] not in dots and _texty(kids[_at[i] - 1])
+                            and kids[_at[i] + 1]['id'] not in dots and _texty(kids[_at[i] + 1])
+                            for i in dots):
                 dots = []
             # TWO is the floor, not three: a two-slide carousel gets two dots, and the old
             # `>= 3` let that through. Measured silent at this threshold on all 12 real configs
@@ -2819,32 +3009,90 @@ def check(path, baseline_text=None, baseline_images=None):
             bad.append(f'localizable {key} for {code!r} is {type(v).__name__}, not a string, a '
                        f'block array or a switch — refused as invalid_localized_rich_text')
 
-    # ---- one text may reference ONE product. Two distinct anchors in a single text give the
-    # mapper nothing to resolve `%price%` against and it refuses the flow.
+    # ---- one printed string may reference ONE product. Two distinct anchors printed together give
+    # the mapper nothing to resolve `%price%` against and it refuses the flow. The unit is ONE
+    # BRANCH, and only what it prints: a switch's predicates are not text, and each branch is its
+    # own string. Counting the whole text fired on 74 texts of published flows, each transformed
+    # without error: a switch on `<group>.selectedProduct == <id>` whose branches print
+    # `<id>.prod_price`, a branch on the selected plan's trial printing a fixed price, two
+    # products named only in predicates. The message names the exact variable to print instead,
+    # because "use the group variable" alone sent a run back to the docs to rebuild a name the
+    # checker already knew.
+    def _printed_branches(v, out=None):
+        """Each branch of a localized value that prints, on its own; never a switch predicate."""
+        out = [] if out is None else out
+        if isinstance(v, dict) and v.get('type') == 'switch':
+            for case in v.get('cases') or []:
+                if isinstance(case, list) and len(case) == 2:
+                    _printed_branches(case[1], out)
+            _printed_branches(v.get('default'), out)
+        elif isinstance(v, dict) and v.get('type') == 'const' and 'value' in v:
+            _printed_branches(v['value'], out)
+        elif v is not None:
+            out.append(v)
+        return out
+
+    group_of = {}
+    for _, pe in els():
+        if pe.get('type') == 'product':
+            ppr = pe.get('props') or {}
+            if ((ppr.get('product') or {}).get('id')) and ppr.get('groupId'):
+                group_of.setdefault(ppr['product']['id'], ppr['groupId'])
+
+    def _anchors(branch):
+        """(distinct product anchors, fixed `<id>.<field>` reads) one printed branch names."""
+        found, fixed = set(), []
+        for vid in sorted(all_var_ids(branch)):
+            if '.selectedProduct.' in vid or vid.endswith('.selectedProduct'):
+                head = vid.split('.')[0]
+                if head in product_groups:
+                    found.add(f'G:{head}')
+            elif '.prod_' in vid:
+                head = vid.split('.')[0]
+                if head in allprod or head in bound_products:
+                    found.add(f'S:{head}')
+                    fixed.append(vid)
+        # A STRUCTURED operand carries no `variableId`. Mapped onto the dotted forms it replaces:
+        # a `selected` target is the group variable; a `product` target with a `field` is
+        # `<id>.<field>`; one without a field is an identity comparison's other side, which was a
+        # `const` and never an anchor.
+        for ref in _product_refs(branch):
+            tg = ref.get('target') or {}
+            if tg.get('kind') == 'selected' and tg.get('groupId') in product_groups:
+                found.add(f'G:{tg["groupId"]}')
+            elif tg.get('kind') == 'product' and ref.get('field') and (
+                    tg.get('id') in allprod or tg.get('id') in bound_products):
+                found.add(f'S:{tg["id"]}')
+                fixed.append(f'{tg["id"]}.{ref["field"]}')
+        return found, sorted(set(fixed))
+
     for s, e in els():
         if e.get('type') != 'text':
             continue
         for vals in [o['values'] for o in [e.get('props', {}).get('content')]
                      if isinstance(o, dict) and isinstance(o.get('values'), dict)]:
             for code, v in vals.items():
-                found = set()
-                for vid in sorted(all_var_ids(v)):
-                    if '.selectedProduct.' in vid or vid.endswith('.selectedProduct'):
-                        head = vid.split('.')[0]
-                        if head in product_groups:
-                            found.add(f'G:{head}')
-                    elif '.prod_' in vid:
-                        head = vid.split('.')[0]
-                        if head in allprod or head in bound_products:
-                            found.add(f'S:{head}')
-                if len(found) > 1:
-                    bad.append(f'{e["id"]}: text content for {code!r} references {len(found)} '
-                               f'distinct product anchors ({sorted(found)}) — refused as '
-                               f'mixed_product_targets_in_text. If it means the price of '
-                               f'whichever plan is selected, use one '
-                               f'`<groupId>.selectedProduct.<field>` variable instead of naming '
-                               f'each product (products.md); otherwise split it into one text '
-                               f'per product')
+                for found, fixed in map(_anchors, _printed_branches(v)):
+                    if len(found) < 2:
+                        continue
+                    groups = sorted(f[2:] for f in found if f.startswith('G:'))
+                    swaps = []
+                    for vid in fixed:
+                        pid = vid.split('.')[0].removesuffix('@monthly')
+                        grp = (groups[0] if len(groups) == 1
+                               else group_of.get(pid) or '<groupId>')
+                        swaps.append(f'`{vid}` with `{grp}.selectedProduct.{vid.rsplit(".", 1)[-1]}`')
+                    bad.append(f'{e["id"]}: text content for {code!r} prints {len(found)} '
+                               f'distinct product anchors in one string ({sorted(found)}) — '
+                               f'refused as mixed_product_targets_in_text. If it means the price '
+                               f'of whichever plan is selected, '
+                               + ('replace ' + '; '.join(swaps) if swaps else
+                                  'read one group: one `<groupId>.selectedProduct.<field>` '
+                                  'variable')
+                               + ' (products.md); otherwise split it into one text per product. '
+                               'A switch branch printing one fixed price is fine, also under a '
+                               'condition on the selected plan')
+                    break
 
 
     # ---- `<groupId>.selectedOptionId` on a MULTI_CHOICE group. Measured against the transform
@@ -3051,21 +3299,120 @@ def check(path, baseline_text=None, baseline_images=None):
     # that matters for authored work specifically: all 11 genuine exports bind the screen fill
     # to a theme token or an image, so their background and text move together, while an
     # authored screen that hardcodes `fill: #FFFFFF` under a dark-capable theme does not.
+    #
+    # It judges only what it can compute: a solid or a gradient it can see under the text. An
+    # unresolvable fill on the way down makes the background UNKNOWN (see `fill_below`), and so
+    # does an OVERLAY -- something positioned out of flow that may sit under or over the text. Four
+    # runs read white type over a gradient footer, a fade, a photo and an image hero as "white on
+    # white", because the walk measured them against the page. Two overlay shapes: the text's own
+    # branch is `absolute`/`fixed` and a sibling paints (a headline floated over a hero image), or
+    # an `absolute` sibling paints and is more than a dot, a rail or a hairline (a fade beside the
+    # headline). The size exemption keeps the timeline's 8pt rail and 32pt icon chip, which sit
+    # BESIDE their text, from silencing the text next to them. An absolute sibling that paints only
+    # opaque solids (a CTA bar pinned to the bottom, a badge, a panel of buttons) is an overlay only
+    # when it is drawn BEHIND the branch (earlier, or a lower zIndex): drawn in front it covers
+    # where it sits and tints nothing, and counting it silenced dark-mode text at the top of
+    # screens whose only absolute element was the bottom CTA. An image, a video, or a fill this
+    # cannot compute (a fade, a scrim) is an overlay in either order.
     layered_ids = {c.get('id') for c in (d.get('theme') or {}).get('colors') or []
                    if isinstance(c, dict) and not is_single_solid(c)}
+
+    def _place(e):
+        return _obj(_obj(e.get('props')).get('position')).get('type', 'relative')
+
+    def _span(emap, n, axis):
+        """An element's size on one axis in pt when the config fixes it, else None."""
+        e = _obj(emap.get(n.get('id')))
+        pr = _obj(e.get('props'))
+        sz = _obj(pr.get(axis))
+        if sz.get('type') == 'fixed' and isinstance(sz.get('value'), (int, float)):
+            return sz['value']
+        if e.get('type') == 'icon':
+            v = _obj(pr.get('icon')).get('size')
+            return v if isinstance(v, (int, float)) else None
+        if e.get('type') == 'stack' and sz.get('type', 'hug') == 'hug' and n.get('children'):
+            got = [_span(emap, c, axis) for c in n['children']]
+            if any(g is None for g in got):
+                return None
+            lay = _obj(pr.get('layout'))
+            along = (lay.get('direction', 'vertical') == 'horizontal') == (axis == 'width')
+            gap = _pt(_obj(lay.get('distribution')).get('gap')) if along else 0
+            pad = _obj(pr.get('padding'))
+            ends = ('left', 'right') if axis == 'width' else ('top', 'bottom')
+            return ((sum(got) + gap * (len(got) - 1)) if along else max(got)) + sum(
+                v for v in (pad.get(k) for k in ends) if isinstance(v, (int, float)))
+        return None
+
     for variant in ('light', 'dark'):
         pal = palette(d, variant)
         pal_bg = palette(d, variant, role='bg')
         for s in d.get('screens', []):
             emap = s['elements']['map']
             root_bg = fill_backgrounds((s.get('props') or {}).get('fill'), pal_bg)
+            paints = {}
 
-            def legible(node, bg):
+            def _paints(n):
+                """Something in this subtree draws pixels: a fill, an image, a video."""
+                k = n.get('id')
+                if k not in paints:
+                    e = emap.get(k) or {}
+                    paints[k] = bool(e.get('type') in ('image', 'video')
+                                     or (e.get('props') or {}).get('fill')
+                                     or any(_paints(c) for c in n.get('children') or []))
+                return paints[k]
+
+            media = {}
+
+            def _media(n):
+                """Something in this subtree draws a picture: an image or video element or layer."""
+                k = n.get('id')
+                if k not in media:
+                    e = emap.get(k) or {}
+                    fill = (e.get('props') or {}).get('fill')
+                    layers = fill if isinstance(fill, list) else [fill]
+                    media[k] = bool(e.get('type') in ('image', 'video')
+                                    or any(isinstance(l, dict) and l.get('type') in ('image', 'video')
+                                           for l in layers)
+                                    or any(_media(c) for c in n.get('children') or []))
+                return media[k]
+
+            def _z(n):
+                z = _obj((emap.get(n.get('id')) or {}).get('props')).get('zIndex')
+                return z if isinstance(z, (int, float)) and not isinstance(z, bool) else 0
+
+            def _overlay(n, c, kids):
+                """`n`, a sibling of the branch `c`, may be what is under (or tints) `c`."""
+                if _place(emap.get(n.get('id')) or {}) != 'absolute' or not _paints(n):
+                    return False
+                w, h = _span(emap, n, 'width'), _span(emap, n, 'height')
+                if (w is not None and w <= 48) or (h is not None and h <= 4):
+                    return False
+                fill = _obj(_obj(emap.get(n.get('id'))).get('props')).get('fill')
+                if _media(n) or (fill and not fill_backgrounds(fill, pal_bg)):
+                    return True
+                behind = (_z(n) < _z(c) if _z(n) != _z(c)
+                          else next(i for i, k in enumerate(kids) if k is n)
+                          < next(i for i, k in enumerate(kids) if k is c))
+                return behind
+
+            def legible(node, bg, src, delay=False):
                 e = emap.get(node.get('id'))
                 if e:
-                    own = fill_backgrounds((e.get('props') or {}).get('fill'), pal_bg)
-                    if own:
-                        bg = own             # this element establishes the background below it
+                    fill = (e.get('props') or {}).get('fill')
+                    below = fill_below(fill, pal_bg, bg)
+                    if below is not bg:
+                        bg, src = below, node['id']   # this element sets what is under its children
+                    # An auto-advance DELAY: a `timer` with a `timer-end` action fires only with
+                    # its digits inside it, and patterns.md colours those digits like the
+                    # background on purpose so the wait stays invisible. Digits there are hidden
+                    # by design, not lost; a visible countdown (no `timer-end`) is still checked.
+                    if e.get('type') == 'timer' and any(
+                            i.get('trigger') == 'timer-end' and i.get('actions')
+                            for i in e.get('interactions') or []):
+                        delay = True
+                    if (delay and e.get('type') == 'text'
+                            and _digits_only((e.get('props') or {}).get('content'))):
+                        bg = None
                     if e.get('type') == 'text' and bg is not None:
                         fc = (e.get('props') or {}).get('color')
                         fg = resolve_color(fc, pal)
@@ -3081,18 +3428,27 @@ def check(path, baseline_text=None, baseline_images=None):
                                  for b in bg), key=lambda t: t[0])
                             if ratio < MIN_LEGIBLE_CONTRAST:
                                 warn.append(
-                                    f'{s["id"]}/{node["id"]}: text is {ratio:.2f}:1 against its '
-                                    f'background in {variant} mode (#{"%02X%02X%02X" % ink} on '
+                                    f'{s["id"]}/{node["id"]}: text is {ratio:.2f}:1 against '
+                                    + (f'the fill of {src}' if src else 'the screen fill')
+                                    + f' in {variant} mode (#{"%02X%02X%02X" % ink} on '
                                     f'#{"%02X%02X%02X" % bg_at}'
                                     + (f', the worst of {len(bg)} gradient stops' if len(bg) > 1 else '')
                                     + ') — effectively invisible. '
                                     + ('`config preview` draws light only, so nothing else here '
                                        'can see this' if variant == 'dark' else
                                        'Recolour the text, not just the fill'))
-                for c in node.get('children') or []:
-                    legible(c, bg)
+                kids = node.get('children') or []
+                for c in kids:
+                    cbg = bg
+                    others = [o for o in kids if o is not c]
+                    if cbg is not None and others and (
+                            any(_overlay(o, c, kids) for o in others)
+                            or (_place(emap.get(c.get('id')) or {}) in ('absolute', 'fixed')
+                                and any(_paints(o) for o in others))):
+                        cbg = None           # an overlay: what is under this branch is unknown
+                    legible(c, cbg, src, delay)
 
-            legible(s['elements']['hierarchy'], root_bg)
+            legible(s['elements']['hierarchy'], root_bg, None)
 
     # ---- theme colour hexes. See THEME_HEX above for why this is theme-scoped.
     for c in (d.get('theme') or {}).get('colors') or []:
@@ -3117,7 +3473,10 @@ def check(path, baseline_text=None, baseline_images=None):
             for e in ((comp or {}).get('map') or {}).values() if e.get('type') == 'progress-bar']
     if len(bars) > 1:
         warn.append(f'{len(bars)} progress bars in components ({", ".join(c for c, _ in bars)}) — a '
-                    f'flow has one progress bar, shared by every screen that shows it')
+                    f'flow has one progress bar, shared by every screen that shows it. Keep one, '
+                    f'point every screen that shows it at its segment (props.progressBar), and '
+                    f'set {{"enabled": false}} where it should not show. A second bar, such as '
+                    f'another style for a later section, has never been seen working on a device')
 
     def _col(c):
         if isinstance(c, list):
@@ -3357,11 +3716,23 @@ args = sys.argv[1:]
 # --baseline <config> turns on the price/discount/duration comparison: literals already in the
 # baseline are the flow's own copy, only NEW ones are reported. Pass the config you fetched
 # (phase 2's backup) when checking a draft you are about to write.
-baseline_text = baseline_images = None
+#
+# It also runs every check over the baseline and sets apart each finding the fetched flow already
+# had, word for word: those are not this edit's, so they are listed under ALREADY IN and do not
+# fail the run. Without this, three runs editing one fetched flow read its own missing `states`
+# as their defect. A finding whose words changed (a count grew, an id moved) counts as new.
+baseline_text = baseline_images = base_found = None
+base_name = ''
 if '--baseline' in args:
     i = args.index('--baseline')
     if i + 1 >= len(args):
         sys.exit('verify-config.py: --baseline needs a config path')
+    base_name = os.path.basename(args[i + 1])
+    try:
+        _b_bad, _b_warn = check(args[i + 1])
+        base_found = set(_b_bad), set(_b_warn)
+    except Exception:                             # noqa: BLE001 - a broken baseline only loses the split
+        base_found = None
     base = _loc.resolve(unwrap(json.load(open(args[i + 1], encoding='utf-8'))))
     baseline_text = {t for _, _, _, t in iter_visible_text(base)}
     # url -> did the baseline already carry a preview for it. False means the flow arrived
@@ -3403,10 +3774,22 @@ for path in args:
         for ln in traceback.format_exc().rstrip().splitlines()[-4:]:
             print(f'   | {ln}')
         sys.exit(2)
+    old = []
+    if base_found is not None:
+        old = ([('error', b) for b in bad if b in base_found[0]]
+               + [('warning', w) for w in warn if w in base_found[1]])
+        bad = [b for b in bad if b not in base_found[0]]
+        warn = [w for w in warn if w not in base_found[1]]
     print(f'{os.path.basename(path):34} {"OK" if not bad else "VIOLATIONS"}')
     for b in bad:
         print(f'   ERROR:   {b}')
         rc = 1
     for w in warn:
         print(f'   warning: {w}')
+    if old:
+        print(f'   ALREADY IN {base_name}: {len(old)} finding(s) the fetched flow had before this '
+              f'edit. They are not yours and do not block this edit: tell the user about them, and '
+              f'fix one only after they say yes.')
+        for sev, msg in old:
+            print(f'   already ({sev}): {msg}')
 sys.exit(rc)

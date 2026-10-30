@@ -54,7 +54,9 @@ PB = 'progress bar'
 check('SILENT: the device-verified shape', PB not in run(doc({'pb_a': bar('a')})))
 check('FIRES: track and progress the same colour',
       'looks full on every screen' in run(doc({'pb_a': bar('a', track='accent')})))
-check('FIRES: two bars in one flow', '2 progress bars' in run(doc({'pb_a': bar('a'), 'pb_b': bar('b')})))
+_two = run(doc({'pb_a': bar('a'), 'pb_b': bar('b')}))
+check('FIRES: two bars in one flow, and the message names the fix',
+      '2 progress bars' in _two and 'Keep one' in _two, _two[:400])
 for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
     out = run(json.load(open(f)))
     check(f'SILENT on real export {os.path.relpath(f, ROOT)}', PB not in out, out[:200])

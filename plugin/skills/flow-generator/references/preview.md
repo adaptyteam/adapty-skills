@@ -55,8 +55,39 @@ becomes exact: three independent samples of the same accent returned the identic
 
 ## What a render costs, and which knobs do nothing
 
-The screenshot is the most expensive step in the whole workflow, so it is worth knowing what
-actually drives it. Measured on one config, same machine:
+[`shoot.sh`](shoot.sh) takes the first of two routes that works and prints the browser it used:
+
+| Route | A screen | What it handles |
+|---|---|---|
+| **The file input**: [`preview-with-playwright.mjs`](preview-with-playwright.mjs), one browser launch for the whole batch | **1-2 s** (measured over 41 real screens and a 533 KB config with 37 languages) | any config size or language count; hides what the page draws over the screen; shows a screen that scrolls; retries once |
+| **The preview URL**: the browser's own `--screenshot` | **~18 s**, the browser's cold start | none of those |
+
+The file input needs `playwright-core` (13 MB) in `~/.cache/adapty-flow-playwright`. `shoot.sh`
+installs it once when npm is there; it drives the browser already installed and downloads none.
+**A Chromium-based browser is what both routes need**: Chrome, Edge, Brave and Chromium are found at
+their usual places (Vivaldi and Opera are tried last), and `CHROME=<path>` names any other. Only
+with none of them does the file input ask for `npx playwright install chromium`. `PLAYWRIGHT=0`
+forces the URL route.
+
+**On Linux the URL route passes `--no-sandbox --disable-dev-shm-usage`**, the flags Playwright passes
+by default: a container that runs as root, or gives `/dev/shm` 64 MB, is the usual reason a
+browser writes no screenshot there (inferred, not reproduced in a container). When the browser
+quits without a file,
+`shoot.sh` prints the last lines it said and stops the batch; a longer wait cannot fix that.
+
+**A slow host makes a screen take minutes on either route** (the page, not your config). So:
+
+- **Run a batch of three or more screens in the background and wait for it.** Each screen prints
+  `[i/n] <screen>` as it starts and its path when it lands.
+- **`TIME_LIMIT` (seconds, default 300) stops the run before a tool timeout does.** It names the
+  screens it did not reach and keeps and joins every finished PNG, and so does a run that is
+  stopped. Re-run only the screens it names, never the whole batch.
+- **A retry is normal.** The page sometimes answers with an error page, a blank screen or reset
+  connections, and the same screen renders on a second try. Both routes retry once by themselves
+  and say so; only a second failure is worth reporting, and then suspect the network before the
+  config.
+
+Measured on the URL route, one config, same machine:
 
 | | |
 |---|---|
@@ -76,7 +107,7 @@ Playwright timed out at 30 s on `domcontentloaded`, and **a 60 s budget produced
 screenshot ~72 s later**. The same page loaded normally in a real (non-headless) browser
 throughout. So **"no file" is far more often a slow host than a broken config**: escalate the
 budget, then check the URL in a real browser, and only then suspect your work.
-[`shoot.sh`](shoot.sh) retries at 60 s automatically.
+The URL route retries at 60 s automatically; the file input waits 30 s, then 60 s.
 
 Three consequences:
 
@@ -89,7 +120,8 @@ Three consequences:
   the launch fail outright, which is a second way to lose a minute.
 
 **Join the screenshots into one strip before looking**, with
-[`montage.py`](montage.py) — `montage.py strip.png a.png b.png c.png`. It is pure stdlib, so
+[`montage.py`](montage.py) — `montage.py strip.png a.png b.png c.png` (the output first, or
+anywhere as `-o strip.png`). It is pure stdlib, so
 there is nothing to install. That turns N inspections into one, and a before/after pair only reads
 as a *difference* when the halves are adjacent; `--gutter 0` butts them together when you are
 comparing pixel positions rather than eyeballing.
@@ -169,11 +201,20 @@ one it shows that is not there:
   drew. What this blindness must never license is a repair: swapping the `spinner` for a static
   ring `icon` makes the screenshot look complete and ships something that does not animate
   ([patterns.md → a loading screen](patterns.md#a-loading-screen--fill-the-loader-spinner-label-template-never-fake-the-spinner)).
-- **Any locale but the one it draws.** The render ignores `localization.defaultLocale` and the
-  order of `localization.locales` — measured: forcing the default to `de`, and putting `de` first, both produced
-  byte-identical screenshots to the untouched file. **A locale transform therefore cannot be
-  verified visually at all.** Say so, and tell the user to switch locale in the builder and look
-  for overflow, because translated text is routinely longer than its source.
+- **A `custom` icon on an `icon` element** draws as empty space here and draws on a device. Keep it,
+  and name it in the device check
+  ([flow-schema.md trap 23](flow-schema.md#23-a-phosphor-icon-resolves-from-the-renderers-own-bundle-and-raw-does-not-override-it)).
+- **Any language but the default, unless you ask for one.** The page draws
+  `localization.defaultLocale` and no other (measured: flipping a three-language config's default
+  to `sr` drew the Serbian copy). `LOCALE=de shoot.sh draft.json scr_a` renders German from a copy
+  where `de` is the default and only language (`--locale de` on
+  [`preview-with-playwright.mjs`](preview-with-playwright.mjs)), and names the file `…-de.png`. A
+  value `de` lacks shows the default language's value, as on a device
+  ([transforms.md](transforms.md)), and the script says how many: usually images, stored once
+  under the first language. **Do not flip `defaultLocale` by hand instead**:
+  measured, that copy draws such an image as an empty placeholder. Translated text is routinely
+  longer than its source, so render the new language on the screens with the most text and look
+  for overflow; the device still owns the glyph metrics (below).
 - **Anything resolving at runtime.** Real prices, store currency, user input. Placeholder `$0.00`
   prices and broken asset URLs are usually the preview lacking data, not a defect you introduced —
   and a price variable in particular renders as the full literal `{{<uuid>.prod_price}}`, which is
@@ -277,6 +318,21 @@ one it shows that is not there:
   (team-stated) — so no preview surface proves a price, an offer, or trial eligibility; only the
   client's own app does. An offer configured as a free trial resolves to 0 where it resolves at
   all.
+
+## What the page draws over the screen, and a screen taller than the phone
+
+**The render page can draw its own notices over the top of the screen** (a maintenance banner, a
+toast), and a screenshot includes them. The file input hides everything drawn beside the screen's
+own elements before the shot and names each (`hid something the page drew over the screen: "…"`);
+it never touches what the flow draws, and it hid nothing on 41 real screens. The URL route
+cannot hide anything: when a banner covers part of a screen there, render it through the file
+input rather than reading around it.
+
+**The phone frame is a window, not the whole screen.** When a screen scrolls, the file input also
+writes `<shot>-scroll.png`: every scroll position, left to right, with docked elements where a phone
+keeps them, and the strip uses it (`scrolls: 804pt of content in a 667pt screen`). Measured over 41
+real screens: three scroll on `iphone-se-3` and one on `iphone-14`, and on the SE the first view
+hid a screen's body text under its docked button. The URL route shows the first view only.
 
 ## An element that fails to paint is not automatically yours to fix
 
@@ -520,33 +576,28 @@ config yields a 6,349-character URL. Always try the preview. If the render comes
 truncated or blank, *then* fall back to the dashboard.
 
 **When the URL render fails, switch to the file input — do not shrink the config.** `preview` packs
-the whole config into the URL fragment, and on a large flow the failure is not an Adapty limit: the
-page's third-party analytics beacons put `location.href` into their own query strings, so a 113K
-hash becomes a 113K beacon request, the beacon host answers **414**, and the app's own assets die
-as collateral on the torn-down connection — the bundle never boots and you screenshot an error
-page. Reported for a 668KB flow; loads at a 32K fragment, hangs at 64K.
+the whole config into the URL fragment, and a page that long has drawn its own "There's been a
+glitch" page instead of the screen (reported at ~113K characters; a 160K one rendered correctly
+when re-measured). [`preview-with-playwright.mjs`](preview-with-playwright.mjs) opens the render
+page on a **short** URL and hands the config to its file input
+(`[data-testid="preview-config-input"]`) instead: same page, same renderer, no fragment, so the size
+of the config, its image previews and its language count stop mattering. `shoot.sh` takes that route
+first; the rest of this section is about the URL route it falls back to.
 
-**Bound image previews are what usually push the URL over.** Each `previewValue` is thousands of
-characters, so a flow with a handful of uploaded images crosses the limit with a small config.
-`shoot.sh` handles that itself: above the limit it first renders a copy with every `previewValue`
-removed, which draws the same screen because the render downloads the full image anyway, and says
-so. The one layout that copy can change is a sliding-sheet cover image with a `hug` height, whose
-crop is decided from the preview ([patterns.md](patterns.md#a-hero-with-the-content-sliding-over-it-sliding-sheet)). Only when
-even that copy is too long does it fall back to the file input below.
-
-The escape hatch is [`preview-with-playwright.mjs`](preview-with-playwright.mjs), which
-opens the render page on a **short** URL and hands the config to its file input
-(`[data-testid="preview-config-input"]`) instead. Same page, same renderer, no fragment. The same
-668KB flow that fails through the URL renders that way in 6-8 seconds.
+**Image previews and languages are what push the URL over.** Each `previewValue` is thousands of
+characters, and every language repeats every text. Past ~100K characters `shoot.sh` renders a copy
+without previews and with only the language the page draws, and says so. Measured byte-identical to
+the full config's render; the one layout it can change is a sliding-sheet cover image with a `hug`
+height, whose crop is decided from the preview
+([patterns.md](patterns.md#a-hero-with-the-content-sliding-over-it-sliding-sheet)). A URL still too
+long is rendered anyway with a warning to look at it, except on Windows, where a command line
+cannot carry it.
 
 **`--device` is not validated — a wrong value renders a page, not an error.** The flag accepts any
 string, exits 0, and the render page answers an unrecognized id with the words
 `Unknown device "…"` on a blank background. That screenshot carries a few hundred distinct colours
 from text antialiasing, so it survives a naive "did anything draw" check and looks like a successful
-preview. `iphone-14` (the default) and `iphone-13-mini` are confirmed to work; `iphone-se`,
-`iphone-12-mini`, `iphone-8` and `pixel-7` are not recognized, and there is no published list. So
-stay on the default unless you have a reason to change it, and if you do pass `--device`, confirm
-the image shows the frame you asked for rather than that message.
+preview. Take ids from the device table above; the file input reports that page as not rendered.
 
 **Check that you screenshotted the flow at all.** The page answers a bad `--device` with
 `Unknown device "…"` as a *page*, a broken fragment with an error page, and a wrong host with a

@@ -89,8 +89,11 @@ load-bearing: without it npx stops to ask permission to install, and a headless 
 answer. In `zsh` (the macOS default) a multi-word `$ADAPTY` is not word-split, so run
 `setopt shwordsplit` once in the same shell; `command not found: npx --yes adapty@latest` is that
 shell problem, never a missing CLI. If
-`auth whoami` fails, `$ADAPTY auth login` opens a browser — that is the user's to complete. Then
-`$ADAPTY apps list --json` for the app UUID.
+`auth whoami` fails, log in in the background: from your shell `auth login` opens no browser, it
+prints a code and a link and waits for the user, so run
+`$(command -v setsid) nohup $ADAPTY auth login > "$L" 2>&1 < /dev/null &`, send the user the code
+and link from `$L` at once (the code expires within minutes), and poll `auth whoami` until it
+succeeds. Then `$ADAPTY apps list --json` for the app UUID.
 
 **Then probe the capability, before spending 152 reads on an inventory you cannot act on.** The
 read-only discriminator is `content_type`: an environment with the audience union deployed returns it

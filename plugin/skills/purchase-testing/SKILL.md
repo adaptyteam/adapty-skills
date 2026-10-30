@@ -249,6 +249,8 @@ the layer faster than any single symptom.
 | Purchase sheet never opens | 5 | Phone or account state: wrong sandbox account, tester not opted in, app not installed from the store |
 | Purchase completes, nothing unlocks | 1 or 2 | The product's access level is not the one the app checks, or the app never reads it |
 | The store took the purchase, but a paywall that closes on success stays up | 3 or 5 | Adapty could not verify it (check 1: store identity), a pending payment, or an error the code swallows — the log says which |
+| Google Play said the payment went through, the app got billing response code 6, the paywall stayed up until a restore | 5 | Google Play's own error (`ERROR`), not the setup: Event Feed, then restore — `references/google-play.md`, Getting unstuck |
+| The Play Store on an emulator calls the closed-testing build incompatible | 5 | The emulator, not the setup: a real device — `references/google-play.md`, Getting unstuck |
 | Purchase completes, no event in Adapty | 3 | Server notifications / RTDN — `adapty-integration` fixes the connection |
 | Works for you, not for a teammate | 5 | Account state, not configuration — compare the two accounts before touching anything else |
 

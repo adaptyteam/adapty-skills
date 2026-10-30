@@ -6,6 +6,9 @@
 #   OUT=/tmp/x shoot.sh draft.json scr_a                 # choose the output dir
 #   DEVICE=iphone-se-3 shoot.sh draft.json scr_a         # a short phone (375x667)
 #   DEVICE=google-pixel-9 shoot.sh draft.json scr_a      # a tall phone (412x924)
+#   LOCALE=de shoot.sh draft.json scr_a                  # another language (the page draws one)
+#   CHROME=/path/to/browser shoot.sh draft.json scr_a    # any Chromium-based browser
+#   TIME_LIMIT=900 shoot.sh draft.json scr_a ...         # seconds before it stops (default 300)
 #
 # Renders go next to the config, unless the config sits inside a git work tree -- an app repo,
 # usually -- in which case they go to $TMPDIR/adapty-flow-shots, so no PNG lands in the user's
@@ -16,14 +19,17 @@
 # CONFIG'S CONTENT (shot-<sig>-<screen>.png), so re-rendering after an edit writes a new file
 # instead of overwriting the old one, and a render of superseded bytes is identifiable on sight.
 #
-# Why this exists: the loop was preview -> screenshot -> montage as separate commands, three
-# agent turns at ~30 s of round-trip each, per iteration. The screenshot itself is ~18 s of
-# Chrome cold start and that is irreducible — but the turns around it are not.
+# Two routes, the first that works:
+#   1. preview-with-playwright.mjs, through the render page's file input, all screens in one
+#      browser launch: a few seconds a screen, no URL length limit, anything the page draws over
+#      the screen hidden, and a screen that scrolls shown at every scroll position. It needs
+#      playwright-core in ~/.cache/adapty-flow-playwright, installed here once when npm is
+#      there; it drives the installed browser and downloads none. PLAYWRIGHT=0 skips it.
+#   2. The browser's own --screenshot of the `flows config preview` URL: ~18 s of cold start a
+#      screen, and it cannot hide what the page draws over the screen.
 #
-# Two measured traps this handles for you. A `--virtual-time-budget` under ~3000 ms yields NO file
-# while the wait runs to your timeout; and when the render HOST is slow, even 8000 ms yields
-# nothing — so a failed shot is retried once at 60 s before giving up, because "no file" is far
-# more often a slow host than a broken config. Chrome can also hang, so every launch is watchdogged.
+# Each screen prints a line as it starts and as it lands. Every finished PNG is kept: a run that
+# hits TIME_LIMIT, or is stopped, names what it rendered and what it did not.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${1:?usage: shoot.sh <config.json> [screen-id ...]}"; shift || true
@@ -36,6 +42,7 @@ if [ -z "${OUT:-}" ]; then
   fi
 fi
 BUDGET="${BUDGET:-8000}"
+TIME_LIMIT="${TIME_LIMIT:-300}"
 # 520 wide, not the phone's own 430: the render page centres its phone frame with a margin, so at
 # 430 the frame starts ~55px in and its right edge is cut off, which reads as a layout overflow.
 # A named device can be taller than the default frame (google-pixel-9 is 924pt), and a window
@@ -43,17 +50,16 @@ BUDGET="${BUDGET:-8000}"
 DEVICE="${DEVICE:-}"
 if [ -n "$DEVICE" ]; then WINDOW="${WINDOW:-520,1100}"; else WINDOW="${WINDOW:-520,900}"; fi
 DEVFLAG="${DEVICE:+--device $DEVICE}"; DEVTAG="${DEVICE:+-$DEVICE}"
+LOCALE="${LOCALE:-}"; LOCTAG="${LOCALE:+-$LOCALE}"
 [ -f "$CFG" ] || { echo "shoot: no such file: $CFG" >&2; exit 2; }
 mkdir -p "$OUT"
+OUT="$(cd "$OUT" && pwd)"
+ABS_CFG="$(cd "$(dirname "$CFG")" && pwd)/$(basename "$CFG")"
 
-# Every output is named after a signature of the CONFIG'S CONTENT, not just the screen id. Two
-# measured failures, both from one GREEN round. (1) `shot-<screen>.png` collides: rendering a
-# second config of the same screen into the same directory silently destroyed the first render,
-# and the `rm -f` below is what destroyed it. (2) An orphaned Chrome from a killed run wrote a
-# screenshot of SUPERSEDED bytes into a directory that had already been cleared, so the agent had
-# to quarantine every shot it held and re-render. A content signature fixes both at once: two
-# configs cannot collide, and a render of old bytes carries the old signature, so it can never be
-# mistaken for the current one. `cksum` is the fallback so this never fails the run.
+# Every output is named after a signature of the CONFIG'S CONTENT, not just the screen id: two
+# configs of the same screen cannot overwrite each other, and a render of superseded bytes -- an
+# orphaned browser from a killed run can still write one -- carries the old signature, so it can
+# never be mistaken for the current one. `cksum` is the fallback so this never fails the run.
 if command -v shasum >/dev/null 2>&1; then
   CFGSIG=$(shasum -a 256 "$CFG" | cut -c1-8)
 elif command -v sha256sum >/dev/null 2>&1; then
@@ -72,30 +78,160 @@ if [ -z "$PY" ]; then
 fi
 [ -n "$PY" ] || { echo "shoot: no Python 3 found (tried python3, python, py -3) — set PYTHON=/path" >&2; exit 2; }
 
-# Windows (Git Bash, MSYS, Cygwin) differs in three places below: where Chrome lives, the path
-# Chrome is handed, and how long a command line may be.
+# Windows (Git Bash, MSYS, Cygwin) differs in three places below: where the browser lives, the
+# path it is handed, and how long a command line may be.
 WIN=0
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) WIN=1 ;; esac
+LINUX=0
+case "$(uname -s)" in Linux*) LINUX=1 ;; esac
+
+png_for() {  # $1 = screen id or __default__
+  if [ "$1" = "__default__" ]; then echo "$OUT/shot-$CFGSIG$LOCTAG$DEVTAG.png"
+  else echo "$OUT/shot-$CFGSIG-$1$LOCTAG$DEVTAG.png"; fi
+}
+
+[ -n "$SCREENS" ] || SCREENS="__default__"
+TOTAL=$(echo $SCREENS | wc -w | tr -d ' ')
+shots=""; n=0; done_ids=""; CHILD=""
+
+# The strip, or the one image, and the line that says which. Called at the end and when stopped.
+finish() {  # $1 = exit code
+  if [ "$n" -eq 0 ]; then echo "shoot: nothing rendered" >&2; exit "${1:-1}"; fi
+  if [ "$n" -eq 1 ]; then
+    echo; echo "LOOK AT:$shots"
+  else
+    strip="$OUT/strip-$CFGSIG$LOCTAG$DEVTAG.png"
+    $PY "$HERE/montage.py" "$strip" $shots >/dev/null
+    echo; echo "LOOK AT: $strip  ($n screens, left to right in the order given)"
+  fi
+  exit "${1:-0}"
+}
+
+not_done() {
+  local left=""
+  for s in $SCREENS; do case " $done_ids " in *" $s "*) ;; *) left="$left $s" ;; esac; done
+  echo "${left# }"
+}
+
+# A tool timeout or a Ctrl-C used to lose the whole batch: the finished PNGs stayed on disk, but
+# nothing said where. Now the run says what landed and what did not, and still makes the strip.
+on_signal() {
+  trap - TERM INT HUP
+  if [ -n "$CHILD" ]; then
+    command -v pkill >/dev/null 2>&1 && pkill -TERM -P "$CHILD" 2>/dev/null
+    kill -TERM "$CHILD" 2>/dev/null
+  fi
+  [ -n "${PWLIST:-}" ] && [ -s "$PWLIST" ] && collect_pw
+  echo "shoot: stopped after ${SECONDS}s. Not rendered: $(not_done)" >&2
+  echo "       Every finished render is kept. Run the rest on their own, in the background." >&2
+  finish 143
+}
+trap on_signal TERM INT HUP
+
+# --- Route 1: the file input, through preview-with-playwright.mjs -----------------------------
+
+PW_DIR="${PW_DIR:-$HOME/.cache/adapty-flow-playwright}"
+have_pw() { [ -d "$PW_DIR/node_modules/playwright-core" ] || [ -d "$PW_DIR/node_modules/playwright" ]; }
+
+collect_pw() {  # read the paths the script printed; a scroll view replaces its screen's shot
+  local line prev=""
+  shots=""; n=0; done_ids=""
+  while IFS= read -r line; do
+    [ -s "$line" ] || continue
+    case "$line" in
+      *-scroll.png) shots="${shots% $prev} $line"; prev="$line" ;;
+      *) shots="$shots $line"; prev="$line"; n=$((n+1)) ;;
+    esac
+  done < "$PWLIST"
+  for s in $SCREENS; do
+    grep -qxF "$(png_for "$s")" "$PWLIST" && done_ids="$done_ids $s"
+  done
+}
+
+if [ "${PLAYWRIGHT:-1}" != 0 ] && command -v node >/dev/null 2>&1; then
+  if ! have_pw && command -v npm >/dev/null 2>&1; then
+    echo "   (installing playwright-core once into $PW_DIR; it drives your installed browser and downloads none)" >&2
+    npm i --prefix "$PW_DIR" playwright-core --silent --no-audit --no-fund >/dev/null 2>&1 \
+      || echo "   (could not install playwright-core; using the browser's own screenshot instead)" >&2
+  fi
+  if have_pw; then
+    PWLIST="$OUT/.shoot-$CFGSIG-$$.list"; : > "$PWLIST"
+    args=(--config "$ABS_CFG" --time-limit "$TIME_LIMIT")
+    [ -n "$DEVICE" ] && args+=(--device "$DEVICE")
+    [ -n "$LOCALE" ] && args+=(--locale "$LOCALE")
+    if [ "$SCREENS" = "__default__" ]; then
+      args+=(--out "$(png_for __default__)")
+    else
+      for s in $SCREENS; do args+=(--screen "$s"); done
+      args+=(--out "$OUT/shot-$CFGSIG-{screen}$LOCTAG$DEVTAG.png")
+    fi
+    # In the background and waited on, so a signal reaches the trap above at once.
+    ( cd "$PW_DIR" && exec node "$HERE/preview-with-playwright.mjs" "${args[@]}" ) > "$PWLIST" &
+    CHILD=$!
+    wait "$CHILD"; rc=$?
+    CHILD=""
+    collect_pw
+    rm -f "$PWLIST"; PWLIST=""
+    [ "$rc" = 2 ] && exit 2                       # a bad LOCALE or config; the script said why
+    if [ "$n" -gt 0 ]; then
+      for s in $shots; do echo "   rendered -> $s"; done
+      [ "$rc" = 0 ] && finish 0
+      echo "   not rendered: $(not_done) (the reason is above)" >&2
+      finish 1
+    fi
+    # 3 is no browser that starts, 4 a page that never drew anything (it did not load, or did not
+    # take the file): the URL route below is a different way into the same page, so try it. Any
+    # other failure is the page's own verdict on the request, which that route would only repeat.
+    case "$rc" in 3|4) ;; *) exit 1 ;; esac
+    echo "   the file-input route rendered nothing; trying the browser's own screenshot of the preview URL" >&2
+  fi
+fi
+
+# --- Route 2: the browser's own --screenshot of the preview URL --------------------------------
+
 win_dir() { [ "$WIN" = 1 ] && [ -n "$1" ] && cygpath -u "$1" 2>/dev/null; }
 PF="$(win_dir 'C:\Program Files')"; PF86="$(win_dir 'C:\Program Files (x86)')"
 LAD="$(win_dir "${LOCALAPPDATA:-}")"
 
 CHROME="${CHROME:-}"
 if [ -z "$CHROME" ]; then
-  # Edge last: it is Chromium, takes the same flags, and ships with every Windows 10 and 11.
+  # Any Chromium-based browser takes the same flags. Chrome first, then the others people have
+  # instead of it; a Windows path is skipped where there is no Windows.
   for c in "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+           "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
+           "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
            "/Applications/Chromium.app/Contents/MacOS/Chromium" \
-           google-chrome chromium chromium-browser \
+           "/Applications/Vivaldi.app/Contents/MacOS/Vivaldi" \
+           "/Applications/Opera.app/Contents/MacOS/Opera" \
+           "$HOME/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+           "$HOME/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
+           google-chrome google-chrome-stable chromium chromium-browser microsoft-edge \
+           microsoft-edge-stable brave-browser brave vivaldi vivaldi-stable opera /snap/bin/chromium \
            "$PF/Google/Chrome/Application/chrome.exe" \
            "$PF86/Google/Chrome/Application/chrome.exe" \
            "$LAD/Google/Chrome/Application/chrome.exe" \
            "$PF86/Microsoft/Edge/Application/msedge.exe" \
-           "$PF/Microsoft/Edge/Application/msedge.exe"; do
-    case "$c" in /Google/*|/Microsoft/*) continue ;; esac   # a Windows path with no Windows
+           "$PF/Microsoft/Edge/Application/msedge.exe" \
+           "$PF/BraveSoftware/Brave-Browser/Application/brave.exe" \
+           "$LAD/BraveSoftware/Brave-Browser/Application/brave.exe" \
+           "$LAD/Chromium/Application/chrome.exe" \
+           "$LAD/Vivaldi/Application/vivaldi.exe"; do
+    case "$c" in /Google/*|/Microsoft/*|/BraveSoftware/*|/Chromium/*|/Vivaldi/*) continue ;; esac
     if [ -x "$c" ] || command -v "$c" >/dev/null 2>&1; then CHROME="$c"; break; fi
   done
 fi
-[ -n "$CHROME" ] || { echo "shoot: no Chrome, Chromium or Edge found — set CHROME=/path" >&2; exit 2; }
+if [ -z "$CHROME" ]; then
+  echo "shoot: no Chromium-based browser found (looked for Chrome, Edge, Brave, Chromium, Vivaldi, Opera)." >&2
+  echo "       Set CHROME to any Chromium-based browser, e.g." >&2
+  echo "       CHROME='/Applications/Brave Browser.app/Contents/MacOS/Brave Browser' shoot.sh ..." >&2
+  exit 2
+fi
+
+# On Linux a container usually runs as root, where Chrome refuses to start without --no-sandbox,
+# and gives /dev/shm 64MB, where its renderer crashes. Both fail silently through --screenshot:
+# no file, nothing said. Playwright passes the same two flags by default.
+LINUX_FLAGS=""
+[ "$LINUX" = 1 ] && LINUX_FLAGS="--no-sandbox --disable-dev-shm-usage"
 
 # The CLI is the one SKILL.md phase 1 resolved: pass it as ADAPTY, or have `adapty` on PATH. This
 # script never launches a package itself, so what runs is always the CLI the run already chose.
@@ -106,65 +242,75 @@ if [ -z "$ADAPTY_BIN" ]; then
   exit 2
 fi
 
-# One launch, watchdogged — and it returns the moment the PNG is complete rather than waiting for
-# Chrome to exit. Both halves are measured. Chrome hangs often enough that an unguarded call costs a
-# whole turn; and a COLD first launch spent ~130 s inside Google's own updater before painting
-# anything, so a watchdog tuned to the warm case (this was 60 s) kills shots that were going to
-# succeed and reports "no file" for a config that is fine. Polling for the file is what makes a
-# generous timeout free: you only ever wait the full time when nothing lands at all.
+# A copy made by preview-with-playwright.mjs, which owns the config copies (it needs no browser
+# for this). LOCALE renders that language; the long-URL fallback below drops previews and every
+# language but the one drawn.
+copy_config() {  # $1 = source, $2 = dest, rest = options
+  local src="$1" dst="$2"; shift 2
+  command -v node >/dev/null 2>&1 || { echo "shoot: making a config copy needs node, which runs the Adapty CLI" >&2; return 1; }
+  node "$HERE/preview-with-playwright.mjs" --config "$src" "$@" --save-config "$dst" >/dev/null
+}
+RCFG="$ABS_CFG"
+if [ -n "$LOCALE" ]; then
+  RCFG="$OUT/locale-$CFGSIG$LOCTAG.json"
+  copy_config "$ABS_CFG" "$RCFG" --locale "$LOCALE" || exit 2
+fi
+
+# One launch, watchdogged -- and it returns the moment the PNG is complete rather than waiting for
+# the browser to exit. A browser hangs often enough that an unguarded call costs a whole turn; and
+# a COLD first launch can spend ~130 s inside Google's own updater before painting anything, so
+# the watchdog stays generous. Polling for the file is what makes that free: you only wait the
+# full time when nothing lands at all. Sets SHOT_END to done, exited or timeout.
+CHROME_LOG="$(mktemp "${TMPDIR:-/tmp}/adapty-shoot-log.XXXXXX")"
+trap 'rm -f "$CHROME_LOG"' EXIT
 shoot_one() {  # $1 = url, $2 = out png, $3 = budget ms, $4 = watchdog s
-  # Chrome writes to a per-run temp name and the result is MOVED into place only once it is
-  # complete. A Chrome orphaned by a killed run keeps writing to ITS $$ temp, which nothing
-  # reads and which can never become $2 -- the measured failure this closes. It also means the
-  # real name never exists in a half-written state.
+  # The browser writes to a per-run temp name and the result is MOVED into place only once it is
+  # complete, so an orphan from a killed run can never write the real name, and the real name never
+  # exists half-written. The temp MUST end in .png: --screenshot writes NOTHING, silently, for a
+  # path with any other extension.
   rm -f "$2"
-  # The temp MUST still end in .png: Chrome's --screenshot writes NOTHING, silently, for a path
-  # with any other extension (measured -- `--screenshot=x.png.partial.999` produced no file while
-  # the identical run to `ok.png` wrote 1564 bytes). A first version of this named the temp
-  # "$2.partial.$$" and every render came back empty, which reads exactly like a broken config.
   tmp="${2%.png}.partial.$$.png"; rm -f "$tmp"
-  # On Windows, Chrome is a native program: hand it a C:\ path, not a /tmp one it cannot resolve,
-  # and its own throwaway profile, so it cannot pass the job to a Chrome the user already has open
-  # and exit at once with nothing written.
+  # On Windows the browser is a native program: hand it a C:\ path, not a /tmp one it cannot
+  # resolve, and its own throwaway profile, so it cannot pass the job to a window the user already
+  # has open and exit at once with nothing written.
   shot="$tmp"; profile=""
   if [ "$WIN" = 1 ]; then
     shot="$(cygpath -w "$tmp")"
     profile="$(mktemp -d "${TMPDIR:-/tmp}/adapty-chrome.XXXXXX")"
   fi
-  "$CHROME" --headless=new --disable-gpu --hide-scrollbars \
+  "$CHROME" --headless=new --disable-gpu --hide-scrollbars $LINUX_FLAGS \
     --window-size="$WINDOW" --virtual-time-budget="$3" \
     ${profile:+--user-data-dir="$(cygpath -w "$profile")"} \
-    --screenshot="$shot" "$1" >/dev/null 2>&1 &
-  c=$!
-  ticks=$(( $4 * 2 )); waited=0; last=-1
+    --screenshot="$shot" "$1" >/dev/null 2>"$CHROME_LOG" &
+  c=$!; CHILD=$c
+  ticks=$(( $4 * 2 )); waited=0; last=-1; SHOT_END=timeout
   while [ "$waited" -lt "$ticks" ]; do
-    kill -0 "$c" 2>/dev/null || break
-    # `wc -c <"$tmp"` would leak the shell's own redirect error while the file does not exist yet:
-    # 2>/dev/null covers wc's stderr, not the redirection failure. Test first instead.
+    kill -0 "$c" 2>/dev/null || { SHOT_END=exited; break; }
+    # Test first: `wc -c <"$tmp"` would leak the shell's own redirect error while it is missing.
     if [ -f "$tmp" ]; then sz=$(wc -c <"$tmp" | tr -d ' '); else sz=0; fi
-    # Non-empty AND unchanged since the last poll: Chrome has finished writing. Breaking on merely
-    # non-empty would hand the caller a half-written PNG, which measures as a corrupt image.
-    [ "$sz" -gt 0 ] && [ "$sz" = "$last" ] && break
+    # Non-empty AND unchanged since the last poll: the browser has finished writing.
+    if [ "$sz" -gt 0 ] && [ "$sz" = "$last" ]; then SHOT_END=done; break; fi
     last="$sz"
     waited=$((waited + 1))
     sleep 0.5
   done
-  # Its helpers first: killing only the main process left renderer and GPU processes running
-  # after a hung shot (reported), and they pile up over a run.
+  # Its helpers first: killing only the main process left renderer and GPU processes running.
   command -v pkill >/dev/null 2>&1 && pkill -9 -P "$c" 2>/dev/null
   kill -9 "$c" 2>/dev/null
   wait "$c" 2>/dev/null
+  CHILD=""
   [ -n "$profile" ] && rm -rf "$profile"
-  if [ -s "$tmp" ]; then mv -f "$tmp" "$2"; else rm -f "$tmp"; fi
+  if [ -s "$tmp" ]; then mv -f "$tmp" "$2"; SHOT_END=done; else rm -f "$tmp"; fi
 }
 
-# Is the render host actually reachable? This is the ROOT CAUSE of the page the sanity guard
-# below exists to catch: when the host cannot be resolved or refuses the connection, Chrome
-# screenshots its own error screen into a perfectly valid PNG. Testing the host directly beats
-# inferring it from pixels afterwards on every count -- it is unambiguous where the pixels are
-# not (a real screen made only of text measures the same as an error page, measured), it names
-# the actual problem, and it costs ~0.3 s instead of an 18 s Chrome launch that was never going
-# to produce anything. Skipped silently if curl is unavailable; the pixel guard is the backstop.
+# What the browser said on its way out, which is the only clue when it writes nothing.
+browser_said() {
+  grep -v '^[[:space:]]*$' "$CHROME_LOG" 2>/dev/null | tail -n 4 | cut -c1-220 | sed 's/^/           | /' >&2
+}
+
+# Is the render host reachable? When it cannot be resolved or refuses the connection, the browser
+# screenshots its own error screen into a perfectly valid PNG. Testing the host directly is
+# unambiguous where the pixels are not, names the actual problem, and costs ~0.3 s.
 probed=0
 host_ok=0          # 1 only when curl actually RAN and the host answered -- not merely "probed"
 probe_host() {  # $1 = any URL on the host
@@ -174,55 +320,53 @@ probe_host() {  # $1 = any URL on the host
   origin=$(printf '%s' "$1" | sed -E 's#^(https?://[^/]+).*#\1#')
   if ! curl -s -o /dev/null -m 10 "$origin"; then
     echo "shoot: the render host $origin is unreachable from here." >&2
-    echo "       Chrome would screenshot its own error page into a valid PNG, which is how a" >&2
+    echo "       The browser would screenshot its own error page into a valid PNG, which is how a" >&2
     echo "       broken network gets reported as a broken config. Fix the network, then retry." >&2
     exit 1
   fi
   host_ok=1
 }
 
-shots=""; n=0
-[ -n "$SCREENS" ] || SCREENS="__default__"
+preview_url() {  # $1 = config, $2 = screen
+  if [ "$2" = "__default__" ]; then $ADAPTY_BIN flows config preview "$1" $DEVFLAG 2>&1
+  else $ADAPTY_BIN flows config preview "$1" --screen "$2" $DEVFLAG 2>&1; fi
+}
+
+i=0; failed_in_a_row=0
 for s in $SCREENS; do
-  if [ "$s" = "__default__" ]; then
-    url="$($ADAPTY_BIN flows config preview "$CFG" $DEVFLAG 2>&1)"; png="$OUT/shot-$CFGSIG$DEVTAG.png"
-  else
-    url="$($ADAPTY_BIN flows config preview "$CFG" --screen "$s" $DEVFLAG 2>&1)"; png="$OUT/shot-$CFGSIG-$s$DEVTAG.png"
+  i=$((i+1))
+  left=$(( TIME_LIMIT - SECONDS ))
+  if [ "$left" -le 0 ]; then
+    echo "shoot: TIME_LIMIT of ${TIME_LIMIT}s reached. Not rendered: $(not_done)" >&2
+    echo "       Run those on their own, in the background, or raise TIME_LIMIT." >&2
+    break
   fi
+  echo "[$i/$TOTAL] $s" >&2
+  t0=$SECONDS
+  png="$(png_for "$s")"
+  url="$(preview_url "$RCFG" "$s")"
   case "$url" in
     http*) ;;
     *) echo "shoot: preview failed for $s: $(printf '%s' "$url" | head -2)" >&2; exit 1 ;;
   esac
-  # A config with several bound images carries their previews and can push the URL past what the
-  # render page boots from: it draws its own "There's been a glitch" page instead, which passes
-  # the pixel guard below as a real screen. Measured failing at ~113K and ~145K characters. Above
-  # the limit, render through the page's file input instead (preview-with-playwright.mjs), which
-  # never puts the config in the URL. Windows caps a whole command line at 32,767 characters, so
-  # there a URL far shorter than that limit never reaches Chrome at all.
+  # Past ~100K characters the render page draws its own "There's been a glitch" page, which passes
+  # the pixel guard as a real screen. Windows caps a whole command line at 32,767 characters.
   if [ "$WIN" = 1 ]; then limit=30000; else limit=100000; fi
-  # The previews are what grows: one bound image's previewValue is thousands of characters. So
-  # first try a copy with every previewValue removed; it renders the same screen, because the
-  # render downloads the full image anyway. The one layout it can change is a sliding-sheet cover
-  # image with a hug height, whose crop is decided from the preview (media.md). Reported by two
-  # runs that each stripped the previews by hand after the fallback below clipped the footer.
   if [ "${#url}" -gt "${URL_LIMIT:-$limit}" ]; then
-    lean="$OUT/nopreview-$CFGSIG.json"
-    $PY -c '
-import json, sys
-def strip(o):
-    if isinstance(o, dict):
-        return {k: strip(v) for k, v in o.items() if k != "previewValue"}
-    if isinstance(o, list):
-        return [strip(v) for v in o]
-    return o
-json.dump(strip(json.load(open(sys.argv[1], encoding="utf-8"))), open(sys.argv[2], "w", encoding="utf-8"))
-' "$CFG" "$lean" 2>/dev/null
-    if [ -s "$lean" ]; then
-      if [ "$s" = "__default__" ]; then lurl="$($ADAPTY_BIN flows config preview "$lean" $DEVFLAG 2>&1)"
-      else lurl="$($ADAPTY_BIN flows config preview "$lean" --screen "$s" $DEVFLAG 2>&1)"; fi
+    # What grows a URL is image previews (thousands of characters each, and the render downloads
+    # the full image anyway) and languages the page does not draw. A copy without both draws the
+    # same screen; the one layout it can change is a sliding-sheet cover image with a hug height,
+    # whose crop is decided from the preview (media.md).
+    lean="$OUT/lean-$CFGSIG$LOCTAG.json"
+    if [ -s "$lean" ] || {
+         dflt=$($PY -c 'import json,sys
+d=json.load(open(sys.argv[1],encoding="utf-8")); c=d["config"] if isinstance(d.get("config"),dict) else d
+print((c.get("localization") or {}).get("defaultLocale") or "")' "$RCFG" 2>/dev/null)
+         copy_config "$RCFG" "$lean" --no-previews ${dflt:+--locale "$dflt"} 2>/dev/null; }; then
+      lurl="$(preview_url "$lean" "$s")"
       case "$lurl" in
         http*) if [ "${#lurl}" -le "${URL_LIMIT:-$limit}" ]; then
-                 echo "   URL is ${#url} chars — rendering $s from a copy without image previews" >&2
+                 echo "   URL is ${#url} chars — rendering $s from a copy without image previews and other languages" >&2
                  echo "   (same screen; only a sliding-sheet cover image with a hug height can crop differently)" >&2
                  url="$lurl"
                fi ;;
@@ -230,62 +374,69 @@ json.dump(strip(json.load(open(sys.argv[1], encoding="utf-8"))), open(sys.argv[2
     fi
   fi
   if [ "${#url}" -gt "${URL_LIMIT:-$limit}" ]; then
-    PW_DIR="$HOME/.cache/adapty-flow-playwright"
-    if [ -d "$PW_DIR/node_modules/playwright" ]; then
-      echo "   URL is ${#url} chars — rendering $s through the file input instead" >&2
-      # Absolute paths: this runs after a `cd`, so a relative --config or --out resolves against
-      # the cache dir and the render fails (or lands where nobody looks).
-      ABS_CFG="$(cd "$(dirname "$CFG")" && pwd)/$(basename "$CFG")"
-      ABS_PNG="$(cd "$(dirname "$png")" && pwd)/$(basename "$png")"
-      ( cd "$PW_DIR" && node "$HERE/preview-with-playwright.mjs" --config "$ABS_CFG" $DEVFLAG \
-          ${s:+$( [ "$s" != "__default__" ] && printf -- '--screen %s' "$s")} --out "$ABS_PNG" ) >&2 || rm -f "$png"
-      if [ -s "$png" ]; then echo "   rendered $s -> $(basename "$png")"; shots="$shots $png"; n=$((n+1)); continue; fi
+    if [ "$WIN" = 1 ]; then   # the command line cannot carry it at all
+      echo "   SKIPPED $s — the preview URL is ${#url} characters, longer than a Windows command line." >&2
+      echo "           The file-input route has no such limit; install it once and rerun:" >&2
+      echo "           npm i --prefix ~/.cache/adapty-flow-playwright playwright-core" >&2
+      continue
     fi
-    echo "   SKIPPED $s — the preview URL is ${#url} characters, past what the render page loads;" >&2
-    echo "           a screenshot here would show its error page. Render it with" >&2
-    echo "           preview-with-playwright.mjs (one-time install in its header)." >&2
-    continue
+    echo "   URL is ${#url} chars even without previews; rendering it anyway. LOOK AT IT: a page" >&2
+    echo "   this long has drawn its own error page instead of the screen." >&2
   fi
   probe_host "$url"
-  shoot_one "$url" "$png" "$BUDGET" "${WATCHDOG:-180}"
+  wd=${WATCHDOG:-180}; [ "$wd" -gt "$left" ] && wd=$left
+  shoot_one "$url" "$png" "$BUDGET" "$wd"
+  if [ "$SHOT_END" = exited ]; then
+    # The browser quit on its own and wrote nothing: it could not start or could not run here. A
+    # longer wait changes nothing, and neither will the next screen.
+    echo "   FAILED  $s — the browser exited without a screenshot. It said:" >&2
+    browser_said
+    echo "           Browser: $CHROME. Set CHROME to another Chromium-based browser, or install the" >&2
+    echo "           file-input route once: npm i --prefix ~/.cache/adapty-flow-playwright playwright-core" >&2
+    break
+  fi
   if [ ! -s "$png" ]; then
-    # Escalate before concluding anything. Measured: on a slow render host an 8 s budget produced
-    # no file while 60 s produced a correct screenshot of the same config ~72 s later.
-    echo "   slow host? retrying $s at 60s..." >&2
-    shoot_one "$url" "$png" 60000 "${WATCHDOG_RETRY:-300}"
+    left=$(( TIME_LIMIT - SECONDS ))
+    if [ "$left" -gt 30 ]; then
+      # Escalate before concluding anything: on a slow render host an 8 s budget produced no file
+      # while 60 s produced a correct screenshot of the same config ~72 s later.
+      echo "   slow host? retrying $s at 60s..." >&2
+      wd=${WATCHDOG_RETRY:-300}; [ "$wd" -gt "$left" ] && wd=$left
+      shoot_one "$url" "$png" 60000 "$wd"
+    fi
+  fi
+  if [ -s "$png" ] && [ "$host_ok" = 1 ] && ! $PY "$HERE/render-measure.py" --sanity "$png" >/dev/null 2>&1 \
+     && [ $(( TIME_LIMIT - SECONDS )) -gt 30 ]; then
+    # A flat page from a host that answered is often a load hiccup that a second shot clears. The
+    # retry goes to its own name, so a retry that lands nothing keeps the first shot.
+    echo "   $s came back flat; retrying once (a load hiccup usually clears)" >&2
+    again="${png%.png}-again.png"
+    wd=${WATCHDOG:-180}; [ "$wd" -gt $(( TIME_LIMIT - SECONDS )) ] && wd=$(( TIME_LIMIT - SECONDS ))
+    shoot_one "$url" "$again" "$BUDGET" "$wd"
+    if [ -s "$again" ] && $PY "$HERE/render-measure.py" --sanity "$again" >/dev/null 2>&1; then
+      mv -f "$again" "$png"; echo "   $s drew on the retry" >&2
+    else
+      rm -f "$again"
+    fi
   fi
   if [ -s "$png" ]; then
-    # A non-empty PNG is NOT a render. Chrome screenshots its own error page perfectly, so an
-    # unreachable render host used to print "rendered" and exit 0 — measured on 6/6 agents in a
-    # GREEN round, each handed a valid 430x900 screenshot of DNS_PROBE_FINISHED_NXDOMAIN. Every
-    # one of them caught it by LOOKING at the file, which is luck, not a check: the same page
-    # false-passed `render-check.py` on its 216 antialiasing colours until a dominant-share
-    # guard was added. That guard then over-fired -- four agents in the 2026-08-28 round had
-    # GOOD renders renamed, because a sparse light screen is flatter than a DNS-error page.
-    # `--sanity` needs flatness AND the ink confined to one band AND nothing drawn wider than a
-    # line of text -- the third axis added 2026-08-28, after a correct render of a single
-    # carousel was refused: on the first two axes it sat BETWEEN two real error pages, so no
-    # threshold on them could have separated it. See render-measure.py, which also records the
-    # one case still not separable (a screen made only of text) -- the host probe above is what
-    # covers that one.
+    failed_in_a_row=0
+    # A non-empty PNG is NOT a render: the browser screenshots its own error page perfectly.
+    # `--sanity` flags flatness AND ink confined to one band AND nothing wider than a line of text
+    # (render-measure.py records the calibration, and the one case still not separable: a screen
+    # made only of text -- the host probe above covers that one).
     if $PY "$HERE/render-measure.py" --sanity "$png" >/dev/null 2>&1; then
-      echo "   rendered $s -> $(basename "$png")"
-      shots="$shots $png"; n=$((n+1))
+      echo "   rendered $s in $((SECONDS - t0))s -> $png"
+      shots="$shots $png"; n=$((n+1)); done_ids="$done_ids $s"
     elif [ "$host_ok" = 1 ]; then
-      # The host ANSWERED, so the reason this guard exists -- Chrome screenshotting its own
-      # DNS/connection error page -- has already been ruled out upstream by the probe, which is
-      # finding 20's own conclusion that testing the cause beats inferring it from pixels. What
-      # is left is either a sparse screen or a served error page, and those are NOT separable by
-      # pixels (a real text-only render measures below a real error page -- measured). So this
-      # keeps the file and says both things, because renaming it destroys a correct render:
-      # a minimal two-tab screen measured 97.7% one colour / 7% span / 7% run and is perfectly
-      # good output. Looking at the PNG is what settles it, and every GREEN round shows agents
-      # doing that reliably.
-      echo "   rendered $s -> $(basename "$png")  (FLAT — look closely)"
+      # The host ANSWERED, so this is not the offline error page. A sparse screen and a served
+      # error page are not separable by pixels, so keep the file and say both things: renaming it
+      # would destroy a correct render. Looking at the PNG is what settles it.
+      echo "   rendered $s -> $png  (FLAT — look closely)"
       $PY "$HERE/render-measure.py" --sanity "$png" >&2
-      echo "           The host answered, so this is NOT the offline-Chrome error page. Either the" >&2
+      echo "           The host answered, so this is NOT the offline error page. Either the" >&2
       echo "           screen really is this sparse, or the page served an error. LOOK AT IT." >&2
-      shots="$shots $png"; n=$((n+1))
+      shots="$shots $png"; n=$((n+1)); done_ids="$done_ids $s"
     else
       bad="$OUT/NOT-A-RENDER-$(basename "$png")"
       mv "$png" "$bad"
@@ -295,17 +446,17 @@ json.dump(strip(json.load(open(sys.argv[1], encoding="utf-8"))), open(sys.argv[2
       echo "           real browser: this is a host/network problem far more often than a config one." >&2
     fi
   else
+    failed_in_a_row=$((failed_in_a_row+1))
     echo "   FAILED  $s — no file even at 60s. Load the URL in a REAL browser before blaming the" >&2
     echo "           config: the page can render there while headless yields nothing." >&2
+    browser_said
+    if [ "$failed_in_a_row" -ge 2 ]; then
+      echo "shoot: two screens in a row drew nothing; the render host is too slow from here right now." >&2
+      echo "       Not rendered: $(not_done)" >&2
+      break
+    fi
   fi
 done
+rm -f "$CHROME_LOG"
 
-[ "$n" -gt 0 ] || { echo "shoot: nothing rendered" >&2; exit 1; }
-
-if [ "$n" -eq 1 ]; then
-  echo; echo "LOOK AT:$shots"
-else
-  strip="$OUT/strip-$CFGSIG$DEVTAG.png"
-  $PY "$HERE/montage.py" "$strip" $shots >/dev/null
-  echo; echo "LOOK AT: $strip  ($n screens, left to right in the order given)"
-fi
+finish $([ "$n" -eq "$TOTAL" ] && echo 0 || echo 1)

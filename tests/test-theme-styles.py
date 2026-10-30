@@ -275,7 +275,7 @@ if not any('text is 1.0' in w and 'light mode' in w for w in ws):
 else:
     print('  WARNS  near-white text on a solids-only bg stack (legibility)')
 errs, ws, _ = run(variant(REVIEWS, heading_on_bg([solid('#FFFFFF'), IMG])))
-if any('against its background in light mode' in w and 'el_C_014T' in w for w in ws):
+if any('effectively invisible' in w and 'light mode' in w and 'el_C_014T' in w for w in ws):
     fails.append(f'bg stack with an image: must be unresolvable, got {ws!r}')
 else:
     print('  SILENT near-white text on a bg stack with an image (unresolvable)')

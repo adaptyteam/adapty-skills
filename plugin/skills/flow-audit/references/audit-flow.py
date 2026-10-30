@@ -1767,10 +1767,17 @@ def check_variables(config):
     for s, eid, e in elements(config):
         for _, a in actions_of(e):
             if a.get('type') == 'setVariable':
-                payload = a.get('payload') or {}
-                vid = payload.get('id') or payload.get('variableId')
-                if vid:
-                    produced.setdefault(vid, (s['id'], eid))
+                # The schema's payload is a LIST of `assign` expressions, each naming its
+                # variable in `left`; a bare object is the older shape.
+                payload = a.get('payload') or []
+                assigns = payload if isinstance(payload, list) else [payload]
+                for p in assigns:
+                    if not isinstance(p, dict):
+                        continue
+                    left = p.get('left') if isinstance(p.get('left'), dict) else {}
+                    vid = left.get('variableId') or p.get('id') or p.get('variableId')
+                    if vid:
+                        produced.setdefault(vid, (s['id'], eid))
     if not produced:
         return out
     refs = _variable_refs(config)
@@ -1896,6 +1903,20 @@ def check_fake_carousel(config):
                       for c in kids if not c.get('children')]
             dots = sorted(i for i, e in leaves if _dot_stack(e) or _dot_icon(e)
                           or _dot_text(e, dl))
+            # A dot in each GAP between text-bearing items is a separated list (Restore · Terms ·
+            # Privacy), not a pager; an indicator row's dots sit side by side.
+            at = {c.get('id'): i for i, c in enumerate(kids)}
+
+            def texty(c):
+                ce = m.get(c.get('id')) or {}
+                if ce.get('type') == 'text' and not _dot_text(ce, dl):
+                    return True
+                return any(texty(g) for g in c.get('children') or [])
+            if dots and all(0 < at[i] < len(kids) - 1
+                            and kids[at[i] - 1].get('id') not in dots and texty(kids[at[i] - 1])
+                            and kids[at[i] + 1].get('id') not in dots and texty(kids[at[i] + 1])
+                            for i in dots):
+                dots = []
             # A single text node of bullet glyphs IS the whole indicator row, so it
             # counts alone; two is the floor otherwise, because a two-slide carousel
             # gets exactly two dots.

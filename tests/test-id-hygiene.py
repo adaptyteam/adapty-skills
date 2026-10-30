@@ -137,6 +137,14 @@ print('FIRES on an element id reused across screens:')
 fires('the same id on two screens',
       doc([screen('scr_1', [text_el('el_cta')]), screen('scr_2', [text_el('el_cta')])]),
       'more than one screen')
+# A regenerated screen patched into a fetched config, its ids numbered from 1 by a build script,
+# collides with the live ones; the message has to say what to do, not only what happened.
+fires('...and the message says which ids to change',
+      doc([screen('scr_1', [text_el('el_cta')]), screen('scr_2', [text_el('el_cta')])]),
+      'an id the flow does not use yet')
+fires('...and names the helper that prevents it',
+      doc([screen('scr_1', [text_el('el_cta')]), screen('scr_2', [text_el('el_cta')])]),
+      'flowkit.ids_after(<fetched config>)')
 
 def nested(sid, parent, kids, extra_refs=()):
     """A screen whose hierarchy nests `kids` under `parent`, plus any extra root references."""
@@ -176,6 +184,12 @@ for bad in ('pt-br', 'PT-BR', 'sr-latn', 'sr-LATN', 'pt_BR', 'en-us'):
           doc([screen('scr_1', [text_el('el_t')])],
               locales=(('en', 'en', 'English'), (bad, bad, 'Other'))),
           'locale code')
+# The message names the one command that renames all three places, cased for THIS code.
+for bad, good in (('pt-br', 'pt-BR'), ('sr-latn', 'sr-Latn'), ('PT-BR', 'pt-BR')):
+    fires(f'...and names the rename for {bad!r}',
+          doc([screen('scr_1', [text_el('el_t')])],
+              locales=(('en', 'en', 'English'), (bad, bad, 'Other'))),
+          f'localization.py rename <config> {bad} {good}`')
 
 print()
 print('FIRES on a defaultLocale that names no declared locale:')

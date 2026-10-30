@@ -192,6 +192,54 @@ fires('an active dot taller than the others — two heights is still an indicato
 fires('inactive dots drawn as `DotOutline` icons',
       fake([icon_dot(i, name='DotOutline') for i in range(3)]), FAKE)
 
+# ------------------------------------------------------------ separators in a link row
+# patterns.md names `Restore · Terms · Privacy` as a legitimate row, and a dot between two links
+# is drawn the same ways an indicator dot is: a small rounded stack, a phosphor `Dot`, a `·` text.
+# One dot per GAP between items that carry text is a separated list; an indicator row's dots sit
+# side by side. A `·` text was also read across every locale at once, so one separator in a
+# three-language flow counted as three bullets and fired alone.
+def word(w, locales=('en',)):
+    t = text_dots(w)
+    t['props']['content']['values'] = {
+        l: [{'type': 'paragraph', 'content': [{'type': 'text', 'text': w}]}] for l in locales}
+    return t
+
+
+def row(items):
+    """`fake()` (no carousel, no dots) plus one horizontal row of `items`, in order."""
+    d = fake()
+    s = d['screens'][0]
+    m, h = s['elements']['map'], s['elements']['hierarchy']
+    m['el_links'] = {'id': 'el_links', 'type': 'stack', 'states': [], 'props': {
+        'position': {'type': 'relative'}, 'width': {'type': 'hug'}, 'height': {'type': 'hug'},
+        'layout': {'direction': 'horizontal', 'distribution': {'type': 'gap', 'gap': 8}}}}
+    for n, e in enumerate(items):
+        e['id'] = f'el_item{n}'
+        m[e['id']] = e
+    h['children'].append({'id': 'el_links', 'children': [{'id': e['id']} for e in items]})
+    return d
+
+
+def links(sep, locales=('en',)):
+    return row([word('Restore', locales), sep(), word('Terms', locales), sep(),
+                word('Privacy', locales)])
+
+
+tiny = lambda: dot(0, w=4, h=4, r=2)
+
+print('\nSILENT on separators between links:')
+silent('Restore · Terms · Privacy with 4pt rounded stack separators', links(tiny))
+silent('the same row with phosphor `Dot` icon separators',
+       links(lambda: icon_dot(0, name='Dot', size=12)))
+silent('a `·` text separator in a three-language flow (one dot per locale, not three)',
+       links(lambda: word('·', ('en', 'de', 'fr')), ('en', 'de', 'fr')))
+fires('two dots side by side between two links are still an indicator row',
+      row([word('Restore'), tiny(), tiny(), word('Terms')]), FAKE)
+fires('dots after the last link, with nothing after them, still fire',
+      row([word('Restore'), tiny(), word('Terms'), tiny(), tiny()]), FAKE)
+fires('a three-bullet text still fires in a three-language flow',
+      fake([word('● ○ ○', ('en', 'de', 'fr'))]), FAKE)
+
 # ------------------------------------------------------------------ the crash this cost once
 # `props.layout` is a bare STRING ('auto-height') on a text element. Assuming a dict crashed
 # the checker on every real config -- and a crash reads as a broken document, not a broken
@@ -235,6 +283,12 @@ audits('phosphor `Circle` icon dots', fake([icon_dot(i) for i in range(3)]))
 audits('a text node of bullet glyphs', fake([text_dots()]))
 audits('three 300pt cards wider than the screen', fake(keep_slides=3, card_w=300))
 audits('a real carousel is NOT flagged', json.load(open(CAROUSEL)), expect=False)
+audits('Restore · Terms · Privacy with stack separators is NOT flagged', links(tiny),
+       expect=False)
+audits('the same row with `Dot` icon separators is NOT flagged',
+       links(lambda: icon_dot(0, name='Dot', size=12)), expect=False)
+audits('two dots side by side between two links still fire',
+       row([word('Restore'), tiny(), tiny(), word('Terms')]))
 for _p in sorted(glob.glob(os.path.join(CORPUS, '*.json'))):
     audits(f'silent on {os.path.basename(_p)}', json.load(open(_p)), expect=False)
 
