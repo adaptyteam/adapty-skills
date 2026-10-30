@@ -133,7 +133,11 @@ app's US numbers) when you compare, and call the target "the market median", nev
 ## Trials
 
 - End state: at most one product carries a trial.
-- The trial goes on the leading length; with no clear leader, on the longest.
+- The trial goes on the leading length. With no clear leader, it goes on the length whose row in
+  `market.md`, Trial or direct, is highest; with no row, on the longest.
+- **The Why of a trial hypothesis names that length's row** (`market.md`, Trial or direct), in its
+  words. A row under 1 on the length the trial goes on is the risk, said in the Why: there, direct
+  buyers were worth more after a year.
 - A trial that exists is changed (its length) or moved (to another length). Removing a trial
   outright is a test only where trial-to-paid is very low; see `evidence.md`.
 - **Before suggesting a trial's removal, list what on the screen is about the trial,** from the

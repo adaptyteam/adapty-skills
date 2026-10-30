@@ -7,7 +7,7 @@ app by app so the largest apps do not skew them.
 
 This file owns market medians and how often each kind of test wins. `evidence.md` owns the uplift
 ranges from winning tests. When you use a number from here, name it as the market median from
-Adapty's State of Paywalls 2026, except the annual renewal rates under Renewals, which come from
+Adapty's State of Paywalls 2026, except Renewals, Refunds and Trial or direct, which come from
 Adapty's State of In-App Subscriptions 2026. Never call it the user's category average unless the row is for
 their category, and never present a median as their target.
 
@@ -108,6 +108,60 @@ start (after a trial, or a direct purchase). Name it as that report's, never as 
 - **Annual only.** First renewals of different plan lengths are not comparable: an annual plan's
   first renewal sits far below a weekly's or monthly's by nature. Never grade annual against the
   app's other plans.
+
+## Refunds
+
+`refunds.csv`, next to this file, holds the share of revenue lost to refunds, from the same State
+of In-App Subscriptions 2026: one share per category, region and start (after a trial, or a direct
+purchase).
+
+- **Compare it with** the app's refunds as a share of its revenue over the same months: read 7's
+  total over read 2's (`reads.py audit` prints the share).
+- **Pick the row** as for Renewals: the category, the main market's region, and the start most of
+  the app's buyers have.
+
+  ```bash
+  grep '^Lifestyle,Europe,direct,' <skill>/references/refunds.csv
+  ```
+- **Grade it by the ratio, lower is better:** over about one and a half times the row's share is
+  weak, under about two thirds strong, typical between. The file has no percentiles, so say the
+  grade is rough.
+- A weak grade says how much money comes back, not why. Refunds concentrated in one market take
+  the pricing sentence in `SKILL.md`; otherwise name no reason (`diagnosis.md`, the Refunds row).
+- **A weak grade is a scorecard line and one "You:" Next step, never the bold answer or a
+  hypothesis:** check that [Refund Saver](https://adapty.io/docs/refund-saver.md) is on in the
+  dashboard. It answers Apple's questions about a refund request, and Google Play's about a
+  chargeback, with how the user used the app, so unfair ones get disputed; the store still
+  decides. The CLI cannot see whether it is on, so the step asks the user to check, and gives no
+  expected cut in refunds.
+
+  > You: check that [Refund Saver](https://adapty.io/docs/refund-saver.md) is on in the Adapty
+  > dashboard. It answers the store's questions about each refund request with how the user used
+  > the app, so unfair ones get disputed.
+
+  (The shape of the step, not words to copy.)
+
+## Trial or direct
+
+`trials.csv`, next to this file, compares subscribers who started with a free trial with those who
+paid at once, on the same plan length, from the same report. `trial_to_direct` is what a trial
+starter brought in over their first year divided by what a direct buyer brought in: 2.00 means
+trial starters were worth twice as much, under 1 means direct buyers were worth more.
+
+- **Pick the row:** the category and region as for Renewals, and the plan length the trial is on
+  or would go on. No row means one side had no data: step up to `All regions`, then
+  `All categories`, and say so.
+
+  ```bash
+  grep '^Lifestyle,Europe,' <skill>/references/trials.csv
+  ```
+- **It is who stays, not what a trial adds.** Apps that use trials differ from apps that do not,
+  so the ratio never becomes an Expected range or a gain in dollars. Say it as what happened in
+  the market, in words and never the bare ratio: "in Lifestyle in Europe, weekly subscribers who
+  started with a trial brought in about twice as much in their first year as those who paid at
+  once" (2.06); 0.77 is "about a quarter less".
+- **Where it counts** is `levers.md`, Trials: which length a trial goes on, and the Why of a trial
+  hypothesis.
 
 ## Discounts
 
