@@ -273,7 +273,7 @@ Say it as facts with the dates. Say too that the data cannot show ideas they dis
 ran.
 
 Then sort what you found by kind of change, from `paywalls list` (which products each paywall
-sells):
+sells: `products[].product_id`):
 
 | Kind | How it shows |
 |---|---|
