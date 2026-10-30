@@ -48,6 +48,56 @@ And check *which* CLI you are invoking. A globally installed `adapty` is often o
 found on a real machine — so if a command or flag documented here is missing, try
 `npx --yes adapty@latest` — then `@beta` — before concluding it does not exist.
 
+## Where offer ids come from
+
+An `offerId` in a flow is the **Adapty offer id**: the `id` that `product-offers list` returns.
+Never the store's code in `store_offers.<store>.offer_id`, though that field carries the name of
+`flowkit.product()`'s parameter. Verified: every offer bound in a set of real flows was the `id` of
+one of its product's offers.
+
+```
+$ADAPTY product-offers list --app <UUID> --product <PRODUCT_UUID> --json   # all offers, one page
+```
+
+Run it for each product on the screen whose `offers_count` in `products list` is above 0. Each
+offer has `id`, `title`, `offer_type` and `store_offers`, keyed `app_store` and `play_store`. Show
+the user one line per offer (title, type, stores) and bind the one they name; a title that matches
+the ask ("7-day free trial") is the match.
+
+**Which offers a screen binds.** One binding serves both stores, and the offer's store sides
+decide what each store gets:
+
+| The offer | On the card |
+| :--- | :--- |
+| An App Store free trial or intro price, set on the product in App Store Connect | **No offer.** The App Store applies it to eligible buyers by itself, and `offer_*` and `is_free_trial` read it on a base binding. Adapty does not list it unless it created it while pushing the product, and it is never linked in Adapty, so ask whether the product has one |
+| An App Store promotional or win-back offer | Its `id` |
+| Any Google Play offer, a free trial included | Its `id`. Without it Android buyers get the base plan with no offer. The list shows a Google Play trial as `promotional`, or as `introductory` when Adapty created it |
+
+**An offer with no App Store side leaves iOS on the App Store's own trial.** Binding a Google Play
+trial does not take a trial away from iPhone buyers: with no promotional or win-back offer to
+apply, the iOS SDK applies the product's introductory offer to anyone eligible (iOS SDK 4.3.1,
+`PaywallProduct+offers.swift`). So an iOS trial is never fixed by adding an App Store id to that
+Adapty offer; it lives in App Store Connect, and whether the product has one is a question for the
+user.
+
+**No matching offer:** the user creates it in the store first; then link it on their yes, with
+the store offer id they give you, behind the same confirmation as `products create`:
+
+```
+$ADAPTY product-offers create --app <UUID> --product <PRODUCT_UUID> --title "<title>" \
+  --type promotional --android-offer-id "<STORE_OFFER_ID>"
+```
+
+`--type` is `promotional` for every Google Play offer, trials included; `win_back` is App Store
+only and takes `--ios-offer-id`. Never `product-offers update`: it rewrites an offer a live
+paywall or flow may already sell, and offers are deleted only in the dashboard.
+
+**Nothing on the server checks these ids.** `flows config validate` answers `valid: true` for a
+store code as `offerId`, for an offer id the product does not have, and for a product id the app
+does not have (all measured). `verify-config.py` refuses an `offerId` that is not an Adapty offer
+id, and `gates.sh`, given the app id, reads `products list` and `product-offers list` and stops on
+a product or offer the app does not have.
+
 
 ## The builder owns product binding
 
@@ -276,7 +326,7 @@ bindings once the screen is assembled, which is the only point where the offer i
 the offer where the product is bound:
 
 ```python
-fk.product(card, product_id='<uuid>', group_id='plans', offer_id='trial7', default=True)
+fk.product(card, product_id='<uuid>', group_id='plans', offer_id='<offer-id>', default=True)
 ```
 
 **Where it cannot resolve, it leaves the dotted string alone** — deliberately, and in three
@@ -354,7 +404,7 @@ registry, `scr['products']`. The offer and the plan are part of the id, so a pro
 offer and the same product bound without one are two entries:
 
 ```python
-fk.predeclare('scr_x', ['annual', ('annual', 'trial')])
+fk.predeclare('scr_x', ['annual', ('annual', '<offer-id>')])
 ```
 
 The ids match what the builder mints, so its next save rewrites them to the same values.
@@ -391,7 +441,8 @@ if you declare the products yourself, as above.
 > ```
 >
 > `flows config validate` cannot tell you: it returns `valid: true` for a paywall whose every
-> product is a ghost (measured — see [validate.md](validate.md)).
+> product is a ghost (measured — see [validate.md](validate.md)). `gates.sh` with the app id
+> names every such product in one run.
 
 The reason is that **device preview is a stricter gate than `config update`.** The write endpoint
 does not run the transform service, so a config with no declaration saves cleanly. Device preview

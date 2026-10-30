@@ -203,7 +203,10 @@ These are the reason the phase-5 device-preview callout stays load-bearing. In p
   so it is one property with two faces, not a bug. **`valid: true` says nothing about whether
   the products exist.** The authoring path is normally safe because products come from
   `products list`; the exposed path is a flow **grafted from another app**, where the UUIDs
-  travel and the products do not (see [snippets.md](snippets.md)).
+  travel and the products do not (see [snippets.md](snippets.md)). Offers are the same: a store
+  code as `offerId`, or an offer of another product, validates clean. `gates.sh` given the app id
+  reads both against the app and stops on what is missing
+  ([products.md → Where offer ids come from](products.md#where-offer-ids-come-from)).
 
 - **Publishable is not the same as it published.** A flow sitting in `publication_failed`
   validated clean. Treat `valid: true` as "the transform service has no blocking objection to this

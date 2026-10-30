@@ -125,6 +125,23 @@ The catalog fetch happens **before** the checks run, in this same phase, because
 product finding in Phase 4 is a comparison against it — a bound product absent from the
 catalog can't be detected without it.
 
+Then the offers of every product the flow sells with an offer. A flow binds an offer by its
+Adapty `id`, and `flows config validate` passes a store code or another product's offer in its
+place, so only this read finds one the builder will refuse. A flow with no offer makes no call:
+
+```bash
+python3 <skill>/references/audit-flow.py flow.config.json --list-offer-products > offer-products.txt
+mkdir -p offers
+xargs -P 8 -I{} sh -c "$ADAPTY product-offers list --app $APP --product {} --json > offers/{}.json" \
+  < offer-products.txt
+python3 -c "import glob, json; json.dump({p.split('/')[-1][:-5]: d['data'] for p in \
+glob.glob('offers/*.json') for d in [json.load(open(p))] if isinstance(d, dict) \
+and 'data' in d}, open('offers.json', 'w'))"
+```
+
+`product-offers list` returns every offer on one page. A product the app does not have answers
+an error and is left out; `product-not-in-catalog` reports it.
+
 Then fetch every placement, so the audit can say whether the app can reach this flow at
 all. `placements list` carries no audiences, so each placement is read with `placements
 get`; a flow audience is `{"content_type": "flow", "flow_id": …}`.
@@ -188,7 +205,7 @@ it there. Both skills ship in the same plugin, so it is always present in a plug
 FG="$(dirname "<skill>")/flow-generator"        # sibling skill directory
 python3 "$FG/references/verify-config.py" flow.config.json
 python3 <skill>/references/audit-flow.py flow.config.json --catalog catalog.json \
-  --placements placements.json --sibling-locales sibling-locales.json \
+  --offers offers.json --placements placements.json --sibling-locales sibling-locales.json \
   --report --name "$NAME" --status "$STATUS" --flow-id "$FLOW"
 $ADAPTY flows config validate "$FLOW" --app "$APP" --config-file flow.config.json --json
 ```
