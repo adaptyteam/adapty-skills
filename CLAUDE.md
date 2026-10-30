@@ -37,8 +37,6 @@ relative path (name it in backticks), and never reach into another skill's files
 
 - **One plugin for all skills.** A new skill needs no manifest edit. Splitting into separate
   marketplace entries was rejected; don't reopen it without a new reason.
-- **Keep the deprecated `adapty-sdk-integration` marketplace entry** until the docs stop teaching
-  that handle; it keeps old installs updating.
 - **Never create anything at `adaptyteam/adapty-sdk-integration-skill`**: it kills GitHub's
   redirect from the old repo name. `raw.githubusercontent.com` does not follow renames.
 - **No telemetry.** The only outbound data besides the CLI's own calls is the docs
