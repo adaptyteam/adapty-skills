@@ -1462,9 +1462,9 @@ def _input(kind, custom_id, *, placeholder=None, locale='en', width=None, height
 
     **Nothing sets the typed text's colour.** The input props have no `color`, `Font` has none,
     and a typography preset carries size, weight, family, alignment and spacing only; no real
-    export colours it either. The renderer picks the colour, and on a dark fill the typed text
-    was barely visible, so give the field a light `fill_` and carry a dark look in the screen
-    and the border instead.
+    export colours it either. The renderer draws it dark: on a dark fill it could not be seen on a
+    device in light mode, in dark mode, or with the screen's `statusBarTheme` set to dark. So
+    give the field a light `fill_` and carry a dark look in the screen and the border instead.
     """
     if kind not in INPUT_TYPES:
         raise ValueError(f'input kind must be one of {INPUT_TYPES}, not {kind!r}')
