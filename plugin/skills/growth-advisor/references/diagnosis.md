@@ -112,7 +112,8 @@ The segment `key` is the placement's, paywall's or flow's id; match it to the na
 `placements list`, `paywalls list` and `flows list`. This shows which placement and which screen
 earn the money, and how much starts outside onboarding. A flow also breaks down by
 `flow_screen_id`, which shows the screen a purchase came from. On its own it is a share of
-purchases, not a conversion rate: see 9 for the rate.
+purchases, not a conversion rate: see 9 for the rate. Where users leave a flow is not in it: that
+is the flow's funnel ("Reading a flow").
 
 ```bash
 # 9. Conversion rates: one call per pair (install-trial, trial-paid, install-paid, view-paid)
@@ -451,7 +452,7 @@ chart or operation: usually `store`, `country`, `duration`, `store_product_id`, 
 | Who is leaving | `trials_renewal_cancelled` and `subscriptions_renewal_cancelled` by `duration`, `country` or `attribution_channel` | Who switched off renewal before revenue shows it. |
 | Offers | `revenue` and `subscriptions_new` by `offer_id`, then the same filtered to that offer and grouped by `country` and `store` | Whether an intro or win-back offer pays for itself, and where: an offer that loses money overall can still pay in some countries. |
 | Refunds | `refund_money` by `store_product_id` or `country`, against revenue for the same split | Purchases that come back. A win with heavy refunds is not a win. Read refunds both as a share of purchases and as a share of revenue; they can disagree. The data shows where refunds come from, never why: name no reason the reads do not show (a surprise charge after a trial, a missing translation), and build no hypothesis on one. |
-| Screen | `subscriptions_new --group-by flow_screen_id` | Which screen of a flow the purchases come from. |
+| Screen | `subscriptions_new --group-by flow_screen_id` | Which screen of a flow the purchases come from. Where users leave it is `flows funnel get` ("Reading a flow"). |
 
 Stop when a split shows one value carrying the effect, or when two splits in a row change
 nothing. Name the split that explained it in the reply, and the one that did not if the user would
@@ -503,16 +504,123 @@ The config is the flow's screens, copy and products. Before any claim about a sc
 - **Render it** with `flow-generator`'s preview recipe (`flows config preview`, then a
   screenshot). A render shows what users see, which the JSON cannot. Check it against the
   numbers yourself: a label the data disproves, a plan the paywall hides, a price typed as text.
-- **For design hypotheses, hand the render to `paywall-teardown` or `onboarding-teardown`.** Never
-  propose a layout, copy or visual change from your own reading.
-- **Hand the config itself** to the teardown only when the preview cannot run, and say the screen
-  was read from its config, not seen.
+- **The design of a hypothesis comes from a teardown, never from your own reading.** Hand the
+  render of the screen to `onboarding-teardown` (a screen before the paywall) or
+  `paywall-teardown` (a paywall screen). When the render fails or hangs, hand the screen's config
+  and the funnel numbers instead, take the design from that teardown, and say in the reply that
+  it came from the teardown on the config, not from a render.
 - **Its languages are `localization.locales`.** The top-level `locales` can be empty on a newer
   flow. Count them per flow; the CLI does not show the languages of a paywall (only of a flow), so
   for a paywall say so and ask.
 
 Read 8 by `flow_screen_id` shows which screen of the flow the purchases came from. Never write
 to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
+
+### Where users leave it: the funnel
+
+When the question is about an onboarding or a flow ("why don't users finish it", "which screen
+loses them", "is the paywall the problem"), or a placement shows a flow, read its funnel: the
+dashboard's Funnel tab, for one flow version.
+
+```bash
+$ADAPTY flows funnel values <FLOW_ID> --app <APP_ID>
+$ADAPTY flows funnel get <FLOW_ID> --app <APP_ID> --date-from $FROM --date-to $TO --date-type purchase_date --json
+```
+
+Find the flags with `--help`. `--date-type` is required: `purchase_date` counts the sessions that
+started in the period, `profile_install_date` the users who installed in it. Without
+`--flow-version-id` it reads the published version; the CLI lists no versions, so ask the user
+for the id of another one. `--filter key=value` takes the keys and values that `flows funnel
+values` lists (platform, subscription state, store, country, attribution). End the period on the
+last complete day: the last days of a period that has not ended are not a result.
+
+The answer is `data`: `summary` (`entered`, `completed`, `dropped`, their rates, `revenue`);
+`steps[]` by `step_order` (`reached`, `reached_rate`, `conversion_from_previous`, `completed`,
+`drop_off`, `drop_off_rate`, `has_paywall`, `trials`, `purchases`, `revenue`, `screens[]`); each
+screen (`title`, `screen_type` of `paywall` or `onboarding`, `reached`, `share_of_step`,
+`completed`, `drop_off`, `drop_off_rate`, `trials`, `purchases`, `revenue`, `is_last_screen`);
+and `version_screens[]`, every screen of the version in builder order. How it counts:
+
+- **Unique users, not views.** One path for each user; a screen counts once, at its first view;
+  a step is a position in the path, so screens of different branches at the same position share
+  a step. On Android, several presentations in one app session can merge into one path.
+- **Completed** is a path that ends on a screen with a purchase, or on a last screen that is not
+  a paywall. Every other end is a drop-off on its step, **a closed paywall included**: a high
+  drop-off on a paywall step is normal.
+- **`null` is "does not apply", never 0.** Onboarding screens have null trials, purchases and
+  revenue; a rate with no users behind it is null.
+- **`purchases`, `trials` and `revenue` are first purchases only:** trial starts, first
+  subscriptions, trial conversions and one-time purchases, net of refunds, with no renewals. Read
+  them as the first-purchase money of the users in the funnel, never as lifetime value.
+- Summary `revenue` can be above the sum of the steps: it also holds purchases of users who
+  entered and bought off their counted path.
+
+Run the platform read and the install-date read every time, also for a pure question about the
+numbers, and before the answer; the purchase-date funnel alone is not a reading. Read it in this
+order:
+
+1. **Is the data valid?** One flow version. Is step 1 a paywall? Do screens of `version_screens`
+   never appear in `steps`? Does one platform show a leak that another platform of the same flow
+   does not (below)? That is a defect, not a hypothesis: render the screen (`flow-generator`'s
+   preview) and report it. Run the platform read anyway (the cause check below): a flow with
+   traffic from one platform only cannot be split; say so and go on.
+2. **Who sees the flow?** The same funnel with `--date-type profile_install_date` against
+   `purchase_date`: new users against all users. A different shape by subscription state
+   (`--filter subscription_state=…`) is an audience hypothesis (`levers.md`, Segments).
+3. **Reach, then buy.** On the paywall screen, `reached` as a share of `summary.entered` is the
+   reach; (`purchases` + `trials`) / `reached` is the paywall's conversion. Never use the
+   paywall's `completion_rate` for it: buyers go on to a later screen and complete there. Few
+   reach it, or the flow has no paywall at all: look at the whole flow, `onboarding-teardown`.
+   Many reach it and few buy: a hint at the paywall, `paywall-teardown`, never a verdict from one
+   read ("One read cannot rate a paywall", below). Judge a flow by purchases (or trials) per user
+   who entered, not by how many finish it (`levers.md`, "The step that loses users").
+4. **The leaks before the paywall,** ranked by users lost (`drop_off`), one segment at a time.
+   The step before the first paywall with the most users lost is the first suspect. Name the
+   screen by its title, its users lost and its share of `entered`.
+
+The six conclusions this supports, each in its existing hypothesis format (`levers.md`):
+
+| Conclusion | Read | Hand to |
+|---|---|---|
+| The pre-paywall leak | Share of `entered` that reaches the first step with a paywall; the step before it with the most users lost | An **Onboarding change** hypothesis (`levers.md`): the funnel gives its Why and dollars; what to change on that screen comes from `onboarding-teardown` on the render of it |
+| Reach or buy | The paywall screen's `reached` against its `trials`, `purchases` and `revenue` | Onboarding problem: `onboarding-teardown`; paywall problem: `paywall-teardown` |
+| Branches | At the branching step, each screen's `share_of_step` and `drop_off`; then each branch end to end: the users who reach its last screen or paywall, branches mapped with `flows config get`, and its purchases per user who chose it | Give both readings, and never a winner |
+| Paywall position, a follow-up paywall | The step of each paywall screen and its revenue; summary revenue above the sum of the steps means purchases off the counted path | Onboarding change, or Paywall design |
+| New users against all users | Step 2 above | Audience hypothesis |
+| A cause check | The same funnel with `--filter platform=…` (one call for each platform the app's installs show), `store` or another version, read against the unfiltered funnel | The step stays, or it was one platform |
+
+**Never conclude** from a funnel:
+
+- "Remove the screen with the biggest drop." A shorter onboarding lost conversion and ARPU in
+  the evidence library (`evidence.md`, Onboarding); the screen may be doing work. Propose the
+  change the teardown designs for that screen instead.
+- Anything against a view-based rate or a market median (`market.md`): the funnel counts unique
+  users, those count views. No completion benchmark exists, so none is cited.
+- Anything about "all versions", a placement, a test arm or a compared period: the funnel is one
+  flow version, with none of those.
+- A `null` as 0.
+- A drop-off after a purchase as a lost buyer.
+- A branch winner. Users choose their branch, so the branches hold different people; two
+  branches ending differently is not one beating the other.
+- A later step's rate as better: it counts only the users who survived the earlier ones.
+- "The onboarding paywall does not sell" when users bought later after closing it (read 8).
+- A result from the last days of a period that is not complete.
+
+**Sample.** The test-time rule stays: about 200 purchases per variant. A funnel read shows
+counts, and says "cannot tell" when a difference between two screens or two branches is inside
+its uncertainty, about ±2·√(p(1−p)/n): ±5.7 points at 20% and 200 users. Give the counts ("5 of
+25 users"), not only the rate, and set no fixed cutoff.
+
+**One read cannot rate a paywall.** No benchmark exists for the conversion of the users who
+reached it (`market.md`'s view → paid counts views). Say what the question needs: the reach
+(`reached` of `entered`) and the buy ((`purchases` + `trials`) / `reached`) as counts ("5 of 25
+users"); that closing a paywall counts as a drop-off, so a high drop on that step is normal; that
+one read cannot rate it, and with few purchases they are too few either way; and the next read:
+the app's own earlier period, another flow version (`--flow-version-id`) or a later date. Then
+the hypothesis: the **Paywall design** hypothesis, marked untested, with its design from
+`paywall-teardown` on the render of the paywall screen (the funnel gives its Why and dollars).
+A pure question about the numbers gets it as the one offer, as its next step; when the user asks
+what to do, write it (`SKILL.md`, "Questions about the numbers").
 
 ## Flow placement metrics
 
@@ -533,9 +641,10 @@ $ADAPTY placements metrics get <PLACEMENT_ID> --app <APP_ID> --type flow --based
   the test's start date: over the whole window an arm also holds what its audience sold before
   the test. Say how far each arm is from about 200 purchases; never which one leads or wins.
 - **Finished is the share of viewers who reach the flow's last screen.** Where the others leave is
-  on the flow's [Funnel tab](https://adapty.io/docs/flow-funnel.md), which the CLI does not read:
-  when a low share would change a hypothesis, ask for a screenshot of it. A screen row's views in
-  this answer are not that funnel: they count only users who started the flow on that screen.
+  the flow's funnel (the dashboard's [Funnel tab](https://adapty.io/docs/flow-funnel.md)): read
+  it with `flows funnel get` ("Reading a flow") when a low share would change a hypothesis. A
+  screen row's views in this answer are not that funnel: they count only users who started the
+  flow on that screen.
 - **A flow on several placements, or two flows compared:** `flows metrics list --ids <FLOW_ID>,…`
   gives lifetime rows, and `flows metrics get <FLOW_ID> --based-on placement --date-from … --date-to
   … --date-type purchase_date` splits one flow by placement (the dates are required). Compare
@@ -580,7 +689,7 @@ be asking about a plan that is not where their money is. Read only what the idea
 | A country | charts 1 and 4 filtered to it, chart 3 |
 | A new placement or offer | chart 8 by placement; the setup reads; ask where users hit limits in the app |
 | Winning back users who left | chart 6 by reason, per store; `subscriptions_renewal_cancelled`; `trial-paid`; `billing-issue-paid` and `grace-period-paid` |
-| A paywall or flow's design | read 8 by paywall or flow, `view-paid` for that paywall, then the screen itself (`levers.md`, Paywall design) |
+| A paywall or flow's design | read 8 by paywall or flow, `view-paid` for that paywall, for a flow its funnel ("Reading a flow"), then the screen itself (`levers.md`, Paywall design) |
 
 ## "My test ended, what next?"
 

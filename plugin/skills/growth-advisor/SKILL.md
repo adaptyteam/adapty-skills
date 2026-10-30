@@ -59,13 +59,16 @@ A question about the app's own numbers ("who buys annual", "which country refund
 people who start a trial renew better") is answered from the numbers. Find the operation, the
 grouping and the filter that answer it in the catalog (`references/diagnosis.md`, "Before the
 first read"), run them, and answer in the reply shape. A question about one flow (how it does, how
-many finish it) is read from its metrics (`references/diagnosis.md`, "Flow placement metrics"). Do not run the audit, read the test history
-or suggest hypotheses unless the user asks what to do. A problem the user brings (a drop, a fall,
-"help", "take a look", "what's wrong") asks what to do: it gets the explanation and then the
-hypotheses, not an offer of them. For a question about the numbers alone, end with one offer that names the metric the
-question was about, for example "Want data-backed ideas on what to test to improve trial-to-paid?"
+many finish it) is read from its metrics (`references/diagnosis.md`, "Flow placement metrics"),
+and where its users leave it from its funnel ("Reading a flow"). Do not run the audit, read the
+test history or suggest hypotheses unless the user asks what to do. A problem the user brings (a
+drop, a fall, "help", "take a look", "what's wrong") asks what to do: it gets the explanation and
+then the hypotheses, not an offer of them. For a question about the numbers alone, end with one
+offer that names the metric the question was about, for example "Want data-backed ideas on what to test to improve trial-to-paid?"
 (an example of the shape, not words to copy). When the answer already points at one change worth
-testing, name that change in the offer instead.
+testing, name that change in the offer instead: for a leaking screen of a flow, the Onboarding
+change hypothesis, and that its design comes from `onboarding-teardown`; for the paywall of a
+flow, the untested Paywall design hypothesis, and that its design comes from `paywall-teardown`.
 
 ## Without an Adapty account
 
@@ -92,7 +95,8 @@ the first two weeks of real users.
 | A price, a price test, pricing by country | Not supported yet; say so |
 | One paywall screen: layout, copy, badges | `paywall-teardown`; this skill invokes it for the design hypotheses |
 | A screen with a change in the app's numbers ("people buy half as often since summer") | This skill first: which paywall it is, its view → paid by month, what changed then; `paywall-teardown` for the design part after. Prices on a screenshot may be preview samples: never read them as what users pay |
-| The onboarding sequence | `onboarding-teardown` |
+| Where users leave an onboarding or a flow, why they do not finish it, which branch works better, whether its paywall is the problem | This skill, from the flow's funnel; `onboarding-teardown` or `paywall-teardown` for the design part |
+| The onboarding sequence's design | `onboarding-teardown` |
 | Which channel brings paying users: installs, trials, trial → paid, purchases and revenue by channel | This skill, from analytics grouped by `attribution_channel`, whether or not the company has Attribution; say spend and ROAS are not in these reads |
 | Ad spend, ROAS, CPI, campaign budgets | `adapty-attribution` |
 | Building or editing a flow | `flow-generator`, on the user's yes |
@@ -102,8 +106,9 @@ the first two weeks of real users.
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
 funnel, retention, LTV and install cohorts, and breaks most of them down by placement, paywall,
-flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates, and
-reads a flow placement's dashboard metrics by audience and test arm. Which arm of a test wins, and
+flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates,
+reads a flow placement's dashboard metrics by audience and test arm, and reads a flow's funnel:
+the screen where its users leave. Which arm of a test wins, and
 benchmarks for the app's own category, are not in the CLI. `references/market.md` holds the market
 medians from Adapty's State of Paywalls 2026, which cover a lot of this at the level of region
 and category. A benchmark matched to the app's own category is not available; if the user
@@ -263,7 +268,8 @@ started, and it never shows up as a change.
    more as written; if it still cannot run, make every read in "The audit reads" as a single call,
    all of them, and name the ones that failed; never answer from a few. When a
    placement shows a flow, read the flow that brings the most purchases, and any flow that brings
-   almost none: `references/diagnosis.md`, "Reading a flow". **Render it.** A fact the render
+   almost none: `references/diagnosis.md`, "Reading a flow", with its funnel when the question is
+   about the onboarding. **Render it.** A fact the render
    contradicts (a label your numbers disprove, a price typed as text) you report yourself. A
    design hypothesis (layout, copy, what the screen shows) comes only from `paywall-teardown` or
    `onboarding-teardown` run on the render (`references/levers.md`, Paywall design).
@@ -470,7 +476,8 @@ Time, Who. Nothing else goes in the block.
   to the user as its own Next step, not into the hypothesis, or its A/B test cannot say which
   change worked. When you build the A/B test, the copy differs from the live screen in that
   change only; if anything else must differ, the Who line says so and why.
-- **Expected:** the range from `evidence.md`, or "untested", never one number; what judges it;
+- **Expected:** the range from `evidence.md` (for an onboarding or flow lever also
+  `references/onboarding-evidence.md`), or "untested", never one number; what judges it;
   and in a few words where the range comes from and how sure it is ("one of the most reliable
   wins in Adapty's library of real subscription A/B tests"). Call a range resting on one test
   directional. Then what it is worth: the range applied to the money the change touches on that
@@ -704,6 +711,7 @@ shape to follow, not words to copy:
 | `references/diagnosis.md` | Running any analytics command, and for each common question |
 | `references/levers.md` | Building or ranking a hypothesis, and after a test |
 | `references/evidence.md` | Stating any expected impact or grading an idea |
+| `references/onboarding-evidence.md` | Stating the expected impact of an onboarding or flow hypothesis, next to `evidence.md` |
 | `references/market.md` | Comparing the app with the market: conversion, plan mix, trials, discounts, timing |
 | `references/market-grid.csv` | A conversion's median and percentiles for one plan, region and category |
 | `references/renewals.csv` | The annual first-renewal rate for one category, region and start |
