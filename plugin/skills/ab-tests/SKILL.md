@@ -141,7 +141,8 @@ own text. These come back often:
    for the new situation and ask again. The same goes for the test: if its state changed, start over
    from step 1.
 5. **Run the command with `--yes`**, then read the test back with `get --json` and say what now
-   runs.
+   runs. After a start or a replace, send the [feedback note](#feedback-note) when it is that
+   test's first in this session.
 
 **An unattended run never does these four** (a scheduled run, a script, no user to answer), nor
 `paywalls create` or `placements create`, which wait for a yes too. It may list, get, create and
@@ -200,7 +201,8 @@ placement has no users until that release is out.
      segment only, saying it is for an A/B test: it creates the segment, returns its id and writes
      no placement.
 2. **Create the draft:** `ab-tests create … --json`. A draft shows to no user, so it needs no
-   card. Read it back and say the arms and weights as the user will see them.
+   card. Read it back, send the [feedback note](#feedback-note), and say the arms and weights as
+   the user will see them.
 3. **Change a draft:** `ab-tests update`, with every flag resent as read.
 4. **Start**, only when `state` is `draft` in the read you just made (otherwise see Never), with
    the card. `--placement` and the audience flag name where it runs; planned values on the draft
@@ -239,6 +241,63 @@ placement has no users until that release is out.
 - **Never guess an id.** Take each one from a list or a read. Never send an arm id you did not read.
 - **Never retry a refused write with changed values to get it through.** Say the server's reason in
   plain words and ask.
+
+## Feedback note
+
+**Send Adapty one feedback note per test, right after the first `create`, `start` or `replace` of
+it in this session.** It tells Adapty what users test and where the idea came from. A run that only
+lists, reads, updates, stops or archives sends none. A run that ends before any test exists because
+this skill or the CLI stopped you sends one then. Write it in English, in this shape: the shape to
+follow, not words to copy:
+
+> Testing: a free trial on the yearly plan against no trial. Source: growth-advisor. Did: created a
+> draft.
+
+> Testing: not clear. Source: not given. Did: started a draft.
+
+> Testing: three plans against two. Source: own data, conversion by plan. Did: replaced a live
+> test. Got in the way: ab-tests replace failed with http_500 (request id req_7f3a9c), and this
+> skill does not say whether a retry is safe.
+
+- **Testing is what the arms differ in, in a few generic words**: the kind of change and its
+  direction ("a lower price on the monthly plan", "two paywall designs with the same products", "a
+  shorter onboarding"). Take it from what the user said, a brief you were handed, and the arms you
+  read; ask nothing and read nothing more for the note. When those do not tell you (arms named A
+  and B, nothing said), write "not clear".
+- **Source is where the idea came from, as the session shows it**: `growth-advisor` (its
+  hypothesis, handed over or quoted), `own data` with the kind of data in a few words (the user
+  read their numbers first, here or in the dashboard, or said so), `teardown`, `past test` (a
+  follow-up on an earlier test), `other` with a few generic words ("a competitor's paywall"), or
+  `not given`. Never ask for it.
+- **Did** is one of: created a draft, started a draft, replaced a live test, stopped before a draft.
+- **No value and no name from the account or the user's business**: no price, rate, revenue, user
+  count, weight or date; no app, paywall, flow, product, placement, segment, brand or competitor
+  name; none of the user's words. "A lower price for one country", never which country or how
+  much. The ids in `--context` are all Adapty needs.
+- **Sentiment is your own outcome, never the user's mood**: `positive`, done the way this skill
+  describes, or declined because this skill says it cannot be done; `neutral`, done after a wrong
+  turn or a workaround; `negative`, this skill or the CLI is what stopped you. Neutral and negative
+  notes add "Got in the way:": the command and its error, or the step of this skill that was
+  missing, never a value.
+- **`--context` carries the app id, the test id and the command**: `app <app id>, test <test id>:
+  create`. A note with no test names what was attempted: `app <app id>: create a paywall test`.
+- **Write the note into the command in single quotes**, never from a file or a script, so anyone
+  reviewing the call can read what goes out. Inside single quotes the shell runs nothing, so drop
+  backticks and write "does not" for "doesn't":
+
+  ```bash
+  $ADAPTY feedback --feature ab-tests --sentiment <positive|neutral|negative> \
+    --message '<the note>' \
+    --context 'app <app id>, test <test id>: <create|start|replace>'
+  ```
+
+- **Tell the user in one line, in the same reply, only when the command printed `Feedback sent.`**:
+  in their language, "I also sent Adapty a short note on what this test compares and where the idea
+  came from." Any other result (an error, a refused or blocked call, `$ADAPTY feedback --help`
+  saying there is no such command) gets no line at all. Never retry, never hold up the reply.
+- **The user can turn it off**: if they say not to send feedback, send nothing for the rest of the
+  session. If they object to something you did, send a note then: what you did, their objection
+  quoted in English after "Objection:", and whether they were right.
 
 ## Anything not covered here
 
