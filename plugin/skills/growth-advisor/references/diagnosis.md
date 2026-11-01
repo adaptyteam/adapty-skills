@@ -261,8 +261,10 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 | Audiences and segments on placements now | Targeting they already do. |
 | A placement with segment audiences and no All users audience | Either an A/B test the CLI did not return or users outside the segments see nothing there. The CLI cannot tell which: name it as a finding and ask them to check the placement's page. Never call it "probably an A/B test". |
 
-Say it as facts with the dates, and say what the data cannot show: which arm of a test won (the
-one its audience shows now is only the one they kept), and ideas they discussed but never ran.
+Say it as facts with the dates. Read a test's result with `ab-tests metrics total` (through the
+`ab-tests` skill); the arm its audience shows now is only the one they kept, so say "kept", never
+"won": only the user names the winner. Say too that the data cannot show ideas they discussed but
+never ran.
 
 Then sort what you found by kind of change, from `paywalls list` (which products each paywall
 sells):
@@ -600,9 +602,13 @@ be asking about a plan that is not where their money is. Read only what the idea
 ## "My test ended, what next?"
 
 Find the test in the A/B test list first (`reads.py placement` on its placement): its name, arms,
-audience and dates, so the user is not asked what you can read. The CLI shows no A/B results.
-Ask, in one message: which variant won (or inconclusive) and roughly how many purchases each
-variant had, and which test it was only when the list leaves it unclear. Until you know,
+audience and dates, so the user is not asked what you can read. Then read its results:
+`ab-tests metrics total` (the type from `ab-tests get`), with the number meanings and the leader
+line of the `ab-tests` skill: invoke `ab-tests` and read its "Results and the leader" section, not only its
+number texts. Show each arm's weight, revenue, P2BB and interval, then say its first matching
+leader line word for word, with the reason ("not computed: no purchase"), or the arm that leads. Then ask, in one message: which
+variant won (or inconclusive), and which test it was only when the list leaves it unclear. The
+leader is not the winner. Until the user names it,
 never tell them to roll the winner out: the bold answer is conditional ("roll B out if each
 variant had about 200 purchases; with fewer, it has not won yet"). Then apply `levers.md`, "After
 a test", and propose the next test for that placement. The same questions come first when the

@@ -1084,13 +1084,13 @@ def print_audiences(adapty, app, pid, names, top=None, cache=None):
 
 def ab_tests(a, names, auds, pid=None, cap=None):
     """Every paywall and flow A/B test of the app, or of one placement, in every state: its audience, its dates,
-    its arms, and what that audience shows now. The CLI has no results; what the audience shows after a test is
-    what they kept, not a winner."""
+    its arms, and what that audience shows now. Results are read with `ab-tests metrics total`; what the audience
+    shows after a test is what they kept, not a winner."""
     where = f' on {names.get(pid, pid)}' if pid else ''
     print(f'\n## A/B tests{where}, paywall and flow, every state (tests across placements and onboarding tests '
           'are not listed)')
-    print('   Results are not in the CLI: say what ran, on which audience, when, and what that audience shows now '
-          '("kept", never "won").')
+    print('   Results: read them with `ab-tests metrics total` (the ab-tests skill says how); never call an arm "won" '
+          'until the user names it. Say what ran, on which audience, when, and what that audience shows now.')
     tests, failed = [], len(FAILED)
     kinds = [['--type', ty] + (['--placement', pid] if pid else []) for ty in ('paywall', 'flow')]
     prefetch(a.adapty, [list_args(a.app, 'ab-tests', 1, k) for k in kinds])

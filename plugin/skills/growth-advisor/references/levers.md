@@ -370,9 +370,9 @@ the offer is real.
 
 ## After a test
 
-- **The user decides the winner.** The CLI lists the test and its arms, not its results; ask which
-  variant won. Inconclusive counts as a loss. When the test is still live, offer to stop it with that
-  winner through `ab-tests`.
+- **The user decides the winner.** Read the results with `ab-tests metrics total` first and show
+  them (leader rules of the `ab-tests` skill); then ask which variant won. Inconclusive counts as a
+  loss. When the test is still live, offer to stop it with that winner through `ab-tests`.
 - **Check it was a test first.** Roughly 200 purchases per variant. Stopped after a few days or
   a few dozen purchases → inconclusive, not a loss; do not change the plan because of it.
 - **A loss rules nothing out until you check the test ran as meant** (its audience, the store

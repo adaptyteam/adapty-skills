@@ -102,11 +102,11 @@ the first two weeks of real users.
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
 funnel, retention, LTV and install cohorts, and breaks most of them down by placement, paywall,
-flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates, and
-reads a flow placement's dashboard metrics by audience and test arm. Which arm of a test wins, and
-benchmarks for the app's own category, are not in the CLI. `references/market.md` holds the market
-medians from Adapty's State of Paywalls 2026, which cover a lot of this at the level of region
-and category. A benchmark matched to the app's own category is not available; if the user
+flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates,
+reads a test's results (`ab-tests metrics`, below), and reads a flow placement's dashboard metrics
+by audience and test arm. Benchmarks for the app's own category are not in the CLI.
+`references/market.md` holds the market medians from Adapty's State of Paywalls 2026, which cover
+a lot of this at the level of region and category. A benchmark matched to the app's own category is not available; if the user
 pastes one, use it and say where it came from.
 
 ## CLI or MCP
@@ -201,8 +201,10 @@ Everything this skill runs is a read, with five writes, each on the user's yes: 
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
 `placements create` or `placements update` (see "Changing a live placement"), and adding an offer
 the user made in the store to an existing product with `product-offers create`
-(`references/levers.md`, "By store"). Of the `ab-tests` commands you run only the reads, `list`
-and `get`; every other one is the `ab-tests` skill's. Never
+(`references/levers.md`, "By store"). Of the `ab-tests` commands you run only the reads, `list`,
+`get` and `metrics`; every other one is the `ab-tests` skill's. The numbers of `ab-tests metrics`,
+what each means and which arm leads follow the rules of the `ab-tests` skill ("Results and the
+leader"): invoke it for them, and without it show the numbers and name no leader. Never
 `product-offers update`: an offer a live paywall or flow already picks reaches buyers today, so
 changing one is a dashboard step for the user. The one other call that sends anything is the
 [feedback note](#feedback-note).
@@ -367,8 +369,9 @@ started, and it never shows up as a change.
    A/B tests `reads.py` lists (each paywall and flow test with its placement, audience, dates and
    arms, and what that audience shows now: the arm they kept), paywalls or flows that ran side by
    side on one placement with no test listed, paywalls, flows and products no longer in use, past
-   offers, the setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts ("From your data: you
-   tested two onboarding paywalls in May and kept Main."), so the user only types when it is wrong.
+   offers, the setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts
+   ("From your data: you tested two onboarding paywalls in May and kept Main."), so the user only
+   types when it is wrong.
    A test that ran under a week is not a result: name it, never as won or lost. Re-running a past
    test is a new hypothesis like any other: a change on the screen waits for the screen to be seen,
    and it is built as a fresh copy of the live screen, never with the old arm, which is older than
@@ -377,11 +380,13 @@ started, and it never shows up as a change.
    in `placements get` as an audience of its own kind (`ab_test` or `flow_ab_test`; `cross_ab_test`
    or `flow_cross_ab_test` for one test across placements) with its title: name it. A placement
    with no such audience runs no test now. The list leaves out tests across placements and
-   onboarding tests, and the CLI shows no test's result: never write that no test ran, or that an
-   arm won.
+   onboarding tests: name them from `placements get`, and never write that no test ran. The CLI
+   reads results only of a regular paywall or flow test (`ab-tests metrics total`); the results
+   of the other two kinds are in the dashboard. An arm leads only by the leader rules of
+   `ab-tests`; it never "won" until the user says so.
 
    Ask at most one question, as the last "You:" item in Next steps, and only when its answer would
-   change your first pick: a past test whose winner the data cannot show, whether they already
+   change your first pick: a past test whose winner the user has not named, whether they already
    tried the kind of change you would start with when the data shows no sign of it, a trial the
    numbers do not show, a screenshot when a change on the screen would rank first. Never hold the hypotheses back
    waiting for an answer.
@@ -674,7 +679,7 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | Why did revenue, renewals or trials drop? Also "less money, is it the paywall / traffic?" | `diagnosis.md`, "Why did revenue drop?"; before any hypothesis, audit step 3 |
 | Why did conversion drop? | `diagnosis.md`, "Follow the signal down", with the Mix check before naming traffic |
 | Should I do X? (one idea) | `diagnosis.md`, "Should I change X?", plus `levers.md` |
-| My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test". A test still live is stopped with the winner through `ab-tests` |
+| My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test". A test still live is stopped with the winner through `ab-tests`, after its results are read |
 | I don't know what to test | Run the audit |
 | I have ideas, which first? | `levers.md`, "Ideas the user brings" |
 | We did it, what's next? | Ask what ran and what won, then `levers.md`, "After a test" |

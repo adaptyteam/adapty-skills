@@ -1,6 +1,6 @@
 ---
 name: ab-tests
-description: Use when a user wants to run, check or end a regular A/B test of paywalls or flows through the Adapty CLI — plan it, create the draft, change it, start it, stop it with a winner, replace a running test with a changed one, archive it, or see which tests an app has. Triggers on "run an A/B test of these two paywalls", "test my new flow against the old one", "split traffic 50/50", "start the test", "stop the test, B wins", "end this experiment", "change the weights of my test", "which tests are running", "archive the old tests".
+description: Use when a user wants to run, check or end a regular A/B test of paywalls or flows through the Adapty CLI — plan it, create the draft, change it, start it, read its results, stop it with a winner, replace a running test with a changed one, archive it, or see which tests an app has. Triggers on "run an A/B test of these two paywalls", "test my new flow against the old one", "split traffic 50/50", "start the test", "stop the test, B wins", "end this experiment", "change the weights of my test", "which tests are running", "archive the old tests", "should I stop this test", "how did the test go", "who is ahead".
 ---
 
 # A/B tests: plan, start, stop, replace
@@ -21,7 +21,7 @@ It does not own:
   top (Workflow, step 4).
 - **The app code that fetches a new placement** → `adapty-integration`. You create the placement
   ("A new placement"); a test on it reaches no user until the app fetches it.
-- **Results of a test, onboarding tests** — not in the CLI. The user reads them in the dashboard:
+- **Onboarding tests** — not in the CLI. The user reads them in the dashboard:
   https://adapty.io/docs/add-audience-paywall-ab-test.
 - **One test across several placements** (a Crossplacement test) — neither the CLI nor the MCP server can make one:
   `ab-tests create` takes one placement, and a placement write keeps crossplacement entries as
@@ -40,8 +40,8 @@ It does not own:
 - **A fixed block where a decision is made (the effect card), one line otherwise.** Say each thing
   once.
 - **Bold the one thing that cannot be undone,** at most once per block.
-- **Be honest about scope:** say what you did not read (results, shared tests) and how the user can
-  check.
+- **Be honest about scope:** say what you did not read (shared tests, a period of the results) and how the
+  user can check.
 - Full, clickable links. Reply in the user's language; the dashboard's own words stay ("Modify" is
   `replace`).
 
@@ -123,13 +123,27 @@ reports no such topic, try `npx --yes adapty@beta ab-tests --help` once; if that
 the user their CLI has no `ab-tests` commands yet and the test is made in the dashboard (link
 above). Do not compare version numbers. `--yes` on `npx` is required: without it `npx` waits for a
 confirmation nobody gives. In `zsh`, run `setopt shwordsplit` before using a multi-word `$ADAPTY`.
-Write a literal `adapty` in a command you show the user. Every command takes `--app <id>`, the
-**Adapty** app UUID from `$ADAPTY apps list`. Read with `--json`.
+Write a literal `adapty` in a command you show the user.
+
+**The results commands** (`ab-tests metrics`) need a newer CLI than the life commands. Before you
+read a result, run `$ADAPTY ab-tests metrics --help`. If it reports no such topic: when `$ADAPTY` is
+an installed `adapty`, run `npm i -g adapty@latest` once and probe again; then try
+`npx --yes adapty@beta ab-tests metrics --help` once (use that form for the reads if it works). If
+every probe fails, say the user's CLI has no A/B results commands yet and the results are in the
+dashboard (https://adapty.io/docs/results-and-metrics.md), and read no numbers. Do not compare
+version numbers. The life commands work without them.
+
+Every command takes `--app <id>`, the **Adapty** app UUID from `$ADAPTY apps list`. Read with
+`--json`.
 
 | Command | Flags |
 |---|---|
 | `ab-tests list` | `--type paywall\|flow` (default **flow**: a paywall test is missing from a default list, so ask for both), `--state live\|draft\|completed\|inactive\|archived`, `--placement` (may repeat), `--segment` (may repeat: the tests of that segment's audience, drafts with that planned segment too), `--search`, `--page`, `--page-size` (use 100) |
 | `ab-tests get <id>` | the test and its arms |
+| `ab-tests metrics total <id>` | `--type paywall\|flow` (required: the `type` of `ab-tests get`): each arm over the test's whole life: weight, revenue, P2BB, interval, p-value. **Read the leader here** |
+| `ab-tests metrics list` | `--type`, `--ids <id>,<id>` (required): the lifetime numbers of several tests of one type, a Total line for each test and a line for each arm; `--csv` |
+| `ab-tests metrics get <id>` | `--type`, then `--date-from`, `--date-to`, `--date-type purchase_date\|profile_install_date`, `--granularity`, `--group-by country\|store`, `--filter key=value`, `--timezone`, `--csv`: one window, by period. A paywall test needs the dates and the date type; a flow test with none gives lifetime numbers |
+| `ab-tests metrics values <id>` | `--type`: the keys and values that `--filter` takes |
 | `ab-tests create` | `--title`, `--goal`, `--placement` (required, of the test's kind: paywall or flow), `--segment <id>` or `--all-users` (a plan only), exactly one of `--paywalls '<json>'` / `--flows '<json>'` |
 | `ab-tests update <id>` | the same flags as create (`--placement` required). **The whole test is sent again:** a flag you leave out is cleared (goal, planned audience). A started test changes only title and goal: send the same arms, placement and audience again (`--all-users` when `segment_ids` is `[]`, else `--segment <id>`); a completed or archived test cannot change |
 | `ab-tests start <id>` | only a draft; `--placement`, exactly one of `--segment <id>` / `--all-users`, `--yes` |
@@ -218,6 +232,29 @@ update tests. For the four it stops and reports the card and the command for the
 user to run, written with a literal `adapty` and **without** `--yes`: at their terminal the CLI asks
 again.
 
+## Results and the leader
+
+For "should I stop this test", "how did it go", "who is ahead": `ab-tests metrics total <id> --type
+<type> --json` (the type from `ab-tests get`). Show each arm by name with weight, revenue, P2BB and
+interval (`probability`, `low_boundary`, `average_per_1000`, `upper_boundary`), and `p_value` for a
+flow test when it is a number. What each number means and when it is not computed:
+[references/results.md](references/results.md). Say it where the user needs it, once.
+
+The leader is the first of these that holds, from the lifetime P2BB of the arms in `total` or
+`list`:
+
+1. P2BB 0 on every arm: "P2BB is not computed". No arm.
+2. No `purchases` on any arm and the same P2BB on every arm: "not computed: no purchase". No arm.
+3. No `views` on any arm, whatever the P2BB: "not computed: no views". No arm.
+4. Paywall test: the arm with the highest P2BB above 0, said as the arm the dashboard highlights.
+   A tie above 0: the arms are level and the dashboard preselects the first arm of the total.
+5. Flow test: the arm with a strict top P2BB above 0, said the same way. A tie: the arms are level,
+   no arm.
+
+The leader is not a winner. Take it only from `total` or `list`, never from the P2BB of a period
+(`metrics get`): a period's P2BB is a running total for a paywall test, so say no trend and never
+"led on a day". Ask the user for the winner; stop only on their answer.
+
 ## A new placement
 
 When no placement fits, you create it, and the developer ID needs its own yes: it is unique across
@@ -285,9 +322,10 @@ placement has no users until that release is out.
    test cannot change: create a new test.
 6. **Stop**, with the card, when the user names the winner or the other content, or says "no
    content". Ask which if they only say "stop it". "No content" is impossible on All users: offer
-   a winner or other content.
+   a winner or other content. **Before the card, read the results** ("Results and the leader"), show
+   them, and ask for the winner. Never pick it, never stop on the leader.
 7. **Archive** old tests with the card, one at a time.
-8. **Close** with what runs now and one next step. The results are in the dashboard.
+8. **Close** with what runs now and one next step.
 
 ## Never
 
