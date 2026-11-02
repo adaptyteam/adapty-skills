@@ -203,11 +203,75 @@ Use `AskUserQuestion` for all three together in one call:
 
 Use `AskUserQuestion` for any other quick clarifications throughout the integration (e.g., "Did the build succeed?", "What's your App Store product ID?"). Never ask for values that can be retrieved via CLI.
 
+## CLI or MCP
+
+This skill reaches Adapty through the Adapty CLI or the Adapty MCP server. Its commands are written
+for the CLI, and over MCP each one is a tool call. Before the first call, check both, pick one way,
+and keep it for the run:
+
+- **The CLI is ready** when `adapty auth whoami` shows an account. Install nothing for this check.
+- **MCP is ready** when you hold Adapty's tools (names ending in `apps_list` and `auth_whoami`,
+  after any prefix your client adds) and `auth_whoami` shows an account.
+
+| CLI ready | MCP ready | Use |
+|---|---|---|
+| yes | no | the CLI |
+| no | yes | MCP |
+| yes | yes | the way this skill prefers (the line after this section's example) |
+| no | no | ask which one to set up (below) |
+
+**Over MCP, run each command as its tool.** `$ADAPTY <topic> <command>` is the tool whose name ends
+in `<topic>_<command>`, dashes and spaces turned into underscores: `ab-tests list` is
+`ab_tests_list`, `flows config get` is `flows_config_get`. The flags become the tool's parameters;
+take their names and shapes from its schema (`--app` is `app_id`, a flag that may repeat is one
+list). The tools return JSON, so drop `--json`. `--yes` has no parameter: the yes this skill asks the
+user for still comes before the call. Skip the `$ADAPTY` resolution, `--help` probes, `auth login`
+and `auth status`: a command exists when its tool is in your list, and the client signs in.
+
+**`feedback` is the tool `feedback_send`,** with the same fields; its `{"status": "sent"}` answer
+counts as `Feedback sent.`
+
+**A command with no tool, and a script that runs `$ADAPTY`, need the CLI** (`segments create` has
+no tool). Run that step with the CLI when it is ready. Otherwise say it needs the CLI and offer to
+set it up.
+
+**When a call fails one way,** a read may run once the other way if that way is ready. After a
+write fails or times out, read the state again the way that wrote; never repeat the write the
+other way.
+
+**Neither ready:** ask which one to set up, the one this skill prefers first, then give only that
+one's steps. Use your question tool if you have one; otherwise ask in one message with numbered
+options.
+
+- **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
+  the user's sign-in. The Claude app also needs Adapty's domains allowed first:
+  https://adapty.io/docs/developer-cli-cowork.md
+- **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
+  `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
+  sign-in is left.
+  - Claude Code: `/mcp`, pick `plugin:adapty-skills:adapty`, **Authenticate**. Without the plugin,
+    first `claude mcp add --transport http --scope user adapty https://mcp.adapty.io/mcp`.
+  - Codex CLI: the plugin's connect prompt signs in. Without the plugin:
+    `codex mcp add adapty --url https://mcp.adapty.io/mcp`, then `codex mcp login adapty`.
+  - The Claude app: connect it on the plugin's **Connectors** tab. Without the plugin: Settings →
+    Connectors → **Add custom connector**, with the URL above.
+  - Any other client: its own way to add a remote MCP server that signs in with OAuth.
+
+  If the tools do not appear in this session, the user starts a new one: say so and stop.
+
+Example of the question's shape, not words to copy:
+
+> I can reach your Adapty account in two ways. Which one should I set up?
+> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
+
+**This skill prefers MCP** when both are ready.
+
 ## Phase 3: Dashboard setup
 
-Adapty requires dashboard configuration before any SDK code works. Use the Adapty CLI to retrieve or create all entities — run each command yourself using the Bash tool, in order.
+Adapty requires dashboard configuration before any SDK code works. Retrieve or create all entities the way "CLI or MCP" picked — run each command yourself, in order.
 
-Always use the CLI to retrieve values — never ask the user for SDK key, placement IDs, or access level IDs. Ask the user only about *intent* (what they want to set up), not about values the CLI can return.
+Always read values from Adapty — never ask the user for SDK key, placement IDs, or access level IDs. Ask the user only about *intent* (what they want to set up), not about values Adapty can return.
 
 **If you cannot authenticate at all, this whole phase defers — it does not block the run.** "Cannot authenticate" is a different situation from "the user declined the CLI" (the manual fallback below): a headless run with no browser, an account the user does not have to hand, or a login that simply fails. In that case create nothing, do not invent identifiers, and continue to the implementation phase with every dashboard value as a named placeholder in the code. Each skipped step then becomes a ready-to-run command in `ADAPTY_SETUP.md` — Step 4 and Step 5 already specify how to defer products and paywalls, and `references/migration.md` section 5 owns the contract on a migration run. Say plainly in your closing summary that no dashboard entity was created, because an unauthenticated run otherwise looks identical to a successful one right up to the first SDK call.
 
