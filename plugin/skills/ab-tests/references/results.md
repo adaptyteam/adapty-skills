@@ -16,8 +16,10 @@ The examples show the shape, not words to copy.
   window, so it holds on a day with no views and never equals the arm's P2BB; for a flow test only
   the value of that period. Neither is a trend and neither names a leader.
 - **The interval** is the 99 percent range of revenue per 1,000 unique viewers (`low_boundary`,
-  `average_per_1000`, `upper_boundary`). With fewer than 50 payers it is 0, the mean and two times
-  the mean; with no payers 0, 0 and 0: say it is not modelled, not that the arm earns nothing.
+  `average_per_1000`, `upper_boundary`). The 50-payer rule is per arm: with fewer than 50 paying
+  users in that arm, its range is 0, the mean and two times the mean; with no payers 0, 0 and 0.
+  Say it is not modelled, not that the arm earns nothing. Another arm of the same test can have
+  a full range.
   A paywall test in `metrics list` carries only the mean: no low and no high.
 - **The p-value** is a number only for a flow test with exactly two arms. It is empty for a
   paywall test, for a flow test with three or more arms, and when it is not computed.
