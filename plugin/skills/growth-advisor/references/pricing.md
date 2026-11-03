@@ -153,8 +153,13 @@ A live price change reaches everyone in that country, so it is never the test. T
 on a copy of the product, and only a winning price moves to the original. Each write is on the
 user's yes.
 
-1. **I create the Adapty product for the copy** with the original's period and access level and
-   no store ID; the push adds it. Its title becomes the App Store subscription's reference
+1. **I check the store connection, then create the Adapty product for the copy.** The check
+   comes first, because a product created with no store ID cannot be deleted:
+   `$ADAPTY product-groups list --app <APP_ID> --store <STORE>` exits 4 with
+   `missing_store_credentials` while the connection is missing (the
+   [App Store](https://adapty.io/docs/app-store-connection-configuration.md) push needs the App
+   Store Connect API key); then the user adds it and nothing is created. The copy has the
+   original's period and access level and no store ID; the push adds it. Its title becomes the App Store subscription's reference
    name, which must differ from every other one in the group, so it is the original's title
    plus the test price ("Annual 39.99"); buyers do not see it. It carries the USD price a push
    needs, the original's US price. It is set once and cannot change after; the push spreads it
@@ -173,6 +178,9 @@ user's yes.
 
    - **The user's yes to the new ID is the confirmation,** so the push carries `--yes`: without
      it the CLI stops with exit 6 and pushes nothing.
+   - **The copy has no trial or offer:** the push sets none. When the original has one, the user
+     adds the same one to the copy in the store after the push (`levers.md`, "By store"), or the
+     test changes two things at once.
    - **App Store:** a new subscription in the original's group, from `$ADAPTY product-groups
      list --app <APP_ID> --store app_store --page-size 100` (ask which when there are several). Every App Store
      push carries a review screenshot (below).
@@ -245,8 +253,9 @@ refusals and `store_status`), with these differences:
   and its title the plan's name ("Weekly"), unique among the subscriptions in the App Store group.
 - **Its USD price is the user's to confirm before the create.** I propose one that keeps the plan
   ladder ("Setting the new price", step 4) and sits at the category's 50th percentile for that
-  plan in the main market, in its currency and in USD. The store derives every country's price
-  from it; `product-prices set` changes them only when the user asks.
+  plan in the main market, in its currency and in USD. A lifetime plan has no index row and no
+  ladder rule, so I ask the user for its price. The store derives every country's price from it;
+  `product-prices set` changes them only when the user asks.
 - **Google Play:** a new base plan on the app's existing subscription (`--store-product-id` from
   `product-groups list --store play_store --page-size 100`, a new `--android-base-plan-id`); a
   new subscription ID only when the app has none.
