@@ -9,3 +9,4 @@
 # docs should document these, or the skill is teaching agents shadow APIs.
 
 capacitor: adapty.updateAttribution  https://raw.githubusercontent.com/adaptyteam/AdaptySDK-Capacitor/main/src/adapty.ts
+ios: AdaptyLogger  https://raw.githubusercontent.com/adaptyteam/AdaptySDK-iOS/master/Package.swift

@@ -291,6 +291,32 @@ def main():
           'hex_color()' in _message(lambda: fk.color(fk.hex_color('#101828')), TypeError))
     check('color() refuses an empty id', raises(lambda: fk.color(' '), TypeError))
 
+    # A fill is a list of layers. A colour id string passed as `fill_` used to be written
+    # through and was caught only by the schema check.
+    check('screen() refuses a colour id as fill_, and names fill()',
+          "fill('bg')" in _message(lambda: fk.screen('scr_f', [fk.text(fk.rich('a'))],
+                                                     fill_='bg'), TypeError))
+    check('screen() refuses a bare color() ref as fill_',
+          'list of layers' in _message(lambda: fk.screen('scr_f', [], fill_=fk.color('bg')),
+                                       TypeError))
+    check('screen() refuses a single layer dict as fill_',
+          'list of layers' in _message(lambda: fk.screen('scr_f', [], fill_=fk.fill('bg')[0]),
+                                       TypeError))
+    check('stack() refuses a colour id as fill_',
+          'list of layers' in _message(lambda: fk.stack([], fill_='bg'), TypeError))
+    check('screen() takes fill(), gradient() and image_fill() layers',
+          fk.screen('scr_f', [], fill_=fk.fill('bg'))['props']['fill'] == fk.fill('bg')
+          and fk.screen('scr_g', [], fill_=fk.gradient(180, ('#FFFFFF', 0), ('#EEEEEE', 1)))
+          ['props']['fill'][0]['type'] == 'gradient')
+    # Actions go in as `actions=`; `interactions=` is the JSON key, not the parameter.
+    check('stack(interactions=...) is refused and names actions=',
+          'actions=[...]' in _message(lambda: fk.stack([], interactions=[{'trigger': 'tap'}]),
+                                      TypeError))
+    _tap = fk.stack([], actions=[fk.purchase('plans')])
+    check('stack(actions=...) writes the interactions block',
+          _tap['interactions'][0]['trigger'] == 'tap'
+          and _tap['interactions'][0]['actions'][0]['type'] == 'purchase')
+
     # distribution has four modes, and only the gap form used to be reachable
     check('default distribution is the gap form',
           fk.layout(gap=12)['distribution'] == {'gap': 12, 'type': 'gap'})

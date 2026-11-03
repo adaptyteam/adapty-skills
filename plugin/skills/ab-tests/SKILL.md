@@ -21,8 +21,12 @@ It does not own:
   top (Workflow, step 4).
 - **The app code that fetches a new placement** → `adapty-integration`. You create the placement
   ("A new placement"); a test on it reaches no user until the app fetches it.
-- **Results of a test, tests across several placements, onboarding tests** — not in the CLI. The
-  user reads them in the dashboard: https://adapty.io/docs/add-audience-paywall-ab-test.
+- **Results of a test, onboarding tests** — not in the CLI. The user reads them in the dashboard:
+  https://adapty.io/docs/add-audience-paywall-ab-test.
+- **One test across several placements** (a Crossplacement test) — neither the CLI nor the MCP server can make one:
+  `ab-tests create` takes one placement, and a placement write keeps crossplacement entries as
+  stored. Say so when asked, and send the user to the dashboard, where a second placement makes
+  the test one: https://adapty.io/docs/run_stop_ab_tests.
 - **Which test to run, and what to test after a stop** → `growth-advisor`. When it hands a test
   over, its brief settles the plan; read each id again before the draft.
 - **Apple Search Ads product-page tests** → `ads-manager`.

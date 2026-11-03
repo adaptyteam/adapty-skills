@@ -45,6 +45,9 @@ the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.
 
 It also covers conditions (`when`/`ref`/`all_`/`not_empty`), all fourteen action types, the
 eight inputs and the tabs composite — each raising on the shape the transform service refuses.
+A tap goes on the element as `actions=[...]`, never `interactions=`:
+`fk.stack([label], actions=[fk.purchase('plans')])`. The helper writes the `interactions` block
+the JSON examples show.
 
 ## How you sound
 
@@ -110,8 +113,9 @@ a path that ends in a refusal:
 > `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
 > using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
 > https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, set the iOS and
-> Android font name on every face (the flow will not publish without the iOS one), then tell me the
-> family name and I'll point the theme at it.
+> Android font name on every face (the flow will not publish without the iOS one), save the flow in
+> the builder, then tell me the family name and I'll point the theme at it. The uploaded file is for
+> the editor preview only: **your app must bundle the font file too**, as that page shows.
 
 **Name what the builder cannot do yet, beside it**: for each behaviour or effect in the design the
 flow does not perform (creating an account, a permission prompt, a blur), say what the screen really
@@ -228,7 +232,8 @@ and keep it for the run:
 
 - **The CLI is ready** when `adapty auth whoami` shows an account. Install nothing for this check.
 - **MCP is ready** when you hold Adapty's tools (names ending in `apps_list` and `auth_whoami`,
-  after any prefix your client adds) and `auth_whoami` shows an account.
+  after any prefix your client adds) and `auth_whoami` shows an account. A `Not Found` or any other
+  error from `auth_whoami` means MCP is not ready: switch to the CLI via `$ADAPTY`, setting it up if it is not ready either.
 
 | CLI ready | MCP ready | Use |
 |---|---|---|
@@ -302,7 +307,7 @@ $ADAPTY flows config validate <FLOW_ID> --app <APP_UUID> (--config-file <f|-> | 
 $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--orientation …]
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
     (--config-file <file|-> | --config <json-string>) \
-    [--expected-updated-at <int>] [--remote-configs <json>]
+    [--expected-updated-at <int>] [--remote-configs <json>]   # left out, the stored ones are cleared
 $ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP/GIF, < ~2.5 MB; no SVG
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; 405 in prod, rename in the builder
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404 in prod, see below
@@ -417,7 +422,9 @@ Four facts about the config commands that are not guessable:
   ```bash
   UA="$(jq -r .updated_at flow.working.json)"   # right: the version your draft was patched from
   $ADAPTY flows config update <FLOW_ID> --app <APP_UUID> --config-file draft.json \
-    --expected-updated-at "$UA" --json > write.json && mv write.json flow.working.json
+    --expected-updated-at "$UA" \
+    --remote-configs "$(jq -c '.remote_configs // []' flow.working.json)" \
+    --json > write.json && mv write.json flow.working.json
   ```
 
   The `mv` is only on success: a failed write prints its error JSON to stdout, and redirecting
@@ -491,7 +498,8 @@ on a yes (`flows create`, seeded from this config if `config get` still returns 
 `flows list` printed.
 
 **Take a backup before the first edit.** `config update` replaces the whole config and there is no
-undo, so the copy you fetched is the only way back:
+undo, so the copy you fetched is the only way back. Keep it in the project or another folder that
+survives a reboot, never `/tmp` or `$TMPDIR`: there is no version history to fetch it from again.
 
 ```bash
 $ADAPTY flows config get --app $APP $FLOW --json > flow.working.json
@@ -1112,7 +1120,8 @@ in `flow.working.json`, so a restore cannot erase an edit someone made after you
 ```bash
 jq '.config' flow.backup.json > restore.json
 $ADAPTY flows config update $FLOW --app $APP --config-file restore.json \
-  --expected-updated-at "$(jq -r .updated_at flow.working.json)" --json > write.json \
+  --expected-updated-at "$(jq -r .updated_at flow.working.json)" \
+  --remote-configs "$(jq -c '.remote_configs // []' flow.backup.json)" --json > write.json \
   && mv write.json flow.working.json
 ```
 
@@ -1124,9 +1133,15 @@ Only then:
 ```bash
 # the lock is the version draft.json was patched from; the mv stores the next one on success
 $ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
-  --expected-updated-at "$(jq -r .updated_at flow.working.json)" --json > write.json \
+  --expected-updated-at "$(jq -r .updated_at flow.working.json)" \
+  --remote-configs "$(jq -c '.remote_configs // []' flow.working.json)" --json > write.json \
   && mv write.json flow.working.json
 ```
+
+**Send the remote configs back on every write, restore included:** a write without
+`--remote-configs` clears the stored ones. Each entry is `{locale, data}`, and `data` is a JSON
+**string**, not an object; an object is refused with `400 Input should be a valid
+string`, so encode a new one with jq's `tojson`.
 
 Validate and preview both run on a local file, which is why the write comes last: one write when
 the thing is right, instead of one per iteration. If you have already written and then found a
@@ -1173,6 +1188,11 @@ unlucky timing needed. Their untouched config is the only copy that survives it
 **Never end with the work in a local file.** `config update` is the only save this surface has, and
 saving is where you stop by default. Publishing is a separate, explicitly confirmed step the user
 asks for — never something you fold into a write.
+
+**When your host's permission layer blocks the write** (a refusal from your tool runner, not an
+answer from the CLI), keep the validated `draft.json` and `flow.working.json` where the user can
+see them, give the exact `config update` command above with absolute paths for them to run, and
+stop. Do not retry the write another way.
 
 **Before a publish of a flow a placement shows, read who it reaches**: in this callout, and when
 the user saved in the builder and asks what is next. The seven-day read of phase 6:

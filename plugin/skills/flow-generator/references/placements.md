@@ -153,3 +153,6 @@ Phase 6 ends at the developer ID. The app side — fetching the placement, rende
 and the call sites that do it — belongs to the **`adapty-integration`** skill, which takes the
 developer ID as its input. This skill never edits app code, and naming the SDK's fetch method here
 would be a claim about an API surface it does not own.
+
+**No CLI command exports a fallback file.** The user downloads it from the **Fallbacks** button on
+the Placements page: https://adapty.io/docs/fallback-flows.md.

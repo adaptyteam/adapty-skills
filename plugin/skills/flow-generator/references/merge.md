@@ -71,6 +71,11 @@ sentence they have to say, not one you infer from "make it better". Everything e
 the fetched config. If the user does want a rebuild, the products declaration still has to be
 carried forward from the live `_meta.screens`, never regenerated.
 
+**A screen built in its own config goes into the live one as a graft, not a copy:** save it with
+`snippet.py`, then `plan` and `graft` it, which carries the theme colours, typography presets and
+fonts it uses and reports each one the live flow defines differently
+([snippets.md → Grafting](snippets.md#grafting)).
+
 ## The check
 
 `diff-config.py` compares two configs by *fact* rather than by bytes, so it is blind to the key

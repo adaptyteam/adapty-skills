@@ -315,6 +315,7 @@ the layer faster than any single symptom.
 | The store took the purchase, but a paywall that closes on success stays up | 3 or 5 | Adapty could not verify it (check 1: store identity), a pending payment, or an error the code swallows — the log says which |
 | Google Play said the payment went through, the app got billing response code 6, the paywall stayed up until a restore | 5 | Google Play's own error (`ERROR`), not the setup: Event Feed, then restore — `references/google-play.md`, Getting unstuck |
 | The Play Store on an emulator calls the closed-testing build incompatible | 5 | The emulator, not the setup: a real device — `references/google-play.md`, Getting unstuck |
+| On the iOS simulator the sandbox account never signs in, and every purchase comes back as cancelled by the user | 5 | The simulator, not the setup: the same test on a real device, from Xcode or TestFlight — `references/app-store.md`, Sandbox |
 | Purchase completes, no event in Adapty | 3 | Server notifications / RTDN — `adapty-integration` fixes the connection |
 | Works for you, not for a teammate | 5 | Account state, not configuration — compare the two accounts before touching anything else |
 

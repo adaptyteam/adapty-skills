@@ -430,6 +430,10 @@ service treats that as the author's own typo rather than a registry problem, so 
 right. `verify-config.py` errors on one, and on a bad product id in *any* of the three families
 (`prod_*`, `offer_*`, `is_*`).
 
+**No field is a savings percent.** Flow Builder has no discount variable yet, so a "Save 40%"
+badge is static text per product, its number from the user: it is a pricing claim, and it does
+not follow a price change.
+
 The group id is not fixed at `products` — it is whatever that screen's `selectableGroups`
 declares. The corpus uses `products`; a live builder screen used `products2`. Read it from the
 file.
@@ -1368,6 +1372,10 @@ the transformer compiles predicates into JavaScript and an unresolvable name yie
 So **a `toggle` group exposes nothing a condition can read.** This corrects the support-channel
 workaround recorded for driving plan selection from a switch: it cannot be keyed on the toggle.
 
+A `single_choice` answer stays readable after its screen: a later screen's condition can branch
+on `<groupId>.selectedOptionId` from an earlier one, as an input's `<customId>.value` can
+([trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
+
 **`selectProduct`'s payload takes `{element: <element id>}`, not a product id.** Bisected: a
 conditional containing only `nothing` actions failed too, so the gate was objecting to the
 predicate rather than to `selectProduct`; but with the toggle variable unreadable,
@@ -1571,7 +1579,9 @@ A v10 fill array is drawn bottom to top, so a tint over a photo is two layers:
 `[{"type": "image", …}, {"type": "color", "color": {"type": "hex", "hex": "#000000", "opacity": 40}}]`.
 The layers are the ones a color style holds (trap 26) — solid, gradient, image, video — and a
 fill may also hold a single `color-style` reference to a layered style, which is the form to use
-when the stack must change between light and dark. An input's or a picker's fill draws only its
+when the stack must change between light and dark. A gradient layer is linear, set by its
+`angle`: Flow Builder cannot draw a radial gradient yet, so a glow is a linear gradient or an image
+([media.md](media.md)). An input's or a picker's fill draws only its
 first (bottom) layer.
 
 ### `effects` renders — a drop shadow is available, and measured
@@ -2009,6 +2019,7 @@ style error: you will search for an element type that does not exist, or invent 
 | a button | **No `button` element exists.** A `stack` (or `selectable`/`product`) carrying `interactions: [{trigger: "tap", actions: [...]}]`. Every button in every export is this. |
 | a toggle, a switch | **No `toggle` element exists.** Any element with a `groupId` whose `selectableGroups` entry is `{"type": "toggle"}`, styled via `propsByState.selected`. |
 | pick one / pick several | The same shape with group `type` `single_choice` or `multi_choice`. The element type does not change; the group type does. |
+| chips, tags, a wrapping row of options | Several horizontal `stack` rows, split by hand: **a stack cannot wrap** yet — [patterns.md](patterns.md#layout-discipline-the-support-channel-keeps-re-learning). |
 | a plan picker, plan cards | `product` elements sharing a `groupId` whose group is `{"type": "product"}`, one with `default: true`. Prices come from variables — see [`products.md`](products.md). **Cards the user taps — not a segment bar.** A row of segments where one is highlighted is tabs, even when the segments are plans (next row). |
 | one plan shown as plain copy — a name, a price, a period, a trial line, no card | **Still a product.** One `product` element wrapping that text block, `default: true`, in a one-member `product` group, with no `propsByState.selected`. Never an empty or hidden `product` beside loose copy: the builder draws it as a 1x1 box that breaks the layout. See [`patterns.md`](patterns.md), "A single-plan screen". |
 | radio buttons, a selected state | Not an element. `states: [{"id": "selected", "type": "system"}]` plus a `propsByState.selected` block. Style the same element twice; do not add a second one to hide. |

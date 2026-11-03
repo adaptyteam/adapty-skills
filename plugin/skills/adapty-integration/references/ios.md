@@ -221,6 +221,8 @@ The SDK key comes from `AppConstants` — already set in the recommended archite
 
 **Checkpoint:** App builds and runs without errors. Xcode console shows an Adapty activation log line.
 
+**Gotcha:** `enum case 'info' is not available due to missing import of defining module 'AdaptyLogger'` on the log-level line → the project enables the `MemberImportVisibility` upcoming Swift feature, and the log levels live in the separate `AdaptyLogger` module. Add `import AdaptyLogger` to the file that sets the log level.
+
 **Gotcha:** "Public API key is missing" or silent failure → the placeholder wasn't replaced with the real key from App settings → General → API keys.
 
 ---
@@ -516,6 +518,8 @@ For each item the user picks, fetch the relevant doc and implement it:
 | Kids mode | `kids-mode` |
 | A/B testing | None to implement: nothing changes in the app. Invoke the `ab-tests` skill, which creates the test and starts it on the user's yes |
 | Custom access levels | `create-access-level`, `assigning-access-level-to-a-product` |
+
+**Kids mode does not stop Apple Search Ads attribution:** the `KidsMode` trait compiles out IDFA, AdSupport and App Tracking Transparency only; the SDK still fetches the AdServices attribution token once per profile and sends it to Adapty, and no SDK setting turns that off. That is SDK behaviour the Kids Mode page does not state, so don't cite the page for it.
 
 ```bash
 curl -s https://adapty.io/docs/<slug>.md

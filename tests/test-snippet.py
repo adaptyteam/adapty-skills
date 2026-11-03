@@ -504,31 +504,20 @@ _rc, pl6 = plan_json(QUIZ, p6, QUIZ_S0)
 case('locales: extra locale is dropped, not carried', pl6['locales']['dropped'], ['de'])
 
 # --- Task 7: identity dependencies ----------------------------------------------
-# The quiz paywall binds two products. Grafted onto a screen that declares none,
-# each must surface as a blocker-level ask, never be silently declared.
+# The quiz paywall binds two products. Grafted within the same app onto a screen
+# that declares none, the graft DECLARES them (registry and _meta.screens, with the
+# flowProductId the builder mints) instead of handing the user a NEEDS YOU.
 PAY = json.load(open(QUIZ))['screens'][-1]['id']
 pp, psnip, _ = extract(QUIZ, '--screen', PAY, 'Quiz paywall')
 _rc, pl7 = plan_json(QUIZ, pp, QUIZ_S0)      # onto screen 0, which declares no products
 prod_needs = [n for n in pl7['needs'] if 'product' in n['text']]
-case('identity: undeclared products are reported', len(prod_needs) >= 1, True)
-case('identity: product asks are blocker level',
-     all(n['level'] == '!' for n in prod_needs), True)
-# The information the dedup suppresses must not be LOST: the ask names the
-# price-variable fallout explicitly, so the reader isn't left to guess it.
-case('identity: an undeclared-product ask names the prod_price* fallout',
-     all('prod_price*' in n['text'] for n in prod_needs), True)
-
-# Fires, exactly: two products, both undeclared here -> exactly one ask each, and
-# the fix's dedup means their `prod_price_per_month`/`prod_price_per_year`
-# consumes must NOT also raise separate "no producer" asks for the same problem.
-case('identity: exactly one ask per undeclared product, no more',
-     len(prod_needs), 2)
-case('identity: the total needs list is exactly the two product asks -- no '
-     'per-price-variable duplicate for either product',
-     len(pl7['needs']), 2)
-case('identity: no "has no producer" ask survives for a product-relative price '
-     'variable once its product is already asked about',
+case('identity: a same-app graft raises no product ask -- it declares them', prod_needs, [])
+case('identity: the plan lists both products as declared',
+     sorted(e['id'] for e in (pl7.get('declares') or {}).get('products', [])),
+     sorted(p_['id'] for p_ in psnip['dependencies']['products']))
+case('identity: a declared product\'s own price variables raise no "has no producer" ask',
      any('has no producer' in n['text'] for n in pl7['needs']), False)
+case('identity: plan exits 0 when every product is declared by the graft', _rc, 0)
 
 # A consumer with no producer: `name.value` is produced on the Quiz screen. Graft the
 # paywall into `comparison`, where no text-input exists at all.
@@ -574,6 +563,19 @@ _rc, pl7e = plan_json(COMP, pp_any, COMP_S0)
 case('identity: any-app with no --catalog strips every product and asks',
      len([n for n in pl7e['needs'] if 'product' in n['text']]), len(src_products))
 case('identity: any-app with no --catalog invents no rebind', pl7e['rebinds'], {})
+# The dedup, now on the path that still asks: one ask per product, and no separate
+# "no producer" ask for that product's own `prod_price_*` variables.
+case('identity: exactly one ask per unmatched product, no per-price duplicate',
+     len([n for n in pl7e['needs'] if 'product' in n['text']]), len(src_products))
+case('identity: no "has no producer" ask for an unmatched product\'s own prices',
+     any('has no producer' in n['text'] and any(sp in n['text'] for sp in src_products)
+         for n in pl7e['needs']), False)
+case('identity: plan exits 1 when a product ask is present',
+     plan_json(COMP, pp_any, COMP_S0)[0], 1)
+case('identity: an unmatched any-app product is never declared',
+     sn._declare_products({'_meta': {}}, {'id': 'scr_x'},
+                          {'screen': 'scr_x', 'products': [{'id': src_products[0]}]},
+                          {}, 'any-app'), [])
 case('identity: a stripped-binding ask also names the prod_price* fallout',
      all('prod_price*' in n['text'] for n in pl7e['needs']
          if 'product' in n['text']), True)
@@ -647,9 +649,6 @@ rc_zero, pl7z = plan_json(QUIZ, p2, QUIZ_S0)
 case('identity: plan exits 0 when needs is genuinely empty', rc_zero, 0)
 case('identity: a needs-free plan reports an empty needs list', pl7z['needs'], [])
 
-# Exit code: `needs` non-empty is a disclosure obligation, not a defect.
-rc_undeclared, _pl7 = plan_json(QUIZ, pp, QUIZ_S0)
-case('identity: plan exits 1 when a product ask is present', rc_undeclared, 1)
 
 # `resolve_identity` never writes `_meta.screens` -- confirm the destination config
 # on disk is untouched by a plan run that raised product asks.
@@ -1111,6 +1110,30 @@ case('graft: the carried group kept its TYPE (`product`)',
      _dest_groups.get('products', {}).get('type'), 'product')
 case('graft: the destination flow\'s own pre-existing group (`tabs`) survived '
      'untouched', 'tabs' in _dest_groups and _dest_groups['tabs']['type'], 'single_choice')
+# An ELEMENT graft declares its product on the destination screen, keeping what that
+# screen already declared.
+import flowkit as _fk  # noqa: E402
+_card_pid = json.load(open(pcard))['dependencies']['products'][0]['id']
+_tabs_before = json.load(open(TABS))
+_reg_before = next(s for s in _tabs_before['screens'] if s['id'] == TABS_S0).get('products') or []
+_gc_decl = ((ggc.get('_meta') or {}).get('screens') or {}).get(TABS_S0, {}).get('products', [])
+case('graft: an element graft declares its product on the destination screen',
+     [(e['id'], e['flowProductId']) for e in _gc_decl if e['id'] == _card_pid],
+     [(_card_pid, _fk.flow_product_id(TABS_S0, _card_pid))])
+case('graft: an element graft adds its product to the screen registry and keeps the rest',
+     all(e in scr_gc.get('products', []) for e in _reg_before)
+     and any(e['id'] == _card_pid for e in scr_gc.get('products', [])), True)
+# An any-app screen graft whose products were rebound declares the DESTINATION ids.
+_o_any, *_ = graft(COMP, pp_any, COMP_S0, 'any-app-rebound', extra=('--catalog', DEST_CAT))
+_g_any = json.load(open(_o_any))
+_any_scr = [x for x in _g_any['screens']
+            if x['id'] not in {y['id'] for y in json.load(open(COMP))['screens']}][0]
+_any_decl = {e['id'] for e in ((_g_any.get('_meta') or {}).get('screens') or {})
+             .get(_any_scr['id'], {}).get('products', [])}
+case('graft: a rebound any-app screen declares the destination product ids only',
+     _any_decl, {f'dest-uuid-{i}' for i in range(len(src_products))})
+case('graft: a rebound any-app screen registry carries no source product id',
+     any(e.get('id') in src_products for e in _any_scr.get('products') or []), False)
 
 # --- Coordinator review, Finding 3 (Minor) ------------------------------------
 # The CLI-level "graft: never writes over the source config" test above only
@@ -1130,11 +1153,33 @@ case('apply_plan (in-process): a genuinely NEW object with real changes is retur
      _out_ip3 is not _cfg_ip3 and json.dumps(_out_ip3, sort_keys=True) != _cfg_ip3_before,
      True)
 
-# `_meta.screens` is builder-owned: a graft must never mint a flowProductId.
+# A grafted screen's bindings are declared on the screen it became, with exactly the
+# flowProductId the builder mints (flowkit.flow_product_id), and in its registry.
+import flowkit as _fk  # noqa: E402
 g7 = json.load(open(os.path.join(TMP, 'grafted-paywall-into-quiz-s0.json')))
-case('graft: no flowProductId was minted on the destination screen',
-     'flowProductId' in json.dumps((g7.get('_meta') or {}).get('screens', {})
+_old_sids = {y['id'] for y in json.load(open(QUIZ))['screens']}
+_new = [x for x in g7['screens'] if x['id'] not in _old_sids]
+assert len(_new) == 1, 'the graft should have added exactly one screen'
+_new = _new[0]
+_decl = ((g7.get('_meta') or {}).get('screens') or {}).get(_new['id'], {}).get('products', [])
+_bound = _fk.screen_products(_new['elements']['map'])
+case('graft: every binding of the grafted screen is declared in _meta.screens',
+     sorted((e['id'], e.get('offerId') or '', e.get('billingPlanId') or '') for e in _decl),
+     sorted((e['id'], e.get('offerId') or '', e.get('billingPlanId') or '') for e in _bound))
+case('graft: each declaration carries the flowProductId the builder mints',
+     bool(_decl) and all(e['flowProductId'] == _fk.flow_product_id(
+         _new['id'], e['id'], e.get('offerId'), e.get('billingPlanId')) for e in _decl), True)
+case('graft: the grafted screen registry holds every binding',
+     {(e['id'], e.get('offerId')) for e in _bound}
+     <= {(e['id'], e.get('offerId')) for e in _new.get('products') or []}, True)
+case('graft: the anchor screen gains no declaration',
+     'flowProductId' in json.dumps(((g7.get('_meta') or {}).get('screens') or {})
                                    .get(QUIZ_S0, {})), False)
+_v7 = subprocess.run([sys.executable, VERIFY,
+                      os.path.join(TMP, 'grafted-paywall-into-quiz-s0.json')],
+                     capture_output=True, text=True).stdout
+case('graft: verify-config raises no undeclared-product finding on the grafted screen',
+     'not declared in _meta.screens' in _v7, False)
 
 # The destination file itself is never touched.
 before9 = open(COMP).read()

@@ -28,6 +28,7 @@ import concurrent.futures as cf
 import datetime as dt
 import json
 import math
+import os
 import random
 import re
 import shlex
@@ -70,10 +71,34 @@ def slot(rt, after=0.0):
     time.sleep(max(0.0, start - now))
 
 
+_ARGV = {}     # $ADAPTY string -> the argv every call starts with
+
+
+def argv(adapty):
+    """The words $ADAPTY stands for. An npx form (`npx --yes adapty@latest`) resolves once to the binary npx
+    installed, so the reads side by side start that binary rather than npx each, which would race on npx's
+    cache and pay its start-up on every call. A form that does not resolve stays as given."""
+    if adapty in _ARGV:
+        return _ARGV[adapty]
+    words = shlex.split(adapty)
+    spec = next((w for w in words[1:] if not w.startswith('-')), None)
+    if words and os.path.basename(words[0]) in ('npx', 'npx.cmd') and spec:
+        try:
+            p = subprocess.run([words[0], '--yes', '-p', spec, '-c', 'command -v adapty'], capture_output=True,
+                               text=True, timeout=300)
+            path = (p.stdout.strip().splitlines() or [''])[-1] if p.returncode == 0 else ''
+            if path and os.path.isfile(path):
+                words = [path]
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    _ARGV[adapty] = words
+    return words
+
+
 def run_read(adapty, args):
     """Run one CLI read. A throttle (status 429, or 503) waits the server's `retry_after_seconds` or 1, 2, 4,
     8, 16 s, whichever is longer, and runs the call again, TRIES times at most. Returns (body, error)."""
-    cmd = shlex.split(adapty) + list(args) + ['--json']
+    cmd = argv(adapty) + list(args) + ['--json']
     rt, wait = route(args), 0.0
     for attempt in range(1, TRIES + 1):
         if rt:
@@ -125,15 +150,23 @@ def prefetch(adapty, calls):
         call(adapty, args)
 
 
-def has_analytics(adapty):
-    """Whether this CLI has the analytics topic. An older install answers every read with "command not
-    found", which would print as dozens of failed reads instead of one fix."""
+def has(adapty, words):
+    """Whether this CLI has the command: its `--help` exits 0."""
     try:
-        p = subprocess.run(shlex.split(adapty) + ['analytics', 'catalog', '--help'], capture_output=True,
-                           text=True)
+        p = subprocess.run(argv(adapty) + list(words) + ['--help'], capture_output=True, text=True)
     except OSError:
         return False
     return p.returncode == 0
+
+
+def has_analytics(adapty):
+    """Whether this CLI has the analytics topic. An older install answers every read with "command not
+    found", which would print as dozens of failed reads instead of one fix."""
+    return has(adapty, ['analytics', 'catalog'])
+
+
+LATER = (('ab-tests', 'list'), ('flows', 'metrics', 'list'), ('placements', 'metrics', 'get'))   # reads newer
+                                                                                                  # than analytics
 
 
 def list_args(app, topic, page=1, extra=()):
@@ -232,12 +265,15 @@ def show(title, cmd, body, err, names=None, conv=False, top=None, cols=None):
     total = [s for s in segs if s.get('is_total')]
     rest = sorted((s for s in segs if not s.get('is_total')), key=lambda s: (-last_value(s), -(s.get('value') or 0)))
     shown = rest if not top or len(rest) <= top + 1 else rest[:top]
-    few_rows = 0
+    few_rows, over = 0, []
     for s in total + shown:
         name = (names or {}).get(s.get('key')) or s.get('title') or s.get('key') or '?'
         if conv:
             pts = (s.get('values') or [])[:n]
-            if pts and max((p.get('value_to') or 0) for p in pts) < FEW:
+            if any((p.get('value') or 0) > 100 for p in pts):
+                over.append(str(name))
+                name = '! ' + str(name)
+            elif pts and max((p.get('value_to') or 0) for p in pts) < FEW:
                 name, few_rows = '~ ' + str(name), few_rows + 1
             cells = [f"{num(p.get('value'))}% {num(p.get('value_to'))}/{num(p.get('value_from'))}" for p in pts]
         else:
@@ -253,6 +289,10 @@ def show(title, cmd, body, err, names=None, conv=False, top=None, cols=None):
     if conv:
         print('   cells: rate % paid/first step.' + (f' ~ = under {FEW} paid in every period: those rates are noise.'
               ' Give the counts, and do not compare, rank, date or explain a change from them.' if few_rows else ''))
+    if over:
+        print(f'   ! = a rate above 100% ({", ".join(over)}): a conversion counts the share of the first step that '
+              'reached the second, so that is not a valid reading. Leave those rows out of every grade, say in the '
+              'reply that the number could not be read, and put it in the feedback note as a likely Adapty bug.')
     if conv and dated and total:
         onset(total[0], xs)
     return segs
@@ -1401,12 +1441,22 @@ def run():
     if a.command == 'placement' and not a.placement:
         ap.error('placement needs --placement <PLACEMENT_ID>')
     a.months = a.months or (6 if a.command == 'audit' else 12)
+    if not a.adapty.strip():
+        print('STOP: --adapty is empty, so no read was made: $ADAPTY was not set in the shell that ran this. '
+              'Resolve $ADAPTY in the same command as this one, as "The CLI" says, or pass the command itself: '
+              '--adapty "npx --yes adapty@latest".')
+        return 2
     if not has_analytics(a.adapty):
         print(f'STOP: `{a.adapty}` has no analytics commands, so no read was made. It is an adapty CLI older '
               'than the analytics topic, or not the one npm just updated (another install comes first on '
               'PATH). Resolve $ADAPTY again as "The CLI" says; if `adapty analytics catalog --help` still '
               'fails, use `npx --yes adapty@latest`. Then rerun this command with --adapty "$ADAPTY".')
         return 2
+    late = [' '.join(c) for c in LATER if not has(a.adapty, c)]
+    if late:
+        print(f'CHECK: `{a.adapty}` has no {", ".join(late)}, so those reads fail below. That is an older CLI, '
+              'not a missing command: rerun with --adapty "npx --yes adapty@latest"; only if that lacks one '
+              'too, try `npx --yes adapty@beta <command> --help` once before telling the user it cannot be read.\n')
     if a.command == 'audit':
         audit(a)
     else:
