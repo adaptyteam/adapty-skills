@@ -1,7 +1,8 @@
 # Prices
 
 How to read the app's prices, place them against the market, choose a price hypothesis, test it
-on a copy, and change a live price. Expected ranges still come only from `evidence.md`.
+on a copy, add a plan length, and change a live price. Expected ranges still come only from
+`evidence.md`.
 
 ## Where the numbers come from
 
@@ -233,6 +234,29 @@ user's yes.
 8. **I offer to set up the A/B test** ("From hypothesis to A/B test" in `SKILL.md`): the current
    paywall or flow on that placement against the copy's flow, on the country segment's audience,
    once the copy is `approved` and its flow is published.
+
+## Adding a plan length
+
+A new plan length is a new product, made as the copy in steps 1 to 3 of "Setting up a price A/B
+test" (the create, the user's yes to the new store product ID, the push with its screenshot,
+refusals and `store_status`), with these differences:
+
+- **Its period is the new one,** its access level the one the paywall's other products unlock,
+  and its title the plan's name ("Weekly"), unique among the subscriptions in the App Store group.
+- **Its USD price is the user's to confirm before the create.** I propose one that keeps the plan
+  ladder ("Setting the new price", step 4) and sits at the category's 50th percentile for that
+  plan in the main market, in its currency and in USD. The store derives every country's price
+  from it; `product-prices set` changes them only when the user asks.
+- **Google Play:** a new base plan on the app's existing subscription (`--store-product-id` from
+  `product-groups list --store play_store --page-size 100`, a new `--android-base-plan-id`); a
+  new subscription ID only when the app has none.
+- **A lifetime plan** is a one-time purchase: a new store product ID in each store, with neither
+  `--group-id` nor `--android-base-plan-id`.
+- **A trial on it is the user's,** in the store after the push (`levers.md`, "By store"): the
+  push sets no offer.
+
+Then the flow copy that sells it, through `flow-generator`, and the A/B test as for any
+hypothesis.
 
 ## Changing a live price
 

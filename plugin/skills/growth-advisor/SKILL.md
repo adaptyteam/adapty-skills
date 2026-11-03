@@ -21,9 +21,9 @@ money, and suggest hypotheses in the order worth testing them. A hypothesis can 
 what (a segment and its audience on a placement), which products a paywall sells, or a flow's
 design. Once the user picks one, you set up the parts the CLI reaches, each on a yes: a copy of
 the flow with the new design or product set, through `flow-generator`, a segment, through
-`audiences`, a price test's copy of a product, created, pushed to the store and priced through
-the CLI (`references/pricing.md`), and the A/B test itself, through `ab-tests`. Other new store
-products and trials happen in the store, so for those you give the user the steps. Before you
+`audiences`, a new plan length or a price test's copy of a product, created and pushed to the
+store through the CLI (`references/pricing.md`), and the A/B test itself, through `ab-tests`.
+Trials and offers are made in the store, so for those you give the user the steps. Before you
 offer to set up an A/B test, you check that everything it needs exists ("From hypothesis to A/B
 test").
 
@@ -204,8 +204,9 @@ Everything this skill runs is a read, with six writes, each on the user's yes: b
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
 `placements create` or `placements update` (see "Changing a live placement"), adding an offer
 the user made in the store to an existing product with `product-offers create`
-(`references/levers.md`, "By store"), and prices: a test copy of a product
-(`products create --price-usd`, `products push`) and `product-prices set` (`references/pricing.md`).
+(`references/levers.md`, "By store"), and new products and prices: a new plan length or a price
+test's copy (`products create --price-usd`, `products push`) and `product-prices set`
+(`references/pricing.md`).
 Of the `ab-tests` commands you run only the reads, `list` and `get`; every other one is the
 `ab-tests` skill's. Never `product-offers update`: an offer a live paywall or flow already picks
 reaches buyers today, so changing one is a dashboard step for the user. The one other call that
@@ -608,7 +609,8 @@ test needs with a read. Never assume a thing exists because the user said they w
 |---|---|---|
 | The content the placement shows now (arm A) | `placements get` names a paywall or flow on the audience the test would run on | Nothing to make |
 | A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
-| A new plan length, trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"), then add a new product to Adapty. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
+| A new plan length | `products get` shows its store product in each store the app sells in, with `store_status` `approved`, and a flow that sells it exists | Me: the product and its push, on your yes to its store product IDs and USD price (`references/pricing.md`, "Adding a plan length"), and the flow that sells it |
+| A trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"); a second product it needs I make as a new plan length. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
 | A price test's copy of a product | `products get` shows the copy's store product with `store_status` `approved`, and a flow that sells it exists | Me: the copy, its push and its prices (`references/pricing.md`, "Setting up a price A/B test"), and the flow that sells it |
 | A paywall arm (legacy Paywall Builder or custom paywall) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
 | A segment | `segments list` shows one with the filter the hypothesis targets | Me: `audiences`, on a yes (segment steps only) |
@@ -690,18 +692,19 @@ On a yes, run it, read the placement back, and say what changed in one line.
 
 ## Dashboard steps
 
-For a change only the user can make, give: what changes (a plan length, a trial length), where
+For a change only the user can make, give: what changes (a trial length, an offer), where
 to change it (App Store Connect, Google Play Console, or the Adapty dashboard), and how to test it
-rather than switch it. A plan change is a new store product, a paywall that sells it, and an A/B
-test of that paywall against the current one in the same placement. A trial or discount is set up
+rather than switch it. A new plan length is not one of these: you create and push it
+(`references/pricing.md`, "Adding a plan length"), a flow sells it, and an A/B test sets that flow
+against the current one in the same placement. A trial or discount is set up
 in the store first, and each store does it differently: on the App Store a trial needs a second
 product, while on Google Play it is an offer on the existing plan (`references/levers.md`, "By
 store"). An offer then has to be added to the product in Adapty, which you do on the user's yes
 once they give its store offer ID. The "How" line starts with that store step. The A/B test comes
 after it: once `products list` (and `product-offers list` for an offer) shows it and a flow sells
-it, you offer to set up the test ("From hypothesis to A/B test"). The new product's price is the
-user's to set; a price test's copy is created, pushed and priced through the CLI
-(`references/pricing.md`, "Setting up a price A/B test").
+it, you offer to set up the test ("From hypothesis to A/B test"). A new product's USD price is
+the user's to confirm before the push; a price test's copy is created, pushed and priced through
+the CLI (`references/pricing.md`, "Setting up a price A/B test").
 
 ## Framing rules
 

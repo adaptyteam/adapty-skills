@@ -20,8 +20,8 @@ cannot be synthesized:
   express, you draw and rasterize ([media.md](references/media.md)). An icon is **not** in this
   list: `python3 references/icons.py --search <word>` resolves any phosphor glyph, and an
   invented name draws blank however good your markup is (trap 23).
-- **Real store prices.** They come from the store, not from Adapty; `products create` has no price
-  flag.
+- **Real store prices.** They come from the store, not from Adapty; `products create --price-usd`
+  is only the USD base a store push starts from.
 
 Everything else is reachable: product UUIDs from `adapty products list` (or `products create`),
 offer ids from `adapty product-offers list`, `theme` colours sampled off a reference screenshot,
@@ -633,8 +633,9 @@ step silently:
    App Store trial by no offer at all
    ([products.md → Where offer ids come from](references/products.md#where-offer-ids-come-from)).
 2. Only if nothing fits: ask for their **store product ids** (App Store product id; Google
-   product id **plus base plan id** for subscriptions) — those are the bindings `products create`
-   cannot run without, so asking later just stalls the create.
+   product id **plus base plan id** for subscriptions) — this skill creates a product only with
+   them, since one with no binding sells nothing until a push creates it in the store
+   (`adapty-integration`, path C), so asking later just stalls the create.
 3. Only then `products create`, behind its own confirmation gate
    ([products.md → Creating a product](references/products.md)).
 
