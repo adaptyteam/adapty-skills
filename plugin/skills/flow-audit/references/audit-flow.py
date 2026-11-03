@@ -20,6 +20,8 @@ Usage:
   audit-flow.py <config.json> [--catalog <catalog.json>] [--stores ios,android]
                 [--json | --report] [--name <name>] [--flow-id <id>] [--status <status>]
                 [--placements <placements.json>] [--custom-actions id=kind,...]
+                [--offers <offers.json>]
+  audit-flow.py <config.json> --list-offer-products
 Exit: 0 no blockers, 1 at least one blocker, 2 usage or unreadable input.
 
 `--json` prints the raw findings; `--report` prints the user-facing report (verdict,
@@ -27,7 +29,9 @@ findings by severity, languages, store review, what happens next, what to check
 yourself) and the two are mutually exclusive. `--name`/`--flow-id`/`--status` come
 from `flows list`, not the config, and feed `render()`'s header and the
 `flow-untitled` check. `--placements` is a JSON array of `placements get` bodies; with
-`--flow-id` it answers whether any placement shows this flow.
+`--flow-id` it answers whether any placement shows this flow. `--offers` maps a product id
+to its `product-offers list` rows; `--list-offer-products` prints the product ids bound with an
+offer, one per line, which is the list Phase 3 reads offers for.
 """
 import ast, json, os, re, struct, sys, urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -716,6 +720,105 @@ def check_products_catalog(config, catalog, stores):
                     'In the Adapty dashboard, add the base plan ID from Play Console '
                     'to the product.',
                     first_sid, first_eid))
+    return out
+
+
+def bound_offers(config):
+    """(screen id, element id or None, product id, offer id) for every offer a flow binds.
+
+    An offer is bound wherever a product is: a `product` element's props, a `const`
+    purchase, the screen's own registry (`screens[].products`), its `_meta.screens`
+    declaration, and a structured product ref (`{"kind": "product", "id", "offerId"}`);
+    a monthly-plan entry's `fallbackOfferId` is an offer too. The registry is what the
+    builder's Products panel shows, so an offer named only there still blocks a publish.
+    """
+    out, seen = [], set()
+
+    def add(sid, eid, pid, oid):
+        if isinstance(pid, str) and pid and isinstance(oid, str) and oid \
+                and (sid, eid, pid, oid) not in seen:
+            seen.add((sid, eid, pid, oid))
+            out.append((sid, eid, pid, oid))
+
+    def refs(o, sid, eid):
+        if isinstance(o, dict):
+            if o.get('kind') == 'product':
+                add(sid, eid, o.get('id'), o.get('offerId'))
+            for v in o.values():
+                refs(v, sid, eid)
+        elif isinstance(o, list):
+            for v in o:
+                refs(v, sid, eid)
+
+    for s, eid, e in elements(config):
+        prod = (e.get('props') or {}).get('product') or {}
+        add(s['id'], eid, prod.get('id'), prod.get('offerId'))
+        for _, a in actions_of(e):
+            if _const_purchase_product_id(a):
+                value = ((a.get('payload') or {}).get('product') or {}).get('value') or {}
+                add(s['id'], eid, value.get('id'), value.get('offerId'))
+        refs(e, s['id'], eid)
+    meta = (config.get('_meta') or {}).get('screens') or {}
+    for s in config.get('screens') or []:
+        for entry in (s.get('products') or []) + ((meta.get(s.get('id')) or {}).get('products') or []):
+            add(s.get('id'), None, entry.get('id'), entry.get('offerId'))
+            add(s.get('id'), None, entry.get('id'), entry.get('fallbackOfferId'))
+    return out
+
+
+def offer_products(config):
+    """The product ids bound with an offer, in first-seen order: the products whose
+    offers SKILL.md's Phase 3 reads with `product-offers list`."""
+    return list(dict.fromkeys(pid for _, _, pid, _ in bound_offers(config)))
+
+
+def check_offers(config, catalog, offers):
+    """Every bound offer must be one of its product's offers in Adapty.
+
+    `offers` maps a product id to that product's `product-offers list` rows. A flow binds
+    an offer by the offer's Adapty `id`; the list also carries the store's own code under
+    `store_offers.<store>.offer_id`, and `flows config validate` passes that code, an
+    unknown offer id and another product's offer alike (measured, adapty 0.15.0), while the
+    builder refuses the publish. A product missing from the catalog is left to
+    `product-not-in-catalog`; a product whose offers were not read is one question.
+    """
+    out = []
+    bound = bound_offers(config)
+    if catalog is None or not bound:
+        return out
+    by_id = {p['id']: p for p in catalog}
+    by_pair, unread = {}, {}
+    for sid, eid, pid, oid in bound:
+        if pid not in by_id:
+            continue
+        if offers is None or pid not in offers:
+            unread.setdefault(pid, []).append((sid, eid))
+            continue
+        if oid not in {o.get('id') for o in offers[pid] or []}:
+            by_pair.setdefault((pid, oid), []).append((sid, eid))
+    for (pid, oid), sites in by_pair.items():
+        title = by_id[pid].get('title') or pid
+        sites_str = ('' if len(config.get('screens') or []) <= 1
+                     else f' It is on {_format_sites(sites, config)}.')
+        listed = [f'"{o.get("title") or o.get("id")}"' for o in offers[pid] or []]
+        pick = (f'In the builder, pick one of its offers for that card instead: '
+                f'{_join_and(listed)}.' if listed else
+                f'"{title}" has no offers in Adapty. Add the offer to the product in the '
+                f'Adapty dashboard first, or set the card to "No offer".')
+        first_sid, first_eid = next(((s, e) for s, e in sites if e), sites[0])
+        out.append(finding(
+            'blocker', 'products', 'offer-not-on-product',
+            f'This flow sells "{title}" with an offer that is not one of its offers in '
+            f'Adapty ({oid}), so the flow cannot be published.{sites_str}',
+            pick, first_sid, first_eid))
+    if unread:
+        titles = [f'"{by_id[p].get("title") or p}"' for p in unread]
+        sid, eid = next(iter(unread.values()))[0]
+        out.append(finding(
+            'question', 'products', 'offers-not-fetched',
+            f'I could not read the offers of {_join_and(titles)}, so I could not check '
+            f'the offers this flow sells.',
+            'Fetch each product\'s offers and run the audit again.', sid, eid))
     return out
 
 
@@ -2830,11 +2933,12 @@ def check_fonts(config, fetch=read_font):
     return out
 
 
-def audit(config, catalog=None, stores=None, answers=None):
+def audit(config, catalog=None, stores=None, answers=None, offers=None):
     findings = []
     findings += check_triggers(config)
     findings += check_compliance(config)
     findings += check_products_catalog(config, catalog, stores)
+    findings += check_offers(config, catalog, offers)
     findings += check_period_claim(config, catalog)
     findings += check_price_integrity(config, catalog)
     findings += check_price_prominence(config, catalog)
@@ -2925,6 +3029,8 @@ CHECK_LABELS = {
     'no-escape-from-paywall': 'no way off the paywall',
     'catalog-not-fetched': 'catalog not fetched',
     'product-not-in-catalog': 'product not in catalog',
+    'offer-not-on-product': 'offer not on its product',
+    'offers-not-fetched': 'offers not fetched',
     'product-no-access-level': 'product missing access level',
     'product-store-gap': 'missing store binding',
     'play-base-plan-missing': 'missing Play base plan',
@@ -3375,6 +3481,8 @@ CHECK_TO_GROUP = {
     'no-escape-from-paywall': GROUP_FLOW,
     'catalog-not-fetched': GROUP_FLOW,
     'product-not-in-catalog': GROUP_DASHBOARD,
+    'offer-not-on-product': GROUP_FLOW,
+    'offers-not-fetched': GROUP_FLOW,
     'product-no-access-level': GROUP_DASHBOARD,
     'product-store-gap': GROUP_DASHBOARD,
     'play-base-plan-missing': GROUP_DASHBOARD,
@@ -3803,7 +3911,7 @@ def _voice(line):
 
 
 VALUE_FLAGS = ('--catalog', '--stores', '--name', '--flow-id', '--status',
-               '--placements', '--sibling-locales', '--custom-actions')
+               '--placements', '--sibling-locales', '--custom-actions', '--offers')
 
 # What the user said each custom action ID does. A flow cannot request a permission,
 # show the rating sheet or sign anyone in: each of those is a `custom` action whose
@@ -3883,9 +3991,14 @@ def main(argv):
             flags.get('--placements'), str) else None
         siblings = json.load(open(flags['--sibling-locales'], encoding='utf-8')) if isinstance(
             flags.get('--sibling-locales'), str) else None
+        offers = json.load(open(flags['--offers'], encoding='utf-8')) if isinstance(
+            flags.get('--offers'), str) else None
     except (OSError, ValueError) as exc:
         print(f'cannot read input: {exc}', file=sys.stderr)
         return 2
+    if flags.get('--list-offer-products'):
+        print('\n'.join(offer_products(config)))
+        return 0
     if isinstance(catalog, dict):
         catalog = catalog.get('data') or []
     if isinstance(placements, dict):
@@ -3899,7 +4012,7 @@ def main(argv):
         print(exc, file=sys.stderr)
         return 2
 
-    findings = audit(config, catalog, stores, answers)
+    findings = audit(config, catalog, stores, answers, offers)
     meta = {'name': flags.get('--name') if isinstance(flags.get('--name'), str) else None,
             'flow_id': flags.get('--flow-id') if isinstance(flags.get('--flow-id'), str)
             else None,

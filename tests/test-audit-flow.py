@@ -24,8 +24,9 @@ CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
 fails = []
 
 
-def run(config, catalog=CATALOG, stores=None, custom=None):
-    """Return (rc, findings). `config` is a path or a dict."""
+def run(config, catalog=CATALOG, stores=None, custom=None, offers=None):
+    """Return (rc, findings). `config` is a path or a dict; `offers` a dict of
+    product id -> `product-offers list` rows."""
     with tempfile.TemporaryDirectory() as tmp:
         if isinstance(config, dict):
             path = os.path.join(tmp, 'c.json')
@@ -35,6 +36,9 @@ def run(config, catalog=CATALOG, stores=None, custom=None):
         cmd = [sys.executable, AUDIT, path, '--json']
         if catalog:
             cmd += ['--catalog', catalog]
+        if offers is not None:
+            json.dump(offers, open(os.path.join(tmp, 'offers.json'), 'w'))
+            cmd += ['--offers', os.path.join(tmp, 'offers.json')]
         if stores:
             cmd += ['--stores', stores]
         if custom is not None:
@@ -507,6 +511,81 @@ check('store gap is SILENT when only ios is declared',
 # base_plan_id null must be read only on a play_store entry
 check('a null base_plan_id on an app_store entry stays SILENT',
       len(of(run(FLOW)[1], 'play-base-plan-missing')) == 0)
+
+print('\nproducts / offers')
+
+# A flow binds an offer by its Adapty `id` (`product-offers list`); `validate` passes a
+# store code and another product's offer alike, so only this check finds them.
+ANNUAL, MONTHLY = '6cdd73d5-bdb2-4b2e-c207-784fbcb2f408', 'fbc63856-bf3a-45d1-7bee-dd4bcb54b10a'
+TRIAL = '0d7e4b19-8c2a-4e6f-a5b3-71c9d0e2f4a6'
+OFFERS = {ANNUAL: [{'id': TRIAL, 'title': '7-day free trial', 'offer_type': 'promotional',
+                    'store_offers': {'play_store': {'offer_id': 'free-trial-7d'}}}],
+          MONTHLY: []}
+
+
+def with_offer(pid, oid):
+    """The fixture with every card bound to `pid` given offer `oid`."""
+    c = load()
+    for s in c['screens']:
+        for e in s['elements']['map'].values():
+            prod = (e.get('props') or {}).get('product') or {}
+            if prod.get('id') == pid:
+                prod['offerId'] = oid
+    return c
+
+
+check('offers: the fixture binds an annual card (the cases below rely on it)',
+      any(((e.get('props') or {}).get('product') or {}).get('id') == ANNUAL
+          for s in load()['screens'] for e in s['elements']['map'].values()))
+_ok = run(with_offer(ANNUAL, TRIAL), offers=OFFERS)[1]
+check('offer-not-on-product is SILENT on an offer of its own product',
+      not of(_ok, 'offer-not-on-product') and not of(_ok, 'offers-not-fetched'), _ok)
+_code = of(run(with_offer(ANNUAL, 'free-trial-7d'), offers=OFFERS)[1], 'offer-not-on-product')
+check('offer-not-on-product FIRES on the store code, as a blocker naming the right offer',
+      len(_code) == 1 and _code[0]['severity'] == 'blocker'
+      and '7-day free trial' in _code[0]['fix'], _code)
+check('...and its fix never names a flag or a CLI command',
+      bool(_code) and '--offers' not in _code[0]['fix']
+      and 'adapty' not in _code[0]['fix'].lower(), _code)
+_other = of(run(with_offer(MONTHLY, TRIAL), offers=OFFERS)[1], 'offer-not-on-product')
+check('offer-not-on-product FIRES on another product\'s offer, and says this one has none',
+      len(_other) == 1 and 'no offers' in _other[0]['fix'], _other)
+c = load()
+for s in c['screens']:
+    if any(((e.get('props') or {}).get('product') or {}).get('id') == ANNUAL
+           for e in s['elements']['map'].values()):
+        s['products'] = [{'id': ANNUAL}, {'id': ANNUAL, 'offerId': 'spring_ios'}]
+_reg = of(run(c, offers=OFFERS)[1], 'offer-not-on-product')
+check('offer-not-on-product FIRES on an offer named only in the screen registry',
+      len(_reg) == 1, _reg)
+_dup = with_offer(ANNUAL, 'free-trial-7d')
+for s in _dup['screens']:
+    for e in s['elements']['map'].values():
+        prod = (e.get('props') or {}).get('product') or {}
+        if prod.get('offerId'):
+            s.setdefault('products', []).append(dict(prod))
+_dup = of(run(_dup, offers=OFFERS)[1], 'offer-not-on-product')
+check('offer-not-on-product dedups per (product, offer) across card and registry',
+      len(_dup) == 1, _dup)
+_unread = of(run(with_offer(ANNUAL, TRIAL))[1], 'offers-not-fetched')
+check('offers-not-fetched is one question when an offer is bound and none were read',
+      len(_unread) == 1 and _unread[0]['severity'] == 'question', _unread)
+check('offers-not-fetched is SILENT on a flow that binds no offer',
+      not of(run(FLOW)[1], 'offers-not-fetched'))
+check('offers checks stay SILENT with no catalog (catalog-not-fetched covers it)',
+      not [f for f in run(with_offer(ANNUAL, TRIAL), catalog=None)[1] or []
+           if f['check'] in ('offer-not-on-product', 'offers-not-fetched')])
+with tempfile.TemporaryDirectory() as _tmp:
+    _p = os.path.join(_tmp, 'c.json')
+    json.dump(with_offer(ANNUAL, TRIAL), open(_p, 'w'))
+    _r = subprocess.run([sys.executable, AUDIT, _p, '--list-offer-products'],
+                        capture_output=True, text=True)
+check('--list-offer-products prints each product bound with an offer, once',
+      _r.returncode == 0 and _r.stdout.split() == [ANNUAL], _r.stdout + _r.stderr)
+_corpus = [os.path.join(FIX, f) for f in sorted(os.listdir(FIX)) if f.endswith('.json')]
+check('offers checks are SILENT on every fixture (none binds an offer)',
+      all(not [f for f in run(p)[1] or [] if f['check'] in
+               ('offer-not-on-product', 'offers-not-fetched')] for p in _corpus))
 
 print('\nproducts / catalog: dedup arity and site naming')
 

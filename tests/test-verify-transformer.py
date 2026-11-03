@@ -125,7 +125,8 @@ fires('condition: a bare string where an expression belongs',
 # writes, so a false positive here reddens every authored flow).
 silent('productRef: a product target with an offer',
        with_visibility({'type': 'productRef',
-                        'target': {'kind': 'product', 'id': 'p', 'offerId': 'intro'},
+                        'target': {'kind': 'product', 'id': 'p',
+                                   'offerId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000aa'},
                         'field': 'offer_price'}))
 silent('productRef: a base binding, offerId omitted',
        with_visibility({'type': 'productRef', 'target': {'kind': 'product', 'id': 'p'},

@@ -217,9 +217,12 @@ From these: which placements exist and are active, what each one shows (a paywal
 audience), which products each paywall sells, and whether there is anything after the onboarding
 paywall. Trials are set in the store, not in Adapty: read which products carry one from chart 4
 by `store_product_id`, or ask the user. `product-offers list` shows the offers added to a product
-in Adapty, by type (`promotional`, `win_back`, `introductory`) and store: an offer there is
-available to a paywall, not proof that one shows it. An App Store trial applies without being
-added, so a product with no `introductory` offer listed may still have one: chart 4 settles it. Prices are out of scope; do not look them up.
+in Adapty, by type (`promotional`, `win_back`, `introductory`) and store. A Google Play trial is
+listed as `promotional` (or `introductory` when Adapty created it), so read the offer's store side
+and title, not only its type. An offer there is available, not proof that anything shows it: a
+flow shows it only where its config binds the offer's `id` as an `offerId` (see "Reading a flow"),
+and the CLI shows no paywall's offers. An App Store trial applies without being added, so a
+product with no `introductory` offer listed may still have one: chart 4 settles it. Prices are out of scope; do not look them up.
 
 ## What the app already tried
 
@@ -516,6 +519,9 @@ The config is the flow's screens, copy and products. Before any claim about a sc
   propose a layout, copy or visual change from your own reading.
 - **Hand the config itself** to the teardown only when the preview cannot run, and say the screen
   was read from its config, not seen.
+- **Its offers are the `offerId`s on its product cards.** Each is the `id` of an offer in
+  `product-offers list` for that card's product; name it by the offer's title. A card with no
+  `offerId` still sells the App Store trial to eligible iPhone buyers, and no offer on Google Play.
 - **Its languages are `localization.locales`.** The top-level `locales` can be empty on a newer
   flow. Count them per flow; the CLI does not show the languages of a paywall (only of a flow), so
   for a paywall say so and ask.
