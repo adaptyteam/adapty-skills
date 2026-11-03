@@ -24,12 +24,12 @@ Run `tests/test-flowkit.py` after touching it.
     import flowkit as fk
 
     body = fk.stack([
-        fk.text(fk.rich("Save "), preset="h1", color="ink"),
-        fk.text(fk.rich("from ", fk.Var("<uuid>.prod_price")), preset="body", color="muted"),
+        fk.text(fk.rich("Save "), preset="h1", color_id="ink"),
+        fk.text(fk.rich("from ", fk.Var("<uuid>.prod_price")), preset="body", color_id="muted"),
     ], gap=8, padding=fk.pad(16, 16, 16, 16))
 
     cfg = fk.config(
-        screens=[fk.screen("scr_main", [body], fill="bg", padding=fk.pad(0, 0, 0, 120))],
+        screens=[fk.screen("scr_main", [body], fill_=fk.fill("bg"), padding=fk.pad(0, 0, 0, 120))],
         colors=[("bg", "Background", "#FFFFFF", "#101014"),
                 ("ink", "Ink", "#111114", "#F5F5F7")],
         typography=[("h1", "H1", 28, "bold"), ("body", "Body", 16, "regular")],
@@ -233,6 +233,25 @@ def fill(color_id=None, *, hexval=None, opacity=None, layers=None):
         raise TypeError('fill(opacity=...) applies to hexval; a theme colour carries its own')
     c = color(color_id) if color_id is not None else hex_color(hexval, opacity)
     return [{'type': 'color', 'color': c}]
+
+
+FILL_LAYER_TYPES = ('color', 'gradient', 'image', 'video')
+
+
+def _check_fill(value, where):
+    """A `fill` is a LIST of layers, each `{type: color|gradient|image|video, ...}` -- what
+    `fill()`, `gradient()` and `image_fill()` return. A colour id string, a bare `color()` ref or
+    a single layer dict is the wrong shape and the schema check refuses it, so it raises here."""
+    if value is None:
+        return None
+    ok = (isinstance(value, list) and value
+          and all(isinstance(l, dict) and l.get('type') in FILL_LAYER_TYPES for l in value))
+    if not ok:
+        hint = (f'fill({value!r})' if isinstance(value, str) else
+                'fill(color_id), fill(hexval=...), gradient(...) or image_fill(...)')
+        raise TypeError(f'{where}(fill_={value!r}) is not a fill. A fill is a list of layers; '
+                        f'pass {hint}.')
+    return value
 
 
 def gradient(angle, *stops):
@@ -849,7 +868,13 @@ def _rich_var_ids(o, out):
 # --- nodes -------------------------------------------------------------------------------
 
 def _node(kind, props, *, children=None, caption=None, states=None,
-          props_by_state=None, actions=None, node_id=None):
+          props_by_state=None, actions=None, node_id=None, **unknown):
+    if 'interactions' in unknown:
+        raise TypeError(f'{kind}(interactions=...) is not a parameter: pass the tap\'s actions as '
+                        f'actions=[...], e.g. stack([...], actions=[purchase("plans")]). The '
+                        f'helper writes the `interactions` block itself.')
+    if unknown:
+        raise TypeError(f'{kind}() got unexpected keyword argument(s) {sorted(unknown)}')
     node = {'id': node_id or eid('S' if kind == 'stack' else kind[:1].upper()),
             'type': kind, 'props': props, 'states': states or []}
     if caption:
@@ -933,7 +958,7 @@ def stack(children=(), *, width=None, height='hug', fixed_w=None, fixed_h=None,
         'position': position or relative(),
     }
     _check_stretch(props)
-    if fill_ is not None:     props['fill'] = fill_
+    if fill_ is not None:     props['fill'] = _check_fill(fill_, 'stack')
     if padding is not None:   props['padding'] = padding
     if margin is not None:    props['margin'] = margin
     if corner is not None:    props['borderRadius'] = corner
@@ -1106,7 +1131,7 @@ def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width=None,
             'gap': dot_gap, 'size': dot_size,
             'color': _dot_color(dot_color, hex_color('#FFFFFF', 30)),
             'activeColor': _dot_color(dot_active_color, hex_color('#FFFFFF', 95))}
-    if fill_ is not None:      props['fill'] = fill_
+    if fill_ is not None:      props['fill'] = _check_fill(fill_, 'carousel')
     if padding is not None:    props['padding'] = padding
     # The dot band is the last few px of the carousel's OWN box and the next element begins
     # immediately after it, so clearance from what follows is a margin -- there is nowhere else
@@ -1495,7 +1520,7 @@ def _input(kind, custom_id, *, placeholder=None, locale='en', width=None, height
                 f'It is a bare localizable string in every real export — not rich text, so do '
                 f'not pass rich(...) or a block list.')
         props['placeholder'] = localized(placeholder, locale=locale)
-    if fill_ is not None:      props['fill'] = fill_
+    if fill_ is not None:      props['fill'] = _check_fill(fill_, kind)
     if border is not None:
         # `border` is a COLOUR ID and is wrapped here, exactly as `stack()` does it. The first
         # version of this helper passed the argument through verbatim, so `border='line'`
@@ -2192,7 +2217,7 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
         'layout': layout('horizontal', 0, align_h, align_v),
         'position': position or relative(),
     }
-    if fill_ is not None:     props['fill'] = fill_
+    if fill_ is not None:     props['fill'] = _check_fill(fill_, 'timer')
     if padding is not None:   props['padding'] = padding
     if corner is not None:    props['borderRadius'] = corner
     if visibility is not None: props['visibility'] = _check_visibility(visibility, 'timer')
@@ -2750,7 +2775,7 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
         'progressBar': {'enabled': progress_bar}, 'statusBarTheme': status_bar_theme,
     }
     if fill_ is not None:
-        props['fill'] = fill_
+        props['fill'] = _check_fill(fill_, 'screen')
     if padding is not None:
         props['padding'] = padding
     # Product refs and the registry, from the screen just built. Order matters only in that

@@ -303,9 +303,10 @@ be resolved before a write.
 
 - **`flowProductId`.** Screen-scoped — derive it for the destination screen rather than carrying
   the source's, [`products.md`](products.md) owns how.
-  A grafted `product` element arrives on its new screen unattached
-  ([invariant 4](flow-schema.md#invariants)); the graft cannot fix that, and the user resolves it
-  in the Flow Builder. It is named in `NEEDS YOU` and warned on by `verify-config.py` too.
+  The graft declares a grafted `product` element on its new screen
+  ([invariant 4](flow-schema.md#invariants)): a same-app snippet under its own product, an
+  any-app one only when the product was rebound to this app's. A product with no match here
+  arrives unattached; it is named in `NEEDS YOU` and warned on by `verify-config.py` too.
 - **A stranded variable's producer.** If the destination has no `text-input`, group, or product
   to supply what the fragment consumes, the reference breaks silently — the
   [invariant 12](flow-schema.md#invariants) consequence, and just as invisible to `config preview`

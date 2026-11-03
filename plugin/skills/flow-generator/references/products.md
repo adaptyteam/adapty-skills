@@ -23,7 +23,14 @@ $ADAPTY products get <PRODUCT_UUID> --app <UUID> --json
 ```
 
 `--app` is required on everything except `apps list`. Never invent a product UUID and never
-carry one over from another user's export — read it from `products list`, or ask.
+carry one over from another user's export — read it from `products list`, or ask. **The product
+and offer ids in a template, a reference flow or another app's export are placeholders:** replace
+every one with this app's before a save.
+
+**Changing a bound product's id changes every place it appears:** the `<productUUID>.prod_price_*`
+variable ids, `productRef` targets, the screen's `products` registry (whose `_meta` declaration
+`flowkit.predeclare()` re-mints), and the `offerId`s, which belong to the old product (take the
+new one's from `product-offers list`). One left on the old id fails the publish.
 
 **The selection is a dialogue, not a lookup.** SKILL.md phase 2 owns the order — list, ask which,
 ask for store ids only if none fit, create last — and this page owns how to present the choice:

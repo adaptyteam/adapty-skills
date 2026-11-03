@@ -835,6 +835,15 @@ def catalog_findings(raw):
         route = ('run `localization.py catalog` over it' if v == _loc.MIN_SOURCE_VERSION else
                  f'it is schemaVersion {v!r}, so have the user open the flow in the Flow Builder '
                  f'and save it, then fetch it again')
+        # Keyed on the version. A document whose number predates the catalog (013) is in the
+        # format its version declares: the builder migrates it on load, `flows config validate`
+        # returns valid and it publishes -- the stored `onboarding-custom-actions.json` (v10) is
+        # one. Only its EDITING needs the conversion first. A document that claims 13, or no
+        # number, and still carries inline values is the defect.
+        if isinstance(v, int) and not isinstance(v, bool) and v < _loc.SCHEMA_VERSION:
+            warn.append(f'pre-catalog document (schemaVersion {v}, {where}, inline localizable '
+                        f'values): valid as it is, but convert it before you edit it — {route}')
+            return bad, warn
         bad.append(f'pre-catalog document ({where}, inline localizable values): the transform '
                    f'service refuses it. To convert it, {route}')
         return bad, warn
@@ -1083,14 +1092,24 @@ def check(path, baseline_text=None, baseline_images=None):
     # NO element inside `components`. A screen element without it crashed the Flow
     # Builder on import — the transformer's minimized fixtures omit `states`, so copying
     # their shape produces an element the builder cannot read.
+    # A fetched flow can arrive this way (field reports name builder-migrated flows that validate
+    # and publish), and no stored export shows the shape, so the severity stays; what was missing
+    # was the way out. `--baseline` already lists a fetched flow's own as ALREADY IN.
+    stateless = 0
     for s in d.get('screens', []):
         for eid, e in s['elements']['map'].items():
             if 'states' not in e:
+                stateless += 1
                 bad.append(f'screen element {eid} ({e.get("type")}) has no `states` key '
                            f'— present on every screen element in every real export')
             if 'id' not in e or 'type' not in e or 'props' not in e:
                 miss = [k for k in ('id', 'type', 'props') if k not in e]
                 bad.append(f'screen element {eid} missing required key(s) {miss}')
+    if stateless:
+        warn.append(f'{stateless} screen element(s) have no `states` key. If they came in the '
+                    f'flow you fetched, run again with --baseline <the backup> (gates.sh: '
+                    f'BASELINE=<the backup>): the flow\'s own are then listed apart and do not '
+                    f'block your edit. Give `"states": []` only to elements you wrote')
 
     sids = {s['id'] for s in d.get('screens', [])}
     tg = []

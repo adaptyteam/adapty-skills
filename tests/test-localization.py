@@ -174,6 +174,18 @@ d['locales'] = d['localization'].pop('locales')
 d['defaultLocale'] = d['localization'].pop('defaultLocale')
 del d['localization']
 fires('a pre-catalog document is refused, with the way through', d, 'pre-catalog document')
+# The same inline shape under a version that predates the catalog is the format that version
+# declares: validate passes it and it publishes. A warning to convert before editing, no error.
+d_old = copy.deepcopy(d)
+d_old['schemaVersion'] = 10
+fires('an older-version inline document is a warning, not an error', d_old,
+      'pre-catalog document', level='warning')
+check('an older-version inline document raises no catalog error',
+      not any('pre-catalog' in l and 'ERROR' in l for l in verify(d_old).splitlines()),
+      verify(d_old)[-400:])
+d_none = copy.deepcopy(d)
+d_none.pop('schemaVersion', None)
+fires('an inline document with no schemaVersion is still refused', d_none, 'pre-catalog document')
 
 # `config update` echoes the legacy top-level fields back on every saved document: an empty
 # `locales` and the catalog's own default. The transform service ignores both, so that shape is

@@ -94,7 +94,7 @@ TYPO = [('body', 'Body', 16, 'regular')]
 
 def build(parts, variables, extra=()):
     nodes = [fk.text(fk.rich(*parts), color_id='ink')] + list(extra)
-    return fk.config(screens=[fk.screen('scr_main', nodes, fill_='bg')], colors=COLORS,
+    return fk.config(screens=[fk.screen('scr_main', nodes, fill_=fk.fill('bg'))], colors=COLORS,
                      typography=TYPO, variables=variables)
 
 
@@ -132,7 +132,7 @@ def main():
     raises('a tag in conditional text is refused',
            lambda: fk.config(screens=[fk.screen('scr_main', [fk.text(fk.switch_rich(
                [(fk.eq(fk.ref(name['id']), 'Max'), ['Hey Max'])], default=['Hi']),
-               color_id='ink')], fill_='bg')], colors=COLORS, typography=TYPO,
+               color_id='ink')], fill_=fk.fill('bg'))], colors=COLORS, typography=TYPO,
                variables=[name]),
            'read by logic')
     raises('a tag in an alert is refused',

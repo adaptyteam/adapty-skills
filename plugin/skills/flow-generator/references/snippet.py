@@ -32,6 +32,7 @@ _bytecode = sys.dont_write_bytecode
 sys.dont_write_bytecode = True
 try:
     import localization as _loc
+    import flowkit as _fk            # the builder's flowProductId and the screen registry
 finally:
     sys.dont_write_bytecode = _bytecode
 
@@ -837,12 +838,79 @@ def _producers_in(config):
     return out
 
 
-def resolve_identity(snippet, config, screen_id, catalog_path):
+def _binding_key(entry):
+    return (entry.get('id'), entry.get('offerId') or None, entry.get('billingPlanId') or None)
+
+
+def plan_declarations(snippet, payload, screen_id):
+    """The product bindings a graft declares on the screen it lands on, or None.
+
+    A grafted `product` element or `const` purchase binds a product the destination screen does
+    not declare, and the transform service refuses that (`missing_flow_product_id`, and every
+    price variable on it `unknown_product_id`). The declaration is derived, not invented:
+    `flowkit.predeclare()` mints the id the builder mints, so the builder's next save rewrites it
+    to the same value. Only a SAME-APP snippet is declared here: an any-app product is either
+    rebound (declared under its new id in `apply_plan`) or has no match and stays a NEEDS YOU.
+    A component has no screen of its own, so it is never declared."""
+    kind = snippet.get('kind')
+    if kind == 'element':
+        target, emap = screen_id, payload.get('map') or {}
+    elif kind == 'screen':
+        scr = payload.get('screen') or {}
+        target, emap = scr.get('id'), (scr.get('elements') or {}).get('map') or {}
+    else:
+        return None
+    if not target:
+        return None
+    entries = _fk.screen_products(emap)
+    if not entries:
+        return None
+    return {'screen': target, 'products': entries}
+
+
+def _declare_products(cfg, screen, decl, rebinds, scope):
+    """Write `decl` into `screen['products']` (the screen-owned registry) and
+    `_meta.screens[<id>].products` (the declaration derived from it), adding only what is not
+    there yet. Returns the entries added to `_meta.screens`."""
+    wanted = []
+    for e in decl['products']:
+        pid = e['id']
+        if scope == 'any-app':
+            if pid not in rebinds:
+                continue                      # no match here: stays a NEEDS YOU
+            e = {**e, 'id': rebinds[pid]}
+        wanted.append(e)
+    if not wanted:
+        return []
+    sid = screen['id']
+    # A grafted screen carries its source registry; its entries follow the rebinds too.
+    reg = []
+    for e in screen.get('products') or []:
+        if isinstance(e, dict) and e.get('id') in rebinds:
+            e = {**e, 'id': rebinds[e['id']]}
+        reg.append(e)
+    have = {_binding_key(e) for e in reg if isinstance(e, dict)}
+    for e in wanted:
+        if _binding_key(e) not in have:
+            reg.append(dict(e)); have.add(_binding_key(e))
+    screen['products'] = reg
+    # Fallback offers ride on the registry entry, so read the merged one.
+    by_key = {_binding_key(e): e for e in reg if isinstance(e, dict)}
+    meta_scr = cfg.setdefault('_meta', {}).setdefault('screens', {}).setdefault(sid, {})
+    declared = meta_scr.setdefault('products', [])
+    have_m = {_binding_key(e) for e in declared if isinstance(e, dict)}
+    add = [by_key[_binding_key(e)] for e in wanted if _binding_key(e) not in have_m]
+    added = _fk.predeclare(sid, add)[sid]['products'] if add else []
+    declared.extend(added)
+    return added
+
+
+def resolve_identity(snippet, config, screen_id, catalog_path, will_declare=()):
     """Everything the file cannot carry: pointers into someone's account (a product
-    UUID) or into another screen (a variable producer, a navigate target). Never
-    mints, guesses, copies or derives a `flowProductId`, and never writes
-    `_meta.screens` -- that block is the Flow Builder's, and a value minted anywhere
-    else is a lie the builder overwrites the next time someone opens the flow."""
+    UUID) or into another screen (a variable producer, a navigate target). Reads only:
+    it never copies the source's `flowProductId` (screen-scoped) and writes nothing.
+    A product in `will_declare` is one `apply_plan` declares on the landing screen with
+    the id the builder itself mints (`plan_declarations`), so it raises no ask."""
     dep = snippet['dependencies']
     needs, rebinds = [], {}
     scope = snippet.get('intendedScope', 'same-app')
@@ -895,7 +963,7 @@ def resolve_identity(snippet, config, screen_id, catalog_path):
                           f'and any prod_price* references to it will render empty until '
                           f'a product is attached. Attach a product in the Flow Builder.'})
             continue
-        if p['id'] not in declared:
+        if p['id'] not in declared and p['id'] not in will_declare:
             needs.append({'level': '!', 'text':
                           f'product {p["id"][:8]}… "{p.get("title") or "?"}" is not '
                           f'declared on this screen, and any prod_price* references to '
@@ -1154,7 +1222,11 @@ def build_plan(snippet, config, screen_id, parent, index, catalog):
     if ren['screens'] and (payload.get('screen') or {}).get('id') in ren['screens']:
         payload['screen']['id'] = ren['screens'][payload['screen']['id']]
     locales = resolve_locales(snippet, config, payload)
-    ident = resolve_identity(snippet, config, screen_id, catalog)
+    declares = plan_declarations(snippet, payload, screen_id)
+    same_app = snippet.get('intendedScope', 'same-app') != 'any-app'
+    ident = resolve_identity(snippet, config, screen_id, catalog,
+                             will_declare={e['id'] for e in (declares or {}).get('products', [])}
+                             if same_app else ())
     scoped = payload.get('screen') or payload
     emap = scoped.get('map') or (scoped.get('elements') or {}).get('map') or {}
     # `type` rides along with each added group -- a `product` group and a
@@ -1170,6 +1242,7 @@ def build_plan(snippet, config, screen_id, parent, index, catalog):
             'renames': ren,
             'locales': locales, 'needs': ident['needs'] + theme['needs'],
             'rebinds': ident['rebinds'],
+            'declares': declares,
             'placement': {'screen': screen_id, 'parent': parent, 'index': index},
             'placementText': placement_text,
             'willSay': will_say,
@@ -1247,6 +1320,12 @@ def render_plan(plan, snippet, config, screen_id):
             names = ', '.join(str(i.get('id') or i.get('name')) for i in items[:4])
             more = f' +{len(items) - 4} more' if len(items) > 4 else ''
             L.append(f'              {label} + {names}{more}')
+    decl = plan.get('declares')
+    if decl:
+        n = len(decl['products'])
+        L.append(f'              screen `{decl["screen"]}` products + {n} product '
+                 f'binding{"s" if n != 1 else ""} declared (registry and _meta.screens), '
+                 f'any it already declares kept')
     # `WILL SAY` is its own section -- printed only after `WILL ADD` is fully
     # assembled (element/group line PLUS every carry continuation line above),
     # never interleaved with it.
@@ -1375,10 +1454,14 @@ def apply_plan(config, snippet, plan):
         comps[payload['componentId']] = {'map': payload['map'],
                                          'hierarchy': payload['hierarchy']}
         return cfg
+    scope = snippet.get('intendedScope', 'same-app')
+    decl = plan.get('declares')
     if kind == 'screen':
         scr = payload['screen']
         at = plan['placement'].get('index')
         cfg['screens'].insert(len(cfg['screens']) if at is None else at, scr)
+        if decl:
+            _declare_products(cfg, scr, decl, rebinds, scope)
         return cfg
 
     screen = _screen_by_id(cfg, plan['placement']['screen'])
@@ -1396,6 +1479,8 @@ def apply_plan(config, snippet, plan):
         groups = screen.setdefault('selectableGroups', [])
         if gid not in {x['id'] for x in groups}:
             groups.append({**g, 'id': gid})
+    if decl:
+        _declare_products(cfg, screen, decl, rebinds, scope)
     return cfg
 
 

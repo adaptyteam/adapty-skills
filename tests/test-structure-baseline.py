@@ -72,6 +72,11 @@ check('NEW: a second element losing `states` in this edit is an ERROR, exit 1',
 rc, errs, old, out = run(draft)
 check('PLAIN: without --baseline the same finding is an ERROR, as before',
       rc == 1 and any(STATES in l for l in errs) and not old, out)
+check('PLAIN: the missing `states` finding names the way out, --baseline',
+      any('warning:' in l and '--baseline' in l and '`states`' in l for l in out.splitlines()), out)
+rc, errs, old, out = run(copy.deepcopy(raw))
+check('the --baseline hint is silent on a flow whose elements all carry `states`',
+      '--baseline <the backup>' not in out, out)
 
 rc, errs, old, out = run(copy.deepcopy(raw), base)
 check('a draft that FIXED the old finding reports nothing at all',

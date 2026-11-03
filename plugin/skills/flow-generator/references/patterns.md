@@ -352,6 +352,10 @@ In the render, an absolute `top` was measured from the top of the full screen ra
 below the status bar, so a timer or back button at `top: 0` sat under the clock. Look for it in
 the render and move the element down rather than trusting the number.
 
+**A `fixed` element is the opposite:** its `top` is measured from below the status bar, in the
+builder and in the local render alike. So the same `top` lands lower on a `fixed` element than on
+an `absolute` one; do not carry a number from one to the other.
+
 ### A loading screen — fill the `loader-spinner-label` template; never fake the spinner
 
 "A loading screen with a spinner and a label" has a **ready catalog component**,
@@ -540,6 +544,11 @@ measured, is `height = slideHeight + ~28` for the dot band plus `margin.bottom` 
 (12px measured); `reviews-carousel` in the catalog ships exactly that. Note that `height` is the
 one number a longer translation cannot fix, since slides have no auto-height.
 
+**The dot band is always reserved below the slides, so dots cannot sit over the slide image.**
+Not even at `height == slideHeight`: the slide gives up the band's height instead, and padding on
+`dots` makes the band taller and the visible slide shorter again. Flow Builder cannot overlay the
+dots on a slide yet: design for the dots under the photo, and budget `height` as slide plus band.
+
 Its `hierarchy` children are **one node per slide** (each a `stack` holding the avatar, name, stars
 and body). **The dots come from `props.dots` — do not add your own dot `stack`s**; that is exactly
 the fake this section exists to stop.
@@ -570,6 +579,19 @@ heights fixed; the CTA may stay `Fill`. Swipe and autoplay survive. Two more fro
 threads: the slide's configured size and its hugged content are independent (a 200 slide over 148
 content is a 52px gap you did not author), and slides have no auto-height — fix the carousel height
 to the tallest slide or cut the copy.
+
+**On an iPhone, four device behaviours the local preview does not show:**
+
+- a `fixed` element on the same screen stopped the whole screen from scrolling;
+- a `product` element inside a slide swallowed the sideways swipe, so the carousel did not move;
+- a drag that starts on the carousel never scrolls the page, so a carousel that fills the viewport
+  traps the user;
+- carousel `padding` and `gap` laid fixed-width slides out differently on the phone than in the
+  preview.
+
+So a carousel screen carries no `fixed` element (a bottom bar is a `footer`), no slide holds a
+`product` (plan cards go below the carousel), some of the page outside the carousel stays free to
+scroll by, and the slide spacing is checked on a device.
 
 ### A video — place the real element empty; the upload is always theirs
 
@@ -653,6 +675,18 @@ schema plus the measurements above rather than read off builder output.
   is the fallback. The pre-2026-08-26 version of this bullet said "prefer a pinned container over
   the native `footer`" — that steer is what talked an agent into building
   [a fake footer](#a-bar-that-stays-at-the-bottom-use-footer) out of `fixed` stacks.
+- **A stack cannot wrap.** Flow Builder cannot flow a row onto a second line yet, so a set of
+  chips or tags is several horizontal rows you split by hand, each narrow enough for a 375pt
+  screen.
+- **A `fill`-width row of `hug`-width text children with clipping on: the preview and the device
+  disagree.** The local preview draws an overflowing strip clipped at the edge; on iOS every child
+  is compressed and its text wraps letter by letter. Size the children instead: `fill` on each
+  (equal shares) or fixed widths that add up to less than a 375pt screen minus padding, per the
+  sizing bullets at the top of this list. Check the row on a device.
+- **A column that runs the full height behind content-sized rows has no working shape yet** —
+  for example a comparison table whose highlighted column is one fill spanning rows of different
+  heights. Give every row a fixed height, and paint the column as one cell per row with the same
+  `fill` and width, the first and last cells carrying the column's top and bottom corner radius.
 
 ### A tappable button
 
@@ -701,6 +735,15 @@ around a round illustration each grew, and the bar sat on the bottom edge, with 
 anywhere. Measured on a 924pt frame, a pinned `footer` or a spread on the same
 fitting screen left a **120-220pt empty band**, between the plans and the button or under the
 links. That band is what users report as "doesn't adapt to big screens".
+
+**A fill-height hero has also gone wrong on a device while the local preview drew it correctly:**
+on a scrollable screen the device let the hero take the whole viewport and pushed the content
+below the fold. The confirmed run above is a screen whose content fits; build a fill-height hero
+only on one that fits on the `iphone-se-3` render, and check it on a device. When the hero must
+keep its own height, give it a fixed one and put the surplus in an **empty spacer**: a `stack`
+at `height: fill` with nothing in it, between the top block and the body, so the purchase area
+sits on the bottom edge of a tall phone with no `footer`. That is the shape another run used to
+fill a tall phone.
 
 **Never pair a fill-height root child with a `footer`.** On a device the fill child is sized as
 if the footer were not there, so the footer covers the plans until the user scrolls. The preview
@@ -1034,6 +1077,11 @@ true` sets the initial *selection*, not the styling. Give every card the same ne
 `propsByState.selected` recolour it — bake an accent border onto the default card instead and it
 stays there forever while only the indicator moves, which reads as "selection is broken on every
 other card". Measured on a shipped flow, from a build that had the skeleton above in front of it.
+
+**A text inside a card can carry its own `propsByState.selected` copy of its style** — `font`,
+`color` — as builder-made cards do. Edit only its `props` and only the unselected cards change; the
+selected card keeps the old look. Change a card's text style in both places, and keep every key
+of the base in the state's copy (trap 17 in [flow-schema.md](flow-schema.md)).
 
 **This paragraph was read past and the defect shipped again (2026-08-28), so it is now checked
 rather than only stated**: `flowkit.on_selected()` emits the `states` + `propsByState.selected`

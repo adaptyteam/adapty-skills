@@ -24,6 +24,10 @@ The file argument is positional and required; `--app` is the only flag that matt
 URL is **live immediately** — a `curl` against it returned `200 image/png` in the same second as
 the upload, so there is no propagation wait to build into the workflow.
 
+**A long run of uploads can hit a rate limit.** The CLI does not retry an upload, so on a
+rate-limit error pause, then upload the files that failed, one at a time; wait as long as the error
+says when it names a time.
+
 **A config needs three values from this command and the human output carries only two.** The
 JSON body has a fourth key, `preview_base64` — a base64 WEBP thumbnail, thousands of characters
 even for a small source — which the human output suppresses. That is the value a config binds as
@@ -320,6 +324,10 @@ language is simplest as an element; a fill ref you write needs its catalog entry
 (`"id": 516395`), while the schema's `Image` declares `id` as a required `string` and every real
 builder export carries it quoted. Stringify it as you bind it.
 
+**A script that swaps URLs matches image objects (`{id, url}`), never the key `url`:** an Open URL
+action's `payload.url` can be a `{_lid}` ref, an object whose per-locale values sit in the catalog,
+and a walker that expects a string there crashes.
+
 ## `previewValue`: what the user sees before the image arrives
 
 `Image` is `{id, url, previewValue?}`, and the third field is what the renderer paints **while
@@ -464,7 +472,8 @@ spacing bug rather than as an image, so prefer `cover` unless the whole asset mu
   element with no source and refuse to be handed one. See **The video placeholder** below for the
   three measurements that shape it.
 - **Fonts.** Still a manual Flow Builder upload; a typeface the account lacks is a named ask, not a
-  silent substitution.
+  silent substitution. No CLI command lists an app's fonts: a font uploaded in the builder reaches
+  the config only once the user saves the flow there, so `config get` again before you reference it.
 - **Deleting or listing uploaded media.** `flows media` has only `upload`, so an upload cannot be
   undone from the CLI — one more reason not to re-upload per iteration.
 
