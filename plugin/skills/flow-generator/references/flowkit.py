@@ -2412,7 +2412,8 @@ PRODUCT_VAR_NAMES = (
     'prod_title', 'prod_price', 'prod_price_per_day', 'prod_price_per_week',
     'prod_price_per_month', 'prod_price_per_year', 'prod_billing_price', 'prod_billing_period',
     'is_free_trial', 'is_pay_up_front', 'is_pay_as_you_go', 'is_monthly_plan',
-    'offer_price', 'offer_billing_period', 'offer_full_duration')
+    'offer_price', 'offer_billing_period', 'offer_full_duration',
+    'offer_price_per_day', 'offer_price_per_week', 'offer_price_per_month', 'offer_price_per_year')
 
 _SELECTED_PRODUCT = 'selectedProduct'
 
