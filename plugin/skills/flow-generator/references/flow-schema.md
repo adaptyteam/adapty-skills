@@ -412,6 +412,7 @@ Worth having in full, because it is the answer to "what do I bind instead of typ
 | `offer_price` | the intro/promo offer price |
 | `offer_billing_period` | the offer's billing period |
 | `offer_full_duration` | the offer's full length — **this is the trial-length one** |
+| `offer_price_per_{day,week,month,year}` | the offer price converted; a pay-up-front offer is spread over its full length, a free trial is zero |
 | `is_free_trial`, `is_pay_up_front`, `is_pay_as_you_go` | booleans, for conditional visibility |
 | `is_monthly_plan` | boolean: this user buys the binding under the monthly plan |
 
