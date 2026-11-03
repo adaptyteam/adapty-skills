@@ -394,37 +394,65 @@ Use this to determine the path through Steps 4 and 5:
 
 **CLI scope — what this step does NOT do:**
 
-- **Does not set prices.** The CLI has no `--price` flag. Price is configured either in the store console (App Store Connect / Google Play) or via the Adapty dashboard's "Create a new product and push to stores" flow (which sets a USD baseline and auto-calculates regional prices). If the user specifies a price, tell them the CLI path can't set it, and ask whether they want to set it in the store console later, or switch to the dashboard push-to-stores flow instead — which is path C above and needs the store connection in place first.
-- **`--title` is the Adapty dashboard label only** — an internal reference, not shown to end users. Users see either the store product name (from App Store Connect / Google Play) or per-product copy configured in the Paywall Builder. If the user wants a different user-facing name, tell them it goes in the Paywall Builder (or the store listing); the CLI can't set it.
-- **Does not create products in the stores.** The CLI creates Adapty products that *reference* store product IDs. The actual store products must exist (or be created later) in App Store Connect / Google Play Console.
+- **Sets a price only for a push.** On paths A and B the price lives in the store console (App Store Connect / Google Play). On path C, `products create --price-usd` gives the product the USD base price the push sends, and the store derives regional prices from it. If the user names a price on path A or B, tell them it goes in the store console, or offer path C, which needs the store connection in place first.
+- **`--title` is the Adapty dashboard label only** on paths A and B — an internal reference, not shown to end users. On path C the push also makes it the App Store subscription's reference name, which must differ from every other one in its group, and the listing title in every app language (Google Play), so pick it as the user wants it there. Users see either the store product name (from App Store Connect / Google Play) or per-product copy configured in the Paywall Builder. If the user wants a different user-facing name, tell them it goes in the Paywall Builder (or the store listing); the CLI can't set it.
+- **Creates store products only on path C.** On paths A and B the CLI creates Adapty products that *reference* store product IDs, and the store products must exist (or be created later) in App Store Connect / Google Play Console. On path C, `products push` writes them into the store.
 
 **Deferring is the last resort.** With paths B and C both available, "they do not exist" is usually a reason to make them rather than to stop — so offer both before proposing a defer, and say which of the two reasons applies: the user would rather wait, or Android is genuinely blocked.
 
 **Google Play prerequisite (Android targets) — the one real block.**
 
-Google Play blocks creating in-app products and subscriptions until at least one AAB with the `com.android.vending.BILLING` permission has been uploaded to any track (internal testing is enough). Expect that to bite the dashboard push as well, since the restriction belongs to Play rather than to one UI.
+Google Play blocks creating in-app products and subscriptions until at least one AAB with the `com.android.vending.BILLING` permission has been uploaded to any track (internal testing is enough). Expect that to bite `products push` as well, since the restriction belongs to Play rather than to one tool.
 
 **So the two stores are asymmetric here, and it is worth saying out loud.** On iOS, "no products yet" is never a blocker — path B or C can run immediately, and a defer is the user choosing to wait. On an Android-first or Android-only app it *is* a blocker, and circular on this run: products need an uploaded build, the build comes out of Phase 4, and Phase 4 has not happened yet. That is the case the deferred `ADAPTY_SETUP.md` commands exist for. Do not describe an iOS defer as though it were forced.
 
-**A store product ID is not fixable from here, so never guess one — and treat it as required even though the CLI does not.** `products update` accepts `--title` and `--access-level-id` and nothing else, and there is no `products delete`, so a product created with a wrong or missing store ID **cannot be corrected or removed by the CLI at all**. `--ios-product-id` and `--android-product-id` are **optional flags**, so a store-less product is accepted and then stranded — the CLI will not stop you, which is why the rule has to. The dashboard *can* edit connected store IDs, but Adapty's docs advise against it (it muddies analytics), so treat that as a repair, never as a plan. Before every `products create`, check the argv: if it carries neither `--ios-product-id` nor `--android-product-id`, **do not run it**. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/store-setup-android.md`, Part 1) → run the deferred commands.
+**A store product ID is not fixable from here, so never guess one — and treat it as required even though the CLI does not.** `products update` accepts `--title`, `--access-level-id` and a first `--price-usd`, nothing else, and there is no `products delete`, so a product created with a wrong store ID **cannot be corrected or removed by the CLI at all**. `--ios-product-id` and `--android-product-id` are **optional flags**, so a store-less product is accepted; the only thing that completes it is a `products push` (path C). The dashboard *can* edit connected store IDs, but Adapty's docs advise against it (it muddies analytics), so treat that as a repair, never as a plan. Before every `products create`, check the argv: if it carries neither `--ios-product-id` nor `--android-product-id`, **run it only on path C, after the store connection check there passes, with its push next**. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/store-setup-android.md`, Part 1) → run the deferred commands.
 
 **First establish where the products will come from, because one of the three answers reorders the run.** Ask before collecting any IDs:
 
 > "Do the products you sell already exist in App Store Connect / Google Play?"
 > - **Yes, they exist** — I'll link them by ID
 > - **No — I'll create them in the store console** — you make them there, then we link them
-> - **No — create them from the Adapty dashboard and push them to the stores** — Adapty writes them into the store for you
+> - **No — create them in the stores for me** — I push them from Adapty into the store
 
 **A and B keep this order.** Collect IDs (A) or send the user to the console first (B), then `products create`. Store connection stays where it is, in the pre-testing checklist.
 
-**C inverts it, and that is the whole reason to ask.** "Create a new product and push to stores" writes into App Store Connect / Google Play on the user's behalf, so **the store connection has to exist before the product does** — the opposite of the order every other path uses. Say this up front rather than letting them discover it at a refusing dashboard button:
+**C inverts it, and that is the whole reason to ask.** `products push` writes into App Store Connect / Google Play on the user's behalf, so **the store connection has to exist before the product does** — the opposite of the order every other path uses. Say this up front rather than letting them discover it at a refused push:
 
 - **App Store needs the App Store Connect API key**, which is **a different key pair from the In-App Purchase key** — both label their fields "Issuer ID" and "Key ID", and having one does not give you the other. See `references/store-setup-ios.md`, Part 2d.
 - **Google Play needs no second key** — the push runs on the same service account as everything else, enabled by the **Manage store presence** permission from the four granted in Part 2a. A subset grant reads and validates fine and fails only here. The **AAB gate** applies too: no Android products until a signed build is uploaded, whoever creates them. See `references/store-setup-android.md`, Part 2c.
 - **The first product for an app must be submitted for review manually** in App Store Connect. It is a one-time gate, the status updates in Adapty automatically when review finishes, and until then that product is not purchasable — so sandbox testing waits on it. Say so before they choose C, not after.
-- The push flow also sets a **USD base price** and derives regional prices, which the CLI cannot do at all.
+- A push needs a **USD base price**; the store derives regional prices from it. It is set once and cannot change from the CLI after, so the user confirms it.
+- **Every App Store push carries a review screenshot** of the paywall (see "The review screenshot" below). A subscription also goes into a **subscription group**.
 
-On C, route the user to store connection now (`references/store-setup-ios.md` Parts 2a-2d, `references/store-setup-android.md` Part 2), then have them create the products in the dashboard, then come back here and take the "Yes, they exist" path to link what they made. Do not create Adapty products from the CLI first — that strands them, per the rule above.
+On C, route the user to store connection now (`references/store-setup-ios.md` Parts 2a-2d, `references/store-setup-android.md` Part 2). Then check it before creating anything: `$ADAPTY product-groups list --app <APP_ID> --store app_store` (or `play_store`) exits 4 with `missing_store_credentials` while the connection is missing. Only when it lists, per product, collect the same fields as path A (the store product IDs are new ones the user approves, since they are permanent) plus the USD price, and run:
+
+```bash
+# 1. The Adapty product, with no store ID (the push adds it) and the USD base price
+#    the push sends; the price is set once.
+$ADAPTY products create --app <APP_ID> --title "Monthly" --period monthly --access-level-id <ACCESS_LEVEL_UUID> --price-usd 9.99
+# 2a. App Store. Always --screenshot. A subscription takes --group-id (from product-groups list
+#     --page-size 100, or product-groups create --app <APP_ID> --store app_store --name "<NAME>").
+$ADAPTY products push <PRODUCT_ID> --app <APP_ID> --store app_store --store-product-id "com.example.app.monthly" --group-id <GROUP_ID> --screenshot <FILE> --yes
+# 2b. Google Play. A subscription takes --android-base-plan-id (lowercase letters, digits,
+#     hyphens). A new --store-product-id creates the Play subscription; an existing one
+#     (product-groups list --store play_store --page-size 100) gets the new base plan added.
+$ADAPTY products push <PRODUCT_ID> --app <APP_ID> --store play_store --store-product-id "com.example.app.monthly" --android-base-plan-id "monthly-base" --yes
+```
+
+The user's yes to the IDs and the price is the confirmation, so each push carries `--yes`: without it the CLI stops with exit 6 and pushes nothing.
+
+**The review screenshot.** The server takes a JPEG or PNG at one of Apple's exact screen sizes (current iPhones: 1320×2868, 1290×2796, 1260×2736, 1206×2622, 1179×2556, 1170×2532) with no alpha channel. A PNG from a simulator or a browser carries an alpha channel even when fully opaque and is refused, so always pass a JPEG. Get it in this order, and say which one you used:
+
+1. **The iOS Simulator,** when one is already running the app with the paywall on screen: `xcrun simctl io booted screenshot --type=jpeg review.jpg`. Its native size is an App Store size; check it with `sips -g pixelWidth -g pixelHeight review.jpg`. Do not boot a simulator only for this: it needs several GB of memory.
+2. **`flow-generator`,** when the paywall is a flow that exists: ask it for an App Store review screenshot of the screen with the purchase button. It writes a 1170×2532 JPEG.
+3. **The user:** ask for a screenshot of the paywall from an iPhone or the simulator. Convert a PNG with `sips -s format jpeg <file> --out review.jpg` and check its size as in 1.
+
+At Step 4 there is often no app build and no flow yet. Then push to Google Play now, and come back for the App Store push after Step 5 builds the flow (2), unless the user has a screenshot at hand (3).
+
+A `lifetime` or consumable product takes neither `--group-id` nor `--android-base-plan-id`; a push that gets one it should not have, or lacks one it needs, fails with `incompatible_product_type`. A refused push exits 4 with its code in `--json` and leaves the product store-less, so fix the cause and push again: `missing_store_credentials` is the connection; `missing_product_price` means the product has no USD price: set it once with `products update <PRODUCT_ID> --price-usd`; `product_already_exists` means the store already has that ID, or on the App Store that title in the group, so the user picks another ID or title; `duplicate_vendor_product_store` means a product of the app in Adapty already has that ID: another product, so the user picks another ID, or this one after an earlier push went through, so read `products get` instead of pushing again; `review_screenshot_validation_error` is the screenshot's size or transparency. Any other code: say it as the CLI gives it.
+
+The push answers with the product, including each store's `store_status`; `products get` reads it again. `in_review` is waiting for Apple. **`draft` after an App Store push means a step after Apple created the product failed:** the user finishes it in App Store Connect. `rejected` and `action_required` are also the user's, in App Store Connect. On Google Play, `action_required` means the base plan was created but not activated: the user activates it in Play Console. Sandbox purchases wait for an App Store product to leave `draft`.
 
 **Collecting store product IDs — a staged conversation, skippable at every step:**
 
@@ -443,11 +471,11 @@ On C, route the user to store connection now (`references/store-setup-ios.md` Pa
 # --period options: weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime
 # --title is the Adapty dashboard label (internal); not visible to end users
 #
-# HARD RULE: every products create you run carries at least one real store product ID.
-# The CLI does NOT enforce this -- --ios-product-id and --android-product-id are optional,
-# so a store-less product is accepted and then cannot be completed (products update is
-# title + access level only) or removed (there is no products delete). If you have no real
-# ID for either store, run nothing and defer.
+# HARD RULE: every products create you run carries at least one real store product ID,
+# except on path C, where products push adds it. The CLI does NOT enforce this --
+# --ios-product-id and --android-product-id are optional, so a store-less product is
+# accepted, can be completed only by a push, and cannot be removed (there is no
+# products delete). Off path C, with no real ID for either store, run nothing and defer.
 # iOS
 $ADAPTY products create \
   --app <APP_ID> \

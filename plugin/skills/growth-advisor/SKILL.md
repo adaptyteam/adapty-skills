@@ -21,12 +21,14 @@ money, and suggest hypotheses in the order worth testing them. A hypothesis can 
 what (a segment and its audience on a placement), which products a paywall sells, or a flow's
 design. Once the user picks one, you set up the parts the CLI reaches, each on a yes: a copy of
 the flow with the new design or product set, through `flow-generator`, a segment, through
-`audiences`, and the A/B test itself, through `ab-tests`. New store products and trials happen in
-the store, so for those you give the user the steps. Before you offer to set up an A/B test, you
-check that everything it needs exists ("From hypothesis to A/B test").
+`audiences`, a price test's copy of a product, created, pushed to the store and priced through
+the CLI (`references/pricing.md`), and the A/B test itself, through `ab-tests`. Other new store
+products and trials happen in the store, so for those you give the user the steps. Before you
+offer to set up an A/B test, you check that everything it needs exists ("From hypothesis to A/B
+test").
 
-**Prices** follow `references/pricing.md`. Before you say anything about a price, download the
-price CSV of each product it concerns and name the price as the store charges it, in its local
+**Prices** follow `references/pricing.md`. Before you say anything about a price, read the
+prices of each product it concerns (`product-prices list`) and name the price as the store charges it, in its local
 currency ("€34.99 in Germany"); revenue ÷ new subscriptions is only the conversion to USD. Then place it
 against the market with the pricing index, and suggest price hypotheses in the same list as the
 rest. A gap in one market is checked for localization first: the paywall's languages
@@ -202,8 +204,8 @@ Everything this skill runs is a read, with six writes, each on the user's yes: b
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
 `placements create` or `placements update` (see "Changing a live placement"), adding an offer
 the user made in the store to an existing product with `product-offers create`
-(`references/levers.md`, "By store"), and prices: a test copy of a product (`products create`,
-`products update --price-usd`, `product-push`) and `product-prices set` (`references/pricing.md`).
+(`references/levers.md`, "By store"), and prices: a test copy of a product
+(`products create --price-usd`, `products push`) and `product-prices set` (`references/pricing.md`).
 Of the `ab-tests` commands you run only the reads, `list` and `get`; every other one is the
 `ab-tests` skill's. Never `product-offers update`: an offer a live paywall or flow already picks
 reaches buyers today, so changing one is a dashboard step for the user. The one other call that
@@ -607,6 +609,7 @@ test needs with a read. Never assume a thing exists because the user said they w
 | The content the placement shows now (arm A) | `placements get` names a paywall or flow on the audience the test would run on | Nothing to make |
 | A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
 | A new plan length, trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"), then add a new product to Adapty. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
+| A price test's copy of a product | `products get` shows the copy's store product with `store_status` `approved`, and a flow that sells it exists | Me: the copy, its push and its prices (`references/pricing.md`, "Setting up a price A/B test"), and the flow that sells it |
 | A paywall arm (legacy Paywall Builder or custom paywall) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
 | A segment | `segments list` shows one with the filter the hypothesis targets | Me: `audiences`, on a yes (segment steps only) |
 | A placement with traffic | `placements list` shows it, `placements get` shows the content type of its audiences (paywall or flow), and the Time line found purchases on it | Me: `ab-tests` creates a new one, on a yes to its developer ID. You: the one call in the app that fetches it (`adapty-integration`), and a release. No purchases: no test |

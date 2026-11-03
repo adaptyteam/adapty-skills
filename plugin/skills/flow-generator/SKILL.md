@@ -929,6 +929,12 @@ it fell back to the URL route and the render is blank, slow or wrong, run the in
 prints — do not shrink the config. If you cannot render at all, say
 so and ask the user to look; never report the work finished on a clean validate.
 
+**An App Store review screenshot of a flow screen** (asked by the user, `growth-advisor` or
+`adapty-integration` for a product push): run [`preview-with-playwright.mjs`](references/preview-with-playwright.mjs)
+with `--review-screenshot --screen <the screen with the purchase button>`. It writes a 1170×2532
+JPEG, an exact App Store size with no alpha channel; hand back its path
+([preview.md](references/preview.md#an-app-store-review-screenshot)).
+
 **A missing element may not be your bug, and a clean preview is not the builder opening the flow.**
 Both, with the four surfaces and what each one proves:
 [preview.md](references/preview.md).

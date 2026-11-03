@@ -180,7 +180,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **A new platform** needs `references/<platform>.md` and a published `<platform>-llms-full.txt`; **a new migration source** needs `references/migration-<source>.md` and a spine detection row.
 - **Every "no Adapty equivalent" claim carries its own `llms.txt` grep** (or a page re-read for model limits) and says a hit means report the equivalent.
 - **SDK timings and failure modes come from SDK source at a pinned release tag;** re-read it when touching them. Take RevenueCat URLs from its `llms.txt`.
-- **The store product ID is a slot in the `products create` template:** a store-less product succeeds and cannot be repaired from the CLI.
+- **The store product ID is a slot in the `products create` template:** a store-less product succeeds and only a `products push` completes it, so it is created on the push path alone, after the store connection check.
 
 ### `adapty-mail`
 

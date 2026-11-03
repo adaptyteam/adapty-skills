@@ -48,9 +48,16 @@ median or a ratio of its own, and never fold it into a figure for several countr
 
 ## Reading the app's prices
 
-The price CSV is the product card's Download in the Adapty dashboard: one file per product,
-App Store and Google Play only. Find the command in `$ADAPTY products --help`. When the CLI has
-none, ask the user to download the file from the product's card in the dashboard and attach it.
+One product's prices in every country, App Store and Google Play, as CSV (the same file as the
+Download on the product's card in the dashboard). Save it in the temporary directory:
+
+```bash
+$ADAPTY product-prices list --product <PRODUCT_ID> --app <APP_ID> --csv
+```
+
+`<PRODUCT_ID>` is the Adapty product's id from `products list`. A product with no prices gives
+the header only. `--json` gives the same rows with `app_store_sync_error` and
+`play_store_sync_error`, the store's reason for a failed row.
 
 Its columns, in order:
 
@@ -145,38 +152,108 @@ A live price change reaches everyone in that country, so it is never the test. T
 on a copy of the product, and only a winning price moves to the original. Each write is on the
 user's yes.
 
-1. **You create the new store product.** On the App Store, a new subscription in the same
-   group; on Google Play, a new base plan on the same subscription.
-   The A/B test starts only after the store approves it.
-2. **I create the Adapty product** with `products create` and that store product ID.
-3. **I build the copy's price file:** download the original product's CSV, keep `region_code`
-   and, for each store the copy is sold in, its `*_currency` and `*_requested_price` columns.
-   Each country keeps the original's `*_synced_price`, or its `*_requested_price` where the
-   synced cell is empty; then only the test countries change. The copy then matches the
-   original everywhere else.
-4. **I preview the file** and show the user the prices it will set; the App Store rounds to its
-   own price points here. A row error saves nothing: fix the rows and preview again, never
-   upload around an error. Then upload to the new product. When the CLI has no price
-   commands, give the user the file to upload on the product's card in the dashboard.
-5. **I build the paywall or flow copy** that sells the new product, through `flow-generator`.
-6. **I set up the country segment** through `audiences`.
-7. **You run the A/B test** in the dashboard, against the current paywall on that placement.
+1. **I create the Adapty product for the copy** with the original's period and access level and
+   no store ID; the push adds it. Its title becomes the App Store subscription's reference
+   name, which must differ from every other one in the group, so it is the original's title
+   plus the test price ("Annual 39.99"); buyers do not see it. It carries the USD price a push
+   needs, the original's US price. It is set once and cannot change after; the push spreads it
+   to every country, and step 4 replaces those prices.
+
+   ```bash
+   $ADAPTY products create --app <APP_ID> --title "<TITLE> <TEST_PRICE>" --period <PERIOD> --access-level-id <ACCESS_LEVEL_UUID> --price-usd <PRICE>
+   ```
+2. **The user approves the new store product ID;** it is permanent.
+3. **I push the copy to the store:**
+
+   ```bash
+   $ADAPTY products push <COPY_ID> --app <APP_ID> --store app_store --store-product-id <NEW_ID> --group-id <GROUP_ID> --screenshot <FILE> --yes
+   $ADAPTY products push <COPY_ID> --app <APP_ID> --store play_store --store-product-id <SUBSCRIPTION_ID> --android-base-plan-id <NEW_BASE_PLAN_ID> --yes
+   ```
+
+   - **The user's yes to the new ID is the confirmation,** so the push carries `--yes`: without
+     it the CLI stops with exit 6 and pushes nothing.
+   - **App Store:** a new subscription in the original's group, from `$ADAPTY product-groups
+     list --app <APP_ID> --store app_store --page-size 100` (ask which when there are several). Every App Store
+     push carries a review screenshot (below).
+   - **Google Play:** a new base plan on the original's subscription; `<SUBSCRIPTION_ID>` is the
+     original's Play product ID in `products get`.
+   - A product that is not a subscription (lifetime, consumable) takes neither `--group-id` nor
+     `--android-base-plan-id`.
+
+   **The review screenshot** is a JPEG at one of Apple's exact screen sizes (current iPhones:
+   1320×2868, 1290×2796, 1260×2736, 1206×2622, 1179×2556, 1170×2532). A PNG from a simulator or a
+   browser carries an alpha channel even when fully opaque and is refused. It shows the paywall
+   the copy will be tested against, which sells the same plan. Get it in this order, and say which
+   one you used:
+   1. **The iOS Simulator,** when one is already running the app with that paywall on screen:
+      `xcrun simctl io booted screenshot --type=jpeg review.jpg`; check the size with
+      `sips -g pixelWidth -g pixelHeight review.jpg`. Never boot a simulator only for this: it
+      needs several GB of memory.
+   2. **`flow-generator`,** when that paywall is a flow: ask it for an App Store review screenshot
+      of the screen with the purchase button. It writes a 1170×2532 JPEG.
+   3. **The user:** ask for a screenshot of that paywall from an iPhone. Convert a PNG with
+      `sips -s format jpeg <file> --out review.jpg` and check its size as in 1.
+
+   A refused push exits 4 with its code in `--json`. `missing_store_credentials`: the app has no
+   [App Store](https://adapty.io/docs/app-store-connection-configuration.md) or
+   [Google Play](https://adapty.io/docs/google-play-store-connection-configuration.md)
+   connection; the user adds it and I push again. `product_already_exists`: the store already
+   has that ID, or on the App Store that title in the group; the user picks another ID, or I
+   change the title. `duplicate_vendor_product_store`: a product of the app in Adapty already has
+   that ID. Another product means the user picks another ID; the copy itself means an earlier
+   push went through, so I read its `store_status` instead of pushing again.
+   `review_screenshot_validation_error`: the screenshot's size or
+   transparency. Any other code: say it as the CLI gives it.
+
+   The answer shows the copy's `store_status`; read it again later with `products get`. On the
+   App Store, `in_review` is waiting for Apple; `draft`, `rejected` or `action_required` means
+   the user finishes it in App Store Connect. On Google Play, `action_required` means the base
+   plan was not activated: the user activates it in Play Console. **The A/B test starts only once it is `approved`.**
+4. **I build the copy's price file** from the original's CSV, for the store I pushed to only: in
+   each country, that store's `*_requested_price` becomes the original's `*_synced_price` (it
+   stays as it is where the synced cell is empty), and the other store's currency and price
+   cells are left empty; the CLI skips a row with no requested price. Then only the test
+   countries change; the copy matches the original
+   everywhere else. Prices keep the CSV's own form, with a dot (`179.90`), never `179,90`.
+   `set --file` reads the currency and requested price and ignores the synced and status
+   columns.
+5. **I preview the file** and show the user the prices it will set; the App Store rounds to its
+   own price points here:
+
+   ```bash
+   $ADAPTY product-prices set --product <COPY_ID> --app <APP_ID> --file <FILE> --dry-run
+   ```
+
+   A row error saves nothing (exit 4): fix the rows and preview again, never work around an
+   error. "Missing App Store credentials" or "Missing Play Store credentials" on every row is the
+   store connection of step 3. On a yes, the same command without `--dry-run` and with
+   `--wait --yes` saves the previewed prices (see "On a yes" below for what its exit codes mean).
+6. **I build the paywall or flow copy** that sells the new product, through `flow-generator`.
+7. **I set up the country segment** through `audiences`.
+8. **I offer to set up the A/B test** ("From hypothesis to A/B test" in `SKILL.md`): the current
+   paywall or flow on that placement against the copy's flow, on the country segment's audience,
+   once the copy is `approved` and its flow is published.
 
 ## Changing a live price
 
 A winning price moves to the original product, or the user asks for a price change without a
 test. When the user asked for the change, the A/B test on a copy is your first Next step and your
-pick; this block follows as the alternative they can say yes to. Upload only on an explicit yes to this block, after a preview. "Go ahead" before the block
-was shown is not that yes.
+pick; this block follows as the alternative they can say yes to. Save only on an explicit yes to
+this block, after a preview. "Go ahead" before the block was shown is not that yes.
 
-1. **Download the product's CSV first** and keep it in the temporary directory: that is the
-   rollback. Say where it is.
-2. **Preview** the new file, and put the previewed prices in the block.
-3. **Existing subscribers keep their price** unless the user asks to move them. If they do, say
-   what it means per store: on the App Store they move at renewal, with any consent handled by
-   Apple; on Google Play they must accept the increase, and those who do not lapse.
-4. **Say when it takes effect, per store in the change:** an approved App Store subscription two
-   days after the upload, one not yet approved at once; Google Play at once.
+1. **Save the product's CSV first** (`product-prices list --csv`) in the temporary directory:
+   that is the rollback. Say where it is.
+2. **Write only the changed countries** into a file with the same header: countries left out
+   keep their price, and every row sent goes to the store again, changed or not. One country can
+   go as `--country <CODE>` with `--app-store-price` and/or `--play-store-price` instead.
+3. **Preview** it with `--dry-run` and put the previewed prices in the block. When the preview
+   finds no difference, nothing is saved: tell the user the prices already are that.
+4. **Existing subscribers keep their price** unless the user asks to move them
+   (`--apply-to-existing-subscribers`). If they do, say what it means per store: on the App
+   Store they move at renewal, with any consent handled by Apple; on Google Play they must
+   accept the increase, and those who do not lapse.
+5. **Say when it takes effect, per store in the change:** an approved App Store subscription two
+   days after the save, one not yet approved at once; Google Play at once.
 
 Shape of the ask (the form, not words to copy):
 
@@ -184,11 +261,20 @@ Shape of the ask (the form, not words to copy):
 > - Brazil: R$ 149,90 → R$ 99,90
 > - Mexico: MXN 649 → MXN 549
 >
-> New buyers pay it from two days after I upload; current subscribers keep their price. Nothing
-> will measure whether it helped; an A/B test on a copy would. To undo it, I re-upload
-> `annual.before.csv`. Shall I go ahead?
+> New buyers pay it from two days after I save it; current subscribers keep their price. Nothing
+> will measure whether it helped; an A/B test on a copy would. To undo it, I set those countries
+> back from `annual.before.csv`. Shall I go ahead?
 
-On a yes: upload, then download again after a few minutes; the stores receive the prices about a
-minute after the upload. Report each changed country's `*_sync_status`: `synced` is done,
-`pending` is still on its way (check again before calling it failed), and `failed` or
-`subscribers_migration_failed` comes with its reason.
+**On a yes:** `$ADAPTY product-prices set --product <PRODUCT_ID> --app <APP_ID> --file <FILE> --wait --yes`.
+The user's yes to the block is the confirmation: without `--yes` the CLI stops with exit 6 and
+saves nothing. It previews again, saves the previewed prices and waits up to two minutes while
+the stores receive them (usually about a minute), then prints each saved row's status.
+
+- **Exit 4 or 5 after "Saved":** the prices are saved; a row is `failed` or
+  `subscribers_migration_failed`, printed with its reason, the sync could not be confirmed, or
+  the network dropped during the wait.
+  Read it with `product-prices list` before I report it; never save again to retry.
+- **Exit 0:** nothing failed, which does not mean every row arrived. A row still `pending` when
+  the wait ended is read again with `product-prices list` before I report it.
+
+Report each changed country's result.
