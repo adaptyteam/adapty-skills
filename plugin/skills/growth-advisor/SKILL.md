@@ -367,26 +367,28 @@ started, and it never shows up as a change.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it (`references/diagnosis.md`, "What the app already tried"): the
    A/B tests `reads.py` lists (each paywall and flow test with its placement, audience, dates and
-   arms, and what that audience shows now: the arm they kept), paywalls or flows that ran side by
+   arms, and for a finished one what came out: its OUTCOME line), paywalls or flows that ran side by
    side on one placement with no test listed, paywalls, flows and products no longer in use, past
    offers, the setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts
    ("From your data: you tested two onboarding paywalls in May and kept Main."), so the user only
-   types when it is wrong.
-   A test that ran under a week is not a result: name it, never as won or lost. Re-running a past
+   types when it is wrong; with a finished test listed, it is the **What you already tested** list
+   and at most two sentences on what the tests say together (`references/diagnosis.md`, "Past
+   tests"). Each OUTCOME is said in its words there: a test can look like it worked, but only the
+   user's word is "won". Re-running a past
    test is a new hypothesis like any other: a change on the screen waits for the screen to be seen,
    and it is built as a fresh copy of the live screen, never with the old arm, which is older than
-   the live screen. When the user does name past tests, say in one line what each rules out
-   (`references/levers.md`, "After a test") before suggesting the next. A running A/B test shows
+   the live screen. Each past result rules out what its type's row in `references/levers.md`,
+   Known hypothesis types, says, before suggesting the next; a hypothesis that builds on one names
+   the test and its dates in its Why line. A running A/B test shows
    in `placements get` as an audience of its own kind (`ab_test` or `flow_ab_test`; `cross_ab_test`
    or `flow_cross_ab_test` for one test across placements) with its title: name it. A placement
    with no such audience runs no test now. The list leaves out tests across placements and
    onboarding tests: name them from `placements get`, and never write that no test ran. The CLI
-   reads results only of a regular paywall or flow test (`ab-tests metrics total`); the results
-   of the other two kinds are in the dashboard. An arm leads only by the leader rules of
-   `ab-tests`; it never "won" until the user says so.
+   reads results only of a regular paywall or flow test; the results of the other two kinds are
+   in the dashboard.
 
    Ask at most one question, as the last "You:" item in Next steps, and only when its answer would
-   change your first pick: a past test whose winner the user has not named, whether they already
+   change your first pick: a past test whose OUTCOME is UNCLEAR or NOT READ, whether they already
    tried the kind of change you would start with when the data shows no sign of it, a trial the
    numbers do not show, a screenshot when a change on the screen would rank first. Never hold the hypotheses back
    waiting for an answer.
@@ -459,8 +461,8 @@ started, and it never shows up as a change.
    hypothesis needs").
 6. **Report**, following "How you write a reply" and "What a hypothesis needs". The bold answer
    is about the business as a whole: where it stands and which part costs it most. Under it goes
-   the scorecard from step 4 as a table, one row per part, then the paragraph on what the app
-   already tried, then the main finding. An audit always ends with hypotheses. When an open question could change the first pick, give them anyway and
+   the scorecard from step 4 as a table, one row per part, then what the app already tried (the
+   paragraph, or the **What you already tested** list from step 3), then the main finding. An audit always ends with hypotheses. When an open question could change the first pick, give them anyway and
    say in one line what the answer would change. Before sending any reply with numbers, pass the
    draft to `check-reply` on stdin, with the quoted `'DRAFT'` so the shell leaves every `$` amount
    as written:
@@ -682,7 +684,7 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test". A test still live is stopped with the winner through `ab-tests`, after its results are read |
 | I don't know what to test | Run the audit |
 | I have ideas, which first? | `levers.md`, "Ideas the user brings" |
-| We did it, what's next? | Ask what ran and what won, then `levers.md`, "After a test" |
+| We did it, what's next? | Read what ran and what came out (`diagnosis.md`, "Past tests"), ask only what that leaves open, then `levers.md`, "After a test" |
 | Any question about the numbers | "Questions about the numbers" |
 
 ## Dashboard steps

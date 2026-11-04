@@ -53,11 +53,11 @@ _POOLS = {None: cf.ThreadPoolExecutor(6)}   # one pool per limited route, so one
 
 
 def route(args):
-    """The rate-limited route a call goes to, or None: the analytics data commands and the flow, paywall and
-    placement metrics are limited per app; the other lists and gets are not."""
+    """The rate-limited route a call goes to, or None: the analytics data commands and the flow, paywall, placement
+    and A/B test metrics are limited per app; the other lists and gets are not."""
     if len(args) > 1 and args[0] == 'analytics' and args[1] in DATA:
         return args[1]
-    if len(args) > 2 and args[0] in ('flows', 'paywalls', 'placements') and args[1] == 'metrics':
+    if len(args) > 2 and args[0] in ('flows', 'paywalls', 'placements', 'ab-tests') and args[1] == 'metrics':
         return ' '.join(args[:3])
     return None
 
@@ -1085,15 +1085,221 @@ def print_audiences(adapty, app, pid, names, top=None, cache=None):
     return aud
 
 
+# A finished test is a result only with about this many purchases in every arm (levers.md, "After a test"), and an
+# arm came out ahead only at this P2BB or above; below it the arms are level
+ENOUGH = 200
+CLEAR = 95
+NEAR = 120     # seconds: what an audience showed before a test stops this close to the test's start, what came after starts this close to its stop
+OUTCOMES = ('WORKED', 'HELD', 'AHEAD', 'EVEN', 'UNCLEAR', 'FEW', 'NOT COMPUTED', 'SHORT', 'NOT READ')
+
+
+def finished(x):
+    return x.get('state') not in ('live', 'draft') and x.get('started_at') and x.get('stopped_at')
+
+
+def nodes(n):
+    """A metrics tree, node by node."""
+    yield n
+    for c in (n or {}).get('items') or []:
+        yield from nodes(c)
+
+
+def test_of(n):
+    t = n.get('ab_test')
+    return t.get('ab_test_id') if isinstance(t, dict) else None
+
+
+def content_of(n):
+    """The paywall or flow a metrics node shows, or None (a test node shows its arms, not one content)."""
+    return ((n.get('paywall') or {}).get('paywall_id') or n.get('paywall_id')
+            or (n.get('flow') or {}).get('flow_id') or n.get('flow_id'))
+
+
+def moment(s):
+    try:
+        m = dt.datetime.fromisoformat(str(s).replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return m if m.tzinfo else m.replace(tzinfo=dt.timezone.utc)
+
+
+def history_args(a, pid, kind, tests):
+    """The read of one placement that holds what each audience showed and when, every test with its arms: a flow
+    placement over its whole life, which also carries each arm's numbers and P2BB; a paywall placement over its
+    tests' span (a paywall test's arm numbers there are empty, and its P2BB comes from `ab-tests metrics list`)."""
+    args = ['placements', 'metrics', 'get', pid, '--app', a.app, '--type', kind, '--based-on', 'audience']
+    if kind == 'flow':
+        return args
+    return args + ['--date-from', min(x['started_at'][:10] for x in tests),
+                   '--date-to', max(x['stopped_at'][:10] for x in tests), '--date-type', 'purchase_date']
+
+
+def arm_numbers(r):
+    return {'purchases': r.get('purchases'), 'views': r.get('unique_profiles_views', r.get('views')),
+            'revenue': r.get('revenue'), 'p2bb': r.get('probability')}
+
+
+def test_metrics(a, tests):
+    """`ab-tests metrics list`: each finished test's arms over its whole life, P2BB included, by test id. None when
+    this CLI has no such command (older than the ab-tests skill's results commands)."""
+    if not tests or not has(a.adapty, ['ab-tests', 'metrics', 'list']):
+        return None
+    calls = []
+    for ty in ('paywall', 'flow'):
+        ids = [x['ab_test_id'] for x in tests if x.get('type') == ty]
+        calls += [['ab-tests', 'metrics', 'list', '--app', a.app, '--type', ty, '--ids', ','.join(ids[i:i + 50])]
+                  for i in range(0, len(ids), 50)]
+    prefetch(a.adapty, calls)
+    out = {}
+    for args in calls:
+        body, err = cli(a.adapty, args)
+        if err:
+            FAILED.append(f'ab-tests metrics list --type {args[args.index("--type") + 1]}: {err}')
+            continue
+        for row in body.get('data') or []:
+            out[row.get('ab_test_id')] = {content_of(r): arm_numbers(r) for r in row.get('items') or []}
+    return out
+
+
+def around(tree, x):
+    """The test's audience in a tree split by audience, and what that audience showed right before the test started
+    and right after it stopped (metrics nodes, or None), and whether the test was the first thing it showed."""
+    start, stop = moment(x['started_at']), moment(x['stopped_at'])
+    for aud in nodes((tree or {}).get('data') or {}):
+        kids = (aud.get('items') or []) if 'audience' in aud else []
+        if not start or not stop or not any(test_of(c) == x['ab_test_id'] for c in kids):
+            continue
+        others = [c for c in kids if test_of(c) != x['ab_test_id'] and moment(c.get('started_at'))]
+
+        def nearest(key, when):
+            gaps = [(abs((moment(c[key]) - when).total_seconds()), i) for i, c in enumerate(others)
+                    if c.get(key) and moment(c[key])]
+            gaps = [g for g in gaps if g[0] <= NEAR]
+            return others[min(gaps)[1]] if gaps else None
+        first = not any(moment(c['started_at']) < start for c in others)
+        return aud, nearest('stopped_at', start), nearest('started_at', stop), first
+    return None, None, None, False
+
+
+def outcome(days, rows, ids, kept, before, label, missing):
+    """A finished test's OUTCOME word and its sentence. The first that holds: too short; no numbers; P2BB not
+    computed (the ab-tests skill's "Results and the leader", 1-3); an arm under ENOUGH purchases; no arm at CLEAR;
+    then the arm ahead against what the audience showed before the test and what it kept."""
+    if days < 7:
+        return 'SHORT', f'not a result: it ran {days} days, under a week'
+    p = [r.get('p2bb') for r in rows]
+    if not rows or any(v is None for v in p):
+        return 'NOT READ', f'its arms\' P2BB was not read: {missing}; the dashboard\'s test page has it'
+    buys, views = [r.get('purchases') or 0 for r in rows], [r.get('views') or 0 for r in rows]
+    if not any(p):
+        return 'NOT COMPUTED', 'not a result: P2BB is 0 on every arm, so it was not computed'
+    if not any(buys) and len(set(p)) == 1:
+        return 'NOT COMPUTED', 'not a result: no arm had a purchase'
+    if not any(views):
+        return 'NOT COMPUTED', 'not a result: no arm had views'
+    few = min(rows, key=lambda r: r.get('purchases') or 0)
+    if (few.get('purchases') or 0) < ENOUGH:
+        return 'FEW', (f"not a result: {label(few['id'])} had {num(few.get('purchases') or 0)} purchases, under about "
+                       f'{ENOUGH} in each arm')
+    top = max(p)
+    if top < CLEAR or p.count(top) > 1:
+        lead = rows[p.index(top)]
+        return 'EVEN', (f"no clear difference: the top P2BB is {top:.0f}% ({label(lead['id'])}), under {CLEAR}%; "
+                        'it counts as a loss for the change')
+    ahead = rows[p.index(top)]['id']
+    said = f'{label(ahead)} came out ahead (P2BB {top:.0f}%)'
+    if kept is None:
+        return 'AHEAD', f'{said}; which arm the audience kept is not in the data'
+    if kept != ahead:
+        return 'UNCLEAR', f'{said}, but the audience kept {label(kept)}'
+    if before == ahead:
+        return 'HELD', f'the old version held: {said}, it was what the audience saw before the test, and they kept it'
+    if before in ids:
+        return 'WORKED', f'{said} over {label(before)}, the version the audience saw before the test, and they kept it'
+    return 'AHEAD', f'{said} and they kept it; neither arm is known as the version the audience saw before'
+
+
+def what_changed(rows, label):
+    """What the arms differ in, as far as their products show: the kind of change a conclusion groups by."""
+    sets = [tuple(r['products']) for r in rows]
+    if not rows or not all(sets):
+        return 'products not read', 'products: not in the data; the arms\' names or screens say what changed'
+    if len(set(sets)) == 1:
+        return 'same products', f"products: the same in every arm ({', '.join(sets[0])}): the arms differ in design, copy or screens"
+    return 'other products', 'products differ: ' + '; '.join(f"{label(r['id'])} sells {', '.join(r['products'])}" for r in rows)
+
+
+def past_test(x, arms, days, kept_now, tree, metrics, label):
+    """Print what a finished test says: what its audience showed before and right after, what the arms differ in,
+    each arm's purchases and P2BB, and its OUTCOME. Returns (kind of change, outcome word)."""
+    flow = x.get('type') == 'flow'
+    ids = [r.get('paywall_id') or r.get('flow_id') for r in arms]
+    aud, before, after, first = around(tree, x)
+    tnode = next((c for c in (aud or {}).get('items') or [] if test_of(c) == x['ab_test_id']), {})
+    tarms = {content_of(r): r for r in tnode.get('items') or [] if content_of(r)}
+    read = (metrics or {}).get(x['ab_test_id']) or {}
+    rows = []
+    for cid in ids:
+        r = {'id': cid, 'products': sorted({p.get('title') for p in nodes(tarms.get(cid) or {})
+                                            if 'product_id' in p and p.get('title')})}
+        src = read.get(cid) or (arm_numbers(tarms[cid]) if flow and cid in tarms else {})
+        r.update({k: src.get(k) for k in ('purchases', 'views', 'revenue', 'p2bb')})
+        rows.append(r)
+
+    def shown(n):
+        if n is None:
+            return None
+        if test_of(n):
+            return f"A/B test {n.get('title') or n['ab_test'].get('title')!r}"
+        cid = content_of(n)
+        return label(cid) + (' (an arm)' if cid in ids else ' (neither arm)')
+    before_id = content_of(before) if before is not None and not test_of(before) else None
+    kept = kept_now
+    if aud is None:
+        print('      what that audience showed before and after the test: not in the data')
+    else:
+        print('      before the test that audience showed ' + (
+            shown(before) if before is not None else 'nothing: the test was the first thing it showed' if first
+            else 'something that stopped earlier, not right at the start'))
+        if after is not None:
+            print(f'      right after it stopped: {shown(after)}' + (', the one they kept' if content_of(after) in ids else ''))
+            kept = content_of(after) if content_of(after) in ids and not test_of(after) else None
+    kind, products = what_changed(rows, label)
+    print(f'      {products}')
+    if any(r.get('p2bb') is not None for r in rows):
+        print('      arms over the test\'s life: ' + '; '.join(
+            f"{label(r['id'])} purchases {num(r.get('purchases') or 0)}, P2BB {r.get('p2bb') or 0:.0f}%" for r in rows))
+    missing = ('the placement\'s metrics did not carry it' if flow else 'a paywall test\'s needs a CLI with '
+               '`ab-tests metrics`' if metrics is None else '`ab-tests metrics list` did not return this test')
+    word, sentence = outcome(days, rows, ids, kept, before_id, label, missing)
+    print(f'      OUTCOME {word}: {sentence}')
+    return kind, word
+
+
+def history_summary(seen):
+    """What the finished tests say together, by the kind of change; the conclusions are the agent's, by its rules."""
+    if not seen:
+        return
+    print('\n## what the finished tests say, by what their arms differ in')
+    for kind in ('same products', 'other products', 'products not read'):
+        words = [w for k, w in seen if k == kind]
+        if words:
+            print(f'   {kind}: {len(words)} test{"" if len(words) == 1 else "s"}: ' + ', '.join(f'{words.count(w)} {w}' for w in OUTCOMES if w in words))
+    print(f'   A conclusion about a kind of change needs two or more results of that kind that agree. WORKED, HELD, EVEN '
+          f'and AHEAD are results; UNCLEAR is a question; SHORT, FEW, NOT COMPUTED and NOT READ are not results and '
+          f'rule nothing out (diagnosis.md, "Past tests").')
+
+
 def ab_tests(a, names, auds, pid=None, cap=None):
     """Every paywall and flow A/B test of the app, or of one placement, in every state: its audience, its dates,
-    its arms, and what that audience shows now. Results are read with `ab-tests metrics total`; what the audience
-    shows after a test is what they kept, not a winner."""
+    its arms, and what that audience shows now. A finished test also says what its audience showed before and
+    right after it, what the arms differ in, each arm's purchases and P2BB, and its OUTCOME."""
     where = f' on {names.get(pid, pid)}' if pid else ''
     print(f'\n## A/B tests{where}, paywall and flow, every state (tests across placements and onboarding tests '
           'are not listed)')
-    print('   Results: read them with `ab-tests metrics total` (the ab-tests skill says how); never call an arm "won" '
-          'until the user names it. Say what ran, on which audience, when, and what that audience shows now.')
+    print('   A finished test ends on an OUTCOME; diagnosis.md, "Past tests", says what each means for '
+          'the reply. Never call an arm "won": only the user names a winner. A live test\'s result is read with '
+          '`ab-tests metrics total` through the ab-tests skill.')
     tests, failed = [], len(FAILED)
     kinds = [['--type', ty] + (['--placement', pid] if pid else []) for ty in ('paywall', 'flow')]
     prefetch(a.adapty, [list_args(a.app, 'ab-tests', 1, k) for k in kinds])
@@ -1118,6 +1324,22 @@ def ab_tests(a, names, auds, pid=None, cap=None):
             latest[key] = x.get('ab_test_id')
     shown = tests[:cap] if cap else tests
     prefetch(a.adapty, [['ab-tests', 'get', x.get('ab_test_id'), '--app', a.app] for x in shown])
+    done = [x for x in shown if finished(x)]
+    by_plc = {}
+    for x in done:
+        by_plc.setdefault(((x.get('placement') or {}).get('placement_id'), x.get('type')), []).append(x)
+    hist = {k: history_args(a, k[0], k[1], v) for k, v in by_plc.items() if k[0]}
+    prefetch(a.adapty, list(hist.values()))
+    metrics = test_metrics(a, done)
+    trees, seen = {}, []
+    for k, args in hist.items():
+        body, err = cli(a.adapty, args)
+        if err:
+            FAILED.append(f'placements metrics get (past tests on {names.get(k[0], k[0])}): {err}')
+        trees[k] = body
+    if done and metrics is None and any(x.get('type') == 'paywall' for x in done):
+        print('   This CLI has no `ab-tests metrics`: a past paywall test\'s P2BB is not read (NOT READ below); a '
+              'flow test\'s comes from its placement.')
     for x in shown:
         plc = x.get('placement') or {}
         segs = x.get('segment_ids')
@@ -1142,23 +1364,31 @@ def ab_tests(a, names, auds, pid=None, cap=None):
             return f'{name!r}' + (f" as {r.get('title')!r}" if r.get('title') and r.get('title') != name else '')
         print('      arms: ' + ', '.join(f"{arm(r)} {r.get('weight')}%" for r in arms))
         key = (plc.get('placement_id'), tuple(sorted(segs or [])))
-        if x.get('state') in ('live', 'draft') or not start or key[0] not in auds:
-            continue
-        later = latest.get(key) != x.get('ab_test_id')
-        now = next((y for y in auds[key[0]] if sorted(y.get('segment_ids') or []) == list(key[1])), None)
-        if now is None:
-            print('      that audience is no longer on the placement')
-        elif now.get('ab_test_id') == x.get('ab_test_id'):
-            continue
-        elif now.get('content_type') == 'ab_test' or now.get('ab_test_id'):
-            print(f"      that audience runs A/B test {now.get('ab_test_title') or now.get('ab_test_id')!r} now")
-        else:
-            cid = now.get('paywall_id') or now.get('flow_id')
-            print(f"      that audience shows {names.get(cid, cid)!r} now" + (
-                ' (neither arm)' if cid not in ids else
-                ' (an arm; a later test ran on this audience)' if later else ' (an arm: the one they kept)'))
+        kept_now = None
+        if x.get('state') not in ('live', 'draft') and start and key[0] in auds:
+            later = latest.get(key) != x.get('ab_test_id')
+            now = next((y for y in auds[key[0]] if sorted(y.get('segment_ids') or []) == list(key[1])), None)
+            if now is None:
+                print('      that audience is no longer on the placement')
+            elif now.get('ab_test_id') == x.get('ab_test_id'):
+                pass
+            elif now.get('content_type') == 'ab_test' or now.get('ab_test_id'):
+                print(f"      that audience runs A/B test {now.get('ab_test_title') or now.get('ab_test_id')!r} now")
+            else:
+                cid = now.get('paywall_id') or now.get('flow_id')
+                print(f"      that audience shows {names.get(cid, cid)!r} now" + (
+                    ' (neither arm)' if cid not in ids else
+                    ' (an arm; a later test ran on this audience)' if later else ' (an arm: the one they kept)'))
+                kept_now = cid if cid in ids and not later else None
+        if finished(x):
+            titles = {(r.get('paywall_id') or r.get('flow_id')): repr(r.get('paywall_title') or r.get('flow_name')
+                                                                       or names.get(r.get('paywall_id') or r.get('flow_id')))
+                      for r in arms}
+            seen.append(past_test(x, arms, days, kept_now, trees.get((plc.get('placement_id'), x.get('type'))),
+                                  metrics, lambda cid: titles.get(cid) or repr(names.get(cid, cid))))
     if len(shown) < len(tests):
         print(f'   {len(tests) - len(shown)} more not shown: the oldest, and drafts')
+    history_summary(seen)
     return tests
 
 

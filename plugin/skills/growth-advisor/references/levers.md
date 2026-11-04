@@ -62,7 +62,8 @@ changes.
    - both fine → localization, plan mix and placements
 4. **Context that changes the answer.**
    - How many products the paywall sells. One and two-or-more call for different first moves.
-   - What was tested before. Ask; the CLI has no test history. A recent loss is off the table.
+   - What was tested before and what came out: read it (`diagnosis.md`, "Past tests"), and ask
+     only about what it leaves open. A recent loss is off the table.
    - App size. Under about 200 purchases in two weeks, a test takes weeks to settle: recommend
      fewer, bolder changes, and say a small tweak will not reach a clear result.
 5. **Priority.** The offer before the look: localization, trials and plan structure win more
@@ -210,7 +211,11 @@ Before ranking, drop any hypothesis that:
   paywall or flow (former subscribers on a discount paywall, a country on its own screen), and a
   change a selling paywall's name names (a badge, an offer, a default) counts as live: read both
   in `reads.py placement` before suggesting it;
-- repeats a past test, whichever way it went, unless its loss failed the check in "After a test";
+- repeats a past test with a result (`diagnosis.md`, "Past tests": WORKED, HELD, AHEAD, EVEN, or
+  what the user says came out), whichever way it went, unless its loss failed the check in "After
+  a test". A test that was too short or had too few purchases rules nothing out: its change can
+  come back, said as a re-run with what lets it settle this time. One whose result was not read
+  waits for what the user says came out;
 - repeats a past promo without a reason it would go differently this time. A discounted or
   promo product that sold on that placement in the window is a past promo: never write that no
   discount was tried there; read the placement's purchases by product before saying so.
@@ -219,7 +224,8 @@ A hypothesis that is sensible but standard (what most paywalls already do, `mark
 paywalls look) stays only when the app does not do it yet, labelled as the standard move, and an
 untried bet with a similar stake ranks above it. At a similar stake, a kind of change the data shows
 no sign of also ranks above one more test of a kind it keeps running (`diagnosis.md`, What the
-app already tried).
+app already tried), and a kind with two or more past results of no lift (HELD or EVEN) ranks
+below both.
 
 A discount or promo the app runs all the time (an onboarding offer, a win-back paywall, an
 always-on LTO) is not a reason to suggest more of it. The bet is a holdout: part of the same users
@@ -251,6 +257,10 @@ group that does not have it yet. A part becomes a hypothesis only when all three
    and suggest nothing.
 3. **There is a group to copy it to** that lacks the setup and resembles the strong one: a country
    with the same language or a neighboring market, the other store, a similar moment in the app.
+
+A past test that WORKED or came out AHEAD (`diagnosis.md`, "Past tests") meets 1 and 2 by itself:
+its arm ahead is the setup, and the hypothesis copies it to a placement or audience that does not
+show it yet. Its Why line names the test and its dates.
 
 ## Segments
 

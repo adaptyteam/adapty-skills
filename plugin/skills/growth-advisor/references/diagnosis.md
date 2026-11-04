@@ -231,13 +231,20 @@ prints which paywalls sold on which placement over 13 months and notes a paywall
 several: a promo, a seasonal offer or a test can run through a placement other than the one named
 for it, so read that table before saying something did not run or was never tried. It also lists the
 app's paywall and flow A/B tests (`reads.py placement`, the ones on that placement): each with its
-placement, audience, dates and arms, and what that audience shows now.
+placement, audience, dates and arms, and what that audience shows now. A finished test also gets
+what its audience showed right before it and right after it, what its arms differ in, each arm's
+purchases and P2BB, and an OUTCOME line ("Past tests" below).
 
 ```bash
 # A/B tests in every state, one type per call: --type paywall, then --type flow (add --placement <ID> for one)
 $ADAPTY ab-tests list --app <APP_ID> --type paywall --page-size 100 --json
 # One test's arms and their weights
 $ADAPTY ab-tests get <AB_TEST_ID> --app <APP_ID> --json
+# Finished tests over their whole life, each arm with purchases and P2BB, one type per call
+$ADAPTY ab-tests metrics list --app <APP_ID> --type paywall --ids <AB_TEST_ID>,<AB_TEST_ID> --json
+# What each audience showed and when, every test among it: a flow placement over its whole life
+# (its arms carry P2BB too); a paywall placement needs dates, and keeps every audience's content whatever they are
+$ADAPTY placements metrics get <PLACEMENT_ID> --app <APP_ID> --type flow --based-on audience --json
 # Paywalls and flows week by week, one call per active placement
 $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FROM12 --date-to $TO --granularity week --group-by paywall_id --filter placement_id=<VALUE> --json
 # (or --group-by flow_id for a flow placement)
@@ -249,7 +256,7 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 
 | What you see | What it means |
 |---|---|
-| A test in the A/B test list | A test they ran, with its dates and arms. The arm its audience shows now is the one they kept; say "kept", not "won". One that ran under a week is not a result. |
+| A test in the A/B test list | A test they ran, with its dates and arms. A finished one ends on an OUTCOME ("Past tests" below); "won" is the user's word only. |
 | Two paywalls or flows selling on one placement in the same weeks, then one stops | The test the list shows there then: name it. With none listed, a test across placements or a change of audiences: say what sold when, never that a test ran. The one still selling is the one they kept. |
 | One paywall stops and another starts the same week | A change they made and kept. |
 | A paywall or flow on no placement | The audit's paywalls and flows tables say whether users ever saw it. With viewers it ran and was dropped, and its name often says what it tried; with none it never reached users. |
@@ -260,10 +267,8 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 | Audiences and segments on placements now | Targeting they already do. |
 | A placement with segment audiences and no All users audience | Either an A/B test the CLI did not return or users outside the segments see nothing there. The CLI cannot tell which: name it as a finding and ask them to check the placement's page. Never call it "probably an A/B test". |
 
-Say it as facts with the dates. Read a test's result with `ab-tests metrics total` (through the
-`ab-tests` skill); the arm its audience shows now is only the one they kept, so say "kept", never
-"won": only the user names the winner. Say too that the data cannot show ideas they discussed but
-never ran.
+Say it as facts with the dates. Say too that the data cannot show ideas they discussed but never
+ran.
 
 Then sort what you found by kind of change, from `paywalls list` (which products each paywall
 sells):
@@ -282,7 +287,58 @@ that says nothing. Read every name in `placements list`, `paywalls list`, `flows
 never "you have never tried it", and the reply asks whether they did. Name those kinds with how
 often each wins (`market.md`, Testing): an app that has only ever changed the look has its
 likelier wins in kinds it has not touched.
-Knowing what was tried is enough; you do not need the winner for this.
+Knowing what was tried is enough to sort the kinds; what came out decides only what is ruled out
+and what the tests say together.
+
+### Past tests
+
+`reads.py` gives each finished test one OUTCOME, the first that holds: under a week (SHORT); no
+P2BB read (NOT READ); P2BB not computed (NOT COMPUTED); an arm under about 200 purchases (FEW);
+no arm at 95% P2BB or more (EVEN); then the arm that came out ahead, set against what the
+audience saw before the test and what it showed right after. Say each in the user's words:
+
+| OUTCOME | Say | It rules out |
+|---|---|---|
+| WORKED | "[Arm] came out ahead of [the version you had], and you kept it": it looks like it worked | The type's "After a win" column (`levers.md`, Known hypothesis types) |
+| HELD | "[The version you had] stayed ahead of [the new arm]": the change did not beat it | The type's "After a loss" column |
+| AHEAD | "[Arm] came out ahead of [the other arm]", "and you kept it" when the line says so | The type's "After a win" column, with the arm ahead as the change |
+| EVEN | "No clear difference between [arms]" | The type's "After a loss" column: no clear lift counts as a loss |
+| UNCLEAR | "[Arm] came out ahead, but you kept [the other]" | Nothing until the user says why |
+| SHORT, FEW, NOT COMPUTED | "Too short to tell", "too few purchases to tell", "no result was computed" | Nothing; running it again is allowed, said as a re-run |
+| NOT READ | "How it did is on the test's page in the dashboard", with what they kept when the list says | Nothing; a repeat waits for what the user says came out |
+
+What the user says came out replaces the OUTCOME, and only the user's word is "won". Never give
+the P2BB in the reply unless they ask. The type comes from what the arms differ in (`reads.py`
+prints the products of each arm: "same products" is the Visual or copy kind above, "other
+products" a Plan set or Trial kind) and from their names: a test is matched to its type in
+`levers.md`, Known hypothesis types, before anything is ruled out.
+
+**In an audit reply,** the paragraph on what the app already tried becomes a list under the bold
+label **What you already tested** (translated) when a finished test is listed: one line per
+test, at most four, results first and the newest first, each with its placement, its dates, what
+it compared and what came out; the rest in one line by count. Then at most two sentences on what
+the tests say together:
+
+- **A conclusion about a kind of change needs two or more results of that kind that agree.** One
+  result is a fact about its own arms on its own placement, never about the kind.
+- Two or more WORKED or AHEAD of one kind: that kind moves this app's numbers, and the arm ahead
+  is a setup to copy (`levers.md`, "Build on what works").
+- Two or more HELD or EVEN of one kind: further tests of that kind will likely return little; it
+  ranks below kinds with no sign in the data (`levers.md`, "Already tried, already live, or
+  standard").
+- Most finished tests SHORT or FEW: the app's tests stop before they can say anything; the
+  hypotheses are fewer and bolder, each run to about 200 purchases an arm (`levers.md`, "Where
+  to look first", step 4).
+
+Shape (the form, not words to copy):
+
+> **What you already tested**
+> - Plan order on Onboarding, Mar 2 – Apr 1: Annual first came out ahead of Monthly first, the
+>   version you had, and you kept it.
+> - Trial on Settings, May 10 – 14: too short to tell.
+> - Three more ran under a week.
+>
+> Your one result is a plan change; a change of look has no sign in your data.
 
 ## Before you state a conclusion
 
