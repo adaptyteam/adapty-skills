@@ -58,8 +58,8 @@ These are the only two words for what you suggest, and the user sees them exactl
 A question about the app's own numbers ("who buys annual", "which country refunds most", "do
 people who start a trial renew better") is answered from the numbers. Find the operation, the
 grouping and the filter that answer it in the catalog (`references/diagnosis.md`, "Before the
-first read"), run them, and answer in the reply shape. A question about one flow (how it does, how
-many finish it) is read from its metrics (`references/diagnosis.md`, "Flow placement metrics"). Do not run the audit, read the test history
+first read"), run them, and answer in the reply shape. A question about one flow or paywall (how it does, how
+many finish it, how many see it) is read from its metrics (`references/diagnosis.md`, "Placement metrics"). Do not run the audit, read the test history
 or suggest hypotheses unless the user asks what to do. A problem the user brings (a drop, a fall,
 "help", "take a look", "what's wrong") asks what to do: it gets the explanation and then the
 hypotheses, not an offer of them. For a question about the numbers alone, end with one offer that names the metric the
@@ -103,10 +103,11 @@ the first two weeks of real users.
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
 funnel, retention, LTV and install cohorts, and breaks most of them down by placement, paywall,
 flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates,
-reads a test's results (`ab-tests metrics`, below), and reads a flow placement's dashboard metrics
-by audience and test arm. Benchmarks for the app's own category are not in the CLI.
-`references/market.md` holds the market medians from Adapty's State of Paywalls 2026, which cover
-a lot of this at the level of region and category. A benchmark matched to the app's own category is not available; if the user
+reads a test's results (`ab-tests metrics`, below), and reads a flow or paywall placement's
+dashboard metrics by audience and test arm. Benchmarks for the app's own category are not in the
+CLI. `references/market.md` holds the market medians from Adapty's State of Paywalls 2026, which
+cover a lot of this at the level of region and category. A benchmark matched to the app's own
+category is not available; if the user
 pastes one, use it and say where it came from.
 
 ## CLI or MCP
@@ -268,9 +269,8 @@ and the reason.
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
   back and ask, never a "Me:" item.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
-  it), one "You:" item asks when it ends. On a flow placement, say how far each arm is from about
-  200 purchases (`references/diagnosis.md`, "Flow placement metrics"), never which one leads; on a
-  paywall placement, the item also asks how it is going.
+  it), one "You:" item asks when it ends. Say how far each arm is from about 200 purchases
+  (`references/diagnosis.md`, "Placement metrics"), never which one leads.
 - **After building an A/B test:** one line on what changed, the before and after renders, then Next
   steps carrying the review, the phone check (with what to look for) and publish. Nothing else.
   If anything you added sits below the fold or behind a pinned button, the phone check says so
@@ -324,8 +324,8 @@ started, and it never shows up as a change.
    `reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID>` once, with one
    `--placement` per placement: its audiences by name, every paywall or
    flow that sold there, the weekly count for the Time line, the before/after comparison when
-   one paywall replaced another, and on a flow placement the dashboard's metrics by audience, test
-   arm and store (`references/diagnosis.md`, "Flow placement metrics"). Name in the reply every read
+   one paywall replaced another, and the dashboard's metrics by audience, test
+   arm and store (`references/diagnosis.md`, "Placement metrics"). Name in the reply every read
    either lists as failed. Run one `reads.py` at a time, and no other read while it runs: they
    share one limit per app and throttle each other. Run both
    as written and read what they print, with no variable, temp file or redirect around them: a

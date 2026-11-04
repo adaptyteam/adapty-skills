@@ -169,9 +169,11 @@ classifying costs one GET per paywall placement: `migrate.py` reads no flow or o
 reads every row of a list that carries no `type`. `placements list --type paywall|flow|onboarding`
 lists one type.
 
-**`placements metrics` answers flow placements only.** `--type flow` is the one value the server
-takes (`type: Input should be 'flow'` for `paywall`), so it cannot say whether a shipped app still
-calls a paywall placement. It can say whether any build calls a new flow placement: phase 8.
+**`placements metrics` answers flow and paywall placements, and they differ.** `list --type flow`
+rows carry `unique_profiles_views`, so one call says whether any build calls a new flow placement.
+`list --type paywall` rows carry sales and no views, so whether a shipped app still calls a paywall
+placement takes one `get --type paywall` each, with `--based-on audience` and the dates, reading
+`unique_profiles_views` on the root: phase 8.
 
 **`paywalls placements <paywall_id>` is un-paginated** — no `paginationFlags`, and `printList` is
 called without pagination — and returns summaries only. It answers *which* placements use a
