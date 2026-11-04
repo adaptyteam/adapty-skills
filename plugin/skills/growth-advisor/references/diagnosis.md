@@ -321,12 +321,7 @@ the tests say together:
 
 - **A conclusion about a kind of change needs two or more results of that kind that agree.** One
   result is a fact about its own arms on its own placement, never about the kind.
-- Two or more WORKED or AHEAD of one kind: that kind moves this app's numbers, and the arm ahead
-  is a setup to copy (`levers.md`, "Build on what works").
 - Two or more HELD or EVEN of one kind: further tests of that kind will likely return little.
-- Most finished tests SHORT or FEW: the app's tests stop before they can say anything; the
-  hypotheses are fewer and bolder, each run to about 200 purchases an arm (`levers.md`, "Where
-  to look first", step 4).
 
 Shape (the form, not words to copy):
 

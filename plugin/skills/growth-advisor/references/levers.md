@@ -211,11 +211,8 @@ Before ranking, drop any hypothesis that:
   paywall or flow (former subscribers on a discount paywall, a country on its own screen), and a
   change a selling paywall's name names (a badge, an offer, a default) counts as live: read both
   in `reads.py placement` before suggesting it;
-- repeats a past test with a result (`diagnosis.md`, "Past tests": WORKED, HELD, AHEAD, EVEN, or
-  what the user says came out), whichever way it went, unless its loss failed the check in "After
-  a test". A test that was too short or had too few purchases rules nothing out: its change can
-  come back, said as a re-run with what lets it settle this time. One whose result was not read
-  waits for what the user says came out;
+- repeats a past test with a result (`diagnosis.md`, "Past tests"), whichever way it went, unless
+  its loss failed the check in "After a test";
 - repeats a past promo without a reason it would go differently this time. A discounted or
   promo product that sold on that placement in the window is a past promo: never write that no
   discount was tried there; read the placement's purchases by product before saying so.
@@ -256,10 +253,6 @@ group that does not have it yet. A part becomes a hypothesis only when all three
    and suggest nothing.
 3. **There is a group to copy it to** that lacks the setup and resembles the strong one: a country
    with the same language or a neighboring market, the other store, a similar moment in the app.
-
-A past test that WORKED or came out AHEAD (`diagnosis.md`, "Past tests") meets 1 and 2 by itself:
-its arm ahead is the setup, and the hypothesis copies it to a placement or audience that does not
-show it yet. Its Why line names the test and its dates.
 
 ## Segments
 
