@@ -56,9 +56,16 @@ Download on the product's card in the dashboard). Save it in the temporary direc
 $ADAPTY product-prices list --product <PRODUCT_ID> --app <APP_ID> --csv
 ```
 
-`<PRODUCT_ID>` is the Adapty product's id from `products list`. A product with no prices gives
-the header only. `--json` gives the same rows with `app_store_sync_error` and
-`play_store_sync_error`, the store's reason for a failed row.
+`<PRODUCT_ID>` is the Adapty product's id from `products list`. `--json` gives the same rows
+with `app_store_sync_error` and `play_store_sync_error`, the store's reason for a failed row.
+
+**Empty columns, or the header only, usually mean no store connection, and no error says so.**
+Adapty imports a store's prices through that store's connection. Check it with
+`$ADAPTY product-groups list --app <APP_ID> --store <STORE>`: exit 4 with
+`missing_store_credentials` means the connection is missing, and on the App Store that is the
+[App Store Connect API key](https://adapty.io/docs/app-store-connection-configuration.md), not the
+In-App Purchase key. Tell the user prices cannot be read for that store until it is connected,
+and make no price claim for it unless they give you the price.
 
 Its columns, in order:
 
@@ -160,13 +167,14 @@ user's yes.
    [App Store](https://adapty.io/docs/app-store-connection-configuration.md) push needs the App
    Store Connect API key); then the user adds it and nothing is created. The copy has the
    original's period and access level and no store ID; the push adds it. Its title becomes the App Store subscription's reference
-   name, which must differ from every other one in the group, so it is the original's title
-   plus the test price ("Annual 39.99"); buyers do not see it. It carries the USD price a push
+   name, which must differ from every other one in the group, and part of the description
+   buyers can see, so it is the original's title plus a number ("Annual 2"), never a price. It
+   carries the USD price a push
    needs, the original's US price. It is set once and cannot change after; the push spreads it
    to every country, and step 4 replaces those prices.
 
    ```bash
-   $ADAPTY products create --app <APP_ID> --title "<TITLE> <TEST_PRICE>" --period <PERIOD> --access-level-id <ACCESS_LEVEL_UUID> --price-usd <PRICE>
+   $ADAPTY products create --app <APP_ID> --title "<TITLE> <N>" --period <PERIOD> --access-level-id <ACCESS_LEVEL_UUID> --price-usd <PRICE>
    ```
 2. **The user approves the new store product ID;** it is permanent.
 3. **I push the copy to the store:**
@@ -186,8 +194,10 @@ user's yes.
      push carries a review screenshot (below).
    - **Google Play:** a new base plan on the original's subscription; `<SUBSCRIPTION_ID>` is the
      original's Play product ID in `products get`.
-   - A product that is not a subscription (lifetime, consumable) takes neither `--group-id` nor
-     `--android-base-plan-id`.
+   - A lifetime product takes neither `--group-id` nor `--android-base-plan-id`.
+   - **After an App Store push, tell the user what it named the product:** the display name is
+     the access level's SDK ID (`premium`) and the description "<title> <SDK ID> subscription",
+     in en-US only. The push cannot set them; the user changes them in App Store Connect.
 
    **The review screenshot** is a JPEG at one of Apple's exact screen sizes (current iPhones:
    1320×2868, 1290×2796, 1260×2736, 1206×2622, 1179×2556, 1170×2532). A PNG from a simulator or a
