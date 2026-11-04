@@ -1091,6 +1091,9 @@ ENOUGH = 200
 CLEAR = 95
 NEAR = 120     # seconds: what an audience showed before a test stops this close to the test's start, what came after starts this close to its stop
 OUTCOMES = ('WORKED', 'HELD', 'AHEAD', 'EVEN', 'UNCLEAR', 'FEW', 'NOT COMPUTED', 'SHORT', 'NOT READ')
+# a plan's period in days, by the `product_set` a placement's metrics tree gives each product
+PLAN_DAYS = {'weekly': 7, 'monthly': 30, 'two_months': 61, 'trimonthly': 91, 'semiannual': 182, 'annual': 365,
+             'lifetime': 365}
 
 
 def finished(x):
@@ -1241,7 +1244,9 @@ def past_test(x, arms, days, kept_now, tree, metrics, label):
     rows = []
     for cid in ids:
         r = {'id': cid, 'products': sorted({p.get('title') for p in nodes(tarms.get(cid) or {})
-                                            if 'product_id' in p and p.get('title')})}
+                                            if 'product_id' in p and p.get('title')}),
+             'plans': {p.get('product_set') for p in nodes(tarms.get(cid) or {})
+                       if 'product_id' in p and p.get('product_set') in PLAN_DAYS}}
         src = read.get(cid) or (arm_numbers(tarms[cid]) if flow and cid in tarms else {})
         r.update({k: src.get(k) for k in ('purchases', 'views', 'revenue', 'p2bb')})
         rows.append(r)
@@ -1273,7 +1278,27 @@ def past_test(x, arms, days, kept_now, tree, metrics, label):
                '`ab-tests metrics`' if metrics is None else '`ab-tests metrics list` did not return this test')
     word, sentence = outcome(days, rows, ids, kept, before_id, label, missing)
     print(f'      OUTCOME {word}: {sentence}')
+    plan_length_note(x, rows, word, label)
     return kind, word
+
+
+def plan_length_note(x, rows, word, label):
+    """When the arm ahead sells a longer plan than every other arm: P2BB counts what each arm collected during the
+    test, so its buyers paid their whole period up front and the result holds only once they renew."""
+    if word not in ('WORKED', 'HELD', 'AHEAD', 'UNCLEAR'):
+        return
+    ahead = max(rows, key=lambda r: r.get('p2bb') or 0)
+    longest = {r['id']: max((PLAN_DAYS[p] for p in r['plans']), default=0) for r in rows}
+    others = [longest[r['id']] for r in rows if r['id'] != ahead['id']]
+    if not longest[ahead['id']] or not others or longest[ahead['id']] <= max(others):
+        return
+    plan = max(ahead['plans'], key=PLAN_DAYS.get)
+    by = (dt.date.fromisoformat(x['stopped_at'][:10]) + dt.timedelta(days=longest[ahead['id']])).isoformat()
+    print(f"      PLAN LENGTHS DIFFER: {label(ahead['id'])} sells {'an' if plan[0] in 'aeiou' else 'a'} {plan} plan the other arm does not, and P2BB "
+          f"counts what each arm collected during the test, so its {plan} buyers paid their whole period up front. "
+          f"Say it came out ahead during the test; whether it earns more per buyer shows once those buyers renew, by "
+          f"{by}. Until then it rules nothing out, a hypothesis built on it says it is not settled, and a \"You:\" "
+          f"Next step asks to come back then.")
 
 
 def history_summary(seen):

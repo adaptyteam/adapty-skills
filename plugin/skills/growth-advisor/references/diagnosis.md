@@ -313,6 +313,12 @@ prints the products of each arm: "same products" is the Visual or copy kind abov
 products" a Plan set or Trial kind) and from their names: a test is matched to its type in
 `levers.md`, Known hypothesis types, before anything is ruled out.
 
+**A plan-length result is not settled yet.** When `reads.py` prints PLAN LENGTHS DIFFER, the arm
+ahead sells a longer plan, and P2BB counts what each arm collected during the test, so its buyers paid
+their whole period up front. Say it came out ahead during the test and when those buyers renew; until
+then it rules nothing out, a hypothesis built on it says it is not settled, and a "You:" Next step
+names the date to come back.
+
 **In an audit reply,** the paragraph on what the app already tried becomes a list under the bold
 label **What you already tested** (translated) when a finished test is listed: one line per
 test, at most four, results first and the newest first, each with its placement, its dates, what

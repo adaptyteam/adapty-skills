@@ -63,7 +63,7 @@ def arm_node(cid, kind, prods, p2bb=None, buys=None):
         n['items'] = [{'level': 'screen', 'items': [{'level': 'product', 'product_id': p, 'title': p} for p in prods]}]
         n.update(probability=p2bb, purchases=buys, unique_profiles_views=(buys or 0) * 20, revenue=(buys or 0) * 30.0)
     else:
-        n['items'] = [{'product_id': p, 'title': p} for p in prods]
+        n['items'] = [{'product_id': p, 'title': p, 'product_set': p.lower()} for p in prods]
     return n
 
 
@@ -182,6 +182,14 @@ check('says the test was the first thing the audience showed', 'nothing: the tes
 text, word = paywall_case('plans', (3.0, 97.0), (240, 260), prods=(('Monthly',), ('Monthly', 'Annual')))
 check('different products: names what each arm sells', "products differ: 'Monthly first' sells Monthly; 'Annual first' sells Annual, Monthly" in text, text)
 check('the summary counts it as a change of products', 'other products: 1 test: 1 WORKED' in text, text)
+check('the arm ahead sells the longer plan: PLAN LENGTHS DIFFER, with the date its buyers renew',
+      "PLAN LENGTHS DIFFER: 'Annual first' sells an annual plan" in text and 'by 2027-04-01' in text, text)
+check('the note stays out of a test whose arms sell the same plans', 'PLAN LENGTHS DIFFER' not in paywall_case(
+    'sameplans', (3.0, 97.0), (240, 260))[0])
+text, word = paywall_case('shorter', (97.0, 3.0), (240, 260), after=A, prods=(('Monthly',), ('Monthly', 'Annual')))
+check('the shorter plan ahead against the up-front bias: HELD, no note', word == 'HELD' and 'PLAN LENGTHS DIFFER' not in text, text)
+text, word = paywall_case('evenplans', (40.0, 60.0), (240, 260), prods=(('Monthly',), ('Monthly', 'Annual')))
+check('no arm ahead: no note', word == 'EVEN' and 'PLAN LENGTHS DIFFER' not in text, text)
 
 # 11. a flow test, numbers and P2BB from the placement's lifetime tree, on a CLI without `ab-tests metrics`
 NAMES.update({A: 'Quiz short', B: 'Quiz long'})
