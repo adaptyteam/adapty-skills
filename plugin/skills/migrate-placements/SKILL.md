@@ -421,9 +421,9 @@ this entirely rather than guessing which placements are quiet.
 > **The premise is that `is_active: false` means nobody is being served, and the field means
 > exactly one thing:** the [activation state the API source documents](references/api-surface.md#is_active--the-scope-filter)
 > — Live versus Inactive, the dashboard's own toggle, nothing finer. What that does *not* tell you
-> is whether a shipped app still calls the placement. An inactive placement serves no paywall, so a
-> stub on it shows nobody a placeholder; but if the user says a placement is live traffic,
-> **believe them over the flag** and treat it as active.
+> is whether a shipped app still calls the placement; that is the viewers read of phase 8. An
+> inactive placement serves no paywall, so a stub on it shows nobody a placeholder; but if the user
+> says a placement is live traffic, **believe them over the flag** and treat it as active.
 
 ## Phase 5 — Realize the flows
 
@@ -715,6 +715,10 @@ $ADAPTY placements metrics list --app "$APP" --type flow --ids <new placement id
 `unique_profiles_views` is that count; it updates every few minutes. Run it when the user comes back
 after the release, or give them the command; when `placements metrics --help` says there is no such
 command, point them at each placement's page in the dashboard instead.
+
+**An old placement's lifetime row has no views,** so "are users still on it" is `placements metrics
+get <old placement id> --type paywall --based-on audience` over the last seven days, with
+`--date-type purchase_date`: `unique_profiles_views` at the top of the answer.
 
 **No rollback file is needed, and say why:** nothing existing was modified, so **the untouched
 paywall placements are the rollback.** Until the app ships the call change, users are on the old

@@ -53,11 +53,11 @@ _POOLS = {None: cf.ThreadPoolExecutor(6)}   # one pool per limited route, so one
 
 
 def route(args):
-    """The rate-limited route a call goes to, or None: the analytics data commands and the flow and placement
-    metrics are limited per app; the other lists and gets are not."""
+    """The rate-limited route a call goes to, or None: the analytics data commands and the flow, paywall and
+    placement metrics are limited per app; the other lists and gets are not."""
     if len(args) > 1 and args[0] == 'analytics' and args[1] in DATA:
         return args[1]
-    if len(args) > 2 and args[0] in ('flows', 'placements') and args[1] == 'metrics':
+    if len(args) > 2 and args[0] in ('flows', 'paywalls', 'placements') and args[1] == 'metrics':
         return ' '.join(args[:3])
     return None
 
@@ -165,8 +165,9 @@ def has_analytics(adapty):
     return has(adapty, ['analytics', 'catalog'])
 
 
-LATER = (('ab-tests', 'list'), ('flows', 'metrics', 'list'), ('placements', 'metrics', 'get'))   # reads newer
-                                                                                                  # than analytics
+# reads newer than analytics
+LATER = (('ab-tests', 'list'), ('flows', 'metrics', 'list'), ('paywalls', 'metrics', 'list'),
+         ('placements', 'metrics', 'get'))
 
 
 def list_args(app, topic, page=1, extra=()):
@@ -853,7 +854,7 @@ def audit(a):
         return read(a.adapty, a.app, title, args, names, conv, top, cols)
     # every placement's audiences, then every segment they name, read side by side before printing
     gets = [['placements', 'get', p.get('id'), '--app', a.app] for p in lists['placements']]
-    prefetch(a.adapty, gets + flow_chunks(a, lists['flows'])
+    prefetch(a.adapty, gets + metric_chunks(a, 'flows', lists['flows']) + metric_chunks(a, 'paywalls', lists['paywalls'])
              + [list_args(a.app, 'ab-tests', 1, ['--type', ty]) for ty in ('paywall', 'flow')])
     sids = {sid for g in gets for x in audiences(cli(a.adapty, g)[0]) for sid in x.get('segment_ids') or []}
     prefetch(a.adapty, [['segments', 'get', sid, '--app', a.app] for sid in sorted(sids)])
@@ -871,7 +872,9 @@ def audit(a):
         print(f"   placement {p.get('title')!r} id {p.get('id')}"
               f"{'' if p.get('is_active', True) else ' (inactive)'}")
         auds[p.get('id')] = print_audiences(a.adapty, a.app, p.get('id'), names, top_codes, seg_cache)
-    flows_reach(a, names, lists['flows'], auds, ab_tests(a, names, auds, cap=40) or [])
+    tests = ab_tests(a, names, auds, cap=40) or []
+    flows_reach(a, names, lists['flows'], auds, tests)
+    paywalls_reach(a, names, lists['paywalls'], auds, tests)
     split_money(R('1. revenue by payment: Activation is first payments, Renewal N the later ones',
                   chart('revenue', f, t, 'period')))
     R('revenue by store', chart('revenue', f, t, 'store'))
@@ -1159,10 +1162,40 @@ def ab_tests(a, names, auds, pid=None, cap=None):
     return tests
 
 
-def flow_chunks(a, flows):
-    """`flows metrics list` takes 50 ids a call."""
-    return [['flows', 'metrics', 'list', '--app', a.app, '--ids', ','.join(f.get('id') for f in flows[i:i + 50])]
-            for i in range(0, len(flows), 50)]
+def metric_chunks(a, topic, rows):
+    """`flows metrics list` and `paywalls metrics list` take 50 ids a call."""
+    return [[topic, 'metrics', 'list', '--app', a.app, '--ids', ','.join(r.get('id') for r in rows[i:i + 50])]
+            for i in range(0, len(rows), 50)]
+
+
+def shown_on(key, names, auds, tests):
+    """Where each flow or paywall shows now: the placements of its audiences and the running tests it is an arm of."""
+    where = {}
+    for pid, aud in auds.items():
+        for x in aud or []:
+            if x.get(key):
+                where.setdefault(x[key], []).append(str(names.get(pid, pid)))
+    for x in tests:
+        if x.get('state') == 'live':
+            for r in x.get('_arms') or []:
+                if r.get(key):
+                    where.setdefault(r[key], []).append(f"running test {x.get('title')!r}")
+    return where
+
+
+def lifetime(a, topic, rows, key):
+    """The lifetime metrics row of each flow or paywall by id, or None when they could not be read."""
+    out = {}
+    chunks = metric_chunks(a, topic, rows)
+    prefetch(a.adapty, chunks)
+    for args in chunks:
+        body, err = cli(a.adapty, args)
+        if err:
+            print(f'\n## {topic}: FAILED: {err}')
+            FAILED.append(f'{topic} metrics list: {err}')
+            return None
+        out.update({r.get(key): r for r in body.get('data') or []})
+    return out
 
 
 def flows_reach(a, names, flows, auds, tests):
@@ -1170,26 +1203,10 @@ def flows_reach(a, names, flows, auds, tests):
     users started ran before; one nobody started never reached users, so it was not tried."""
     if not flows:
         return
-    where = {}
-    for pid, aud in auds.items():
-        for x in aud or []:
-            if x.get('flow_id'):
-                where.setdefault(x['flow_id'], []).append(str(names.get(pid, pid)))
-    for x in tests:
-        if x.get('state') == 'live':
-            for r in x.get('_arms') or []:
-                if r.get('flow_id'):
-                    where.setdefault(r['flow_id'], []).append(f"running test {x.get('title')!r}")
-    rows = {}
-    chunks = flow_chunks(a, flows)
-    prefetch(a.adapty, chunks)
-    for args in chunks:
-        body, err = cli(a.adapty, args)
-        if err:
-            print(f'\n## flows: FAILED: {err}')
-            FAILED.append(f'flows metrics list: {err}')
-            return
-        rows.update({r.get('flow_id'): r for r in body.get('data') or []})
+    where = shown_on('flow_id', names, auds, tests)
+    rows = lifetime(a, 'flows', flows, 'flow_id')
+    if rows is None:
+        return
     print('\n## flows: lifetime viewers and purchases, and where each shows now')
     for f in sorted(flows, key=lambda f: -((rows.get(f.get('id')) or {}).get('unique_profiles_views') or 0)):
         r = rows.get(f.get('id')) or {}
@@ -1199,43 +1216,94 @@ def flows_reach(a, names, flows, auds, tests):
               f"{fin:>4}  purchases {num(r.get('purchases') or 0):>6}  on {', '.join(where.get(f.get('id'), [])) or 'no placement'}")
 
 
-def flow_metrics(a, pid, f, t, test=None):
-    """The dashboard's metrics of a flow placement in one call: each audience, A/B test arm and store, with
-    viewers, the share who finish the flow, purchases, trials, revenue per viewer and purchases by product. Also
-    flags an arm that sells in a store its name excludes. Returns None when it could not be read."""
-    args = ['placements', 'metrics', 'get', pid, '--app', a.app, '--type', 'flow', '--based-on', 'audience',
+def paywalls_reach(a, names, paywalls, auds, tests, cap=60):
+    """Every paywall that users saw or a placement shows, with lifetime viewers and purchases: a paywall on no
+    placement that users saw ran before; one nobody saw never reached users, so it was not tried. An app can hold
+    hundreds, so the rest are counted."""
+    if not paywalls:
+        return
+    where = shown_on('paywall_id', names, auds, tests)
+    rows = lifetime(a, 'paywalls', paywalls, 'paywall_id')
+    if rows is None:
+        return
+
+    def viewers(p):
+        return (rows.get(p.get('id')) or {}).get('unique_profiles_views') or 0
+    seen = sorted((p for p in paywalls if viewers(p) or p.get('id') in where), key=lambda p: -viewers(p))
+    print('\n## paywalls: lifetime viewers and purchases, and where each shows now')
+    for p in seen[:cap]:
+        r = rows.get(p.get('id')) or {}
+        print(f"   {str(p.get('title'))[:44]:44} viewers {num(viewers(p)):>7}  purchases {num(r.get('purchases') or 0):>6}"
+              f"  on {', '.join(where.get(p.get('id'), [])) or 'no placement'}")
+    if len(seen) > cap:
+        print(f'   {len(seen) - cap} more with fewer viewers')
+    if len(paywalls) > len(seen):
+        print(f'   {len(paywalls) - len(seen)} more on no placement that no user ever saw: they never reached users')
+
+
+def node_level(n):
+    """What a node of a metrics tree is. A flow tree names it in `level`; no node of a paywall tree has one, so the
+    node's keys say: a store or country row has only a title."""
+    if n.get('level'):
+        return n['level']
+    if 'product_id' in n:
+        return 'product'
+    if 'audience' in n:
+        return 'audience'
+    if 'ab_test' in n:
+        return 'test'
+    if 'weight' in n:
+        return 'arm'
+    return 'paywall' if 'paywall' in n else 'segment'
+
+
+def placement_metrics(a, pid, kind, f, t, test=None):
+    """The dashboard's metrics of a flow or paywall placement in one call: each audience, A/B test arm and store,
+    with viewers, on a flow the share who finish it, purchases, trials, revenue per viewer and purchases by product.
+    Also flags an arm that sells in a store its name excludes. Returns None when it could not be read."""
+    args = ['placements', 'metrics', 'get', pid, '--app', a.app, '--type', kind, '--based-on', 'audience',
             '--group-by', 'store', '--date-from', f, '--date-to', t, '--date-type', 'purchase_date']
     print(f"\n## arms of the running A/B test {test!r} since it started, {f} .. {t}" if test else
-          f'\n## flow metrics of this placement by audience, A/B test arm and store, {f} .. {t}')
+          f'\n## {kind} metrics of this placement by audience, A/B test arm and store, {f} .. {t}')
     print('   adapty ' + ' '.join(args))
     body, err = cli(a.adapty, args)
     if err:
         print(f'   FAILED: {err}')
         FAILED.append(f'placements metrics get: {err}')
         return None
-    print('   viewers: unique users who started the flow, the count view -> paid starts from. finished: the share of '
-          'them who reached its last screen. Revenue here counts renewals too, so it is never a hypothesis\'s base: '
-          'that is first-payment revenue. A running test\'s arms show how far each is from about 200 purchases, '
-          'never which one wins.')
-    print(f"   {'':56} {'viewers':>8} {'finished':>8} {'purchases':>9} {'trials':>7} {'rev/viewer':>10}")
+    flow = kind == 'flow'
+    print(('   viewers: unique users who started the flow, the count view -> paid starts from. finished: the share of '
+           'them who reached its last screen.' if flow else
+           '   viewers: unique users who saw the paywall. A paywall or test marked inactive, completed or archived ran '
+           'on that audience earlier.')
+          + ' Revenue here counts renewals too, so it is never a hypothesis\'s base: that is first-payment revenue. '
+          'A running test\'s arms show how far each is from about 200 purchases, never which one wins.')
+    print(f"   {'':56} {'viewers':>8} {'finished' if flow else '':>8} {'purchases':>9} {'trials':>7} {'rev/viewer':>10}")
 
     def walk(n, depth, path):
-        if n.get('level') in ('screen', 'product', 'period'):
-            return
-        v = n.get('unique_profiles_views') or 0
-        fin = f"{100 * (n.get('total_uniq_completions') or 0) / v:.0f}%" if v else '-'
-        name = ('  ' * depth + f"{n.get('level') or 'total'} {n.get('title') or ''}")[:56]
-        print(f"   {name:56} {num(v):>8} {fin:>8} {num(n.get('purchases') or 0):>9} {num(n.get('trials') or 0):>7} "
-              f"{(n.get('revenue') or 0) / v if v else 0:>10.2f}")
+        lv = node_level(n) if depth else 'total'
         kids = n.get('items') or []
+
+        def count(key):
+            # a paywall test's arm row comes back empty here, so this view adds its store rows; someone on both stores
+            # counts twice, and `paywall_test_arms` has the exact numbers. Never the product rows: they repeat the viewers
+            return n.get(key) or (sum(c.get(key) or 0 for c in kids) if lv == 'arm' else 0)
+        v = count('unique_profiles_views')
+        if lv in ('screen', 'product', 'period') or (lv == 'segment' and not v and not n.get('purchases')):
+            return
+        fin = '' if not flow else f"{100 * (n.get('total_uniq_completions') or 0) / v:.0f}%" if v else '-'
+        state = n.get('state') if n.get('state') != 'live' else None
+        name = ('  ' * depth + ' '.join(str(x) for x in (lv, state, n.get('title')) if x))[:56]
+        print(f"   {name:56} {num(v):>8} {fin:>8} {num(count('purchases')):>9} {num(count('trials')):>7} "
+              f"{count('revenue') / v if v else 0:>10.2f}")
         prods = {}
-        for p in [k for s in kids if s.get('level') == 'screen' for k in s.get('items') or []] + kids:
-            if p.get('level') == 'product' and p.get('purchases'):
+        for p in [k for s in kids if node_level(s) == 'screen' for k in s.get('items') or []] + kids:
+            if node_level(p) == 'product' and p.get('purchases'):
                 prods[p.get('title')] = prods.get(p.get('title'), 0) + p['purchases']
         if prods:
             print('   ' + '  ' * (depth + 1) + 'purchases by product: '
                   + ', '.join(f'{k} {num(c)}' for k, c in sorted(prods.items(), key=lambda x: -x[1])))
-        if n.get('level') == 'segment' and n.get('purchases'):
+        if lv == 'segment' and n.get('purchases'):
             arm = ' / '.join(path[1:])
             named = other_platform(arm, n.get('title'))
             if named:
@@ -1245,6 +1313,45 @@ def flow_metrics(a, pid, f, t, test=None):
             walk(c, depth + 1, path + [str(n.get('title') or '')])
     walk(body.get('data') or {}, 0, [])
     return body
+
+
+def paywall_test_arms(a, pid, f, t, test):
+    """Each arm of a running paywall test, since it started. Split by paywall, the test's row under a paywall holds
+    that arm's own numbers; split by audience, the arm row comes back empty."""
+    args = ['placements', 'metrics', 'get', pid, '--app', a.app, '--type', 'paywall', '--based-on', 'paywall',
+            '--group-by', 'store', '--date-from', f, '--date-to', t, '--date-type', 'purchase_date']
+    print(f'\n## arms of the running A/B test {test!r} since it started, {f} .. {t}')
+    print('   adapty ' + ' '.join(args))
+    body, err = cli(a.adapty, args)
+    if err:
+        print(f'   FAILED: {err}')
+        FAILED.append(f'placements metrics get: {err}')
+        return
+    print('   viewers: unique users who saw that arm; someone who saw both counts in each, so the arms add up to more '
+          'than the whole test: give the whole test\'s row as its total. Say how far each arm is from about 200 '
+          'purchases, never which one wins.')
+    print(f"   {'':56} {'viewers':>8} {'purchases':>9} {'trials':>7} {'rev/viewer':>10}")
+
+    def rows(n):
+        if n.get('state') == 'live' and n.get('title') == test and 'ab_test' in n:
+            yield n
+        for c in n.get('items') or []:
+            yield from rows(c)
+    def line(title, n):
+        v = n.get('unique_profiles_views') or 0
+        print(f"   {str(title)[:56]:56} {num(v):>8} {num(n.get('purchases') or 0):>9} "
+              f"{num(n.get('trials') or 0):>7} {(n.get('revenue') or 0) / v if v else 0:>10.2f}")
+    for pw in (body.get('data') or {}).get('items') or []:
+        for n in rows(pw):
+            line(pw.get('title'), n)
+    # split by audience, the test's own row counts each user once
+    i = args.index('--based-on') + 1
+    whole, err = cli(a.adapty, args[:i] + ['audience'] + args[i + 1:])
+    if err:
+        print(f'   the whole test\'s total could not be read: {err}')
+        return
+    for n in rows((whole or {}).get('data') or {}):
+        line('whole test', n)
 
 
 def placement_reads(a, pid, f, t):
@@ -1267,7 +1374,9 @@ def placement(a, pid, names):
           'Past tests are in "A/B tests" below.')
     aud = print_audiences(a.adapty, a.app, pid, names)
     tests = ab_tests(a, names, {pid: aud}, pid=pid) or []
-    is_flow = any(x.get('flow_id') or str(x.get('content_type') or '').startswith('flow') for x in aud)
+    kind = ('flow' if any(x.get('flow_id') or str(x.get('content_type') or '').startswith('flow') for x in aud) else
+            'paywall' if any(x.get('paywall_id') or x.get('content_type') in ('paywall', 'ab_test', 'cross_ab_test')
+                             for x in aud) else None)
 
     def R(title, args, conv=False):
         return read(a.adapty, a.app, title, args, names, conv)
@@ -1287,16 +1396,17 @@ def placement(a, pid, names):
         segs = R(f'new subscriptions on this placement by {gb}, every one that sold', chart('subscriptions_new', f, t, gb, filters=flt))
         if any(not s.get('is_total') and s.get('key') not in (None, NO_DATA) and s.get('value') for s in segs):
             contents.append((gb, segs))
-    tree = flow_metrics(a, pid, f, t) if is_flow else None
+    tree = placement_metrics(a, pid, kind, f, t) if kind else None
     # over the window an arm holds what its audience sold before the test too, so arms are read from the start
     for x in tests if tree is not None else []:
-        if x.get('state') == 'live' and x.get('type') == 'flow' and x.get('started_at'):
-            flow_metrics(a, pid, x['started_at'][:10], dt.date.today().isoformat(), test=x.get('title'))
+        if x.get('state') == 'live' and x.get('type') == kind and x.get('started_at'):
+            arms = placement_metrics if kind == 'flow' else lambda a, p, _, f, t, test: paywall_test_arms(a, p, f, t, test)
+            arms(a, pid, kind, x['started_at'][:10], dt.date.today().isoformat(), test=x.get('title'))
     # the same per store: a paywall can sell in one store only, or sell in the other platform's store than the one
     # its name names; the store is the one these sales were read in
     every_store = [(sval[s.get('key')], s.get('title')) for s in store_segs
                    if not s.get('is_total') and sval.get(s.get('key'))][:3]
-    by_store = [(gb, sv, title) for gb, _ in contents if not (gb == 'flow_id' and tree is not None)
+    by_store = [(gb, sv, title) for gb, _ in contents if not (gb == f'{kind}_id' and tree is not None)
                 for sv, title in every_store]
     prefetch(a.adapty, [chart('subscriptions_new', f, t, gb, filters=flt + [f'store={sv}']) + ['--app', a.app]
                         for gb, sv, _ in by_store])

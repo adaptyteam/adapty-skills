@@ -2,7 +2,7 @@
 
 The commands that answer each question, and how to read what they return. Every command here is
 a read. Run them one at a time, and never while `reads.py` runs: each analytics command, and the
-flow and placement metrics, allow 2 requests per second per app (and 360 per minute across everyone
+flow, paywall and placement metrics, allow 2 requests per second per app (and 360 per minute across everyone
 calling them), a data command is sent once and never retried, and over a limit it exits 4 with
 `"code": "throttled"` and the wait as `retry_after_seconds` in the `--json` error. Wait that long
 and run it once more, never in a loop. `reads.py` paces and retries its own calls.
@@ -252,8 +252,7 @@ $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_new --date-from $FR
 | A test in the A/B test list | A test they ran, with its dates and arms. The arm its audience shows now is the one they kept; say "kept", not "won". One that ran under a week is not a result. |
 | Two paywalls or flows selling on one placement in the same weeks, then one stops | The test the list shows there then: name it. With none listed, a test across placements or a change of audiences: say what sold when, never that a test ran. The one still selling is the one they kept. |
 | One paywall stops and another starts the same week | A change they made and kept. |
-| A paywall in `paywalls list` that no placement shows | Something tried and dropped. Its name often says what it tried. |
-| A flow on no placement | The audit's flows table says whether users ever started it. With viewers it ran and was dropped, and its name often says what it tried; with none it never reached users. |
+| A paywall or flow on no placement | The audit's paywalls and flows tables say whether users ever saw it. With viewers it ran and was dropped, and its name often says what it tried; with none it never reached users. |
 | A placement, paywall, flow or product whose name names a change ("No Free Trial", "Exit Offer Test", "ex-Winback", "Weekly Trial And Yearly") | That change was tried, whatever its numbers. Say "it looks like you tested X; what came out?", never that it was never tried. |
 | Two paywalls or flows both selling on one placement in the last full month | An A/B test or two audiences, if `placements get` shows one. A running test shows there as an audience of its own kind with its title: name it and never describe it in the past tense. With neither there, the two ran side by side earlier in the month: the test the list shows there then, or a change they made, and the one live now is the one they kept. |
 | A product with purchases earlier and none lately | A plan or trial they dropped. |
@@ -529,19 +528,25 @@ The config is the flow's screens, copy and products. Before any claim about a sc
 Read 8 by `flow_screen_id` shows which screen of the flow the purchases came from. Never write
 to the flow from this skill; a change is a copy (`levers.md`, Paywall design).
 
-## Flow placement metrics
+## Placement metrics
 
-On a flow placement, `reads.py placement` also prints the dashboard's metrics in one call: each
-audience, A/B test arm and store, with viewers, the share who finish the flow, purchases, trials,
-revenue per viewer, and purchases by product. Only flow placements have them.
+`reads.py placement` also prints the dashboard's metrics in one call: each audience, A/B test arm
+and store, with viewers, on a flow the share who finish it, purchases, trials, revenue per viewer,
+and purchases by product. Flow and paywall placements have them; onboarding placements do not.
+`--type` is the placement's type.
 
 ```bash
 $ADAPTY placements metrics get <PLACEMENT_ID> --app <APP_ID> --type flow --based-on audience --group-by store --date-from $FROM --date-to $TO --date-type purchase_date --json
 ```
 
-- **Viewers are unique users who started the flow,** the count view → paid starts from (read 9).
-  In an onboarding flow that is everyone who began onboarding, not only those who reached its
+- **Viewers on a flow are unique users who started it,** the count view → paid starts from (read
+  9). In an onboarding flow that is everyone who began onboarding, not only those who reached its
   paywall.
+- **Viewers on a paywall are unique users who saw it** (`unique_profiles_views`; `views` counts
+  every showing). A paywall placement's tree also keeps what an audience showed before: a paywall
+  or test marked inactive, completed or archived ran there earlier.
+- **A paywall test's arm numbers come from `--based-on paywall`:** the test's row under each paywall.
+  Split by audience, the arm row is empty. `reads.py` prints them in the running test's section.
 - **Revenue here counts renewals.** A hypothesis's base stays first-payment revenue, and the Time
   line stays the weekly purchase count, both from the analytics reads.
 - **A running test's arms show progress, not a result.** Read them in the section that starts on
@@ -551,10 +556,13 @@ $ADAPTY placements metrics get <PLACEMENT_ID> --app <APP_ID> --type flow --based
   on the flow's [Funnel tab](https://adapty.io/docs/flow-funnel.md), which the CLI does not read:
   when a low share would change a hypothesis, ask for a screenshot of it. A screen row's views in
   this answer are not that funnel: they count only users who started the flow on that screen.
-- **A flow on several placements, or two flows compared:** `flows metrics list --ids <FLOW_ID>,…`
-  gives lifetime rows, and `flows metrics get <FLOW_ID> --based-on placement --date-from … --date-to
-  … --date-type purchase_date` splits one flow by placement (the dates are required). Compare
-  placements inside it, never one placement's number with another flow's total.
+- **A flow or paywall on several placements, or two compared:** `flows metrics list --ids
+  <FLOW_ID>,…` or `paywalls metrics list --ids <PAYWALL_ID>,…` gives lifetime rows, and `flows
+  metrics get <FLOW_ID>` or `paywalls metrics get <PAYWALL_ID>` with `--based-on placement
+  --date-from … --date-to … --date-type purchase_date` splits one by placement (the dates are
+  required). Compare placements inside it, never one placement's number with another's total.
+- **A paywall placement's lifetime rows have no viewers.** `placements metrics list --type paywall`
+  carries sales only; viewers need the `get` above, with its dates.
 
 ## "Why did revenue drop?"
 
