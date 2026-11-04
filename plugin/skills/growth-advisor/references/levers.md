@@ -224,8 +224,7 @@ A hypothesis that is sensible but standard (what most paywalls already do, `mark
 paywalls look) stays only when the app does not do it yet, labelled as the standard move, and an
 untried bet with a similar stake ranks above it. At a similar stake, a kind of change the data shows
 no sign of also ranks above one more test of a kind it keeps running (`diagnosis.md`, What the
-app already tried), and a kind with two or more past results of no lift (HELD or EVEN) ranks
-below both.
+app already tried).
 
 A discount or promo the app runs all the time (an onboarding offer, a win-back paywall, an
 always-on LTO) is not a reason to suggest more of it. The bet is a holdout: part of the same users
