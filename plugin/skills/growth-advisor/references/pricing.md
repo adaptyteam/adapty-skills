@@ -194,7 +194,8 @@ user's yes.
      push carries a review screenshot (below).
    - **Google Play:** a new base plan on the original's subscription; `<SUBSCRIPTION_ID>` is the
      original's Play product ID in `products get`.
-   - A lifetime product takes neither `--group-id` nor `--android-base-plan-id`.
+   - A one-time product (`lifetime`, `consumable` or `nonsubscriptions`) takes neither
+     `--group-id` nor `--android-base-plan-id`.
    - **After an App Store push, tell the user what it named the product:** the display name is
      the access level's SDK ID (`premium`) and the description "<title> <SDK ID> subscription",
      in en-US only. The push cannot set them; the user changes them in App Store Connect.
@@ -269,8 +270,8 @@ refusals and `store_status`), with these differences:
 - **Google Play:** a new base plan on the app's existing subscription (`--store-product-id` from
   `product-groups list --store play_store --page-size 100`, a new `--android-base-plan-id`); a
   new subscription ID only when the app has none.
-- **A lifetime plan** is a one-time purchase: a new store product ID in each store, with neither
-  `--group-id` nor `--android-base-plan-id`.
+- **A lifetime plan** is a one-time purchase (as `consumable` and `nonsubscriptions` are): a new
+  store product ID in each store, with neither `--group-id` nor `--android-base-plan-id`.
 - **A trial on it is the user's,** in the store after the push (`levers.md`, "By store"): the
   push sets no offer.
 
