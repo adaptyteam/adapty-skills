@@ -2,11 +2,14 @@
 
 The fixtures follow the shapes of real answers: `placements metrics get --based-on audience` keeps every
 content an audience showed, each with its `started_at` and `stopped_at`, a test as an `ab_test` node with its
-arms under it (a paywall arm with its products, a flow arm with its numbers and `probability`); `ab-tests
-metrics list` answers a row per test with its arms under `items`. Ids and names are made up.
+arms under it. A paywall node has a `paywall` object and its products under it (`product_id`, `product_set`);
+a flow node has no flow id: it is `level: variation` with a `variation_id` and the flow's name as its `title`,
+its numbers and `probability`, and the screens and products under it. `ab-tests metrics list` answers a row
+per test with its arms under `items`. Ids and names are made up.
 """
 import argparse
 import contextlib
+import datetime
 import importlib.util
 import io
 import pathlib
@@ -36,9 +39,11 @@ AUD = '00000000-0000-4000-8000-0000000000c1'
 A, B, C = ('00000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-00000000000b',
            '00000000-0000-4000-8000-00000000000c')
 NAMES = {A: 'Monthly first', B: 'Annual first', C: 'Seasonal', PID: 'onboarding'}
-START, STOP = '2026-03-02T10:00:00.120000Z', '2026-04-01T10:00:00.500000Z'
-SHORT_STOP = '2026-03-06T10:00:00.500000Z'
-LATER = '2026-06-01T00:00:00Z'
+_DAY = datetime.date.today() - datetime.timedelta(days=40)
+STOP = f'{_DAY}T10:00:00.500000Z'
+START = f'{_DAY - datetime.timedelta(days=30)}T10:00:00.120000Z'
+SHORT_STOP = f'{_DAY - datetime.timedelta(days=26)}T10:00:00.500000Z'
+LATER = f'{_DAY + datetime.timedelta(days=20)}T00:00:00Z'
 TID = '00000000-0000-4000-8000-0000000000d{}'
 
 
@@ -48,11 +53,16 @@ def test_row(i, kind='paywall', stop=STOP, title='Plan order'):
             'started_at': START, 'stopped_at': stop}
 
 
+def variation(cid, standalone):
+    """A flow node's `variation_id`: the arm's own inside a test (as `ab-tests get` gives it), another outside."""
+    return ('00000000-0000-4000-8000-0000000fa%03x' if not standalone else '00000000-0000-4000-8000-0000000fb%03x') % int(cid[-2:], 16)
+
+
 def content(cid, kind, started, stopped, prods=()):
-    key = {'paywall': {'paywall_id': cid, 'title': NAMES[cid]}} if kind == 'paywall' else \
-        {'flow': {'flow_id': cid, 'name': NAMES[cid]}, 'level': 'variation'}
-    return dict(key, content_type=kind, state='inactive' if stopped else 'live', started_at=started,
-                stopped_at=stopped, items=[{'product_id': p, 'title': p} for p in prods])
+    key = {'paywall': {'paywall_id': cid, 'title': NAMES[cid]}, 'title': NAMES[cid], 'content_type': 'paywall'} if kind == 'paywall' else \
+        {'level': 'variation', 'variation_id': variation(cid, True), 'title': NAMES[cid]}
+    return dict(key, state='inactive' if stopped else 'live', started_at=started, stopped_at=stopped,
+                items=[{'product_id': p, 'title': p} for p in prods])
 
 
 def arm_node(cid, kind, prods, p2bb=None, buys=None):
@@ -60,8 +70,9 @@ def arm_node(cid, kind, prods, p2bb=None, buys=None):
     n.pop('state'), n.pop('started_at'), n.pop('stopped_at')
     n['weight'] = 50
     if kind == 'flow':
+        n['variation_id'] = variation(cid, False)
         n['items'] = [{'level': 'screen', 'items': [{'level': 'product', 'product_id': p, 'title': p} for p in prods]}]
-        n.update(probability=p2bb, purchases=buys, unique_profiles_views=(buys or 0) * 20, revenue=(buys or 0) * 30.0)
+        n.update(probability=p2bb, purchases=buys, views=(buys or 0) * 20, unique_profiles_views=(buys or 0) * 20)
     else:
         n['items'] = [{'product_id': p, 'title': p, 'product_set': p.lower()} for p in prods]
     return n
@@ -72,7 +83,7 @@ def tree(kind, tests, extra):
     kids = list(extra)
     for t, arms in tests:
         kids.append({'title': t['title'], 'ab_test': {'ab_test_id': t['ab_test_id'], 'title': t['title']},
-                     'content_type': 'ab_test' if kind == 'paywall' else 'flow_ab_test', 'state': t['state'],
+                     'level': 'ab_test', 'content_type': 'ab_test', 'state': t['state'],
                      'started_at': t['started_at'], 'stopped_at': t['stopped_at'], 'items': arms})
     return {'data': {'title': 'Total', 'items': [{'audience': {'audience_id': AUD, 'title': 'All Users'},
                                                   'title': 'All Users', 'items': kids}]}}
@@ -91,7 +102,8 @@ def run(case, tests, arms_by_test, plc_tree, metrics=None, now=None):
             key = 'paywalls' if t['type'] == 'paywall' else 'flows'
             idk = 'paywall_id' if key == 'paywalls' else 'flow_id'
             named = 'paywall_title' if key == 'paywalls' else 'flow_name'
-            return dict(t, **{key: [{idk: c, named: NAMES[c], 'weight': 50} for c in arms_by_test[t['ab_test_id']]]}), None
+            return dict(t, **{key: [{idk: c, named: NAMES[c], 'weight': 50, 'variation_id': variation(c, False)}
+                                    for c in arms_by_test[t['ab_test_id']]]}), None
         if args[:3] == ['placements', 'metrics', 'get']:
             return plc_tree, None
         if args[:3] == ['ab-tests', 'metrics', 'list']:
@@ -116,18 +128,18 @@ def outcome(text, title):
 
 
 def metrics_row(i, p2bb, buys, ids=(A, B)):
-    return {'ab_test_id': TID.format(i), 'items': [{'paywall_id': c, 'probability': p, 'purchases': n, 'views': n * 20,
-                                                    'revenue': n * 30.0} for c, p, n in zip(ids, p2bb, buys)]}
+    return {'ab_test_id': TID.format(i), 'items': [{'paywall_id': c, 'probability': p, 'purchases': n, 'views': n * 20}
+                                                   for c, p, n in zip(ids, p2bb, buys)]}
 
 
 PRODS = ('Monthly', 'Annual')
 
 
-def paywall_case(case, p2bb, buys, before=A, after=B, stop=STOP, metrics=True, prods=(PRODS, PRODS)):
-    t = test_row(1, stop=stop)
+def paywall_case(case, p2bb, buys, before=A, after=B, stop=STOP, metrics=True, prods=(PRODS, PRODS), start=START):
+    t = dict(test_row(1, stop=stop), started_at=start)
     extra = []
     if before:
-        extra.append(content(before, 'paywall', '2026-01-01T00:00:00Z', START.replace('.120000', '.121000'), PRODS))
+        extra.append(content(before, 'paywall', '2026-01-01T00:00:00Z', start.replace('.120000', '.121000'), PRODS))
     if after:
         extra.append(content(after, 'paywall', stop.replace('.500000', '.499000'), None, PRODS))
     arms = [arm_node(A, 'paywall', prods[0]), arm_node(B, 'paywall', prods[1])]
@@ -148,9 +160,12 @@ check('the summary counts it under its kind', 'same products: 1 test: 1 WORKED' 
 text, word = paywall_case('held', (97.0, 3.0), (240, 260), after=A)
 check('kept the old arm, which came out ahead: HELD', word == 'HELD', text)
 
-# 3. no arm reaches the P2BB bar
-text, word = paywall_case('even', (20.0, 80.0), (240, 260))
-check(f'top P2BB under {reads.CLEAR}: EVEN', word == 'EVEN', text)
+# 3. a tie at the top is level; a lead under the bar is the ab-tests leader, said as not settled
+text, word = paywall_case('even', (50.0, 50.0), (240, 260))
+check('a tie at the top: EVEN', word == 'EVEN', text)
+text, word = paywall_case('unsettled', (10.0, 90.0), (300, 300))
+check(f'top P2BB 90, under {reads.CLEAR}: NOT SETTLED, the leader named, nothing ruled out',
+      word == 'NOT SETTLED' and "not settled: 'Annual first' is ahead at P2BB 90%" in text and 'no clear difference' not in text, text)
 
 # 4. one arm under about 200 purchases
 text, word = paywall_case('few', (2.0, 98.0), (120, 260))
@@ -183,13 +198,20 @@ text, word = paywall_case('plans', (3.0, 97.0), (240, 260), prods=(('Monthly',),
 check('different products: names what each arm sells', "products differ: 'Monthly first' sells Monthly; 'Annual first' sells Annual, Monthly" in text, text)
 check('the summary counts it as a change of products', 'other products: 1 test: 1 WORKED' in text, text)
 check('the arm ahead sells the longer plan: PLAN LENGTHS DIFFER, with the date its buyers renew',
-      "PLAN LENGTHS DIFFER: 'Annual first' sells an annual plan" in text and 'by 2027-04-01' in text, text)
+      "PLAN LENGTHS DIFFER: 'Annual first' sells an annual plan" in text and f'by {_DAY + datetime.timedelta(days=365)}' in text, text)
 check('the note stays out of a test whose arms sell the same plans', 'PLAN LENGTHS DIFFER' not in paywall_case(
     'sameplans', (3.0, 97.0), (240, 260))[0])
 text, word = paywall_case('shorter', (97.0, 3.0), (240, 260), after=A, prods=(('Monthly',), ('Monthly', 'Annual')))
 check('the shorter plan ahead against the up-front bias: HELD, no note', word == 'HELD' and 'PLAN LENGTHS DIFFER' not in text, text)
-text, word = paywall_case('evenplans', (40.0, 60.0), (240, 260), prods=(('Monthly',), ('Monthly', 'Annual')))
+text, word = paywall_case('evenplans', (50.0, 50.0), (240, 260), prods=(('Monthly',), ('Monthly', 'Annual')))
 check('no arm ahead: no note', word == 'EVEN' and 'PLAN LENGTHS DIFFER' not in text, text)
+text, word = paywall_case('oldplans', (3.0, 97.0), (240, 260), prods=(('Monthly',), ('Monthly', 'Annual')),
+                          start='2024-03-02T10:00:00.120000Z', stop='2024-04-01T10:00:00.500000Z')
+check('the date its buyers renew has passed: no note', word == 'WORKED' and 'PLAN LENGTHS DIFFER' not in text, text)
+text, word = paywall_case('lifetime', (3.0, 97.0), (240, 260), prods=(('Monthly',), ('Lifetime',)))
+check('a lifetime plan never renews: no note', 'PLAN LENGTHS DIFFER' not in text, text)
+text, word = paywall_case('semi', (3.0, 97.0), (240, 260), prods=(('Monthly',), ('Semiannual',)))
+check('a plan is named in plain words, not the raw product set', 'sells a six-month plan' in text and 'semiannual' not in text, text)
 
 # 11. a flow test, numbers and P2BB from the placement's lifetime tree, on a CLI without `ab-tests metrics`
 NAMES.update({A: 'Quiz short', B: 'Quiz long'})
@@ -200,6 +222,8 @@ text = run('flow', [t], {t['ab_test_id']: [A, B]}, tree('flow', [(t, arms)], ext
 check('flow test read from its placement: WORKED', outcome(text, 'Quiz length') == 'WORKED', text)
 check('flow arms print their purchases and P2BB', "'Quiz long' purchases 310, P2BB 98%" in text, text)
 check('no CLI note for a flow-only history', 'This CLI has no' not in text, text)
+check('a flow node is matched by its variation id and its name: the audience before is an arm',
+      "before the test that audience showed 'Quiz short' (an arm)" in text and "right after it stopped: 'Quiz long' (an arm), the one they kept" in text, text)
 NAMES.update({A: 'Monthly first', B: 'Annual first'})
 
 # 12. two tests with one title on one audience: each matched by its id, never by its title

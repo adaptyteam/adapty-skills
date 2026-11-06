@@ -1085,15 +1085,18 @@ def print_audiences(adapty, app, pid, names, top=None, cache=None):
     return aud
 
 
-# A finished test is a result only with about this many purchases in every arm (levers.md, "After a test"), and an
-# arm came out ahead only at this P2BB or above; below it the arms are level
+# A finished test is a result only with about this many purchases in every arm (levers.md, "After a test"). The arm
+# that leads is the `ab-tests` skill's leader; this skill's own bar, CLEAR, only decides whether a lead is settled
+# enough to count for or against a kind of change: below it the lead is said as not settled and rules nothing out
 ENOUGH = 200
 CLEAR = 95
 NEAR = 120     # seconds: what an audience showed before a test stops this close to the test's start, what came after starts this close to its stop
-OUTCOMES = ('WORKED', 'HELD', 'AHEAD', 'EVEN', 'UNCLEAR', 'FEW', 'NOT COMPUTED', 'SHORT', 'NOT READ')
-# a plan's period in days, by the `product_set` a placement's metrics tree gives each product
-PLAN_DAYS = {'weekly': 7, 'monthly': 30, 'two_months': 61, 'trimonthly': 91, 'semiannual': 182, 'annual': 365,
-             'lifetime': 365}
+OUTCOMES = ('WORKED', 'HELD', 'AHEAD', 'EVEN', 'UNCLEAR', 'NOT SETTLED', 'FEW', 'NOT COMPUTED', 'SHORT', 'NOT READ')
+# a plan's period in days, by the `product_set` a placement's metrics tree gives each product, and the words for it;
+# a lifetime plan never renews, so it has none
+PLAN_DAYS = {'weekly': 7, 'monthly': 30, 'two_months': 61, 'trimonthly': 91, 'semiannual': 182, 'annual': 365}
+PLAN_WORD = {'weekly': 'weekly', 'monthly': 'monthly', 'two_months': 'two-month', 'trimonthly': 'three-month',
+             'semiannual': 'six-month', 'annual': 'annual'}
 
 
 def finished(x):
@@ -1112,10 +1115,14 @@ def test_of(n):
     return t.get('ab_test_id') if isinstance(t, dict) else None
 
 
-def content_of(n):
-    """The paywall or flow a metrics node shows, or None (a test node shows its arms, not one content)."""
-    return ((n.get('paywall') or {}).get('paywall_id') or n.get('paywall_id')
-            or (n.get('flow') or {}).get('flow_id') or n.get('flow_id'))
+def content_of(n, flows=None):
+    """The paywall or flow a metrics node shows, or None (a test node shows its arms, not one content). A flow node
+    of a placement tree (`level` variation) has no flow id: inside a test its `variation_id` is the arm's, outside
+    one only its title is the flow's name, so `flows` maps both of a test's arms to their flow ids."""
+    pid = (n.get('paywall') or {}).get('paywall_id') or n.get('paywall_id')
+    if pid or n.get('level') != 'variation':
+        return pid or n.get('flow_id')
+    return (flows or {}).get(n.get('variation_id')) or (flows or {}).get(n.get('title'))
 
 
 def moment(s):
@@ -1138,8 +1145,7 @@ def history_args(a, pid, kind, tests):
 
 
 def arm_numbers(r):
-    return {'purchases': r.get('purchases'), 'views': r.get('unique_profiles_views', r.get('views')),
-            'revenue': r.get('revenue'), 'p2bb': r.get('probability')}
+    return {'purchases': r.get('purchases'), 'views': r.get('views'), 'p2bb': r.get('probability')}
 
 
 def test_metrics(a, tests):
@@ -1150,8 +1156,8 @@ def test_metrics(a, tests):
     calls = []
     for ty in ('paywall', 'flow'):
         ids = [x['ab_test_id'] for x in tests if x.get('type') == ty]
-        calls += [['ab-tests', 'metrics', 'list', '--app', a.app, '--type', ty, '--ids', ','.join(ids[i:i + 50])]
-                  for i in range(0, len(ids), 50)]
+        if ids:
+            calls.append(['ab-tests', 'metrics', 'list', '--app', a.app, '--type', ty, '--ids', ','.join(ids)])
     prefetch(a.adapty, calls)
     out = {}
     for args in calls:
@@ -1186,8 +1192,9 @@ def around(tree, x):
 
 def outcome(days, rows, ids, kept, before, label, missing):
     """A finished test's OUTCOME word and its sentence. The first that holds: too short; no numbers; P2BB not
-    computed (the ab-tests skill's "Results and the leader", 1-3); an arm under ENOUGH purchases; no arm at CLEAR;
-    then the arm ahead against what the audience showed before the test and what it kept."""
+    computed (the ab-tests skill's "Results and the leader", 1-3); an arm under ENOUGH purchases; a tie at the top;
+    a leader under CLEAR (not settled); then the leader against what the audience showed before the test and what
+    it kept. The leader is the arm with the highest P2BB above 0."""
     if days < 7:
         return 'SHORT', f'not a result: it ran {days} days, under a week'
     p = [r.get('p2bb') for r in rows]
@@ -1205,11 +1212,11 @@ def outcome(days, rows, ids, kept, before, label, missing):
         return 'FEW', (f"not a result: {label(few['id'])} had {num(few.get('purchases') or 0)} purchases, under about "
                        f'{ENOUGH} in each arm')
     top = max(p)
-    if top < CLEAR or p.count(top) > 1:
-        lead = rows[p.index(top)]
-        return 'EVEN', (f"no clear difference: the top P2BB is {top:.0f}% ({label(lead['id'])}), under {CLEAR}%; "
-                        'it counts as a loss for the change')
+    if p.count(top) > 1:
+        return 'EVEN', f'no clear difference: the arms are level at P2BB {top:.0f}%; it counts as a loss for the change'
     ahead = rows[p.index(top)]['id']
+    if top < CLEAR:
+        return 'NOT SETTLED', f'not settled: {label(ahead)} is ahead at P2BB {top:.0f}%; it rules nothing out'
     said = f'{label(ahead)} came out ahead (P2BB {top:.0f}%)'
     if kept is None:
         return 'AHEAD', f'{said}; which arm the audience kept is not in the data'
@@ -1237,9 +1244,13 @@ def past_test(x, arms, days, kept_now, tree, metrics, label):
     each arm's purchases and P2BB, and its OUTCOME. Returns (kind of change, outcome word)."""
     flow = x.get('type') == 'flow'
     ids = [r.get('paywall_id') or r.get('flow_id') for r in arms]
+    fmap = {k: r['flow_id'] for r in arms if r.get('flow_id') for k in (r.get('variation_id'), r.get('flow_name')) if k}
+
+    def of(n):
+        return content_of(n, fmap)
     aud, before, after, first = around(tree, x)
     tnode = next((c for c in (aud or {}).get('items') or [] if test_of(c) == x['ab_test_id']), {})
-    tarms = {content_of(r): r for r in tnode.get('items') or [] if content_of(r)}
+    tarms = {of(r): r for r in tnode.get('items') or [] if of(r)}
     read = (metrics or {}).get(x['ab_test_id']) or {}
     rows = []
     for cid in ids:
@@ -1248,7 +1259,7 @@ def past_test(x, arms, days, kept_now, tree, metrics, label):
              'plans': {p.get('product_set') for p in nodes(tarms.get(cid) or {})
                        if 'product_id' in p and p.get('product_set') in PLAN_DAYS}}
         src = read.get(cid) or (arm_numbers(tarms[cid]) if flow and cid in tarms else {})
-        r.update({k: src.get(k) for k in ('purchases', 'views', 'revenue', 'p2bb')})
+        r.update({k: src.get(k) for k in ('purchases', 'views', 'p2bb')})
         rows.append(r)
 
     def shown(n):
@@ -1256,9 +1267,9 @@ def past_test(x, arms, days, kept_now, tree, metrics, label):
             return None
         if test_of(n):
             return f"A/B test {n.get('title') or n['ab_test'].get('title')!r}"
-        cid = content_of(n)
-        return label(cid) + (' (an arm)' if cid in ids else ' (neither arm)')
-    before_id = content_of(before) if before is not None and not test_of(before) else None
+        cid = of(n)
+        return (label(cid) if cid else repr(n.get('title'))) + (' (an arm)' if cid in ids else ' (neither arm)')
+    before_id = of(before) if before is not None and not test_of(before) else None
     kept = kept_now
     if aud is None:
         print('      what that audience showed before and after the test: not in the data')
@@ -1267,8 +1278,8 @@ def past_test(x, arms, days, kept_now, tree, metrics, label):
             shown(before) if before is not None else 'nothing: the test was the first thing it showed' if first
             else 'something that stopped earlier, not right at the start'))
         if after is not None:
-            print(f'      right after it stopped: {shown(after)}' + (', the one they kept' if content_of(after) in ids else ''))
-            kept = content_of(after) if content_of(after) in ids and not test_of(after) else None
+            print(f'      right after it stopped: {shown(after)}' + (', the one they kept' if of(after) in ids else ''))
+            kept = of(after) if of(after) in ids and not test_of(after) else None
     kind, products = what_changed(rows, label)
     print(f'      {products}')
     if any(r.get('p2bb') is not None for r in rows):
@@ -1283,8 +1294,8 @@ def past_test(x, arms, days, kept_now, tree, metrics, label):
 
 
 def plan_length_note(x, rows, word, label):
-    """When the arm ahead sells a longer plan than every other arm: P2BB counts what each arm collected during the
-    test, so its buyers paid their whole period up front and the result holds only once they renew."""
+    """When the arm ahead sells a longer plan than every other arm and its buyers have not yet had to renew: its
+    buyers paid their whole period up front, so the result is not settled until they renew (this skill's caution)."""
     if word not in ('WORKED', 'HELD', 'AHEAD', 'UNCLEAR'):
         return
     ahead = max(rows, key=lambda r: r.get('p2bb') or 0)
@@ -1292,13 +1303,14 @@ def plan_length_note(x, rows, word, label):
     others = [longest[r['id']] for r in rows if r['id'] != ahead['id']]
     if not longest[ahead['id']] or not others or longest[ahead['id']] <= max(others):
         return
-    plan = max(ahead['plans'], key=PLAN_DAYS.get)
-    by = (dt.date.fromisoformat(x['stopped_at'][:10]) + dt.timedelta(days=longest[ahead['id']])).isoformat()
-    print(f"      PLAN LENGTHS DIFFER: {label(ahead['id'])} sells {'an' if plan[0] in 'aeiou' else 'a'} {plan} plan the other arm does not, and P2BB "
-          f"counts what each arm collected during the test, so its {plan} buyers paid their whole period up front. "
-          f"Say it came out ahead during the test; whether it earns more per buyer shows once those buyers renew, by "
-          f"{by}. Until then it rules nothing out, a hypothesis built on it says it is not settled, and a \"You:\" "
-          f"Next step asks to come back then.")
+    by = dt.date.fromisoformat(x['stopped_at'][:10]) + dt.timedelta(days=longest[ahead['id']])
+    if by <= dt.date.today():
+        return
+    plan = PLAN_WORD[max(ahead['plans'], key=PLAN_DAYS.get)]
+    print(f"      PLAN LENGTHS DIFFER: {label(ahead['id'])} sells {'an' if plan[0] in 'aeiou' else 'a'} {plan} plan the other arm "
+          f"does not, and its buyers paid for the whole period up front. Say it came out ahead during the test; whether "
+          f"it earns more per buyer shows by {by.isoformat()}, once those buyers have had to renew. Until then it rules "
+          f"nothing out, a hypothesis built on it says it is not settled, and a \"You:\" Next step asks to come back then.")
 
 
 def history_summary(seen):
@@ -1310,9 +1322,6 @@ def history_summary(seen):
         words = [w for k, w in seen if k == kind]
         if words:
             print(f'   {kind}: {len(words)} test{"" if len(words) == 1 else "s"}: ' + ', '.join(f'{words.count(w)} {w}' for w in OUTCOMES if w in words))
-    print(f'   A conclusion about a kind of change needs two or more results of that kind that agree. WORKED, HELD, EVEN '
-          f'and AHEAD are results; UNCLEAR is a question; SHORT, FEW, NOT COMPUTED and NOT READ are not results and '
-          f'rule nothing out (diagnosis.md, "Past tests").')
 
 
 def ab_tests(a, names, auds, pid=None, cap=None):

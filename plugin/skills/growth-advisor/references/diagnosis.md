@@ -294,15 +294,18 @@ and what the tests say together.
 
 `reads.py` gives each finished test one OUTCOME, the first that holds: under a week (SHORT); no
 P2BB read (NOT READ); P2BB not computed (NOT COMPUTED); an arm under about 200 purchases (FEW);
-no arm at 95% P2BB or more (EVEN); then the arm that came out ahead, set against what the
-audience saw before the test and what it showed right after. Say each in the user's words:
+a tie at the top (EVEN); a leader under 95% P2BB (NOT SETTLED); then the leader, set against what
+the audience saw before the test and what it showed right after. The leader is the arm that the
+`ab-tests` skill names ("Results and the leader"); the 95% bar is this skill's own line for a lead
+settled enough to rule something out. Say each in the user's words:
 
 | OUTCOME | Say | It rules out |
 |---|---|---|
 | WORKED | "[Arm] came out ahead of [the version you had], and you kept it": it looks like it worked | The type's "After a win" column (`levers.md`, Known hypothesis types) |
 | HELD | "[The version you had] stayed ahead of [the new arm]": the change did not beat it | The type's "After a loss" column |
 | AHEAD | "[Arm] came out ahead of [the other arm]", "and you kept it" when the line says so | The type's "After a win" column, with the arm ahead as the change |
-| EVEN | "No clear difference between [arms]" | The type's "After a loss" column: no clear lift counts as a loss |
+| EVEN | "No clear difference between [arms]": they are level | The type's "After a loss" column: no clear lift counts as a loss |
+| NOT SETTLED | "[Arm] is ahead, but not settled", with the P2BB only when they ask | Nothing; running it again is allowed, said as a re-run |
 | UNCLEAR | "[Arm] came out ahead, but you kept [the other]" | Nothing until the user says why |
 | SHORT, FEW, NOT COMPUTED | "Too short to tell", "too few purchases to tell", "no result was computed" | Nothing; running it again is allowed, said as a re-run |
 | NOT READ | "How it did is on the test's page in the dashboard", with what they kept when the list says | Nothing; a repeat waits for what the user says came out |
@@ -314,10 +317,10 @@ products" a Plan set or Trial kind) and from their names: a test is matched to i
 `levers.md`, Known hypothesis types, before anything is ruled out.
 
 **A plan-length result is not settled yet.** When `reads.py` prints PLAN LENGTHS DIFFER, the arm
-ahead sells a longer plan, and P2BB counts what each arm collected during the test, so its buyers paid
-their whole period up front. Say it came out ahead during the test and when those buyers renew; until
-then it rules nothing out, a hypothesis built on it says it is not settled, and a "You:" Next step
-names the date to come back.
+ahead sells a longer plan, so its buyers paid their whole period up front. Say it came out ahead
+during the test and the date by which those buyers have had to renew; until then it rules nothing
+out, a hypothesis built on it says it is not settled, and a "You:" Next step names the date to come
+back. The line is not printed once that date has passed, and a lifetime plan has no such date.
 
 **In an audit reply,** the paragraph on what the app already tried becomes a list under the bold
 label **What you already tested** (translated) when a finished test is listed: one line per
