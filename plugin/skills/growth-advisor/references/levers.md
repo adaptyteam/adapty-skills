@@ -68,7 +68,8 @@ changes.
    - both fine → localization, plan mix and placements
 4. **Context that changes the answer.**
    - How many products the paywall sells. One and two-or-more call for different first moves.
-   - What was tested before. Ask; the CLI has no test history. A recent loss is off the table.
+   - What was tested before and what came out: read it (`diagnosis.md`, "Past tests"), and ask
+     only about what it leaves open. A recent loss is off the table.
    - App size. Under about 200 purchases in two weeks, a test takes weeks to settle: recommend
      fewer, bolder changes, and say a small tweak will not reach a clear result.
 5. **Priority.** The offer before the look: localization, trials and plan structure win more
@@ -216,7 +217,8 @@ Before ranking, drop any hypothesis that:
   paywall or flow (former subscribers on a discount paywall, a country on its own screen), and a
   change a selling paywall's name names (a badge, an offer, a default) counts as live: read both
   in `reads.py placement` before suggesting it;
-- repeats a past test, whichever way it went, unless its loss failed the check in "After a test";
+- repeats a past test with a result (`diagnosis.md`, "Past tests"), whichever way it went, unless
+  its loss failed the check in "After a test";
 - repeats a past promo without a reason it would go differently this time. A discounted or
   promo product that sold on that placement in the window is a past promo: never write that no
   discount was tried there; read the placement's purchases by product before saying so.
@@ -377,9 +379,9 @@ the offer is real.
 
 ## After a test
 
-- **The user decides the winner.** The CLI lists the test and its arms, not its results; ask which
-  variant won. Inconclusive counts as a loss. When the test is still live, offer to stop it with that
-  winner through `ab-tests`.
+- **The user decides the winner.** Read the results with `ab-tests metrics total` first and show
+  them (leader rules of the `ab-tests` skill); then ask which variant won. Inconclusive counts as a
+  loss. When the test is still live, offer to stop it with that winner through `ab-tests`.
 - **Check it was a test first.** Roughly 200 purchases per variant. Stopped after a few days or
   a few dozen purchases → inconclusive, not a loss; do not change the plan because of it.
 - **A loss rules nothing out until you check the test ran as meant** (its audience, the store

@@ -103,11 +103,12 @@ the first two weeks of real users.
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
 funnel, retention, LTV and install cohorts, and breaks most of them down by placement, paywall,
-flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates, and
-reads a flow or paywall placement's dashboard metrics by audience and test arm. Which arm of a test wins, and
-benchmarks for the app's own category, are not in the CLI. `references/market.md` holds the market
-medians from Adapty's State of Paywalls 2026, which cover a lot of this at the level of region
-and category. A benchmark matched to the app's own category is not available; if the user
+flow and flow screen. It lists the app's paywall and flow A/B tests with their arms and dates,
+reads a test's results (`ab-tests metrics`, below), and reads a flow or paywall placement's
+dashboard metrics by audience and test arm. Benchmarks for the app's own category are not in the
+CLI. `references/market.md` holds the market medians from Adapty's State of Paywalls 2026, which
+cover a lot of this at the level of region and category. A benchmark matched to the app's own
+category is not available; if the user
 pastes one, use it and say where it came from.
 
 ## CLI or MCP
@@ -207,10 +208,12 @@ the user made in the store to an existing product with `product-offers create`
 (`references/levers.md`, "By store"), and new products and prices: a new plan length or a price
 test's copy (`products create --price-usd`, `products push`) and `product-prices set`
 (`references/pricing.md`).
-Of the `ab-tests` commands you run only the reads, `list` and `get`; every other one is the
-`ab-tests` skill's. Never `product-offers update`: an offer a live paywall or flow already picks
-reaches buyers today, so changing one is a dashboard step for the user. The one other call that
-sends anything is the [feedback note](#feedback-note).
+Of the `ab-tests` commands you run only the reads, `list`, `get` and `metrics`; every other one is
+the `ab-tests` skill's. The numbers of `ab-tests metrics`, what each means and which arm leads
+follow the rules of the `ab-tests` skill ("Results and the leader"): invoke it for them, and
+without it show the numbers and name no leader. Never `product-offers update`: an offer a live
+paywall or flow already picks reaches buyers today, so changing one is a dashboard step for the
+user. The one other call that sends anything is the [feedback note](#feedback-note).
 
 ## How you sound
 
@@ -369,23 +372,28 @@ started, and it never shows up as a change.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it (`references/diagnosis.md`, "What the app already tried"): the
    A/B tests `reads.py` lists (each paywall and flow test with its placement, audience, dates and
-   arms, and what that audience shows now: the arm they kept), paywalls or flows that ran side by
+   arms, and for a finished one what came out: its OUTCOME line), paywalls or flows that ran side by
    side on one placement with no test listed, paywalls, flows and products no longer in use, past
-   offers, the setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts ("From your data: you
-   tested two onboarding paywalls in May and kept Main."), so the user only types when it is wrong.
-   A test that ran under a week is not a result: name it, never as won or lost. Re-running a past
+   offers, the setup that is live now, and the kinds of change the data shows no sign of. Put it in the reply as one short paragraph of facts
+   ("From your data: you tested two onboarding paywalls in May and kept Main."), so the user only
+   types when it is wrong; with a finished test listed, it is the **What you already tested** list
+   and at most two sentences on what the tests say together (`references/diagnosis.md`, "Past
+   tests"). Each OUTCOME is said in its words there: a test can look like it worked, but only the
+   user's word is "won". Re-running a past
    test is a new hypothesis like any other: a change on the screen waits for the screen to be seen,
    and it is built as a fresh copy of the live screen, never with the old arm, which is older than
-   the live screen. When the user does name past tests, say in one line what each rules out
-   (`references/levers.md`, "After a test") before suggesting the next. A running A/B test shows
+   the live screen. Each past result rules out what its type's row in `references/levers.md`,
+   Known hypothesis types, says, before suggesting the next; a hypothesis that builds on one names
+   the test and its dates in its Why line. A running A/B test shows
    in `placements get` as an audience of its own kind (`ab_test` or `flow_ab_test`; `cross_ab_test`
    or `flow_cross_ab_test` for one test across placements) with its title: name it. A placement
    with no such audience runs no test now. The list leaves out tests across placements and
-   onboarding tests, and the CLI shows no test's result: never write that no test ran, or that an
-   arm won.
+   onboarding tests: name them from `placements get`, and never write that no test ran. The CLI
+   reads results only of a regular paywall or flow test; the results of the other two kinds are
+   in the dashboard.
 
    Ask at most one question, as the last "You:" item in Next steps, and only when its answer would
-   change your first pick: a past test whose winner the data cannot show, whether they already
+   change your first pick: a past test whose OUTCOME is UNCLEAR or NOT READ, whether they already
    tried the kind of change you would start with when the data shows no sign of it, a trial the
    numbers do not show, a screenshot when a change on the screen would rank first. Never hold the hypotheses back
    waiting for an answer.
@@ -460,8 +468,8 @@ started, and it never shows up as a change.
    hypothesis needs").
 6. **Report**, following "How you write a reply" and "What a hypothesis needs". The bold answer
    is about the business as a whole: where it stands and which part costs it most. Under it goes
-   the scorecard from step 4 as a table, one row per part, then the paragraph on what the app
-   already tried, then the main finding. An audit always ends with hypotheses. When an open question could change the first pick, give them anyway and
+   the scorecard from step 4 as a table, one row per part, then what the app already tried (the
+   paragraph, or the **What you already tested** list from step 3), then the main finding. An audit always ends with hypotheses. When an open question could change the first pick, give them anyway and
    say in one line what the answer would change. Before sending any reply with numbers, pass the
    draft to `check-reply` on stdin, with the quoted `'DRAFT'` so the shell leaves every `$` amount
    as written:
@@ -683,10 +691,10 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | Why did conversion drop? | `diagnosis.md`, "Follow the signal down", with the Mix check before naming traffic |
 | Should I do X? (one idea) | `diagnosis.md`, "Should I change X?", plus `levers.md` |
 | Should I raise, cut or localize a price? Set this price now | `pricing.md`; a change goes live only through "Changing a live price" |
-| My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test". A test still live is stopped with the winner through `ab-tests` |
+| My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test". A test still live is stopped with the winner through `ab-tests`, after its results are read |
 | I don't know what to test | Run the audit |
 | I have ideas, which first? | `levers.md`, "Ideas the user brings" |
-| We did it, what's next? | Ask what ran and what won, then `levers.md`, "After a test" |
+| We did it, what's next? | Read what ran and what came out (`diagnosis.md`, "Past tests"), ask only what that leaves open, then `levers.md`, "After a test" |
 | Any question about the numbers | "Questions about the numbers" |
 
 ## Dashboard steps
