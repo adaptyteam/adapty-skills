@@ -315,6 +315,7 @@ def check_triggers(config):
 
 
 ESCAPE_ACTIONS = ('closeFlow', 'navigateBack')
+ONE_TIME_PERIODS = ('lifetime', 'consumable', 'nonsubscriptions')
 
 # Legal-link detection lives on the openUrl action's URL PAYLOAD, never on the
 # button's label. A label is a design choice -- measured: 7 of 9 real escape
@@ -711,7 +712,8 @@ def check_products_catalog(config, catalog, stores):
                         first_sid, first_eid), _title=title, _store=store_name,
                         _platform=platform, _sites=sites))
             play = vendors.get('play_store')
-            if play and not play.get('base_plan_id'):
+            if (play and not play.get('base_plan_id')
+                    and prod.get('period') not in ONE_TIME_PERIODS):
                 out.append(finding(
                     'blocker', 'products', 'play-base-plan-missing',
                     f'"{title}" has a Google Play product ID but no base plan ID. '
@@ -966,7 +968,8 @@ def check_period_claim(config, catalog):
             if not actual:
                 continue
             claimed = period_terms(card_text(config, s, eid, dl))
-            if len(claimed) == 1 and actual not in claimed:
+            one_time_claim = claimed == {'lifetime'} and actual in ONE_TIME_PERIODS
+            if len(claimed) == 1 and actual not in claimed and not one_time_claim:
                 said = next(iter(claimed))
                 out.append(finding(
                     'blocker', 'products', 'period-claim-mismatch',
@@ -1438,14 +1441,14 @@ def check_disclosure(config, catalog):
     out = []
     dl = default_locale(config)
     selling = selling_screens(config)
-    lifetime_only = {p['id'] for p in (catalog or [])
-                     if p.get('period') in ('lifetime', None)}
+    one_time_only = {p['id'] for p in (catalog or [])
+                     if p.get('period') in ONE_TIME_PERIODS + (None,)}
     for s in config.get('screens') or []:
         if s['id'] not in selling:
             continue
         bound = {pid for sid, _, pid in bound_products(config) if sid == s['id']}
         # A screen selling only one-time purchases has no billing period to disclose.
-        if bound and bound <= lifetime_only:
+        if bound and bound <= one_time_only:
             continue
         emap = (s.get('elements') or {}).get('map') or {}
         # `branch_text`, not `flat_text`: a disclosure written inside a conditional-text

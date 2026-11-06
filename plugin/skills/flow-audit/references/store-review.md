@@ -378,7 +378,7 @@ own message rather than asserting the screen *has* no disclosure.
 term appears anywhere in that screen's text. Reuses `period_terms` inverted, so it
 inherits that function's billing-context guard — the one that took four measured false
 positives to get right ("Weekly progress reports" reading as a weekly billing claim).
-Products that are lifetime-only in the catalog are exempt (`bound <= lifetime_only`,
+Products that are one-time only in the catalog (`lifetime`, `consumable`, `nonsubscriptions`) are exempt (`bound <= one_time_only`,
 guarded by `if bound and` so an empty set cannot skip a screen).
 
 **Why `risk`.** A factual absence, but only in the default locale's `props.content` —
@@ -641,7 +641,7 @@ Stated plainly, because each is a thing a reader could otherwise assume is cover
 - **A url query string or fragment can carry a matching token.** `_url_tokens` runs over
   the whole url string, so `?ref=checkout-promo` on an unrelated page would match. This
   is the same pre-existing limitation `checks.md` records for the legal-link checks.
-- **`no-period-disclosed`'s lifetime exemption depends on the catalog.** A one-time
+- **`no-period-disclosed`'s one-time exemption (`lifetime`, `consumable`, `nonsubscriptions`) depends on the catalog.** A one-time
   product absent from `products list` has no `period` row, so it cannot be exempted and
   the screen is judged as if it billed recurringly.
 
