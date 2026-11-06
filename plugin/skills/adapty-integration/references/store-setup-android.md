@@ -28,7 +28,7 @@ Adapty products need matching products in Google Play Console before purchases w
    - Set a price (any price works for testing)
    - Activate the base plan
 
-3. For **one-time products (non-consumable)**, go to **In-app products → Create product**:
+3. For **one-time products** (`--period consumable`, `nonsubscriptions` or `lifetime`; a consumable is a one-time product too, the app consumes it), go to **In-app products → Create product**:
 
    | What to enter | Value |
    |---|---|
