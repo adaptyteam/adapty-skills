@@ -1396,6 +1396,44 @@ overlap. Budget the row explicitly: `left + w1 + gap + w2 + right` should equal 
 measure it rather than assuming, with
 [`render-measure.py`](render-measure.py).
 
+### A screen transition
+
+How a screen arrives is `payload.transition` on the `navigate` that opens it, so each route has its
+own. Build it with `fk.navigate('scr_paywall', transition='slideIn')`, or pass
+`fk.screen_transition('push', direction='up', duration=500)` to change a setting. Left out, the
+screen arrives with the default push, so a user's request is the reason to set one.
+
+| `type` | What the user sees | Fits | Starts as |
+|---|---|---|---|
+| `none` | The screen switches at once | a technical redirect after a condition | no other keys |
+| `push` | Both screens move together | the next onboarding step | `left`, `ease-out`, 350 ms |
+| `slideIn` | The new screen slides and fades in over the current one | a paywall, a modal | `up`, `ease-out`, 350 ms |
+| `slideOut` | The current screen slides and fades away, showing the new one under it | closing a paywall | `down`, `ease-out`, 400 ms |
+| `fadeThrough` | The new screen dissolves in; takes no `direction` | unrelated sections, tabs | `ease-in-out`, 300 ms |
+
+```json
+{"id": "act_…", "type": "navigate", "payload": {"type": "screen", "screen": "scr_paywall",
+ "transition": {"type": "slideIn", "direction": "up", "easing": "ease-out", "duration": 350, "delay": 0}}}
+```
+
+- **Every key is required except on `none`.** `direction` is `left`, `right`, `up` or `down`, the way
+  the moving screen travels: `left` moves it from the right edge to the left. `easing` is `linear`,
+  `ease-in`, `ease-out`, `ease-in-out` or `ease-out-bounce`. `duration` and `delay` are whole ms,
+  0–5000.
+- **A malformed transition passes `flows config validate` and plays the default push.**
+  `verify-config.py` is the check that stops it.
+- **Only `navigate` takes a transition.** `navigateBack` plays the reverse of how the screen arrived,
+  without the delay. `navigateNext` always plays the default push, so use `navigate` where the
+  arrival matters. A `navigate` inside a `conditional` case or at a `timer`'s end takes one the same
+  way.
+- **Taps do nothing while a transition runs, and that includes its `delay`.** Keep `delay` at 0 unless
+  the user asks for a pause.
+- **`slideIn` and `ease-out-bounce` can show what is behind the screens:** the first screen's bottom
+  color or gradient. Choose another when the screens differ a lot in color. `ease-out-bounce`
+  plays as `ease-in-out` on iOS 15 and 16.
+- **The preview page never navigates, so a render cannot show a transition.** Say it is checked on a
+  device, or in the looping preview in Flow Builder's Navigate to Screen action.
+
 ### A back button, and authoring an icon that does not exist yet
 
 `navigateBack` needs no target — it pops the stack:
