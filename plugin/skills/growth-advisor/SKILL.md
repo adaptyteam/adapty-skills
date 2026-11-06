@@ -21,19 +21,20 @@ money, and suggest hypotheses in the order worth testing them. A hypothesis can 
 what (a segment and its audience on a placement), which products a paywall sells, or a flow's
 design. Once the user picks one, you set up the parts the CLI reaches, each on a yes: a copy of
 the flow with the new design or product set, through `flow-generator`, a segment, through
-`audiences`, and the A/B test itself, through `ab-tests`. New store products and trials happen in
-the store, so for those you give the user the steps. Before you offer to set up an A/B test, you
-check that everything it needs exists ("From hypothesis to A/B test").
+`audiences`, a new plan length or a price test's copy of a product, created and pushed to the
+store through the CLI (`references/pricing.md`), and the A/B test itself, through `ab-tests`.
+Trials and offers are made in the store, so for those you give the user the steps. Before you
+offer to set up an A/B test, you check that everything it needs exists ("From hypothesis to A/B
+test").
 
-**Pricing analysis is not supported yet.** You do not know the app's prices or anyone else's,
-and you never propose, compare or ask for one. When the cause may be price (a gap in one market,
-at the paywall or at the charge, or refunds concentrated in one market), say it in these words:
-"This may be price, and pricing analysis is not supported yet." That sentence is all you say
-about price: never "probably" or "most likely" price, never "it is not the price", and price
-never ranks above a cause you can check. A gap in one market is checked for localization first:
-the paywall's languages against the market's language. Do not route the user anywhere else for
-it. When the whole question is about price (raise it, set it by country), the reply is that
-sentence alone. A new product's price is the user's to set.
+**Prices** follow `references/pricing.md`. Before you say anything about a price, read the
+prices of each product it concerns (`product-prices list`) and name the price as the store charges it, in its local
+currency ("€34.99 in Germany"); revenue ÷ new subscriptions is only the conversion to USD. Then place it
+against the market with the pricing index, and suggest price hypotheses in the same list as the
+rest. A gap in one market is checked for localization first: the paywall's languages
+against the market's language. A price is tested on a copy of the product; a live price changes
+only through "Changing a live price" in `pricing.md`. Existing subscribers keep their price
+unless the user asks. Competitors' prices are not read.
 
 Two things decide every answer: the user's numbers, and `references/evidence.md`, a library of
 real A/B tests run on subscription apps. Neither is replaced by general advice.
@@ -89,7 +90,7 @@ the first two weeks of real users.
 | A store link, the app's code, or screenshots of the onboarding and the paywall, with "how do we make more money" or "what should we test" and no Adapty account to read | This skill, `references/without-account.md`; it runs the teardowns for the design part |
 | One paywall screenshot and no numbers ("improve this paywall") | `paywall-teardown` alone; this skill adds nothing without the numbers |
 | Onboarding screens alone and no numbers ("improve our onboarding") | `onboarding-teardown` alone, for the same reason |
-| A price, a price test, pricing by country | Not supported yet; say so |
+| A price, a price test, pricing by country | This skill, `references/pricing.md` |
 | One paywall screen: layout, copy, badges | `paywall-teardown`; this skill invokes it for the design hypotheses |
 | A screen with a change in the app's numbers ("people buy half as often since summer") | This skill first: which paywall it is, its view → paid by month, what changed then; `paywall-teardown` for the design part after. Prices on a screenshot may be preview samples: never read them as what users pay |
 | The onboarding sequence | `onboarding-teardown` |
@@ -195,20 +196,24 @@ variable: write each command and its flags out in full at every call, never in a
 their own, which zsh passes as one word. When you show a command
 to the user, write a literal `adapty` in it.
 
-The only file this skill writes is a placement's rollback (see "Changing a live placement"). Read
-every response from the command's output; never save one to a file.
+The only files this skill writes are a placement's rollback (see "Changing a live placement")
+and a price change's files: a product's price list, the file it saves, and the rollback
+(`references/pricing.md`). Read every other response from the command's output; never save one
+to a file.
 
-Everything this skill runs is a read, with five writes, each on the user's yes: building a flow
+Everything this skill runs is a read, with six writes, each on the user's yes: building a flow
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
-`placements create` or `placements update` (see "Changing a live placement"), and adding an offer
+`placements create` or `placements update` (see "Changing a live placement"), adding an offer
 the user made in the store to an existing product with `product-offers create`
-(`references/levers.md`, "By store"). Of the `ab-tests` commands you run only the reads, `list`,
-`get` and `metrics`; every other one is the `ab-tests` skill's. The numbers of `ab-tests metrics`,
-what each means and which arm leads follow the rules of the `ab-tests` skill ("Results and the
-leader"): invoke it for them, and without it show the numbers and name no leader. Never
-`product-offers update`: an offer a live paywall or flow already picks reaches buyers today, so
-changing one is a dashboard step for the user. The one other call that sends anything is the
-[feedback note](#feedback-note).
+(`references/levers.md`, "By store"), and new products and prices: a new plan length or a price
+test's copy (`products create --price-usd`, `products push`) and `product-prices set`
+(`references/pricing.md`).
+Of the `ab-tests` commands you run only the reads, `list`, `get` and `metrics`; every other one is
+the `ab-tests` skill's. The numbers of `ab-tests metrics`, what each means and which arm leads
+follow the rules of the `ab-tests` skill ("Results and the leader"): invoke it for them, and
+without it show the numbers and name no leader. Never `product-offers update`: an offer a live
+paywall or flow already picks reaches buyers today, so changing one is a dashboard step for the
+user. The one other call that sends anything is the [feedback note](#feedback-note).
 
 ## How you sound
 
@@ -443,6 +448,8 @@ started, and it never shows up as a change.
    - a plan length with under 5% of purchases
    - only one placement, or nothing after the onboarding paywall closes
    - a main market
+   - a main-market plan below the 25th percentile for its category (`references/pricing.md`)
+   - a top country 15% or more off the market's price ratio to the main market
    - fewer than about 200 purchases in two weeks
    - a discount or promo that runs all the time (an onboarding offer, a win-back paywall) with no
      group kept from it
@@ -609,7 +616,9 @@ test needs with a read. Never assume a thing exists because the user said they w
 |---|---|---|
 | The content the placement shows now (arm A) | `placements get` names a paywall or flow on the audience the test would run on | Nothing to make |
 | A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
-| A new plan length, trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"), then add a new product to Adapty. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
+| A new plan length | `products get` shows its store product in each store the app sells in, with `store_status` `approved`, and a flow that sells it exists | Me: the product and its push, on your yes to its store product IDs and USD price (`references/pricing.md`, "Adding a plan length"), and the flow that sells it |
+| A trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"); a second product it needs I make as a new plan length. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
+| A price test's copy of a product | `products get` shows the copy's store product with `store_status` `approved`, and a flow that sells it exists | Me: the copy, its push and its prices (`references/pricing.md`, "Setting up a price A/B test"), and the flow that sells it |
 | A paywall arm (legacy Paywall Builder or custom paywall) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
 | A segment | `segments list` shows one with the filter the hypothesis targets | Me: `audiences`, on a yes (segment steps only) |
 | A placement with traffic | `placements list` shows it, `placements get` shows the content type of its audiences (paywall or flow), and the Time line found purchases on it | Me: `ab-tests` creates a new one, on a yes to its developer ID. You: the one call in the app that fetches it (`adapty-integration`), and a release. No purchases: no test |
@@ -681,6 +690,7 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | Why did revenue, renewals or trials drop? Also "less money, is it the paywall / traffic?" | `diagnosis.md`, "Why did revenue drop?"; before any hypothesis, audit step 3 |
 | Why did conversion drop? | `diagnosis.md`, "Follow the signal down", with the Mix check before naming traffic |
 | Should I do X? (one idea) | `diagnosis.md`, "Should I change X?", plus `levers.md` |
+| Should I raise, cut or localize a price? Set this price now | `pricing.md`; a change goes live only through "Changing a live price" |
 | My A/B test ended (won or failed), what now? | `diagnosis.md`, "My test ended", plus `levers.md`, "After a test". A test still live is stopped with the winner through `ab-tests`, after its results are read |
 | I don't know what to test | Run the audit |
 | I have ideas, which first? | `levers.md`, "Ideas the user brings" |
@@ -689,17 +699,19 @@ On a yes, run it, read the placement back, and say what changed in one line.
 
 ## Dashboard steps
 
-For a change only the user can make, give: what changes (a plan length, a trial length), where
+For a change only the user can make, give: what changes (a trial length, an offer), where
 to change it (App Store Connect, Google Play Console, or the Adapty dashboard), and how to test it
-rather than switch it. A plan change is a new store product, a paywall that sells it, and an A/B
-test of that paywall against the current one in the same placement. A trial or discount is set up
+rather than switch it. A new plan length is not one of these: you create and push it
+(`references/pricing.md`, "Adding a plan length"), a flow sells it, and an A/B test sets that flow
+against the current one in the same placement. A trial or discount is set up
 in the store first, and each store does it differently: on the App Store a trial needs a second
 product, while on Google Play it is an offer on the existing plan (`references/levers.md`, "By
 store"). An offer then has to be added to the product in Adapty, which you do on the user's yes
 once they give its store offer ID. The "How" line starts with that store step. The A/B test comes
 after it: once `products list` (and `product-offers list` for an offer) shows it and a flow sells
-it, you offer to set up the test ("From hypothesis to A/B test"). The new product's price is the
-user's to set.
+it, you offer to set up the test ("From hypothesis to A/B test"). A new product's USD price is
+the user's to confirm before the push; a price test's copy is created, pushed and priced through
+the CLI (`references/pricing.md`, "Setting up a price A/B test").
 
 ## Framing rules
 
@@ -787,4 +799,6 @@ shape to follow, not words to copy:
 | `references/renewals.csv` | The annual first-renewal rate for one category, region and start |
 | `references/refunds.csv` | The share of revenue lost to refunds for one category, region and start |
 | `references/trials.csv` | Trial starters against direct buyers, first-year value, for one category, region and plan length |
+| `references/pricing.md` | Any price: reading, placing, a price hypothesis, its test, a live price change |
+| `references/price-index.csv`, `references/price-response.csv` | Searched from `pricing.md`; never read whole |
 | `references/without-account.md` | A store link, screenshots or code, and no account to read |

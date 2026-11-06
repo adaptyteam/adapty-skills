@@ -20,8 +20,8 @@ cannot be synthesized:
   express, you draw and rasterize ([media.md](references/media.md)). An icon is **not** in this
   list: `python3 references/icons.py --search <word>` resolves any phosphor glyph, and an
   invented name draws blank however good your markup is (trap 23).
-- **Real store prices.** They come from the store, not from Adapty; `products create` has no price
-  flag.
+- **Real store prices.** They come from the store, not from Adapty; `products create --price-usd`
+  is only the USD base a store push starts from.
 
 Everything else is reachable: product UUIDs from `adapty products list` (or `products create`),
 offer ids from `adapty product-offers list`, `theme` colours sampled off a reference screenshot,
@@ -210,7 +210,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
-| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, an element that appears after a delay, plan cards |
+| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, an element that appears after a delay, plan cards |
 | [placements.md](references/placements.md) | **Phase 6** — every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
 | the **`paywall-teardown`** skill | **Phase 2** when *you* choose the design of a **screen that sells**, **phase 4** to grade what you built. It owns whether the screen sells; this skill owns the JSON |
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
@@ -641,8 +641,9 @@ step silently:
    App Store trial by no offer at all
    ([products.md → Where offer ids come from](references/products.md#where-offer-ids-come-from)).
 2. Only if nothing fits: ask for their **store product ids** (App Store product id; Google
-   product id **plus base plan id** for subscriptions) — those are the bindings `products create`
-   cannot run without, so asking later just stalls the create.
+   product id **plus base plan id** for subscriptions) — this skill creates a product only with
+   them, since one with no binding sells nothing until a push creates it in the store
+   (`adapty-integration`, path C), so asking later just stalls the create.
 3. Only then `products create`, behind its own confirmation gate
    ([products.md → Creating a product](references/products.md)).
 
@@ -936,6 +937,12 @@ input ([`preview-with-playwright.mjs`](references/preview-with-playwright.mjs)) 
 it fell back to the URL route and the render is blank, slow or wrong, run the install command it
 prints — do not shrink the config. If you cannot render at all, say
 so and ask the user to look; never report the work finished on a clean validate.
+
+**An App Store review screenshot of a flow screen** (asked by the user, `growth-advisor` or
+`adapty-integration` for a product push): run [`preview-with-playwright.mjs`](references/preview-with-playwright.mjs)
+with `--review-screenshot --screen <the screen with the purchase button>`. It writes a 1170×2532
+JPEG, an exact App Store size with no alpha channel; hand back its path
+([preview.md](references/preview.md#an-app-store-review-screenshot)).
 
 **A missing element may not be your bug, and a clean preview is not the builder opening the flow.**
 Both, with the four surfaces and what each one proves:

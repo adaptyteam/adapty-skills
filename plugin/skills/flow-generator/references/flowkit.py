@@ -1941,14 +1941,72 @@ def purchase(group_id, action_id='act_buy'):
                                     'variableId': f'{group_id}.selectedProduct'}}}
 
 
-def navigate(screen_id, action_id='act_nav'):
+# Each transition as Flow Builder starts it when an author picks it.
+SCREEN_TRANSITIONS = {
+    'none': {'type': 'none'},
+    'push': {'type': 'push', 'direction': 'left', 'easing': 'ease-out',
+             'duration': 350, 'delay': 0},
+    'slideIn': {'type': 'slideIn', 'direction': 'up', 'easing': 'ease-out',
+                'duration': 350, 'delay': 0},
+    'slideOut': {'type': 'slideOut', 'direction': 'down', 'easing': 'ease-out',
+                 'duration': 400, 'delay': 0},
+    'fadeThrough': {'type': 'fadeThrough', 'easing': 'ease-in-out',
+                    'duration': 300, 'delay': 0},
+}
+TRANSITION_DIRECTIONS = ('left', 'right', 'up', 'down')
+TRANSITION_EASINGS = ('linear', 'ease-in', 'ease-out', 'ease-in-out', 'ease-out-bounce')
+TRANSITION_MAX_MS = 5000
+
+
+def screen_transition(kind, *, direction=None, easing=None, duration=None, delay=None):
+    """`payload.transition` of a `navigate`: `kind` at its builder defaults, plus any overrides.
+
+    Guarded here because `flows config validate` passes a malformed transition and the device
+    then plays the default push, so a wrong value is silent everywhere but this helper and
+    `verify-config.py`. `direction` is the way the moving screen travels: `left` moves it from
+    the right edge to the left. `duration` and `delay` are whole ms, 0-5000.
+    """
+    if kind not in SCREEN_TRANSITIONS:
+        raise ValueError(f'screen_transition({kind!r}): the kinds are '
+                         f'{sorted(SCREEN_TRANSITIONS)}')
+    out = dict(SCREEN_TRANSITIONS[kind])
+    given = {'direction': direction, 'easing': easing, 'duration': duration, 'delay': delay}
+    for key, value in given.items():
+        if value is None:
+            continue
+        if key not in out:
+            raise ValueError(f'screen_transition({kind!r}) takes no {key}')
+        out[key] = value
+    if 'direction' in out and out['direction'] not in TRANSITION_DIRECTIONS:
+        raise ValueError(f'direction {out["direction"]!r}: use one of {TRANSITION_DIRECTIONS}')
+    if 'easing' in out and out['easing'] not in TRANSITION_EASINGS:
+        raise ValueError(f'easing {out["easing"]!r}: use one of {TRANSITION_EASINGS}')
+    for key in ('duration', 'delay'):
+        if key in out and (type(out[key]) is not int
+                           or not 0 <= out[key] <= TRANSITION_MAX_MS):
+            raise ValueError(f'{key} {out[key]!r}: whole ms, 0-{TRANSITION_MAX_MS}')
+    return out
+
+
+def navigate(screen_id, action_id='act_nav', transition=None):
     """Payload shape verified against two real exports: `{"type": "screen", "screen": "<id>"}`.
 
     NOT `{"screenId": …}`, which is the obvious guess and what this helper shipped with for one
     commit. The config API accepts either without complaint, so the wrong one is silent.
+
+    `transition` is a kind (`'slideIn'`) or a `screen_transition()` result. Left out, the screen
+    arrives with the default push: from the right, ease-in-out, 300 ms.
     """
-    return {'id': action_id, 'type': 'navigate',
-            'payload': {'type': 'screen', 'screen': screen_id}}
+    payload = {'type': 'screen', 'screen': screen_id}
+    if transition is not None:
+        if isinstance(transition, dict):
+            kind = transition.get('type')
+            transition = screen_transition(
+                kind, **{k: v for k, v in transition.items() if k != 'type'})
+        else:
+            transition = screen_transition(transition)
+        payload['transition'] = transition
+    return {'id': action_id, 'type': 'navigate', 'payload': payload}
 
 
 def close(action_id='act_close'):

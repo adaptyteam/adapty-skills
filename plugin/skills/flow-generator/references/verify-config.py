@@ -390,6 +390,34 @@ ACTION_REQUIRED = {
     'custom': ('id', 'a payload.id value'),
 }
 
+# `navigate.payload.transition`, from the published schema's `$defs/ScreenTransition`.
+TRANSITION_KEYS = {
+    'none': {'type'},
+    'push': {'type', 'direction', 'easing', 'duration', 'delay'},
+    'slideIn': {'type', 'direction', 'easing', 'duration', 'delay'},
+    'slideOut': {'type', 'direction', 'easing', 'duration', 'delay'},
+    'fadeThrough': {'type', 'easing', 'duration', 'delay'},
+}
+TRANSITION_DIRECTIONS = {'left', 'right', 'up', 'down'}
+TRANSITION_EASINGS = {'linear', 'ease-in', 'ease-out', 'ease-in-out', 'ease-out-bounce'}
+
+
+def transition_problem(t):
+    """What is wrong with a `transition` value, or None. `validate` passes all of these."""
+    if not isinstance(t, dict) or t.get('type') not in TRANSITION_KEYS:
+        return f'type must be one of {sorted(TRANSITION_KEYS)}'
+    want = TRANSITION_KEYS[t['type']]
+    if set(t) != want:
+        return f'{t["type"]} takes exactly {sorted(want)}'
+    if 'direction' in want and t['direction'] not in TRANSITION_DIRECTIONS:
+        return f'direction must be one of {sorted(TRANSITION_DIRECTIONS)}'
+    if 'easing' in want and t['easing'] not in TRANSITION_EASINGS:
+        return f'easing must be one of {sorted(TRANSITION_EASINGS)}'
+    for key in ('duration', 'delay'):
+        if key in want and (type(t[key]) is not int or not 0 <= t[key] <= 5000):
+            return f'{key} must be whole ms, 0-5000'
+    return None
+
 
 def walk(o, fn):
     if isinstance(o, dict):
@@ -1118,6 +1146,22 @@ def check(path, baseline_text=None, baseline_images=None):
     dang = sorted({t for t in tg if t not in sids})
     if dang:
         bad.append(f'dangling navigate targets: {dang}')
+
+    # A malformed transition passes `validate` and plays the default push on a device; on
+    # `navigateBack` and `navigateNext` the key means nothing, so the wish is lost the same way.
+    def check_transition(o):
+        p = o.get('payload')
+        if not isinstance(p, dict) or 'transition' not in p:
+            return
+        if o.get('type') == 'navigate':
+            why = transition_problem(p['transition'])
+            if why:
+                bad.append(f'navigate to {p.get("screen")}: bad transition ({why}); '
+                           f'the device would play the default push')
+        elif o.get('type') in ('navigateBack', 'navigateNext'):
+            bad.append(f'{o["type"]} carries a transition, which only `navigate` reads: back '
+                       f'reverses the arrival, and next needs an explicit `navigate`')
+    walk(d, check_transition)
 
     # An undeclared-but-bound product is a WARNING, not an error: measured, the Flow Builder
     # mints the `flowProductId` and writes the declaration the first time someone opens the

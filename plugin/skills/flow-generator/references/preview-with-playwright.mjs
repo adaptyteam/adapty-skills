@@ -31,6 +31,10 @@
  *   --no-previews       drop every image `previewValue` (shoot.sh uses it to shorten a URL)
  *   --save-config <p>   write the config as it would be rendered and stop; needs no browser
  *   --time-limit <s>    start no new screen after this many seconds; the rest are listed
+ *   --review-screenshot an App Store review screenshot instead: iPhone 14 portrait at 3x, a
+ *                       1170x2532 JPEG (--out defaults to review.jpg), no scroll views. Apple
+ *                       takes only exact screen sizes with no alpha channel, and a browser's PNG
+ *                       carries one even when every pixel is opaque; any other size fails
  *
  * Exit: 0 every screen rendered; 1 one or more did not; 2 bad usage or config; 3 no browser;
  * 4 nothing drew at all and the page gave no reason (it did not load, or did not take the file).
@@ -57,11 +61,14 @@ const IMAGE_WAIT_MS = 10_000
 // Messages the page draws INSTEAD of a screen when the request itself is wrong. A retry cannot
 // change these, so they fail at once.
 const FINAL_PAGE_MESSAGES = [/Unknown device "/, /No screen "/, /Flow has no screens/, /Config must be a flow/]
+// The review size is fixed: iphone-14 is 390x844 points, so 3x is 1170x2532, one of Apple's sizes.
+const REVIEW = {device: 'iphone-14', height: 2532, orientation: 'portrait', scale: 3, width: 1170}
 
 const USAGE =
   'Usage: node preview-with-playwright.mjs --config <flow.json> [--screen <id> ...]\n' +
   '         [--out shot.png | --out <dir>/shot-{screen}.png] [--device iphone-14] [--orientation portrait]\n' +
-  '         [--locale <code>] [--no-previews] [--save-config <path>] [--time-limit <s>] [--app-url <url>]'
+  '         [--locale <code>] [--no-previews] [--save-config <path>] [--time-limit <s>] [--app-url <url>]\n' +
+  '         [--review-screenshot]  (iPhone 14 portrait at 3x, JPEG; --out defaults to review.jpg)'
 
 class UsageError extends Error {}
 
@@ -374,6 +381,17 @@ async function renderScreen(context, {appUrl, args, payloadBuffer, configName, s
 
     const hidden = await page.evaluate(pageHideOverlays, SCREEN_CONTENT_SELECTOR)
     mkdirSync(dirname(out), {recursive: true})
+    if (args['review-screenshot']) {
+      const box = await content.boundingBox()
+      const size = `${Math.round(box.width * REVIEW.scale)}x${Math.round(box.height * REVIEW.scale)}`
+      if (size !== `${REVIEW.width}x${REVIEW.height}`) {
+        throw new RenderError(`the screen rendered at ${size}, not ${REVIEW.width}x${REVIEW.height}: Apple would refuse it`, {final: true})
+      }
+
+      await content.screenshot({path: out, quality: 90, type: 'jpeg'})
+      return {blank, hidden, scroll: null, scrollOut: null}
+    }
+
     await content.screenshot({path: out, type: 'png'})
 
     const scroll = await page.evaluate(pageScroller, SCREEN_CONTENT_SELECTOR)
@@ -436,6 +454,7 @@ async function main() {
         'no-previews': {type: 'boolean'},
         orientation: {default: 'portrait', type: 'string'},
         out: {type: 'string'},
+        'review-screenshot': {type: 'boolean'},
         'save-config': {type: 'string'},
         screen: {multiple: true, type: 'string'},
         'time-limit': {type: 'string'},
@@ -446,6 +465,8 @@ async function main() {
   }
 
   if (!args.config) fail('No config: pass --config <path to the flow JSON>.')
+  const review = Boolean(args['review-screenshot'])
+  if (review) Object.assign(args, {device: REVIEW.device, orientation: REVIEW.orientation})
 
   let doc
   let payload
@@ -489,7 +510,8 @@ async function main() {
   if (!firstScreen && screens[0] === null) fail(`No screen to render: ${args.config} has no screens.`)
   const outFor = (screen) => {
     const id = screen ?? firstScreen
-    const template = args.out ?? (screens.length > 1 ? 'preview-{screen}.png' : 'preview.png')
+    const [stem, ext] = review ? ['review', 'jpg'] : ['preview', 'png']
+    const template = args.out ?? (screens.length > 1 ? `${stem}-{screen}.${ext}` : `${stem}.${ext}`)
     if (screens.length > 1 && !template.includes('{screen}')) {
       fail(`Several screens need {screen} in --out, e.g. --out /abs/dir/shot-{screen}.png (got ${template}).`)
     }
@@ -529,7 +551,10 @@ async function main() {
   try {
     // Room for the largest frame (ipad-pro-13, landscape) with the page's margin, so the whole
     // screen is on the viewport and nothing the page pins to the window edge lands on it.
-    const context = await launched.browser.newContext({viewport: {height: 1600, width: 1600}})
+    const context = await launched.browser.newContext({
+      deviceScaleFactor: review ? REVIEW.scale : 1,
+      viewport: {height: 1600, width: 1600},
+    })
     const payloadBuffer = Buffer.from(JSON.stringify(payload))
     for (const [i, screen] of screens.entries()) {
       const label = screen ?? firstScreen

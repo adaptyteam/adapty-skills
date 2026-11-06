@@ -20,7 +20,7 @@ of them for you; a hypothesis outside the table fills them itself.
 | Judged on | The one metric that decides the winner. |
 | Rules out | What a win and what a loss take off the table (see "After a test"). |
 | Expected | A range from `evidence.md`, or "untested". |
-| How to run it | "I can build it" (a flow, A/B tested or shown on a placement), "I can set it up" (a segment, new or existing, and its audience on a placement, through `audiences`; the A/B test, through `ab-tests`, once `SKILL.md`, "From hypothesis to A/B test" finds everything it needs), or "you do it in the store or the dashboard", with the steps. |
+| How to run it | "I can build it" (a flow, A/B tested or shown on a placement; a new plan length, created and pushed to the stores, `pricing.md`, "Adding a plan length"), "I can set it up" (a segment, new or existing, and its audience on a placement, through `audiences`; the A/B test, through `ab-tests`, once `SKILL.md`, "From hypothesis to A/B test" finds everything it needs), or "you do it in the store or the dashboard", with the steps. |
 
 ## Known hypothesis types
 
@@ -40,6 +40,11 @@ of them for you; a hypothesis outside the table fills them itself.
 | Localization | Translate [paywall] into [language] on [placement], for [countries] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall |
 | Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion | That change on that paywall | That change on that paywall |
 | Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Conversion to purchase | That change on that flow | That change on that flow |
+| Core price | Raise/Lower [plan] in [country] from [price] to [price] | Revenue per user | Moving it back | This move in this country |
+| Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there |
+| Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder |
+
+When each price type applies, and how it is tested on a copy: `pricing.md`.
 
 A rule-out is keyed to its target. Adding a trial to annual and losing rules out a trial on
 annual; it says nothing about a trial on monthly. A ruled-out idea is not deleted: say
@@ -57,7 +62,8 @@ changes.
    `diagnosis.md`). Compare the app against its own past, and against `market.md` only where the
    measure is the same (paywall view → paid, trial → paid, plan mix; never install → paid against
    a paywall conversion):
-   - conversion fine, revenue per user low → plan structure: push buyers toward the leading length
+   - conversion fine, revenue per user low → plan structure: push buyers toward the leading length;
+     and the price, placed against the market (`pricing.md`)
    - conversion low, revenue per user low → plan structure and the paywall itself
    - both fine → localization, plan mix and placements
 4. **Context that changes the answer.**
@@ -313,6 +319,7 @@ Adapty](https://adapty.io/docs/create-offer.md).
 
 | Change | App Store | Google Play |
 |---|---|---|
+| Add a plan length | A new subscription in the existing group, created and pushed from Adapty (`pricing.md`, "Adding a plan length"); a lifetime plan is a non-consumable in-app purchase | A new base plan on the existing subscription, pushed from Adapty; a lifetime plan is a one-time product |
 | Add, change or remove a trial | An introductory offer on the product. It reaches every eligible buyer of that product, so a test needs a second product with or without it | An offer on the product's base plan (at least 3 days). Its offer ID goes on the product in Adapty; the test is a paywall that sells the product with the offer against one without |
 | A discount for former subscribers | A win-back offer on the existing product, added to it in Adapty and picked on the paywall. Only churned users are eligible; no new product | An offer on the base plan with "Developer determined" eligibility, shown only to the win-back audience |
 | A discount for anyone (an offer on close) | A promotional offer on the existing product, or a second product | An offer on the base plan |

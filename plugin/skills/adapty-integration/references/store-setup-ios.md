@@ -69,9 +69,9 @@ Server notifications are required for subscription events (renewals, cancellatio
    - **Sandbox Server URL**
 4. Save in App Store Connect.
 
-### Step 2d: App Store Connect API key *(only for the dashboard push-to-stores path)*
+### Step 2d: App Store Connect API key *(only for the push-to-stores path)*
 
-Skip this unless the user chose to create products **from the Adapty dashboard and push them to the App Store** (Step 4, path C). Linking products that already exist does not need it.
+Skip this unless the user chose to create products **in the store by a push from Adapty** (Step 4, path C). Linking products that already exist does not need it.
 
 > **This is a different key pair from the In-App Purchase Key in Step 2b.** Both are generated in App Store Connect under Users and Access, and both label their fields **Issuer ID** and **Key ID**, so they are easy to confuse. The In-App Purchase key lets Adapty *validate* purchases; this one lets Adapty *write* products into App Store Connect. Having one does not give you the other.
 

@@ -229,7 +229,8 @@ one it shows that is not there:
   and stops there: measured on a two-screen config, a button carrying a `navigate` action left the
   page unchanged across two real clicks and a synthetic one. Every screen therefore needs its own
   render, and **branching cannot be checked here at all** — a `conditional` fires on a tap that
-  never resolves. Route coverage is an Adapty-app check, or a reading of the config.
+  never resolves. Route coverage is an Adapty-app check, or a reading of the config. A
+  [screen transition](patterns.md#a-screen-transition) is invisible here for the same reason.
 
   **A screen that advances itself is therefore 100% unverifiable here, and that changes how you
   hand it over.** Measured on a timed loading screen: after 15 s of
@@ -603,3 +604,23 @@ preview. Take ids from the device table above; the file input reports that page 
 `Unknown device "…"` as a *page*, a broken fragment with an error page, and a wrong host with a
 login screen — all of which are PNGs that pass a "did anything draw" test. Before you reason about
 a render, confirm it shows the screen you asked for.
+
+## An App Store review screenshot
+
+A product push to the App Store carries a review screenshot, and the server refuses it unless it is
+PNG or JPEG, exactly one of Apple's screen sizes, and has no alpha channel. A browser's PNG always
+carries an alpha channel, even with every pixel opaque, so it is refused. `--review-screenshot`
+renders the screen as an iPhone 14 at 3x and writes a 1170×2532 JPEG; it fails rather than write
+a file of any other size. Pick the screen that shows the products and the purchase button. It
+needs the file input's `playwright-core` (above; `shoot.sh` installs it), and every path is
+absolute because the command runs from the cache directory:
+
+```bash
+(cd ~/.cache/adapty-flow-playwright && node <absolute path to preview-with-playwright.mjs> \
+  --config <absolute path>/flow.working.json --screen <screen_id> --review-screenshot \
+  --out <absolute path>/review.jpg)
+```
+
+This is the flow as Adapty renders it, not the app around it. Whether it satisfies Apple's review
+is Apple's call; a simulator screenshot of the real app showing the flow is closer, when one is
+available.

@@ -42,10 +42,10 @@ same defect as an invented UUID with better odds** — measured on live runs: th
 "plausible" products worked only because the sandbox had one obvious set.
 
 **Provenance — required reading before you trust a flag on this page.** The flags were verified
-via `--help` on `adapty/0.3.0` and **re-verified unchanged on 0.6.0**. The two *runtime*
-requirements below — at least one store binding, and `--android-base-plan-id` with
-`--android-product-id` — were observed by running the command on 0.3.0 and have not been
-re-tested since. Note also that `--help` is not a reliable command inventory: it omitted
+via `--help` on `adapty/0.3.0` and **re-verified unchanged on 0.6.0**. The `products create`
+rules below — store bindings optional to the CLI, and `--android-base-plan-id` with
+`--android-product-id` — come from the command's source in `adaptyteam/adapty-cli`
+(`src/cli/commands/products/create.ts`). Note also that `--help` is not a reliable command inventory: it omitted
 `flows config validate` and `flows config preview` entirely on the version where both existed.
 So on any newer CLI, re-check against each command's own `static flags` declaration — in
 `adaptyteam/adapty-cli`, or in the installed package's `dist/commands/`. Do not treat this page
@@ -551,17 +551,18 @@ Offer this only when no product in `products list` fits. Two commands:
 $ADAPTY access-levels list --app <UUID> --json    # to get --access-level-id
 $ADAPTY products create --app <UUID> --access-level-id <UUID> \
                        --period <value> --title <title> \
-                       <AT LEAST ONE store binding>
+                       <the store bindings the user gave>
 ```
 
 `--period` takes exactly one of: `weekly`, `monthly`, `two_months`, `trimonthly`, `semiannual`,
 `annual`, `lifetime`.
 
-**At least one store binding is REQUIRED**, despite `--help` presenting them all as optional in
-square brackets under a "STORE BINDINGS FLAGS" heading. Omit them all and the command fails with
-`Error: At least one store binding is required (ios/android/stripe/paddle)` and exits 2. This was
-found by running it, not by reading — treat it as one more instance of the repo-wide rule that
-CLI prose contradicts CLI behaviour, and verify against behaviour or per-command source.
+**Store bindings are optional to the CLI and required here.** Without one the CLI creates a
+product that exists in Adapty only: nothing can buy it until a `products push` creates it in App
+Store Connect or Google Play, and that push (its USD price, review screenshot and store
+connection) is `adapty-integration`'s path C. So a create from this skill always carries the
+store IDs the user gave. When the product is not in the stores yet, offer to create it there
+through `adapty-integration`, and bind it once `products list` shows it.
 
 The bindings: `--ios-product-id`, `--android-product-id`, `--android-base-plan-id`, and the
 **paired** `--stripe-product-id`/`--stripe-price-id` and
@@ -569,15 +570,12 @@ The bindings: `--ios-product-id`, `--android-product-id`, `--android-base-plan-i
 half alone is not a binding.
 
 **`--android-product-id` additionally requires `--android-base-plan-id` for subscriptions**,
-which `--help` also presents as optional: `Error: --android-base-plan-id is required with
---android-product-id for subscriptions`. So the minimum viable subscription create is
-`--period` + `--title` + `--access-level-id` + `--app` + **either** `--ios-product-id` alone
-**or** `--android-product-id` together with `--android-base-plan-id`.
+which `--help` presents as optional; the CLI refuses the create without it. So a subscription
+create here is `--period` + `--title` + `--access-level-id` + `--app` + **either**
+`--ios-product-id` alone **or** `--android-product-id` together with `--android-base-plan-id`.
 
-**Never pass `--json` to a create you are debugging.** On failure it emits only
-`{"error":{"oclif":{"exit":2}}}` and discards the message that tells you which flag is missing.
-Run it plain, read the error, then re-run. Two required-flag rules above were invisible until
-`--json` was dropped.
+**Read a failed create's own error before you re-run it:** it names the flag that is missing or
+wrong.
 
 **You cannot invent a store product id.** It has to match a real entry in App Store Connect,
 Play Console, Stripe or Paddle. A product bound to an id that exists in neither place is created
