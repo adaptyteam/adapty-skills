@@ -554,8 +554,11 @@ $ADAPTY products create --app <UUID> --access-level-id <UUID> \
                        <the store bindings the user gave>
 ```
 
-`--period` takes exactly one of: `weekly`, `monthly`, `two_months`, `trimonthly`, `semiannual`,
-`annual`, `lifetime`.
+`--period` takes exactly one of nine values. Subscription periods: `weekly`, `monthly`,
+`two_months`, `trimonthly`, `semiannual`, `annual`. One-time purchases: `lifetime`, `consumable`
+(bought again, such as coins), `nonsubscriptions` (non-renewing). A CLI older than X.Y.Z (the
+first release that takes `consumable` and `nonsubscriptions`) lists only the other seven in
+`products create --help`.
 
 **Store bindings are optional to the CLI and required here.** Without one the CLI creates a
 product that exists in Adapty only: nothing can buy it until a `products push` creates it in App
@@ -569,9 +572,10 @@ The bindings: `--ios-product-id`, `--android-product-id`, `--android-base-plan-i
 `--paddle-product-id`/`--paddle-price-id`. Each of those two pairs requires its partner — one
 half alone is not a binding.
 
-**`--android-product-id` additionally requires `--android-base-plan-id` for subscriptions**,
-which `--help` presents as optional; the CLI refuses the create without it. So a subscription
-create here is `--period` + `--title` + `--access-level-id` + `--app` + **either**
+**`--android-product-id` additionally requires `--android-base-plan-id` for a subscription
+period**, which `--help` presents as optional; the CLI refuses the create without it. A one-time
+period (`lifetime`, `consumable`, `nonsubscriptions`) takes no base plan and the API refuses one.
+So a subscription create here is `--period` + `--title` + `--access-level-id` + `--app` + **either**
 `--ios-product-id` alone **or** `--android-product-id` together with `--android-base-plan-id`.
 
 **Read a failed create's own error before you re-run it:** it names the flag that is missing or
