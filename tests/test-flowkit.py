@@ -213,6 +213,30 @@ def main():
     check('navigate payload is {type: screen, screen: id}',
           fk.navigate('scr_x')['payload'] == {'type': 'screen', 'screen': 'scr_x'},
           json.dumps(fk.navigate('scr_x')['payload']))
+    check('navigate(transition=kind) writes the builder defaults',
+          fk.navigate('s', transition='slideIn')['payload']['transition']
+          == {'type': 'slideIn', 'direction': 'up', 'easing': 'ease-out',
+              'duration': 350, 'delay': 0})
+    check('screen_transition overrides one setting',
+          fk.screen_transition('push', direction='up')['direction'] == 'up')
+    check('none carries only its type',
+          fk.navigate('s', transition='none')['payload']['transition'] == {'type': 'none'})
+    for why, call in (
+            ('unknown kind', lambda: fk.navigate('s', transition='slide')),
+            ('fadeThrough has no direction',
+             lambda: fk.screen_transition('fadeThrough', direction='up')),
+            ('none has no timing', lambda: fk.screen_transition('none', duration=100)),
+            ('over 5000 ms', lambda: fk.screen_transition('push', duration=5001)),
+            ('fractional ms', lambda: fk.screen_transition('push', delay=12.5)),
+            ('unknown easing', lambda: fk.screen_transition('push', easing='spring')),
+            ('unknown direction', lambda: fk.screen_transition('push', direction='bottom')),
+            ('a dict is checked too', lambda: fk.navigate('s', transition={'type': 'push',
+                                                                          'speed': 'fast'}))):
+        try:
+            call()
+            check(f'screen_transition refuses: {why}', False)
+        except (ValueError, TypeError):
+            check(f'screen_transition refuses: {why}', True)
 
     check('_meta.screens is left empty (builder-owned)', cfg['_meta']['screens'] == {})
 

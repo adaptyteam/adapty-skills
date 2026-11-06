@@ -181,6 +181,53 @@ check('a screen reached by "Navigate Next" is not reported unreachable', not u, 
 u, out = unreachable(two_screens({'id': 'a', 'type': 'nothing', 'payload': {}}))
 check('...while a screen nothing leads to still is', u, out)
 
+print('\nnavigate transitions (verify-config)')
+
+
+def verify_out(doc):
+    with tempfile.TemporaryDirectory() as tmp:
+        p = os.path.join(tmp, 'c.json'); json.dump(catalogued(doc), open(p, 'w'))
+        out = subprocess.run([sys.executable, VERIFY, p], capture_output=True, text=True).stdout
+    assert 'CHECKER ERROR' not in out, out
+    return out
+
+
+def go(transition, kind='navigate'):
+    payload = {'type': 'screen', 'screen': 's2', 'transition': transition}
+    return {'id': 'a', 'type': kind, 'payload': payload}
+
+
+PUSH = {'type': 'push', 'direction': 'left', 'easing': 'ease-out', 'duration': 350, 'delay': 0}
+FADE = {'type': 'fadeThrough', 'easing': 'linear', 'duration': 300, 'delay': 0}
+for t in ({'type': 'none'}, PUSH, {**PUSH, 'type': 'slideIn', 'direction': 'up'},
+          {**PUSH, 'type': 'slideOut', 'easing': 'ease-out-bounce', 'duration': 0, 'delay': 5000},
+          FADE):
+    out = verify_out(two_screens(go(t)))
+    check(f'{t["type"]} passes', 'transition' not in out, out)
+for why, t in (('no delay', {k: v for k, v in PUSH.items() if k != 'delay'}),
+               ('direction on fadeThrough', {**FADE, 'direction': 'up'}),
+               ('over 5000 ms', {**PUSH, 'duration': 5001}),
+               ('fractional ms', {**PUSH, 'duration': 12.5}),
+               ('true for a number', {**PUSH, 'delay': True}),
+               ('unknown easing', {**PUSH, 'easing': 'spring'}),
+               ('unknown direction', {**PUSH, 'direction': 'bottom'}),
+               ('unknown type', {'type': 'slide', 'speed': 'fast'}),
+               ('not an object', 'push')):
+    out = verify_out(two_screens(go(t)))
+    check(f'refused: {why}', 'bad transition' in out, out)
+nested = {'id': 'c', 'type': 'conditional', 'payload': {
+    'type': 'switch', 'cases': [],
+    'default': {'type': 'const', 'value': [go({'type': 'slide'})]}}}
+check('refused inside a conditional branch', 'bad transition' in verify_out(two_screens(nested)))
+for kind in ('navigateBack', 'navigateNext'):
+    out = verify_out(two_screens({'id': 'a', 'type': kind, 'payload': {'transition': PUSH}}))
+    check(f'{kind} with a transition is refused', 'only `navigate` reads' in out, out)
+for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
+    out = subprocess.run([sys.executable, VERIFY, f], capture_output=True, text=True).stdout
+    if 'bad transition' in out or 'only `navigate` reads' in out:
+        check(f'silent on {os.path.basename(f)}', False, out)
+check('silent on every real export', True)
+
 print()
 if fails:
     print(f'{len(fails)} FAILED')

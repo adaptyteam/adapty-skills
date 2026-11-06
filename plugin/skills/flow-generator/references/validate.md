@@ -183,6 +183,7 @@ A clean `validate` is a floor, not a proof. Every one of these passed with `vali
 | Text bound to a layered theme colour with no solid layer — it draws fully transparent ([flow-schema.md](flow-schema.md), trap 26) | `references/verify-config.py` (an error) |
 | A hyphen in an element id, which breaks the generated runtime script | `references/verify-config.py` (added after this row; the render still cannot show it — see [flow-schema.md](flow-schema.md#element-and-screen-ids-become-identifiers)) |
 | A locale code with the wrong casing (`pt-br` for `pt-BR`): the publish refuses it with a pattern violation on `/localizations/N/id` | `references/verify-config.py` (a warning, and it outranks the clean validate: fix the code before publishing) |
+| A malformed `transition` on a `navigate` (a wrong type, a missing `delay`, 5001 ms): the device plays the default push | `references/verify-config.py` (an error) and the schema check |
 | A product id that does not exist in this app | nothing; no price on device and the purchase fails |
 | Advisory warnings about silently dropped props (`verticalAlign` and friends) | nothing reachable from the CLI |
 

@@ -229,7 +229,8 @@ one it shows that is not there:
   and stops there: measured on a two-screen config, a button carrying a `navigate` action left the
   page unchanged across two real clicks and a synthetic one. Every screen therefore needs its own
   render, and **branching cannot be checked here at all** — a `conditional` fires on a tap that
-  never resolves. Route coverage is an Adapty-app check, or a reading of the config.
+  never resolves. Route coverage is an Adapty-app check, or a reading of the config. A
+  [screen transition](patterns.md#a-screen-transition) is invisible here for the same reason.
 
   **A screen that advances itself is therefore 100% unverifiable here, and that changes how you
   hand it over.** Measured on a timed loading screen: after 15 s of
