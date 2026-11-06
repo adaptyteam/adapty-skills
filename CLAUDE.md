@@ -23,7 +23,7 @@ Gemini CLI), all shipped in one plugin, `adapty-skills`:
 | `audiences` | Creates or reuses segments and adds them as placement audiences |
 | `flow-audit` | Read-only: is this Flow Builder flow ready for production |
 | `flow-generator` | Reads, transforms, builds and writes Flow Builder configs; attaches a published flow to a placement |
-| `growth-advisor` | Reads the app's subscription numbers through the read-only `analytics` topic and returns hypotheses to A/B test; no pricing |
+| `growth-advisor` | Reads the app's subscription numbers through the read-only `analytics` topic and its prices through `product-prices`, and returns hypotheses to A/B test |
 | `migrate-placements` | Moves an app from paywall placements to flow placements, by creating new ones |
 | `onboarding-teardown` | Growth hypotheses for an onboarding sequence; touches nothing |
 | `paywall-teardown` | Conversion hypotheses for a paywall screen; touches nothing |
@@ -180,7 +180,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **A new platform** needs `references/<platform>.md` and a published `<platform>-llms-full.txt`; **a new migration source** needs `references/migration-<source>.md` and a spine detection row.
 - **Every "no Adapty equivalent" claim carries its own `llms.txt` grep** (or a page re-read for model limits) and says a hit means report the equivalent.
 - **SDK timings and failure modes come from SDK source at a pinned release tag;** re-read it when touching them. Take RevenueCat URLs from its `llms.txt`.
-- **The store product ID is a slot in the `products create` template:** a store-less product succeeds and cannot be repaired from the CLI.
+- **The store product ID is a slot in the `products create` template:** a store-less product succeeds and only a `products push` completes it, so it is created on the push path alone, after the store connection check.
 
 ### `adapty-mail`
 
@@ -227,7 +227,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 - **`references/evidence.md` is vendored byte-for-byte from the growth team.** Repo-specific facts go elsewhere; never quote the raw test library, which names customers.
 - **One owner per number:** uplift ranges from `evidence.md`, market medians and win rates from `market.md`. No Autopilot impact numbers.
-- **Pricing is out of scope:** no price is read, compared or proposed, and price is mentioned only in the skill's fixed sentence. Don't restore the deleted competitor-price reads.
+- **Prices come from the price CSV and the vendored index, never from competitors;** a price is tested on a copy and goes live only through "Changing a live price". Don't restore the deleted competitor-price reads.
 - **Two words for users: a hypothesis, and once picked, an A/B test.** Ask which one to start with, never for a verdict on each.
 - **A live placement changes only through the confirmation block:** `update` replaces every audience, so a running A/B test entry not passed back as read stops that test.
 - **A picked hypothesis becomes an A/B test through `ab-tests`, offered unasked, and only after a read shows each thing it needs exists** (published flow copy, product with store IDs, segment, placement with traffic). A missing one is a Next step with who makes it, never a placeholder arm; of the `ab-tests` commands this skill runs only `list` and `get`, for the app's test history.
