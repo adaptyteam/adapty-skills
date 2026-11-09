@@ -279,6 +279,10 @@ options.
     Connectors → **Add custom connector**, with the URL above.
   - Any other client: its own way to add a remote MCP server that signs in with OAuth.
 
+  An account on Adapty's EU servers uses `https://mcp-eu.adapty.io/mcp` in place of the URL above,
+  in every step. The plugin adds only the default server, so add the EU one by hand even with it.
+  https://adapty.io/docs/eu-cluster.md
+
   If the tools do not appear in this session, the user starts a new one: say so and stop.
 
 Example of the question's shape, not words to copy:
