@@ -31,7 +31,7 @@
 # Each screen prints a line as it starts and as it lands. Every finished PNG is kept: a run that
 # hits TIME_LIMIT, or is stopped, names what it rendered and what it did not.
 set -uo pipefail
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"   # -P: a symlinked install resolves to the real files
 CFG="${1:?usage: shoot.sh <config.json> [screen-id ...]}"; shift || true
 SCREENS="$*"
 if [ -z "${OUT:-}" ]; then
@@ -182,7 +182,12 @@ if [ "${PLAYWRIGHT:-1}" != 0 ] && command -v node >/dev/null 2>&1; then
     # 3 is no browser that starts, 4 a page that never drew anything (it did not load, or did not
     # take the file): the URL route below is a different way into the same page, so try it. Any
     # other failure is the page's own verdict on the request, which that route would only repeat.
-    case "$rc" in 3|4) ;; *) exit 1 ;; esac
+    case "$rc" in
+      3|4) ;;
+      0) echo "   the file-input script exited 0 but wrote no PNG: node did not run it as the main script" \
+              "($HERE/preview-with-playwright.mjs)" >&2; exit 1 ;;
+      *) exit 1 ;;
+    esac
     echo "   the file-input route rendered nothing; trying the browser's own screenshot of the preview URL" >&2
   fi
 fi

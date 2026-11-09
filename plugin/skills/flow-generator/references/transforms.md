@@ -242,24 +242,13 @@ untouched — a brand name, `·` separators, an em dash; then **assert nothing f
 remains**, which is the one check that catches a letter missing from the table.
 
 
-### 8. The exact code you wrote, because its casing is load-bearing
+### 8. Which code a language gets
 
-The locale code is the string the SDK matches a device's language against, and its pattern is
-**case-sensitive per subtag**: `language[-Script][-REGION]`, with the region in UPPERCASE and a
-script subtag in four letters of Title case. `pt-BR` is right and **`pt-br` is refused at
-publish** — an output-schema violation on `/localizations/N/id`, from a document that saved without
-complaint. This is the one way an add-a-locale run can produce something unpublishable.
-
-Two things make it worth a decision rather than a footnote:
-
-- **The repair is expensive once the translations exist.** When the locale's `id` is the same
-  string as its code, renaming means the entry in `localization.locales`, the key in every catalog
-  `values` map, and `remote_configs` — so getting it right
-  costs nothing now and a full pass later. That pass, once the user says yes, is
-  `python3 references/localization.py rename IN.json pt-br pt-BR`; it refuses a code already present.
-- **A code that arrives in a config you FETCHED is not yours to rewrite in passing.** Report it
-  and ask. `verify-config.py` warns for exactly that case; `flowkit.config()` refuses to emit one,
-  because a code you are writing now has no excuse.
+The code is `language[-Script][-REGION]`: `pt` or `pt-BR`, `zh-Hans`, `es-419`. Casing does not
+matter, since the publish writes every code out in one casing; a code outside that shape is refused
+at publish. `pt` and `pt-BR` are different locales. Renaming one later means the entry in
+`localization.locales`, the key in every catalog `values` map, and `remote_configs`:
+`python3 references/localization.py rename IN.json <old> <new>`, once the user says yes.
 
 **Your report names the code, not the language** — `pt-BR`, not "Brazilian Portuguese" — which is
 the same reason decision 7 asks for `sr` versus `sr-Latn`: the code is what gets matched, and it

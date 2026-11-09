@@ -138,6 +138,11 @@ with every ref inlined where it is used; `verify-config.py`, `diff-config.py`, `
 `flow-audit`'s checker all read that. The view is for reading: it duplicates shared entries and
 drops the catalog, so writing it back would split every shared entry.
 
+**After a conversion, an Open URL link holds a value for the default locale only.** That is
+correct: the other languages fall back to it, so do not copy it into them. **And the Flow Builder
+saves only a changed flow:** a flow the user opens to have the builder migrate it needs one real
+edit before the save, or nothing is written.
+
 `flowProductId` is a UUIDv5 over `screenId:productId[:offerId]`, hashed with an empty namespace.
 Derive it with `flowkit.flow_product_id()` ([products.md](products.md)). Never invent one, and
 never lift one from another export — it is scoped to the screen it was derived for.
@@ -382,7 +387,9 @@ And an element-level `font` is either a preset reference or a full override with
 "font": {"family": {"id": "<font-uuid>", "type": "user"}, "size": 32, "weight": "semibold"}
 ```
 
-Do not add a `preset` to the second form to make it look like the first.
+Do not add a `preset` to the second form to make it look like the first. A preset with a
+`weight` or `size` beside it is a state override (trap 17) and fine; a preset with a `family` is
+the mix `verify-config.py` warns on: the preset's face draws and the family is silently ignored.
 
 ### 4. Built-in variables are referenced but never declared
 
@@ -1224,6 +1231,11 @@ also saves, and kills the element on device. Rules:
 
 `references/verify-config.py` warns on both forms.
 
+**`min` and `max` on a `fill` size do not cap a fill:** the transformer turns that size into a
+plain `{min, max}` size and it stops filling, so a gap built from them no longer takes the spare
+height. The shape that works is a fixed-height block plus an empty `height: fill` spacer
+([patterns.md → A tall phone's extra height goes to the hero](patterns.md#a-tall-phones-extra-height-goes-to-the-hero)).
+
 ### 16. `purchase` hard-terminates the flow — nothing can be shown after it
 
 Stated flatly by the builder team (2026-08-20): the `purchase` action compiles only into the SDK
@@ -1251,6 +1263,10 @@ its state overrides repeats every key of the base prop it replaces. `flowkit.on_
 refuses an override that drops a key of the base, and `verify-config.py` warns on one. Until
 October 2026 the transformer deep-merged states instead, so older notes and flows may say a
 left-out sub-field is inherited; it no longer is.
+
+The same goes for `visibility`: an element hidden in its base and again in
+`propsByState.selected` stays hidden in that state when you unhide only the base. To show it,
+change both.
 
 ### 18. `props.verticalAlign` on text is emitted by the builder and ignored by the SDK
 
@@ -1582,7 +1598,8 @@ fill may also hold a single `color-style` reference to a layered style, which is
 when the stack must change between light and dark. A gradient layer is linear, set by its
 `angle`: Flow Builder cannot draw a radial gradient yet, so a glow is a linear gradient or an image
 ([media.md](media.md)). An input's or a picker's fill draws only its
-first (bottom) layer.
+first (bottom) layer. An image layer on a stack can draw blank in the preview and still draw on a
+device ([preview.md](preview.md#what-a-render-cannot-show-you)).
 
 ### `effects` renders — a drop shadow is available, and measured
 
@@ -2034,7 +2051,7 @@ style error: you will search for an element type that does not exist, or invent 
 | the user's name, their coin balance, streak, level, days left, current plan, "something the app knows" | A **custom tag**: a `variables[]` entry with `external: true` whose `name` the app's code passes, shown by a rich-text `variable` node. Text only, and it needs app code — [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic). |
 | show, hide or skip something based on what the app knows (VIP status, a permission already granted, country) | **Not buildable from a custom tag** — logic sees only its fallback. A separate flow per segment behind the placement's audiences, or a `custom` action the app handles. Say so rather than wiring a condition that never fires. |
 | how a screen arrives — slides up, fades in, no animation | `payload.transition` on the `navigate`: [patterns.md](patterns.md#a-screen-transition). Not a `bottom-sheet` or a `sliding-sheet`, which are parts of one screen. |
-| an element that fades, slides or scales in on its own | **Not yet in Flow Builder.** An element's only animation is Pulse (the `btn-pulse` template). Offer a screen transition, a `showElement` after a `timer`, or a video or animated WebP of the motion. |
+| an element that fades, slides or scales in on its own | **Not yet in Flow Builder.** An element's only animation is Pulse (the `btn-pulse` template). Offer a screen transition, a `showElement` after a `timer`, or the motion as a `video` element (a GIF does not upload, and an animated WebP plays one frame). |
 | a close button, "dismiss" | A tappable `stack` whose action is `{"type": "closeFlow"}` (no payload). |
 | something that appears after a few seconds — a close button, a skip link | The element starts `visibility: hidden`, and a `timer` with its digits inside fires `showElement` on it at `timer-end` — [patterns.md](patterns.md#a-countdown). **Not** the `animation` field's `showAfterDelay`: that belongs to the Pulse animation. |
 | a hero image the content slides up over, an overlay hero, a panel over a background | A **`sliding-sheet`** at the screen root holding the content, with the hero as the screen `fill` or as a root sibling of the sheet (the cover band). **Not a `bottom-sheet`**: that one is a hidden modal an action opens. See [`patterns.md`](patterns.md). |

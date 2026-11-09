@@ -157,10 +157,10 @@ def ids_after(config, *, prefix='el'):
 # bare UUIDs for the entry screen. Same pattern as `verify-config.py`'s `_ID_RE`.
 _IDENT = re.compile(r'[A-Za-z0-9_]+')
 
-# `language[-Script][-REGION]`. The naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong: a script subtag is
-# four letters in Title case and `sr-Latn` is a real code in a real export. Same pattern as
-# `verify-config.py`'s `LOCALE_CODE`.
-LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?\Z')
+# `language[-Script][-REGION]` as the transformer accepts it: any casing, `-` or `_`. It writes
+# every code out in one casing (`pt-br` ships as `pt-BR`), so casing is not checked here. Same
+# pattern as `verify-config.py`'s `LOCALE_CODE`.
+LOCALE_CODE = re.compile(r'(?i)[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?\Z')
 
 
 def eid(kind='S'):
@@ -1295,7 +1295,7 @@ def _image_value(url, media_id, preview):
     return entry
 
 
-def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hexval=None):
+def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None):
     """A background image fill — `props.fill` on a screen or a stack.
 
     The SAME asset binds two different ways and this is the other one: an `image` element wraps
@@ -1308,15 +1308,11 @@ def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hex
     `preview` matters here for the same reason it does on an element, and more visibly: a
     background is usually the largest asset on the screen, so it is the one whose absence reads
     as a broken screen rather than a missing picture.
+
+    An image layer carries no colour: the schema allows only `type`, `image` and
+    `customMediaID`. A tint or a colour behind the photo is its own `fill()` layer in the stack.
     """
-    layer = {'type': 'image', 'image': _image_value(url, media_id, preview)}
-    if color_id is not None and hexval is not None:
-        raise TypeError('image_fill(): pass color_id or hexval, not both')
-    if color_id is not None:
-        layer['color'] = color(color_id)
-    elif hexval is not None:
-        layer['color'] = hex_color(hexval)
-    return [layer]
+    return [{'type': 'image', 'image': _image_value(url, media_id, preview)}]
 
 
 def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width=None, height='hug',
@@ -1671,6 +1667,14 @@ def on_selected(node, **props):
     if not props:
         raise ValueError('on_selected() with no props does nothing — pass the overrides that '
                          'should apply while selected, e.g. fill=fill("planOn").')
+    # A preset with a weight on top is the shape below; a preset with its own `family` is a
+    # manual font with a preset added (flow-schema.md, trap 3): the preset's face draws and the
+    # family is ignored.
+    font = props.get('font')
+    if isinstance(font, dict) and 'preset' in font and 'family' in font:
+        raise ValueError(
+            f'on_selected(font={font!r}) sets a preset AND a family — a font is either '
+            f'{{"preset": "<id>", ...}} or a manual font (family, size, weight) with no preset.')
     dropped = state_override_drops(node.get('props') or {}, props)
     if dropped:
         raise ValueError(
@@ -3143,21 +3147,13 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             'pass locales=(("en", "English"), ("ru", "Russian"), …) — do not ship it as a '
             'warning for someone else to clear up.')
 
-    # The locale code is what the SDK matches against, and its pattern is case-sensitive per
-    # subtag: `language[-Script][-REGION]`, script four letters in Title case, region two
-    # uppercase letters or three digits. `pt-br` saves fine and is refused at publish with an
-    # output-schema violation on `/localizations/N/id`, and the repair is heavy by then (the key
-    # has to be renamed in `locales`, in every `values` map, and in `remote_configs`) -- so it is
-    # unrepresentable here rather than a warning after the fact. `verify-config.py` warns on the
-    # same shape, for codes that arrive in a config you fetched rather than one you wrote.
+    # A code outside `language[-Script][-REGION]` is refused at publish (`invalid_locale_code`).
+    # `verify-config.py` reports the same shape for codes in a config you fetched.
     for code in declared:
         if not LOCALE_CODE.fullmatch(str(code)):
             raise ValueError(
-                f'locale code {code!r} is not `language[-Script][-REGION]` with the SDK\'s '
-                f'casing. Region is UPPERCASE (`pt-BR`, not `pt-br`) and a script subtag is '
-                f'four letters in Title case (`zh-Hans`, `sr-Latn`). The transform service '
-                f'refuses the flow at publish with a pattern violation on '
-                f'`/localizations/N/id`.')
+                f'locale code {code!r} is not `language[-Script][-REGION]` (`en`, `pt-BR`, '
+                f'`zh-Hans`, `es-419`); the publish refuses it.')
 
     # An element id becomes an IDENTIFIER in the generated runtime script -- the same code path
     # the condition-variable check below documents. A character outside [A-Za-z0-9_] breaks the

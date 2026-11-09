@@ -575,7 +575,9 @@ create here is `--period` + `--title` + `--access-level-id` + `--app` + **either
 `--ios-product-id` alone **or** `--android-product-id` together with `--android-base-plan-id`.
 
 **Read a failed create's own error before you re-run it:** it names the flag that is missing or
-wrong.
+wrong. `google_play_api_error` with a 403 means the Play service account has no access to this app
+in Play Console (a store permission), not a bad product ID; a `null` `store_status` after the
+create means the store connection or the store product is not there yet.
 
 **You cannot invent a store product id.** It has to match a real entry in App Store Connect,
 Play Console, Stripe or Paddle. A product bound to an id that exists in neither place is created

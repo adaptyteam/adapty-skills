@@ -292,6 +292,13 @@ MCP a whole config or image passes through the conversation as a tool argument. 
 offer the CLI in one line; on a no, go on over MCP, run the local checks yourself, and name each
 check that did not run.
 
+**A 5xx (a `520` too) on `flows config update` may or may not have landed:** `config get` and
+diff before any retry.
+
+**Over MCP, check a whole config's size before you send it.** Configs above roughly 30 KB have
+failed to reach the tool. Above that, offer the CLI once; never seed a stub and push the rest
+through the edit tool in compressed pieces.
+
 ## The CLI surface
 
 ```
@@ -308,7 +315,7 @@ $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--o
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
     (--config-file <file|-> | --config <json-string>) \
     [--expected-updated-at <int>] [--remote-configs <json>]   # left out, the stored ones are cleared
-$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP/GIF, < ~2.5 MB; no SVG
+$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, < ~2.5 MB; no SVG, no GIF
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; 405 in prod, rename in the builder
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404 in prod, see below
 ```
@@ -376,6 +383,12 @@ is the answer to *why*:** its envelope carries `publication_status`, `transform_
 objection. It is a raw string — a JSON issues payload or a summary — with no CLI helper to parse it,
 so read it and quote it rather than re-deriving a cause. Where the API does not send those fields
 they are simply absent; that is not an error, and it does not mean the publish succeeded.
+**`Flow transformation failed. Please contact support.` with a null `transform_error`** carries no
+issue list, so nothing in it names the cause. One cause seen is a wrong
+`_meta.screens[].products[].flowProductId` (an Adapty, vendor or store id where the derived one
+belongs): recompute each with `flowkit.flow_product_id`
+([products.md](references/products.md#a-price-variable-requires-a-product-element-on-the-screen--even-with-no-plan-card))
+before you call it a support case.
 
 **Only `publication_failed` is a failure.** While `flows get` reads `publishing`, an HTTP 503 or
 "busy" in `transform_error` is the transform service under load, and the publication goes on:
@@ -527,8 +540,13 @@ of them ([transforms.md](references/transforms.md) decision 1). Anything you wri
 python3 references/localization.py catalog draft.json
 ```
 
+When `verify-config.py` reports a string as wrong in the source rather than missing, it names it
+once per locale: fix that string in each locale it names, and when more than one variant could be
+right, ask the user which.
+
 A fetched config below `schemaVersion` 13 is converted first, the same way; below 12 the user opens
-and saves it in the Flow Builder and you fetch again. The rules:
+it in the Flow Builder, makes one real edit (an unchanged flow is not saved), saves, and you fetch
+again. The rules:
 [flow-schema.md → Localization: the catalog](references/flow-schema.md#localization-the-catalog).
 
 **Patch what you just fetched.** A build script or a `draft.json` from an earlier run predates
@@ -545,8 +563,10 @@ python3 references/diff-config.py <the-old-local-copy>.json flow.working.json
 (below) the reference's style then replaces the seed's theme. Its first
 `config update` omits `--expected-updated-at`. **A new flow is the safe default for anything the
 user calls new**, because `config update` replaces everything and generating over a flow with
-content discards that content. **Run `flows create` once per new flow**: it does not deduplicate
-and there is no delete, so a second call leaves a second flow in the user's account for good. Keep
+content discards that content. **Run `flows create` once per new flow**, as one explicit command with
+its `--app`, never in a loop: it does not deduplicate and there is no delete, so a second call leaves
+a second flow in the user's account for good. Then `flows get` the id to confirm it landed in that
+app. Keep
 the id it prints, and on any retry (a failed save, a read-back that looks wrong, a later turn)
 write to that id. Coming back without it, look for the name in `flows list` before creating.
 
@@ -605,7 +625,10 @@ first. With neither, ask once; with no answer, use the reference's style and say
 because fixed geometry breaks across devices (team-diagnosed). In **Rebuild**, compare against the
 reference file rather than your memory of it (phase 4). **No design means you are choosing it** —
 "build me a paywall", "build me an onboarding", "make one that converts" — and the request map only
-turns nouns into element types; it says nothing about what sells.
+turns nouns into element types; it says nothing about what sells. Before choosing, ask once
+whether they have a reference screenshot or an app whose look to follow, in the same message as
+your other phase-2 asks, never as a round of its own; on a no, no answer or an unattended run, the
+teardown below is the reference.
 
 **When you are the one choosing, a teardown skill is the reference, and which one is decided by
 what you are building — not by which you reached for last time.**
@@ -671,8 +694,10 @@ you were shown.
 For every asset the screen needs, one of three states, decided before you write the element:
 
 1. **You have a path that reads** — one they gave you, or a project file you found and *named*.
-   A PNG, JPEG or GIF over 500 KB is converted first, and you upload the WebP and say so:
-   `python3 references/weigh-config.py webp <file> media/<name>.webp`.
+   A PNG or JPEG over 500 KB is converted first, and you upload the WebP and say so:
+   `python3 references/weigh-config.py webp <file> media/<name>.webp`. A GIF does not upload and an
+   animated WebP plays one frame, so motion is a `video` element
+   ([media.md → The video placeholder](references/media.md#the-video-placeholder)).
    Upload it now and take **three** values off that one call, `--json` into a file that outlives
    the command so the preview blob stays out of your context:
    ```bash
@@ -1029,7 +1054,8 @@ to the draft, run phase 3's gates and the weigh again, and re-render a screen wh
 
 - **A copy of the default's image in another locale:** delete it. Nothing on screen changes
   ([flow-schema.md](references/flow-schema.md) trap 1).
-- **A heavy PNG, JPEG or GIF:** download it, convert it, upload the WebP and rebind every place
+- **A heavy PNG or JPEG** (a heavy GIF is the builder's: its WebP would play one frame, so offer
+  a `video` instead): download it, convert it, upload the WebP and rebind every place
   that uses it. `--max-width` is 3× the widest box it fills, in points; the default, 1290, fits a
   full-width image. The old file stays in their media library: the upload cannot delete.
   ```bash
@@ -1166,7 +1192,9 @@ A write that changes nothing does not bump `updated_at` (measured once), so re-r
 content is not a fresh lock token. **On a 409** (*"already updated by <name>. Reload before
 saving…"*, exit 1) someone edited the flow since you fetched it and nothing was written: re-`get`
 into `flow.working.json`, re-apply your change **to their config**, tell the user someone else
-saved in between, and write again. Never force
+saved in between, and write again. The builder can auto-save a cleanup of `states` that bumps
+the version and that `diff-config.py` does not show: diff the raw JSON when the summary is empty.
+Never force
 past it and never re-send your local copy — that is the content that would erase their work. If
 their version differs in ways you did not author, ask rather than restore.
 
@@ -1212,8 +1240,9 @@ $ADAPTY flows metrics get "$FLOW" --app "$APP" --based-on placement \
 `unique_profiles_views` on each placement's node is how many people started the flow there; that
 number goes in step 3. When the edit changes what buyers see (copy, plans, layout), the same line
 offers an A/B test of a copy once, through **`ab-tests`**; publishing in place stays the default.
-No placement shows the flow, or `flows metrics --help` says the command does not exist: leave the
-line out.
+No placement shows the flow: leave the line out. When `flows metrics --help` says the command does
+not exist, try `npx --yes adapty@beta flows metrics --help` once (use that form for the read if it
+works); if it lacks it too, the line says the reach was not checked.
 
 **Then end with this callout, every time.** A save is not a release, and it takes their word to
 finish it. Fill the slots and keep all three steps plus the closing line — that line is the

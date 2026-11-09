@@ -24,8 +24,8 @@ not be read.
 
 `webp` converts one image to WebP and caps its width (1290 px is a full-width image on the
 widest phone at 3x) without enlarging a smaller one. It uses Pillow when it is installed, else
-`sharp` installed once into ~/.cache/adapty-flow-webp; it prints the size before and after. A GIF becomes an animated WebP
-on the `sharp` path only.
+`sharp` installed once into ~/.cache/adapty-flow-webp; it prints the size before and after. A GIF
+is refused: an animated WebP uploads but plays one frame, so motion is a `video` element.
 
 `swap` rebinds every place the config uses <old-url> (each locale, each fill) to the asset a
 `flows media upload --json` call returned, with its id as a string and its preview, and writes
@@ -388,19 +388,21 @@ def weigh(path, offline):
 
 
 def webp(src, dst, max_width, quality):
+    if src.lower().endswith('.gif'):
+        print(f'{src}: a GIF is not converted. An animated WebP uploads but plays one frame, so '
+              f'motion is a `video` element (media.md, The video placeholder).', file=sys.stderr)
+        return 2
     before = os.path.getsize(src)
-    gif = src.lower().endswith('.gif')
     done = None
-    if not gif:
-        try:
-            from PIL import Image, ImageOps
-            im = ImageOps.exif_transpose(Image.open(src))
-            if im.width > max_width:
-                im = im.resize((max_width, round(im.height * max_width / im.width)))
-            im.save(dst, 'WEBP', quality=quality, method=6)
-            done = 'Pillow'
-        except ImportError:
-            pass
+    try:
+        from PIL import Image, ImageOps
+        im = ImageOps.exif_transpose(Image.open(src))
+        if im.width > max_width:
+            im = im.resize((max_width, round(im.height * max_width / im.width)))
+        im.save(dst, 'WEBP', quality=quality, method=6)
+        done = 'Pillow'
+    except ImportError:
+        pass
     if not done:
         cache = os.path.expanduser('~/.cache/adapty-flow-webp')
         os.makedirs(cache, exist_ok=True)

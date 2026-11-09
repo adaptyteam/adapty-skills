@@ -318,9 +318,9 @@ check('remote_configs follow, the other entries untouched',
 check('the envelope keeps its other keys',
       out_env['status'] == 'draft' and out_env['updated_at'] == 1)
 _warn = 'are not `language[-Script][-REGION]`'
-check('verify-config warns on the misshapen code before the rename', _warn in verify(pt))
+check('verify-config is silent on pt-br: the publish writes one casing out', _warn not in verify(pt))
 _after = verify(out_env['config'])
-check('...and not after it', _warn not in _after, _after[-300:])
+check('...and after the rename', _warn not in _after, _after[-300:])
 
 _def = copy.deepcopy(pt)
 _def['localization']['defaultLocale'] = 'pt-br'
@@ -356,8 +356,8 @@ _stray = copy.deepcopy(inline)
 _stray['screens'][0]['elements']['map']['t']['props']['content']['values']['pt-BR'] = 'Olá'
 check('a target only a values map carries (undeclared) is refused too',
       'values map' in _refusal(lambda: L.rename_locale(_stray, 'pt-br', 'pt-BR')))
-check('a target the SDK cannot match is refused, with the casing rule',
-      'UPPERCASE' in _refusal(lambda: L.rename_locale(pt, 'sr', 'pt-br')))
+check('a target the publish refuses is refused',
+      'the publish refuses it' in _refusal(lambda: L.rename_locale(pt, 'sr', 'english')))
 check('a locale the document does not have is refused, naming what it has',
       "'de'" in _refusal(lambda: L.rename_locale(multi, 'de', 'de-DE')))
 check('renaming to the same name is refused', bool(_refusal(lambda: L.rename_locale(multi, 'en', 'en'))))

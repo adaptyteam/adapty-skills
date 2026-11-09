@@ -218,7 +218,8 @@ one it shows that is not there:
 - **Anything resolving at runtime.** Real prices, store currency, user input. Placeholder `$0.00`
   prices and broken asset URLs are usually the preview lacking data, not a defect you introduced —
   and a price variable in particular renders as the full literal `{{<uuid>.prod_price}}`, which is
-  *far longer than any price*. It wraps to extra lines and can push text under a docked CTA, so the
+  *far longer than any price*; an `offer_*` field and a `<uuid>@monthly.<field>` binding print their
+  raw tokens the same way. It wraps to extra lines and can push text under a docked CTA, so the
   screenshot shows an overlap that will not exist once the price resolves. **Never restyle a layout
   to fix crowding you only see around a token.** Substitute a plausible price into a throwaway copy
   of the config, render that, and judge the layout at production text length. And when an element
@@ -310,6 +311,19 @@ one it shows that is not there:
   content then needs a look at *both* ends: measured in the same session, a docked footnote
   collided with the last content row at one viewport height and cleared it at another.
 
+- **Images that have not arrived, or a fill that does not draw.** An image `fill` on a stack or a
+  carousel slide can draw blank here while an `image` element in the same place draws:
+  when the render must show the picture, use an element, or name the fill in the device check. The
+  page waits about 10 s for images, so on a slow host a blank image is not yet a finding: render
+  again before you judge it. An icon glyph can also draw blank on a first render; one re-render
+  settles it.
+- **Only the first slide of a carousel.** The page draws the carousel at rest, so a later slide is
+  not checked here: say so, and leave it to the device check.
+- **What the safe area looks like.** Its margin draws as a plain band at the top or bottom of the
+  screen, which can read as a border: it is not one, so do not style it away.
+- **A `footer`'s overflow gradient or scroll shadow** is not sent to the device at all: the
+  transformer emits neither, so whatever draws here, the device shows a plain footer. A `fill` or
+  a drop shadow on the footer itself does reach the device.
 - **Invisible text defects.** Copy-pasted text carries empty paragraph lines and trailing spaces
   the preview does not show and the device does — one stray Enter produced a device-only vertical
   gap that took the support team days to find. Deliberate gaps are separate Text and Spacing

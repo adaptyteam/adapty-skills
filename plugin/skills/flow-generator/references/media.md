@@ -21,12 +21,12 @@ URL: https://public-media.adapty.io/public/1e/5b/1e5bbbb4-.../hero-600x400.png
 ```
 
 The file argument is positional and required; `--app` is the only flag that matters. The printed
-URL is **live immediately** — a `curl` against it returned `200 image/png` in the same second as
-the upload, so there is no propagation wait to build into the workflow.
+URL can answer `200` in the same second, but a preview rendered right after the upload has drawn
+the new image blank (reported): render again before you judge a missing asset.
 
-**A long run of uploads can hit a rate limit.** The CLI does not retry an upload, so on a
-rate-limit error pause, then upload the files that failed, one at a time; wait as long as the error
-says when it names a time.
+**Upload files one at a time.** Parallel uploads hit `http_429`, and the CLI does not retry an
+upload, so on a rate-limit error pause, then upload the files that failed, one at a time; wait as
+long as the error says when it names a time.
 
 **A config needs three values from this command and the human output carries only two.** The
 JSON body has a fourth key, `preview_base64` — a base64 WEBP thumbnail, thousands of characters
@@ -91,7 +91,9 @@ used.
 
 | Input | Result |
 |---|---|
-| PNG, JPEG, WEBP, GIF | uploads |
+| PNG, JPEG, WEBP | uploads |
+| GIF | `validation_error` with the permitted list below: no GIF |
+| animated WEBP | uploads, and is served as one still frame: motion is a [`video`](#the-video-placeholder) |
 | **SVG** | **`ApiError: http_500`, reproducible** — see below |
 | Anything not an image | `validation_error`: `target_format: value is not a valid enumeration member; permitted: 'JPEG', 'JPEG2000', 'WEBP', 'PNG', 'SVG'` |
 | ~2.6 MB file | uploads |
@@ -312,6 +314,11 @@ opaque version or a device check of that area. A screen-sized background
 belongs here, not in an `image` element positioned `absolute` or `fixed`: that one takes the
 taps of everything beside it ([flow-schema.md](flow-schema.md), trap 9).
 
+**A photo over a flexible-height band: crop the file to the band's shape.** An image fill draws
+at the file's natural aspect, so a hero stack whose height grows leaves a gap under the photo
+(reported). What worked: crop the file to the band's rendered aspect (`crop.py --box` for a PNG),
+upload it, and put it in that stack's own `fill`; render the tallest device to check the edge.
+
 Because the element form is localizable, **a different asset per locale is expressible** — the
 entry's `values` is keyed by locale id exactly like copy. A fill's image can be localized too: its
 `image` may be a `{_lid}` ref to an `image` catalog entry instead of the flat value, and that is
@@ -522,8 +529,10 @@ language then falls back to the empty default and shows no clip. So after the up
 `localization.content`, and confirm the default locale holds a `videoUrl`. If only another locale
 does, ask the user to switch the builder to the default language and upload it there.
 
-**Weigh the clip, and say what to upload.** The builder serves the file as uploaded (reported: one
-rendition, no smaller variant), so its size is what every phone downloads. `weigh-config.py` reads
+**Weigh the clip, and say what to upload.** The builder transcodes the upload to HLS (reported: one
+rendition, no smaller variant), so the file's size is roughly what every phone downloads, and the
+transcode drops transparency: a transparent WebM plays on an opaque box, so ask for a clip whose
+background is the design's own. `weigh-config.py` reads
 a bound clip's size with a HEAD request and flags one over 5 MB. For a file the user has not
 uploaded yet: `stat -f%z clip.mp4` (macOS) or `stat -c%s clip.mp4` (Linux) for the bytes, and,
 when `ffprobe` is installed, its codec, size, bit rate and whether it has an audio track:

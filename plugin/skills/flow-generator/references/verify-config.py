@@ -187,11 +187,10 @@ THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
 # because 4 of 36 screen ids in the corpus are bare UUIDs on published flows (see the check).
 _ID_RE = re.compile(r'[A-Za-z0-9_]+')
 
-# `language[-Script][-REGION]`, with the case of each subtag load-bearing: the SDK's own pattern
-# wants `pt-BR`, not `pt-br`, and refuses the flow at publish with an output-schema violation on
-# `/localizations/N/id`. Script is FOUR letters in Title case and is why a naive
-# `^[a-z]{2}(-[A-Z]{2})?$` is wrong: `sr-Latn` is a real code in a real export and would fail it.
-LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?\Z')
+# `language[-Script][-REGION]` as the transformer accepts it: any casing, `-` or `_`; it writes
+# every code out in one casing at publish (`pt-br` ships as `pt-BR`). A script subtag is four
+# letters, which is why a naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong: `sr-Latn` is a real code.
+LOCALE_CODE = re.compile(r'(?i)[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?\Z')
 _BINARY = {'==', '!=', '>', '<', 'has', 'notHas', 'in', 'notIn'}
 _UNARY = {'empty', 'notEmpty', 'size'}
 
@@ -1482,34 +1481,13 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"measurement.) If you FETCHED this config, report it rather than "
                         f"rewriting someone else's height silently")
 
-    # Locale code SHAPE, which is separate from whether the code is declared. The SDK matches on
-    # this string and its pattern is case-sensitive per subtag, so `pt-br` publishes nothing: the
-    # transform service refuses the flow with `/localizations/N/id … must match pattern`. It is a
-    # warning rather than an error because the code can arrive in a config you fetched — the
-    # dashboard's own language list has served lowercase region tags — and the repair is heavy
-    # (the key has to be renamed in `locales`, in every `values` map in the document, and in
-    # `remote_configs`), so it is a report-and-ask rather than something to rewrite in passing.
-    # If THIS run wrote the code, fix the code; `flowkit.config()` refuses to emit one.
+    # Locale code SHAPE, separate from whether the code is declared. Casing is not checked: the
+    # transformer writes every code out in one casing. A code outside the pattern it refuses.
     misshapen = [c for c in codes if not LOCALE_CODE.fullmatch(str(c))]
-
-    def _cased(c):
-        """The code in the SDK's casing: language lower, a 4-letter script Title, region UPPER."""
-        parts = str(c).replace('_', '-').split('-')
-        return '-'.join([parts[0].lower()] + [p.title() if len(p) == 4 and p.isalpha()
-                                              else p.upper() for p in parts[1:]])
     if misshapen:
-        _to = _cased(misshapen[0])
-        _to = _to if LOCALE_CODE.fullmatch(_to) else 'pt-BR'
-        _from = misshapen[0] if LOCALE_CODE.fullmatch(_cased(misshapen[0])) else 'pt-br'
-        warn.append(f"locale code(s) {', '.join(misshapen)} are not `language[-Script][-REGION]` "
-                    f"with the SDK's casing (`pt-BR`, `zh-Hans`, `sr-Latn`) — the transform "
-                    f"service refuses the flow at publish with a pattern violation on "
-                    f"`/localizations/N/id`, although `flows config validate` returns valid: "
-                    f"true for it, so fix it before any publish. Renaming a code whose locale id is the same string "
-                    f"means the id too: the entry in `localization.locales`, every catalog "
-                    f"`values` key and `remote_configs` — `python3 references/localization.py "
-                    f"rename <config> {_from} {_to}` does all three and refuses a target already "
-                    f"present")
+        bad.append(f"locale code(s) {', '.join(misshapen)} are not `language[-Script][-REGION]` "
+                   f"(`en`, `pt-BR`, `zh-Hans`, `es-419`): the publish refuses them "
+                   f"(`invalid_locale_code`)")
 
     # Stale sizing values persist through the editor and the transformer BELIEVES them:
     # hug carrying value -> min:<value> on device (team-diagnosed; content vanished at
@@ -3287,6 +3265,44 @@ def check(path, baseline_text=None, baseline_images=None):
                     f"`<groupId>.selectedOptionId` keys on the option id, not the customId — "
                     f"but if anyone expects these answers in analytics, set one per option")
 
+    # A group with no member marked `default`. Every product group (5 of 5) and every tab group
+    # (2 of 2) in the corpus marks one, so there it fires as is: nothing starts selected, so a
+    # purchase reading `<groupId>.selectedProduct` has no product and a tab bar shows no tab.
+    # A quiz group (`single_choice` of selectables, 7 of 7 with no default) legitimately starts
+    # empty, so there it fires only when a text reads the selection: the usual way in is deleting
+    # the option that was the default, and the text bound to it then draws empty until a tap.
+    text_reads = set()
+    walk(d, lambda o: text_reads.add(o['attrs']['variableId'])
+         if o.get('type') == 'variable' and isinstance(o.get('attrs'), dict)
+         and isinstance(o['attrs'].get('variableId'), str) else None)
+    for s in d.get('screens', []):
+        emap = (s.get('elements') or {}).get('map', {})
+        for g in s.get('selectableGroups') or []:
+            gid = g.get('id')
+            members = [e for e in emap.values() if (e.get('props') or {}).get('groupId') == gid]
+            if not members or g.get('type') == 'toggle':
+                continue
+            if any((e.get('props') or {}).get('default') is True for e in members):
+                continue
+            tabs = all(e.get('type') == 'tab-item' for e in members)
+            read = sorted(v for v in text_reads if isinstance(gid, str) and v.startswith(f'{gid}.'))
+            if g.get('type') == 'product' or tabs:
+                what = 'tab group' if tabs else 'product group'
+                warn.append(
+                    f"screen {s['id']}: {what} {gid} has no member with `default: true`, so "
+                    f"nothing starts selected — "
+                    + ('no tab shows until the user taps one' if tabs else
+                       f'a purchase of `{gid}.selectedProduct` has no product and a price bound '
+                       f'to the selection draws empty until the user taps a card')
+                    + f". Every real export's {what} marks one; set `default: true` on the member "
+                      f"that should start selected (if you removed the default option, on another)")
+            elif read:
+                warn.append(
+                    f"screen {s['id']}: selectable group {gid} ({g.get('type')}) has no member "
+                    f"with `default: true`, and text reads its selection ({', '.join(read)}), so "
+                    f"that text draws empty until the user picks an option. If you removed the "
+                    f"option that was the default, mark another one `default: true`")
+
     # An input reports under its own customId, so without one it is untracked; the same string
     # is the producer for `<customId>.value`, so no condition can read it either. Scoped to the
     # seven types the transformer's input-type map actually reports: `password-input` is
@@ -3595,6 +3611,66 @@ def check(path, baseline_text=None, baseline_images=None):
                             f'are both {track}, so the bar looks full on every screen. `fill` is '
                             f'the empty track, `color` is the progress')
 
+    # A bar with `oneSegmentPerScreen` has one segment per screen that shows it, so fewer
+    # segments than screens leaves the later screens with no segment of their own. The corpus's
+    # one such bar has no segments and no screen showing it, which this stays silent on.
+    def _globals(n, out):
+        if n.get('type') == 'global':
+            out.add(n.get('id'))
+        for c in n.get('children') or []:
+            _globals(c, out)
+        return out
+    for cid, comp in (d.get('components') or {}).items():
+        cmap = (comp or {}).get('map') or {}
+        pbar = next((e for e in cmap.values() if e.get('type') == 'progress-bar'), None)
+        if not pbar or (pbar.get('props') or {}).get('oneSegmentPerScreen') is not True:
+            continue
+        segs = sum(1 for e in cmap.values() if e.get('type') == 'progress-bar-segment')
+        showing = [s['id'] for s in d.get('screens', [])
+                   if ((s.get('props') or {}).get('progressBar') or {}).get('enabled') is True
+                   and cid in _globals((s.get('elements') or {}).get('hierarchy') or {}, set())]
+        if segs < len(showing):
+            warn.append(f'progress bar {cid}: one segment per screen, but {segs} segment(s) for '
+                        f'{len(showing)} screens that show it, so the screens past segment {segs} '
+                        f'have none of their own. The device-verified bar is one `single-segment` '
+                        f'bar with oneSegmentPerScreen false (patterns.md, progress bar)')
+
+    # A rich-text variable node keeps `variableId` INSIDE `attrs`:
+    # {"type": "variable", "attrs": {"variableId": ...}}. Beside `attrs` the schema refuses the
+    # node, and validate says only that the shape is invalid, without naming why.
+    flat = set()
+    walk(d, lambda o: flat.add(str(o['variableId']))
+         if o.get('type') == 'variable' and 'variableId' in o
+         and not (isinstance(o.get('attrs'), dict) and 'variableId' in o['attrs']) else None)
+    if flat:
+        bad.append(f'rich-text variable node(s) with `variableId` beside `attrs` instead of inside '
+                   f'it ({", ".join(sorted(flat))}) — the schema refuses the node and validate '
+                   f'reports only an invalid shape. Write {{"type": "variable", "attrs": '
+                   f'{{"variableId": "..."}}}}')
+
+    # An element font is a preset reference OR a manual font with no `preset` key
+    # (flow-schema.md, trap 3). The schema takes both at once, and which one draws is not
+    # something any export shows; no export in the corpus mixes them. A preset with only a
+    # `weight` or `size` on top is the state-override shape trap 17 and `on_selected()` accept,
+    # so the marker of a manual font is its own `family`.
+    mixed = []
+    def _font(o):
+        for where in [o.get('props')] + list((o.get('propsByState') or {}).values()):
+            f = where.get('font') if isinstance(where, dict) else None
+            if isinstance(f, dict) and 'preset' in f and 'family' in f:
+                mixed.append(f'{o.get("id")} ({f["preset"]!r} + family)')
+    for s in d.get('screens', []):
+        for e in ((s.get('elements') or {}).get('map') or {}).values():
+            _font(e)
+    for comp in (d.get('components') or {}).values():
+        for e in ((comp or {}).get('map') or {}).values():
+            _font(e)
+    if mixed:
+        warn.append(f'font sets a preset AND a family on {", ".join(mixed)} — a font is a preset '
+                    f'reference or a manual font (family, size, weight) with no `preset` key, and '
+                    f'with both set the preset\'s face draws and the family is ignored. Keep one: drop the preset, '
+                    f'or drop the manual keys and change the preset in `theme.typography`')
+
     return bad, warn
 
 
@@ -3606,6 +3682,8 @@ def check(path, baseline_text=None, baseline_images=None):
 # below mirror each refusal so a document is named in one local pass. Video layers are only the
 # user's to add, so they are checked for the two topology rules and otherwise carried through.
 STYLE_LAYER_TYPES = {'color', 'gradient', 'image', 'video'}
+# The schema's image fill layer is `additionalProperties: false` over exactly these.
+IMAGE_LAYER_KEYS = {'type', 'image', 'customMediaID'}
 INPUT_ELEMENT_TYPES = {'text-input', 'email-input', 'password-input', 'number-input',
                        'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
 TEXT_COLOR_TYPES = {'text', 'timer', 'old-price'} | INPUT_ELEMENT_TYPES
@@ -3632,6 +3710,22 @@ def _hex_warnings(layer):
                 out.append(f'gradient stop hex {h!r} cannot be read, so the stop is dropped from '
                            f'the gradient — write #RRGGBB')
     return out
+
+
+def _image_layer_extra(layer):
+    """Keys on an image fill layer the schema does not allow, or None.
+
+    A warning, not an error: two real exports carry `color` (and a gradient's `angle`/`stops`)
+    on a screen's image layer, left over from switching the fill type in the builder, and
+    publish. Screen and element fills are therefore left to the schema check, which reports them
+    as drift; a theme style is the layer stack an author writes by hand, so it is checked here.
+    """
+    extra = sorted(set(layer) - IMAGE_LAYER_KEYS)
+    if not extra:
+        return None
+    return (f'an image layer takes only {sorted(IMAGE_LAYER_KEYS)}, not {extra}, so the '
+            f'schema check reports it. A colour over or under the image is its own '
+            f'{{"type": "color"}} layer in the same array')
 
 
 def _style_layer_problem(layer):
@@ -3737,6 +3831,8 @@ def theme_style_findings(d, bad, warn):
                 else:
                     for w in _hex_warnings(layer):
                         warn.append(f'{where} {variant}[{j}]: {w}')
+                    if layer.get('type') == 'image' and _image_layer_extra(layer):
+                        warn.append(f'{where} {variant}[{j}]: {_image_layer_extra(layer)}')
         topo = _video_topology_problem(c)
         if topo:
             bad.append(f'{where} (theme.colors[{i}]): {topo}. The transform service refuses the '

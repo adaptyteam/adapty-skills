@@ -222,7 +222,10 @@ user's yes.
    that ID. Another product means the user picks another ID; the copy itself means an earlier
    push went through, so I read its `store_status` instead of pushing again.
    `review_screenshot_validation_error`: the screenshot's size or
-   transparency. Any other code: say it as the CLI gives it.
+   transparency. `google_play_api_error` with a 403: the Play service account has no access to
+   this app in Play Console, a store permission the user grants, not a bad product ID. Any other
+   code: say it as the CLI gives it. A `null` `store_status` after a create: the store connection
+   or the store product is not there yet.
 
    The answer shows the copy's `store_status`; read it again later with `products get`. On the
    App Store, `in_review` is waiting for Apple; `draft`, `rejected` or `action_required` means

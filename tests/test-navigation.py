@@ -165,6 +165,50 @@ f, _ = audit(json.load(open(MULTI)))
 check('SILENT on the fully translated fixture',
       not [x for x in f if x['check'] == 'missing-translation'], f)
 
+
+def _with_links(d):
+    """Add a Terms openUrl whose url has only the default locale's value (verify-config
+    forbids copying it into the others), and a text field holding only a bare URL."""
+    el = d['screens'][0]['elements']['map']['el_003T']
+    el['interactions'] = [{'id': 'i_terms', 'trigger': 'tap', 'actions': [
+        {'id': 'a_terms', 'type': 'openUrl', 'payload': {'url': {'_lid': 'lc_9001'}}}]}]
+    content = d['localization']['content']
+    content['lc_9001'] = {'kind': 'rich-string', 'values': {'en': 'terms.example.com/en'}}
+    content['lc_9002'] = {'kind': 'rich-text', 'values': {'en': [{'type': 'paragraph', 'content': [
+        {'type': 'text', 'text': 'https://example.com/privacy'}]}]}}
+    m = d['screens'][0]['elements']['map']
+    m['el_url'] = {'id': 'el_url', 'type': 'text', 'props': {'content': {'_lid': 'lc_9002'}}}
+    d['screens'][0]['elements']['hierarchy']['children'].append({'id': 'el_url', 'children': []})
+    return d
+
+
+f, _ = audit(_with_links(json.load(open(MULTI))))
+check('SILENT on link addresses kept in the default locale only (openUrl url, bare URL)',
+      not [x for x in f if x['check'] in ('missing-translation', 'untranslated')
+           and ('example.com' in x['message'] or x['check'] == 'missing-translation')], f)
+
+
+def _missing_message(d):
+    _dropped[0] = 0
+    _drop_sr(d['localization']['content'])
+    return [x['message'] for x in audit(d)[0] if x['check'] == 'missing-translation']
+
+
+_plain, _linked = _missing_message(json.load(open(MULTI))), _missing_message(
+    _with_links(json.load(open(MULTI))))
+check('...and the links count in neither the missing count nor the total',
+      len(_linked) == 1 and '10 of' in _linked[0] and _linked == _plain, (_plain, _linked))
+
+print('\nsibling-flow languages, spelled another way')
+d = _with_links(json.load(open(MULTI)))
+f, _ = audit(d, '--sibling-locales', {'Paywall': ['EN', 'SR-latn', 'sr_Latn']})
+check('SILENT when a sibling spells a language with other casing or an underscore',
+      not [x for x in f if x['check'] == 'missing-sibling-locale'], f)
+f, _ = audit(d, '--sibling-locales', {'Paywall': ['EN', 'pt-br'], 'Onboarding': ['pt-BR']})
+ms = [x for x in f if x['check'] == 'missing-sibling-locale']
+check('...and still FIRES, once per language, on a language this flow lacks',
+      len(ms) == 1 and ms[0]['message'].count('pt-') == 1, f)
+
 print('\nnavigateNext counts for reachability (verify-config)')
 
 

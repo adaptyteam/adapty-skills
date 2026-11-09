@@ -182,7 +182,7 @@ A clean `validate` is a floor, not a proof. Every one of these passed with `vali
 | A colour that is not `{type: hex, hex}` or `{type: color-style, colorId}` — a theme entry `{id}` where a reference belongs, or a fill layer `{type: color, color}` in `border.color` or `props.color`. The Flow Builder crashes on open and the flow cannot be edited from the dashboard; the device renders it | `references/verify-config.py` (an error); the schema check too, but that one is advisory |
 | Text bound to a layered theme colour with no solid layer — it draws fully transparent ([flow-schema.md](flow-schema.md), trap 26) | `references/verify-config.py` (an error) |
 | A hyphen in an element id, which breaks the generated runtime script | `references/verify-config.py` (added after this row; the render still cannot show it — see [flow-schema.md](flow-schema.md#element-and-screen-ids-become-identifiers)) |
-| A locale code with the wrong casing (`pt-br` for `pt-BR`): the publish refuses it with a pattern violation on `/localizations/N/id` | `references/verify-config.py` (a warning, and it outranks the clean validate: fix the code before publishing) |
+| A locale code outside `language[-Script][-REGION]` (casing does not matter): the publish refuses it | `references/verify-config.py` (an error) |
 | A malformed `transition` on a `navigate` (a wrong type, a missing `delay`, 5001 ms): the device plays the default push | `references/verify-config.py` (an error) and the schema check |
 | A product id that does not exist in this app | nothing; no price on device and the purchase fails |
 | Advisory warnings about silently dropped props (`verticalAlign` and friends) | nothing reachable from the CLI |
@@ -230,7 +230,9 @@ These are the reason the phase-5 device-preview callout stays load-bearing. In p
   come back green on exactly the case you are diagnosing. `transform_error` is a raw string (a
   JSON issues payload or a summary) with no CLI helper to parse it: quote it. When the fields are
   absent the API did not send them, which is not itself a finding — fall back to `validate` and
-  say that is what you did.
+  say that is what you did. `Flow transformation failed. Please contact support.` with a null
+  `transform_error` names no cause; check that every `flowProductId` matches its derived value
+  before calling it a support case (`SKILL.md`, the publish step).
 
 Say what you checked, in those terms. The gap between "publishable" and "renders correctly" is
 [preview.md](preview.md), and neither closes it — only a device does.

@@ -61,8 +61,9 @@ replaces it. Everything below lives in the live document and in no script:
 - **Every manual edit** — copy, colours, spacing, a screen someone added, an action they rewired.
 - **Locales added in the dashboard**, and the translations under them.
 - **The builder's own normalisations** — re-sorted `_meta.icons`, a v9 → v10 fill migration on
-  save. Losing these costs nothing, and they are listed only so a byte comparison that flags them
-  is not mistaken for lost work. Note the diff treats them differently: the re-sort is silent, the
+  save, and an auto-saved cleanup of `states` that bumps the version with nobody editing (a 409 you
+  did not expect; `diff-config.py` may show nothing, so diff the raw JSON). Losing these costs
+  nothing, and they are listed only so a byte comparison that flags them is not mistaken for lost work. Note the diff treats them differently: the re-sort is silent, the
   fill migration is **not** (see below).
 
 **Two cases where a rebuild is still right**, and they are the only two: a flow whose `config get`
