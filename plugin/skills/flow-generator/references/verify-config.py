@@ -1162,6 +1162,95 @@ def check(path, baseline_text=None, baseline_images=None):
                        f'reverses the arrival, and next needs an explicit `navigate`')
     walk(d, check_transition)
 
+    # What runs after a purchase or restore lives in `payload.onResult`, one action list per
+    # store result (trap 16). The four ways it goes wrong mirror the transformer's own issues;
+    # only a malformed `onResult` fails publish, the rest compile and do the wrong thing.
+    results_of = {'purchase': ('success', 'fail', 'userCanceled', 'pending'),
+                  'restorePurchases': ('success', 'fail')}
+    leaving = ('navigate', 'navigateNext', 'navigateBack', 'closeFlow')
+
+    def branches(a):
+        p = a.get('payload') if isinstance(a.get('payload'), dict) else {}
+        bodies = [c[1] for c in p.get('cases') or [] if isinstance(c, list) and len(c) == 2]
+        bodies.append(p.get('default'))
+        for b in bodies:
+            b = b.get('value') if isinstance(b, dict) and b.get('type') == 'const' else b
+            b = [b] if isinstance(b, dict) else b
+            if isinstance(b, list):
+                yield [x for x in b if isinstance(x, dict)]
+
+    def is_web(a):
+        return a.get('type') == 'purchase' and (a.get('payload') or {}).get('type') == 'web'
+
+    def starts_store(a):
+        if a.get('type') in results_of:
+            return not is_web(a)
+        return a.get('type') == 'conditional' and any(
+            starts_store(x) for b in branches(a) for x in b)
+
+    def leaves(a):
+        if a.get('type') in leaving:
+            return True
+        return a.get('type') == 'conditional' and any(leaves(x) for b in branches(a) for x in b)
+
+    def check_actions(actions, where, in_outcome):
+        started = None
+        for a in (x for x in actions if isinstance(x, dict)):
+            t, p = a.get('type'), a.get('payload')
+            name = f'{t} {a.get("id")!r}'
+            if started and leaves(a):
+                warn.append(f'{where}: {name} follows {started} in the same list, so it runs on '
+                            f'the tap, before the store answers (navigation_before_store_result). '
+                            f'Move it into the outcome it belongs to, usually `success` (trap 16)')
+            if in_outcome and t in results_of and starts_store(a):
+                warn.append(f'{where}: {name} sits inside an outcome and chains a second store '
+                            f'operation onto the first answer (nested_store_operation); the '
+                            f'builder does not allow it. Navigate to a screen with its own button')
+            if starts_store(a) and not started:
+                started = name
+            if t in results_of and isinstance(p, dict) and 'onResult' in p:
+                o = p['onResult']
+                if not isinstance(o, dict):
+                    bad.append(f'{where}: {name} has an `onResult` that is not an object; publish '
+                               f'refuses it')
+                    continue
+                if is_web(a):
+                    if any(o.values()):
+                        warn.append(f'{where}: {name} is a web purchase, whose outcomes never run '
+                                    f'(ignored_web_purchase_outcomes) and which Flow Builder drops '
+                                    f'on load. The checkout reports only whether it opened')
+                    continue
+                for key, lst in o.items():
+                    if key not in results_of[t]:
+                        warn.append(f'{where}: {name} has an outcome {key!r} it never reports '
+                                    f'(ignored_unknown_outcome); Flow Builder drops it on load. '
+                                    f'The results are {", ".join(results_of[t])}')
+                    elif not isinstance(lst, list):
+                        bad.append(f'{where}: {name} outcome {key!r} is not a list of actions; '
+                                   f'publish refuses it')
+                    else:
+                        check_actions(lst, f'{where} → {key}', True)
+            elif t == 'conditional':
+                for b in branches(a):
+                    check_actions(b, where, in_outcome)
+
+    for s in d.get('screens', []):
+        def find_interactions(o, eid=None, _s=s):
+            if isinstance(o, dict):
+                for it in o.get('interactions') or []:
+                    if isinstance(it, dict) and isinstance(it.get('actions'), list):
+                        check_actions(it['actions'], f'screen {_s.get("id")}: {eid or "screen"}',
+                                      False)
+                for k, v in o.items():
+                    if k != 'interactions':
+                        find_interactions(v, eid)
+            elif isinstance(o, list):
+                for v in o:
+                    find_interactions(v, eid)
+        for eid, e in ((s.get('elements') or {}).get('map') or {}).items():
+            find_interactions(e, eid)
+        find_interactions({k: v for k, v in s.items() if k != 'elements'})
+
     # An undeclared-but-bound product is a WARNING, not an error: measured, the Flow Builder
     # mints the `flowProductId` and writes the declaration the first time someone opens the
     # flow, keeping the binding as written. An agent cannot author it (the id is a UUIDv5 over

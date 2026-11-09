@@ -2317,6 +2317,83 @@ for _path, _why in (('/not-a-font', 'a file that is not a font'),
           and _rc in (0, 1), _f)
 _srv.shutdown()
 
+print('\npurchase outcomes')
+QUIZ = os.path.join(FIX, 'onboarding-quiz-paywall.json')
+_BUY_SCREEN, _BUY_EL = 'scr_QXcVa3FZ', 'el_DnQrboHhqE'
+
+
+def _thanks(actions, extra_screen=True):
+    """The quiz paywall with its buy button's actions replaced, plus a Thanks screen that
+    closes the flow."""
+    c = load(QUIZ)
+    pw = next(s for s in c['screens'] if s['id'] == _BUY_SCREEN)
+    pw['elements']['map'][_BUY_EL]['interactions'][0]['actions'] = actions(
+        copy.deepcopy(pw['elements']['map'][_BUY_EL]['interactions'][0]['actions'][0]))
+    if extra_screen:
+        close = next(s for s in c['screens'] if s['id'] == _BUY_SCREEN)
+        t = copy.deepcopy(close)
+        t['id'], t['caption'] = 'scr_thanks', 'Thanks'
+        t['elements']['map'][_BUY_EL]['interactions'][0]['actions'] = [
+            {'id': 'act_t', 'type': 'closeFlow'}]
+        c['screens'].append(t)
+    return c
+
+
+_NAV = {'id': 'act_n', 'type': 'navigate', 'payload': {'type': 'screen', 'screen': 'scr_thanks'}}
+OUTCOME_CHECKS = ('leaves-before-purchase-result', 'store-operation-in-outcome')
+for _name in sorted(os.listdir(FIX)):
+    _f = run(os.path.join(FIX, _name))[1]
+    check(f'{_name}: no purchase-outcome finding', not [f for f in _f or []
+                                                        if f['check'] in OUTCOME_CHECKS], _f)
+
+
+def _routed(buy):
+    buy['payload']['onResult'] = {'success': [copy.deepcopy(_NAV)], 'userCanceled': []}
+    return [buy]
+
+
+_cfg = _thanks(_routed)
+_f = run(_cfg)[1]
+check('a purchase routed through success is silent',
+      not [f for f in _f if f['check'] in OUTCOME_CHECKS], _f)
+check('...and the screen after it is no dead end and is reached',
+      not of(_f, 'dead-end-screen'))
+_f = run(_thanks(lambda b: [b, copy.deepcopy(_NAV)]))[1]
+check('a navigate after the purchase is one leaves-before-purchase-result risk on that button',
+      [(f['severity'], f['screen'], f['element']) for f in
+       of(_f, 'leaves-before-purchase-result')] == [('risk', _BUY_SCREEN, _BUY_EL)], _f)
+check('...naming where it goes', 'Thanks' in of(_f, 'leaves-before-purchase-result')[0]['message'])
+_f = run(_thanks(lambda b: [b, {'id': 'c', 'type': 'closeFlow'}], extra_screen=False))[1]
+check('a close after the purchase fires too', len(of(_f, 'leaves-before-purchase-result')) == 1)
+_f = run(_thanks(lambda b: [copy.deepcopy(_NAV), b]))[1]
+check('a navigate BEFORE the purchase is silent', not of(_f, 'leaves-before-purchase-result'))
+_f = run(_thanks(lambda b: [{**b, 'payload': {**b['payload'], 'type': 'web'}},
+                            copy.deepcopy(_NAV)]))[1]
+check('a navigate after a WEB purchase is silent (the checkout leaves the app)',
+      not of(_f, 'leaves-before-purchase-result'))
+_web = _thanks(lambda b: [{**b, 'payload': {**b['payload'], 'type': 'web',
+                                             'onResult': {'success': [_NAV]}}}])
+check("a web purchase's outcomes do not count as a route",
+      'scr_thanks' not in audit_mod.nav_graph(_web)[_BUY_SCREEN]
+      and not audit_mod.purchase_routes(_web))
+check('...while a native one does',
+      'scr_thanks' in audit_mod.nav_graph(_thanks(_routed))[_BUY_SCREEN])
+
+
+def _nested(buy):
+    buy['payload']['onResult'] = {'success': [{'id': 'r', 'type': 'restorePurchases'}]}
+    return [buy]
+
+
+_f = run(_thanks(_nested))[1]
+check('a restore started by a purchase result is store-operation-in-outcome',
+      [f['severity'] for f in of(_f, 'store-operation-in-outcome')] == ['risk'], _f)
+_rep = audit_mod.render([], _thanks(_routed))
+check('report: a purchase leading on reminds the app to stay open, naming the screen',
+      'keeps the flow open' in _rep and '"Thanks"' in _rep, _rep[-900:])
+check('report: no such line on the fixture without outcomes',
+      'keeps the flow open' not in audit_mod.render([], load(QUIZ)))
+
 if fails:
     print(f'\n{len(fails)} FAILED')
     for f in fails:

@@ -9,9 +9,10 @@ Reads a bare config or a `config get` envelope. Nothing is sent anywhere and not
 the one HTML file (or nothing at all with --text).
 
 What becomes an arrow: every `navigate` the flow can run — on a tap, at a timer's end, inside each
-branch of a conditional action (one arrow per case, plus "otherwise") — and `navigateNext`, which
-goes to the next screen in `screens[]` order. What becomes a badge instead: actions that leave the
-flow or have no fixed target — purchase, restore, close, back, custom actions. Screens nobody can
+branch of a conditional action (one arrow per case, plus "otherwise"), inside each outcome of a
+purchase or restore ("when bought", "when cancelled") — and `navigateNext`, which goes to the next
+screen in `screens[]` order. What becomes a badge instead: actions that leave the flow or have no
+fixed target — purchase, restore, close, back, custom actions. Screens nobody can
 reach from the first screen, and screens with no way out at all, are flagged on the page.
 
 Thumbnails: each screen uses the newest `*-<screen-id>.png` (shoot.sh writes
@@ -45,6 +46,9 @@ ROW_GAP = 70           # between screens stacked in one column
 PAD = 60
 TERMINAL = {'purchase': 'buys', 'restorePurchases': 'restores', 'closeFlow': 'closes flow',
             'navigateBack': 'back', 'custom': 'custom action'}
+OUTCOMES = {'purchase': {'success': 'when bought', 'fail': 'when the purchase fails',
+                         'userCanceled': 'when cancelled', 'pending': 'when pending'},
+            'restorePurchases': {'success': 'when restored', 'fail': 'when the restore fails'}}
 
 
 # ---------- reading the config ----------
@@ -197,6 +201,12 @@ def extract(d):
                     word = f"custom: {payload.get('id') or payload.get('actionId') or a.get('id') or ''}".strip(': ')
                 if word not in badges[s.id]:
                     badges[s.id].append(word)
+                # What runs once the store answers; a web purchase's outcomes never run.
+                on_result = payload.get('onResult')
+                if t in OUTCOMES and isinstance(on_result, dict) and payload.get('type') != 'web':
+                    for result, when in OUTCOMES[t].items():
+                        if isinstance(on_result.get(result), list):
+                            run(on_result[result], s, trigger, conds + [when])
 
     for s in screens:
         def walk(o, eid=None):

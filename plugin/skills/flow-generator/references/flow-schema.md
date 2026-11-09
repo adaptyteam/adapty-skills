@@ -251,7 +251,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 14b | A condition is an expression tree, and `assign` is the one type it may not use |
 | 14c | Every action payload has a required field, and one code covers all of them |
 | 15 | Stale and degenerate sizing values persist, and the transformer believes them |
-| 16 | `purchase` hard-terminates the flow — nothing can be shown after it |
+| 16 | A purchase or restore leads on only through `onResult` — a `navigate` beside it leaves at the tap |
 | 17 | A state override replaces each prop it names whole — nothing is inherited from the base |
 | 18 | `props.verticalAlign` on text is emitted by the builder and ignored by the SDK |
 | 19 | A theme colour must be exactly `#RRGGBB` — and only a theme colour |
@@ -1236,14 +1236,46 @@ plain `{min, max}` size and it stops filling, so a gap built from them no longer
 height. The shape that works is a fixed-height block plus an empty `height: fill` spacer
 ([patterns.md → A tall phone's extra height goes to the hero](patterns.md#a-tall-phones-extra-height-goes-to-the-hero)).
 
-### 16. `purchase` hard-terminates the flow — nothing can be shown after it
+### 16. A purchase or restore leads on only through `onResult` — a `navigate` beside it leaves at the tap
 
-Stated flatly by the builder team (2026-08-20): the `purchase` action compiles only into the SDK
-purchase call, and flow continuation after it "simply was never built" — no success screen, no
-post-purchase discount screen, unconditionally, whether the purchase succeeded or not. So **never
-author a screen that is reachable only after a purchase**: it is dead content that every check here
-accepts. A second (discount) paywall is reachable only via an explicit `navigate` on something the
-user taps *instead* of buying — the close button is the standing pattern.
+What runs once the store answers is `payload.onResult`: one action list per result. A `purchase`
+reports `success`, `fail`, `userCanceled` and `pending`; a `restorePurchases` reports `success` and
+`fail`, and takes a payload only to carry them. Build it with `fk.purchase('plans',
+on_success=fk.navigate('scr_thanks'))` and `fk.restore(on_fail=…)`; what each result fits is in
+[patterns.md](patterns.md#what-the-user-sees-after-they-buy).
+
+```json
+{"id": "act_buy", "type": "purchase", "payload": {
+  "product": {"type": "var", "variableId": "plans.selectedProduct"},
+  "onResult": {"success": [{"id": "act_buy_success", "type": "navigate",
+                            "payload": {"type": "screen", "screen": "scr_thanks"}}],
+               "userCanceled": []}}}
+```
+
+- **A result with no list, or an empty one, keeps the user on the screen,** and the button works
+  again. That is the right default for `fail` and `userCanceled`.
+- **A `navigate`, `navigateNext`, `navigateBack` or `closeFlow` after the purchase in the same list
+  runs on the tap, before the store answers.** That was the only way to chain a paywall before
+  outcomes, so older flows carry it: the user leaves whether they paid or not. Flow Builder and
+  publish both warn (`navigation_before_store_result`); move it into `success`. A flow that never
+  uses outcomes behaves as it always did.
+- **An outcome cannot start a second purchase or restore,** at any depth (the builder disables
+  it). An upsell after a purchase is a screen of its own with its own button, reached from
+  `success`.
+- **A web purchase (`payload.type: "web"`) runs no outcomes:** the checkout reports only whether
+  it opened. Flow Builder drops them on load, and a result a type never reports (a restore's
+  `userCanceled`) is dropped the same way.
+- **A restore's `success` does not mean the user has access,** only that the restore ran without
+  an error. Its screen has to read true for someone who had nothing to restore.
+- **In observer mode the app buys, and the SDK reports `pending` on iOS and `success` on Android**
+  whatever happened. Give both the same route there.
+- **The app must leave the flow open when a purchase finishes.** An app that dismisses the flow in
+  its purchase handler closes it before the next screen appears. That code is the app's, not the
+  config's.
+- **A paywall whose `success` leads on is no longer the flow's last screen** in analytics; the
+  screen it leads to is.
+
+`verify-config.py` warns on each of these and errors on an `onResult` that is not a map of lists.
 
 ### 17. A state override replaces each prop it names whole — nothing is inherited from the base
 
@@ -2003,7 +2035,7 @@ never treat its absence here as evidence the file is invalid.
 | element `type` (in `components`) | `progress-bar`, `progress-bar-segment`, `progress-bar-loader` | `progress-bar` and `progress-bar-loader` in `quiz` + `timer`; `progress-bar-segment` in `quiz` only. All three observed *only* inside `components`, never directly on a screen |
 | element `type` (**not in these exports**, present in the transformer's front-format fixtures) | `divider`; the tabs family `tabs`, `tab-bar`, `tab-item`, `tab-content-wrapper`, `tab-content`; the input family `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker` | Absence from the three exports is absence of coverage, not evidence a type is invalid. These are real front-format inputs. `tabs` is a **composite**, not one element — see the request map below |
 | action `type` | **14 types.** In these exports: `navigate`, `conditional`, `purchase`, `closeFlow`, `nothing`. Also valid, and none of them appear here: `navigateBack`, `navigateNext`, `restorePurchases`, `setVariable`, `openUrl`, `alert`, `custom`, `showElement`, `hideElement` | `closeFlow` in all three; `navigate` in `quiz` + `timer`; `purchase` in `quiz` + `comparison`; `conditional` and `nothing` in `quiz` only. `nothing` appears only as a `conditional` case value, never as a top-level action. The other nine come from the builder transformer's front-format fixtures — and `navigateBack`/`navigateNext` are the **two most common actions there**, more common than `navigate` itself, so a Next button does not need a named destination. Payload shapes below |
-| action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `navigateBack` / `navigateNext` / `closeFlow` / `restorePurchases` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?}`, see below | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
+| action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `restorePurchases` → no payload, or `{onResult}` ([trap 16](#16-a-purchase-or-restore-leads-on-only-through-onresult--a-navigate-beside-it-leaves-at-the-tap)) · `navigateBack` / `navigateNext` / `closeFlow` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?, onResult?}`, see below and trap 16 | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
 | `purchase` `payload.product` | `{"type": "var", "variableId": "<groupId>.selectedProduct"}` when the screen has a product group, **or** `{"type": "const", "value": {"id": "<productUUID>", "offerId"?}}` when it does not | The `const` form is what a paywall with a single implied plan uses — one CTA, no product cards, no `_meta.screens` entry needed. Do not add an empty product group to satisfy the `var` form. A `payload.type` of `"native"` also appears alongside `product`; it is optional in practice |
 | interaction `trigger` | `tap` | the only trigger in all three |
 | `conditional` `payload.type` | `switch` | `quiz` only. `cases` is an array of `[predicate, {type: "const", value: [actions]}]` pairs, plus a `default` in the same value shape. Actions nested inside a case carry `"id": ""`, not an `act_` id — including the `navigate` that a screen deletion has to repair, which is why a dangling target can sit two levels down inside a `default` branch |
@@ -2050,6 +2082,8 @@ style error: you will search for an element type that does not exist, or invent 
 | a price | Never literal text. A rich-text `variable` node — see invariant 5 for the two forms. |
 | the user's name, their coin balance, streak, level, days left, current plan, "something the app knows" | A **custom tag**: a `variables[]` entry with `external: true` whose `name` the app's code passes, shown by a rich-text `variable` node. Text only, and it needs app code — [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic). |
 | show, hide or skip something based on what the app knows (VIP status, a permission already granted, country) | **Not buildable from a custom tag** — logic sees only its fallback. A separate flow per segment behind the placement's audiences, or a `custom` action the app handles. Say so rather than wiring a condition that never fires. |
+| a thank-you or welcome screen once they subscribe, more onboarding after the paywall, an upsell after a purchase, "my paywall has to be the last screen" | `onResult.success` on the `purchase`: [patterns.md](patterns.md#what-the-user-sees-after-they-buy). Never a `navigate` beside the purchase (trap 16). |
+| a different screen when they cancel the payment, it fails or it waits for approval; a screen after a restore | `onResult.userCanceled`, `fail` or `pending` on the `purchase`, `success` or `fail` on the `restorePurchases`: [patterns.md](patterns.md#what-the-user-sees-after-they-buy). |
 | how a screen arrives — slides up, fades in, no animation | `payload.transition` on the `navigate`: [patterns.md](patterns.md#a-screen-transition). Not a `bottom-sheet` or a `sliding-sheet`, which are parts of one screen. |
 | an element that fades, slides or scales in on its own | **Not yet in Flow Builder.** An element's only animation is Pulse (the `btn-pulse` template). Offer a screen transition, a `showElement` after a `timer`, or the motion as a `video` element (a GIF does not upload, and an animated WebP plays one frame). |
 | a close button, "dismiss" | A tappable `stack` whose action is `{"type": "closeFlow"}` (no payload). |

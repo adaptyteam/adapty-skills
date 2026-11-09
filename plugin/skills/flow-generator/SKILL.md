@@ -1,6 +1,6 @@
 ---
 name: flow-generator
-description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "show the user's name or coin balance on my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead".
+description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "show the user's name or coin balance on my paywall", "build me a paywall like this", "build me an onboarding", "a thank-you screen after purchase", "more onboarding after the paywall", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead".
 ---
 
 # Flow generator
@@ -210,7 +210,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
-| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, an element that appears after a delay, plan cards |
+| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, what the user sees after they buy, an element that appears after a delay, plan cards |
 | [placements.md](references/placements.md) | **Phase 6** — every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
 | the **`paywall-teardown`** skill | **Phase 2** when *you* choose the design of a **screen that sells**, **phase 4** to grade what you built. It owns whether the screen sells; this skill owns the JSON |
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
@@ -637,7 +637,7 @@ what you are building — not by which you reached for last time.**
 | :--- | :--- | :--- |
 | One screen that sells — a paywall | **`paywall-teardown`** | An **archetype** (the screen's composition) plus the patterns this vertical needs |
 | A sequence — onboarding, welcome, quiz, activation | **`onboarding-teardown`** | A **skeleton** (the sequence's shape) plus the patterns, placed per screen |
-| Both — an onboarding that ends on a paywall | **Both.** `onboarding-teardown` owns the sequence and the seam; `paywall-teardown` owns the paywall screen itself | Run the sequence one first: it decides what the paywall must reflect |
+| Both — an onboarding with a paywall in it, at the end or with screens after it | **Both.** `onboarding-teardown` owns the sequence and the seam; `paywall-teardown` owns the paywall screen itself | Run the sequence one first: it decides what the paywall must reflect |
 
 Invoke it before you write anything. Both name the values they refuse to invent — a rating, a
 review count, an outcome stat, a discount, a hero asset, and for a sequence the thing the app must
