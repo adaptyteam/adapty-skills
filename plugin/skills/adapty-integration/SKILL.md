@@ -451,7 +451,7 @@ The user's yes to the IDs and the price is the confirmation, so each push carrie
 
 At Step 4 there is often no app build and no flow yet. Then push to Google Play now, and come back for the App Store push after Step 5 builds the flow (2), unless the user has a screenshot at hand (3).
 
-A `lifetime` product takes neither `--group-id` nor `--android-base-plan-id`; a push that gets one it should not have, or lacks one it needs, fails with `incompatible_product_type`. A refused push exits 4 with its code in `--json` and leaves the product store-less, so fix the cause and push again: `missing_store_credentials` is the connection; `missing_product_price` means the product has no USD price: set it once with `products update <PRODUCT_ID> --price-usd`; `product_already_exists` means the store already has that ID, or on the App Store that title in the group, so the user picks another ID or title; `duplicate_vendor_product_store` means a product of the app in Adapty already has that ID: another product, so the user picks another ID, or this one after an earlier push went through, so read `products get` instead of pushing again; `review_screenshot_validation_error` is the screenshot's size or transparency. Any other code: say it as the CLI gives it.
+A one-time product (`lifetime`, `consumable` or `nonsubscriptions`) takes neither `--group-id` nor `--android-base-plan-id`; a push that gets one it should not have, or lacks one it needs, fails with `incompatible_product_type`. A refused push exits 4 with its code in `--json` and leaves the product store-less, so fix the cause and push again: `missing_store_credentials` is the connection; `missing_product_price` means the product has no USD price: set it once with `products update <PRODUCT_ID> --price-usd`; `product_already_exists` means the store already has that ID, or on the App Store that title in the group, so the user picks another ID or title; `duplicate_vendor_product_store` means a product of the app in Adapty already has that ID: another product, so the user picks another ID, or this one after an earlier push went through, so read `products get` instead of pushing again; `review_screenshot_validation_error` is the screenshot's size or transparency. Any other code: say it as the CLI gives it.
 
 The push answers with the product, including each store's `store_status`; `products get` reads it again. `in_review` is waiting for Apple. **`draft` after an App Store push means a step after Apple created the product failed:** the user finishes it in App Store Connect. `rejected` and `action_required` are also the user's, in App Store Connect. On Google Play, `action_required` means the base plan was created but not activated: the user activates it in Play Console. Sandbox purchases wait for an App Store product to leave `draft`.
 
@@ -466,12 +466,13 @@ After an App Store push, tell the user what it named the product: the display na
 2. **The IDs, one product at a time.** Even after "yes", the user may prefer not to dig for IDs right now — offer a skip at this stage too, and treat an empty first answer as "skip for now". Per product ask only what the chosen stores need:
    - App Store product ID (e.g. `com.example.app.monthly`)
    - Google Play product ID — suggest the App Store ID as the default (cross-store products usually share the identifier)
-   - **Period** — one of the CLI's `--period` values: `weekly`, `monthly`, `two_months`, `trimonthly`, `semiannual`, `annual`, `lifetime` (lifetime = one-time purchase, not a subscription)
-   - Google Play **base plan ID** (e.g. `monthly-base`) — required for every Android subscription (the CLI rejects the command without `--android-base-plan-id`); a `lifetime` product never has one
+   - **Period** — one of the CLI's nine `--period` values. Six are subscriptions: `weekly`, `monthly`, `two_months`, `trimonthly`, `semiannual`, `annual`. Three are one-time purchases (no Google Play base plan, no App Store subscription group, no offers): `consumable` for a purchase the user can buy again (coins, credits), `nonsubscriptions` for a non-renewing purchase, `lifetime` for a one-time unlock. Pick `consumable` or `nonsubscriptions` only when the user describes one; the user need not know the word. Before you create one, check that this CLI takes it: `$ADAPTY products create --help` must list it under `--period`. When it does not, try `npx --yes adapty@beta products create --help` once; when that lacks it too, say that CLI X.Y.Z is the first release that takes `consumable` and `nonsubscriptions`, then update the CLI and resolve `$ADAPTY` again, or create the product in the dashboard. Over MCP the `products_create` `period` schema lists the values.
+   - Google Play **base plan ID** (e.g. `monthly-base`) — required for every Android subscription (the CLI rejects the command without `--android-base-plan-id`); a one-time product never has one, and the API refuses it
    After each product ask whether to add another. Any number of products is fine — keep looping. A product available in both stores is ONE Adapty product carrying both store IDs, not two. Do NOT assume every product exists in all the selected stores — a specific product may live in only one of them (e.g. an old iOS-only lifetime SKU); if the user's answer leaves that ambiguous, ask, and create the product with only the store IDs it really has.
 
 ```bash
-# --period options: weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime
+# --period options: weekly, monthly, two_months, trimonthly, semiannual, annual (subscriptions);
+#                   lifetime, consumable, nonsubscriptions (one-time: no base plan, no group)
 # --title is the Adapty dashboard label (internal); not visible to end users
 #
 # HARD RULE: every products create you run carries at least one real store product ID,
@@ -497,6 +498,16 @@ $ADAPTY products create \
   --android-base-plan-id "monthly-base"
 ```
 
+```bash
+# Android one-time product (consumable here): no --android-base-plan-id
+$ADAPTY products create \
+  --app <APP_ID> \
+  --title "100 coins" \
+  --period consumable \
+  --access-level-id <ACCESS_LEVEL_UUID> \
+  --android-product-id "com.example.app.coins100"
+```
+
 Repeat for each product to create.
 
 **Offers on these products.** An offer set up in the store applies only once it is also added to the product in Adapty, and a missing one fails silently: the buyer pays full price and nothing reports it. What gets added ([Add offers to Adapty](https://adapty.io/docs/create-offer.md)):
@@ -505,7 +516,7 @@ Repeat for each product to create.
 - **Every Google Play offer on a base plan, free trials included:** on Google Play a trial is an offer, so an Android trial that is not added never applies.
 - Never an App Store introductory offer (an iOS free trial or intro price). It applies on its own, and the CLI has no type for it.
 
-Once the products exist, ask once, naming only the stores the app targets: "Do any of these products have offers in App Store Connect or Google Play — a Google Play free trial, a promotional or a win-back offer?" A "no" or an empty answer skips this. Per offer, take the product, its store offer ID in each store, and whether it is win-back. Like a store product ID, an offer ID comes from the user, the code or config, never from a guess: `product-offers update` can correct an ID, but there is no `product-offers delete`.
+A one-time product (`lifetime`, `consumable`, `nonsubscriptions`) takes no offers: skip this step for it. Once the subscription products exist, ask once, naming only the stores the app targets: "Do any of these products have offers in App Store Connect or Google Play — a Google Play free trial, a promotional or a win-back offer?" A "no" or an empty answer skips this. Per offer, take the product, its store offer ID in each store, and whether it is win-back. Like a store product ID, an offer ID comes from the user, the code or config, never from a guess: `product-offers update` can correct an ID, but there is no `product-offers delete`.
 
 ```bash
 # --type: promotional, or win_back (App Store only: never with --android-offer-id).

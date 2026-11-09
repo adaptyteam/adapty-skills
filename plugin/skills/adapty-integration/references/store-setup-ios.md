@@ -12,9 +12,9 @@ Adapty products need matching products in App Store Connect before purchases wor
 
 1. Open [App Store Connect](https://appstoreconnect.apple.com) → your app → **Monetization → Subscriptions**.
 
-2. Create a subscription group if none exists (e.g. "Premium").
+2. For subscriptions, create a subscription group if none exists (e.g. "Premium").
 
-3. For **each product** created in Phase 3, add a subscription in the group:
+3. For **each subscription product** created in Phase 3, add a subscription in the group:
 
    | What to enter | Value |
    |---|---|
@@ -25,6 +25,8 @@ Adapty products need matching products in App Store Connect before purchases wor
    After creating each subscription:
    - Set a price (any price works for sandbox)
    - Add at least one localization (display name + description)
+
+   A **one-time product** (`--period consumable`, `nonsubscriptions` or `lifetime`) is an in-app purchase, not a subscription: open **Monetization → In-App Purchases**, create no group and enter no duration. Choose the type **Consumable** for `consumable` and **Non-Consumable** for `nonsubscriptions` and `lifetime`; the Product ID is the `--ios-product-id` used in Phase 3. Set a price and a localization as for a subscription.
 
 4. Wait for status to show **Ready to Submit** (usually immediate). No App Review needed for sandbox testing.
 

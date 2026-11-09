@@ -512,6 +512,74 @@ check('store gap is SILENT when only ios is declared',
 check('a null base_plan_id on an app_store entry stays SILENT',
       len(of(run(FLOW)[1], 'play-base-plan-missing')) == 0)
 
+# One-time products (invented ids, inline catalog: catalog-fixture.json stays the four
+# subscriptions). A one-time product has no Google Play base plan and no billing period.
+ONE_TIME_PID = 'c0c0c0c0-0000-4000-8000-0000000000c1'
+
+
+def _one_time_para(text):
+    return [{'type': 'paragraph', 'content': [{'text': text, 'type': 'text', 'attrs': {}}]}]
+
+
+def one_time_catalog(period):
+    """A catalog file with one product of the given period, with a null Play base plan."""
+    path = os.path.join(tempfile.gettempdir(), f'audit-one-time-{period}.json')
+    with open(path, 'w') as fh:
+        json.dump([{'id': ONE_TIME_PID, 'title': 'Coins 100', 'period': period,
+                    'access_level_id': 'aaaaaaaa-0000-4000-8000-0000000000c2',
+                    'vendor_products': {
+                        'app_store': {'id': 'c0c0c0c0-0000-4000-8000-0000000000c3',
+                                      'product_id': 'com.example.fixture.coins100',
+                                      'base_plan_id': None},
+                        'play_store': {'id': 'c0c0c0c0-0000-4000-8000-0000000000c4',
+                                       'product_id': 'com.example.fixture.coins100',
+                                       'base_plan_id': None}}}], fh)
+    return path
+
+
+def one_time_config():
+    """Two selling screens bound to the product: `scr_price` shows a price and no period
+    word; `scr_card` has a card whose copy says "One-time"."""
+    def text(eid, words):
+        return {'id': eid, 'type': 'text',
+                'props': {'content': {'values': {'en': _one_time_para(words)}}}}
+
+    def screen(sid, extra, children):
+        m = {'el_card_' + sid: {
+                'id': 'el_card_' + sid, 'type': 'product',
+                'props': {'product': {'id': ONE_TIME_PID}},
+                'interactions': [{'id': 'i_buy', 'trigger': 'tap', 'actions': [
+                    {'id': 'a_buy', 'type': 'purchase', 'payload': {}}]}]}}
+        m.update(extra)
+        return {'id': sid, 'elements': {'map': m, 'hierarchy': {
+            'id': 'root', 'children': children}}}
+
+    price = screen('scr_price', {
+        'el_price': {'id': 'el_price', 'type': 'text', 'props': {'content': {'values': {'en': [
+            {'type': 'paragraph', 'content': [
+                {'type': 'text', 'text': '100 coins '},
+                {'type': 'variable', 'attrs': {'variableId': f'{ONE_TIME_PID}.prod_price'}}]}]}}}}},
+        [{'id': 'el_card_scr_price'}, {'id': 'el_price'}])
+    card = screen('scr_card', {'el_copy': text('el_copy', '100 coins | One-time')},
+                  [{'id': 'el_card_scr_card', 'children': [{'id': 'el_copy'}]}])
+    return {'screens': [price, card], 'locales': [{'code': 'en'}], 'defaultLocale': 'en'}
+
+
+ONE_TIME_CHECKS = ('play-base-plan-missing', 'period-claim-mismatch', 'no-period-disclosed')
+
+print('\nproducts / one-time products')
+for period in ('consumable', 'nonsubscriptions', 'lifetime'):
+    found = run(one_time_config(), catalog=one_time_catalog(period), stores='ios,android')[1]
+    for name in ONE_TIME_CHECKS:
+        check(f'{name} is SILENT on a {period} product', not of(found, name),
+              str(of(found, name)))
+# FIRES: a monthly product on the same flow still needs its base plan and its period.
+found = run(one_time_config(), catalog=one_time_catalog('monthly'), stores='ios,android')[1]
+for name in ONE_TIME_CHECKS:
+    check(f'{name} FIRES on a monthly product', len(of(found, name)) >= 1,
+          str([f['check'] for f in found]))
+
+
 print('\nproducts / offers')
 
 # A flow binds an offer by its Adapty `id` (`product-offers list`); `validate` passes a
