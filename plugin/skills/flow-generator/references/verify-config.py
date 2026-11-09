@@ -187,12 +187,10 @@ THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
 # because 4 of 36 screen ids in the corpus are bare UUIDs on published flows (see the check).
 _ID_RE = re.compile(r'[A-Za-z0-9_]+')
 
-# `language[-Script][-REGION]`, the casing the builder and the SDK use: `pt-BR`, not `pt-br`.
-# The transformer canonicalises the casing at publish (`pt-br` ships as `pt-BR`), so a casing-only
-# difference is harmless on a device; the config should still say what ships. Script is FOUR letters in
-# Title case and is why a naive
-# `^[a-z]{2}(-[A-Z]{2})?$` is wrong: `sr-Latn` is a real code in a real export and would fail it.
-LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?\Z')
+# `language[-Script][-REGION]` as the transformer accepts it: any casing, `-` or `_`; it writes
+# every code out in one casing at publish (`pt-br` ships as `pt-BR`). A script subtag is four
+# letters, which is why a naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong: `sr-Latn` is a real code.
+LOCALE_CODE = re.compile(r'(?i)[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?\Z')
 _BINARY = {'==', '!=', '>', '<', 'has', 'notHas', 'in', 'notIn'}
 _UNARY = {'empty', 'notEmpty', 'size'}
 
@@ -1483,34 +1481,13 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"measurement.) If you FETCHED this config, report it rather than "
                         f"rewriting someone else's height silently")
 
-    # Locale code SHAPE, which is separate from whether the code is declared. The builder and the
-    # SDK write `pt-BR`; the transformer rewrites `pt-br` to `pt-BR` at publish, so casing alone is
-    # harmless, and a code that fails the pattern otherwise is refused there. It is a
-    # warning rather than an error because the code can arrive in a config you fetched — the
-    # dashboard's own language list has served lowercase region tags — and the repair is heavy
-    # (the key has to be renamed in `locales`, in every `values` map in the document, and in
-    # `remote_configs`), so it is a report-and-ask rather than something to rewrite in passing.
-    # If THIS run wrote the code, fix the code; `flowkit.config()` refuses to emit one.
+    # Locale code SHAPE, separate from whether the code is declared. Casing is not checked: the
+    # transformer writes every code out in one casing. A code outside the pattern it refuses.
     misshapen = [c for c in codes if not LOCALE_CODE.fullmatch(str(c))]
-
-    def _cased(c):
-        """The code in the SDK's casing: language lower, a 4-letter script Title, region UPPER."""
-        parts = str(c).replace('_', '-').split('-')
-        return '-'.join([parts[0].lower()] + [p.title() if len(p) == 4 and p.isalpha()
-                                              else p.upper() for p in parts[1:]])
     if misshapen:
-        _to = _cased(misshapen[0])
-        _to = _to if LOCALE_CODE.fullmatch(_to) else 'pt-BR'
-        _from = misshapen[0] if LOCALE_CODE.fullmatch(_cased(misshapen[0])) else 'pt-br'
-        warn.append(f"locale code(s) {', '.join(misshapen)} are not `language[-Script][-REGION]` "
-                    f"with the casing the builder and the SDK use (`pt-BR`, `zh-Hans`, "
-                    f"`sr-Latn`). Casing alone is harmless: the publish rewrites it to `pt-BR` form, "
-                    f"so this does not block a publish; fix it only when you are editing the "
-                    f"locales anyway. Renaming a code whose locale id is the same string "
-                    f"means the id too: the entry in `localization.locales`, every catalog "
-                    f"`values` key and `remote_configs` — `python3 references/localization.py "
-                    f"rename <config> {_from} {_to}` does all three and refuses a target already "
-                    f"present")
+        bad.append(f"locale code(s) {', '.join(misshapen)} are not `language[-Script][-REGION]` "
+                   f"(`en`, `pt-BR`, `zh-Hans`, `es-419`): the publish refuses them "
+                   f"(`invalid_locale_code`)")
 
     # Stale sizing values persist through the editor and the transformer BELIEVES them:
     # hug carrying value -> min:<value> on device (team-diagnosed; content vanished at

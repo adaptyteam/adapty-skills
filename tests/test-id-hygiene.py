@@ -27,16 +27,16 @@ custom variable ids are the heads of `<customId>.value` and `<groupId>.selectedO
 they land in the same script -- corpus-clean (0 off-charset in all 12), but with no reproduced
 black screen behind them, so they warn where an element id errors.
 
-The locale-code check is the same lesson a third time. `pt-br` is not the casing the builder
-and the SDK write, so it may not match the device locale (it does publish) -- but the obvious `^[a-z]{2}(-[A-Z]{2})?$` is WRONG, because a script subtag is four
-letters in Title case and `sr-Latn` is a real code in a real export (`onboarding-multilocale`).
-The pinned SILENT case for `sr-Latn` is what stops that regression.
+The locale-code check uses the transformer's own pattern: any casing, `-` or `_`, because the
+publish writes every code out in one casing (`pt-br` ships as `pt-BR`). The obvious
+`^[a-z]{2}(-[A-Z]{2})?$` is WRONG, because a script subtag is four letters and `sr-Latn` is a real
+code in a real export (`onboarding-multilocale`). The pinned SILENT cases stop both regressions.
 
     FIRES   -- a hyphenated / dotted / spaced element id; an id reused on two screens;
-               an off-charset groupId, customId or variable id (warning); `pt-br`, `PT-BR`,
-               `sr-latn`, `pt_BR`
+               an off-charset groupId, customId or variable id (warning); `english`,
+               `pt--br`, `en us`, `12`
     SILENT  -- all 12 real exports; a UUID SCREEN id; `en`, `sr-Latn`, `pt-BR`, `zh-Hans`,
-               `zh-Hant-HK`, `fil`
+               `zh-Hant-HK`, `fil`, and other casings: `pt-br`, `PT-BR`, `sr-latn`, `pt_BR`
 
 Usage: python3 tests/test-id-hygiene.py    # 0 all pass, 1 a case regressed
 """
@@ -177,18 +177,12 @@ _v['variables'] = [{'id': 'promo-code', 'type': 'string'}]
 fires('an off-charset variables[].id', _v, 'variables[].id promo-code')
 
 print()
-print('FIRES on a locale code the SDK pattern refuses:')
-for bad in ('pt-br', 'PT-BR', 'sr-latn', 'sr-LATN', 'pt_BR', 'en-us'):
+print('FIRES on a locale code the transformer refuses:')
+for bad in ('english', 'pt--br', 'en us', '12'):
     fires(f'locale code {bad!r}',
           doc([screen('scr_1', [text_el('el_t')])],
               locales=(('en', 'en', 'English'), (bad, bad, 'Other'))),
-          'locale code')
-# The message names the one command that renames all three places, cased for THIS code.
-for bad, good in (('pt-br', 'pt-BR'), ('sr-latn', 'sr-Latn'), ('PT-BR', 'pt-BR')):
-    fires(f'...and names the rename for {bad!r}',
-          doc([screen('scr_1', [text_el('el_t')])],
-              locales=(('en', 'en', 'English'), (bad, bad, 'Other'))),
-          f'localization.py rename <config> {bad} {good}`')
+          'the publish refuses them')
 
 print()
 print('FIRES on a defaultLocale that names no declared locale:')
@@ -214,7 +208,8 @@ print()
 print('SILENT on the shapes the guard must not reach:')
 silent('a UUID SCREEN id — 4 of 36 corpus screen ids look like this, on published flows',
        doc([screen('9fd7c4e1-2b3a-4c5d-8e6f-0a1b2c3d4e5f', [text_el('el_t')])]))
-for good in ('en', 'fil', 'sr', 'sr-Latn', 'pt-BR', 'zh-Hans', 'zh-Hant-HK', 'es-419'):
+for good in ('en', 'fil', 'sr', 'sr-Latn', 'pt-BR', 'zh-Hans', 'zh-Hant-HK', 'es-419',
+             'pt-br', 'PT-BR', 'sr-latn', 'sr-LATN', 'pt_BR', 'en-us'):
     silent(f'locale code {good!r}',
            doc([screen('scr_1', [text_el('el_t')])],
                locales=(('en', 'en', 'English'), (good, good, 'Other'))))

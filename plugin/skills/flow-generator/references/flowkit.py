@@ -157,10 +157,10 @@ def ids_after(config, *, prefix='el'):
 # bare UUIDs for the entry screen. Same pattern as `verify-config.py`'s `_ID_RE`.
 _IDENT = re.compile(r'[A-Za-z0-9_]+')
 
-# `language[-Script][-REGION]`. The naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong: a script subtag is
-# four letters in Title case and `sr-Latn` is a real code in a real export. Same pattern as
-# `verify-config.py`'s `LOCALE_CODE`.
-LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?\Z')
+# `language[-Script][-REGION]` as the transformer accepts it: any casing, `-` or `_`. It writes
+# every code out in one casing (`pt-br` ships as `pt-BR`), so casing is not checked here. Same
+# pattern as `verify-config.py`'s `LOCALE_CODE`.
+LOCALE_CODE = re.compile(r'(?i)[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?\Z')
 
 
 def eid(kind='S'):
@@ -3147,20 +3147,13 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             'pass locales=(("en", "English"), ("ru", "Russian"), …) — do not ship it as a '
             'warning for someone else to clear up.')
 
-    # The locale code is what the SDK matches against, written the way the builder and the SDK
-    # write it: `language[-Script][-REGION]`, script four letters in Title case, region two
-    # uppercase letters or three digits. `pt-br` saves, and the publish rewrites it to `pt-BR`, so
-    # the config would not say what ships, and the repair is heavy later (the key
-    # has to be renamed in `locales`, in every `values` map, and in `remote_configs`) -- so it is
-    # unrepresentable here rather than a warning after the fact. `verify-config.py` warns on the
-    # same shape, for codes that arrive in a config you fetched rather than one you wrote.
+    # A code outside `language[-Script][-REGION]` is refused at publish (`invalid_locale_code`).
+    # `verify-config.py` reports the same shape for codes in a config you fetched.
     for code in declared:
         if not LOCALE_CODE.fullmatch(str(code)):
             raise ValueError(
-                f'locale code {code!r} is not `language[-Script][-REGION]` with the SDK\'s '
-                f'casing. Region is UPPERCASE (`pt-BR`, not `pt-br`) and a script subtag is '
-                f'four letters in Title case (`zh-Hans`, `sr-Latn`), as the builder and the '
-                f'SDK write them; the publish rewrites any other casing.')
+                f'locale code {code!r} is not `language[-Script][-REGION]` (`en`, `pt-BR`, '
+                f'`zh-Hans`, `es-419`); the publish refuses it.')
 
     # An element id becomes an IDENTIFIER in the generated runtime script -- the same code path
     # the condition-variable check below documents. A character outside [A-Za-z0-9_] breaks the

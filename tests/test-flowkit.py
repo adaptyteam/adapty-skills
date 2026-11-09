@@ -1155,18 +1155,19 @@ def main():
           raises(lambda: _doc([fk.screen('scr_1', [
               fk.text_input('user-name', node_id='el_in')])])))
 
-    # `pt-br` is not the builder's casing; `sr-Latn` is a real code in a real export, so the
-    # naive `^[a-z]{2}(-[A-Z]{2})?$` would be wrong in the other direction.
-    check('config() raises on a lowercase region locale code (pt-br)',
+    # The transformer's pattern: any casing, `-` or `_` (the publish writes one casing out);
+    # `sr-Latn` is a real code in a real export, so the naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong.
+    check('config() raises on a code the publish refuses (english)',
           raises(lambda: _doc([_scr('scr_1', 'el_ok')],
-                              locales=(('en', 'English'), ('pt-br', 'Portuguese')))))
-    check('config() raises on a lowercase script subtag (sr-latn)',
-          raises(lambda: _doc([_scr('scr_1', 'el_ok')],
-                              locales=(('en', 'English'), ('sr-latn', 'Serbian')))))
+                              locales=(('en', 'English'), ('english', 'English 2')))))
     check('config() accepts pt-BR, zh-Hans and sr-Latn',
           _doc([_scr('scr_1', 'el_ok')],
                locales=(('en', 'English'), ('pt-BR', 'Portuguese'),
                         ('zh-Hans', 'Chinese'), ('sr-Latn', 'Serbian'))) is not None)
+    check('config() accepts other casings (pt-br, sr-latn)',
+          _doc([_scr('scr_1', 'el_ok')],
+               locales=(('en', 'English'), ('pt-br', 'Portuguese'),
+                        ('sr-latn', 'Serbian'))) is not None)
     # --- icons resolve from the bundle, and _meta.icons is DERIVED ---------------------------
     # Used-here-declared-there is a two-place binding whose second place no gate can see, and the
     # name itself is a third: a phosphor name the renderer's bundle lacks draws blank with an
