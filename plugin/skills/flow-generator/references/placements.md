@@ -28,8 +28,8 @@ location already has a placement and whether the ID you would propose is free:
 $ADAPTY placements list --app "$APP" --page-size 100 --json    # the default page size is 20
 ```
 
-Each placement's `type` is `flow`, `paywall` or `onboarding`. A list without `type` (an older CLI)
-leaves it to `placements get` on the candidate: the `content_type` of its audiences.
+Each placement's `type` is `flow`, `paywall` or `onboarding`. A `null` `type` (a placement made without
+one) leaves it to `placements get` on the candidate: the `content_type` of its audiences.
 
 | What `list` shows | What you do |
 | :--- | :--- |
@@ -171,7 +171,8 @@ Local, before any request — exit 2, nothing sent:
 | `Invalid --audiences JSON: …` | not parseable |
 | `--audiences must be a JSON array of audience entries.` | parsed to a non-array |
 | `--audiences[<i>]: each entry must be a JSON object` | an entry is a scalar |
-| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall. **On an entry you read from `placements get` and did not write, it means the CLI is 0.10.0 or older** (CLI 0.11.0 and later say `this CLI does not know this audience kind; update the CLI` for a kind they lack): tell the user to update the CLI and re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is a running A/B test, and the write would stop it |
+| `--audiences[<i>]: content_type is required: …` | missing — there is no implicit paywall |
+| `--audiences[<i>]: this CLI does not know this audience kind; update the CLI` | a kind this CLI lacks. **On an entry you read from `placements get` and did not write**, tell the user to update the CLI and re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is a running A/B test, and the write would stop it |
 | `--audiences[<i>]: a flow entry requires flow_id` | flow entry, no `flow_id` |
 | `Invalid placement ID format.` | `update` with a non-UUID placement id |
 

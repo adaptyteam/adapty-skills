@@ -280,7 +280,6 @@ $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404
 "validate and preview do not exist" and skipped phases 3 and 4:
 
 ```bash
-adapty --version                                   # >= 0.8.0 ?  ADAPTY="adapty", done
 npm i -g adapty@latest >/dev/null 2>&1 \
   && ADAPTY="adapty" \
   || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
@@ -362,8 +361,7 @@ Four facts about the config commands that are not guessable:
 
 ### 1. Resolve the invocation, then authenticate
 
-**First** set `$ADAPTY` as [the CLI surface](#the-cli-surface) describes — probe
-`adapty --version`, and if it is old **install once globally** rather than paying the npx wrapper's
+**First** set `$ADAPTY` as [the CLI surface](#the-cli-surface) describes — **install once globally** rather than paying the npx wrapper's
 ~1 s on every later call (`npx` only as the fallback). Do it before the first command, not after one fails,
 and print the version you resolved in the same command you run next so the two cannot disagree.
 

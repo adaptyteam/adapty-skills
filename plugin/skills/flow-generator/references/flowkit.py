@@ -779,7 +779,7 @@ RESERVED_TAG_NAMES = frozenset({
 })
 RESERVED_TAG_PREFIX = 'TIMER_'
 _TAG_NAME = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
-_TAG_VALUE_TYPES = {'string': (str,), 'number': (int, float), 'boolean': (bool,)}
+_TAG_VALUE_TYPES = {'string': (str,)}
 
 
 def tag_name_issue(name):
@@ -817,9 +817,9 @@ def app_value(name, *, fallback, value_type='string', variable_id=None, descript
             f'({", ".join(sorted(RESERVED_TAG_NAMES)[:4])}, ..., {RESERVED_TAG_PREFIX}*).')
     if value_type not in _TAG_VALUE_TYPES:
         raise ValueError(f'app_value() value_type must be one of {sorted(_TAG_VALUE_TYPES)}, '
-                         f'got {value_type!r} — the app passes strings, numbers or booleans only')
+                         f'got {value_type!r} — the app passes strings only')
     ok = _TAG_VALUE_TYPES[value_type]
-    if not isinstance(fallback, ok) or (value_type == 'number' and isinstance(fallback, bool)):
+    if not isinstance(fallback, ok):
         raise TypeError(f'app_value() fallback {fallback!r} is not a {value_type}; it is shown '
                         f'in place of the app value, so it must be the same type')
     vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
@@ -3296,8 +3296,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             continue
         if v.get('valueType') not in _TAG_VALUE_TYPES:
             raise ValueError(f'variable {v.get("name")!r} is external but its valueType is '
-                             f'{v.get("valueType")!r}; only string, number and boolean '
-                             f'variables can come from the app. Build it with app_value().')
+                             f'{v.get("valueType")!r}; only a string variable can come from the app. '
+                             f'Build it with app_value().')
         issue = tag_name_issue(v.get('name'))
         if issue:
             raise ValueError(f'custom tag name {v.get("name")!r} is {issue} '

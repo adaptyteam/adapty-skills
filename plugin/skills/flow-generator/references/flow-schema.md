@@ -387,9 +387,10 @@ And an element-level `font` is either a preset reference or a full override with
 "font": {"family": {"id": "<font-uuid>", "type": "user"}, "size": 32, "weight": "semibold"}
 ```
 
-Do not add a `preset` to the second form to make it look like the first. A preset with a
-`weight` or `size` beside it is a state override (trap 17) and fine; a preset with a `family` is
-the mix `verify-config.py` warns on: the preset's face draws and the family is silently ignored.
+Do not add a `preset` to the second form to make it look like the first. Beside a preset, a
+`size` replaces the preset's size, while a `weight` or a `family` is ignored and the preset's
+face draws; `verify-config.py` warns on the `family` mix. A different weight is a different
+preset, or a manual font with no preset.
 
 ### 4. Built-in variables are referenced but never declared
 
@@ -432,7 +433,7 @@ an offer**, so a line built around one silently loses its number for everyone el
 A boolean is for visibility, never for text: the transform service refuses one inside rich text
 (`boolean_product_var_in_text`).
 
-**The set is closed.** A field outside those fifteen is refused as `unknown_product_field` — and the
+**The set is closed.** A field outside those nineteen is refused as `unknown_product_field` — and the
 service treats that as the author's own typo rather than a registry problem, so it is on you to get
 right. `verify-config.py` errors on one, and on a bad product id in *any* of the three families
 (`prod_*`, `offer_*`, `is_*`).
@@ -1002,7 +1003,7 @@ anything the **app** knows and the flow cannot work out by itself. That is one c
 | Field | What it is |
 | :--- | :--- |
 | `name` | **The contract with the app's code.** The SDK looks the value up by this exact, case-sensitive string. Letters, digits, `_`, `-`, and dots between parts (`user.coins`). Not a name the SDK resolves itself — `PRICE`, `TITLE`, `PERCENT`, `VALUE`, `TIMER_*` and the rest of the product tags are refused (`custom_tag_invalid_name`). Unique across **all** variables, flow-owned ones included (`custom_tag_duplicate_name`) |
-| `valueType` | `string`, `number` or `boolean` only. On an array or product variable `external` is ignored |
+| `valueType` | `string` only. On any other type `external` is ignored and the app cannot set it (`custom_tag_non_string`) |
 | `value` | **The fallback.** Every string carrying the tag ships with a copy that has the tag replaced by this value, and the SDK shows that copy whenever the app does not supply one — an older app build, a missing attribute, a resolver not wired yet. It is also what the builder preview draws |
 | `external` | `true`. Absent means a flow-owned variable |
 | `description` | Optional, builder-only note for the author |
@@ -1279,31 +1280,21 @@ did not add is an unrequested edit — but there is no reason to write a new one
 
 ### 19. A theme colour must be exactly `#RRGGBB` — and only a theme colour
 
-`theme.colors[].light.hex` / `.dark.hex` accept **six hex digits behind a `#`, either case, and
-nothing else**. Measured against the transform service, every one of these is
-refused there: `#fff`, `#FFFFFFD9`, `#FFFFFFF`, `FFFFFF`, and the empty string.
+The published schema gives every colour `hex` the pattern `^(?:#[0-9A-Fa-f]{6})?$`, so
+`validate-with-schema.mjs` names the path of a `#fff`, `#FFFFFFD9`, `#FFFFFFF` or `FFFFFF`. The
+transform service reads `#RGB`, `#RRGGBBAA` and an unprefixed hex in any position, a theme colour
+included. What it cannot read, an empty or a 7-digit theme hex, it refuses or drops depending on
+the service build — and the schema pattern allows the empty string, and `config preview` **draws
+light mode only**, so a broken `dark` value renders perfectly.
 
-It is refused with **`Generated JSON failed schema validation` and no path**, so the message
-names no field and you are bisecting a whole document to find one character. `config preview`
-cannot help: it **draws light mode only**, so a broken `dark` value renders perfectly. The schema
-check sees most of it: the published schema gives every colour `hex` the pattern
-`^(?:#[0-9A-Fa-f]{6})?$`, so `validate-with-schema.mjs` names the path of a `#fff`,
-`#FFFFFFD9`, `#FFFFFFF` or `FFFFFF`. **That pattern allows the empty string**, which the service
-still refuses in a theme colour, so an empty theme hex passes the schema check.
-
-**The service's rule is position-scoped; the schema's is not.** In an *element* position —
-`props.fill.color`, `props.color`, `props.clearButtonColor` — the same service accepts a 3-digit
-hex, an 8-digit `#RRGGBBAA` and an empty string. This is not a guess: real exports carry **8**
-eight-digit and **16** empty values in element positions and validate clean, and
-`tests/fixtures/onboarding-quiz-paywall.json` (which holds both) returns `valid: true`. The
-schema's pattern covers element colours too, so the schema check reports the 3- and 8-digit ones.
 Two rules follow. **Write `#RRGGBB` in every position you author**, with alpha in `opacity`. And
-**carry an existing 3- or 8-digit element value through untouched**: the service reads it,
-`--baseline` keeps it out of the schema check's report, and rewriting it is an unrequested edit.
+**carry an existing 3- or 8-digit element value through untouched**: real exports carry **8**
+eight-digit and **16** empty values in element positions and validate clean, `--baseline` keeps
+them out of the schema check's report, and rewriting one is an unrequested edit.
 
-`flowkit.config()` raises on a bad theme hex, the empty string included, and leaves element
-colours alone; `verify-config.py` errors on the same thing, calibrated silent on all 12 real
-configs.
+`flowkit.config()` raises on a theme hex that is not `#RRGGBB`, and leaves element colours alone;
+`verify-config.py` errors on a theme hex the service cannot read and warns on one the schema does
+not allow, calibrated silent on all 12 real configs.
 
 A theme colour written as a **layer stack** (trap 26) carries hexes inside its layers, and the
 rule follows them there: write `#RRGGBB` everywhere, with alpha in `opacity`. An empty or
@@ -1347,10 +1338,10 @@ Reuse an id across the two and the **device SDK fails to decode the flow at all*
 `DecodingError: dataCorrupted … Debug description: Duplicate Key`. The screen never opens — this
 is not a cosmetic defect.
 
-Nothing an agent can run locally catches it. Measured on the offending config: `flows config
-validate` returned **`valid: true`**, the schema check passed, and `config preview` rendered the
-screen perfectly, because the preview renderer resolves the two lookups separately while the SDK
-builds one keyed container from `theme`. Reported from a real device after every gate was green.
+The transform service publishes both lists as one set of assets keyed by id, and refuses the
+collision (`duplicate_appearance_asset_id`, at `theme.colors[<n>].id`). The schema check passes it,
+and `config preview` renders the screen perfectly, because the preview renderer resolves the two
+lookups separately.
 
 Evidence that the namespace really is shared: **8 of 8 real exports** in the corpus (sanitized and
 raw alike) have **zero** overlap between the two id sets, and the builder's own naming keeps them
@@ -1359,7 +1350,7 @@ apart — colours are `accent`, `gray-200`, `clr_RvBg`; presets are `body`, `cap
 `footer` typography preset.
 
 So **name presets and colours in separate spaces** (`legal` for the preset, `footer` for the
-colour). `references/verify-config.py` is the only gate that will tell you, and it now covers the
+colour). `references/verify-config.py` tells you before the write, and it covers the
 whole class rather than this one instance: it **errors** on a repeated id in any id-keyed
 collection — `theme.colors`, `theme.typography`, `localization.locales[].code`/`.id`, `screens[].id`,
 `variables[].id`, `_meta.fonts[].id`, `_meta.icons` by name+weight, a screen's
@@ -1423,7 +1414,7 @@ will see it. What is known, type by type, comes from real exports and device che
 
 | literal | family | in the corpus | read |
 |---|---|---|---|
-| `selectProduct` | action | 0 | see the toggle table above — a toggle cannot move a product group's selection |
+| `selectProduct` | action | 0 | takes `{element}`, see the toggle table above; no export or device check shows it |
 | `old-price` | element | 0 | **draws in preview and not on device** — see its own section |
 | `header` | element | 0 | unused in every real export; no device evidence either way. Verify before relying on it |
 | `progress-bar`, `progress-bar-loader`, `progress-bar-segment` | element | 2 of 7 flows | real builder output; a flow-level component, not a per-screen element |
@@ -1694,7 +1685,7 @@ A dedicated element type for a struck-through original price. Built and rendered
 **`multiplier` is a pricing claim, not a layout value.** At `2` the screen asserts a 50% discount.
 Nothing in the config derives or checks it, so a number pulled from nowhere is a fabricated
 discount shown to real users — treat choosing it as the product owner's decision and say so, the
-same way [products.md](products.md) treats a period that does not match its price field.
+same way [products.md](products.md) treats a card whose product has another period than its label.
 
 **It renders in `flows config preview` and NOT in the Adapty app — measured, and this reverses the
 claim above.** On a real device, a card carrying this element showed only the current price; the
@@ -1706,10 +1697,9 @@ on screen where users are.**
 Do not author `old-price` expecting a visible strikethrough, and never lay out a price row around
 one you have only seen in the CLI preview.
 
-**The reason is that the transform service has no mapper for it.** That predicts exactly what was
-measured, for the whole element rather than one prop: the CLI preview reads the config directly,
-so it draws the element; a device reads the *transformer's output*, which never carries it. Two
-further signals agree — **0 of the 12 real exports contain an `old-price`**, and no
+**The reason is on the device side.** The transform service maps the element, inside a `product`
+only, to a struck-through text bound to an old-price value, but no released SDK reads that binding,
+while the CLI preview reads the config directly and draws it. Two further signals agree — **0 of the 12 real exports contain an `old-price`**, and no
 component-catalog template uses one. `verify-config.py` warns when a config carries one.
 
 It is not settled whether `multiplier` would do anything if the element did reach the SDK —
@@ -1995,7 +1985,7 @@ never treat its absence here as evidence the file is invalid.
 | element `type` (**not in these exports**, present in the transformer's front-format fixtures) | `divider`; the tabs family `tabs`, `tab-bar`, `tab-item`, `tab-content-wrapper`, `tab-content`; the input family `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker` | Absence from the three exports is absence of coverage, not evidence a type is invalid. These are real front-format inputs. `tabs` is a **composite**, not one element — see the request map below |
 | action `type` | **14 types.** In these exports: `navigate`, `conditional`, `purchase`, `closeFlow`, `nothing`. Also valid, and none of them appear here: `navigateBack`, `navigateNext`, `restorePurchases`, `setVariable`, `openUrl`, `alert`, `custom`, `showElement`, `hideElement` | `closeFlow` in all three; `navigate` in `quiz` + `timer`; `purchase` in `quiz` + `comparison`; `conditional` and `nothing` in `quiz` only. `nothing` appears only as a `conditional` case value, never as a top-level action. The other nine come from the builder transformer's front-format fixtures — and `navigateBack`/`navigateNext` are the **two most common actions there**, more common than `navigate` itself, so a Next button does not need a named destination. Payload shapes below |
 | action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `navigateBack` / `navigateNext` / `closeFlow` / `restorePurchases` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?}`, see below | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
-| `purchase` `payload.product` | `{"type": "var", "variableId": "<groupId>.selectedProduct"}` when the screen has a product group, **or** `{"type": "const", "value": {"id": "<productUUID>", "offerId"?}}` when it does not | The `const` form is what a paywall with a single implied plan uses — one CTA, no product cards, no `_meta.screens` entry needed. Do not add an empty product group to satisfy the `var` form. A `payload.type` of `"native"` also appears alongside `product`; it is optional in practice |
+| `purchase` `payload.product` | `{"type": "var", "variableId": "<groupId>.selectedProduct"}` when the screen has a product group, **or** `{"type": "const", "value": {"id": "<productUUID>", "offerId"?}}` when it does not | The `const` form is what a paywall with a single implied plan uses — one CTA, no product cards; its product still needs a `_meta.screens` entry ([products.md](products.md#a-purchase-can-bind-a-product-with-no-product-element)). Do not add an empty product group to satisfy the `var` form. A `payload.type` of `"native"` also appears alongside `product`; it is optional in practice |
 | interaction `trigger` | `tap` | the only trigger in all three |
 | `conditional` `payload.type` | `switch` | `quiz` only. `cases` is an array of `[predicate, {type: "const", value: [actions]}]` pairs, plus a `default` in the same value shape. Actions nested inside a case carry `"id": ""`, not an `act_` id — including the `navigate` that a screen deletion has to repair, which is why a dangling target can sit two levels down inside a `default` branch |
 | predicate operators | `&&` (grouping), `==` (comparison) | `quiz` only. These are the two this corpus happens to use, **not** the vocabulary — there are 18 expression types and one of them (`assign`) is refused as a condition. See trap 14b |

@@ -165,7 +165,7 @@ one it shows that is not there:
   [flow-schema.md](flow-schema.md#old-price-a-real-element-that-does-not-draw-on-device).
   **The mechanism is knowable without a device**, which narrows this blindness usefully: this page
   renders the config, a device renders the *transformer's output*, so an element the transform
-  service has no mapper for can only ever appear here. `old-price` is one — check
+  service has no mapper for can only ever appear here. Check
   [Being in the schema is not reaching a device](flow-schema.md#being-in-the-schema-is-not-reaching-a-device)
   before you trust this renderer on an element type you have not shipped before.
 - **Selection in a `toggle` or a `multi_choice` group — but `single_choice` and `product` DO

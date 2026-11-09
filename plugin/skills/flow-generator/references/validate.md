@@ -17,8 +17,8 @@ as a 422 the first time someone opens the flow on a device.
 
 ## The one rule that changes how you use it
 
-**The transform service stops at the first fatal, so `validate` reports exactly one error per
-run — never a list.**
+**`validate` reports exactly one error per run — never a list.** The transform service's message
+names only the first error of the stage that failed.
 
 Measured: a config with three independent defects (an undeclared product, a dangling `groupId`,
 and a default locale naming no configured locale) returned **one** issue. Adding the third defect

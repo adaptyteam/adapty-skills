@@ -194,9 +194,10 @@ Unknown Product Id
 Rich-text variable "<uuid>.prod_price" references unknown product or product group "<uuid>"
 ```
 
-**A `const` purchase payload does not help.** It buys the product perfectly well and needs no
-declaration — see the section below, which is true and easy to over-read. It declares nothing, so a
-screen whose CTA carries a `const` purchase still cannot resolve a price variable.
+**A `const` purchase payload does not help.** It buys the product, but it needs a declaration of
+its own ([below](#a-purchase-can-bind-a-product-with-no-product-element)) and gives the builder no
+element to attach, so a screen whose CTA carries a `const` purchase still cannot resolve a price
+variable.
 
 **So: if a screen shows a price, it needs a `product` element, whatever the design looks like.**
 A single-plan paywall with no visible picker still wraps its price block in one — give it the
@@ -480,9 +481,9 @@ action names the product directly, and no element has to stand behind it.
 **But it is not self-sufficient for publishing.**
 Measured against `adapty/0.8.0` in production: `flows config validate` refuses that
 exact fixture with `flow._meta.screens["scr_RvSel001"].products is missing flowProductId for
-product "<uuid>" (…elements.map[…].purchase.product)`. The transform service harvests declarations
-from `product` elements only, so a product reached *just* through a `const` purchase is invisible
-to it — and the render says nothing, because the preview page does not run that service
+product "<uuid>" (…elements.map[…].purchase.product)`. The transform service looks up every
+product a screen names, a `const` purchase included, in `_meta.screens[<sid>].products[]` — and the
+render says nothing, because the preview page does not run that service
 ([validate.md](validate.md)).
 
 Three consequences, the third of which is a correction:

@@ -168,18 +168,11 @@ EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty
 # it falls through to `default` and the flow is refused. Legal in a `setVariable` payload,
 # illegal as a condition — hence scoped here and not to expressions generally.
 COND_ILLEGAL_TYPES = {'assign'}
-# A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
-# In `theme.colors[].light/dark` a 3-digit, 8-digit, 7-digit, unprefixed or EMPTY
-# hex is refused -- and refused with the location-free `Generated JSON failed schema
-# validation`, which names no field. The render cannot see it: `config preview` draws light
-# mode only. The published schema's hex pattern `^(?:#[0-9A-Fa-f]{6})?$` catches the rest but
-# allows the EMPTY string, so this check is the only local gate for that one.
-#
-# POSITION-SCOPED on purpose. In an element position the same service accepts a 3-digit hex,
-# an 8-digit one and an empty string, and real exports carry 8 eight-digit and 16 empty values
-# in `props.fill.color` / `props.color` and validate clean -- so an error here would fire on
-# the builder's own output. The schema check reports the 3- and 8-digit ones; `--baseline`
-# keeps the ones already in the fetched config out of its report. Theme colours only.
+# A colour hex the schema allows: `#RRGGBB`. The transform service also reads `#RGB`,
+# `#RRGGBBAA` and an unprefixed hex, in a theme colour as in an element; a theme colour whose hex
+# it cannot read at all (empty, 7 digits) is refused or its solid dropped, depending on the
+# service build. Real exports carry looser forms in element positions (8 eight-digit and 16 empty
+# values in `props.fill.color` / `props.color`), so only theme colours are checked here.
 THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
 
 # An id that reaches the generated runtime script as an identifier. Element ids, group ids,
@@ -364,7 +357,7 @@ RESERVED_TAG_NAMES = frozenset({
     'PROD_PRICE_PER_YEAR', 'OFFER_BILLING_PERIOD', 'OFFER_FULL_DURATION',
 })
 TAG_NAME_RE = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
-TAG_VALUE_TYPES = ('string', 'number', 'boolean')
+TAG_VALUE_TYPES = ('string',)
 
 
 def tag_name_issue(name):
@@ -851,7 +844,7 @@ def catalog_findings(raw):
     Every localizable value lives in `localization.content` and each field holds a `{_lid}`
     ref, so the failures are new ones: a ref that names no entry, an entry of the wrong kind,
     an inline value left behind by a graft, a value keyed by a locale nobody declared. None of
-    them is visible in a render, and `validate` stops at the first fatal.
+    them is visible in a render, and `validate` names only the first error of the stage that failed.
     """
     bad, warn = [], []
     lz = raw.get('localization')
@@ -2854,8 +2847,8 @@ def check(path, baseline_text=None, baseline_images=None):
     for v in tag_vars:
         if v.get('valueType') not in TAG_VALUE_TYPES:
             warn.append(f'variable {v.get("name")!r} carries external: true but is a '
-                        f'{v.get("valueType")!r}; only string, number and boolean variables can '
-                        f'come from the app, so the flag is ignored and the app cannot set it')
+                        f'{v.get("valueType")!r}; only a string variable can come from the app, so the '
+                        f'flag is ignored and the app cannot set it (custom_tag_non_string)')
             continue
         issue = tag_name_issue(v.get('name'))
         if issue:
@@ -3578,11 +3571,16 @@ def check(path, baseline_text=None, baseline_images=None):
             if not isinstance(v, dict) or 'hex' not in v:
                 continue
             h = v['hex']
-            if not (isinstance(h, str) and THEME_HEX.match(h)):
+            if isinstance(h, str) and THEME_HEX.match(h):
+                continue
+            if parse_hex(h):
+                warn.append(f'theme colour {c.get("id")!r} {variant} hex is {h!r}: the service '
+                            f'reads it, but the schema allows only #RRGGBB — write that, with '
+                            f'alpha in `opacity`')
+            else:
                 bad.append(f'theme colour {c.get("id")!r} {variant} hex is {h!r}, not #RRGGBB — '
-                           f'the transform service refuses this with the location-free '
-                           f'"Generated JSON failed schema validation", and neither the schema '
-                           f'check nor the render can see it')
+                           f'the transform service cannot read it, so it refuses the flow or '
+                           f'drops the colour, and the render (light mode only) cannot show it')
 
     theme_style_findings(d, bad, warn)
 

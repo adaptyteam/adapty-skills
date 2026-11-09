@@ -646,7 +646,7 @@ Three rules, each measured
    that sentence is the only part of this the user can act on.
 
 It publishes clean and reaches a device: an unset `video` returns `valid: true, issues: []`, and
-the transform service maps `video`, so unlike `old-price` it is not preview-only. Note the
+the transform service maps `video`, so it is not preview-only. Note the
 evidence tier — **0 of the 12 real exports carry a `video`**, so this shape is authored from the
 schema plus the measurements above rather than read off builder output.
 
@@ -825,7 +825,8 @@ Five rules follow. The first is a hard requirement and the local render cannot s
    instead. And a screen whose content fits on a phone does not need a footer at all: see
    [A tall phone's extra height goes to the hero](#a-tall-phones-extra-height-goes-to-the-hero).
 
-1. **One `footer` per screen.** A second one is silently dropped, so a CTA and a legal row go
+1. **One `footer` per screen.** With two, neither becomes the screen's pinned footer on a device:
+   the transform service keeps both as plain overlays and warns. So a CTA and a legal row go
    inside the *same* footer as children, never as two footers.
 2. **Put it anywhere in the hierarchy** — last child is the readable choice, but position carries
    no meaning.
@@ -991,8 +992,9 @@ whose description had been grown from two lines to four:
 
 So: `bottom` is what gives the element height, `auto` is what makes the anchors authoritative, and
 paint order is what keeps the rail behind the chips it runs under. The real export used
-`zIndex: -10` instead, which works only while no ancestor has a fill — a negative `zIndex` goes
-behind every filled ancestor, so the same rail inside a trial-timeline card draws nothing.
+`zIndex: -10` instead, which in the render works only while no ancestor has a fill — there a
+negative `zIndex` goes behind every filled ancestor, so the same rail inside a trial-timeline card
+draws nothing.
 `verify-config.py` warns on a negative `zIndex` under a filled ancestor. `flowkit.absolute()`
 emits the position object and refuses the two broken pairings; `verify-config.py` warns on both if
 you hand-write them.
@@ -1260,18 +1262,12 @@ Open and close with `showElement` / `hideElement`, whose payload is a **list of 
 {"id": "act_open", "type": "showElement", "payload": {"elements": ["el_planSheet"]}}
 ```
 
-**The trap: a docked element of the screen paints OVER the sheet.** The page's own bottom-docked
-CTA and legal row kept rendering on top of an open sheet, burying the sheet's purchase button under
-the button that had just opened it — measured on the first render of this pattern. A sheet is not a
-layer above everything; it is a sibling. So the opening interaction carries **two** actions, and the
-dismiss carries their inverse:
+**In the render, a docked element of the screen paints over the sheet:** the page's bottom-docked
+CTA and legal row drew on top of a sheet made visible, burying its purchase button. On a device the
+sheet is not part of the page: it opens as a screen of its own above it, so the one `showElement`
+is the whole opening action.
 
-```json
-"actions": [{"id": "act_open",      "type": "showElement", "payload": {"elements": ["el_planSheet"]}},
-            {"id": "act_hide_page", "type": "hideElement", "payload": {"elements": ["el_openCta", "el_legalRow"]}}]
-```
-
-Two more things that follow from the sheet being an ordinary part of the document:
+Two more things:
 
 - **The product group spans both.** The `product` elements live inside the sheet while
   `selectableGroups` is declared on the screen, and the sheet's CTA buys
@@ -1279,7 +1275,7 @@ Two more things that follow from the sheet being an ordinary part of the documen
   sheet-aware.
 - **The render draws whatever `visibility` says and never runs the interaction.** So screenshot it
   twice — once as authored (sheet hidden) and once from a throwaway copy with the sheet visible and
-  the page furniture hidden, which is the state the actions produce. That verifies both layouts and
+  the page furniture hidden, which is what the opened sheet covers on a device. That verifies both layouts and
   proves nothing about the tap: whether `showElement` actually fires is an Adapty-app check.
 
 ### A hero with the content sliding over it: `sliding-sheet`
@@ -1429,8 +1425,7 @@ screen arrives with the default push, so a user's request is the reason to set o
 - **Taps do nothing while a transition runs, and that includes its `delay`.** Keep `delay` at 0 unless
   the user asks for a pause.
 - **`slideIn` and `ease-out-bounce` can show what is behind the screens:** the first screen's bottom
-  color or gradient. Choose another when the screens differ a lot in color. `ease-out-bounce`
-  plays as `ease-in-out` on iOS 15 and 16.
+  color or gradient. Choose another when the screens differ a lot in color.
 - **The preview page never navigates, so a render cannot show a transition.** Say it is checked on a
   device, or in the looping preview in Flow Builder's Navigate to Screen action.
 

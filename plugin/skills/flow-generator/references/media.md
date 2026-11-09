@@ -492,8 +492,7 @@ is what gets handed over.
 
 **It is publishable, and it reaches a device.** An unset `video` returned `valid: true, issues:
 []` in three forms — fully styled, with an empty entry, and bare with nothing but a
-`position`. The transform service maps `video`, so unlike [`old-price`](flow-schema.md) it is not
-a preview-only element.
+`position`. The transform service maps `video`.
 
 **A fixed height is the one thing that matters, and `hug` is the trap.** With `height: fixed`
 the box is honoured to the point — `fixed_h: 200` drew exactly 200. With `height: hug` the
