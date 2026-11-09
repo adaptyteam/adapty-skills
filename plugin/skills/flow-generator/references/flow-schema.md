@@ -156,7 +156,7 @@ envelope around the same document:
 {"config": { … the ten keys above … }, "remote_configs": …, "status": …, "updated_at": …}
 ```
 
-Three differences, each measured on a live round trip:
+Three differences, each visible on a live round trip:
 
 - **`status` and `updated_at` belong to the envelope, and the API owns both.** `status` put
   inside `config` is **discarded** on save; `updated_at` is an epoch integer and doubles as the
@@ -184,7 +184,7 @@ the one invariant on this list that a real multi-locale export has never exercis
 | 3 | Every `navigate` action's `payload.screen` names an existing screen — **including targets nested inside a `conditional`'s `cases` and `default`**, which is where a dangling one hides, since the branch that reaches it may never be the one you looked at | **screen deletion** | **Publish blocker.** A Navigate action with a destination that no longer exists is an incomplete interaction, and [Common issues](https://adapty.io/docs/flow-common-issues.md) names it explicitly: it "also occurs when the destination screen is deleted after the action is set up." The flow will neither preview nor publish. |
 | 4 | Every `product` element's `props.product.id` is declared in `_meta.screens.<thatScreenId>.products[]` | moving a product element to another screen | **Publish blocker** — a product element with no product attached. Declaration is per screen, so a moved element arrives **unattached on its new screen**, and no edit you can make to the JSON clears that. There is no re-keying fix: see [`transforms.md`](transforms.md#decisions-you-must-disclose) decision 2 for the exits, and [`products.md`](products.md) for why binding is not yours to write. |
 | 5 | A price variable resolves by **one of two forms**, and which one decides what it must name. Product-relative — `<productUUID>.prod_price_per_*`, head is a product id declared in `_meta.screens` (in the corpus, always on the same screen that reads it). Group-relative — `<groupId>.selectedProduct.<field>`, head is a `product`-typed `selectableGroups` id, **not** a product id | copy rewrite, moving a screen or element | The price renders empty. Nothing fails loudly. **Validate the head against the form, or you generate a false positive:** checking the first segment of a group-relative variable against the product list rejects a valid file and invites an agent to "repair" correct work. Provenance, precisely: the product-relative form is the only one in the corpus. The **field names are documented** — [Element variables](https://adapty.io/docs/onboarding-variables.md) lists `prod_price` alongside `prod_price_per_{day,week,month,year}`. What is unverified is the group-relative **reference syntax** `<groupId>.selectedProduct.<field>`: it appears in no export and on no docs page, only in a live Flow Builder screen. **That syntax is now device-verified and safe to author:** on a real device a root-level line reading `<groupId>.selectedProduct.prod_price` resolved to a real price and **changed as each card was tapped**, so it tracks the live selection rather than resolving once. `prod_price_per_month` on an **annual** product likewise resolved to a real derived figure, so a per-month field does not require a monthly product. Preserve it verbatim where you find it, and authoring it is fine. [`products.md`](products.md) owns the handling rules. |
-| 6 | Every `selectableGroups[].id` has at least one member element carrying that `groupId`, and every `groupId` in use has a declared group | branching edits | A group with no members and a member with no group are both broken selection state. Groups are per screen and typed (`single_choice`, `product`). Two team-stated naming rules: a `groupId` must **not start with a digit** (`1a` generated invalid JavaScript and blocked publish), and should be **unique across the flow**, not merely its screen — two screens sharing `"products"` broke selection rendering. |
+| 6 | Every `selectableGroups[].id` has at least one member element carrying that `groupId`, and every `groupId` in use has a declared group | branching edits | A group with no members and a member with no group are both broken selection state. Groups are per screen and typed (`single_choice`, `product`). Two naming rules: a `groupId` must **not start with a digit** (`1a` generates invalid JavaScript and blocks publish), and should be **unique across the flow**, not merely its screen — two screens sharing `"products"` break selection rendering. |
 | 7 | Every `const` compared against `<groupId>.selectedOptionId` matches some member's `customId` | branching edits, renaming an option | The case never matches, so every user takes the `default` branch. Silent — the flow still routes somewhere. |
 | 8 | Every `colorId` and every `font.preset` resolves in **that file's own** `theme` | pasting a screen from another flow | **A hard 422, confirmed.** A screen pasted in from another flow kept `font.preset: "button-label"`, a preset the destination theme does not define; device preview returned `unknown_font_preset` as **severity `error`**, once per text element, blocking the whole flow. `config update` had saved it without complaint. So this is a publish blocker, not a cosmetic drift — and `references/verify-config.py` catches it, which is the check earning its place. Fix by repointing to a preset the destination theme has, not by adding the source's name to the theme. Never validate these against a remembered list of built-in names — see [Shape traps](#shape-traps). |
 | 9 | Every `family.id` resolves in `_meta.fonts` — via **all four** reference paths: an element's `props.font.family.id`, `theme.typography[].settings.family.id`, a state override's `propsByState.<state>.font.family.id`, and a rich-text span's `attrs.family.id` (a span's `family: null` clears the family and references nothing) | pasting a screen from another flow, editing or deleting a typography preset | Unresolvable font reference. **Check every path or you check nothing**: element-level refs number 7 in `timer` and 0 in both `quiz` and `comparison`, so in `comparison` all three declared fonts are reached only through theme presets, and in `timer` the element and preset paths together are what reach all four. A check that reads only element props would find `comparison`'s `_meta.fonts` entirely unreferenced and could license deleting them. Resolving here also does not mean the font ships — trap 8. |
@@ -323,7 +323,7 @@ Measured by bisection, holding everything else constant:
 `verify-config.py` passes it; the schema step catches it, at
 `props/placeholder/values/<locale>`, and the render does — trap 10's lesson with a louder failure: **one wrong value shape on
 one prop is a screen-level outage**, not a local defect. So a helper that builds rich text is the
-wrong tool for a placeholder, and reusing one across both families is how this project broke two
+wrong tool for a placeholder, and reusing one across both families breaks two
 screens at once.
 
 ### 2. Rich text is two levels of node, and two of the three inline types carry no text
@@ -339,7 +339,7 @@ array of **inline** nodes, of which exactly three types exist:
 ```
 
 **A `variable` span takes no formatting of its own** — you cannot strike or bold the price
-without styling the whole line (team-stated). The device-verified strikethrough recipe is a
+without styling the whole line. The strikethrough recipe that works on a device is a
 *separate* `text` element holding the other product's price variable, with strikethrough and colour
 applied at the **element** level, not in rich text — its known costs: the hidden donor product adds
 invisible scroll, and deleting it takes the visible price down with it.
@@ -387,9 +387,10 @@ And an element-level `font` is either a preset reference or a full override with
 "font": {"family": {"id": "<font-uuid>", "type": "user"}, "size": 32, "weight": "semibold"}
 ```
 
-Do not add a `preset` to the second form to make it look like the first. A preset with a
-`weight` or `size` beside it is a state override (trap 17) and fine; a preset with a `family` is
-the mix `verify-config.py` warns on: the preset's face draws and the family is silently ignored.
+Do not add a `preset` to the second form to make it look like the first. Beside a preset, a
+`size` replaces the preset's size, while a `weight` or a `family` is ignored and the preset's
+face draws; `verify-config.py` warns on the `family` mix. A different weight is a different
+preset, or a manual font with no preset.
 
 ### 4. Built-in variables are referenced but never declared
 
@@ -432,7 +433,7 @@ an offer**, so a line built around one silently loses its number for everyone el
 A boolean is for visibility, never for text: the transform service refuses one inside rich text
 (`boolean_product_var_in_text`).
 
-**The set is closed.** A field outside those fifteen is refused as `unknown_product_field` — and the
+**The set is closed.** A field outside those nineteen is refused as `unknown_product_field` — and the
 service treats that as the author's own typo rather than a registry problem, so it is on you to get
 right. `verify-config.py` errors on one, and on a bad product id in *any* of the three families
 (`prod_*`, `offer_*`, `is_*`).
@@ -496,7 +497,7 @@ already the right shape, and report it as an upload ask like any empty image. Re
 [`flowkit.video()`](flowkit.py) or the catalog's `video-hero` / `video-card` rather than
 assembling one: all three refuse a source by name, since a URL here could only be invented.
 
-Two differences from the empty-`image` case are worth holding on to, both measured
+Two differences from the empty-`image` case are worth holding on to
 ([media.md → The video placeholder](media.md#the-video-placeholder)). The upload is **never**
 yours — `flows media upload` refuses a clip outright — so the placeholder is what gets handed
 over rather than a provisional state you clear later in the run, and the handoff has to be
@@ -510,7 +511,7 @@ spinner), it forces the user to delete-and-recreate instead of just binding a fi
 flags it. The rule generalises past these two: **when you cannot fully provide an element — no
 asset, no CLI path, or it is preview-blind — place the REAL element in its unset/placeholder state
 and hand the gap to the user; never substitute an element type that merely looks right** (the
-phase-4 rule in `SKILL.md`).
+phase-4 rule in [preview.md](preview.md#never-fake-an-element-to-make-the-screenshot-look-complete)).
 
 **A styled placeholder beats a lookalike substitute — never stand an emoji in for a designed
 glyph.** When the reference uses icons you cannot author faithfully, the ladder is: take a
@@ -523,8 +524,7 @@ glyph. Nothing with **text** in it, nothing **selectable**, and nothing that mus
 **theme** may become a bitmap — those three are the exclusions media.md owns. The reason is what each one tells the
 person who opens the flow: a placeholder is visibly unfinished and asks to be filled, while an
 emoji looks finished and quietly ships a different design — and nothing downstream flags it,
-because a substitute is structurally valid. This was the user's own call on a build where four
-emoji had passed every check (2026-08-24). Emoji carry a second cost too: they are the one defect
+because a substitute is structurally valid. Emoji carry a second cost too: they are the one defect
 class with no preview-side tell at all (see [preview.md](preview.md)).
 
 **Style the placeholder element completely, so the upload lands styled.** The empty entry
@@ -533,7 +533,7 @@ is only the *content* half; `ImageProps` carries the presentation — `borderRad
 yours to author now, on the `image` element itself, not on a wrapper. A circular avatar is a
 92×92 image with `borderRadius` 46 and `objectFit: "cover"`; leave those off and the user who
 uploads the photo gets an unstyled square they have to fix by hand, which quietly hands your
-layout work back to them (user-required rule, 2026-08-24). A parent stack's radius is not a
+layout work back to them. A parent stack's radius is not a
 substitute — style the element the asset will actually fill.
 
 ### 6. Optional keys are inconsistently present and must not be normalized
@@ -734,26 +734,26 @@ offsets, so an offset is not evidence of `absolute` (trap 6); and 3 elements —
 
 ### 10. A config the API accepts can still be one the builder cannot open
 
-The save endpoint validates the document, not the render. Two configs in this session passed
-every invariant above, saved cleanly, round-tripped byte-intact — and left the builder unable
-to open the flow. Both causes are invisible to every referential check:
+The save endpoint validates the document, not the render. A config can pass
+every invariant above, save cleanly, round-trip byte-intact — and leave the builder unable
+to open the flow. Both causes below are invisible to every referential check:
 
-| Cause | What it looked like | The rule |
+| Cause | Where it comes from | The rule |
 | :--- | :--- | :--- |
-| Six elements had no `states` key | A screen assembled the way `components` elements are written, where `states` legitimately never appears (see the seven-key element note above) | **Every element under a screen's `elements.map` carries `states`; `[]` is correct.** The absence is only legal inside `components`. |
-| A tab group was declared `{"type": "tabs"}` | `tabs` is a real string in the builder transformer's source — a *source-level* constant, not a group type | Group `type` is one of the four in the vocabulary table. A tab group is `single_choice`. |
+| Elements with no `states` key | A screen assembled the way `components` elements are written, where `states` legitimately never appears (see the seven-key element note above) | **Every element under a screen's `elements.map` carries `states`; `[]` is correct.** The absence is only legal inside `components`. |
+| A tab group declared `{"type": "tabs"}` | `tabs` is a real string in the builder transformer's source — a *source-level* constant, not a group type | Group `type` is one of the four in the vocabulary table. A tab group is `single_choice`. |
 
-Neither is caught by `flows config validate` — re-measured against `adapty/0.8.0` in production:
-that endpoint answers *publishable*, which both of these configs were. And neither is caught by `flows config preview`: both defects were
-re-injected into a config known to render, and both still rendered, losing only a selected-tab
+Neither is caught by `flows config validate` — against `adapty/0.8.0` in production
+that endpoint answers *publishable* for both. And neither is caught by `flows config preview`: injected
+into a config known to render, both defects still render, losing only a selected-tab
 highlight. **The two well-formedness rows in `SKILL.md`'s Verify list are what catch these**, and
 `references/verify-config.py` in this repo checks both mechanically. Preview earns its place on the
 class these two are not: layout and spacing defects that are structurally perfect.
 
-Both mistakes came from trusting the wrong kind of evidence. Order sources by what they prove:
+Both mistakes come from trusting the wrong kind of evidence. Order sources by what they prove:
 a **rendering flow** proves a shape works; a **real export** proves it is written that way; a
 **minimized test fixture** proves only what that one test needed — stripping props down to match
-one broke the tabs render a second time; and a **string constant in source** proves nothing
+one breaks the tabs render; and a **string constant in source** proves nothing
 about the format at all. When two sources disagree, the one that rendered wins.
 
 ### 10b. `layout.distribution` has FOUR modes, and only knowing one of them deforms every screen
@@ -771,14 +771,14 @@ the shape, it is the vocabulary:
 **`space-between` on a screen root spreads a SHORT screen's content away from its bottom bar** —
 give the root two children and the free space lands between them. It does **not** pin anything: a
 bar that has to stay at the bottom while content scrolls past it is the `footer` element, whose
-pinning is its own behaviour (measured; the same props as a `stack` land below the
+pinning is its own behaviour (the same props as a `stack` land below the
 fold — [patterns.md](patterns.md)). Knowing only the `gap` form is what makes an author reach for
-the workarounds instead, and both have failure modes this project shipped: a **docked** (`fixed`)
+the workarounds instead, and both have failure modes that ship: a **docked** (`fixed`)
 bar needs the screen's `padding.bottom` to reserve its exact height, and getting that arithmetic
-wrong put a footnote underneath a CTA; leaving the bar **in flow** on a tall device leaves a dead
-void below it, which is what a user sees as "the layout is broken everywhere". Measured
-across four screens: replacing dock-plus-padding with one `space-between` root removed both
-defects and deleted the padding arithmetic entirely.
+wrong puts a footnote underneath a CTA; leaving the bar **in flow** on a tall device leaves a dead
+void below it, which is what a user sees as "the layout is broken everywhere". Replacing
+dock-plus-padding with one `space-between` root removes both defects and deletes the padding
+arithmetic entirely.
 
 **A spread mode needs free space, and a vertical scrollable screen has it.** The transform service
 gives such a screen's content a minimum height of one viewport on the device, so a root spread
@@ -790,9 +790,9 @@ phone. Prefer that to `scrollable: false`, which **clips** taller content. An in
 surplus to the hero instead: [patterns.md → A tall phone's extra height goes to the
 hero](patterns.md#a-tall-phones-extra-height-goes-to-the-hero).
 
-`flowkit.layout()`/`stack()`/`screen()` take `distribution='space-between'`. The helper emitted
-only the `gap` form for its first release, and that alone is why the other three modes went unused
-in real builds — the author reaches for what the helper exposes.
+`flowkit.layout()`/`stack()`/`screen()` take `distribution='space-between'`: reach for the
+spread modes there rather than defaulting to the `gap` form — the author reaches for what the
+helper exposes.
 
 ### 11. `opacity` on a colour is a 0-100 percentage, not a 0-1 fraction
 
@@ -838,17 +838,16 @@ corpus:
 | the referencing colour's `opacity` | `{"type": "hex", "hex": "#E8553C", "opacity": 20}` | the reference (`hex` form only) |
 | **the token's `opacity`** | `clr_2MZWrBUc` = `#FFFFFF` @ 20 | `theme.colors[].light` / `.dark` |
 
-Read only the token's `hex` and a scrim becomes an opaque card. That is not hypothetical: it is the
-bug the first draft of `verify-config.py`'s legibility check had, and it invented a white-on-white
-finding on a real export until the token's own alpha was multiplied in.
+Read only the token's `hex` and a scrim becomes an opaque card, and a legibility check invents a
+white-on-white finding on a real export until the token's own alpha is multiplied in.
 
 ### 12. A gradient that ends on the page colour shortens the element
 
 A fade-out gradient whose last stop *is* the background makes the element's tail invisible, so it
-renders shorter than it is. Measured: timeline connectors specified at the correct length ended
-**14px short** of the next chip, once per row, because the gradient closed on the page's own
-`#F1F1F4`. The config was right and every structural check passed; only the render disagreed, and
-only under measurement — by eye it read as "the connectors are too short", which sends you off
+renders shorter than it is. Timeline connectors specified at the correct length end
+**14px short** of the next chip, once per row, when the gradient closes on the page's own
+`#F1F1F4`. The config is right and every structural check passes; only the render disagrees, and
+only under measurement — by eye it reads as "the connectors are too short", which sends you off
 resizing an element that was never the wrong size.
 
 Ending a fade one step short of the background (`#EDE9F0` against a `#F1F1F4` page) restores it.
@@ -891,8 +890,8 @@ It round-trips through `config update` unchanged, including inside `propsByState
 `props.icon.type` decides where the glyph comes from, and the two types behave in opposite ways.
 A **`custom`** icon draws the `raw` markup in its `_meta.icons` entry, so any name works as long
 as the entry exists — **and it draws on a device, but no local surface shows it.** `config
-preview` draws a `custom` icon on an `icon` element as empty space (measured with `currentColor`
-markup, a hard-coded fill, and markup without `width`/`height`; a phosphor glyph beside them drew),
+preview` draws a `custom` icon on an `icon` element as empty space (with `currentColor`
+markup, a hard-coded fill, or markup without `width`/`height`, while a phosphor glyph beside it draws),
 and on a `spinner` it draws its own arc ([validate.md](validate.md#what-it-catches)); the same
 kind of custom icon drew beside its phosphor neighbour on a device. So the blank in a render is
 the preview's, not your markup's: keep the custom icon, never rasterize it to fill the gap, and
@@ -1002,7 +1001,7 @@ anything the **app** knows and the flow cannot work out by itself. That is one c
 | Field | What it is |
 | :--- | :--- |
 | `name` | **The contract with the app's code.** The SDK looks the value up by this exact, case-sensitive string. Letters, digits, `_`, `-`, and dots between parts (`user.coins`). Not a name the SDK resolves itself — `PRICE`, `TITLE`, `PERCENT`, `VALUE`, `TIMER_*` and the rest of the product tags are refused (`custom_tag_invalid_name`). Unique across **all** variables, flow-owned ones included (`custom_tag_duplicate_name`) |
-| `valueType` | `string`, `number` or `boolean` only. On an array or product variable `external` is ignored |
+| `valueType` | `string` only. On any other type `external` is ignored and the app cannot set it (`custom_tag_non_string`) |
 | `value` | **The fallback.** Every string carrying the tag ships with a copy that has the tag replaced by this value, and the SDK shows that copy whenever the app does not supply one — an older app build, a missing attribute, a resolver not wired yet. It is also what the builder preview draws |
 | `external` | `true`. Absent means a flow-owned variable |
 | `description` | Optional, builder-only note for the author |
@@ -1046,7 +1045,7 @@ lives in the app's code, in every locale, and the builder can no longer edit it.
 supplies each tag by name when it creates the flow view, every user sees the fallback. Values are
 strings, read once at creation — nothing updates them while the flow is open — and one missing tag
 swaps its whole line for the fallback text. So a run that adds a custom tag ends by offering to
-write that code, and on a yes writes it ([SKILL.md](../SKILL.md), end of phase 5). This table is
+write that code, and on a yes writes it ([custom-tags-code.md](custom-tags-code.md)). This table is
 where the exact parameter comes from — read the page, then edit the call site; never hand the user
 a link in place of the change.
 
@@ -1146,8 +1145,8 @@ check: as text, the blend of the solids; as a background, only when every layer 
 The `conditional` form above carries a JSON expression, and the transform service validates it
 with **one** walker (`findInvalidExpressionPath`) shared by `props.visibility.condition` and
 `states[].condition` — which is why the two codes it raises, `invalid_visibility_condition` and
-`invalid_state_condition`, are one construct rather than two. Between them they were the **3rd
-most common transformer refusal in production** over the 40 days to 2026-08-28.
+`invalid_state_condition`, are one construct rather than two. Between them they are the **3rd
+most common transformer refusal in production**.
 
 The published schema's `ExpressionType` enum has **eighteen** members:
 
@@ -1194,8 +1193,7 @@ walker rejects.
 
 ### 14c. Every action payload has a required field, and one code covers all of them
 
-`invalid_action_payload` was the **5th most common refusal** (208 failed requests in the same
-window) and is a single code standing in for sixteen distinct required-field checks. The
+`invalid_action_payload` is the **5th most common refusal** and a single code standing in for sixteen distinct required-field checks. The
 payload *shapes* are tabulated in the request map below; these are the fields whose **absence**
 is a hard 422, read off the service's own error strings rather than from the schema, which is
 looser than the service on every row:
@@ -1219,8 +1217,8 @@ untouched, and why a check that demands `.id` unconditionally is a false positiv
 
 The editor does not clear a numeric size when its mode changes, so a fetched config can carry
 `{"type": "hug", "value": 8008}` — and the transformer turns that into `min: 8008` on device,
-producing an 8008pt-minimum screen with the content invisibly far down (team-diagnosed;
-the recovery on an already-poisoned screen was *recreating* it, not re-saving). `width.fixed: 0`
+producing an 8008pt-minimum screen with the content invisibly far down (the
+recovery on an already-poisoned screen is *recreating* it, not re-saving). `width.fixed: 0`
 also saves, and kills the element on device. Rules:
 
 - **Authoring:** never emit a `value` under `hug`/`fill` (flowkit does not), never a fixed `0`.
@@ -1238,8 +1236,8 @@ height. The shape that works is a fixed-height block plus an empty `height: fill
 
 ### 16. `purchase` hard-terminates the flow — nothing can be shown after it
 
-Stated flatly by the builder team (2026-08-20): the `purchase` action compiles only into the SDK
-purchase call, and flow continuation after it "simply was never built" — no success screen, no
+The `purchase` action compiles only into the SDK
+purchase call, and flow continuation after it does not exist — no success screen, no
 post-purchase discount screen, unconditionally, whether the purchase succeeded or not. So **never
 author a screen that is reachable only after a purchase**: it is dead content that every check here
 accepts. A second (discount) paywall is reachable only via an explicit `navigate` on something the
@@ -1260,9 +1258,8 @@ Rule: **every object you put in a state carries every sub-field that state needs
 its `width` and `color`, `font` with its `preset` or the full manual set, `padding` with all four
 sides. Copy the base prop and change what differs. Every real export does exactly this: each of
 its state overrides repeats every key of the base prop it replaces. `flowkit.on_selected()`
-refuses an override that drops a key of the base, and `verify-config.py` warns on one. Until
-October 2026 the transformer deep-merged states instead, so older notes and flows may say a
-left-out sub-field is inherited; it no longer is.
+refuses an override that drops a key of the base, and `verify-config.py` warns on one. Older notes and
+flows may say a left-out sub-field is inherited from the base; it is not.
 
 The same goes for `visibility`: an element hidden in its base and again in
 `propsByState.selected` stays hidden in that state when you unhide only the base. To show it,
@@ -1273,37 +1270,27 @@ change both.
 Real exports carry `"verticalAlign": "top"` on text elements, so copying it looks correct — and it
 is inert twice over: the transform service reports
 `unsupported_text_typography_setting … will be ignored`, and removing it from 93 text elements
-produced a **byte-identical render**. Authoring it buys one warning per text element and nothing
+produces a **byte-identical render**. Authoring it buys one warning per text element and nothing
 else, so **do not add it to text you create**. Leave it where you found it — stripping a key you
 did not add is an unrequested edit — but there is no reason to write a new one.
 
 ### 19. A theme colour must be exactly `#RRGGBB` — and only a theme colour
 
-`theme.colors[].light.hex` / `.dark.hex` accept **six hex digits behind a `#`, either case, and
-nothing else**. Measured against the transform service, every one of these is
-refused there: `#fff`, `#FFFFFFD9`, `#FFFFFFF`, `FFFFFF`, and the empty string.
+The published schema gives every colour `hex` the pattern `^(?:#[0-9A-Fa-f]{6})?$`, so
+`validate-with-schema.mjs` names the path of a `#fff`, `#FFFFFFD9`, `#FFFFFFF` or `FFFFFF`. The
+transform service reads `#RGB`, `#RRGGBBAA` and an unprefixed hex in any position, a theme colour
+included. What it cannot read, an empty or a 7-digit theme hex, it refuses or drops depending on
+the service build — and the schema pattern allows the empty string, and `config preview` **draws
+light mode only**, so a broken `dark` value renders perfectly.
 
-It is refused with **`Generated JSON failed schema validation` and no path**, so the message
-names no field and you are bisecting a whole document to find one character. `config preview`
-cannot help: it **draws light mode only**, so a broken `dark` value renders perfectly. The schema
-check sees most of it: the published schema gives every colour `hex` the pattern
-`^(?:#[0-9A-Fa-f]{6})?$`, so `validate-with-schema.mjs` names the path of a `#fff`,
-`#FFFFFFD9`, `#FFFFFFF` or `FFFFFF`. **That pattern allows the empty string**, which the service
-still refuses in a theme colour, so an empty theme hex passes the schema check.
-
-**The service's rule is position-scoped; the schema's is not.** In an *element* position —
-`props.fill.color`, `props.color`, `props.clearButtonColor` — the same service accepts a 3-digit
-hex, an 8-digit `#RRGGBBAA` and an empty string. This is not a guess: real exports carry **8**
-eight-digit and **16** empty values in element positions and validate clean, and
-`tests/fixtures/onboarding-quiz-paywall.json` (which holds both) returns `valid: true`. The
-schema's pattern covers element colours too, so the schema check reports the 3- and 8-digit ones.
 Two rules follow. **Write `#RRGGBB` in every position you author**, with alpha in `opacity`. And
-**carry an existing 3- or 8-digit element value through untouched**: the service reads it,
-`--baseline` keeps it out of the schema check's report, and rewriting it is an unrequested edit.
+**carry an existing 3- or 8-digit element value through untouched**: real exports carry **8**
+eight-digit and **16** empty values in element positions and validate clean, `--baseline` keeps
+them out of the schema check's report, and rewriting one is an unrequested edit.
 
-`flowkit.config()` raises on a bad theme hex, the empty string included, and leaves element
-colours alone; `verify-config.py` errors on the same thing, calibrated silent on all 12 real
-configs.
+`flowkit.config()` raises on a theme hex that is not `#RRGGBB`, and leaves element colours alone;
+`verify-config.py` errors on a theme hex the service cannot read and warns on one the schema does
+not allow, calibrated silent on all 12 real configs.
 
 A theme colour written as a **layer stack** (trap 26) carries hexes inside its layers, and the
 rule follows them there: write `#RRGGBB` everywhere, with alpha in `opacity`. An empty or
@@ -1332,12 +1319,12 @@ the dark half checkable at all — with the scope limit below.
 > Not an accessibility audit, and it must not be described as one. WCAG AA wants 4.5 (3.0 large),
 > and **13% of the text in real builder exports is already below 4.5** — a designer's palette is
 > not this tool's business. The check asks only whether text can be told apart from its background
-> at all. The corpus separates the two questions cleanly: the lowest *deliberate* value measured is
+> at all. The corpus separates the two questions cleanly: the lowest *deliberate* value is
 > **1.89** (amber stars on a light card) and the next one down is **1.08** (near-white on white),
-> so the threshold sits in an empty gap. Raising it to 3.0 fires on a real fixture — measured.
+> so the threshold sits in an empty gap. Raising it to 3.0 fires on a real fixture.
 
 **A transparent screen draws black; the app does not show through.** A screen `fill` at opacity 0
-drew black on a device, as it does in the preview, and so does the transparent part of a fill's
+draws black on a device, as it does in the preview, and so does the transparent part of a fill's
 image ([media.md](media.md#binding-the-url-two-different-shapes)). A panel meant to sit over the
 app's own screen is built opaque, and the user is told the flow covers the whole screen.
 
@@ -1347,19 +1334,19 @@ Reuse an id across the two and the **device SDK fails to decode the flow at all*
 `DecodingError: dataCorrupted … Debug description: Duplicate Key`. The screen never opens — this
 is not a cosmetic defect.
 
-Nothing an agent can run locally catches it. Measured on the offending config: `flows config
-validate` returned **`valid: true`**, the schema check passed, and `config preview` rendered the
-screen perfectly, because the preview renderer resolves the two lookups separately while the SDK
-builds one keyed container from `theme`. Reported from a real device after every gate was green.
+The transform service publishes both lists as one set of assets keyed by id, and refuses the
+collision (`duplicate_appearance_asset_id`, at `theme.colors[<n>].id`). The schema check passes it,
+and `config preview` renders the screen perfectly, because the preview renderer resolves the two
+lookups separately.
 
 Evidence that the namespace really is shared: **8 of 8 real exports** in the corpus (sanitized and
 raw alike) have **zero** overlap between the two id sets, and the builder's own naming keeps them
 apart — colours are `accent`, `gray-200`, `clr_RvBg`; presets are `body`, `caption`,
-`button-label`. The single collision ever seen was authored here: a `footer` colour next to a
+`button-label`. A collision comes from hand-authoring, not from the builder: a `footer` colour next to a
 `footer` typography preset.
 
 So **name presets and colours in separate spaces** (`legal` for the preset, `footer` for the
-colour). `references/verify-config.py` is the only gate that will tell you, and it now covers the
+colour). `references/verify-config.py` tells you before the write, and it covers the
 whole class rather than this one instance: it **errors** on a repeated id in any id-keyed
 collection — `theme.colors`, `theme.typography`, `localization.locales[].code`/`.id`, `screens[].id`,
 `variables[].id`, `_meta.fonts[].id`, `_meta.icons` by name+weight, a screen's
@@ -1373,7 +1360,7 @@ fires on its own injected duplicate.
 
 ### 22. Which group types a conditional can read — and the one action that does not work
 
-Measured against `flows config validate` on a real flow, one predicate per run. A
+Each row is `flows config validate` on a real flow, one predicate per run. A
 conditional whose predicate names an unreadable variable fails the publish gate with
 **`Generated scripts failed validation`** — location-free, exactly like a malformed hex, because
 the transformer compiles predicates into JavaScript and an unresolvable name yields invalid script.
@@ -1385,15 +1372,15 @@ the transformer compiles predicates into JavaScript and an unresolvable name yie
 | `multi_choice` | `<groupId>.selectedOptionId` | **fails** |
 | `toggle` | `.selectedOptionId`, `.selected`, `.value` — all three tried | **fails** |
 
-So **a `toggle` group exposes nothing a condition can read.** This corrects the support-channel
-workaround recorded for driving plan selection from a switch: it cannot be keyed on the toggle.
+So **a `toggle` group exposes nothing a condition can read.** A workaround that drives plan
+selection from a switch therefore cannot be keyed on the toggle's value.
 
 A `single_choice` answer stays readable after its screen: a later screen's condition can branch
 on `<groupId>.selectedOptionId` from an earlier one, as an input's `<customId>.value` can
 ([trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
 
-**`selectProduct`'s payload takes `{element: <element id>}`, not a product id.** Bisected: a
-conditional containing only `nothing` actions failed too, so the gate was objecting to the
+**`selectProduct`'s payload takes `{element: <element id>}`, not a product id.** A
+conditional containing only `nothing` actions fails too, so the gate objects to the
 predicate rather than to `selectProduct`; but with the toggle variable unreadable,
 **a toggle cannot move a product group's selection**. Drive the visible difference with
 `propsByState` on the toggle's own element, and put the conditional where it reads a product
@@ -1423,12 +1410,12 @@ will see it. What is known, type by type, comes from real exports and device che
 
 | literal | family | in the corpus | read |
 |---|---|---|---|
-| `selectProduct` | action | 0 | see the toggle table above — a toggle cannot move a product group's selection |
+| `selectProduct` | action | 0 | takes `{element}`, see the toggle table above; no export or device check shows it |
 | `old-price` | element | 0 | **draws in preview and not on device** — see its own section |
 | `header` | element | 0 | unused in every real export; no device evidence either way. Verify before relying on it |
 | `progress-bar`, `progress-bar-loader`, `progress-bar-segment` | element | 2 of 7 flows | real builder output; a flow-level component, not a per-screen element |
 
-`verify-config.py` warns on `old-price`, the one type where the corpus and a device measurement
+`verify-config.py` warns on `old-price`, the one type where the corpus and a device
 agree. When you reach for a type no real export uses, treat the device check as load-bearing.
 
 ## The schema, the catalog, and the two different validators
@@ -1445,18 +1432,11 @@ goes stale.
 
 ### Shape and publishability are two different checks — run both
 
-They do not overlap, and neither one subsumes the other:
-
-- **`flows config validate` answers *is this publishable*** — it runs the real publish-time
-  transform service, so it sees stranded references the schema cannot. It does **not** check the
-  shape of most props: it accepts `fill: "banana"` and `schemaVersion: 999` without complaint.
-- **The schema check answers *are these props well-formed*.** It knows nothing about
-  publishability.
-
-So a clean `validate` is not evidence your shapes are right, and a clean schema check is not
-evidence the flow will publish. Run the schema check first (it needs no network round trip against
-your flow), then `validate`, then look at a render. Full coverage both ways —
-and why `validate` needs a loop rather than a single call — in [validate.md](validate.md).
+They do not overlap: what each one answers is
+[SKILL.md phase 3](../SKILL.md#3-check-the-shape-then-clear-the-publish-gate). Run the schema
+check first (it needs no network round trip against your flow), then `validate`, then look at a
+render. Full coverage both ways — and why `validate` needs a loop rather than a single call — in
+[validate.md](validate.md).
 
 ```bash
 npm i --prefix ~/.cache/adapty-flow-schema ajv@8          # once, not per call
@@ -1466,11 +1446,8 @@ npm i --prefix ~/.cache/adapty-flow-schema ajv@8          # once, not per call
 
 `gates.sh` runs exactly this, so you rarely call it by hand.
 
-**Always pass `--baseline`.** The schema describes the newest `schemaVersion` while most live flows
-are older, so an unbaselined run on a v9 or v10 flow reports pre-existing mismatches — a v9 `fill`
-is one object and the schema wants an array — none of them yours. The baseline is the pristine copy from `get`, and diffing against it leaves only what
-your edit caused. Without it, the output is background noise and will train you to ignore a real
-finding.
+**Always pass `--baseline`**, for the reason
+[SKILL.md phase 3](../SKILL.md#3-check-the-shape-then-clear-the-publish-gate) gives.
 
 It caches the schema at `$TMPDIR/adapty-flow-schema.latest.json` for a day — the same file you grep.
 `--refresh` re-downloads; `--schema <path|url>` points elsewhere. Two things the script adjusts
@@ -1515,8 +1492,8 @@ documented by its own publishers:
 - **Its `required` lists describe the builder's in-memory flow, not what the CLI writes.** It marks
   `status` required, and `config get` returns status in the envelope instead — which is why the
   script drops that one. **Never add a field just because the schema calls it required** — match
-  the config you fetched. (Omitting `status` and `id` from a config is safe: measured across many
-  writes, not inferred from `required`.)
+  the config you fetched. (Omitting `status` and `id` from a config is safe on real
+  writes, not merely inferred from `required`.)
 ### Typography metrics: `lineHeight` and `letterSpacing` exist
 
 `Font` carries **`lineHeight`** and **`letterSpacing`** alongside `family`, `preset`, `size` and
@@ -1532,9 +1509,8 @@ points too (`-1` on a 30 pt headline).
 The schema also takes `{"type": "percent", "value": 110}` for either field, and the preview draws it
 the same as the matching points. No real export uses it, so it is unproven on a device: write points.
 
-Worth stating because two agents in the same GREEN arm disagreed about whether `lineHeight`
-exists, and the one who believed it did not **left a reachable fidelity gap** — shipping 52 pt
-headline leading against a reference's 41 pt and filing it as unreachable. Line spacing is one of
+Worth stating because believing `lineHeight` does not exist **leaves a reachable fidelity gap** —
+52 pt headline leading shipped against a reference's 41 pt and filed as unreachable. Line spacing is one of
 the few reference properties that is otherwise genuinely out of reach, so getting this wrong turns
 a fixable gap into an ask.
 
@@ -1546,8 +1522,8 @@ with a reference to that colour — trap 26.
 ### Before authoring a shape you have not seen produced: grep for it
 
 **The schema tells you what is permitted; a real export tells you what is produced; only the
-second predicts the device.** Defects have shipped from that gap — an id reused across the two
-`theme` lists, a predicate on a `toggle` group — and the disproof was already on disk and cost
+second predicts the device.** Defects ship from that gap — an id reused across the two
+`theme` lists, a predicate on a `toggle` group — while the disproof is already on disk and costs
 seconds to find.
 
 So when you are about to author a construct you have not seen in a real document, **count it
@@ -1601,7 +1577,7 @@ when the stack must change between light and dark. A gradient layer is linear, s
 first (bottom) layer. An image layer on a stack can draw blank in the preview and still draw on a
 device ([preview.md](preview.md#what-a-render-cannot-show-you)).
 
-### `effects` renders — a drop shadow is available, and measured
+### `effects` renders — a drop shadow is available
 
 `props.effects` is an **array** of effect objects, valid on stacks, products, text and most other
 elements. A drop shadow requires every one of `type`, `enabled`, `x`, `y`, `blur`, `spread`,
@@ -1618,11 +1594,11 @@ elements. A drop shadow requires every one of `type`, `enabled`, `x`, `y`, `blur
 
 Worth stating because the evidence order says otherwise at first glance: `effects` appears in the
 schema but in **no** real export and **no** catalog template, which normally means treat it as
-unproven. It was confirmed by a control render instead — a card's painted edge measured **7px**
+unproven. A control render confirms it instead — a card's painted edge is **7px**
 with the shadow and **2px** with it stripped, everything else identical. It also round-trips
 through `config update` unchanged. **And it draws on a real device — confirmed in the Adapty app**
 on a drop-shadow of `y: 6, blur: 18, #000000 at 8% opacity`, so this one is not a CLI-preview
-artifact the way `old-price` turned out to be. So it is usable; it just has no precedent to copy
+artifact the way `old-price` is. So it is usable; it just has no precedent to copy
 from, which means keeping a border underneath it is still the conservative choice.
 
 ### Conditional text: one `switch` on the property, one catalog entry per branch
@@ -1646,7 +1622,7 @@ From a real builder export. A `content` value is normally a single ref. It may i
 
 **Emit it with [`flowkit.switch_rich()`](flowkit.py)**, which builds the inline authoring form
 and checks each predicate against the service's own walker; `config()` catalogues it into this
-shape. Two facts that make hand-authoring it a bad trade, both measured against the live
+shape. Two facts that make hand-authoring it a bad trade, both true against the live
 service: the predicate is **compiled**, so an unresolved variable here is `valid: false` —
 *"Generated scripts failed validation"*, with `code` and `path` both `null`, naming neither the
 element nor the variable — while a `variable` **span** in an ordinary text value merely renders
@@ -1698,17 +1674,16 @@ A dedicated element type for a struck-through original price. Built and rendered
   placeholder than a `text` element holding a price variable, which renders its whole 45-character
   variableId and detonates the layout.
 - **The schema accepts it**, which says nothing about whether it reaches a device — see below.
-- **Still unmeasured:** what `multiplier` actually multiplies, and whether it reads the enclosing
+- **Still unconfirmed:** what `multiplier` actually multiplies, and whether it reads the enclosing
   product or the selected one. Preview has no store prices, so this needs a real attached product.
 
 **`multiplier` is a pricing claim, not a layout value.** At `2` the screen asserts a 50% discount.
 Nothing in the config derives or checks it, so a number pulled from nowhere is a fabricated
 discount shown to real users — treat choosing it as the product owner's decision and say so, the
-same way [products.md](products.md) treats a period that does not match its price field.
+same way [products.md](products.md) treats a card whose product has another period than its label.
 
-**It renders in `flows config preview` and NOT in the Adapty app — measured, and this reverses the
-claim above.** On a real device, a card carrying this element showed only the current price; the
-strikethrough was simply absent. The same config in the CLI preview draws it (a struck `$0.00`
+**It renders in `flows config preview` and NOT in the Adapty app.** On a real device, a card
+carrying this element shows only the current price; the strikethrough is simply absent. The same config in the CLI preview draws it (a struck `$0.00`
 before the live `$0.00`). Everything structural above still holds — the element exists, the
 strikethrough is inherent, it takes no content — but **`multiplier` alone does not put a "was" price
 on screen where users are.**
@@ -1716,20 +1691,18 @@ on screen where users are.**
 Do not author `old-price` expecting a visible strikethrough, and never lay out a price row around
 one you have only seen in the CLI preview.
 
-**The reason is that the transform service has no mapper for it.** That predicts exactly what was
-measured, for the whole element rather than one prop: the CLI preview reads the config directly,
-so it draws the element; a device reads the *transformer's output*, which never carries it. Two
-further signals agree — **0 of the 12 real exports contain an `old-price`**, and no
+**The reason is on the device side.** The transform service maps the element, inside a `product`
+only, to a struck-through text bound to an old-price value, but no released SDK reads that binding,
+while the CLI preview reads the config directly and draws it. Two further signals agree — **0 of the 12 real exports contain an `old-price`**, and no
 component-catalog template uses one. `verify-config.py` warns when a config carries one.
 
 It is not settled whether `multiplier` would do anything if the element did reach the SDK —
 unattached, it renders the literal words "Old price" in the preview. Do not spend a device round
 trip to find out whether to *use* the element. Do not use it.
 
-**The methodological lesson is the durable part.** This section said "measured" and "confirmed in a
-render", and the render was `flows config preview` — the *weakest* of the four preview surfaces. A
-single device check reversed it. A CLI render proves an element draws in the CLI renderer and
-nothing more; for anything about whether users see it, that surface does not qualify as measurement.
+**A CLI render proves an element draws in the CLI renderer and nothing more.** `flows config
+preview` is the *weakest* of the four preview surfaces; for anything about whether users see an
+element, it does not qualify as evidence — a device does.
 
 ### What the schema settles
 
@@ -1757,8 +1730,9 @@ nothing more; for anything about whether users see it, that surface does not qua
 
 An element id is emitted as an **identifier in the generated runtime script** — the same code path
 that makes an unresolved condition variable a `script_type_violation`, where the head is written
-out bare and the script fails to compile. So a character outside `[A-Za-z0-9_]` in an element id
-produces a syntactically broken script and the flow renders a **black screen on device**. An id
+out bare and the script fails to compile. So a character outside `[A-Za-z0-9_]` (a hyphen, a dot, a
+space) in an element id produces a syntactically broken script and the flow renders a **black
+screen on device**. An id
 reused on a second screen collides in the same script, because there is one script per flow.
 
 **Every gate reachable from here is blind to it.** `flows config validate` passes a hyphenated id
@@ -1767,7 +1741,7 @@ bare strings, and `config preview` renders the *config* rather than the transfor
 it draws the screen correctly. `verify-config.py` errors on both shapes, and `flowkit` cannot
 build either.
 
-**Screen ids are the exception, and it is measured rather than assumed.** Across the 7 tracked and
+**Screen ids are the exception, and the corpus shows it rather than assumes it.** Across the 7 tracked and
 5 raw fixtures, **4 of 36 screen ids are bare UUIDs** — hyphens included — and each is the *entry*
 screen of a flow whose status is `published`; `comparison-paywall.json`'s only screen is one, and
 the raw export carries a UUID too, so it is not a sanitization artifact. A rule extended to screen
@@ -1783,7 +1757,7 @@ new screen still takes the `scr_` form and a new element an `el_`-prefixed one.
 
 Schema-legal on text props (`enum: ["top","middle","bottom"]`) and emitted by the builder — so
 the schema cannot tell you not to write it. **[Trap 18](#18-propsverticalalign-on-text-is-emitted-by-the-builder-and-ignored-by-the-sdk)
-owns the measurement and the rule**; the short version is legal, inert, one warning per element,
+owns the evidence and the rule**; the short version is legal, inert, one warning per element,
 do not author it. This section exists because the *schema* is what sends you here.
 
 ## Making a field mandatory: show the button conditionally
@@ -1821,12 +1795,12 @@ moment the field is filled. If the screen has anything under the button — a le
 link — put the button in a wrapper with a **fixed** height and condition the *button*, not the
 wrapper.
 
-### Small device facts from the support channel, each one sentence
+### Small device facts, each one sentence
 
-- **Font sizes below 14 render at 14 on device** (preview shows the smaller size) — reported
-  2026-08-17, acknowledged as a bug, unresolved; do not design a caption that depends on 11pt.
-- **A `mailto:` `openUrl` crashes iOS unless "open in external browser" is set** — SDK-side fix
-  landed, but the flag remains the safe pattern.
+- **Font sizes below 14 render at 14 on device** (preview shows the smaller size); do not design
+  a caption that depends on 11pt.
+- **A `mailto:` `openUrl` crashes iOS unless "open in external browser" is set** — set the flag
+  on every SDK version; it is the safe pattern.
 - **Dark theme works only through colour styles that define dark values and through dark files** —
   a direct hex is one colour in both themes. A background that changes per theme (a different
   colour, gradient, image or video) is a layered colour style, trap 26; an `image` or `video`
@@ -1835,7 +1809,7 @@ wrapper.
   every republish mints a new row, and a rename only affects future versions — so mint stable,
   meaningful screen ids and set `caption`s, because both outlive the publish.
 - **`type: number` inputs are coerced to text and numeric comparison operators do not exist** —
-  which is the team-side confirmation of the "compare against strings" rule below.
+  which is why the "compare against strings" rule below holds.
 
 ### The expression facts, and how each was established
 
@@ -1878,7 +1852,7 @@ That second one has a sharp consequence for verification. **`empty` over a name 
 resolve is indistinguishable from `empty` over a real, empty field**, so a screenshot of an
 empty-state screen cannot confirm that your variable reference is correct. It is also why a bare
 `customId` with no `.value` must not be used: it renders exactly like the working form while the
-field is empty, and this project has no evidence it ever resolves. Use `<customId>.value`, the form
+field is empty, and there is no evidence it ever resolves. Use `<customId>.value`, the form
 the builder emits.
 
 The way to actually confirm a reference resolves is to observe the **flip** — the element appearing
@@ -1922,22 +1896,21 @@ information is a **TS error code plus a line/col into a generated file you canno
 identifier out of the message and find it in your config; do not try to map the line number.
 
 **Count nothing from the number of issues.** Codegen emits *more than one* diagnostic per authored
-reference — measured, **one** state condition referencing `email` produced **two** TS2304 errors, at
+reference — **one** state condition referencing `email` produces **two** TS2304 errors, at
 different line/col pairs. So the issue count tells you nothing about how many places you have to fix.
 
-**Codegen validates the whole flow, not the screen you are previewing.** Measured: previewing
-`?screen=scr_probe` failed on an identifier that existed only on a *different, unlinked* screen in
+**Codegen validates the whole flow, not the screen you are previewing.** Previewing
+`?screen=scr_probe` fails on an identifier that exists only on a *different, unlinked* screen in
 the same flow. Combined with `path: "scripts"` carrying no screen id, the only reliable move is to
 search the entire config for the identifier in the message — not the screen you were looking at.
 A single broken screen anywhere blocks preview and publish for every screen.
 
-**The builder's duplicate-screen action copies a broken condition faithfully.** That is how the
-screen above came to exist — a duplicated screen carried a conditional `disabled` state, the
-mechanism that does not work, into a flow whose visible screens were all correct. Deleting the copy
-fixed the flow. When a 422
+**The builder's duplicate-screen action copies a broken condition faithfully** — a duplicated
+screen carries a conditional `disabled` state, the mechanism that does not work, into a flow whose
+visible screens are all correct, and deleting the copy fixes the flow. When a 422
 names an identifier you thought you had removed, look for a duplicate screen before you doubt the
-error, and do **not** write it off as a stale cache: nothing here is cached, and the diagnostic was
-accurate about a screen that really was still in the config.
+error, and do **not** write it off as a stale cache: nothing here is cached, and the diagnostic is
+accurate about a screen that really is still in the config.
 
 
 ## Conditions cannot compare numbers — enumerate equality instead
@@ -2004,7 +1977,7 @@ never treat its absence here as evidence the file is invalid.
 | element `type` (**not in these exports**, present in the transformer's front-format fixtures) | `divider`; the tabs family `tabs`, `tab-bar`, `tab-item`, `tab-content-wrapper`, `tab-content`; the input family `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker` | Absence from the three exports is absence of coverage, not evidence a type is invalid. These are real front-format inputs. `tabs` is a **composite**, not one element — see the request map below |
 | action `type` | **14 types.** In these exports: `navigate`, `conditional`, `purchase`, `closeFlow`, `nothing`. Also valid, and none of them appear here: `navigateBack`, `navigateNext`, `restorePurchases`, `setVariable`, `openUrl`, `alert`, `custom`, `showElement`, `hideElement` | `closeFlow` in all three; `navigate` in `quiz` + `timer`; `purchase` in `quiz` + `comparison`; `conditional` and `nothing` in `quiz` only. `nothing` appears only as a `conditional` case value, never as a top-level action. The other nine come from the builder transformer's front-format fixtures — and `navigateBack`/`navigateNext` are the **two most common actions there**, more common than `navigate` itself, so a Next button does not need a named destination. Payload shapes below |
 | action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `navigateBack` / `navigateNext` / `closeFlow` / `restorePurchases` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?}`, see below | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
-| `purchase` `payload.product` | `{"type": "var", "variableId": "<groupId>.selectedProduct"}` when the screen has a product group, **or** `{"type": "const", "value": {"id": "<productUUID>", "offerId"?}}` when it does not | The `const` form is what a paywall with a single implied plan uses — one CTA, no product cards, no `_meta.screens` entry needed. Do not add an empty product group to satisfy the `var` form. A `payload.type` of `"native"` also appears alongside `product`; it is optional in practice |
+| `purchase` `payload.product` | `{"type": "var", "variableId": "<groupId>.selectedProduct"}` when the screen has a product group, **or** `{"type": "const", "value": {"id": "<productUUID>", "offerId"?}}` when it does not | The `const` form is what a paywall with a single implied plan uses — one CTA, no product cards; its product still needs a `_meta.screens` entry ([products.md](products.md#a-purchase-can-bind-a-product-with-no-product-element)). Do not add an empty product group to satisfy the `var` form. A `payload.type` of `"native"` also appears alongside `product`; it is optional in practice |
 | interaction `trigger` | `tap` | the only trigger in all three |
 | `conditional` `payload.type` | `switch` | `quiz` only. `cases` is an array of `[predicate, {type: "const", value: [actions]}]` pairs, plus a `default` in the same value shape. Actions nested inside a case carry `"id": ""`, not an `act_` id — including the `navigate` that a screen deletion has to repair, which is why a dangling target can sit two levels down inside a `default` branch |
 | predicate operators | `&&` (grouping), `==` (comparison) | `quiz` only. These are the two this corpus happens to use, **not** the vocabulary — there are 18 expression types and one of them (`assign`) is refused as a condition. See trap 14b |
@@ -2058,7 +2031,7 @@ style error: you will search for an element type that does not exist, or invent 
 | an image, a background | An `image` element for content; `props.fill` with `{"type": "image"}` for a screen or element background. **Different shapes** — see trap 1. |
 | a background or card that changes with dark mode — a gradient in one, an image or a scrimmed photo in the other | A **layered color style** (trap 26): the layers go in `theme.colors[].light` / `.dark`, and the fill holds one `color-style` reference to it. `flowkit.config(colors=...)` takes the stack. Keep the text on it bound to a single-colour style — text on a style with no solid layer draws transparent. |
 | an image or a video that changes with dark mode — a logo, an illustration, a hero | The element's own dark file: `imageDark` beside `image`, `videoDark` beside `video`, both catalog refs keyed by locale. `flowkit.image(url, dark=...)` emits it; upload both files. See [`media.md`](media.md). |
-| a video, a looping banner | A `video` element (`loop`, `objectFit`). No CLI upload for the source — the command refuses a clip — so leave `customMediaID`/`video` unset: it renders a styled **"Upload Video"** placeholder and publishes clean. Give it a **fixed** height (a `hug` one draws an arbitrary 256pt, measured) plus the radius and margins of the design around it, then tell the user in words to upload it in the builder. `flowkit.video()`, or the catalog's `video-hero` / `video-card`. **Never** fake it with a `stack` + Play icon — trap 5. |
+| a video, a looping banner | A `video` element (`loop`, `objectFit`). No CLI upload for the source — the command refuses a clip — so leave `customMediaID`/`video` unset: it renders a styled **"Upload Video"** placeholder and publishes clean. Give it a **fixed** height (a `hug` one draws an arbitrary 256pt) plus the radius and margins of the design around it, then tell the user in words to upload it in the builder. `flowkit.video()`, or the catalog's `video-hero` / `video-card`. **Never** fake it with a `stack` + Play icon — trap 5. |
 | a carousel, reviews/testimonials, a slider, swipeable cards, cards with dots | A `carousel` element, one child `stack` per slide. It is swipeable and **renders its own indicator dots** from `props.dots` (`{size, color, activeColor}`) — you never build the dots by hand. Fixed geometry only (`slideWidth`/`slideHeight`/`height`; `hug` is dropped on device). **Never** fake it with a static card plus decorative dot `stack`s — that ships one frozen slide and dots that do nothing, the same lookalike mistake as the fake footer/spinner/video (trap 5). If the seed flow has one, copy it; otherwise take `component-catalog.json`'s filled **`reviews-carousel`** template, never the single-card `ue-review` — [`patterns.md`](patterns.md). |
 
 Two rules that follow from the whole table: **the user's noun is rarely the element `type`**,

@@ -15,11 +15,8 @@ well-formed* and knows nothing about publishability; this answers *do the docume
 references agree* — and it owns outright the rows neither of the others looks at, notably
 anything to do with an image, a top-level `status`/`id`, and a missing `states` key.
 
-History worth keeping: this was called `verify-fixture.py` and lived in `tests/` until 2026-08-25 and therefore did NOT ship,
-which quietly weakened several rules the repo had already escalated from prose to a mechanical
-check -- every GREEN round that scored against those guards ran in-repo, where the file
-existed, so the closures did not transfer to a customer install. Moving it here is what makes
-them real everywhere.
+It ships with the skill, never under `tests/`: the rules escalated from prose to a mechanical
+check here are only real on an install that carries this file.
 
 Checks, in order: map keys match element ids; hierarchy references resolve;
 navigate targets resolve; product elements AND `const` purchase targets are
@@ -92,7 +89,7 @@ REPORTING_INPUT_TYPES = {'text-input', 'email-input', 'number-input', 'phone-inp
 # agree belong here; the progress-bar family is real builder output and does not. See
 # flow-schema.md, "Being in the schema is not reaching a device".
 UNMAPPED_ELEMENT_TYPES = {
-    'old-price': 'draws in `flows config preview` and NOT on a device — measured',
+    'old-price': 'draws in `flows config preview` and NOT on a device',
 }
 
 # The closed set of product-variable fields, from the public docs page the skill already links
@@ -144,7 +141,7 @@ BASELINE_ONLY_LITERALS = (('price', CURRENCY_LITERAL),
 # large text) and 13% of the text in real builder exports is already below 4.5 — auditing a
 # designer's palette is not this tool's job. This catches the *construction* defect: a fill
 # recoloured (or a screen repainted dark) with the text colour left behind, so the text lands
-# on a background it cannot be told apart from. Measured over the corpus, the gap between the
+# on a background it cannot be told apart from. Over the corpus, the gap between the
 # two is wide and empty: real accent-on-card text bottoms out at 1.89 (amber stars on a light
 # card, a deliberate rating visual) and the next value down is 1.08 (near-white on white).
 MIN_LEGIBLE_CONTRAST = 1.5
@@ -160,7 +157,7 @@ MIN_OPAQUE_ALPHA = 0.8
 # defects costs three network round trips; this names all of them in one local pass. The
 # service validates `props.visibility.condition` and `states[].condition` with a single
 # function (`findInvalidExpressionPath`), which is why two codes share one walker here.
-# Ranked 3rd and 18th among transformer refusals over the 40 days to 2026-08-28.
+# Both are frequent transformer refusals.
 EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
               'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
               'productRef'}
@@ -168,18 +165,11 @@ EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty
 # it falls through to `default` and the flow is refused. Legal in a `setVariable` payload,
 # illegal as a condition — hence scoped here and not to expressions generally.
 COND_ILLEGAL_TYPES = {'assign'}
-# A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
-# In `theme.colors[].light/dark` a 3-digit, 8-digit, 7-digit, unprefixed or EMPTY
-# hex is refused -- and refused with the location-free `Generated JSON failed schema
-# validation`, which names no field. The render cannot see it: `config preview` draws light
-# mode only. The published schema's hex pattern `^(?:#[0-9A-Fa-f]{6})?$` catches the rest but
-# allows the EMPTY string, so this check is the only local gate for that one.
-#
-# POSITION-SCOPED on purpose. In an element position the same service accepts a 3-digit hex,
-# an 8-digit one and an empty string, and real exports carry 8 eight-digit and 16 empty values
-# in `props.fill.color` / `props.color` and validate clean -- so an error here would fire on
-# the builder's own output. The schema check reports the 3- and 8-digit ones; `--baseline`
-# keeps the ones already in the fetched config out of its report. Theme colours only.
+# A colour hex the schema allows: `#RRGGBB`. The transform service also reads `#RGB`,
+# `#RRGGBBAA` and an unprefixed hex, in a theme colour as in an element; a theme colour whose hex
+# it cannot read at all (empty, 7 digits) is refused or its solid dropped, depending on the
+# service build. Real exports carry looser forms in element positions (8 eight-digit and 16 empty
+# values in `props.fill.color` / `props.color`), so only theme colours are checked here.
 THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
 
 # An id that reaches the generated runtime script as an identifier. Element ids, group ids,
@@ -364,7 +354,7 @@ RESERVED_TAG_NAMES = frozenset({
     'PROD_PRICE_PER_YEAR', 'OFFER_BILLING_PERIOD', 'OFFER_FULL_DURATION',
 })
 TAG_NAME_RE = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
-TAG_VALUE_TYPES = ('string', 'number', 'boolean')
+TAG_VALUE_TYPES = ('string',)
 
 
 def tag_name_issue(name):
@@ -379,7 +369,7 @@ def tag_name_issue(name):
 
 
 # Required payload fields per action type, read off the transform service's own error
-# messages in `compile-actions.ts` rather than from the schema, which is looser than the
+# messages in the transformer's source rather than from the schema, which is looser than the
 # service on every row. `invalid_action_payload` is one code covering all of them.
 #   (action type) -> (dotted required field, human description)
 ACTION_REQUIRED = {
@@ -647,10 +637,9 @@ def fill_backgrounds(fill, pal):
 
     A solid gives one. A GRADIENT gives one per stop and the caller takes the worst contrast
     across them, because text that vanishes over one end of a gradient is text that vanishes.
-    Resolving a gradient at all is what this function exists for: it used to return nothing, so
-    the walk fell through to the screen fill and reported near-black-on-black for black text on
-    a bright foil button. Measured on six independent agent runs, all of which diagnosed it as
-    a false positive and two of which changed their design to route around it.
+    Resolving a gradient at all is what this function exists for: without it the walk falls
+    through to the screen fill and calls black text on a bright foil button near-black-on-black,
+    a false positive that pushes authors to change a correct design to route around it.
 
     A translucent component makes the whole fill unresolvable, the same rule solids follow: what
     shows through is the designer's scrim, not something this can compute. That applies per stop,
@@ -680,9 +669,9 @@ def fill_below(fill, pal, under):
     translucent SOLID is flattened onto `under` when that is known. Anything else -- an image or a
     video layer, several layers, a translucent gradient (a fade), a theme style holding a gradient,
     a colour that does not resolve -- paints something this cannot compute, so the result is
-    UNKNOWN and every text below it is skipped. Falling through to the background further up was
-    the wrong answer: four runs had white text over a gradient footer, a fade and a photo reported
-    as white on the white page.
+    UNKNOWN and every text below it is skipped. Falling through to the background further up is
+    the wrong answer: it calls white text over a gradient footer, a fade or a photo white on the
+    white page.
     """
     layers = fill if isinstance(fill, list) else [fill] if isinstance(fill, dict) and fill else []
     if not layers or all(isinstance(l, dict) and l.get('type') == 'gradient' and not l.get('stops')
@@ -851,7 +840,7 @@ def catalog_findings(raw):
     Every localizable value lives in `localization.content` and each field holds a `{_lid}`
     ref, so the failures are new ones: a ref that names no entry, an entry of the wrong kind,
     an inline value left behind by a graft, a value keyed by a locale nobody declared. None of
-    them is visible in a render, and `validate` stops at the first fatal.
+    them is visible in a render, and `validate` names only the first error of the stage that failed.
     """
     bad, warn = [], []
     lz = raw.get('localization')
@@ -978,8 +967,10 @@ def catalog_findings(raw):
         warn.append(f"catalog value(s) for {', '.join(sorted(stray))} on "
                     f"{sum(len(v) for v in stray.values())} entr(ies), but "
                     f"{'none of them is' if len(stray) > 1 else 'it is not'} a declared locale "
-                    f"id — nothing renders them. If this run wrote them, declaring the locale is "
-                    f"the fix; if they were already in the fetched config, report and ask")
+                    f"id — nothing renders them. If this run wrote them, declare the locale and "
+                    f"translate what adding it implies; if they were already in the fetched "
+                    f"config, they are usually half a locale someone started, so do not fix them: "
+                    f"name both exits (finish the locale or delete the values) and ask")
 
     # Translation parity, per ENTRY. A missing value is not a defect in this format: it falls
     # back to the default locale, which is also why nobody may copy the default into other
@@ -1162,7 +1153,7 @@ def check(path, baseline_text=None, baseline_images=None):
                        f'reverses the arrival, and next needs an explicit `navigate`')
     walk(d, check_transition)
 
-    # An undeclared-but-bound product is a WARNING, not an error: measured, the Flow Builder
+    # An undeclared-but-bound product is a WARNING, not an error: the Flow Builder
     # mints the `flowProductId` and writes the declaration the first time someone opens the
     # flow, keeping the binding as written. An agent cannot author it (the id is a UUIDv5 over
     # an input the config does not contain), so a config an agent produced is EXPECTED to look
@@ -1173,24 +1164,26 @@ def check(path, baseline_text=None, baseline_images=None):
     codes = [l.get('code') for l in d.get('locales', []) if isinstance(l, dict) and l.get('code')]
 
     # A browser export carries top-level `status` and `id`; a stored fixture keeping them is
-    # fine, but a FILE DELIVERABLE that ships status:"published" imports as live-looking content,
-    # and two GREEN-round agents shipped exactly that after reading every prose placement of the
-    # rule (finding 10, rounds 6-7). Both agents ran THIS check and quoted its output faithfully,
-    # so the warning is the mechanical slot the prose could not be.
+    # fine, but a FILE DELIVERABLE that ships status:"published" imports as live-looking content.
+    # Prose alone does not stop it; agents run THIS check and quote its output faithfully, so the
+    # warning is the mechanical slot the prose cannot be.
     if d.get('status') == 'published':
         warn.append("top-level status is 'published' — fine for a stored export; NEVER ship it in "
-                    "a file deliverable. Drop status/id or set draft, and say which you chose")
+                    "a file deliverable, where it imports as live-looking content. Drop status/id "
+                    "or set draft, say which you chose, and say the import must be pointed at the "
+                    "flow the user means: the id names the flow the export came FROM")
     elif 'status' in d or 'id' in d:
         warn.append(f"top-level {'status' if 'status' in d else ''}"
                     f"{'+' if 'status' in d and 'id' in d else ''}{'id' if 'id' in d else ''} "
-                    f"present — for a file deliverable, say whether you kept or dropped them; "
-                    f"the id names the flow the export came FROM")
+                    f"present — for a file deliverable, say whether you kept or dropped them, and "
+                    f"that the import must be pointed at the flow the user means: the id names "
+                    f"the flow the export came FROM")
 
     # `theme.colors` and `theme.typography` share ONE id namespace on the device. A collision
     # decodes as Swift `DecodingError.dataCorrupted ... "Duplicate Key"` and the flow fails to
-    # open — while `validate`, the schema check and the render all pass it. Evidence: 8/8 real
-    # exports (sanitized and raw) have zero overlap; the one collision seen in the wild was
-    # authored here (a `footer` colour plus a `footer` preset), reported from an iOS device.
+    # open — while `validate`, the schema check and the render all pass it. Real exports
+    # (sanitized and raw) have zero overlap, so a collision is an authoring mistake, typically a
+    # `footer` colour plus a `footer` preset.
     theme = d.get('theme') or {}
 
     def _dups(seq):
@@ -1357,11 +1350,11 @@ def check(path, baseline_text=None, baseline_images=None):
         if pd:
             bad.append(f"_meta.screens.{sid}.products declares {', '.join(pd)} twice")
 
-    # Images are invisible to the publish gate: `flows config validate` returned valid:true on an
+    # Images are invisible to the publish gate: `flows config validate` returns valid:true on an
     # empty values map, a numeric id and a missing id alike. The schema step catches the id
     # shapes but not an empty values map, which is a legal shape. So an empty hero publishes an
     # "Upload Image" checkerboard to real users, and this warning is the only mechanical slot
-    # that sees it. Measured.
+    # that sees it.
     empty_imgs, unstrung = [], []
     for _s, el in els():
         if el.get('type') != 'image':
@@ -1430,8 +1423,8 @@ def check(path, baseline_text=None, baseline_images=None):
     # it permanent rather than provisional: `flows media upload` REFUSES a clip outright
     # (`validation_error`, permitted formats JPEG/JPEG2000/WEBP/PNG/SVG), so nobody can ever
     # bind it from the CLI and the upload is always the user's, in the builder. Both publish-time
-    # gates are blind here exactly as they are for images -- measured 2026-09-10 against the real
-    # transform service: an unset `video` returns `valid: true, issues: []` in the styled, the
+    # gates are blind here exactly as they are for images -- the real transform service
+    # returns, for an unset `video`, `valid: true, issues: []` in the styled, the
     # empty-`values`-map and the bare forms alike -- so this warning is the only mechanical slot
     # that puts the upload in the handover. The transform service maps `video`, so unlike
     # `old-price` it does reach a device; the checkerboard is what real users would see.
@@ -1464,7 +1457,7 @@ def check(path, baseline_text=None, baseline_images=None):
         if hug_unset:
             warn.append(f"video element(s) with height: hug AND no source "
                         f"({', '.join(str(i) for i in hug_unset[:4])}"
-                        f"{', …' if len(hug_unset) > 4 else ''}) — measured: the placeholder draws "
+                        f"{', …' if len(hug_unset) > 4 else ''}) — the placeholder draws "
                         f"an arbitrary 256pt, the renderer's default and no function of the clip "
                         f"nobody has uploaded yet, so the layout you previewed is not the one "
                         f"that ships and everything below it moves when the file lands. If you "
@@ -1509,10 +1502,10 @@ def check(path, baseline_text=None, baseline_images=None):
                                f"saves fine, kills the element on device")
 
     # The stretch-between-anchors pair: an absolute element anchored top AND bottom stretches to
-    # its parent, and ONLY with height `auto`. Both halves are measured render failures on a
-    # timeline rail and both read as "the line is too short", which is why they are mechanical:
-    # `fill` with the anchors stopped 2px before the next chip, and `auto` with no bottom anchor
-    # collapsed the rail and left 108px of white. Nothing else sees either one — the schema types
+    # its parent, and ONLY with height `auto`. Both halves are render failures on a timeline
+    # rail and both read as "the line is too short", which is why they are mechanical: `fill`
+    # with the anchors stops 2px before the next chip, and `auto` with no bottom anchor
+    # collapses the rail and leaves 108px of white. Nothing else sees either one — the schema types
     # both heights as legal and `validate` has no opinion on layout.
     for s, e in els():
         p = (e.get('props') or {})
@@ -1531,10 +1524,10 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"real height")
 
     # A negative zIndex sends an element behind the fill of every ancestor that has one, so a
-    # timeline rail at `zIndex: -10` inside a filled card draws nothing at all. Render-measured;
-    # the fix is paint order: declare the element before the sibling it must sit under and drop
-    # the zIndex. On a page with no filled ancestor the same rail draws, which is why the recipe
-    # survived until it met a card.
+    # timeline rail at `zIndex: -10` inside a filled card draws nothing at all. The fix is paint
+    # order: declare the element before the sibling it must sit under and drop the zIndex. On a
+    # page with no filled ancestor the same rail draws, which is why the defect hides until the
+    # rail meets a card.
     def _neg_z_under_fill(m, node, filled):
         for ch in node.get('children') or []:
             e = m.get(ch.get('id'))
@@ -1584,8 +1577,8 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"absolute, listed after it); otherwise drop the zIndex")
 
     # A screen-sized image or video taken out of flow (absolute or fixed) is a background made the
-    # wrong way. Device-reported: listed first on each screen, it still sat over its siblings and
-    # took the taps of every option, and a box wider than the screen widened the screen. Preview
+    # wrong way. On a device, even listed first on its screen, it sits over its siblings and
+    # takes the taps of every option, and a box wider than the screen widens the screen. Preview
     # and validate were clean. The screen `fill` is the background slot, so nothing to tap sits
     # under it. A hero-sized absolute image (242pt wide in a real export) stays silent.
     def _big(sz, floor):
@@ -1632,11 +1625,10 @@ def check(path, baseline_text=None, baseline_images=None):
 
     # `_meta.screens` is keyed BY SCREEN ID, so a key naming no declared screen means the two
     # halves have come apart -- almost always a screen renamed without moving its key, and
-    # occasionally a screen deleted without clearing it. Measured against the live transform
-    # service (adapty 0.8.2): renaming a paywall screen and leaving the key
-    # behind makes the flow UNPUBLISHABLE -- `flows config validate` refuses it with
+    # occasionally a screen deleted without clearing it. Renaming a paywall screen and leaving
+    # the key behind makes the flow UNPUBLISHABLE -- `flows config validate` refuses it with
     # `_meta.screens["<new-id>"].products is missing flowProductId for product "<uuid>"` -- while
-    # this checker reported OK, because the products then read as merely bound-but-undeclared,
+    # the products otherwise read here as merely bound-but-undeclared,
     # which is the ordinary and legitimate state of a freshly authored flow. Two very different
     # situations wearing one warning, so the orphaned key gets named directly.
     if isinstance(ms, dict):
@@ -1686,7 +1678,7 @@ def check(path, baseline_text=None, baseline_images=None):
     # An `offerId` is the Adapty offer id, the `id` that `product-offers list` returns, which is
     # a UUID. The same list carries the store's own code under `store_offers.<store>.offer_id`, a
     # field named like flowkit.product()'s parameter, and `flows config validate` answers
-    # `valid: true` for that code and for an unknown offer id alike (measured, adapty 0.15.0).
+    # `valid: true` for that code and for an unknown offer id alike.
     # The builder then refuses the publish with "This offer no longer exists".
     uuid_re = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
                          r'[0-9a-fA-F]{12}\Z')
@@ -1707,8 +1699,7 @@ def check(path, baseline_text=None, baseline_images=None):
 
     # A `const` purchase action names a product with no element behind it, so the
     # declaration harvester — which walks `product` elements only — never sees it.
-    # Measured against adapty/0.8.0 in production: `flows config validate`
-    # refuses such a config with the same `missing flowProductId` error, path ending
+    # `flows config validate` refuses such a config with the same `missing flowProductId` error, path ending
     # `.purchase.product`. The render says nothing, because the preview page does not
     # run the transform service. Warning, not error, for the same reason as above: an
     # agent-authored config is expected to look this way until predeclare() runs.
@@ -1751,9 +1742,9 @@ def check(path, baseline_text=None, baseline_images=None):
          if isinstance(o.get('variableId'), str) else None)
     for v in sorted(set(vids)):
         field = v.rsplit('.', 1)[-1]
-        # Widened from a `.prod_` substring test, which skipped every `offer_*` and `is_*`
-        # variable entirely -- head included. Measured: `<bogus-uuid>.offer_price` passed
-        # silently. The field families are the discriminator, and they do not collide with the
+        # Keyed on the field families, not a `.prod_` substring, which would skip every
+        # `offer_*` and `is_*` variable entirely -- head included -- and let
+        # `<bogus-uuid>.offer_price` pass silently. The field families are the discriminator, and they do not collide with the
         # other variable shapes in the corpus (`email.value`, `plans.selectedProduct`,
         # `quiz.selectedOptionId`).
         if not field.startswith(('prod_', 'offer_', 'is_')):
@@ -1902,9 +1893,9 @@ def check(path, baseline_text=None, baseline_images=None):
                            f'(a tab group is `single_choice`)')
 
     # Reachability, which is NOT the same property as "every navigate target resolves".
-    # A flow whose targets all resolve can still loop forever or strand a screen: measured
-    # on a hand-built onboarding where two screens navigated back to the branch that sent
-    # them, so the paywall was unreachable and every referential check passed.
+    # A flow whose targets all resolve can still loop forever or strand a screen: two screens
+    # that navigate back to the branch that sent them leave the paywall unreachable while
+    # every referential check passes.
     sids = [s['id'] for s in d.get('screens', [])]
     if sids:
         edges = {}
@@ -2016,10 +2007,9 @@ def check(path, baseline_text=None, baseline_images=None):
         bad.append(f'font.family.id not in _meta.fonts: {sorted(uf - fonts)}')
 
     # Both halves read `name`+`weight` off dicts an author wrote, so both must survive one being
-    # absent. They used to subscript directly and a `_meta.icons` entry with no `weight` killed
-    # the script with a bare `KeyError: 'weight'` — which reads as "your config is corrupt"
-    # rather than "one icon entry is missing a field", the same misdiagnosis the envelope
-    # `KeyError: 'theme'` caused. Calibrated before choosing the severity: 0 of 21 `_meta.icons`
+    # absent. A direct subscript on a `_meta.icons` entry with no `weight` kills the script with
+    # a bare `KeyError: 'weight'` — which reads as "your config is corrupt" rather than "one icon
+    # entry is missing a field", the same misdiagnosis an envelope `KeyError: 'theme'` causes. Calibrated before choosing the severity: 0 of 21 `_meta.icons`
     # entries, 0 of 60 icon elements and 0 of 76 catalog templates omit either field, so an
     # absent one is malformed authored input and worth reporting rather than defaulting away.
     # A `custom` icon is the exception: the schema gives it no `weight` at all (it refuses the
@@ -2070,10 +2060,10 @@ def check(path, baseline_text=None, baseline_images=None):
                    f'matches), or declare that weight in _meta.icons')
 
     # A `phosphor` icon resolves from the renderer's OWN bundle by name, so a name the bundle
-    # lacks draws NOTHING — and an authored `raw` does not rescue it. Measured: correct
-    # hand-authored two-stroke markup under `name: "CloseX"`, correctly declared, rendered as
-    # empty space twice (once with `stroke="currentColor"`, once with filled paths, so it is the
-    # name and not the markup); `name: "X"` drew immediately. Every other gate is blind —
+    # lacks draws NOTHING — and an authored `raw` does not rescue it: correct hand-authored
+    # two-stroke markup under `name: "CloseX"`, correctly declared, renders as empty space with
+    # `stroke="currentColor"` and with filled paths alike, so it is the name and not the markup;
+    # `name: "X"` draws. Every other gate is blind —
     # `validate` returns valid:true, the schema types the name as a bare string, and a blank
     # reads as a spacing bug in a screenshot — which is why this is an ERROR rather than a
     # warning: it is a hard render failure that only a device or a careful eye can otherwise
@@ -2137,9 +2127,8 @@ def check(path, baseline_text=None, baseline_images=None):
 
     # A countdown's digits are rich-text `token` nodes, and the builder only resolves the
     # timer_-prefixed ids. The bare names save and `validate` clean, but the Flow Builder paints
-    # them red "Unknown" and the device/preview renders the literal "%hours%". Measured,
-    # builder- and device-confirmed: the prefixed ids render live `23:59:59`.
-    # `component-catalog.json` shipped the bare names until 2026-08-25, so a timer lifted from a
+    # them red "Unknown" and the device/preview renders the literal "%hours%". Builder- and
+    # device-confirmed: the prefixed ids render live `23:59:59`. A timer lifted from an older
     # template is the usual source of this. Render-wrong-but-publishes, so a warning by the
     # severity rule — but it is the author's to fix if this run wrote it.
     valid_timer_tokens = {'timer_days', 'timer_hours', 'timer_minutes', 'timer_seconds'}
@@ -2163,11 +2152,10 @@ def check(path, baseline_text=None, baseline_images=None):
                     f"{sorted(valid_timer_tokens)}. If you lifted a timer from "
                     f"component-catalog.json, add the prefix; flowkit.timer_digits() emits it")
     # A `timer` carrying a `timer-end` action and NO children DOES NOT FIRE on a device.
-    # Device-measured across three trips: the childless form left a real onboarding
-    # stuck on its loading screen; the same timer with one child text advanced; an isolating
-    # probe whose two exits led to different destinations then confirmed it directly (it
-    # reported "YOU TAPPED", i.e. the manual route, never the timer's). An element with nothing
-    # to lay out is one the renderer skips, timer included.
+    # Device-confirmed: the childless form leaves an onboarding stuck on its loading screen; the
+    # same timer with one child text advances; an isolating probe whose two exits lead to
+    # different destinations always takes the manual route, never the timer's. An element with
+    # nothing to lay out is one the renderer skips, timer included.
     #
     # Severity is an ERROR, and every other gate is blind: `flows config validate` returns
     # `valid: true` for both forms, the schema check passes both, and `config preview` NEVER
@@ -2175,10 +2163,8 @@ def check(path, baseline_text=None, baseline_images=None):
     # observation. The failure is silent, terminal (the flow has no other way off that screen
     # unless the author happened to add one) and only visible on hardware.
     #
-    # This also CORRECTS the shape `patterns.md` published as device-verified, which carried no
-    # children: that verification was confounded by its own instrumentation -- the session that
-    # ran it had added visible digits to diagnose the failure, and documented the shape without
-    # them. See docs/maintainers/flow-generator.md, finding 29.
+    # A childless timer is not a device-verified shape: a device check run with diagnostic
+    # digits added verifies the instrumented shape, not the one without them.
     for s in d.get('screens') or []:
         for eid_, e in (s.get('elements', {}).get('map') or {}).items():
             if e.get('type') != 'timer':
@@ -2196,7 +2182,7 @@ def check(path, baseline_text=None, baseline_images=None):
                     return any(w(c) for c in (n.get('children') or []))
                 w(root)
                 return found
-            # A child is not enough: device-measured, a timer whose only child is a logo or a
+            # A child is not enough: on a device, a timer whose only child is a logo or a
             # plain sentence does not fire either. It fires once a text inside it carries its
             # own digits (a `timer_*` token), and those digits may be coloured like the
             # background, which keeps the delay invisible and still fires.
@@ -2218,8 +2204,8 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'Put a timer_digits() text inside it; to keep the delay invisible, colour the '
                     f'digits like the background. Neither validate nor preview can see this')
 
-    # `footer` is the pinned bottom bar, and all three of these were measured by
-    # rendering one screen eight ways. The element is lifted out of the flow and pinned to the
+    # `footer` is the pinned bottom bar, and all three of these come from rendering one screen
+    # eight ways. The element is lifted out of the flow and pinned to the
     # viewport bottom; the same props under `type: "stack"` land below the fold.
     for s in d.get('screens', []):
         m = s['elements']['map']
@@ -2294,8 +2280,8 @@ def check(path, baseline_text=None, baseline_images=None):
                         f'shape (a backing plate behind docked elements). The pinned opaque bar '
                         f'is a `footer` element; see patterns.md')
                 else:
-                    # The commoner fake footer, and the one BOTH control arms of the GREEN round
-                    # produced: not an empty plate but a full-bleed `fixed` container with a fill
+                    # The commoner fake footer, and the one authors produce unprompted: not an
+                    # empty plate but a full-bleed `fixed` container with a fill
                     # and no action of its own, holding the legal links. Keyed on full-bleed
                     # (left+right+bottom all 0) so a real docked CTA at {left:24,right:24,bottom:N}
                     # -- the shape three real exports carry -- does not trip it.
@@ -2430,19 +2416,18 @@ def check(path, baseline_text=None, baseline_images=None):
     # slide/step ever shows and the dots are inert). Same class as the fake footer and the fake
     # spinner, and no other gate sees it.
     #
-    # WIDENED 2026-08-28, after a report that the previous check did not stop the fake. It keyed
-    # on ONE shape -- >=3 leaf `stack`s, both axes fixed and EQUAL, <=12, rounded -- and seven
-    # fakes rebuilt from `tests/fixtures/reviews-carousel.json` measured 1/7 caught. The six
-    # misses were all natural authoring choices, not exotic ones: an active dot drawn as a wider
-    # PILL (the commonest indicator design, and the shape in the reported screenshot), dots drawn
+    # WIDE ON PURPOSE. Keyed on ONE shape -- >=3 leaf `stack`s, both axes fixed and EQUAL, <=12,
+    # rounded -- the check catches 1 of 7 fakes rebuilt from
+    # `tests/fixtures/reviews-carousel.json`. The six misses are all natural authoring choices,
+    # not exotic ones: an active dot drawn as a wider PILL (the commonest indicator design), dots drawn
     # as small phosphor `Circle` ICONS (natural in a catalog carrying 61 phosphor icons), dots as
     # one TEXT node of bullet glyphs, dots one size over the <=12 cap, a two-slide carousel, and
     # -- with no dots at all to key on -- a horizontal row of fixed-width cards wider than the
     # screen, which is the "swipeable cards" ask faked as a static row.
     #
-    # Severity is an ERROR for the indicator-row families, raised from a warning: prose has now
-    # failed this trap twice (the SKILL.md rule, then the narrow warning), which is this repo's
-    # own trigger for escalating a rule to a mechanical guard. The message names the two legal
+    # Severity is an ERROR for the indicator-row families: neither the SKILL.md rule nor a
+    # warning stops this trap, which is this repo's own trigger for escalating a rule to a
+    # mechanical guard. The message names the two legal
     # alternatives, so it is actionable rather than merely disapproving. The overflow-row family
     # stays a WARNING -- it is the one family whose fix may legitimately be a layout change
     # rather than a carousel.
@@ -2458,9 +2443,9 @@ def check(path, baseline_text=None, baseline_images=None):
         """A leaf stack small and round enough to be an indicator dot.
 
         Height is the anchor and width is allowed to run to 3x it, because the ACTIVE dot is
-        very often drawn as a pill. Requiring width == height is what let the reported shape
-        through: with one pill among three dots only two equal dots remain, and the old
-        `>= 3` count never fired.
+        very often drawn as a pill. Requiring width == height would let that shape through:
+        with one pill among three dots only two equal dots remain, and a `>= 3` count never
+        fires.
         """
         if e.get('type') != 'stack' or e.get('children'):
             return False
@@ -2518,8 +2503,8 @@ def check(path, baseline_text=None, baseline_images=None):
     # STEP INDICATOR GUARD. A fake slider is one frozen screen; a step indicator is the
     # same row on several screens with the active marker somewhere else on each ("step 1
     # of 3", "step 2 of 3"). Both signals required, so a fake slider copied unchanged
-    # onto two screens still fires. Measured on a real onboarding whose three "Progress
-    # dots" pills (the wide one moving 1 -> 2 -> 3 over three screens) errored three
+    # onto two screens still fires. Without it, a real onboarding whose three "Progress
+    # dots" pills (the wide one moving 1 -> 2 -> 3 over three screens) errors three
     # times here -- and flow-audit reports a failing ERROR as a blocker.
     def _row_marker(n, m):
         kids = [c['id'] for c in n.get('children') or []]
@@ -2553,8 +2538,8 @@ def check(path, baseline_text=None, baseline_images=None):
         if any(e.get('type') == 'carousel' for e in m.values()):
             continue
         # Walk the hierarchy; at every node look at its DIRECT children. Screen-wide counting
-        # tripped on list bullet dots (one dot per list row, each in its own parent), a real
-        # false positive measured against a live flow; requiring one shared parent drops those
+        # trips on list bullet dots (one dot per list row, each in its own parent), a real
+        # false positive on a live flow; requiring one shared parent drops those
         # and still catches the indicator row, whose dots are always siblings.
         def _walk(n):
             kids = n.get('children') or []
@@ -2568,15 +2553,12 @@ def check(path, baseline_text=None, baseline_images=None):
             # many heights encodes MAGNITUDE -- an audio waveform, an equalizer, a sparkline --
             # and no `carousel` could replace it: there is no slide to page through.
             #
-            # Measured, and the separation is total: every stack-based fake in
-            # tests/test-fake-carousel.py has exactly ONE distinct height, the wider-pill case
-            # included (its WIDTH differs, its height does not), while a waveform read off a real
-            # reference has NINE. Added 2026-09-02 after 6 of 6 agents in a GREEN round hit this
-            # as a false positive at ERROR severity -- one dropped its bars' corner radius purely
-            # to quiet the checker ("these are artwork, not indicators"), another abandoned the
-            # waveform and shipped an image placeholder, calling it "a real fidelity loss".
-            # Finding 19's own lesson -- a guard calibrated against a single remembered shape
-            # tests the memory, not the trap -- applied to finding 19's own widened guard.
+            # The separation is total: every stack-based fake in tests/test-fake-carousel.py
+            # has exactly ONE distinct height, the wider-pill case included (its WIDTH differs,
+            # its height does not), while a waveform read off a real reference has NINE. Without
+            # this guard a waveform is a false positive at ERROR severity, and authors damage
+            # real artwork to quiet it. A guard calibrated against a single remembered shape
+            # tests the memory, not the trap.
             _dot_h = {_sz((m.get(i) or {}).get('props') or {}, 'height') for i in dots}
             _dot_h = {h for h in _dot_h if isinstance(h, (int, float))}
             if len(_dot_h) > 2 and not solo_text:
@@ -2598,8 +2580,8 @@ def check(path, baseline_text=None, baseline_images=None):
                             and kids[_at[i] + 1]['id'] not in dots and _texty(kids[_at[i] + 1])
                             for i in dots):
                 dots = []
-            # TWO is the floor, not three: a two-slide carousel gets two dots, and the old
-            # `>= 3` let that through. Measured silent at this threshold on all 12 real configs
+            # TWO is the floor, not three: a two-slide carousel gets two dots, and `>= 3` would
+            # let that through. Silent at this threshold on all 12 real configs
             # (7 tracked fixtures + 5 raw exports), so the looser count costs no false positive.
             if n.get('id') in step_rows:
                 dots, solo_text = [], False
@@ -2649,12 +2631,11 @@ def check(path, baseline_text=None, baseline_images=None):
     # whichever one you drew that way, forever: tapping flips the internal selection and nothing
     # on screen moves. The user-visible symptom is "the card just blinks and nothing changes".
     #
-    # Added 2026-08-28 after shipping exactly that to a user. `patterns.md` has stated the rule
-    # in words since the plan-card section was written -- "Put the selected LOOK in
-    # `propsByState`, never on whichever card starts selected" -- and it was read past anyway,
-    # because the reference screenshot showed one card highlighted and copying a static image
-    # literally bakes in the one frame it can show. A prose rule that was documented AND still
-    # defeated is this repo's trigger for a mechanical guard.
+    # `patterns.md` states the rule in words -- "Put the selected LOOK in `propsByState`, never
+    # on whichever card starts selected" -- and it is read past anyway, because a reference
+    # screenshot shows one card highlighted and copying a static image literally bakes in the
+    # one frame it can show. A prose rule that is documented AND still defeated is this repo's
+    # trigger for a mechanical guard.
     #
     # NOTHING else sees it: `flows config validate` returns valid (the document is well formed),
     # the schema check passes (both shapes are legal), and `config preview` draws a single frame
@@ -2724,14 +2705,13 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'(a radio dot with its own state) this is fine. Members: {names}')
     # A STATE OVERRIDE THAT DROPS A SUB-FIELD. A prop in `propsByState.<state>` replaces the base
     # prop whole, on device and in the preview alike: a key it leaves out falls back to its
-    # default, it is not inherited (flow-schema.md, trap 17). The transformer deep-merged until
-    # October 2026, so a delta override (`font: {weight}` over `font: {preset}`) is the shape an
-    # author writes from the old rule, and it now loses the preset. Every state override in every
-    # real export and catalog template repeats each key of the base prop it replaces (407 of 407
-    # measured), so this never fires on builder output. A colour switched to another variant
-    # (`type` differs) is a new value, not a partial one. Two left-out keys draw the same and are
-    # not reported, both measured as false positives in a test round: `font.preset` when the
-    # override sets its own `size` (a manual font in place of the preset), and `border.style`
+    # default, it is not inherited (flow-schema.md, trap 17). A delta override (`font: {weight}`
+    # over `font: {preset}`) therefore loses the preset. Every state override in every real
+    # export and catalog template repeats each key of the base prop it replaces (407 of 407),
+    # so this never fires on builder output. A colour switched to another variant (`type`
+    # differs) is a new value, not a partial one. Two left-out keys draw the same and are not
+    # reported, because flagging them is a false positive: `font.preset` when the override sets
+    # its own `size` (a manual font in place of the preset), and `border.style`
     # (only `none` changes the drawing).
     for where, k, e in iter_elements(d):
         base = e.get('props') or {}
@@ -2849,8 +2829,8 @@ def check(path, baseline_text=None, baseline_images=None):
     for v in tag_vars:
         if v.get('valueType') not in TAG_VALUE_TYPES:
             warn.append(f'variable {v.get("name")!r} carries external: true but is a '
-                        f'{v.get("valueType")!r}; only string, number and boolean variables can '
-                        f'come from the app, so the flag is ignored and the app cannot set it')
+                        f'{v.get("valueType")!r}; only a string variable can come from the app, so the '
+                        f'flag is ignored and the app cannot set it (custom_tag_non_string)')
             continue
         issue = tag_name_issue(v.get('name'))
         if issue:
@@ -3173,14 +3153,13 @@ def check(path, baseline_text=None, baseline_images=None):
                     break
 
 
-    # ---- `<groupId>.selectedOptionId` on a MULTI_CHOICE group. Measured against the transform
-    # service: the same condition validates on a `single_choice` group and is refused
+    # ---- `<groupId>.selectedOptionId` on a MULTI_CHOICE group. In the transform service the
+    # same condition validates on a `single_choice` group and is refused
     # on `multi_choice` with `Generated scripts failed validation` -- a multi-select exposes no
     # single selected option for the generated code to read. It matters because
     # `component-catalog.json`'s `quiz-rating` template declares its group `multi_choice`, is
     # `agent_allowed`, and `patterns.md` tells an agent to prefer filling a template over
-    # assembling a skeleton -- so the recommended path leads straight into the refusal. Three
-    # agents in one GREEN round hit it independently and worked around it by hand.
+    # assembling a skeleton -- so the recommended path leads straight into the refusal.
     grp_types = {g['id']: g.get('type')
                  for s in d.get('screens', [])
                  for g in (s.get('selectableGroups') or [])}
@@ -3418,9 +3397,9 @@ def check(path, baseline_text=None, baseline_images=None):
     #
     # It judges only what it can compute: a solid or a gradient it can see under the text. An
     # unresolvable fill on the way down makes the background UNKNOWN (see `fill_below`), and so
-    # does an OVERLAY -- something positioned out of flow that may sit under or over the text. Four
-    # runs read white type over a gradient footer, a fade, a photo and an image hero as "white on
-    # white", because the walk measured them against the page. Two overlay shapes: the text's own
+    # does an OVERLAY -- something positioned out of flow that may sit under or over the text.
+    # Judged against the page instead, white type over a gradient footer, a fade, a photo or an
+    # image hero reads as "white on white". Two overlay shapes: the text's own
     # branch is `absolute`/`fixed` and a sibling paints (a headline floated over a hero image), or
     # an `absolute` sibling paints and is more than a dot, a rail or a hairline (a fade beside the
     # headline). The size exemption keeps the timeline's 8pt rail and 32pt icon chip, which sit
@@ -3573,11 +3552,16 @@ def check(path, baseline_text=None, baseline_images=None):
             if not isinstance(v, dict) or 'hex' not in v:
                 continue
             h = v['hex']
-            if not (isinstance(h, str) and THEME_HEX.match(h)):
+            if isinstance(h, str) and THEME_HEX.match(h):
+                continue
+            if parse_hex(h):
+                warn.append(f'theme colour {c.get("id")!r} {variant} hex is {h!r}: the service '
+                            f'reads it, but the schema allows only #RRGGBB — write that, with '
+                            f'alpha in `opacity`')
+            else:
                 bad.append(f'theme colour {c.get("id")!r} {variant} hex is {h!r}, not #RRGGBB — '
-                           f'the transform service refuses this with the location-free '
-                           f'"Generated JSON failed schema validation", and neither the schema '
-                           f'check nor the render can see it')
+                           f'the transform service cannot read it, so it refuses the flow or '
+                           f'drops the colour, and the render (light mode only) cannot show it')
 
     theme_style_findings(d, bad, warn)
 

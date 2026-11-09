@@ -1,6 +1,6 @@
 # The fidelity pass
 
-`SKILL.md` owns the triggers and the exit condition. This file owns the pass itself: what to
+[preview.md → The fidelity pass](preview.md#the-fidelity-pass-when-a-reference-image-was-given) owns the triggers and the exit condition. This file owns the pass itself: what to
 inventory, and what to do with each gap you find.
 
 **It runs at two moments, not one.** The **asset half** belongs to phase 2, before you author
@@ -8,29 +8,17 @@ anything — deciding which of the reference's graphics the format can reach at 
 **comparison half** belongs to phase 4, against the render. Doing the first one late is how a
 lookalike gets built and then graded against the reference by the agent that built it.
 
-**Run it whenever a reference was given** — an image, a screen to copy, a layout spelled out. In
-**Adapt** mode (`SKILL.md` phase 2) the list has two halves: structure against the reference, and
-colour, type, radii, icon style and copy against the app's own style source — never against the
-reference. Not when you chose the design yourself; that case is graded by a teardown skill instead —
-`paywall-teardown` for a screen that sells, `onboarding-teardown` for a sequence.
-
 ## Why it is a written list and not a look
 
 "Nothing jumped out" is not a result. A side-by-side glance passes screens the user rejects on
 sight, because "close" is a claim about *structure* and fidelity lives in everything else — colour,
 weight, glyph style, the proportion between two blocks.
 
-Measured on a real build with the skill loaded: the agent satisfied "look at it against the
-reference" with a gestalt comparison and shipped emoji standing in for designed line icons, colours
-named from memory, a gradient flattened to a solid, eyeballed proportions and an undisclosed font
-downgrade. Every one of those was reachable.
-
-The follow-up micro-test is the reason the *list* is the mechanism rather than the looking:
-baseline agents shipped the substitutions **3/3 while disclosing them** — the disclosure machinery
-worked, the defect frame was missing — and with the pass they produced the inventory and fixed
-everything reachable **3/3**. Agents fix gaps they can see; the gestalt look never produces the
-list. (The first version of that test handed the control arm the gaps pre-enumerated and both arms
-complied, which measured nothing — the enumeration *is* the treatment.)
+A gestalt comparison against the reference ships emoji standing in for designed line icons,
+colours named from memory, a gradient flattened to a solid, eyeballed proportions and an
+undisclosed font downgrade — every one of them reachable, and disclosing a substitution does not
+fix it. You fix the gaps you can see, and only the written inventory makes them visible: the list
+is the mechanism, not the looking.
 
 ## 1. Inventory the reference — and do the ASSET half in phase 2
 
@@ -68,7 +56,7 @@ A reference with a device frame needs its screen bounds located before any measu
 - **Colour** — sample it; never name it from memory.
 - **Size and spacing** — match the reference's *proportions* with relative layout
   (`fill`/`hug`/`relative`). Never hardcode fixed container widths or heights to match image
-  pixels; fixed geometry breaks across devices (team-diagnosed).
+  pixels; fixed geometry breaks across devices.
 - **Layout** — reach for the layout props before padding or docking. A reference is one phone's
   height; on a taller phone the surplus has to go somewhere, and on a screen with a hero it goes
   to the hero at `height: fill`, with the bar in flow
@@ -81,7 +69,7 @@ A reference with a device frame needs its screen bounds located before any measu
 - **Words baked into an illustration** — when a live `text` replaces them, any artwork that sat in
   front of the words goes back on top of the text, never under it. When the source frames have
   similar names, set the exported file beside the reference at its slot and compare before you
-  upload: a near-namesake frame looks right alone and wrong in place (reported).
+  upload: a near-namesake frame looks right alone and wrong in place.
 
 ### Where each kind of graphic goes
 
@@ -95,8 +83,8 @@ real full-resolution asset where a crop gets a 1x copy of their mockup.
 | :--- | :--- |
 | a monochrome glyph | an `icon` with `raw` SVG in `_meta.icons`: a bundle glyph renders in the preview, a `custom` one draws only on a device ([flow-schema.md trap 23](flow-schema.md#23-a-phosphor-icon-resolves-from-the-renderers-own-bundle-and-raw-does-not-override-it)). Never rasterize this one, and **never an emoji** — a placeholder asks to be filled, an emoji looks finished and ships a different design ([flow-schema.md trap 5](flow-schema.md)) |
 | a multicolour or gradient glyph, an illustration | no element expresses it → styled placeholder and an ask. Only if the ask cannot be answered: crop it out of the reference if its backdrop is flat ([crop.py](crop.py)), else draw and rasterize it and **say you drew it** |
-| a textured or photographic background, a glow, a mesh, a chart | an asset. Their file if they have one — and note you **cannot** rebuild a texture from the reference, because the content occludes it and `objectFit` has no tile mode. Measured on a real paywall screenshot: the largest clean band was 352×50, and covering the screen with it stretched the texture 15× into vertical smears. A radial glow is not a `fill` with stops |
-| **lettering whose treatment is unreachable** — gradient- or texture-filled, a display face the account lacks, outlined, distorted | an **asset**, not a downgraded `text`. A `text` element carries `color` and no `fill` — measured across all 7 real exports — so the treatment is genuinely out of reach. Ship a styled empty `image` at the measured box and ask for the lockup. **Unless it carries a variable or a price**, which an image cannot: then it stays `text`, and an unreachable treatment is a disclosed solid-colour downgrade |
+| a textured or photographic background, a glow, a mesh, a chart | an asset. Their file if they have one — and note you **cannot** rebuild a texture from the reference, because the content occludes it and `objectFit` has no tile mode. On a real paywall screenshot the largest clean band is 352×50, and covering the screen with it stretches the texture 15× into vertical smears. A radial glow is not a `fill` with stops |
+| **lettering whose treatment is unreachable** — gradient- or texture-filled, a display face the account lacks, outlined, distorted | an **asset**, not a downgraded `text`. A `text` element carries `color` and no `fill` in every real export, so the treatment is genuinely out of reach. Ship a styled empty `image` at the measured box and ask for the lockup. **Unless it carries a variable or a price**, which an image cannot: then it stays `text`, and an unreachable treatment is a disclosed solid-colour downgrade |
 | a shape that is not a rounded rectangle — a ribbon, a burst, a badge with angled ends | an asset. Its **backing** goes down the ladder; a label on top stays a `text`, so ask for the backing alone whenever the label has to translate |
 
 ## 3. Turn what the format cannot reach into named user asks
@@ -109,15 +97,13 @@ says, with what the screen does instead — a button that only sends a custom ac
 there, because to the user it looks like a working sign-up.
 
 Never a silent downgrade, and never one line buried in a paragraph — collect assets into the
-missing-assets block `SKILL.md` describes, so the user sees the whole list and can answer it in
-one go. Batch it with the phase-2 asks, because a path they hand over turns a placeholder into a
-finished screen.
+[missing-assets block](build.md#the-missing-assets-block), so the user sees the whole list and can answer it in
+one go.
 
-**Ship every placeholder fully styled** — `borderRadius`, `objectFit`, and a **fixed size taken
-from the reference** — on the `image` element itself, so the upload lands styled instead of
-handing the user styling work ([flow-schema.md trap 5](flow-schema.md)). A styled placeholder at
-the right box also keeps the layout honest: an image with an empty entry does not occupy the space the
-real asset will, which is measured at 95px on a 932px screen.
+**Ship every placeholder fully styled**, as [build.md → Assets](build.md#assets-upload-the-file-then-build-with-its-url)
+state 3 says, so the upload lands styled instead of handing the user styling work
+([flow-schema.md trap 5](flow-schema.md)); an empty entry does not occupy the space the real asset
+will ([media.md → Geometry](media.md#geometry-what-changes-when-the-asset-lands)).
 
 The routes are **not symmetric**, so say which one applies rather than offering both everywhere:
 
@@ -126,12 +112,11 @@ The routes are **not symmetric**, so say which one applies rather than offering 
 | PNG / JPEG / WEBP, ≤ ~2.5 MB (an animated WebP plays one frame; a GIF is refused) | yes — `flows media upload` | also fine |
 | SVG | no — `http_500`, reproducible | yes |
 | a font | no — not an image; `validation_error` | **yes, and only here.** They set the iOS and Android font name on every face (publishing refuses a face with no iOS name), then tell you the family name, because the upload mints the id you point `theme.typography` at |
-| video, or any motion | no — the command refuses a clip | **yes, always.** Place the real `video` element with no source, at a **fixed** height and the design's own radius/margins, and say in words that they upload it in the builder — [media.md](media.md#the-video-placeholder) |
+| video, or any motion | no — the command refuses a clip | **yes, always**, into a sourceless `video` element: [media.md](media.md#the-video-placeholder) |
 | an image over ~2.5 MB | no — bare `http_400` | yes, or a smaller export |
 
 **A font gets a substitute in the meantime, and the substitution is disclosed** — name the face you
-used and how it differs. An undisclosed font downgrade is one of the five original failures that
-put this pass in the skill.
+used and how it differs. An undisclosed font downgrade is one of the defects this pass exists to stop.
 
 ### "Design around it" — the third route, and the one rule that makes it safe
 
@@ -146,7 +131,7 @@ consent, so the rules are about consent and nothing else:
 
 1. **Never take it unasked.** The default is always the styled placeholder. An agent that decides
    for itself that a graphic is "probably a competitor's" and swaps in a gradient card has
-   reproduced the original failure with a better excuse.
+   committed the defect this pass prevents, with a better excuse.
 2. **A substitute is named, not just made** — what it replaced, and what you chose instead. It then
    goes through this pass like anything else, because a replacement you designed is a design you
    are now responsible for.
@@ -158,5 +143,4 @@ consent, so the rules are about consent and nothing else:
 
 ## 4. Re-render and walk the pair again
 
-Done means **every remaining difference is on the ask list**. A user who declines previews waives
-the deliverable, not this pass.
+Until the [exit condition](preview.md#the-fidelity-pass-when-a-reference-image-was-given) holds.

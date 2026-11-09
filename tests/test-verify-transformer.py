@@ -361,11 +361,15 @@ fires('flowkit: one branch printing the selected price and a fixed one',
       f'replace `{_P1}.prod_price` with `plans.selectedProduct.prod_price`')
 
 # --- theme colour hexes, position-scoped (see THEME_HEX in verify-config.py).
-for _tag, _hex in (('3-digit', '#fff'), ('empty', ''), ('no-hash', 'FFFFFF'),
-                   ('8-digit', '#FFFFFFD9'), ('7-digit', '#FFFFFFF')):
+for _tag, _hex in (('empty', ''), ('7-digit', '#FFFFFFF')):
     _d = load(os.path.join(CORPUS, 'comparison-paywall.json'))
     _d['theme']['colors'][0]['light']['hex'] = _hex
     fires(f'theme hex {_tag} ({_hex!r})', _d, 'not #RRGGBB')
+# The transform service reads these, so they are not errors.
+for _tag, _hex in (('3-digit', '#fff'), ('no-hash', 'FFFFFF'), ('8-digit', '#FFFFFFD9')):
+    _d = load(os.path.join(CORPUS, 'comparison-paywall.json'))
+    _d['theme']['colors'][0]['light']['hex'] = _hex
+    no_error(f'theme hex {_tag} ({_hex!r}) is read by the service', _d, 'not #RRGGBB')
 
 # An ELEMENT colour is a different rule: the service accepts a 3-digit hex, an 8-digit one and
 # an empty string there, and real exports carry both -- so this must stay silent.

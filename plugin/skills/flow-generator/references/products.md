@@ -32,28 +32,27 @@ variable ids, `productRef` targets, the screen's `products` registry (whose `_me
 `flowkit.predeclare()` re-mints), and the `offerId`s, which belong to the old product (take the
 new one's from `product-offers list`). One left on the old id fails the publish.
 
-**The selection is a dialogue, not a lookup.** SKILL.md phase 2 owns the order — list, ask which,
+**The selection is a dialogue, not a lookup.** [build.md → Products](build.md#products-catalog-first-store-ids-second-create-last) owns the order — list, ask which,
 ask for store ids only if none fit, create last — and this page owns how to present the choice:
 one line per product with **title, period, and which stores it binds** (`products get` for the
 detail), because period and bindings are what the user needs to recognise their own product, and
 period is what the price variables will be checked against. If they name a product that is not in
 the list, that is the store-ids conversation, not a guess. **A silent pick from the catalog is the
-same defect as an invented UUID with better odds** — measured on live runs: the agent choosing
-"plausible" products worked only because the sandbox had one obvious set.
+same defect as an invented UUID with better odds** — a "plausible" pick works only when the app
+has one obvious set.
 
-**Provenance — required reading before you trust a flag on this page.** The flags were verified
-via `--help` on `adapty/0.3.0` and **re-verified unchanged on 0.6.0**. The `products create`
+**Provenance — required reading before you trust a flag on this page.** The flags match
+`--help` on `adapty/0.3.0` and **are unchanged on 0.6.0**. The `products create`
 rules below — store bindings optional to the CLI, and `--android-base-plan-id` with
 `--android-product-id` — come from the command's source in `adaptyteam/adapty-cli`
-(`src/cli/commands/products/create.ts`). Note also that `--help` is not a reliable command inventory: it omitted
-`flows config validate` and `flows config preview` entirely on the version where both existed.
+(`src/cli/commands/products/create.ts`). Note also that `--help` is not a reliable command inventory: it can omit
+`flows config validate` and `flows config preview` entirely on a version where both exist.
 So on any newer CLI, re-check against each command's own `static flags` declaration — in
 `adaptyteam/adapty-cli`, or in the installed package's `dist/commands/`. Do not treat this page
 as ground truth for a version you have not checked.
 
-And check *which* CLI you are invoking. A globally installed `adapty` is often old — 0.3.0 was
-found on a real machine — so if a command or flag documented here is missing, try
-`npx --yes adapty@latest` — then `@beta` — before concluding it does not exist.
+And check *which* CLI you are invoking: a command or flag documented here that is missing is
+missing only as [SKILL.md → The CLI surface](../SKILL.md#the-cli-surface) defines it.
 
 ## Where offer ids come from
 
@@ -101,15 +100,15 @@ paywall or flow may already sell, and offers are deleted only in the dashboard.
 
 **Nothing on the server checks these ids.** `flows config validate` answers `valid: true` for a
 store code as `offerId`, for an offer id the product does not have, and for a product id the app
-does not have (all measured). `verify-config.py` refuses an `offerId` that is not an Adapty offer
+does not have. `verify-config.py` refuses an `offerId` that is not an Adapty offer
 id, and `gates.sh`, given the app id, reads `products list` and `product-offers list` and stops on
 a product or offer the app does not have.
 
 
 ## The builder owns product binding
 
-From a real round-trip — the agent wrote a flow, the user attached products in the Flow
-Builder, the flow was re-exported:
+A real round trip — the agent writes a flow, the user attaches products in the Flow
+Builder, the flow is re-exported:
 
 | Field | Written by the agent | Returned by the builder |
 | :--- | :--- | :--- |
@@ -122,8 +121,9 @@ Builder, the flow was re-exported:
 Consequences, and this file is the authority on all of them:
 
 - **Never copy `_meta.screens[].products[]` from another flow or export.** On a flow you are
-  rewriting, carry the live block through untouched. On a flow you authored, derive it with
-  `flowkit.predeclare()` — *Declare the products yourself*, below.
+  rewriting, carry the live block through untouched: it can hold pairs your rewrite does not know
+  about, component-owned bindings among them, and regenerating drops them. On a flow you authored,
+  derive it with `flowkit.predeclare()` — *Declare the products yourself*, below.
 - **Carry `screens[].products` forward on the same terms as `_meta.screens`**, for the same reason:
   it is builder-owned, it can hold pairs your source never mentions, and dropping it is silent.
 - **`flowProductId` is screen-scoped.** Derive it per screen; the same product on two screens has
@@ -136,22 +136,19 @@ Consequences, and this file is the authority on all of them:
 - **A `product` element with no product attached is a documented publish blocker**:
   <https://adapty.io/docs/flow-common-issues.md>. Say in your report which screens need an
   attachment pass before the user tries to publish.
-- **And until they are attached, `validate` reports nothing else.** Binding is an early stage,
-  so a card with no product chosen — or one bound but not yet declared — hides every later-stage
-  defect in the document; run `verify-config.py`, which finds them locally either way. See
+- **And until they are attached, `validate` reports nothing else**:
   [validate.md → unsettled products](validate.md#unsettled-products-hide-everything-else).
 - **Builder-owned means do not OMIT it either, not just do not author it.** `config update`
   replaces the whole config, so a script that regenerates a config from source and emits
   `_meta.screens: {}` **destroys attachments the user made in the builder** — a live block can
   declare Product + Offer pairs your source never mentions, so the next publish fails with a 422
-  and the user has to redo the pass. Measured in this project: a hand-built flow was regenerated and rewritten
-  four times from a source whose `_meta.screens` was empty; it only escaped clobbering the
-  attachment because the user happened to attach *after* the last write. **On every regeneration,
+  and the user has to redo the pass. Rewriting from a source whose `_meta.screens` is empty
+  clobbers any attachment made before the write. **On every regeneration,
   re-read the live config and carry `_meta.screens` forward** for every screen that still exists
   (`tests/preserve-builder-state.py` does this). A screen you deleted legitimately loses its
   declarations — say so rather than dropping them silently.
-- **And it is enforced, not merely documented.** Measured: a config with two `product` elements and
-  an empty `_meta.screens` **saved without complaint** and then failed the publish transform with
+- **And it is enforced, not merely documented.** A config with two `product` elements and
+  an empty `_meta.screens` **saves without complaint** and then fails the publish transform with
   **HTTP 422** — `flow._meta.screens["scr_duoPay"].products is missing flowProductId for product
   "68c96b3c-…"`, naming both the `_meta` path and the `props.product` path that required it. So the
   missing `flowProductId` is a hard stop at publish time, which is exactly why a declaration must
@@ -196,9 +193,10 @@ Unknown Product Id
 Rich-text variable "<uuid>.prod_price" references unknown product or product group "<uuid>"
 ```
 
-**A `const` purchase payload does not help.** It buys the product perfectly well and needs no
-declaration — see the section below, which is true and easy to over-read. It declares nothing, so a
-screen whose CTA carries a `const` purchase still cannot resolve a price variable.
+**A `const` purchase payload does not help.** It buys the product, but it needs a declaration of
+its own ([below](#a-purchase-can-bind-a-product-with-no-product-element)) and gives the builder no
+element to attach, so a screen whose CTA carries a `const` purchase still cannot resolve a price
+variable.
 
 **So: if a screen shows a price, it needs a `product` element, whatever the design looks like.**
 A single-plan paywall with no visible picker still wraps its price block in one — give it the
@@ -239,8 +237,8 @@ prefixes nothing, so it returns a different id.
 
 ### The screen registry owns the declaration
 
-> Read in the builder source, not
-> measured against a live flow. The three exports this skill is pinned to are v9 and carry no
+> Read in the builder source, not yet
+> confirmed against a live flow. The three exports this skill is pinned to are v9 and carry no
 > registry, so nothing here contradicts what they show.
 
 Every screen owns a Product + Offer registry, `products`, sitting beside `elements` and
@@ -253,20 +251,10 @@ Every screen owns a Product + Offer registry, `products`, sitting beside `elemen
 
 It is **not** `_meta.screens[<id>].products[]`, and the two are worth keeping straight: the
 registry holds bare pairs, `_meta` holds the minted `flowProductId`s the publish transform checks.
-The registry is where `_meta` comes from:
-
-```ts
-// catalog.ts — what reaches _meta.screens[].products[]
-function collectDeclaredBindingValues(screen: IScreen): ProductValue[] {
-  return mergeProductBindingValues(normalizeScreenProducts(screen));
-}
-```
-
-Element props do not feed it. `collectBindingValues`, the function that reads
-`element.props.product.id`, serves only the global-component branch — *"Screen-owned Product
-Cards/refs are represented by `screen.products`; component cards remain a compatibility-only
-runtime union."* So a `product` element whose id is missing from the registry contributes nothing
-to `_meta`. The builder keeps the two in step whenever a human attaches a product, so that
+The registry is where `_meta` comes from, read from the builder's source: `_meta` is built from
+`screen.products` alone, and element props do not feed it (an element's
+`props.product.id` is read only for a global component). So a `product` element whose id is
+missing from the registry contributes nothing to `_meta`. The builder keeps the two in step whenever a human attaches a product, so that
 mismatch is not a state the UI produces — it is one **you** produce, by writing a partial registry
 over a flow whose elements say otherwise.
 
@@ -415,12 +403,8 @@ fk.predeclare('scr_x', ['annual', ('annual', '<offer-id>')])
 ```
 
 The ids match what the builder mints, so its next save rewrites them to the same values.
-
-**When rewriting an existing flow, carry the live `_meta.screens` forward instead.** A live
-declaration can hold pairs your rewrite does not know about — component-owned bindings among them
-— and regenerating drops them. **Carry the live `screens[].products` with it** on any flow that has
-the key: that registry is where the declaration comes from, and it can hold
-pairs with no usage on the screen at all.
+**`verify-config.py` warns on a binding the declaration leaves out**, and says the fix. On a
+rewrite, carry the live blocks forward instead ([The builder owns product binding](#the-builder-owns-product-binding)).
 
 ### Device preview fails on a freshly authored flow, and publishing fixes it
 
@@ -448,7 +432,7 @@ if you declare the products yourself, as above.
 > ```
 >
 > `flows config validate` cannot tell you: it returns `valid: true` for a paywall whose every
-> product is a ghost (measured — see [validate.md](validate.md)). `gates.sh` with the app id
+> product is a ghost (see [validate.md](validate.md)). `gates.sh` with the app id
 > names every such product in one run.
 
 The reason is that **device preview is a stricter gate than `config update`.** The write endpoint
@@ -486,9 +470,9 @@ action names the product directly, and no element has to stand behind it.
 **But it is not self-sufficient for publishing.**
 Measured against `adapty/0.8.0` in production: `flows config validate` refuses that
 exact fixture with `flow._meta.screens["scr_RvSel001"].products is missing flowProductId for
-product "<uuid>" (…elements.map[…].purchase.product)`. The transform service harvests declarations
-from `product` elements only, so a product reached *just* through a `const` purchase is invisible
-to it — and the render says nothing, because the preview page does not run that service
+product "<uuid>" (…elements.map[…].purchase.product)`. The transform service looks up every
+product a screen names, a `const` purchase included, in `_meta.screens[<sid>].products[]` — and the
+render says nothing, because the preview page does not run that service
 ([validate.md](validate.md)).
 
 Three consequences, the third of which is a correction:
@@ -512,7 +496,7 @@ Three consequences, the third of which is a correction:
 
 The standing recipe for a fallback price (an offer the store may not return — eligibility, timing,
 geography are the store's call and the config cannot force it) is a **duplicate of the product
-without the offer, hidden on the screen**. It works, and it carries a measured trap:
+without the offer, hidden on the screen**. It works, and it carries a trap:
 
 **Android SDK 4.0.0 through 4.2.1 match a price variable to a product by `vendorProductId` +
 `basePlanId` only — `offerId` is ignored** (SDK source, `FlowStateFactory.kt`; from 4.2.2 each
@@ -521,7 +505,7 @@ store product therefore both resolve to whichever comes **first in the config's 
 if the base product is first, `offer_price` silently renders empty or undiscounted and
 `is_free_trial` reads false. Ask for the app's Android SDK version before trusting an offer price
 or condition. On every version, a user Google Play finds ineligible for the offer reads
-`is_free_trial` false. Below 4.2.2, three facts follow, all team-stated:
+`is_free_trial` false. Below 4.2.2, three facts follow:
 
 - **The order is the `screens[].products` array's own**, and on a screen with no registry of its
   own it is the order the usage walk finds — effectively the creation order of the Product
@@ -536,10 +520,10 @@ or condition. On every version, a user Google Play finds ineligible for the offe
 
 If the offer-bearing pair is already ahead of the bare one and prices are still wrong, the cause is
 elsewhere and the delete-and-recreate dance will not help. Whether writing the registry directly is
-a complete repair depends on Android-side matching this skill has not re-measured, so do it through
+a complete repair depends on Android-side matching that is not confirmed, so do it through
 the builder where you can.
 
-Two more product-element facts from the same channel: **two visible cards bound to the same product
+Two more product-element facts: **two visible cards bound to the same product
 get the same `flowProductId` and selection breaks** — bind distinct products, one `default` — and a
 product with **no store mapping for a platform renders no price at all** on that platform.
 
@@ -635,9 +619,8 @@ extrapolate it up.
 For any other period, read the field name out of the export you are transforming or out of
 `products get` — do not extrapolate one from the period name.
 
-This defect was committed by this skill's own author in a sample paywall: a card labelled
-"Annual" bound `prod_price_per_year` to a product whose period was `monthly`. The card looked
-right, the JSON validated, and the price was blank.
+A card labelled "Annual" that binds `prod_price_per_year` to a product whose period is
+`monthly` looks right and validates, and its price is blank.
 
 ### A mismatch you cannot resolve is a STOP, not a disclosure
 
@@ -646,9 +629,9 @@ returns only `monthly` — you have no correct product to bind. **Do not write a
 binding and disclose it.** Report what is missing, offer the `products create` command from
 above, and stop before the write.
 
-This is a hard stop rather than a judgement call, because the obvious reading is wrong. A
-measured run bound the yearly card to a monthly product, disclosed the mismatch in detail, and
-reasoned that the missing `_meta.screens` declaration is a publish blocker so the flow could not
+This is a hard stop rather than a judgement call, because the obvious reading is wrong. The
+tempting move is to bind the yearly card to a monthly product, disclose the mismatch in detail, and
+reason that the missing `_meta.screens` declaration is a publish blocker so the flow cannot
 go live in that state. **That reasoning fails.** The blocker is cleared by attaching the product
 the config names — which is precisely what a user does next, and which is the exact action that
 turns the blank price into a live one at the wrong period. The gate that looks like protection is

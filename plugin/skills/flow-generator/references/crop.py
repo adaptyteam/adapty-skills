@@ -2,10 +2,10 @@
 """Cut a graphic out of a REFERENCE image and, optionally, key its backdrop away.
 
 Why this ships: a reference screenshot often contains the only copy of a graphic the format
-cannot express -- a multicolour or gradient icon, an illustration, a decorative surface. The
-ladder in media.md used to jump straight from "a file you were given" to "draw it yourself",
-and a graphic you drew is your approximation of someone's design wearing a finished look. Their
-own pixels beat it, so this rung sits above that one.
+cannot express -- a multicolour or gradient icon, an illustration, a decorative surface.
+In media.md's ladder this rung sits between "a file you were given" and "draw it yourself":
+a graphic you drew is your approximation of someone's design wearing a finished look, and
+their own pixels beat it.
 
     crop.py ref.png out.png --box 872,540,930,712              # plain crop
     crop.py ref.png out.png --box 872,540,930,712 --key        # + knock the backdrop out
@@ -13,14 +13,14 @@ own pixels beat it, so this rung sits above that one.
 
 CROP A GRAPHIC, NEVER A REGION CONTAINING TEXT OR DATA. Baked words cannot be translated, cannot
 carry a variable, and if they are app data -- a server name, an IP, a price -- they are a picture
-of one moment pretending to be live. Measured: an agent cropped a whole server-list card and
-shipped five labels and an IP address as a bitmap, and nothing objected. If the region is mostly
+of one moment pretending to be live. A whole server-list card cropped as one asset ships five
+labels and an IP address as a bitmap, and nothing objects. If the region is mostly
 text it is a composition, not an asset: build it, and crop only the graphic inside it.
 
 Writes `out.png` (RGBA) and, with --key, `out.contact.png` -- the result over black, white and
 mid grey. LOOK AT THE CONTACT SHEET. It is the check, not a courtesy: the one failure this tool
 cannot detect for you is a graphic that CONTAINS the backdrop colour, and the contact sheet shows
-it instantly (measured: a white flag on a white card comes back as its red parts alone).
+it instantly (a white flag on a white card comes back as its red parts alone).
 
 Pure stdlib, PNG in / PNG out, 8-bit non-interlaced -- macOS screenshots and Chrome captures
 qualify, a JPEG reference does not. Reuses montage.py's decoder.
@@ -37,7 +37,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from montage import read_png  # noqa: E402
 
-# The backdrop must actually BE a backdrop. Measured on real references: a flat card reads 4-12,
+# The backdrop must actually BE a backdrop. On real references a flat card reads 4-12,
 # a crumpled-paper texture reads 144, and a box cropped tight enough to clip the graphic reads
 # 173-241 because the border is sampling ink rather than backdrop. Those last two are different
 # problems with the same number, so the refusal says both.
