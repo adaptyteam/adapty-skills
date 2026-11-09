@@ -1456,6 +1456,84 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
     return _node('video', props, **kw)
 
 
+CUSTOM_TYPE = re.compile(r'^[a-z0-9_]+$')
+#: Containers the transformer refuses inside a custom element: the whole box is dropped.
+_CE_FORBIDDEN_KINDS = ('bottom-sheet', 'sliding-sheet', 'footer')
+
+
+def _check_fallback(nodes, where):
+    for n in nodes:
+        if not isinstance(n, dict) or 'type' not in n:
+            raise TypeError(f'{where}: fallback takes elements built by this module, not {n!r}')
+        if n['type'] in _CE_FORBIDDEN_KINDS:
+            raise ValueError(f'{where}: a {n["type"]} cannot sit inside a custom element — the '
+                             f'transformer refuses it and drops the whole box')
+        if (n['props'].get('position') or {}).get('type') == 'fixed':
+            raise ValueError(f'{where}: a fallback child is relative or absolute, never fixed — '
+                             f'the transformer refuses a fixed descendant and drops the box')
+        _check_fallback(n.get('_children') or [], where)
+
+
+def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, align_h='center',
+                   align_v='center', gap=0, corner=None, clip=False, padding=None, fill_=None,
+                   margin=None, position=None, visibility=None, **kw):
+    """A box the app fills with its own native view: Lottie, Rive, a map, a chart, a camera.
+
+    The flow sends the app `custom_type` and `element_id` and nothing else; the app's code
+    matches the pair and draws. Where it does not (an app version or a platform without the
+    view, an older SDK, a missing file, a denied permission), the box shows `fallback`, its
+    hierarchy children. The builder canvas draws only the fallback; no render draws the view.
+
+    Enforced, each one from the builder's publish rules or the transformer's refusals
+    (custom-elements.md):
+
+    * `custom_type` is `[a-z0-9_]+`; any other spelling is refused at publish.
+    * `fixed_h` is required: a map, a chart or a camera in a `hug` box collapses to almost
+      nothing, because the native view has no height of its own.
+    * `fallback` is required and non-empty: without it the users the app does not serve see an
+      empty area the size of the box. No `fixed` child, no bottom sheet, sliding sheet or footer
+      at any depth: the transformer refuses them and drops the box.
+    * no `actions`: the element has no interactions, and the transformer deletes any it finds.
+      A button with a flow action goes outside the box.
+
+    `clip=True` clips the native view to `corner`; set both for a map or a camera in a card.
+    """
+    if 'actions' in kw:
+        raise TypeError('custom_element() takes no actions: the element has no interactions and '
+                        'the transformer deletes any it finds. Put the button outside the box')
+    if not (isinstance(custom_type, str) and CUSTOM_TYPE.match(custom_type)):
+        raise ValueError(f'custom_type is lowercase letters, digits and underscores, such as '
+                         f'"lottie_animation", not {custom_type!r} — publish refuses any other')
+    if not (isinstance(element_id, str) and element_id.strip()):
+        raise ValueError(f'element_id names this box for the app, such as "streak_ring", '
+                         f'not {element_id!r}')
+    if fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float)):
+        raise TypeError(f'custom_element(fixed_h=...) wants a height in points, not {fixed_h!r}: '
+                        f'a native view without a height of its own collapses in a hug box')
+    fallback = list(fallback or [])
+    if not fallback:
+        raise ValueError('custom_element() needs a fallback: the users the app does not serve '
+                         'see it, and without one they see an empty box. A still image of the '
+                         'native view, styled to the box, is the usual one')
+    _check_fallback(fallback, f'custom_element({custom_type!r}, {element_id!r})')
+    lay = layout('vertical', gap, align_h, align_v)
+    lay['clipContent'] = bool(clip)
+    props = {
+        'customType': custom_type,
+        'customElementId': element_id,
+        'width': _width(width, None, position),
+        'height': size('fixed', fixed_h),
+        'layout': lay,
+        'position': position or relative(),
+    }
+    if corner is not None:     props['borderRadius'] = corner
+    if padding is not None:    props['padding'] = padding
+    if fill_ is not None:      props['fill'] = _check_fill(fill_, 'custom_element')
+    if margin is not None:     props['margin'] = margin
+    if visibility is not None: props['visibility'] = _check_visibility(visibility, 'custom_element')
+    return _node('custom-element', props, children=fallback, **kw)
+
+
 # --- the input family ---------------------------------------------------------------------
 # Eight element types, and flowkit had a helper for NONE of them, so every authored input was
 # hand-assembled from an export — including in all six runs of the 2026-08-28 GREEN round, one

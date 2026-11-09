@@ -82,6 +82,9 @@ GROUP_TYPES = {'single_choice', 'multi_choice', 'product', 'toggle'}
 # its own input-type map (read from the transformer's source).
 # `password-input` is deliberately NOT here: the transformer omits it and the docs say a
 # password field sends no event.
+# A custom element's Type, as the builder's publish check accepts it. Same pattern as flowkit.
+CUSTOM_TYPE = re.compile(r'^[a-z0-9_]+$')
+
 REPORTING_INPUT_TYPES = {'text-input', 'email-input', 'number-input', 'phone-input',
                          'date-picker', 'time-picker', 'date-time-picker'}
 
@@ -3369,6 +3372,78 @@ def check(path, baseline_text=None, baseline_images=None):
                 warn.append(f'{s["id"]}/{eid} is a `{e["type"]}` element, which the transform '
                             f'service does not map and no real export uses — '
                             f'{why}. Do not lay out around it without a device check')
+
+    # ---- custom elements: a box the app fills with its own view, its children the fallback.
+    # The rules come from the builder's publish check and the transformer's refusals; see
+    # custom-elements.md. Screens and components alike, since a component can carry one.
+    ce_holders = [(f'screen {s["id"]}', s['elements']['map'], s['elements']['hierarchy'])
+                  for s in d.get('screens', [])]
+    ce_holders += [(f'component {cid}', c.get('map', {}), c.get('hierarchy', {}))
+                   for cid, c in (d.get('components') or {}).items()]
+    for where, m, hroot in ce_holders:
+        nodes, parent = {}, {}
+
+        def _ce_idx(n):
+            nodes[n.get('id')] = n
+            for c in n.get('children') or []:
+                parent[c.get('id')] = n.get('id')
+                _ce_idx(c)
+
+        _ce_idx(hroot)
+        pairs = {}
+        for eid, e in m.items():
+            if e.get('type') != 'custom-element':
+                continue
+            pr = e.get('props') or {}
+            ctype, cid_ = pr.get('customType'), pr.get('customElementId')
+            if not (isinstance(ctype, str) and CUSTOM_TYPE.match(ctype)):
+                bad.append(f'{where}: custom element {eid} has Type {ctype!r} — lowercase letters, '
+                           f'digits and underscores only, never empty, or the flow does not publish')
+            pairs.setdefault((ctype, cid_), []).append(eid)
+            for st, sp in (e.get('propsByState') or {}).items():
+                if isinstance(sp, dict) and {'customType', 'customElementId'} & set(sp):
+                    bad.append(f'{where}: custom element {eid} sets its Type or ID in state {st!r} '
+                               f'— they live in base props only')
+            if e.get('interactions'):
+                bad.append(f'{where}: custom element {eid} carries interactions — the element has '
+                           f'none, and the transformer deletes them, so the tap never runs. Put '
+                           f'the button outside the box')
+            if (pr.get('height') or {}).get('type') != 'fixed':
+                warn.append(f'{where}: custom element {eid} has a {(pr.get("height") or {}).get("type")!r} '
+                            f'height — a native view without a height of its own (a map, a chart, a '
+                            f'camera) collapses to almost nothing; give the box a fixed height')
+            kids = (nodes.get(eid) or {}).get('children') or []
+            if not kids:
+                warn.append(f'{where}: custom element {eid} has no fallback children — users the '
+                            f'app does not serve (an older app version, Android, a cross-platform '
+                            f'SDK, a missing file) see an empty box of its size')
+            stack_ = list(kids)
+            while stack_:
+                k = stack_.pop()
+                ke = m.get(k.get('id')) or {}
+                kt, kp = ke.get('type'), (ke.get('props') or {}).get('position') or {}
+                if kt in ('bottom-sheet', 'sliding-sheet', 'footer') or kp.get('type') == 'fixed':
+                    bad.append(f'{where}: custom element {eid} holds '
+                               f'{"a " + kt if kt in ("bottom-sheet", "sliding-sheet", "footer") else "a fixed-position element"} '
+                               f'({k.get("id")}) — the transformer refuses it '
+                               f'(unsupported_fixed_descendant_in_custom_element) and drops the box')
+                if kt == 'product' or ke.get('interactions'):
+                    warn.append(f'{where}: custom element {eid} has {k.get("id")} ({kt}) in its '
+                                f'fallback — users whose app draws the view never see the fallback, '
+                                f'so a button or a plan inside it disappears for them. Keep it '
+                                f'outside the box')
+                stack_.extend(k.get('children') or [])
+            up = parent.get(eid)
+            while up:
+                if (m.get(up) or {}).get('type') == 'carousel':
+                    warn.append(f'{where}: custom element {eid} sits inside carousel {up} — a drag '
+                                f'in a map, a chart or a Rive view also swipes the carousel')
+                    break
+                up = parent.get(up)
+        for (ctype, cid_), eids in pairs.items():
+            if len(eids) > 1:
+                warn.append(f'{where}: custom elements {eids} share Type {ctype!r} and ID '
+                            f'{cid_!r} — the app cannot tell them apart; give each its own ID')
 
     # ---- money, discounts and durations written as literal text. See PLACEHOLDER_PRICE.
     # The placeholder form is always reported: no real config contains one and nobody means to

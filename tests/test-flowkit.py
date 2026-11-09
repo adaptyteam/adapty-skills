@@ -500,6 +500,35 @@ def main():
     check('video takes no fill (the schema has none)',
           raises(lambda: fk.video(fixed_h=200, fill_=fk.fill('bg')), TypeError))
 
+    # custom_element: a box the app fills; its children are the fallback. Messages are asserted
+    # because `actions` would otherwise land in _node and pass silently.
+    still = lambda: fk.image(fk.PLACEHOLDER, fixed_h=200, fit='fit')
+    ce = fk.custom_element('lottie_animation', 'streak_ring', fixed_h=200, clip=True,
+                           fallback=[still()])
+    check('custom_element emits the builder type with Type and ID in base props',
+          ce['type'] == 'custom-element' and ce['props']['customType'] == 'lottie_animation'
+          and ce['props']['customElementId'] == 'streak_ring')
+    check('custom_element holds a fixed height and clipContent in its layout',
+          ce['props']['height'] == {'type': 'fixed', 'value': 200}
+          and ce['props']['layout']['clipContent'] is True)
+    check('custom_element carries its fallback as children and no interactions',
+          len(ce['_children']) == 1 and 'interactions' not in ce)
+    check('custom_element refuses a Type outside [a-z0-9_]',
+          'lowercase' in _message(lambda: fk.custom_element('Lottie-Anim', 'x', fixed_h=200,
+                                                            fallback=[still()])))
+    check('custom_element refuses a hug box',
+          'collapses' in _message(lambda: fk.custom_element('map', 'x', fixed_h=None,
+                                                            fallback=[still()]), TypeError))
+    check('custom_element refuses an empty fallback',
+          'empty box' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200,
+                                                            fallback=[])))
+    check('custom_element refuses actions, and says the button goes outside',
+          'outside the box' in _message(lambda: fk.custom_element(
+              'map', 'x', fixed_h=200, fallback=[still()], actions=[fk.close()]), TypeError))
+    check('custom_element refuses a fixed fallback child at any depth',
+          'never fixed' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200, fallback=[
+              fk.stack([fk.stack([], position={'type': 'fixed', 'top': 0})])])))
+
     spread_stack = fk.stack([], distribution='space-evenly')
     check('stack passes distribution through',
           spread_stack['props']['layout']['distribution']
