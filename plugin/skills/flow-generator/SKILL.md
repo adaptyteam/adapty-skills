@@ -890,9 +890,9 @@ deliverable, not this pass. What to inventory and what to do with each gap:
 
 **Read [preview.md → What a render cannot show you](references/preview.md#what-a-render-cannot-show-you)
 before you report what a screenshot proves** — every blindness on it measured, and two of them run
-the *wrong* way: the render draws things a device will not. Two you act on here: it draws no notch
-and no home indicator, so author `safeArea: true` and hand short-device clipping over as a device
-check; and even then it measures an `absolute` element's `top` from the screen's top edge, not
+the *wrong* way: the render draws things a device will not. Two you act on here: it draws no notch,
+no home indicator and no iPhone Duo side bar, so author `safeArea: true`, never pad for the bar by
+hand, and hand short-device clipping over as a device check; and even then it measures an `absolute` element's `top` from the screen's top edge, not
 from below the status bar ([patterns.md](references/patterns.md#under-safearea-true-check-where-an-absolute-element-lands)).
 
 **Never downgrade a correct element to a preview-visible lookalike to make the screenshot look

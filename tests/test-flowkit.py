@@ -1707,6 +1707,19 @@ def main():
     finally:
         fk._ids = _old_ids
 
+    # --- a hero that runs under the status bar: ignoreSafeArea on the first in-flow element ---
+    check('relative(bleed=True) sets ignoreSafeArea',
+          fk.relative(bleed=True) == {'type': 'relative', 'ignoreSafeArea': True})
+    check('relative() leaves it out', 'ignoreSafeArea' not in fk.relative())
+    _x = lambda: fk.stack([], position=fk.absolute(top=12, right=16))
+    _hero = lambda: fk.stack([], height='fill', position=fk.relative(bleed=True))
+    check('the first in-flow element may bleed, behind an absolute X listed first',
+          not raises(lambda: fk.screen('scr_b', [_x(), _hero(), fk.stack([])], safe_area=True)))
+    check('a later in-flow element may not',
+          raises(lambda: fk.screen('scr_b', [fk.stack([]), _hero()], safe_area=True)))
+    check('a nested element may not',
+          raises(lambda: fk.screen('scr_b', [fk.stack([_hero()])], safe_area=True)))
+
     print()
     if FAILURES:
         print(f'{len(FAILURES)} failure(s): ' + ', '.join(FAILURES))
