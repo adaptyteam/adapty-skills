@@ -609,8 +609,8 @@ values` lists (platform, subscription state, store, country, attribution). End t
 last complete day: the last days of a period that has not ended are not a result.
 
 If `flows funnel` is missing after `--help`, try `npx --yes adapty@beta flows funnel --help` once.
-If that fails too, the user's CLI does not read the funnel yet: say so and ask for a screenshot
-of the dashboard's Funnel tab for the flow.
+If that fails too, the user's CLI does not read the funnel yet (CLI 0.19.0 is the first release that
+does): say so and ask for a screenshot of the dashboard's Funnel tab for the flow.
 
 The answer is `data`: `summary` (`entered`, `completed`, `dropped`, their rates, `revenue`);
 `steps[]` by `step_order` (`reached`, `reached_rate`, `conversion_from_previous`, `completed`,
