@@ -325,8 +325,10 @@ def main(argv):
     print()
 
     nr = show('REMOVES — in A, not in B', removed,
-              note="every line belongs in the approval ask; one you cannot trace to something "
-                   "the user asked for is someone else's work")
+              note="every line belongs in the approval ask, traced to the request that asked "
+                   "for it; one you cannot trace is someone else's work: name it and ask, never "
+                   "write past it. Exit 1 means only that this list is not empty: a removal is "
+                   "a supported transform, a silent one is not")
     nc = show('CHANGES — same address, different value', changed)
     na = show('ADDS — in B, not in A', added)
 

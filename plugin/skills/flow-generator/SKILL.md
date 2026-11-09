@@ -28,10 +28,8 @@ offer ids from `adapty product-offers list`, `theme` colours sampled off a refer
 and icon markup resolved from the bundle `references/icons.py` ships.
 
 **`flowProductId`** — the per-screen declaration in `_meta.screens[].products[]` — is derived, not
-waited for. `flowkit.predeclare(screen_id, products)` writes the block; pass exact bindings, a bare product
-id, a `(product_id, offer_id)` tuple or the screen's `scr['products']`, because the offer is part of
-the id.
-Omit the declaration and device preview 422s. When *rewriting* a flow, carry the live
+waited for: `flowkit.predeclare(screen_id, products)` writes it, and **`verify-config.py` warns on a
+binding it does not declare** (it says the fix). When *rewriting* a flow, carry the live
 `_meta.screens` forward instead of regenerating it — **and `screens[].products` with it**, the
 screen-owned registry that `_meta` is derived from. Never write `"products": []`: absent and empty
 mean opposite things to the builder. When *authoring*, `flowkit.screen()` writes the registry and
@@ -44,10 +42,8 @@ When you do author, [`references/flowkit.py`](references/flowkit.py) owns the me
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
 It also covers conditions (`when`/`ref`/`all_`/`not_empty`), all fourteen action types, the
-eight inputs and the tabs composite — each raising on the shape the transform service refuses.
-A tap goes on the element as `actions=[...]`, never `interactions=`:
-`fk.stack([label], actions=[fk.purchase('plans')])`. The helper writes the `interactions` block
-the JSON examples show.
+eight inputs and the tabs composite — each raising on the shape the transform service refuses,
+`interactions=` included (the error says what to pass).
 
 ## How you sound
 
@@ -499,12 +495,11 @@ If the request is *"save this for reuse"* or *"add the thing I saved"*, run
 `references/snippet.py plan` before any `graft` — read [snippets.md](references/snippets.md) first.
 
 If it is *"give the screens readable ids"* — usually so a customer's own analytics stops reading
-`scr_oAPBHPa7` — run `references/rename-screens.py`, never a hand edit: a screen id lives in three
-places and the one that gets forgotten, `_meta.screens`, makes the flow unpublishable. Renaming
-breaks analytics continuity, so it goes in the phase-5 ask ([transforms.md](references/transforms.md)
-decision 9). **Element `el_XXXX` ids are not part of this and must not be renamed to match** — a
-bad one compiles into the runtime script as a black screen, and it buys nothing anyway: the id a
-customer's analytics sees is `props.customId`
+`scr_oAPBHPa7` — run `references/rename-screens.py`, never a hand edit (`verify-config.py` refuses
+a `_meta.screens` key left behind). Renaming breaks analytics continuity, so it goes in the phase-5
+ask ([transforms.md](references/transforms.md) decision 9). **Element `el_XXXX` ids are not part of
+this and must not be renamed to match:** it buys nothing, because the id a customer's analytics
+sees is `props.customId`
 ([flow-schema.md trap 7b](references/flow-schema.md#7b-the-id-analytics-sees-is-customid-and-leaving-it-blank-is-silent)).
 
 **Were you given a design, or are you choosing it?** Decide the mode, and the teardown that is the reference when you choose: [build.md → Were you given a design](references/build.md#were-you-given-a-design-and-whose-is-it).
@@ -538,12 +533,8 @@ Write the result to a local file. Phases 3 and 4 both work on that file, with no
 **and they apply whether the deliverable is a flow write or the file itself.** "No CLI write
 happened" exempts you from the approval gate, never from the phases.
 
-**If the file IS the deliverable, its contract applies the moment you write it, here.** A source
-export carries top-level `status` and `id`; **never emit `"status": "published"`** — it imports as
-live-looking content — and the `id` names the flow the export came *from*. Drop them or downgrade
-`status`, **say which you chose**, and say the import must be pointed at the flow the user means.
-`references/verify-config.py` warns on both fields, and that warning **is** this rule firing —
-act on it, never paste it through.
+**If the file IS the deliverable, `verify-config.py` warns on a top-level `status` or `id`** and
+says what to do: act on it, never paste it through.
 
 ### 3. Check the shape, then clear the publish gate
 
@@ -558,8 +549,7 @@ It runs the structural walk, the schema shape check, a read of every bound produ
 against the app (`validate` passes ids the app does not have) and the publish gate over the *same
 bytes*, prints one verdict, and exits non-zero only when something blocking was found. **One call,
 not four** — the gates cost well under a second each while an extra round trip costs tens of
-seconds, so the turns were the expensive part. Drop the app and flow ids and it says so rather than
-pretending a local pass is a publish gate. The three underlying commands, if you need to run one
+seconds, so the turns were the expensive part. The three underlying commands, if you need to run one
 alone, are in [validate.md](references/validate.md).
 
 **Pass `BASELINE=` whenever you fetched a config** — the pristine copy from step 2. A brand-new
@@ -571,12 +561,11 @@ pre-existing mismatches, none of them yours. Details in
 
 `validate` runs the **same transform service that gates publishing**, so it is the only pre-write
 check here that speaks for the publish gate. It saves nothing, needs no confirmation and needs no
-baseline — a v9 config validates clean. It takes the **bare `config`**, not the envelope, and the
-flow must already exist, so on new work it runs after `flows create`.
+baseline — a v9 config validates clean. The flow must already exist, so on new work it runs after
+`flows create`.
 
-**Read the verdict, not the exit code.** Exit 1 means "not publishable" *or* "the call failed", and
-only `--json` separates them: a `valid` field versus an `error` object. An agent gating on the exit
-code reports a good config as broken and a dead call as a defect.
+**`gates.sh` unwraps an envelope and prints a failed call as `API ERROR`, apart from the verdict**
+(it says what to do); run alone, `validate` is read as [validate.md](references/validate.md) says.
 
 > **Done here is a run that printed `valid: true` over the exact bytes you are about to write.**
 > It reports one fatal per run, so fix, re-run, repeat — a shorter list is not progress.
@@ -625,9 +614,8 @@ image and look at it**, against what the user asked for and — if they gave one
 reference image file, re-opened, not remembered.
 
 **Run a batch of three or more screens in the background and wait for it.** A screen takes a few
-seconds and can take minutes on a slow host. Each prints a line when it lands; the run stops
-itself after `TIME_LIMIT` seconds (default 300), names what it did not reach and keeps every
-finished render, so re-run only those. A screen that scrolls comes back as every scroll position,
+seconds and can take minutes on a slow host. Each prints a line when it lands, and at
+`TIME_LIMIT` seconds (default 300) the run stops and says what to re-run. A screen that scrolls comes back as every scroll position,
 left to right, and `LOCALE=<code>` renders another language
 ([preview.md](references/preview.md#what-a-render-costs-and-which-knobs-do-nothing)).
 
@@ -652,10 +640,8 @@ wasted launches. One strip is also one *look* instead of N, and a before/after o
 default-vs-selected pair only reads as a *difference* when the halves are adjacent.
 
 **Do not try to speed the screenshot itself up** — shrinking `--virtual-time-budget` does nothing
-on a fast host, and parallel Chrome is slower than serial. But **raise it when a shot comes back
-empty**: on a slow render host 8 s yields no file where 60 s renders correctly, so *no file* is
-usually a slow host, not a broken config — `shoot.sh` retries once by itself and says so, and after that,
-load the URL in a real browser before suspecting your work
+on a fast host, and parallel Chrome is slower than serial. **`shoot.sh` retries an empty or flat
+shot itself and says what to do next**
 ([preview.md](references/preview.md#what-a-render-costs-and-which-knobs-do-nothing)). A dead render
 is never a reason to report the work finished.
 Measure rather than eyeball with `references/render-measure.py`. Always try the preview: never decide
@@ -739,10 +725,8 @@ The **backup** is the baseline, not your working file: it is the one copy nothin
 touched, so it is the only honest answer to "what was there before me". (An edit that landed after
 you fetched is the lock's job, not this one's.)
 
-Every `REMOVES` line goes in the ask below, traced to the request that asked for it, and **one you
-cannot trace is someone else's work**: name it and ask, never write past it. Exit 1 says the list
-is non-empty, not that anything is wrong — deleting a screen is a supported transform, doing it
-silently is not ([merge.md](references/merge.md)).
+**Every `REMOVES` line goes in the ask below**; `diff-config.py` says what to do with one you cannot
+trace ([merge.md](references/merge.md)).
 
 **Then weigh it: the user's phones download every byte of it.** On the same bytes:
 
@@ -886,8 +870,8 @@ written, and no write to that id can succeed. Say so; your draft is intact, so o
 **If you rebuilt the config from a script rather than patching the fetched one, you have the wrong
 document** — a rebuild replaces the live flow, taking `_meta.screens` and the `screens[].products`
 registry it derives from ([products.md](references/products.md)) and every manual edit with it. Patch the fetched config;
-[merge.md](references/merge.md) names the only two cases where a rebuild is right. A screen you build
-in a script and patch in is built after `fk.ids_after(fetched)`, so its ids miss the live ones.
+[merge.md](references/merge.md) names the only two cases where a rebuild is right. `verify-config.py`
+refuses a patched-in screen whose ids repeat the live ones (it names the fix).
 
 #### The file deliverable
 
@@ -1019,8 +1003,5 @@ blockers, and clearing one often activates whatever it was masking
 `variables[]` or `theme`; an inert `conditional` whose branches all resolve to `nothing`. Real
 configs contain all of these.
 
-**One warning splits by authorship: a catalog value under a locale id `localization.locales` does
-not declare.** If **you** wrote it this run it is your defect — declare the locale and translate
-what adding a locale implies. If it came **with the config you fetched**, it is report-never-fix like the others:
-it is usually half a locale run someone started, and finishing or deleting their work is not your
-call. Name the two exits and ask.
+**One warning splits by authorship: a catalog value under an undeclared locale id.**
+`verify-config.py` says which way each goes.

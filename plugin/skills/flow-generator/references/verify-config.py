@@ -978,8 +978,10 @@ def catalog_findings(raw):
         warn.append(f"catalog value(s) for {', '.join(sorted(stray))} on "
                     f"{sum(len(v) for v in stray.values())} entr(ies), but "
                     f"{'none of them is' if len(stray) > 1 else 'it is not'} a declared locale "
-                    f"id — nothing renders them. If this run wrote them, declaring the locale is "
-                    f"the fix; if they were already in the fetched config, report and ask")
+                    f"id — nothing renders them. If this run wrote them, declare the locale and "
+                    f"translate what adding it implies; if they were already in the fetched "
+                    f"config, they are usually half a locale someone started, so do not fix them: "
+                    f"name both exits (finish the locale or delete the values) and ask")
 
     # Translation parity, per ENTRY. A missing value is not a defect in this format: it falls
     # back to the default locale, which is also why nobody may copy the default into other
@@ -1179,12 +1181,15 @@ def check(path, baseline_text=None, baseline_images=None):
     # so the warning is the mechanical slot the prose could not be.
     if d.get('status') == 'published':
         warn.append("top-level status is 'published' — fine for a stored export; NEVER ship it in "
-                    "a file deliverable. Drop status/id or set draft, and say which you chose")
+                    "a file deliverable, where it imports as live-looking content. Drop status/id "
+                    "or set draft, say which you chose, and say the import must be pointed at the "
+                    "flow the user means: the id names the flow the export came FROM")
     elif 'status' in d or 'id' in d:
         warn.append(f"top-level {'status' if 'status' in d else ''}"
                     f"{'+' if 'status' in d and 'id' in d else ''}{'id' if 'id' in d else ''} "
-                    f"present — for a file deliverable, say whether you kept or dropped them; "
-                    f"the id names the flow the export came FROM")
+                    f"present — for a file deliverable, say whether you kept or dropped them, and "
+                    f"that the import must be pointed at the flow the user means: the id names "
+                    f"the flow the export came FROM")
 
     # `theme.colors` and `theme.typography` share ONE id namespace on the device. A collision
     # decodes as Swift `DecodingError.dataCorrupted ... "Duplicate Key"` and the flow fails to
