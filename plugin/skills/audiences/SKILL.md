@@ -34,8 +34,8 @@ This skill owns segments and audiences. It does not own:
 
 ## A/B tests on a placement: the CLI reads and keeps them
 
-`placements get` shows an audience that runs an A/B test as an entry of its own kind (CLI 0.11.0 is
-the first release that does): `{"content_type":"ab_test","ab_test_id":…,"ab_test_title":…,
+`placements get` shows an audience that runs an A/B test as an entry of its own kind:
+`{"content_type":"ab_test","ab_test_id":…,"ab_test_title":…,
 "segment_ids":[…],"priority":…}`, or `"flow_ab_test"` on a flow placement. Send it back in
 `--audiences` exactly as read (`ab_test_title` is optional on a write). The audience serves the
 test's running content, so a test entry is not something you build or edit here.
@@ -67,9 +67,7 @@ test's running content, so a test entry is not something you build or edit here.
   that would change a test is not made: report it and name the `ab-tests` step. Creating the
   segment through the CLI is still fine.
 
-An older CLI (CLI 0.10.0 and older) refuses these entries on write (see Never below). Tell the user
-to update the CLI, and re-resolve `$ADAPTY`, which fetches the latest; do not compare version
-numbers.
+A CLI older than the API refuses these entries on write: what to do is in Never below.
 
 ## How you sound
 
@@ -280,13 +278,14 @@ building, and say what each option means. Labels are the dashboard's (https://ad
   existing one is exactly that change.
 - **Never write a placement without passing back every audience you read.** An entry you omit is
   an entry you deleted.
-- **Never delete an entry the CLI refuses when that entry came from `placements get`.** A refusal
-  such as `content_type is required and must be "paywall" or "flow"` on an entry you did not write
-  means your CLI is older than the API (CLI 0.10.0 or older), and the entry is a running A/B test.
-  CLI 0.11.0 and later, meeting a kind they do not know, say `this CLI does not know this audience
-  kind; update the CLI`: the same cause and the same rule. Tell the user to update the CLI,
-  re-resolve `$ADAPTY` once and retry the same list. If it still refuses, send the change to the
-  dashboard. Deleting the entry makes the write go through and stops the test.
+- **Never delete an entry the CLI refuses when that entry came from `placements get`.** On an
+  entry you did not write, `this CLI does not know this audience kind; update the CLI`, or from an
+  older CLI `content_type is required and must be "paywall" or "flow"`, means your CLI is older than
+  the API and the entry is a running A/B test. Tell the user to update the CLI, re-resolve
+  `$ADAPTY` once and retry the same list. If it still refuses, send the change to the dashboard.
+  Deleting the entry makes the write go through and stops the test. (`content_type is required:`
+  followed by the list of kinds means an entry has no `content_type` at all: fix the entry you
+  wrote.)
 - **Never guess a field name, a custom attribute's key, or a value format.** Take them from the
   table above; the server accepts a wrong value and the segment matches nobody.
 - **Never put a flow id in `paywall_id`**, or an entry without `content_type`.
