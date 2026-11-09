@@ -115,6 +115,19 @@ sc, ed, bd, un, br = graph(d)
 check('back and close are badges, not arrows', not ed and set(bd['a']) == {'back', 'closes flow'})
 check('a screen that closes the flow is not a dead end', '(no way out)' not in canvas.as_text(sc, ed, bd, un, br))
 
+buy = {'id': '', 'type': 'purchase', 'payload': {'product': {'id': 'p'}, 'onResult': {
+    'success': [nav('thanks')], 'userCanceled': [nav('offer')], 'fail': []}}}
+d = {'screens': [screen('paywall', button('b1', [buy])), screen('thanks'), screen('offer')]}
+sc, ed, bd, un, br = graph(d)
+check('an outcome draws an arrow labelled with its result',
+      ed.get(('paywall', 'thanks'), {}).get('labels') == ['when bought'])
+check('two outcomes make the paywall a branch point', 'paywall' in br and not un)
+check('the purchase is still a badge', 'buys' in bd['paywall'])
+web = {'id': '', 'type': 'purchase', 'payload': {'type': 'web', 'product': {'id': 'p'},
+                                                'onResult': {'success': [nav('thanks')]}}}
+sc, ed, bd, un, br = graph({'screens': [screen('paywall', button('b1', [web])), screen('thanks')]})
+check("a web purchase's outcomes draw nothing, since they never run", not ed and 'thanks' in un)
+
 # --- the script end to end ---------------------------------------------------------------------
 
 with tempfile.TemporaryDirectory() as tmp:

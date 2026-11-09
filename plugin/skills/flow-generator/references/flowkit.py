@@ -881,6 +881,12 @@ def _node(kind, props, *, children=None, caption=None, states=None,
         node['caption'] = caption
     if props_by_state:
         node['propsByState'] = props_by_state
+    leaving = _leaves_before_result(actions or [])
+    if leaving:
+        raise ValueError(f'{kind}(actions=...): {leaving} follows a purchase or restore in the '
+                         f'same list, so it runs on the tap, before the store answers '
+                         f'(navigation_before_store_result, trap 16). Pass it as an outcome '
+                         f'instead: purchase("plans", on_success=navigate("scr_thanks")).')
     if actions:
         node['interactions'] = [{'id': 'int' + node['id'][2:], 'trigger': 'tap',
                                  'actions': actions}]
@@ -1938,11 +1944,112 @@ def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
     return _node('tabs', props, children=[bar, wrapper], node_id=node_id, **kw)
 
 
-def purchase(group_id, action_id='act_buy'):
-    """Buy the group's selection, never a hardcoded product."""
-    return {'id': action_id, 'type': 'purchase',
-            'payload': {'product': {'type': 'var',
-                                    'variableId': f'{group_id}.selectedProduct'}}}
+PURCHASE_RESULTS = ('success', 'fail', 'userCanceled', 'pending')
+RESTORE_RESULTS = ('success', 'fail')
+STORE_ACTIONS = ('purchase', 'restorePurchases')
+
+
+def _store_actions_in(obj):
+    """Every purchase or restore inside `obj`, a conditional's branches included."""
+    if isinstance(obj, dict):
+        if obj.get('type') in STORE_ACTIONS:
+            yield obj
+        for v in obj.values():
+            yield from _store_actions_in(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _store_actions_in(v)
+
+
+LEAVING_ACTIONS = ('navigate', 'navigateNext', 'navigateBack', 'closeFlow')
+
+
+def _branches(action):
+    """A conditional's branch action lists."""
+    payload = action.get('payload') or {}
+    bodies = [c[1] for c in payload.get('cases') or [] if isinstance(c, list) and len(c) == 2]
+    bodies.append(payload.get('default'))
+    for body in bodies:
+        body = body.get('value') if isinstance(body, dict) and body.get('type') == 'const' else body
+        if isinstance(body, dict):
+            body = [body]
+        if isinstance(body, list):
+            yield body
+
+
+def _starts_store_operation(action):
+    if action.get('type') == 'purchase':
+        return (action.get('payload') or {}).get('type') != 'web'
+    if action.get('type') == 'restorePurchases':
+        return True
+    return action.get('type') == 'conditional' and any(
+        _starts_store_operation(a) for body in _branches(action) for a in body
+        if isinstance(a, dict))
+
+
+def _leaves(action):
+    if action.get('type') in LEAVING_ACTIONS:
+        return True
+    return action.get('type') == 'conditional' and any(
+        _leaves(a) for body in _branches(action) for a in body if isinstance(a, dict))
+
+
+def _leaves_before_result(actions):
+    """The first action that leaves the screen after a store operation in the same list."""
+    started = False
+    for a in actions:
+        if not isinstance(a, dict):
+            continue
+        if started and _leaves(a):
+            return f'{a.get("type")} {a.get("id")!r}'
+        started = started or _starts_store_operation(a)
+    return None
+
+
+def _outcomes(action_id, results, lists, what):
+    """`payload.onResult`: one action list per store result, run once the store answers.
+
+    A result left out, or given an empty list, runs nothing: the user stays on the screen and can
+    tap again. Each nested action gets its own id, `<action_id>_<result>` (with `_<n>` from the
+    second on), because the builder pairs a nested action's texts by id within its list.
+    """
+    out = {}
+    for result, actions in lists.items():
+        if actions is None:
+            continue
+        if result not in results:
+            raise ValueError(f'{what}: {result!r} is not a result it reports; '
+                             f'the results are {results}')
+        acts = [actions] if isinstance(actions, dict) else list(actions)
+        for a in acts:
+            if not (isinstance(a, dict) and isinstance(a.get('type'), str)):
+                raise TypeError(f'{what} {result} must contain actions, got {a!r}')
+        if any(True for _ in _store_actions_in(acts)):
+            raise ValueError(f'{what} {result}: an outcome cannot start another purchase or '
+                             f'restore (the builder disables it, publish warns '
+                             f'nested_store_operation). Put the second offer on its own screen '
+                             f'with its own button, and navigate there.')
+        out[result] = [dict(a, id=f'{action_id}_{result}' + (f'_{i + 1}' if i else ''))
+                       for i, a in enumerate(acts)]
+    return out
+
+
+def purchase(group_id, action_id='act_buy', *, on_success=None, on_fail=None, on_cancel=None,
+             on_pending=None):
+    """Buy the group's selection, never a hardcoded product.
+
+    `on_success`, `on_fail`, `on_cancel` and `on_pending` are what runs once the store answers: an
+    action or a list of actions, typically `navigate('scr_thanks')`. Left out, that result keeps the
+    user on the paywall. Never put a `navigate` next to the purchase in the same list instead: it
+    fires on the tap, before the store answers (trap 16).
+    """
+    payload = {'product': {'type': 'var', 'variableId': f'{group_id}.selectedProduct'}}
+    on_result = _outcomes(action_id, PURCHASE_RESULTS,
+                          {'success': on_success, 'fail': on_fail, 'userCanceled': on_cancel,
+                           'pending': on_pending}, 'purchase()')
+    if on_result:
+        payload['onResult'] = on_result
+    return {'id': action_id, 'type': 'purchase', 'payload': payload}
 
 
 # Each transition as Flow Builder starts it when an author picks it.
@@ -2073,9 +2180,18 @@ def hide_elements(element_ids, action_id='act_hide'):
 # service in each case.
 
 
-def restore(action_id='act_restore'):
-    """`restorePurchases`. Takes no payload — and a paywall without it is rejected by both
-    stores, so this is a compliance element, not a nicety."""
+def restore(action_id='act_restore', *, on_success=None, on_fail=None):
+    """`restorePurchases`. A paywall without it is rejected by both stores, so this is a
+    compliance element, not a nicety.
+
+    With no outcomes it takes no payload. `on_success` runs when the restore finished without an
+    error, which does not mean the user has access: route it to a screen that reads fine either
+    way, or leave it out. `on_fail` runs when the restore failed.
+    """
+    on_result = _outcomes(action_id, RESTORE_RESULTS,
+                          {'success': on_success, 'fail': on_fail}, 'restore()')
+    if on_result:
+        return {'id': action_id, 'type': 'restorePurchases', 'payload': {'onResult': on_result}}
     return {'id': action_id, 'type': 'restorePurchases'}
 
 

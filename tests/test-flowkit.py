@@ -773,6 +773,25 @@ def main():
           == 'https://a.io/t')
     check('restore() is restorePurchases and takes no payload',
           fk.restore() == {'id': 'act_restore', 'type': 'restorePurchases'})
+    buy = fk.purchase('plans', on_success=fk.navigate('scr_thanks'), on_cancel=[])
+    check('purchase(on_success=) writes payload.onResult.success',
+          buy['payload']['onResult']['success'][0]['payload']['screen'] == 'scr_thanks')
+    check('on_cancel is the userCanceled list, kept empty as given',
+          buy['payload']['onResult']['userCanceled'] == [])
+    check('a result left out is not written', 'fail' not in buy['payload']['onResult'])
+    check('purchase() with no outcomes has no onResult', 'onResult' not in
+          fk.purchase('plans')['payload'])
+    two = fk.restore(on_fail=[fk.alert(title='x'), fk.navigate('scr_help')])['payload']['onResult']
+    check('nested actions get their own ids',
+          [a['id'] for a in two['fail']] == ['act_restore_fail', 'act_restore_fail_2'])
+    check('an outcome cannot start a second purchase',
+          raises(lambda: fk.purchase('plans', on_success=fk.purchase('more'))))
+    check('...not even inside a conditional', raises(lambda: fk.purchase('plans', on_fail=[
+        fk.conditional_action([], default=[fk.restore()])])))
+    check('a navigate after the purchase in one tap is refused',
+          raises(lambda: fk.stack([], actions=[fk.purchase('plans'), fk.navigate('scr_x')])))
+    check('a navigate before it is fine',
+          bool(fk.stack([], actions=[fk.navigate('scr_x'), fk.purchase('plans')])))
     check('select_product refuses an empty element id',
           raises(lambda: fk.select_product('')))
     check('custom_action refuses an empty payload id', raises(lambda: fk.custom_action('')))

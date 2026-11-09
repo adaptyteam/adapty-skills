@@ -272,6 +272,68 @@ for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
         check(f'silent on {os.path.basename(f)}', False, out)
 check('silent on every real export', True)
 
+print('\npurchase and restore outcomes (verify-config)')
+TO_B = {'id': 'n', 'type': 'navigate', 'payload': {'type': 'screen', 'screen': 'scr_b'}}
+BUY = {'id': 'buy', 'type': 'purchase', 'payload': {'product': {'id': 'p1'}}}
+RESTORE = {'id': 'rs', 'type': 'restorePurchases'}
+OUTCOME_HITS = ('before the store answers', 'nested_store_operation', 'ignored_unknown_outcome',
+                'ignored_web_purchase_outcomes', '`onResult` that is not', 'is not a list')
+
+
+def tapped(*actions):
+    d = two_screens(actions[0])
+    d['screens'][0]['elements']['map']['el_n']['interactions'][0]['actions'] = list(actions)
+    return d
+
+
+def outcome(action, **on_result):
+    return {**action, 'payload': {**(action.get('payload') or {}), 'onResult': on_result}}
+
+
+def hits(out):
+    return [h for h in OUTCOME_HITS if h in out]
+
+
+out = verify_out(tapped(outcome(BUY, success=[TO_B], fail=[], userCanceled=[])))
+check('a purchase routed through success is silent', not hits(out), out)
+check('...and the screen it routes to is reachable', 'unreachable' not in out, out)
+check('...which it is not with no outcome', 'unreachable' in verify_out(tapped(BUY)))
+out = verify_out(tapped(outcome(RESTORE, success=[TO_B], fail=[])))
+check('a restore routed through success is silent', not hits(out), out)
+check('a navigate BEFORE the purchase is silent', not hits(verify_out(tapped(TO_B, BUY))))
+out = verify_out(tapped(BUY, TO_B))
+check('a navigate after the purchase FIRES', 'before the store answers' in out, out)
+out = verify_out(tapped(RESTORE, {'id': 'c', 'type': 'closeFlow'}))
+check('a close after the restore FIRES', 'before the store answers' in out, out)
+cond = {'id': 'c', 'type': 'conditional', 'payload': {
+    'type': 'switch', 'cases': [], 'default': {'type': 'const', 'value': [TO_B]}}}
+check('a conditional that leaves, after the purchase, FIRES',
+      'before the store answers' in verify_out(tapped(BUY, cond)))
+web = {'id': 'w', 'type': 'purchase', 'payload': {'type': 'web', 'product': {'id': 'p1'}}}
+check('a navigate after a WEB purchase is silent', not hits(verify_out(tapped(web, TO_B))))
+out = verify_out(tapped(outcome(web, success=[TO_B])))
+check('outcomes on a web purchase FIRE', 'ignored_web_purchase_outcomes' in out, out)
+out = verify_out(tapped(outcome(RESTORE, success=[TO_B], userCanceled=[TO_B])))
+check("a restore's userCanceled FIRES as unknown", 'ignored_unknown_outcome' in out, out)
+out = verify_out(tapped(outcome(BUY, success=[RESTORE])))
+check('a restore inside a purchase outcome FIRES', 'nested_store_operation' in out, out)
+deep = {'id': 'c', 'type': 'conditional', 'payload': {
+    'type': 'switch', 'cases': [], 'default': {'type': 'const', 'value': [BUY]}}}
+out = verify_out(tapped(outcome(BUY, success=[deep])))
+check('a purchase in a conditional inside an outcome FIRES', 'nested_store_operation' in out, out)
+out = verify_out(tapped(outcome(BUY, success=[BUY, TO_B])))
+check('...and the navigate after it, inside the outcome, FIRES too',
+      'before the store answers' in out, out)
+out = verify_out(tapped({**BUY, 'payload': {**BUY['payload'], 'onResult': [TO_B]}}))
+check('an onResult that is not an object is an error', '`onResult` that is not' in out, out)
+out = verify_out(tapped(outcome(BUY, success=TO_B)))
+check('an outcome that is not a list is an error', 'is not a list' in out, out)
+for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
+    out = subprocess.run([sys.executable, VERIFY, f], capture_output=True, text=True).stdout
+    if hits(out):
+        check(f'outcome checks silent on {os.path.basename(f)}', False, out)
+check('outcome checks silent on every real export', True)
+
 print()
 if fails:
     print(f'{len(fails)} FAILED')

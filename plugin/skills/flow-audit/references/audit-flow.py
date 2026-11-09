@@ -358,10 +358,20 @@ def selling_screens(config):
     return out
 
 
+def _runs_in(node):
+    """The values of `node` that can run. A web purchase's `onResult` never does: the
+    checkout reports only whether it opened, so its outcomes are not compiled."""
+    if node.get('type') == 'purchase' and (node.get('payload') or {}).get('type') == 'web':
+        payload = {k: v for k, v in node['payload'].items() if k != 'onResult'}
+        return [v for k, v in node.items() if k != 'payload'] + [payload]
+    return list(node.values())
+
+
 def _nav_targets(node, sid, order):
     """Every screen a navigate or navigateNext anywhere inside `node` can lead to,
-    including inside a conditional's branches -- a branch is still a way off the
-    screen, and missing it made the reachability walk blind to quiz routing."""
+    including inside a conditional's branches and a purchase's or restore's outcomes --
+    each is still a way off the screen, and missing branches made the reachability walk
+    blind to quiz routing."""
     out = []
     if isinstance(node, dict):
         if node.get('type') == 'navigate':
@@ -372,7 +382,7 @@ def _nav_targets(node, sid, order):
             i = order.index(sid) if sid in order else -1
             if 0 <= i < len(order) - 1:
                 out.append(order[i + 1])
-        for v in node.values():
+        for v in _runs_in(node):
             out += _nav_targets(v, sid, order)
     elif isinstance(node, list):
         for v in node:
@@ -2677,7 +2687,7 @@ def _action_types(node):
     if isinstance(node, dict):
         if isinstance(node.get('type'), str):
             out.append(node['type'])
-        for v in node.values():
+        for v in _runs_in(node):
             out += _action_types(v)
     elif isinstance(node, list):
         for v in node:
@@ -2736,6 +2746,131 @@ def check_dead_ends(config):
         'Give one button on this screen a way forward: "Navigate" to the next screen, or '
         '"Close Flow" if this is where the flow ends.', sid)
         for sid in _reachable(config) if sid not in forward]
+
+
+# --- PURCHASE OUTCOMES. What runs once the store answers a purchase or restore is
+# `payload.onResult`, one action list per result. A Navigate or Close Flow in the same
+# list as the purchase runs on the tap instead, before the store answers -- the way a
+# paywall was chained before outcomes existed -- so people who cancel or whose payment
+# fails move on too. Flow Builder shows the same warning under the actions.
+STORE_OPERATIONS = ('purchase', 'restorePurchases')
+LEAVING_ACTIONS = ('navigate', 'navigateNext', 'navigateBack', 'closeFlow')
+
+
+def _branch_lists(action):
+    payload = action.get('payload') if isinstance(action.get('payload'), dict) else {}
+    bodies = [c[1] for c in payload.get('cases') or [] if isinstance(c, list) and len(c) == 2]
+    bodies.append(payload.get('default'))
+    for b in bodies:
+        b = b.get('value') if isinstance(b, dict) and b.get('type') == 'const' else b
+        b = [b] if isinstance(b, dict) else b
+        if isinstance(b, list):
+            yield [x for x in b if isinstance(x, dict)]
+
+
+def _outcome_lists(action):
+    """(result, actions) for each outcome of a native purchase or a restore."""
+    payload = action.get('payload') if isinstance(action.get('payload'), dict) else {}
+    on_result = payload.get('onResult')
+    if (action.get('type') not in STORE_OPERATIONS or payload.get('type') == 'web'
+            or not isinstance(on_result, dict)):
+        return []
+    return [(k, [x for x in v if isinstance(x, dict)]) for k, v in on_result.items()
+            if isinstance(v, list)]
+
+
+def _is_store_operation(action):
+    if action.get('type') in STORE_OPERATIONS:
+        return (action.get('payload') or {}).get('type') != 'web'
+    return action.get('type') == 'conditional' and any(
+        _is_store_operation(x) for b in _branch_lists(action) for x in b)
+
+
+def _leaving(action):
+    """The leaving action itself, or the first one inside a conditional's branches."""
+    if action.get('type') in LEAVING_ACTIONS:
+        return action
+    if action.get('type') == 'conditional':
+        for b in _branch_lists(action):
+            for x in b:
+                hit = _leaving(x)
+                if hit:
+                    return hit
+    return None
+
+
+def check_purchase_outcomes(config):
+    out, seen = [], set()
+
+    def scan(actions, s, eid, in_outcome):
+        started = None
+        for a in actions:
+            leaving = _leaving(a) if started else None
+            if leaving and (s['id'], eid, 'leave') not in seen:
+                seen.add((s['id'], eid, 'leave'))
+                text = (card_text(config, s, eid, default_locale(config))
+                        or _element_text(config, s['id'], eid))
+                button = f'"{text[:40]}"' if text else 'The button'
+                what = ('restore' if started.get('type') == 'restorePurchases'
+                        else 'purchase')
+                if leaving.get('type') == 'closeFlow':
+                    goes = 'closes the flow'
+                elif leaving.get('type') == 'navigate':
+                    tgt = (leaving.get('payload') or {}).get('screen')
+                    goes = f'moves on to the "{screen_name(config, tgt)}" screen'
+                else:
+                    goes = 'moves on'
+                out.append(finding(
+                    'risk', 'navigation', 'leaves-before-purchase-result',
+                    f'{button} on the "{screen_name(config, s["id"])}" screen {goes} as soon '
+                    f'as it is tapped, before the store answers the {what}, so people who '
+                    f'cancel or whose payment fails go there too.',
+                    f'In the builder, open the {what} action on this button and move the '
+                    f'step after it into "When '
+                    f'{"restore completed" if what == "restore" else "succeeded"}". Leave '
+                    f'the other results empty to keep people on this screen.',
+                    s['id'], eid))
+            if in_outcome and a.get('type') in STORE_OPERATIONS and _is_store_operation(a) \
+                    and (s['id'], eid, 'nested') not in seen:
+                seen.add((s['id'], eid, 'nested'))
+                out.append(finding(
+                    'risk', 'navigation', 'store-operation-in-outcome',
+                    f'A purchase result on the "{screen_name(config, s["id"])}" screen starts '
+                    f'another purchase or restore straight away. Flow Builder does not allow '
+                    f'this, and a second store sheet opening on its own reads as a mistake.',
+                    'Send that result to a screen with its own button for the second offer.',
+                    s['id'], eid))
+            if not started and _is_store_operation(a):
+                started = a
+            for _, lst in _outcome_lists(a):
+                scan(lst, s, eid, True)
+            if a.get('type') == 'conditional':
+                for b in _branch_lists(a):
+                    scan(b, s, eid, in_outcome)
+
+    for s, eid, e in elements(config):
+        for i in (e.get('interactions') or []):
+            scan([a for a in (i.get('actions') or []) if isinstance(a, dict)], s, eid, False)
+    return out
+
+
+def purchase_routes(config):
+    """Screens a native purchase's `success` leads to -- what the app must stay open for."""
+    order = [s['id'] for s in config.get('screens') or []]
+    out = []
+    for s, eid, e in elements(config):
+        for _, a in actions_of(e):
+            stack = [a]
+            while stack:
+                x = stack.pop()
+                if x.get('type') == 'conditional':
+                    stack += [y for b in _branch_lists(x) for y in b]
+                if x.get('type') == 'purchase':
+                    for result, lst in _outcome_lists(x):
+                        if result == 'success':
+                            out += [t for t in _nav_targets(lst, s['id'], order)
+                                    if t not in out]
+    return out
 
 
 def check_sibling_locales(config, siblings):
@@ -2999,6 +3134,7 @@ def audit(config, catalog=None, stores=None, answers=None, offers=None):
     findings += check_navigation(config)
     findings += check_custom_actions(config, answers)
     findings += check_dead_ends(config)
+    findings += check_purchase_outcomes(config)
     findings += check_permission_screens(config, answers, stores)
     findings += check_rating_and_signup(config, answers, stores)
     findings += check_exit_and_cta(config, stores)
@@ -3093,6 +3229,8 @@ CHECK_LABELS = {
     'publication-failed': 'flow failed to publish',
     'custom-action-unhandled': "action your app doesn't handle",
     'dead-end-screen': 'screen with no way forward',
+    'leaves-before-purchase-result': 'moves on before the purchase result',
+    'store-operation-in-outcome': 'second purchase started by a result',
     'android-font-name': 'wrong Android font names',
     'ios-font-name': 'wrong iOS font names',
 }
@@ -3560,6 +3698,8 @@ CHECK_TO_GROUP = {
     'external-purchase-link': GROUP_FLOW,
     'custom-action-unconfirmed': GROUP_FLOW,
     'dead-end-screen': GROUP_FLOW,
+    'leaves-before-purchase-result': GROUP_FLOW,
+    'store-operation-in-outcome': GROUP_FLOW,
     'primer-skip': GROUP_FLOW,
     'primer-grant-wording': GROUP_FLOW,
     'permission-incentive': GROUP_FLOW,
@@ -3922,6 +4062,12 @@ def render(findings, config, meta=None, stores=None, answers=None):
                       f'each of those screens tells your app it is the last one. Mark the '
                       f'onboarding as done on every one of them, or when the flow closes, '
                       f'so it is not shown again.')
+    after = purchase_routes(config)
+    if not blockers and after:
+        names = _join_and(f'"{screen_name(config, sid)}"' for sid in after)
+        checks.append(f'Your app keeps the flow open when a purchase finishes. If it closes '
+                      f'the flow then, nobody sees {names}. In your app\'s purchase handler, '
+                      f'do nothing and close the flow on its close action instead.')
     if checks:
         lines += ['', '**Check these yourself, I cannot see them from here**', '']
         lines += [f'- {c}' for c in checks]
