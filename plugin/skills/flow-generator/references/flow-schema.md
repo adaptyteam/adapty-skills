@@ -1445,18 +1445,11 @@ goes stale.
 
 ### Shape and publishability are two different checks — run both
 
-They do not overlap, and neither one subsumes the other:
-
-- **`flows config validate` answers *is this publishable*** — it runs the real publish-time
-  transform service, so it sees stranded references the schema cannot. It does **not** check the
-  shape of most props: it accepts `fill: "banana"` and `schemaVersion: 999` without complaint.
-- **The schema check answers *are these props well-formed*.** It knows nothing about
-  publishability.
-
-So a clean `validate` is not evidence your shapes are right, and a clean schema check is not
-evidence the flow will publish. Run the schema check first (it needs no network round trip against
-your flow), then `validate`, then look at a render. Full coverage both ways —
-and why `validate` needs a loop rather than a single call — in [validate.md](validate.md).
+They do not overlap: what each one answers is
+[SKILL.md phase 3](../SKILL.md#3-check-the-shape-then-clear-the-publish-gate). Run the schema
+check first (it needs no network round trip against your flow), then `validate`, then look at a
+render. Full coverage both ways — and why `validate` needs a loop rather than a single call — in
+[validate.md](validate.md).
 
 ```bash
 npm i --prefix ~/.cache/adapty-flow-schema ajv@8          # once, not per call
@@ -1466,11 +1459,8 @@ npm i --prefix ~/.cache/adapty-flow-schema ajv@8          # once, not per call
 
 `gates.sh` runs exactly this, so you rarely call it by hand.
 
-**Always pass `--baseline`.** The schema describes the newest `schemaVersion` while most live flows
-are older, so an unbaselined run on a v9 or v10 flow reports pre-existing mismatches — a v9 `fill`
-is one object and the schema wants an array — none of them yours. The baseline is the pristine copy from `get`, and diffing against it leaves only what
-your edit caused. Without it, the output is background noise and will train you to ignore a real
-finding.
+**Always pass `--baseline`**, for the reason
+[SKILL.md phase 3](../SKILL.md#3-check-the-shape-then-clear-the-publish-gate) gives.
 
 It caches the schema at `$TMPDIR/adapty-flow-schema.latest.json` for a day — the same file you grep.
 `--refresh` re-downloads; `--schema <path|url>` points elsewhere. Two things the script adjusts
@@ -1757,8 +1747,9 @@ nothing more; for anything about whether users see it, that surface does not qua
 
 An element id is emitted as an **identifier in the generated runtime script** — the same code path
 that makes an unresolved condition variable a `script_type_violation`, where the head is written
-out bare and the script fails to compile. So a character outside `[A-Za-z0-9_]` in an element id
-produces a syntactically broken script and the flow renders a **black screen on device**. An id
+out bare and the script fails to compile. So a character outside `[A-Za-z0-9_]` (a hyphen, a dot, a
+space) in an element id produces a syntactically broken script and the flow renders a **black
+screen on device**. An id
 reused on a second screen collides in the same script, because there is one script per flow.
 
 **Every gate reachable from here is blind to it.** `flows config validate` passes a hyphenated id

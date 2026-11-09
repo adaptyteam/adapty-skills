@@ -27,17 +27,11 @@ Everything else is reachable: product UUIDs from `adapty products list` (or `pro
 offer ids from `adapty product-offers list`, `theme` colours sampled off a reference screenshot,
 and icon markup resolved from the bundle `references/icons.py` ships.
 
-**`flowProductId`** — the per-screen declaration in `_meta.screens[].products[]` — is derived, not
-waited for: `flowkit.predeclare(screen_id, products)` writes it, and **`verify-config.py` warns on a
-binding it does not declare** (it says the fix). When *rewriting* a flow, carry the live
-`_meta.screens` forward instead of regenerating it — **and `screens[].products` with it**, the
-screen-owned registry that `_meta` is derived from. Never write `"products": []`: absent and empty
-mean opposite things to the builder. When *authoring*, `flowkit.screen()` writes the registry and
-the structured product refs for you, from the screen's own bindings — bind an offer with
-`product(..., offer_id=...)` and a dotted price variable picks it up
-([products.md](references/products.md)). A yearly product sold in monthly payments is
-`product(..., billing_plan='monthly')`, with its own `<uuid>@monthly.<field>` variables
-([products.md → A yearly product can be sold under its monthly plan](references/products.md#a-yearly-product-can-be-sold-under-its-monthly-plan)).
+**A screen's product declarations are derived, never waited for or regenerated:** a rewrite
+carries the live `_meta.screens` and `screens[].products` forward, and when authoring
+`flowkit.screen()` and `flowkit.predeclare()` write both from the screen's own bindings. Never
+write `"products": []`: absent and empty mean opposite things to the builder. Offers, the monthly
+plan and the rest: [products.md](references/products.md).
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
@@ -313,20 +307,13 @@ both lack it — never from a version number you read somewhere.
 copy from passing through the console code page. `gates.sh` and `shoot.sh` find a working Python,
 and Chrome or Edge, themselves; set `PYTHON=` or `CHROME=` only when they say they cannot.
 
-**`flows media upload` works in production.** It takes a local image file and prints a live CDN URL
-to bind into the config, so an image the user *handed you a file for* is yours to place, not a user
-ask. Two limits shape when you reach for it: **SVG
-returns `http_500`**, and the ceiling is **~2.5 MB of file bytes** (a bare `http_400` means too
-large). **Run it with `--json` redirected to a file, and keep the file**: the human output omits
-`preview_base64`, the config binds it as `previewValue`, and nothing else returns it — so that
-file is the asset's record, and a second upload is a second asset rather than a way back to the
-value. Call shape, the three values to capture, the two config shapes they bind into, how to get
-a preview back when you no longer have one, and the geometry: [media.md](references/media.md).
+**`flows media upload` works in production**, so an image the user *handed you a file for* is
+yours to place, not a user ask. Its limits, the `--json` record file to keep, the three values it
+binds and the geometry: [media.md](references/media.md).
 
 **`flows publish`:** whether this build has it, its asynchronous status and the poll, which failure is real, and the deployment gate: [publish.md → Running `flows publish`](references/publish.md#running-flows-publish).
 
-**There is still no `flows delete`.** Deleting is a dashboard action, so never claim to have
-deleted a flow. Never write a command name the CLI does not have, and never invent a flag —
+**Never write a command name the CLI does not have** (there is no `flows delete`: [Safety](#safety)), and never invent a flag —
 `config validate` takes only `--app`, `--config`/`--config-file` and `--json`.
 
 Four facts about the config commands that are not guessable:
@@ -494,24 +481,17 @@ outside those is named as out of scope, not improvised.
 If the request is *"save this for reuse"* or *"add the thing I saved"*, run
 `references/snippet.py plan` before any `graft` — read [snippets.md](references/snippets.md) first.
 
-If it is *"give the screens readable ids"* — usually so a customer's own analytics stops reading
-`scr_oAPBHPa7` — run `references/rename-screens.py`, never a hand edit (`verify-config.py` refuses
-a `_meta.screens` key left behind). Renaming breaks analytics continuity, so it goes in the phase-5
-ask ([transforms.md](references/transforms.md) decision 9). **Element `el_XXXX` ids are not part of
-this and must not be renamed to match:** it buys nothing, because the id a customer's analytics
-sees is `props.customId`
-([flow-schema.md trap 7b](references/flow-schema.md#7b-the-id-analytics-sees-is-customid-and-leaving-it-blank-is-silent)).
+If it is *"give the screens readable ids"*, run `references/rename-screens.py`, never a hand edit;
+the analytics break goes in the phase-5 ask, and element ids are never renamed to match
+([transforms.md](references/transforms.md) decision 9).
 
 **Were you given a design, or are you choosing it?** Decide the mode, and the teardown that is the reference when you choose: [build.md → Were you given a design](references/build.md#were-you-given-a-design-and-whose-is-it).
 
 **A screen that sells resolves its products before the design; a value only the app knows is a custom tag; every image or clip is resolved before you write its element.** Read [build.md → Products](references/build.md#products-catalog-first-store-ids-second-create-last), [Custom tags](references/build.md#something-only-the-app-knows-a-custom-tag) and [Assets](references/build.md#assets-upload-the-file-then-build-with-its-url) at that moment.
 
-**Before you author a construct you have not seen in a real document, count it.** The schema says
-what is *permitted*; a real export says what is *produced*; only the second predicts the device. One
-`jq` over the config you fetched and over `references/component-catalog.json` settles it in seconds,
-and a count of **zero** is a finding to say out loud
-([flow-schema.md](references/flow-schema.md#before-authoring-a-shape-you-have-not-seen-produced-grep-for-it)
-— why, and the defects that shipped from skipping it).
+**Before you author a construct you have not seen in a real document, count it** in the config you
+fetched and in `references/component-catalog.json`; a count of zero is a finding to say out loud
+([flow-schema.md](references/flow-schema.md#before-authoring-a-shape-you-have-not-seen-produced-grep-for-it)).
 
 **Resolve the request into schema terms.** The user's noun is rarely the element `type` — there
 is no `button` and no `toggle` element, and tabs are a five-element composite. Use the request
@@ -552,12 +532,13 @@ not four** — the gates cost well under a second each while an extra round trip
 seconds, so the turns were the expensive part. The three underlying commands, if you need to run one
 alone, are in [validate.md](references/validate.md).
 
-**Pass `BASELINE=` whenever you fetched a config** — the pristine copy from step 2. A brand-new
-flow has no config to fetch (`config get` answers with an error), so it runs without one and has nothing older to
-report. The schema describes the newest
-`schemaVersion` while most live flows are older, so an unbaselined run on a v9 or v10 flow reports
-pre-existing mismatches, none of them yours. Details in
-[flow-schema.md → the two different validators](references/flow-schema.md).
+**Pass `BASELINE=` whenever you fetched a config** — the pristine copy from step 2; diffing
+against it leaves only what your edit caused. The schema describes the newest `schemaVersion` while
+most live flows are older, so an unbaselined run on a v9 or v10 flow reports pre-existing
+mismatches (a v9 `fill` is one object and the schema wants an array), none of them yours, and that
+noise trains you to ignore a real finding. A brand-new flow has no config to fetch (`config get`
+answers with an error), so it runs without one and has nothing older to report. Details in
+[flow-schema.md → the two different validators](references/flow-schema.md#the-schema-the-catalog-and-the-two-different-validators).
 
 `validate` runs the **same transform service that gates publishing**, so it is the only pre-write
 check here that speaks for the publish gate. It saves nothing, needs no confirmation and needs no
@@ -648,11 +629,9 @@ Measure rather than eyeball with `references/render-measure.py`. Always try the 
 from the config's size.
 
 **Every image gets its properties checked here — reference build or not — because no other gate
-looks at an image at all.** Read the drawn box off the screenshot and choose: `height: hug` takes
-its height from the **asset's** aspect, so the layout moves if the file changes and any `value` on
-the size is dead; `height: fixed` holds the box and the asset absorbs the mismatch — `cover` crops,
-`fit` letterboxes and leaves a dead band. `objectFit` is `fit` or `cover`, no CSS set. Re-render
-after each change ([media.md → Geometry](references/media.md#geometry-what-changes-when-the-asset-lands)).
+looks at an image at all.** Read the drawn box off the screenshot, choose `hug` or `fixed` and
+`fit` or `cover`, and re-render after each change
+([media.md → Geometry](references/media.md#geometry-what-changes-when-the-asset-lands)).
 
 **A screen with price variables is judged and handed over at real price length.** Each unbound
 price renders as its full `{{…prod_price}}` token, which wraps and pushes text under a pinned
@@ -941,12 +920,10 @@ shipped to a user came through a gap this slot exists to hand over
 
 ## Safety
 
-**Pass `--expected-updated-at` on every write except the first.** A stale value fails instead of
-clobbering, so this is a real guarantee rather than a warning. Take it from `flow.working.json`,
-the version your draft was patched from — never from a `config get` run just before the write,
-which hands you the other person's token, and never from `flows get`, whose `updated_at` is a
-different field. Omitting it is last-write-wins and will silently overwrite an edit someone else
-made in between.
+**Pass `--expected-updated-at` on every write except the first**, taken from `flow.working.json`
+as [the CLI surface](#the-cli-surface) says. A stale value fails instead of clobbering, so this is
+a real guarantee rather than a warning; omitting it is last-write-wins and will silently overwrite
+an edit someone else made in between.
 
 **The lock is not a merge.** It guards the *timing* of a write and says nothing about its
 *content*: a document that was never based on the live config — regenerated, or patched from a

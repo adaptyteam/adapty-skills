@@ -336,7 +336,17 @@ in phase 2, **at the moment the file is written**, and your closing report repea
 `status`/`id` shape you chose. A file handed over without that sentence is undelivered. Weigh the
 file too, and put the weight slot's findings and fixes in the same report.
 
-**Tell them to back up before importing it.** A shape-invalid config can open **empty** in the
-builder, and the next save writes that emptiness over the real flow — no error to act on, no
-unlucky timing needed. Their untouched config is the only copy that survives it
-([merge.md](merge.md)).
+**A shape-invalid config can open EMPTY in the builder, and the next save writes that emptiness
+over the real flow.** The import is not a write you can diff: the screens are not rejected with an
+error the user can act on, the editor comes up blank, they assume the import failed and save or
+keep working, and the save is authoritative — no unlucky timing and no concurrent editor needed.
+Two consequences, and neither is optional:
+
+- **The phase-3 gates stand between the file and this**, so a file that has not been through
+  `verify-config.py`, the schema check and `flows config validate` is not a deliverable. A clean
+  `validate` does not promise the builder can open it — a different renderer, and two configs
+  broke the editor while rendering fine ([preview.md](preview.md#four-surfaces-and-they-do-not-agree))
+  — but a config that fails the gates is one you already know is unsafe to import.
+- **Tell them to back up before importing it**, in one line next to the import step. Their
+  untouched config is the only copy that survives a blank-open followed by a save, and by the time
+  the editor is blank there is nothing left to export.

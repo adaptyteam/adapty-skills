@@ -51,9 +51,8 @@ So on any newer CLI, re-check against each command's own `static flags` declarat
 `adaptyteam/adapty-cli`, or in the installed package's `dist/commands/`. Do not treat this page
 as ground truth for a version you have not checked.
 
-And check *which* CLI you are invoking. A globally installed `adapty` is often old — 0.3.0 was
-found on a real machine — so if a command or flag documented here is missing, try
-`npx --yes adapty@latest` — then `@beta` — before concluding it does not exist.
+And check *which* CLI you are invoking: a command or flag documented here that is missing is
+missing only as [SKILL.md → The CLI surface](../SKILL.md#the-cli-surface) defines it.
 
 ## Where offer ids come from
 
@@ -122,8 +121,9 @@ Builder, the flow was re-exported:
 Consequences, and this file is the authority on all of them:
 
 - **Never copy `_meta.screens[].products[]` from another flow or export.** On a flow you are
-  rewriting, carry the live block through untouched. On a flow you authored, derive it with
-  `flowkit.predeclare()` — *Declare the products yourself*, below.
+  rewriting, carry the live block through untouched: it can hold pairs your rewrite does not know
+  about, component-owned bindings among them, and regenerating drops them. On a flow you authored,
+  derive it with `flowkit.predeclare()` — *Declare the products yourself*, below.
 - **Carry `screens[].products` forward on the same terms as `_meta.screens`**, for the same reason:
   it is builder-owned, it can hold pairs your source never mentions, and dropping it is silent.
 - **`flowProductId` is screen-scoped.** Derive it per screen; the same product on two screens has
@@ -136,9 +136,7 @@ Consequences, and this file is the authority on all of them:
 - **A `product` element with no product attached is a documented publish blocker**:
   <https://adapty.io/docs/flow-common-issues.md>. Say in your report which screens need an
   attachment pass before the user tries to publish.
-- **And until they are attached, `validate` reports nothing else.** Binding is an early stage,
-  so a card with no product chosen — or one bound but not yet declared — hides every later-stage
-  defect in the document; run `verify-config.py`, which finds them locally either way. See
+- **And until they are attached, `validate` reports nothing else**:
   [validate.md → unsettled products](validate.md#unsettled-products-hide-everything-else).
 - **Builder-owned means do not OMIT it either, not just do not author it.** `config update`
   replaces the whole config, so a script that regenerates a config from source and emits
@@ -415,12 +413,8 @@ fk.predeclare('scr_x', ['annual', ('annual', '<offer-id>')])
 ```
 
 The ids match what the builder mints, so its next save rewrites them to the same values.
-
-**When rewriting an existing flow, carry the live `_meta.screens` forward instead.** A live
-declaration can hold pairs your rewrite does not know about — component-owned bindings among them
-— and regenerating drops them. **Carry the live `screens[].products` with it** on any flow that has
-the key: that registry is where the declaration comes from, and it can hold
-pairs with no usage on the screen at all.
+**`verify-config.py` warns on a binding the declaration leaves out**, and says the fix. On a
+rewrite, carry the live blocks forward instead ([The builder owns product binding](#the-builder-owns-product-binding)).
 
 ### Device preview fails on a freshly authored flow, and publishing fixes it
 

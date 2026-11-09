@@ -9,16 +9,11 @@ about to claim something is publishable.
 
 ## Why it is worth a loop
 
-**`validate` runs the same transform service that gates publishing** — not a local linter, and not
-the JSON Schema. Its refusals come back in the transform service's own wording, and they are the
-refusals that would otherwise arrive as an HTTP 422 at publish time, or as a 422 the first time
-someone opens the flow on a device.
-
-That makes it the only pre-write check the skill has that speaks for the publish gate. It saves
-nothing, needs no confirmation, and does not touch the flow. Run it freely.
-
-It is **version-agnostic where the schema check is not**: a `schemaVersion: 9` config validates
-clean (measured on two v9 fixtures), so unlike `validate-with-schema.mjs` it needs no baseline.
+What it is — the publish gate's own transform service, free, and needing no baseline (two v9
+fixtures validate clean) — is [SKILL.md phase 3](../SKILL.md#3-check-the-shape-then-clear-the-publish-gate).
+Not a local linter and not the JSON Schema: its refusals come back in the transform service's own
+wording, and they are the refusals that would otherwise arrive as an HTTP 422 at publish time, or
+as a 422 the first time someone opens the flow on a device.
 
 ## The one rule that changes how you use it
 
@@ -95,10 +90,8 @@ inside the `message` string.
   there is no way to ask whether what is *already saved* is publishable; you can only ask about a
   document you are holding. To check a live flow, `flows config get`, take `.config`, and pass
   that back in.
-- **It takes the bare config, not the envelope.** Piping `flows config get --json` straight in
-  returns `valid: false` with `Invalid flow input` — which reads exactly like "your config is
-  broken". `preview` accepts either form; `validate` does not. Pass `jq '.config'`, the same
-  document `update` takes.
+- **It takes the bare config, not the envelope**: `Invalid flow input` is the envelope sent by
+  mistake ([SKILL.md → The CLI surface](../SKILL.md#the-cli-surface)). Pass `jq '.config'`.
 - **The flow must already exist.** The flow id is an existence and ownership check only: any
   config validates against any flow in the app, and an id that does not resolve returns
   `Flow does not exist.` So a config authored for a brand-new flow can only be validated after
@@ -204,9 +197,8 @@ These are the reason the phase-5 device-preview callout stays load-bearing. In p
   so it is one property with two faces, not a bug. **`valid: true` says nothing about whether
   the products exist.** The authoring path is normally safe because products come from
   `products list`; the exposed path is a flow **grafted from another app**, where the UUIDs
-  travel and the products do not (see [snippets.md](snippets.md)). Offers are the same: a store
-  code as `offerId`, or an offer of another product, validates clean. `gates.sh` given the app id
-  reads both against the app and stops on what is missing
+  travel and the products do not (see [snippets.md](snippets.md)). Offers are the same, and
+  `gates.sh` given the app id reads both against the app
   ([products.md → Where offer ids come from](products.md#where-offer-ids-come-from)).
 
 - **Publishable is not the same as it published.** A flow sitting in `publication_failed`
@@ -222,17 +214,12 @@ These are the reason the phase-5 device-preview callout stays load-bearing. In p
   fixes nothing. A `publication_failed` status is the opposite case and *is* yours: it means the
   transform ran and objected.
 
-- **Read the objection rather than re-deriving it.** `flows config get` carries
-  `publication_status`, `transform_error` and `publication_error` in the same envelope as the
-  config, and `transform_error` is the transform service's own words about the attempt that
-  failed. Reach for those first, because the bullet above measured a `publication_failed` flow
-  validating **clean** — so re-running `validate` on the same bytes is a proxy that can, and did,
-  come back green on exactly the case you are diagnosing. `transform_error` is a raw string (a
-  JSON issues payload or a summary) with no CLI helper to parse it: quote it. When the fields are
-  absent the API did not send them, which is not itself a finding — fall back to `validate` and
-  say that is what you did. `Flow transformation failed. Please contact support.` with a null
-  `transform_error` names no cause; check that every `flowProductId` matches its derived value
-  before calling it a support case ([publish.md](publish.md#running-flows-publish)).
+- **Read the objection rather than re-deriving it**: the envelope's `transform_error`, as
+  [publish.md → Running `flows publish`](publish.md#running-flows-publish) says. Reach for it
+  first, because the bullet above measured a `publication_failed` flow validating **clean** — so
+  re-running `validate` on the same bytes is a proxy that can, and did, come back green on exactly
+  the case you are diagnosing. When the fields are absent, fall back to `validate` and say that is
+  what you did.
 
 Say what you checked, in those terms. The gap between "publishable" and "renders correctly" is
 [preview.md](preview.md), and neither closes it — only a device does.

@@ -109,15 +109,11 @@ throughout. So **"no file" is far more often a slow host than a broken config**:
 budget, then check the URL in a real browser, and only then suspect your work.
 The URL route retries at 60 s automatically; the file input waits 30 s, then 60 s.
 
-Three consequences:
-
-- **The number of renders is the cost of phase 4.** Render the screens you changed, not every
-  screen. A seven-screen re-render to check one edit is six launches of pure waste.
-- **Do not tune the budget *down*.** Lowering it buys nothing on a fast host and yields no file at
-  all below a threshold, and the failure looks exactly like a hung render rather than a bad flag.
-  Raising it is the correct response to an empty shot — see the correction above.
-- **Do not parallelise.** Instances contend; `--user-data-dir` (the obvious fix for that) makes
-  the launch fail outright, which is a second way to lose a minute.
+So render only what you changed and never tune the budget down or parallelise
+([SKILL.md phase 4](../SKILL.md#4-preview-and-iterate-until-it-looks-right)). Two details it
+leaves to this page: below a threshold a lowered budget yields no file at all and looks exactly
+like a hung render, so raising it is the response to an empty shot; and `--user-data-dir`, the
+obvious fix for contending instances, makes the launch fail outright.
 
 **Join the screenshots into one strip before looking**, with
 [`montage.py`](montage.py) — `montage.py strip.png a.png b.png c.png` (the output first, or
@@ -134,10 +130,9 @@ comparing pixel positions rather than eyeballing.
   cosmetic — it may be evidence the change is invisible *in this state*. Structural summaries are
   what cover the gap, which is why the phase-5 approval ask has a second list for changes with
   nothing to see.
-- **The page renders one screen and does not walk the flow.** Measured: a button carrying a
-  `navigate` action left the page where it was, across two real clicks and a synthetic dispatch.
-  So a multi-screen change is N separate renders, and opening N tabs buys noise rather than a
-  walkthrough; branching cannot be exercised here at all.
+- **The page renders one screen and does not walk the flow**, so a multi-screen change is N
+  separate renders and N tabs buy noise rather than a walkthrough (navigation, under
+  [What a render cannot show you](#what-a-render-cannot-show-you)).
 
 ## What a render cannot show you
 
@@ -233,19 +228,8 @@ one it shows that is not there:
   never resolves. Route coverage is an Adapty-app check, or a reading of the config. A
   [screen transition](patterns.md#a-screen-transition) is invisible here for the same reason.
 
-  **A screen that advances itself is therefore 100% unverifiable here, and that changes how you
-  hand it over.** Measured on a timed loading screen: after 15 s of
-  `--virtual-time-budget` the dumped DOM was still the same screen. That result is *worthless as
-  evidence* — the page never navigates for any reason, so a broken `timer-end` and a working one
-  produce the identical observation. The consequence is a process one: when the only surface that
-  can exercise a mechanism is the user's device, **build the diagnostic in before the first ask,
-  not after the fourth.** A timed screen handed over bare yields one bit ("still spinning"); the
-  same screen handed over with its countdown temporarily made visible — a child `text` carrying
-  the `timer_minutes`/`timer_seconds` tokens — splits the failure in two at no extra cost to the
-  user: *digits never appear or freeze* is the element not mounting, *digits reach zero and
-  nothing happens* is the trigger not firing. Say it is temporary and remove it after. Paid for
-  the hard way: four blind config tweaks were shipped to a user's device one at a time before
-  anyone thought to make the timer visible, and the instrumentation cost exactly one cycle.
+  **A screen that advances itself is therefore unverifiable here:**
+  [ship the diagnostic](#a-screen-that-advances-itself-ship-the-diagnostic).
 
 - **Text metrics that are not the device's — and a colour emoji is where it shows.** An emoji in a
   **hug**-width text box renders correctly here and is **clipped on iOS**: reported from a device
@@ -262,14 +246,9 @@ one it shows that is not there:
   list with **no** preview-side symptom at all, so it cannot be found by iterating here: it is
   found on a device, or by a user.
 
-- **An element id that cannot be an identifier — the black-screen class.** An element id is
-  emitted as an **identifier in the generated runtime script**, so a character outside
-  `[A-Za-z0-9_]` (a hyphen, a dot, a space) makes that script syntactically broken and the
-  screen renders **black on device**. Nothing here can see it: this page draws the *config*, so
-  it draws the screen correctly, and `flows config validate` passes a hyphenated id too
-  ([validate.md](validate.md)). An id reused on a second screen collides in the same script.
-  `verify-config.py` errors on both — **screen** ids are the exception and are left alone,
-  because real published exports use a bare UUID for the entry screen
+- **An element id that cannot be an identifier — the black-screen class.** This page draws the
+  *config*, so an element id with a character outside `[A-Za-z0-9_]`, or one reused on a second
+  screen, draws correctly here and renders **black on device**; `verify-config.py` errors on both
   ([flow-schema.md](flow-schema.md#element-and-screen-ids-become-identifiers)).
 
 - **Which typeface the device will actually use.** The page loads the webfont from
@@ -482,12 +461,10 @@ broken link.
 
 `--qr` writes a 228x228 PNG (~4KB), opens it, and prints a markdown line to paste.
 
-**The callout offers the QR; it does not paste the link.** Without `--qr` the script prints the link
-and nothing else — no PNG, no window, and `qrcode` is never even loaded — which is what to hand over
-when the user asks for the link itself (a reader on the phone they want to preview on cannot scan
-their own screen). By default, slot 2 carries one line:
-
-> Want a QR code to scan with the Adapty mobile app? Just say so and I'll make one.
+Without `--qr` the script prints the link and nothing else — no PNG, no window, and `qrcode` is
+never even loaded — which is what to hand over when the user asks for the link itself (a reader on
+the phone they want to preview on cannot scan their own screen). When to offer which is
+[Offering the device-preview QR](#offering-the-device-preview-qr).
 
 **Base that decision only on what the user said.** Two drafts of this guidance keyed it on something
 unobservable — first `$TERM` to guess whether images render, then "when the user is at a laptop and
@@ -499,8 +476,7 @@ That is a general rule for this file: **a condition written here has to be one a
 check.** If it cannot, it will be resolved by guessing, and the guess will read as considered
 behaviour.
 
-`--qr` **opens the image** and prints a markdown line to paste. Emit that line whatever your surface
-is: where images render the reader scans it inline, and where they do not Claude Code's terminal
+Emit the markdown line `--qr` prints whatever your surface is: where images render the reader scans it inline, and where they do not Claude Code's terminal
 shows `Scan to preview on your phone (flow-preview-qr-b49806c9.png)` — one readable line, measured.
 
 **How the reachability line got here, because two earlier answers both left work for the reader:**
@@ -619,35 +595,18 @@ preview. Take ids from the device table above; the file input reports that page 
 login screen — all of which are PNGs that pass a "did anything draw" test. Before you reason about
 a render, confirm it shows the screen you asked for.
 
-## An App Store review screenshot
-
-A product push to the App Store carries a review screenshot, and the server refuses it unless it is
-PNG or JPEG, exactly one of Apple's screen sizes, and has no alpha channel. A browser's PNG always
-carries an alpha channel, even with every pixel opaque, so it is refused. `--review-screenshot`
-renders the screen as an iPhone 14 at 3x and writes a 1170×2532 JPEG; it fails rather than write
-a file of any other size. Pick the screen that shows the products and the purchase button. It
-needs the file input's `playwright-core` (above; `shoot.sh` installs it), and every path is
-absolute because the command runs from the cache directory:
-
-```bash
-(cd ~/.cache/adapty-flow-playwright && node <absolute path to preview-with-playwright.mjs> \
-  --config <absolute path>/flow.working.json --screen <screen_id> --review-screenshot \
-  --out <absolute path>/review.jpg)
-```
-
-This is the flow as Adapty renders it, not the app around it. Whether it satisfies Apple's review
-is Apple's call; a simulator screenshot of the real app showing the flow is closer, when one is
-available.
-
 ## The fidelity pass, when a reference image was given
 
-**A reference image raises the bar from "matches the request" to "matches the reference" — run the
-fidelity pass before anything is written, every time one was given.** "Nothing jumped out" is not a
-result. **Produce a written per-element difference list — colour, typeface, icon style, imagery,
-proportions — marking each one match, gap, or unreachable**, then close every gap the format can
-reach and turn the rest into named asks. The list is the mechanism, not the looking: measured,
-agents who only *looked* shipped emoji for designed icons and colours from memory while disclosing
-them, and agents who wrote the list fixed everything reachable.
+**A reference raises the bar from "matches the request" to "matches the reference" — run the
+fidelity pass before anything is written, every time one was given**: an image, a screen to copy,
+a layout spelled out. In **Adapt** mode ([build.md](build.md#were-you-given-a-design-and-whose-is-it))
+the list has two halves: structure against the reference, and colour, type, radii, icon style and
+copy against the app's own style source — never against the reference. Not when you chose the
+design yourself; a teardown grades that ([below](#grading-what-you-designed-the-teardown-pass)).
+"Nothing jumped out" is not a result. **Produce a written per-element difference list — colour,
+typeface, icon style, imagery, proportions — marking each one match, gap, or unreachable**, then
+close every gap the format can reach and turn the rest into named asks. The list is the mechanism,
+not the looking ([fidelity.md → why](fidelity.md#why-it-is-a-written-list-and-not-a-look)).
 
 **Done means every remaining difference is on the ask list** — a user declining previews waives the
 deliverable, not this pass. What to inventory and what to do with each gap:
@@ -684,22 +643,37 @@ real `components` entry and wire it per screen via `props.progressBar`, never a 
 ## A screen that advances itself: ship the diagnostic
 
 **If you built a screen that advances itself, ship the diagnostic with the first ask.** The page
-never navigates, so a working auto-advance and a broken one look identical here and only the user's
+never navigates, so a working auto-advance and a broken one look identical here (after 15 s of
+`--virtual-time-budget` a timed screen's DOM was still the same screen) and only the user's
 device can tell them apart — at a real cycle per attempt. Give the `timer` a child `text` carrying
-the `timer_minutes`/`timer_seconds` tokens: *digits never appear* is the element not mounting,
-*digits reach zero and nothing happens* is the trigger not firing. Without it a failed test returns
-one bit and you guess again. **The digits never leave the timer: a timer fires only when a text
+the `timer_minutes`/`timer_seconds` tokens: *digits never appear or freeze* is the element not
+mounting, *digits reach zero and nothing happens* is the trigger not firing. Without it a failed
+test returns one bit ("still spinning") and you guess again. **The digits never leave the timer: a timer fires only when a text
 inside it shows its digits** — a logo or plain copy as its only child does not fire. To hide them
 once the user has checked, colour them like the background; never delete them. The device-verified
 shape is in [patterns.md](patterns.md).
 
 ## When to take an App Store review screenshot
 
-**An App Store review screenshot of a flow screen** (asked by the user, `growth-advisor` or
-`adapty-integration` for a product push): run [`preview-with-playwright.mjs`](preview-with-playwright.mjs)
-with `--review-screenshot --screen <the screen with the purchase button>`. It writes a 1170×2532
-JPEG, an exact App Store size with no alpha channel; hand back its path
-([preview.md](preview.md#an-app-store-review-screenshot)).
+**An App Store review screenshot of a flow screen** is asked for by the user, `growth-advisor` or
+`adapty-integration` for a product push; hand back the path of the file it writes. The push
+carries it, and the server refuses it unless it is
+PNG or JPEG, exactly one of Apple's screen sizes, and has no alpha channel. A browser's PNG always
+carries an alpha channel, even with every pixel opaque, so it is refused. `--review-screenshot`
+renders the screen as an iPhone 14 at 3x and writes a 1170×2532 JPEG; it fails rather than write
+a file of any other size. Pick the screen that shows the products and the purchase button. It
+needs the file input's `playwright-core` (above; `shoot.sh` installs it), and every path is
+absolute because the command runs from the cache directory:
+
+```bash
+(cd ~/.cache/adapty-flow-playwright && node <absolute path to preview-with-playwright.mjs> \
+  --config <absolute path>/flow.working.json --screen <screen_id> --review-screenshot \
+  --out <absolute path>/review.jpg)
+```
+
+This is the flow as Adapty renders it, not the app around it. Whether it satisfies Apple's review
+is Apple's call; a simulator screenshot of the real app showing the flow is closer, when one is
+available.
 
 ## Grading what you designed: the teardown pass
 

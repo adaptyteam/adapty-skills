@@ -123,9 +123,8 @@ With nobody to ask, choose both and say so. Text only — branching on one is no
 ## Assets: upload the file, then build with its URL
 
 **Assets are resolved here too — upload the file, then build with its URL.** The upload reads a
-**path**, so **an image you can only see is not an image you have**: one the user pasted or
-attached arrives as pixels in your context with no file behind it, and you cannot write the bytes
-you were shown.
+**path**, so **an image you can only see is not an image you have**
+([media.md → Getting the file](media.md#getting-the-file-the-upload-needs-a-path-not-a-picture)).
 
 For every asset the screen needs, one of three states, decided before you write the element:
 
@@ -134,22 +133,12 @@ For every asset the screen needs, one of three states, decided before you write 
    `python3 references/weigh-config.py webp <file> media/<name>.webp`. A GIF does not upload and an
    animated WebP plays one frame, so motion is a `video` element
    ([media.md → The video placeholder](media.md#the-video-placeholder)).
-   Upload it now and take **three** values off that one call, `--json` into a file that outlives
-   the command so the preview blob stays out of your context:
-   ```bash
-   mkdir -p media
-   $ADAPTY flows media upload --app "$APP" ./hero.png --json > media/hero.json
-   MEDIA_URL=$(jq -r .url media/hero.json); MEDIA_ID=$(jq -r .id media/hero.json)
-   MEDIA_PREVIEW=$(jq -r '.preview_base64 // empty' media/hero.json)
-   ```
-   Bind all three on an `image` element or flat inside a `fill` — two different shapes, and the
-   `id` is a **string** even though the command prints a number. **`previewValue` is not
-   optional in practice**: without it the renderer draws a transparent 1×1 until the asset
-   downloads, so the screen ships with a hole in it. **An asset you uploaded earlier is rebound
-   from its record file, or lifted out of a config that already binds it — never re-uploaded, and
-   never bound as a bare URL you remembered.** Anything that hands you a URL and no preview is
-   silent about the value, not evidence the field is optional
-   ([media.md](media.md)).
+   Upload it now as [media.md → The call](media.md#the-call) says — `--json` into a record file,
+   **three** values off it, `previewValue` included — and bind them in one of
+   [the two shapes](media.md#binding-the-url-two-different-shapes). **An asset you uploaded
+   earlier is rebound from its record file, or lifted out of a config that already binds it —
+   never re-uploaded, and never bound as a bare URL you remembered**
+   ([When you have a URL and no preview](media.md#when-you-have-a-url-and-no-preview)).
 2. **You can see the image but have no path** (pasted, attached), or they named one they have not
    sent — **ask for a path**, once, batched with your other asks. Never guess one: a guess that
    misses fails loudly, and a guess that *hits* ships the wrong picture in a screen that renders
