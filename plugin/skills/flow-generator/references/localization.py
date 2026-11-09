@@ -766,8 +766,8 @@ def rename_locale(doc, old, new):
     if not LOCALE_CODE.fullmatch(new):
         raise RenameError(
             f'{new!r} is not `language[-Script][-REGION]` with the SDK\'s casing: region in '
-            f'UPPERCASE (`pt-BR`), script in Title case (`zh-Hans`, `sr-Latn`). The transform '
-            f'service refuses it at publish, so it cannot be the target.')
+            f'UPPERCASE (`pt-BR`), script in Title case (`zh-Hans`, `sr-Latn`). The publish rewrites '
+            f'any other casing to this one, so the config should already say what ships.')
     if not _rec(doc):
         raise RenameError('not a flow config (expected a JSON object)')
     envelope = 'screens' not in doc and _rec(doc.get('config'))

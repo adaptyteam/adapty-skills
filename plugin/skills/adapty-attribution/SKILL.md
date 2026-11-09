@@ -59,6 +59,10 @@ set it up.
 write fails or times out, read the state again the way that wrote; never repeat the write the
 other way.
 
+**A write refused with `403` over MCP while reads work** means that MCP sign-in has no write
+access, and nothing was written. Run that write with the CLI when it is ready; otherwise say so
+and offer to set the CLI up.
+
 **Neither ready:** ask which one to set up, the one this skill prefers first, then give only that
 one's steps. Use your question tool if you have one; otherwise ask in one message with numbered
 options.

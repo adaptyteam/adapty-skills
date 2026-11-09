@@ -44,7 +44,7 @@
  * [data-testid="preview-config-input"], then screenshot [data-screen-content].
  */
 
-import {existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
 import {homedir} from 'node:os'
 import {basename, delimiter, dirname, join, resolve} from 'node:path'
@@ -615,6 +615,17 @@ async function main() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+/** argv[1] as the real path: Node resolves import.meta.url through symlinks, a symlinked install
+ * would otherwise never match and exit 0 having done nothing. */
+function invokedPath() {
+  if (!process.argv[1]) return null
+  try {
+    return realpathSync(process.argv[1])
+  } catch {
+    return resolve(process.argv[1])
+  }
+}
+
+if (invokedPath() === fileURLToPath(import.meta.url)) {
   await main()
 }

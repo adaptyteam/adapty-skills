@@ -27,9 +27,8 @@ custom variable ids are the heads of `<customId>.value` and `<groupId>.selectedO
 they land in the same script -- corpus-clean (0 off-charset in all 12), but with no reproduced
 black screen behind them, so they warn where an element id errors.
 
-The locale-code check is the same lesson a third time. `pt-br` is refused at publish with a
-pattern violation on `/localizations/N/id` because the SDK's pattern is case-sensitive per
-subtag -- but the obvious `^[a-z]{2}(-[A-Z]{2})?$` is WRONG, because a script subtag is four
+The locale-code check is the same lesson a third time. `pt-br` is not the casing the builder
+and the SDK write, so it may not match the device locale (it does publish) -- but the obvious `^[a-z]{2}(-[A-Z]{2})?$` is WRONG, because a script subtag is four
 letters in Title case and `sr-Latn` is a real code in a real export (`onboarding-multilocale`).
 The pinned SILENT case for `sr-Latn` is what stops that regression.
 

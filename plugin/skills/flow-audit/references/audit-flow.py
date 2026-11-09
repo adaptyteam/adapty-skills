@@ -1671,6 +1671,42 @@ def _is_media_field(vals, base):
         isinstance(v.get(k), str) and v[k].strip() for k in ('url', 'videoUrl'))
 
 
+# A bare link address: the whole default-locale value is one URL and nothing else.
+BARE_URL_RE = re.compile(r'^(?:https?://|mailto:|tel:)\S+$', re.I)
+
+
+def _link_values(config):
+    """The `values` maps of every openUrl action's `url`, by identity. A link address is
+    usually the same in every locale on purpose (one Terms page, one Privacy page), and a
+    locale with no value of its own opens the default's, so it is never a missing translation.
+    `verify-config.py` tells the builder never to copy the default into other locales to fill
+    the gap, so counting it would make the two skills contradict each other."""
+    found = set()
+
+    def walk(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'openUrl':
+                url = (o.get('payload') or {}).get('url')
+                if isinstance(url, dict) and isinstance(url.get('values'), dict):
+                    found.add(id(url['values']))
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(config)
+    return found
+
+
+def _is_link_field(vals, base, links):
+    """True for an openUrl url (see `_link_values`), or for any localizable whose default
+    value is a bare URL: either way the default is meant to serve every locale."""
+    if id(vals) in links:
+        return True
+    text = flat_text(vals.get(base), base).strip() if base in vals else ''
+    return bool(BARE_URL_RE.match(text))
+
+
 def _is_empty_value(v):
     """The catalog's emptiness rule, for either value family: text or media."""
     if isinstance(v, dict) and v.get('type') != 'switch' and ('url' in v or 'videoUrl' in v):
@@ -1694,9 +1730,13 @@ def locale_coverage(config):
     base = default_locale(config)
     stat = {l: {'missing': 0, 'empty': 0, 'same': 0} for l in locales}
     examples = {l: [] for l in locales}
+    links = _link_values(config)
     for vals in _localizable_values(config, locales):
         base_text = flat_text(vals.get(base), base) if base in vals else ''
         media = _is_media_field(vals, base)
+        # A link address falls back to the default's on purpose: neither missing nor
+        # untranslated. A blank one still breaks the link, so `empty` still counts.
+        link = _is_link_field(vals, base, links)
         for code in locales:
             # An EMPTY value ('' , [], an emptied paragraph) is the same as no value: both
             # fall back to the default locale's text. So both count as missing, never as a
@@ -1706,14 +1746,14 @@ def locale_coverage(config):
                 # resolves a locale's assets on top of the default's), so it is not missing --
                 # and counting it would push a copy of the default's image, preview and all,
                 # into every locale.
-                if not media:
+                if not media and not link:
                     stat[code]['missing'] += 1
                 continue
             if not _has_content(vals[code], code):
                 stat[code]['empty'] += 1
                 continue
-            if code != base and base_text and flat_text(vals[code], code) == base_text \
-                    and len(base_text) > 3:
+            if code != base and not link and base_text \
+                    and flat_text(vals[code], code) == base_text and len(base_text) > 3:
                 stat[code]['same'] += 1
                 if len(examples[code]) < 4:
                     examples[code].append(base_text[:40])
@@ -1743,8 +1783,9 @@ def check_localization(config):
     name = locale_names(config)
     nm = lambda c: name.get(c) or c
     stat, examples = locale_coverage(config)
+    links = _link_values(config)
     total = sum(1 for vals in _localizable_values(config, locales)
-                if not _is_media_field(vals, base))
+                if not _is_media_field(vals, base) and not _is_link_field(vals, base, links))
 
     for code in locales:
         s = stat[code]
@@ -2707,18 +2748,22 @@ def check_sibling_locales(config, siblings):
     """
     if not siblings:
         return []
-    names = {l.get('code'): l.get('name') or l.get('code')
-             for l in config.get('locales') or [] if l.get('code')}
-    # Sibling flows are compared by language CODE: ids are per-flow and need not agree.
+    # Sibling flows are compared by language CODE: ids are per-flow and need not agree. And
+    # case-insensitively, with `_` read as `-`: pt-BR, pt-br and pt_BR are one language, so a
+    # sibling flow that spells it another way is not a language this flow lacks.
+    key = lambda c: c.strip().lower().replace('_', '-')
+    names = {key(l['code']): l.get('name') or l['code']
+             for l in config.get('locales') or []
+             if isinstance(l.get('code'), str) and l['code'].strip()}
     mine = set(names)
     have = {}
     for flow, entries in siblings.items():
         for x in entries or []:
             code = x.get('code') if isinstance(x, dict) else x
-            if not code or code in mine:
+            if not isinstance(code, str) or not code.strip() or key(code) in mine:
                 continue
-            names.setdefault(code, (x.get('name') if isinstance(x, dict) else None) or code)
-            have.setdefault(code, []).append(flow)
+            names.setdefault(key(code), (x.get('name') if isinstance(x, dict) else None) or code)
+            have.setdefault(key(code), []).append(flow)
     if not have:
         return []
     langs = _join_and(names[c] for c in sorted(have))
@@ -2844,12 +2889,14 @@ FONT_SETTINGS = ('In the Flow Builder, open the font settings (Edit custom font 
                  'dropdown) and click the row of each face named above')
 
 
-def check_fonts(config, fetch=read_font):
+def check_fonts(config, fetch=read_font, stores=None):
     """Do the custom fonts' iOS and Android names match what the app bundle can carry?
 
     One finding per check, listing every face it applies to: the user fixes them on one
     settings screen, and a template with four fonts would otherwise print eight rows.
-    `fetch` is `read_font`; each distinct url is downloaded once, in parallel.
+    `fetch` is `read_font`; each distinct url is downloaded once, in parallel. `stores` is
+    the set from `--stores`, or None when unknown: an app that does not ship on Android
+    gets no `android-font-name`; unknown stores keep it.
     """
     faces = list(_font_faces(config))
     if not faces:
@@ -2863,7 +2910,7 @@ def check_fonts(config, fetch=read_font):
     for font, face in faces:
         label = _face_label(font, face)
         android = face.get('androidName') or ''
-        if not ANDROID_FONT_NAME_RE.match(android):
+        if (stores is None or 'android' in stores) and not ANDROID_FONT_NAME_RE.match(android):
             bad_android.append(f'{label} has "{android}"' if android else
                                f'{label} has none')
         ios = face.get('iosName') or ''
@@ -2955,7 +3002,7 @@ def audit(config, catalog=None, stores=None, answers=None, offers=None):
     findings += check_permission_screens(config, answers, stores)
     findings += check_rating_and_signup(config, answers, stores)
     findings += check_exit_and_cta(config, stores)
-    findings += check_fonts(config)
+    findings += check_fonts(config, stores=stores)
     return findings
 
 

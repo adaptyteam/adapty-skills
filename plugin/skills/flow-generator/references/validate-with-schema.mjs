@@ -22,7 +22,7 @@
 
 import {readFileSync, statSync, writeFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
-import {tmpdir} from 'node:os'
+import {homedir, tmpdir} from 'node:os'
 import {delimiter, join, resolve} from 'node:path'
 import {parseArgs} from 'node:util'
 
@@ -42,10 +42,11 @@ function fail(message) {
   process.exit(2)
 }
 
-/** ajv is a run-time dependency of the caller: this script, npx, or the current project. */
+/** ajv is a run-time dependency of the caller: its cache dir, npx, or the current project. */
 function loadAjv() {
   const roots = [
     process.cwd(),
+    join(homedir(), '.cache', 'adapty-flow-schema'),
     ...(process.env.PATH ?? '')
       .split(delimiter)
       .filter((dir) => dir.endsWith(join('node_modules', '.bin')))
@@ -62,7 +63,7 @@ function loadAjv() {
 
   console.error(
     'Could not resolve ajv. Install it ONCE (`npm i --prefix ~/.cache/adapty-flow-schema ajv@8`) '
-    + 'and run from that directory. The `npx --package=ajv@8` form works but costs ~12s PER CALL.',
+    + '(any cwd works after that). The `npx --package=ajv@8` form works but costs ~12s PER CALL.',
   )
   process.exit(1)
 }

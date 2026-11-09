@@ -246,9 +246,10 @@ remains**, which is the one check that catches a letter missing from the table.
 
 The locale code is the string the SDK matches a device's language against, and its pattern is
 **case-sensitive per subtag**: `language[-Script][-REGION]`, with the region in UPPERCASE and a
-script subtag in four letters of Title case. `pt-BR` is right and **`pt-br` is refused at
-publish** — an output-schema violation on `/localizations/N/id`, from a document that saved without
-complaint. This is the one way an add-a-locale run can produce something unpublishable.
+script subtag in four letters of Title case. `pt-BR` is right; `pt-br` saves, and the
+publish rewrites it to `pt-BR`, so casing alone breaks nothing. Write the SDK's casing anyway, so
+the config says what ships. The SDK matches the locale the app passes exactly and otherwise falls
+back to the default locale, with no language-only step.
 
 Two things make it worth a decision rather than a footnote:
 

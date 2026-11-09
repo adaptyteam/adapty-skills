@@ -19,7 +19,8 @@ case records the service's verdict rather than a guess.
     WARNS   -- #RGB / 8-digit solid and #RGB / unprefixed / 8-digit stop hex (read, but the
                schema allows only #RRGGBB); an unreadable stop beside a good one (dropped); an
                input fill on a layered style (first layer only); a carousel dot colour bound
-               to a layered style; a border bound to an image-only style
+               to a layered style; a border bound to an image-only style; an image layer
+               carrying a colour (the schema allows type, image, customMediaID)
     SILENT  -- every tracked and raw export; a gradient/image/scrim stack on a screen fill; a
                one-gradient input border (accepted); a
                dark-only stack; a stack used next to an image layer in an element fill; text
@@ -233,6 +234,10 @@ def image_border(d):
 
 
 warns('border on an image-only style', variant(REVIEWS, image_border), 'border draws only')
+# The schema's image layer is type/image/customMediaID only. A warning, not an error: two real
+# exports carry a leftover `color` on a screen's image layer and publish.
+warns('image layer carrying a colour', variant(REVIEWS, lambda d: style(d, 'bg').update(
+    light=[dict(IMG, color=hx('#000000')), solid('#FFFFFF')])), 'an image layer takes only')
 
 print('verify-config.py — SILENT')
 for path in sorted(glob.glob(os.path.join(CORPUS, '*.json')) + glob.glob(os.path.join(RAW, '*.json'))):

@@ -2263,6 +2263,12 @@ for _bad in ('Inter Medium', 'Inter-Medium', 'InterMedium', 'inter-medium', ''):
     _f = run(_with_fonts([dict(_good, androidName=_bad)]))[1]
     check(f'android-font-name FIRES on {_bad!r}', len(of(_f, 'android-font-name')) == 1)
 
+_bad_android = _with_fonts([dict(_good, androidName='Inter Medium')])
+check('android-font-name is SILENT when the app ships on iOS only',
+      not of(run(_bad_android, stores='ios')[1], 'android-font-name'))
+check('...and FIRES when Android is among the stores',
+      len(of(run(_bad_android, stores='ios,android')[1], 'android-font-name')) == 1)
+
 _f = run(_with_fonts([dict(_good, iosName='Inter Medium')]))[1]
 check('ios-font-name FIRES when the iOS name differs from the file\'s PostScript name',
       [f['severity'] for f in of(_f, 'ios-font-name')] == ['blocker']

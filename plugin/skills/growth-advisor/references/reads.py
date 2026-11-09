@@ -244,9 +244,14 @@ def show(title, cmd, body, err, names=None, conv=False, top=None, cols=None):
         return []
     if not any(s.get('values') for s in segs):
         # one number per group and no periods: the window's numbers, never "no data"
+        over = []
         for s in segs:
             name = (names or {}).get(s.get('key')) or s.get('title') or s.get('key') or '?'
+            if conv and (s.get('value') or 0) > 100:
+                over.append(str(name))
+                name = '! ' + str(name)
             print(f"   {str(name)[:37]:37} {num(s.get('value')):>9}  for the whole window")
+        over_100(over)
         return segs
     if conv and 'view-paid' in cmd and not NOTED:
         NOTED.append(1)
@@ -254,6 +259,9 @@ def show(title, cmd, body, err, names=None, conv=False, top=None, cols=None):
               '   one-time purchases, so they are not new buyers: count those with new subscriptions.')
     xs = [label(p.get('x')) for p in segs[0].get('values') or []]
     dated = bool(xs) and all(len(x) == 10 and x[4] == '-' for x in xs)
+    end = re.search(r'--date-to (\d{4}-\d\d-\d\d)', cmd)
+    if dated and end:
+        xs = [x for x in xs if x <= end.group(1)]   # a period after the window's end is a partial bucket
     if dated and all(x.endswith('-01') for x in xs):
         xs = [x[:7] for x in xs]
     n = len(xs) if dated or not cols else min(cols, len(xs))
@@ -264,7 +272,9 @@ def show(title, cmd, body, err, names=None, conv=False, top=None, cols=None):
         head[-1] = f'{xs[-1] + "*":>{w}}'
     print('   ' + ' ' * 38 + '  '.join(head))
     total = [s for s in segs if s.get('is_total')]
-    rest = sorted((s for s in segs if not s.get('is_total')), key=lambda s: (-last_value(s), -(s.get('value') or 0)))
+    def lv(s):
+        return last_value({'values': (s.get('values') or [])[:n]})
+    rest = sorted((s for s in segs if not s.get('is_total')), key=lambda s: (-lv(s), -(s.get('value') or 0)))
     shown = rest if not top or len(rest) <= top + 1 else rest[:top]
     few_rows, over = 0, []
     for s in total + shown:
@@ -285,18 +295,22 @@ def show(title, cmd, body, err, names=None, conv=False, top=None, cols=None):
         sums = [sum((s.get('values') or [{}] * n)[i].get('value') or 0 for s in others) for i in range(n)]
         print(f'   {"+ " + str(len(others)) + " more groups, summed":38}' + '  '.join(f'{num(c):>{w}}' for c in sums))
     if rest:
-        live = sum(1 for s in rest if last_value(s))
+        live = sum(1 for s in rest if lv(s))
         print(f'   groups: {len(rest)}, with a value in {xs[-1] if xs else "the last period"}: {live}')
     if conv:
         print('   cells: rate % paid/first step.' + (f' ~ = under {FEW} paid in every period: those rates are noise.'
               ' Give the counts, and do not compare, rank, date or explain a change from them.' if few_rows else ''))
+    over_100(over)
+    if conv and dated and total and not any((p.get('value') or 0) > 100 for p in (total[0].get('values') or [])[:n]):
+        onset(total[0], xs)   # a rate above 100% dates nothing
+    return segs
+
+
+def over_100(over):
     if over:
         print(f'   ! = a rate above 100% ({", ".join(over)}): a conversion counts the share of the first step that '
               'reached the second, so that is not a valid reading. Leave those rows out of every grade, say in the '
               'reply that the number could not be read, and put it in the feedback note as a likely Adapty bug.')
-    if conv and dated and total:
-        onset(total[0], xs)
-    return segs
 
 
 def onset(seg, xs):
@@ -810,7 +824,7 @@ def name_map(adapty, app, topics):
     for n in topics:
         lists[n] = every_page(adapty, app, n)
         for r in lists[n]:
-            names[r.get('id')] = r.get('title') or r.get('name') or r.get('developer_id')
+            names[r.get('id')] = r.get('title') or r.get('name') or r.get('developer_id') or r.get('id')
     return names, lists
 
 
@@ -1476,7 +1490,7 @@ def flows_reach(a, names, flows, auds, tests):
         r = rows.get(f.get('id')) or {}
         v = r.get('unique_profiles_views') or 0
         fin = f"{100 * (r.get('total_uniq_completions') or 0) / v:.0f}%" if v else '-'
-        print(f"   {str(f.get('name'))[:44]:44} {str(f.get('status') or ''):10} viewers {num(v):>7}  finished "
+        print(f"   {str(f.get('name') or f.get('id'))[:44]:44} {str(f.get('status') or ''):10} viewers {num(v):>7}  finished "
               f"{fin:>4}  purchases {num(r.get('purchases') or 0):>6}  on {', '.join(where.get(f.get('id'), [])) or 'no placement'}")
 
 

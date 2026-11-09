@@ -44,7 +44,8 @@ of them for you; a hypothesis outside the table fills them itself.
 | Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there |
 | Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder |
 
-When each price type applies, and how it is tested on a copy: `pricing.md`.
+When each price type applies, and how it is tested on a copy: `pricing.md`. Before an Add a trial
+row, the first-use gate in "Trials" below.
 
 A rule-out is keyed to its target. Adding a trial to annual and losing rules out a trial on
 annual; it says nothing about a trial on monthly. A ruled-out idea is not deleted: say
@@ -140,6 +141,9 @@ app's US numbers) when you compare, and call the target "the market median", nev
 ## Trials
 
 - End state: at most one product carries a trial.
+- **When the paid value arrives whole on first use** (a one-shot result such as a report or a
+  generated pack, an instant unlock), a trial lets people take it and cancel: adding a trial is
+  not ranked first; a paid intro offer or the direct purchase is.
 - The trial goes on the leading length. With no clear leader, it goes on the length whose row in
   `market.md`, Trial or direct, is highest; with no row, on the longest.
 - **The Why of a trial hypothesis names that length's row** (`market.md`, Trial or direct), in its
