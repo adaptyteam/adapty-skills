@@ -510,7 +510,7 @@ spinner), it forces the user to delete-and-recreate instead of just binding a fi
 flags it. The rule generalises past these two: **when you cannot fully provide an element — no
 asset, no CLI path, or it is preview-blind — place the REAL element in its unset/placeholder state
 and hand the gap to the user; never substitute an element type that merely looks right** (the
-phase-4 rule in `SKILL.md`).
+phase-4 rule in [preview.md](preview.md#never-fake-an-element-to-make-the-screenshot-look-complete)).
 
 **A styled placeholder beats a lookalike substitute — never stand an emoji in for a designed
 glyph.** When the reference uses icons you cannot author faithfully, the ladder is: take a
@@ -1046,7 +1046,7 @@ lives in the app's code, in every locale, and the builder can no longer edit it.
 supplies each tag by name when it creates the flow view, every user sees the fallback. Values are
 strings, read once at creation — nothing updates them while the flow is open — and one missing tag
 swaps its whole line for the fallback text. So a run that adds a custom tag ends by offering to
-write that code, and on a yes writes it ([SKILL.md](../SKILL.md), end of phase 5). This table is
+write that code, and on a yes writes it ([custom-tags-code.md](custom-tags-code.md)). This table is
 where the exact parameter comes from — read the page, then edit the call site; never hand the user
 a link in place of the change.
 

@@ -328,3 +328,15 @@ otherwise a clean `flow-audit` run is exactly the evidence that convinces someon
 requires functioning links; and — if you used a placeholder — **that `flow-audit` will not flag
 it**, so a clean audit is not evidence the links are done. Never present a placeholder domain as
 though it were the user's own.
+
+## The file deliverable
+
+When the user asked for a file rather than a write, there is no approval gate — the contract lives
+in phase 2, **at the moment the file is written**, and your closing report repeats which
+`status`/`id` shape you chose. A file handed over without that sentence is undelivered. Weigh the
+file too, and put the weight slot's findings and fixes in the same report.
+
+**Tell them to back up before importing it.** A shape-invalid config can open **empty** in the
+builder, and the next save writes that emptiness over the real flow — no error to act on, no
+unlucky timing needed. Their untouched config is the only copy that survives it
+([merge.md](merge.md)).

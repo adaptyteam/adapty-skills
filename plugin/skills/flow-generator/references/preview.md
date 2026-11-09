@@ -638,3 +638,121 @@ absolute because the command runs from the cache directory:
 This is the flow as Adapty renders it, not the app around it. Whether it satisfies Apple's review
 is Apple's call; a simulator screenshot of the real app showing the flow is closer, when one is
 available.
+
+## The fidelity pass, when a reference image was given
+
+**A reference image raises the bar from "matches the request" to "matches the reference" — run the
+fidelity pass before anything is written, every time one was given.** "Nothing jumped out" is not a
+result. **Produce a written per-element difference list — colour, typeface, icon style, imagery,
+proportions — marking each one match, gap, or unreachable**, then close every gap the format can
+reach and turn the rest into named asks. The list is the mechanism, not the looking: measured,
+agents who only *looked* shipped emoji for designed icons and colours from memory while disclosing
+them, and agents who wrote the list fixed everything reachable.
+
+**Done means every remaining difference is on the ask list** — a user declining previews waives the
+deliverable, not this pass. What to inventory and what to do with each gap:
+[fidelity.md](fidelity.md).
+
+## Never fake an element to make the screenshot look complete
+
+**Never downgrade a correct element to a preview-visible lookalike to make the screenshot look
+complete.** When an element is preview-blind — a `spinner` that draws nothing on this screen, a
+`video`, a toggle's `selected` state, a progress bar's advance — the answer is to keep the real
+element, say the preview cannot show it, and hand it to the device check; not to swap in something
+the render *can* draw. Standing a static `icon` in for a `spinner` (or any impostor for the element
+it mimics) ships a thing that passes the screenshot and does nothing on the device — the
+[fake-footer](patterns.md#a-bar-that-stays-at-the-bottom-use-footer) mistake in a new
+place, and no local gate catches it. A blank in the render is a reason to reach for a device (the
+Adapty app), never a reason to author a fake. The loading-screen shape and the `spinner`'s two
+non-guessable facts are in [patterns.md](patterns.md).
+
+**And the rule is not only about preview-blind elements — it also forbids faking a fully
+previewable element because building it properly looks hard.** A **`carousel`** renders in the
+preview, so this is where the trap is easiest to rationalize: a static review card plus three
+decorative dot `stack`s screenshots exactly like a testimonials slider and is one — one frozen
+slide, no swipe, dead dots. The `carousel` is a real element with **built-in `dots`**, so the real
+thing is usually *less* work than the fake, and the seed flow you already fetched often contains one
+to copy. Resolve the request through the map in
+[flow-schema.md](flow-schema.md#from-what-the-user-asks-for-to-what-the-json-calls-it)
+before you reach for a lookalike — reviews, sliders, swipeable cards and dots all route to
+`carousel`, never to hand-built dots. `component-catalog.json` ships a filled `reviews-carousel`
+template and `flowkit.carousel()` builds one from scratch; `verify-config.py` **errors** on a
+hand-built indicator row and warns on the dotless form. The same trap catches the **`progress-bar`**:
+a static filled `stack` or a row of step `stack`s looks like progress and never advances — build the
+real `components` entry and wire it per screen via `props.progressBar`, never a bar that cannot move.
+
+## A screen that advances itself: ship the diagnostic
+
+**If you built a screen that advances itself, ship the diagnostic with the first ask.** The page
+never navigates, so a working auto-advance and a broken one look identical here and only the user's
+device can tell them apart — at a real cycle per attempt. Give the `timer` a child `text` carrying
+the `timer_minutes`/`timer_seconds` tokens: *digits never appear* is the element not mounting,
+*digits reach zero and nothing happens* is the trigger not firing. Without it a failed test returns
+one bit and you guess again. **The digits never leave the timer: a timer fires only when a text
+inside it shows its digits** — a logo or plain copy as its only child does not fire. To hide them
+once the user has checked, colour them like the background; never delete them. The device-verified
+shape is in [patterns.md](patterns.md).
+
+## When to take an App Store review screenshot
+
+**An App Store review screenshot of a flow screen** (asked by the user, `growth-advisor` or
+`adapty-integration` for a product push): run [`preview-with-playwright.mjs`](preview-with-playwright.mjs)
+with `--review-screenshot --screen <the screen with the purchase button>`. It writes a 1170×2532
+JPEG, an exact App Store size with no alpha channel; hand back its path
+([preview.md](preview.md#an-app-store-review-screenshot)).
+
+## Grading what you designed: the teardown pass
+
+**A render that matches the request can still be a weak screen — and a set of renders that each
+match can still be a weak flow.** Every check above asks whether you built what was asked; none
+asks whether it sells. **If you chose the design — no reference, no source screen — running the
+teardown over what you built is part of the work, not a courtesy.** Same routing as phase 2: a
+paywall goes to **`paywall-teardown`**, a sequence to **`onboarding-teardown`**, a flow that is both
+to both. Hand it the render *and* the config (one shows what is visible, the other what is there),
+then **apply** what it ranks *Fix first* or *High* and re-render. Findings on something you designed
+are defects, not suggestions — handing it over with a list of the patterns you skipped is
+unfinished — and this is the cheapest moment, a screenshot instead of a `config update`.
+Skip it only on a literal edit: a typo fix, a locale add.
+
+**A sequence is graded on the sequence, so give it every screen.** Render each one and pass the set
+— `references/montage.py` joins them into a strip, which is what makes "screen 4 promises what
+screen 5 doesn't deliver" visible at all. One screen out of six cannot show a seam.
+
+## The flow map: when to open it
+
+| When | Do |
+| :--- | :--- |
+| You built or rewired a flow of 10+ screens, or added or changed a branch | Open the map, one line: what it shows and what to check |
+| The user asks how screens connect, where a button leads, or what a branch does | Open the map, answer in one line |
+| No browser on this machine (a remote or headless session) | Paste `canvas.py draft.json --text` into the reply in a code block |
+
+It reads the config only, so it runs before any write and on a fetched flow you did not change.
+Render the screens with `shoot.sh` first and they show as thumbnails; without renders they draw as
+cards listing their buttons. **Read its flags before you hand it over** — *nothing leads here* and
+*no way out* are wiring defects to fix or name, not decoration.
+
+## Offering the device-preview QR
+
+**Offer the QR in slot 2; do not paste the preview link.** Make the QR only when the user says
+yes. [`mobile-preview.mjs`](mobile-preview.mjs) builds it from the app id, the flow id
+and the config's locales, with no network call and no auth:
+
+```bash
+(mkdir -p ~/.cache/adapty-flow-qr && cd ~/.cache/adapty-flow-qr && node <abs-path>/references/mobile-preview.mjs \
+  --app <APP_UUID> --flow <FLOW_ID> --config <abs-path>/flow.working.json --qr --md-base <your working directory>)
+```
+
+**Run it after the write, never before.** The app fetches the *saved* draft, so a QR built over an
+unsaved file previews the previous version and reads as "your edit did nothing". One QR survives
+later writes, so make it once rather than per change. It writes a throwaway PNG into the working
+tree and opens it; paste the `![...](...)` line it prints into your answer. Never commit the image.
+
+| What they said | What you do |
+| :--- | :--- |
+| yes to the QR, or asked to scan or test on a device | `--qr`, and keep doing it for the session |
+| asked for the link | give the link the script prints, bare on its own line, never in backticks |
+| declined | drop the line, and **do not offer again** |
+| nothing yet | the one-line offer in slot 2 |
+
+Why the QR and the link work this way, the `--md-base` rule, and why there is no character-art QR:
+[preview.md](preview.md#the-mobile-app-link-and-why-it-is-not-the-render-url).

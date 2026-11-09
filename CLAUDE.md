@@ -147,6 +147,21 @@ template, not the rule. A condition the agent cannot observe is not followed; ma
 - **Commit with explicit paths during test rounds,** never `git add -A`.
 - **An agent's report is not an artifact:** score the files it wrote.
 
+### Keeping skills short
+
+- **`SKILL.md` holds what every run needs:** routing, the rules any request hits, the output
+  shapes. A part only some requests reach lives in the reference opened at that moment, linked by
+  exact heading.
+- **A rule enforced in code is one line of prose** ("`verify-config.py` refuses X"); the why lives
+  in the error message, which agents read only when it fires.
+- **One owner per fact; link, never restate.**
+- **A fix replaces a sentence before it adds one.**
+- **Remove what loses its premise:** a rule the source disproves, a workaround for a bug fixed
+  upstream, wording a null round showed inert. Remove its check and tests with it; never patch it
+  with a compensating line.
+- **Shipped files carry instructions, not history:** no "reported", "measured on" or retold
+  incidents; evidence goes in the maintainer notes.
+
 ## Per-skill rules
 
 Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
@@ -215,7 +230,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 - **Never renumber a trap** in `flow-schema.md`; a new one takes the next number after the router's last row, with its router row in the same change.
 - **`SKILL.md` links into its references by exact heading;** grep the links before renaming one.
-- **One owner per fact; link, never restate.** Don't split `flow-schema.md` or `patterns.md` (tried and reverted). Keep `patterns.md`'s skeleton order, `footer` first.
+- **Don't split `flow-schema.md` or `patterns.md`** (tried and reverted). Keep `patterns.md`'s skeleton order, `footer` first.
 - **When guidance prescribes a shape, make `flowkit.py` emit and guard it;** agents build what the helper exposes. Keep design opinions out of `flowkit.py`.
 - **`component-catalog.json` templates carry no sample prices, trials, bound ids or baked selected looks;** keep `tests/test-catalog-premades.py` green.
 - **Calibrate every checker change:** silent on every real export in `tests/fixtures*`, firing on injected defects, each mechanism negative-tested. Never edit a fixture to quiet a check.

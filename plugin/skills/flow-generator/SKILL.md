@@ -77,45 +77,7 @@ callout after one, both in phase 5; the **missing-assets block**, printed in pha
 build has assets nobody has a file for; and the **placement ask** in phase 6, before an
 irreversible developer ID is spent. Fill their slots and do not pad them.
 
-The missing-assets block goes out in phase 2, batched with the product questions, because a path
-they hand over turns a placeholder into a finished screen. **A drawing of yours that is already
-uploaded is not missing:** it goes only in the drawings line, never as a row of the table, and
-when nothing but drawings and fonts is left, drop the header, the table and the routes and print
-only those lines. **The upload routes are not symmetric** — offering both on every row recommends
-a path that ends in a refusal:
-
-> **`<n>` assets missing — the screen ships with placeholders until these land.**
->
-> | | what | where it goes | size |
-> |---|---|---|---|
-> | 1 | `<what it is, in their words>` | `<where on the screen>` | `<w>`×`<h>` |
->
-> Tell me which, per asset or for all of them:
-> - Send me a path — I'll upload and bind it. Images only.
-> - Upload it yourself at https://app.adapty.io/flows/`<FLOW_ID>`/builder — the placeholder is
->   already styled, so it lands finished.
-> - Design around it — I'll replace that region with something the format can build, and say
->   what I chose. Right when the reference is someone else's screen and that asset was never going
->   to be yours.
->
-> Until you answer, they ship as placeholders.
->
-> `<only if you drew stand-ins:>` `<n>` are **drawings of mine**, already uploaded so the screens
-> look finished — `<which>`. They are stand-ins, not your art: replace each one the same way, by
-> path or in the builder.
->
-> `<only if a clip is missing:>` `<what>` is a **video**, and there is no upload path for a clip —
-> not one I can take either, so this one is yours whichever route you pick. The element is on the
-> screen already, sized `<w>`×`<h>` to match the design: open
-> https://app.adapty.io/flows/`<FLOW_ID>`/builder, click it and upload the file. Nothing else
-> about the screen changes.
->
-> `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
-> using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
-> https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, set the iOS and
-> Android font name on every face (the flow will not publish without the iOS one), save the flow in
-> the builder, then tell me the family name and I'll point the theme at it. The uploaded file is for
-> the editor preview only: **your app must bundle the font file too**, as that page shows.
+The missing-assets block, when it goes out and its slots: [build.md → The missing-assets block](references/build.md#the-missing-assets-block).
 
 **Name what the builder cannot do yet, beside it**: for each behaviour or effect in the design the
 flow does not perform (creating an account, a permission prompt, a blur), say what the screen really
@@ -204,14 +166,17 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [flow-schema.md](references/flow-schema.md) | **Before any edit.** The envelope, `## Invariants`, `## Shape traps`, and `## Vocabulary` — the map from what a user asks for to what the JSON calls it |
 | [validate.md](references/validate.md) | `validate` says no, or you want to know what a green run does *not* prove |
 | the `adapty-docs` skill | You need an Adapty docs page nothing here links — a dashboard behaviour, a CLI or API detail. It routes to the right docs index instead of guessing a URL |
-| [preview.md](references/preview.md) | A render surprises you: what it cannot show, what it costs, the four disagreeing surfaces, and what to do when it fails |
+| [preview.md](references/preview.md) | A render surprises you: what it cannot show, what it costs, the four disagreeing surfaces, and what to do when it fails. Also the fidelity and teardown passes, the flow map and the device-preview QR |
+| [build.md](references/build.md) | **Phase 2** for a new flow or a screen you design: creating it, the design modes, the teardown, products, custom tags, assets, the missing-assets block |
+| [publish.md](references/publish.md) | Before a publish, and before the callout of a flow a placement shows: reach, Terms and Privacy, the weigh, `flows publish` itself |
+| [custom-tags-code.md](references/custom-tags-code.md) | The user said yes to passing the flow's custom tags from their app's code |
 | [fidelity.md](references/fidelity.md) | A reference image was given — the per-element inventory, the gap-closing ladder, and what becomes a user ask |
 | [media.md](references/media.md) | The screen has an image: the upload's limits, element-versus-`fill` shapes, geometry, and when to rasterize |
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
 | [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, an element that appears after a delay, plan cards |
-| [placements.md](references/placements.md) | **Phase 6** — every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
+| [placements.md](references/placements.md) | **Phase 6** — the procedure and the placement ask, every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
 | the **`paywall-teardown`** skill | **Phase 2** when *you* choose the design of a **screen that sells**, **phase 4** to grade what you built. It owns whether the screen sells; this skill owns the JSON |
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
 | the **`ab-tests`** skill | **Phase 6**, when the user wants this flow tested against another flow. It owns the test from the draft to the stop; this skill hands it the published flow ids |
@@ -362,47 +327,7 @@ file is the asset's record, and a second upload is a second asset rather than a 
 value. Call shape, the three values to capture, the two config shapes they bind into, how to get
 a preview back when you no longer have one, and the geometry: [media.md](references/media.md).
 
-**`flows publish --app <APP_UUID> <FLOW_ID>` is not in every build.** Per the rule above, decide
-that by running `flows publish --help`, not from a version number — the command has left stable
-once already, so a numeric floor is not a reliable test. Its own flags are `--app` plus `--yes`/`-y`, and the CLI's global `--json` on top of
-them. Five measured facts shape how you call it: publication is **asynchronous**, so the response reads
-`status: publishing` and never `published` — report it that way rather than claiming the flow is
-live; the confirmation prompt goes to **stderr**, so `--json` stdout stays parseable; `--json` or a
-non-TTY **without** `--yes` refuses with **exit 2** (`Re-run with --yes`) instead of hanging, so a
-headless run passes `--yes` only once the user has said yes in the conversation; a declined prompt
-exits **1** (`Cancelled, nothing was sent.`); and a flow with no config exits **1**
-with `Flow has no current version.`
-
-**A successful publish tells you what to run next, and you run it.** In human mode it prints three
-lines: that publication is asynchronous and the flow is *not* published yet, the `flows get` poll to
-run until the status reads `published` or `publication_failed`, and the `flows config get` that
-shows why if it fails. They are **suppressed under `--json`**, which leaves you holding
-`status: publishing` and nothing else — poll anyway. **On `publication_failed`, `flows config get`
-is the answer to *why*:** its envelope carries `publication_status`, `transform_error` and
-`publication_error` alongside the config, and `transform_error` is the transform service's own
-objection. It is a raw string — a JSON issues payload or a summary — with no CLI helper to parse it,
-so read it and quote it rather than re-deriving a cause. Where the API does not send those fields
-they are simply absent; that is not an error, and it does not mean the publish succeeded.
-**`Flow transformation failed. Please contact support.` with a null `transform_error`** carries no
-issue list, so nothing in it names the cause. One cause seen is a wrong
-`_meta.screens[].products[].flowProductId` (an Adapty, vendor or store id where the derived one
-belongs): recompute each with `flowkit.flow_product_id`
-([products.md](references/products.md#a-price-variable-requires-a-product-element-on-the-screen--even-with-no-plan-card))
-before you call it a support case.
-
-**Only `publication_failed` is a failure.** While `flows get` reads `publishing`, an HTTP 503 or
-"busy" in `transform_error` is the transform service under load, and the publication goes on:
-keep polling, and never publish again over it. If `flows publish` itself answers 503, run
-`flows get`: `publishing` means it was taken; the status from before means it was not, so run it
-once more.
-
-**Two things gate this, and neither of them is the account.** One is the **CLI version**, above. The
-other is the **API deployment**: `flows publish` has been observed answering `http_404` and
-`flows update --name` answering `Method "PUT" not allowed`. Neither error means you wrote the
-command wrong and neither is fixable by switching accounts — they are per deployment, every account
-on it alike — so say that and hand the user the editor's publish button or the builder's rename
-field. **Run the call before you believe it, though.** Both routes are unverified rather than known
-absent, so treat a 404 as something you observed, never as something you expected.
+**`flows publish`:** whether this build has it, its asynchronous status and the poll, which failure is real, and the deployment gate: [publish.md → Running `flows publish`](references/publish.md#running-flows-publish).
 
 **There is still no `flows delete`.** Deleting is a dashboard action, so never claim to have
 deleted a flow. Never write a command name the CLI does not have, and never invent a flag —
@@ -558,17 +483,7 @@ the `ADDS`/`CHANGES` as the human's edits, and move it out of the way:
 python3 references/diff-config.py <the-old-local-copy>.json flow.working.json
 ```
 
-**New flow** — `flows create`, then seed its config from one the user already has
-(`flows list` → `config get`) so theme, fonts, locales and products are real — in **Rebuild** mode
-(below) the reference's style then replaces the seed's theme. Its first
-`config update` omits `--expected-updated-at`. **A new flow is the safe default for anything the
-user calls new**, because `config update` replaces everything and generating over a flow with
-content discards that content. **Run `flows create` once per new flow**, as one explicit command with
-its `--app`, never in a loop: it does not deduplicate and there is no delete, so a second call leaves
-a second flow in the user's account for good. Then `flows get` the id to confirm it landed in that
-app. Keep
-the id it prints, and on any retry (a failed save, a read-back that looks wrong, a later turn)
-write to that id. Coming back without it, look for the name in `flows list` before creating.
+**New flow** — `flows create` once, seeded from a config the user already has; the steps and the id every retry writes to: [build.md → Creating the flow](references/build.md#creating-the-flow).
 
 Then, before editing: **report what the source config contains** — screens and captions,
 locales, products, the navigation graph. Before proposing anything; it grounds the user and
@@ -592,151 +507,9 @@ bad one compiles into the runtime script as a black screen, and it buys nothing 
 customer's analytics sees is `props.customId`
 ([flow-schema.md trap 7b](references/flow-schema.md#7b-the-id-analytics-sees-is-customid-and-leaving-it-blank-is-silent)).
 
-**Were you given a design, and whose is it?** Answer it out loud: it decides where each part of
-the screen comes from.
+**Were you given a design, or are you choosing it?** Decide the mode, and the teardown that is the reference when you choose: [build.md → Were you given a design](references/build.md#were-you-given-a-design-and-whose-is-it).
 
-| What you were given | Mode | Structure from | Style and copy from |
-| :--- | :--- | :--- | :--- |
-| Their own design: their Figma, a screenshot of their own app, or an explicit "rebuild / match / copy this exactly" | **Rebuild** | the reference | the reference |
-| Someone else's design with the mode said: "in my style", "inspired by", "adapt this for my app" | **Adapt** | the reference | **the app** |
-| No design | **You choose** | a teardown skill (below) | the app |
-
-**When the request names neither mode — "build the same onboarding", "something like this" — ask
-before you build**, one question, and wait:
-
-> Do you want an exact copy of this, or the same structure in your app's own style and words?
-
-A wrong guess costs a whole build and a flow that cannot be deleted; the question costs one turn.
-**Only when nobody can answer** (an unattended run, or the user said not to wait) take **Adapt**
-and say so in one line.
-
-**In Adapt, the reference gives the shape and the app gives everything else.** Take the sequence,
-the sections, the component patterns and the hierarchy from the reference. Take the palette, type
-scale and weights, corner radii, button and card treatment, icon style and spacing rhythm from the
-app, and **write the copy for the app**: its name, its products, its voice. Never ship another
-brand's name, its claims, its offers or its social proof.
-
-**Take the app's style from its code** when the session is in its repo (theme, colour assets,
-button and card components, strings), **else from its own flows** — the ones its placements show
-first. With neither, ask once; with no answer, use the reference's style and say so.
-
-**In every mode, keep Adapty's fluid layout discipline** (`width: fill`, `height: hug`,
-`position: relative`): never hardcode fixed dimensions or offsets to match a screenshot's pixels,
-because fixed geometry breaks across devices (team-diagnosed). In **Rebuild**, compare against the
-reference file rather than your memory of it (phase 4). **No design means you are choosing it** —
-"build me a paywall", "build me an onboarding", "make one that converts" — and the request map only
-turns nouns into element types; it says nothing about what sells. Before choosing, ask once
-whether they have a reference screenshot or an app whose look to follow, in the same message as
-your other phase-2 asks, never as a round of its own; on a no, no answer or an unattended run, the
-teardown below is the reference.
-
-**When you are the one choosing, a teardown skill is the reference, and which one is decided by
-what you are building — not by which you reached for last time.**
-
-| What you are building | The reference | What it returns |
-| :--- | :--- | :--- |
-| One screen that sells — a paywall | **`paywall-teardown`** | An **archetype** (the screen's composition) plus the patterns this vertical needs |
-| A sequence — onboarding, welcome, quiz, activation | **`onboarding-teardown`** | A **skeleton** (the sequence's shape) plus the patterns, placed per screen |
-| Both — an onboarding that ends on a paywall | **Both.** `onboarding-teardown` owns the sequence and the seam; `paywall-teardown` owns the paywall screen itself | Run the sequence one first: it decides what the paywall must reflect |
-
-Invoke it before you write anything. Both name the values they refuse to invent — a rating, a
-review count, an outcome stat, a discount, a hero asset, and for a sequence the thing the app must
-really deliver behind a personalized promise. **Put those asks to the user before you write the
-config**, and leave the element out rather than filling it with a plausible number: a missing
-element is recoverable, a fabricated rating is a lie in front of real buyers. Build the shape it
-names and **do not substitute one you built last time** — that is how two unrelated verticals got
-the same screen. It also grades the result in phase 4, where a correction is still free. And when
-the user wants to know how *good* a flow is rather than to change it, that answer is a teardown,
-not a transform.
-
-**In a build there is nobody to interview.** `onboarding-teardown`'s six questions are its
-front door when a user brings a flow to it; invoked from here they are answered from the brief,
-the config and the catalog, and whatever is left becomes one batched ask alongside the others
-above. Do not start a six-turn questionnaire in the middle of a build.
-
-**Products are the user's to pick — catalog first, store ids second, create last.** For any
-screen that sells, resolve the products **before the design**, in this order, and never skip a
-step silently:
-
-1. `$ADAPTY products list` and show what exists — title, period, store bindings — and ask which
-   of these belong on the screen. Most accounts already have the right products. An offer on a
-   card (a trial, an intro or promo price) is bound by its `id` from `product-offers list`, and an
-   App Store trial by no offer at all
-   ([products.md → Where offer ids come from](references/products.md#where-offer-ids-come-from)).
-2. Only if nothing fits: ask for their **store product ids** (App Store product id; Google
-   product id **plus base plan id** for subscriptions) — this skill creates a product only with
-   them, since one with no binding sells nothing until a push creates it in the store
-   (`adapty-integration`, path C), so asking later just stalls the create.
-3. Only then `products create`, behind its own confirmation gate
-   ([products.md → Creating a product](references/products.md)).
-
-Before the design, because the catalog *gates* it: a trial timeline needs a verified offer, a
-period switcher needs plans differing only by period, a price variable needs a matching period.
-And picking for them is not a shortcut — it decides what they sell, and it is the one choice on
-the screen a screenshot cannot show.
-
-**Something only the app knows is a custom tag, and it costs app code.** The user's name, a
-coin balance, a streak, a level, days left, the plan they are on — anything the flow cannot work
-out by itself. Users ask for what it shows, never for "a custom tag". **First check the flow does
-not already ask for it**: a value the user typed or picked on an earlier screen is an input's
-`<customId>.value` or a group's `selectedOptionId`, and showing that needs no app code at all.
-Otherwise declare it with `flowkit.app_value()`, show it with `Var`, and settle two things here,
-batched with the product questions: the **name** the app's code will pass (theirs, if they
-already have one) and the **fallback** — what every user sees until the app supplies the value.
-With nobody to ask, choose both and say so. Text only — branching on one is not buildable
-([flow-schema.md → trap 25](references/flow-schema.md#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
-
-**Assets are resolved here too — upload the file, then build with its URL.** The upload reads a
-**path**, so **an image you can only see is not an image you have**: one the user pasted or
-attached arrives as pixels in your context with no file behind it, and you cannot write the bytes
-you were shown.
-
-For every asset the screen needs, one of three states, decided before you write the element:
-
-1. **You have a path that reads** — one they gave you, or a project file you found and *named*.
-   A PNG or JPEG over 500 KB is converted first, and you upload the WebP and say so:
-   `python3 references/weigh-config.py webp <file> media/<name>.webp`. A GIF does not upload and an
-   animated WebP plays one frame, so motion is a `video` element
-   ([media.md → The video placeholder](references/media.md#the-video-placeholder)).
-   Upload it now and take **three** values off that one call, `--json` into a file that outlives
-   the command so the preview blob stays out of your context:
-   ```bash
-   mkdir -p media
-   $ADAPTY flows media upload --app "$APP" ./hero.png --json > media/hero.json
-   MEDIA_URL=$(jq -r .url media/hero.json); MEDIA_ID=$(jq -r .id media/hero.json)
-   MEDIA_PREVIEW=$(jq -r '.preview_base64 // empty' media/hero.json)
-   ```
-   Bind all three on an `image` element or flat inside a `fill` — two different shapes, and the
-   `id` is a **string** even though the command prints a number. **`previewValue` is not
-   optional in practice**: without it the renderer draws a transparent 1×1 until the asset
-   downloads, so the screen ships with a hole in it. **An asset you uploaded earlier is rebound
-   from its record file, or lifted out of a config that already binds it — never re-uploaded, and
-   never bound as a bare URL you remembered.** Anything that hands you a URL and no preview is
-   silent about the value, not evidence the field is optional
-   ([media.md](references/media.md)).
-2. **You can see the image but have no path** (pasted, attached), or they named one they have not
-   sent — **ask for a path**, once, batched with your other asks. Never guess one: a guess that
-   misses fails loudly, and a guess that *hits* ships the wrong picture in a screen that renders
-   perfectly. A URL they pointed at is fetchable, but say what you are downloading first.
-3. **Nobody has a file** — a **styled empty `image`** where the graphic occupies a box:
-   `borderRadius`, `objectFit`, and a **fixed size taken from the reference**, on the element
-   itself, so the upload lands styled and the layout is checked at the size the asset will fill.
-   Where it has no box of its own — a texture, a glow — leave it out rather than approximating it.
-   Either way it goes on the missing-assets list, never into a paragraph. **Never a made-up URL**
-   (trap 5). If the reference itself contains the graphic on a *flat* backdrop, you may be able to
-   cut it out instead — [`references/crop.py`](references/crop.py), which refuses rather than
-   guessing when the backdrop is textured or the box is wrong.
-
-**A clip is in none of those three states**: the upload refuses a video, so emit a sourceless
-`video` element — `flowkit.video(fixed_h=…)` or the catalog's `video-hero` / `video-card` — and
-say in words that they upload it in the builder
-([media.md](references/media.md#the-video-placeholder)).
-
-**Upload before the preview loop, not after it, and upload each asset once.** A placeholder does
-not occupy the space the real asset will, so a screen previewed with placeholders is a screen whose
-layout was never checked — and the upload does not deduplicate, so re-running it per iteration
-litters the user's media library permanently
-([media.md](references/media.md#geometry-what-changes-when-the-asset-lands)).
+**A screen that sells resolves its products before the design; a value only the app knows is a custom tag; every image or clip is resolved before you write its element.** Read [build.md → Products](references/build.md#products-catalog-first-store-ids-second-create-last), [Custom tags](references/build.md#something-only-the-app-knows-a-custom-tag) and [Assets](references/build.md#assets-upload-the-file-then-build-with-its-url) at that moment.
 
 **Before you author a construct you have not seen in a real document, count it.** The schema says
 what is *permitted*; a real export says what is *produced*; only the second predicts the device. One
@@ -901,17 +674,7 @@ button. Render a throwaway copy with a plausible price in place of each token, f
 against that, and hand that render over, saying the prices in it are samples; the config keeps
 the variables ([preview.md](references/preview.md#what-a-render-cannot-show-you)).
 
-**A reference image raises the bar from "matches the request" to "matches the reference" — run the
-fidelity pass before anything is written, every time one was given.** "Nothing jumped out" is not a
-result. **Produce a written per-element difference list — colour, typeface, icon style, imagery,
-proportions — marking each one match, gap, or unreachable**, then close every gap the format can
-reach and turn the rest into named asks. The list is the mechanism, not the looking: measured,
-agents who only *looked* shipped emoji for designed icons and colours from memory while disclosing
-them, and agents who wrote the list fixed everything reachable.
-
-**Done means every remaining difference is on the ask list** — a user declining previews waives the
-deliverable, not this pass. What to inventory and what to do with each gap:
-[fidelity.md](references/fidelity.md).
+**A reference image was given?** Run the fidelity pass before anything is written: [preview.md → The fidelity pass](references/preview.md#the-fidelity-pass-when-a-reference-image-was-given).
 
 **Read [preview.md → What a render cannot show you](references/preview.md#what-a-render-cannot-show-you)
 before you report what a screenshot proves** — every blindness on it measured, and two of them run
@@ -920,41 +683,9 @@ and no home indicator, so author `safeArea: true` and hand short-device clipping
 check; and even then it measures an `absolute` element's `top` from the screen's top edge, not
 from below the status bar ([patterns.md](references/patterns.md#under-safearea-true-check-where-an-absolute-element-lands)).
 
-**Never downgrade a correct element to a preview-visible lookalike to make the screenshot look
-complete.** When an element is preview-blind — a `spinner` that draws nothing on this screen, a
-`video`, a toggle's `selected` state, a progress bar's advance — the answer is to keep the real
-element, say the preview cannot show it, and hand it to the device check; not to swap in something
-the render *can* draw. Standing a static `icon` in for a `spinner` (or any impostor for the element
-it mimics) ships a thing that passes the screenshot and does nothing on the device — the
-[fake-footer](references/patterns.md#a-bar-that-stays-at-the-bottom-use-footer) mistake in a new
-place, and no local gate catches it. A blank in the render is a reason to reach for a device (the
-Adapty app), never a reason to author a fake. The loading-screen shape and the `spinner`'s two
-non-guessable facts are in [patterns.md](references/patterns.md).
+**Never stand a lookalike in for a real element** — not for one the preview cannot draw, not for one that looks hard to build: [preview.md → Never fake an element](references/preview.md#never-fake-an-element-to-make-the-screenshot-look-complete).
 
-**And the rule is not only about preview-blind elements — it also forbids faking a fully
-previewable element because building it properly looks hard.** A **`carousel`** renders in the
-preview, so this is where the trap is easiest to rationalize: a static review card plus three
-decorative dot `stack`s screenshots exactly like a testimonials slider and is one — one frozen
-slide, no swipe, dead dots. The `carousel` is a real element with **built-in `dots`**, so the real
-thing is usually *less* work than the fake, and the seed flow you already fetched often contains one
-to copy. Resolve the request through the map in
-[flow-schema.md](references/flow-schema.md#from-what-the-user-asks-for-to-what-the-json-calls-it)
-before you reach for a lookalike — reviews, sliders, swipeable cards and dots all route to
-`carousel`, never to hand-built dots. `component-catalog.json` ships a filled `reviews-carousel`
-template and `flowkit.carousel()` builds one from scratch; `verify-config.py` **errors** on a
-hand-built indicator row and warns on the dotless form. The same trap catches the **`progress-bar`**:
-a static filled `stack` or a row of step `stack`s looks like progress and never advances — build the
-real `components` entry and wire it per screen via `props.progressBar`, never a bar that cannot move.
-
-**If you built a screen that advances itself, ship the diagnostic with the first ask.** The page
-never navigates, so a working auto-advance and a broken one look identical here and only the user's
-device can tell them apart — at a real cycle per attempt. Give the `timer` a child `text` carrying
-the `timer_minutes`/`timer_seconds` tokens: *digits never appear* is the element not mounting,
-*digits reach zero and nothing happens* is the trigger not firing. Without it a failed test returns
-one bit and you guess again. **The digits never leave the timer: a timer fires only when a text
-inside it shows its digits** — a logo or plain copy as its only child does not fire. To hide them
-once the user has checked, colour them like the background; never delete them. The device-verified
-shape is in [patterns.md](references/patterns.md).
+**Built a screen that advances itself?** Ship the timer-digits diagnostic with the first ask: [preview.md → A screen that advances itself](references/preview.md#a-screen-that-advances-itself-ship-the-diagnostic).
 
 **Confirm you screenshotted the flow at all.** A bad `--device`, a broken fragment and a wrong host
 all render as *pages* that pass a "did anything draw" check. `shoot.sh` uses the page's file
@@ -963,30 +694,13 @@ it fell back to the URL route and the render is blank, slow or wrong, run the in
 prints — do not shrink the config. If you cannot render at all, say
 so and ask the user to look; never report the work finished on a clean validate.
 
-**An App Store review screenshot of a flow screen** (asked by the user, `growth-advisor` or
-`adapty-integration` for a product push): run [`preview-with-playwright.mjs`](references/preview-with-playwright.mjs)
-with `--review-screenshot --screen <the screen with the purchase button>`. It writes a 1170×2532
-JPEG, an exact App Store size with no alpha channel; hand back its path
-([preview.md](references/preview.md#an-app-store-review-screenshot)).
+**Asked for an App Store review screenshot of a flow screen:** [preview.md → When to take an App Store review screenshot](references/preview.md#when-to-take-an-app-store-review-screenshot).
 
 **A missing element may not be your bug, and a clean preview is not the builder opening the flow.**
 Both, with the four surfaces and what each one proves:
 [preview.md](references/preview.md).
 
-**A render that matches the request can still be a weak screen — and a set of renders that each
-match can still be a weak flow.** Every check above asks whether you built what was asked; none
-asks whether it sells. **If you chose the design — no reference, no source screen — running the
-teardown over what you built is part of the work, not a courtesy.** Same routing as phase 2: a
-paywall goes to **`paywall-teardown`**, a sequence to **`onboarding-teardown`**, a flow that is both
-to both. Hand it the render *and* the config (one shows what is visible, the other what is there),
-then **apply** what it ranks *Fix first* or *High* and re-render. Findings on something you designed
-are defects, not suggestions — handing it over with a list of the patterns you skipped is
-unfinished — and this is the cheapest moment, a screenshot instead of a `config update`.
-Skip it only on a literal edit: a typo fix, a locale add.
-
-**A sequence is graded on the sequence, so give it every screen.** Render each one and pass the set
-— `references/montage.py` joins them into a strip, which is what makes "screen 4 promises what
-screen 5 doesn't deliver" visible at all. One screen out of six cannot show a seam.
+**If you chose the design, grade what you built with the teardown before you hand it over**, every screen of a sequence at once: [preview.md → Grading what you designed](references/preview.md#grading-what-you-designed-the-teardown-pass).
 
 **Show how the screens connect when the strip cannot.** A strip is in `screens[]` order, so it
 hides every branch, skip and loop. Draw the map and open it in the user's browser:
@@ -995,16 +709,7 @@ hides every branch, skip and loop. Draw the map and open it in the user's browse
 python3 references/canvas.py draft.json --open     # canvas.html beside the config, renders as thumbnails
 ```
 
-| When | Do |
-| :--- | :--- |
-| You built or rewired a flow of 10+ screens, or added or changed a branch | Open the map, one line: what it shows and what to check |
-| The user asks how screens connect, where a button leads, or what a branch does | Open the map, answer in one line |
-| No browser on this machine (a remote or headless session) | Paste `canvas.py draft.json --text` into the reply in a code block |
-
-It reads the config only, so it runs before any write and on a fetched flow you did not change.
-Render the screens with `shoot.sh` first and they show as thumbnails; without renders they draw as
-cards listing their buttons. **Read its flags before you hand it over** — *nothing leads here* and
-*no way out* are wiring defects to fix or name, not decoration.
+When to open it and what to check on it: [preview.md → The flow map](references/preview.md#the-flow-map-when-to-open-it).
 
 **Iterate here.** Anything off, go back and fix it, then re-run phases 3 and 4. Nothing has
 been saved yet, so an iteration costs a screenshot rather than a write.
@@ -1045,31 +750,7 @@ silently is not ([merge.md](references/merge.md)).
 python3 references/weigh-config.py draft.json      # exit 1 = something heavy to tell them
 ```
 
-It weighs the config itself (mostly image previews, one per image per locale that has its own
-value) and asks the asset host for each file's size and pixel size; nothing is downloaded whole.
-**Exit 1 fills the weight slot of the ask below** with the three sentences it prints under "Say
-this"; its details are for the user's questions and for the fixes. Exit 0 drops the slot. Files it
-lists as not measured get one more sentence: their size was not checked. The weight never blocks a save: it is the user's call. On their yes to a fix, apply it
-to the draft, run phase 3's gates and the weigh again, and re-render a screen whose image changed:
-
-- **A copy of the default's image in another locale:** delete it. Nothing on screen changes
-  ([flow-schema.md](references/flow-schema.md) trap 1).
-- **A heavy PNG or JPEG** (a heavy GIF is the builder's: its WebP would play one frame, so offer
-  a `video` instead): download it, convert it, upload the WebP and rebind every place
-  that uses it. `--max-width` is 3× the widest box it fills, in points; the default, 1290, fits a
-  full-width image. The old file stays in their media library: the upload cannot delete.
-  ```bash
-  mkdir -p media && curl -sSfo media/hero-src.png "<url the weigh printed>"
-  python3 references/weigh-config.py webp media/hero-src.png media/hero.webp [--max-width <px>]
-  $ADAPTY flows media upload --app "$APP" media/hero.webp --json > media/hero.json
-  python3 references/weigh-config.py swap draft.json "<url the weigh printed>" media/hero.json
-  ```
-- **An image with its own file in many languages:** offered in the slot like the others, as one
-  choice between two routes. On "one image": move the words into a text element and show that
-  screen like any other change. On "split": build one flow per language group here and hand the
-  audiences to the `audiences` skill.
-- **A heavy video:** theirs to re-encode and upload again in the builder; say the size it should
-  get under.
+Exit 1 fills the weight slot of the ask below; exit 0 drops it. What it weighs, what the slot says and each fix on their yes: [media.md → Weighing a config](references/media.md#weighing-a-config-before-a-write-or-a-publish).
 
 **Then show them the change — an approval on a description is not an approval on the screen.**
 Split it in two, because the two halves need different things from the reader.
@@ -1210,15 +891,7 @@ in a script and patch in is built after `fk.ids_after(fetched)`, so its ids miss
 
 #### The file deliverable
 
-When the user asked for a file rather than a write, there is no approval gate — the contract lives
-in phase 2, **at the moment the file is written**, and your closing report repeats which
-`status`/`id` shape you chose. A file handed over without that sentence is undelivered. Weigh the
-file too, and put the weight slot's findings and fixes in the same report.
-
-**Tell them to back up before importing it.** A shape-invalid config can open **empty** in the
-builder, and the next save writes that emptiness over the real flow — no error to act on, no
-unlucky timing needed. Their untouched config is the only copy that survives it
-([merge.md](references/merge.md)).
+When the user asked for a file rather than a write: no approval gate, and what the closing report and the import must carry: [transforms.md → The file deliverable](references/transforms.md#the-file-deliverable).
 
 **Never end with the work in a local file.** `config update` is the only save this surface has, and
 saving is where you stop by default. Publishing is a separate, explicitly confirmed step the user
@@ -1229,20 +902,7 @@ answer from the CLI), keep the validated `draft.json` and `flow.working.json` wh
 see them, give the exact `config update` command above with absolute paths for them to run, and
 stop. Do not retry the write another way.
 
-**Before a publish of a flow a placement shows, read who it reaches**: in this callout, and when
-the user saved in the builder and asks what is next. The seven-day read of phase 6:
-
-```bash
-$ADAPTY flows metrics get "$FLOW" --app "$APP" --based-on placement \
-  --date-from <seven days ago> --date-to <today> --date-type purchase_date --json
-```
-
-`unique_profiles_views` on each placement's node is how many people started the flow there; that
-number goes in step 3. When the edit changes what buyers see (copy, plans, layout), the same line
-offers an A/B test of a copy once, through **`ab-tests`**; publishing in place stays the default.
-No placement shows the flow: leave the line out. When `flows metrics --help` says the command does
-not exist, try `npx --yes adapty@beta flows metrics --help` once (use that form for the read if it
-works); if it lacks it too, the line says the reach was not checked.
+**When a placement shows this flow, read who it reaches before the callout:** [publish.md → Before a publish](references/publish.md#before-a-publish-read-who-the-flow-reaches).
 
 **Then end with this callout, every time.** A save is not a release, and it takes their word to
 finish it. Fill the slots and keep all three steps plus the closing line — that line is the
@@ -1250,15 +910,7 @@ point. **If the user asked you to publish and you did,** the heading becomes "Pu
 on `<placement>`" (or "Published — not on a placement yet"), step 3 and the closing line go, and
 the rest stays.
 
-**Never publish with Terms or Privacy as inert text.** That is the right draft default
-([transforms.md](references/transforms.md) decision 10), but on a published paywall `flow-audit`
-calls it a blocker and both stores reject it. Before a publish you were asked to make, get the
-two URLs; without them, save, don't publish, and say why.
-
-**Weigh before a publish too,** on `flow.working.json`. A finding the user has not heard yet (the
-flow was saved in the builder, or by another run) goes to them before the publish, with the fixes:
-once it is published, every user downloads it. Findings they already answered at this save do not
-come back.
+**Asked to publish?** Read [publish.md](references/publish.md) first: the Terms and Privacy URLs, the weigh, the call and its poll.
 
 > **Saved as a draft — your users can't see this yet.**
 >
@@ -1288,29 +940,7 @@ come back.
 > `draft` — Nothing is live yet: nobody sees this flow until it is published and attached to a
 > placement.
 
-**Offer the QR in slot 2; do not paste the preview link.** Make the QR only when the user says
-yes. [`mobile-preview.mjs`](references/mobile-preview.mjs) builds it from the app id, the flow id
-and the config's locales, with no network call and no auth:
-
-```bash
-(mkdir -p ~/.cache/adapty-flow-qr && cd ~/.cache/adapty-flow-qr && node <abs-path>/references/mobile-preview.mjs \
-  --app <APP_UUID> --flow <FLOW_ID> --config <abs-path>/flow.working.json --qr --md-base <your working directory>)
-```
-
-**Run it after the write, never before.** The app fetches the *saved* draft, so a QR built over an
-unsaved file previews the previous version and reads as "your edit did nothing". One QR survives
-later writes, so make it once rather than per change. It writes a throwaway PNG into the working
-tree and opens it; paste the `![...](...)` line it prints into your answer. Never commit the image.
-
-| What they said | What you do |
-| :--- | :--- |
-| yes to the QR, or asked to scan or test on a device | `--qr`, and keep doing it for the session |
-| asked for the link | give the link the script prints, bare on its own line, never in backticks |
-| declined | drop the line, and **do not offer again** |
-| nothing yet | the one-line offer in slot 2 |
-
-Why the QR and the link work this way, the `--md-base` rule, and why there is no character-art QR:
-[preview.md](references/preview.md#the-mobile-app-link-and-why-it-is-not-the-render-url).
+**Offer the QR in slot 2, never the preview link, and make it only on a yes, after the write:** [preview.md → Offering the device-preview QR](references/preview.md#offering-the-device-preview-qr).
 
 **Fill that slot with the actual list, never with "check it works".** You know which of your
 choices the render could not reach — a branch that fires on tap, a toggle, a locale you did not render, a
@@ -1319,113 +949,11 @@ generic instruction gets skipped; three named things get tapped, and every defec
 shipped to a user came through a gap this slot exists to hand over
 ([preview.md](references/preview.md)).
 
-**A custom tag is not done until the app passes it, so offer the code, and on a yes write it.**
-The offer is the callout line above. List the tags off the bytes you wrote, never from memory —
-`jq -r '.variables[]? | select(.external == true)'`. On a yes:
-
-1. **Find the app's code.** Usually it is the workspace you are in; if no app project is
-   reachable, ask for its path rather than guess one.
-2. **Find the call site that creates the flow view.** Search for the flow-view creation call; if
-   there are several, match the one that fetches this flow's placement, and ask when you cannot
-   tell. None at all — or an SDK below 4.x, which has no flow API — means the app does not render
-   flows yet: that is SDK integration, so offer `adapty-integration` instead of building it here.
-3. **Find where the app already holds each value** — the user model, the wallet, the store. Ask
-   when you cannot find one; never pass a sample value, a placeholder or the fallback itself.
-4. **Look up the exact parameter** for the platform in [flow-schema.md → trap 25](references/flow-schema.md#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)
-   — its docs page, or the SDK source at the app's release tag when the page does not show it —
-   then pass the values at that call: keys exactly the tag names, values strings formatted for
-   display, read right before the view is created. A phrase the app passes needs a version in
-   every locale the flow ships; where one is missing, pass nothing — the fallback — never another
-   language's words.
-5. **Build if the project lets you,** and show the diff in one line per file.
-
-Keep the change to that call site and what it needs — a helper beside it, the strings it reads.
-The app's models and every other screen are not this skill's to edit.
+**A custom tag is not done until the app passes it:** on a yes to the callout's offer, write that code as [custom-tags-code.md](references/custom-tags-code.md#writing-the-code-that-passes-a-custom-tag) says.
 
 ### 6. Attach it to a placement, then hand the ID over
 
-**A published flow reaches nobody until a placement points at it.** The placement's **developer
-ID** is the string the app fetches with, so publishing is the middle of the chain and not the end:
-config → publish → placement → the app's call site. Offer this whenever a flow reaches
-`published`. Never run it unasked — a placement cannot be undone.
-
-**Three ways in.** You published it and polled to `published`; the user says they published it, in
-the builder most likely; or this is where the conversation *starts* — then phase 1 has already sent
-you here and phases 2-5 have no work to do.
-
-**Verify the status yourself, whoever published it.** `flows get <FLOW_ID> --app <APP_UUID>` must
-read `published`; `publishing` means poll, and anything else means it is not attachable yet.
-
-**Then read the placements before proposing one** — one call answers both questions, whether this
-location already has a placement and whether the ID you would propose is free:
-
-```bash
-$ADAPTY placements list --app "$APP" --page-size 100 --json    # the default page size is 20
-```
-
-Each placement's `type` is `flow`, `paywall` or `onboarding`. A list without `type` (an older CLI)
-leaves it to `placements get` on the candidate: the `content_type` of its audiences.
-
-| What `list` shows | What you do |
-| :--- | :--- |
-| nothing for this location | `placements create` with a new developer ID |
-| a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping, A/B test entries (`flow_ab_test`) and shared ones (`flow_cross_ab_test`) exactly as `placements get` returned them. A write that replaces a running test, for instance this flow on the default audience a test holds, **stops that test**, and a placement write does not do that: route it to the **`ab-tests`** skill (`ab-tests stop`, which shows the user the exact effect first), then write the placement and read it again just before (changed: show the before/after table and ask again; unattended: stop and report). No answer → the change goes in the dashboard |
-| a **paywall** or **onboarding** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
-| a **flow** placement that already points at this flow, and *"nothing shows up in the app"* | Read whether anyone has started it, below, before sending them on |
-| a placement where only **some** users should get this flow — a country, a version, a segment | The **`audiences`** skill. It adds a segment audience beside the existing ones without changing what anyone else sees |
-| the user wants to **test this flow against another** (an A/B test: "split traffic", "run it 50/50", "start the test", "stop the test") | The **`ab-tests`** skill. It creates the test as a draft and starts, stops or replaces it only after the user sees the exact effect. Never start or stop a test with a `placements update` |
-
-**When a placement already points at this flow and nothing shows up, read who started it** over the
-last seven days, to today:
-
-```bash
-$ADAPTY flows metrics get "$FLOW" --app "$APP" --based-on placement \
-  --date-from <seven days ago> --date-to <today> --date-type purchase_date --json
-```
-
-`unique_profiles_views` on a placement's node is how many users started the flow there; it updates
-every few minutes, and the dates are required. Viewers on the placement the app fetches: the app
-shows the flow, so ask what the user sees, on which build, and which audience they fall in. None:
-the app does not fetch or render that placement yet, or the user is outside its audiences; the
-app side is **`adapty-integration`**'s, with the developer ID. When `flows metrics --help` says the
-command does not exist, skip this read and send them on the same way.
-
-**The ID needs an explicit yes, and this is the fourth fixed block.** It is irreversible in a way
-the phase-5 write is not: unique across every placement in the app whatever its type, no rename, no
-delete from the CLI.
-
-> Ready to point a placement at **`<flow name>`** (`<flow-id>`, `published`).
->
-> - Developer ID: **`<id>`** — the string your app will fetch with.
-> - Placement: `<new, titled "…">` / `<existing "…", now pointing at <what>>`
-> - **Permanent.** IDs are unique across every placement in the app whatever its type, cannot be
->   renamed, and there is no delete from the CLI — a wrong one is spent.
->
-> Create it?
-
-On their yes, one call:
-
-```bash
-$ADAPTY placements create --app "$APP" --title "<Title>" --developer-id "<id>" \
-  --audiences '[{"content_type":"flow","flow_id":"'"$FLOW"'","segment_ids":[],"priority":0}]'
-```
-
-The flow form of `--audiences` is the normal path — accepted against production. Every refusal,
-which of them is yours to fix, the `update` variant and the dashboard fallback:
-[placements.md](references/placements.md).
-
-**Then hand the ID over and stop.** Past the custom-tag call site in phase 5, this skill does not touch app code:
-
-> **Live at `<developer-id>`.** https://app.adapty.io/placements/flows/`<PLACEMENT_UUID>`
->
-> Nothing in your app changes yet — it still has to fetch this placement and render what comes
-> back. The **`adapty-integration`** skill owns that end: give it this developer ID and it wires
-> the fetch and the rendering into your call sites.
-
-**That link takes the placement's UUID, not its developer ID** — the two are different fields and
-only the UUID routes. `placements create` prints it as `id`. The middle segment is the placement's
-*type*, so a flow placement is `/placements/flows/…` and a paywall one would be
-`/placements/paywalls/…` ([placements.md](references/placements.md)).
+**When a flow reaches `published`, the user says it has, or the request starts here (phase 1):** offer to point a placement at it, never unasked. The steps, the placement ask (the fourth fixed block) and the handoff: [placements.md → Attaching a flow](references/placements.md#attaching-a-flow-to-a-placement-the-procedure).
 
 ## Safety
 

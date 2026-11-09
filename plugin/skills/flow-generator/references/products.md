@@ -32,7 +32,7 @@ variable ids, `productRef` targets, the screen's `products` registry (whose `_me
 `flowkit.predeclare()` re-mints), and the `offerId`s, which belong to the old product (take the
 new one's from `product-offers list`). One left on the old id fails the publish.
 
-**The selection is a dialogue, not a lookup.** SKILL.md phase 2 owns the order — list, ask which,
+**The selection is a dialogue, not a lookup.** [build.md → Products](build.md#products-catalog-first-store-ids-second-create-last) owns the order — list, ask which,
 ask for store ids only if none fit, create last — and this page owns how to present the choice:
 one line per product with **title, period, and which stores it binds** (`products get` for the
 detail), because period and bindings are what the user needs to recognise their own product, and

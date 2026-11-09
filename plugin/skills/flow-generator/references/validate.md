@@ -232,7 +232,7 @@ These are the reason the phase-5 device-preview callout stays load-bearing. In p
   absent the API did not send them, which is not itself a finding — fall back to `validate` and
   say that is what you did. `Flow transformation failed. Please contact support.` with a null
   `transform_error` names no cause; check that every `flowProductId` matches its derived value
-  before calling it a support case (`SKILL.md`, the publish step).
+  before calling it a support case ([publish.md](publish.md#running-flows-publish)).
 
 Say what you checked, in those terms. The gap between "publishable" and "renders correctly" is
 [preview.md](preview.md), and neither closes it — only a device does.

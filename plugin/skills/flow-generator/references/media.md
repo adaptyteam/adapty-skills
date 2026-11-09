@@ -546,3 +546,33 @@ streams, so without it report the bytes and say the rest was not checked. `avcon
 Mac does have, is not a way to shrink one: its presets set the resolution, and a 720p preset made a
 4.3 MB clip 11 MB (measured). What to ask for: H.264, about 720 px wide, under 5 MB, and no audio
 track on a silent loop — the element has no mute setting, so a track is weight at best.
+
+## Weighing a config before a write or a publish
+
+Run `python3 references/weigh-config.py draft.json` on the bytes you are about to write (`SKILL.md` phase 5).
+
+It weighs the config itself (mostly image previews, one per image per locale that has its own
+value) and asks the asset host for each file's size and pixel size; nothing is downloaded whole.
+**Exit 1 fills the weight slot of the ask below** with the three sentences it prints under "Say
+this"; its details are for the user's questions and for the fixes. Exit 0 drops the slot. Files it
+lists as not measured get one more sentence: their size was not checked. The weight never blocks a save: it is the user's call. On their yes to a fix, apply it
+to the draft, run phase 3's gates and the weigh again, and re-render a screen whose image changed:
+
+- **A copy of the default's image in another locale:** delete it. Nothing on screen changes
+  ([flow-schema.md](flow-schema.md) trap 1).
+- **A heavy PNG or JPEG** (a heavy GIF is the builder's: its WebP would play one frame, so offer
+  a `video` instead): download it, convert it, upload the WebP and rebind every place
+  that uses it. `--max-width` is 3× the widest box it fills, in points; the default, 1290, fits a
+  full-width image. The old file stays in their media library: the upload cannot delete.
+  ```bash
+  mkdir -p media && curl -sSfo media/hero-src.png "<url the weigh printed>"
+  python3 references/weigh-config.py webp media/hero-src.png media/hero.webp [--max-width <px>]
+  $ADAPTY flows media upload --app "$APP" media/hero.webp --json > media/hero.json
+  python3 references/weigh-config.py swap draft.json "<url the weigh printed>" media/hero.json
+  ```
+- **An image with its own file in many languages:** offered in the slot like the others, as one
+  choice between two routes. On "one image": move the words into a text element and show that
+  screen like any other change. On "split": build one flow per language group here and hand the
+  audiences to the `audiences` skill.
+- **A heavy video:** theirs to re-encode and upload again in the builder; say the size it should
+  get under.

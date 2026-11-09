@@ -1,6 +1,6 @@
 # The fidelity pass
 
-`SKILL.md` owns the triggers and the exit condition. This file owns the pass itself: what to
+[preview.md → The fidelity pass](preview.md#the-fidelity-pass-when-a-reference-image-was-given) owns the triggers and the exit condition. This file owns the pass itself: what to
 inventory, and what to do with each gap you find.
 
 **It runs at two moments, not one.** The **asset half** belongs to phase 2, before you author
@@ -9,7 +9,7 @@ anything — deciding which of the reference's graphics the format can reach at 
 lookalike gets built and then graded against the reference by the agent that built it.
 
 **Run it whenever a reference was given** — an image, a screen to copy, a layout spelled out. In
-**Adapt** mode (`SKILL.md` phase 2) the list has two halves: structure against the reference, and
+**Adapt** mode ([build.md](build.md#were-you-given-a-design-and-whose-is-it)) the list has two halves: structure against the reference, and
 colour, type, radii, icon style and copy against the app's own style source — never against the
 reference. Not when you chose the design yourself; that case is graded by a teardown skill instead —
 `paywall-teardown` for a screen that sells, `onboarding-teardown` for a sequence.
@@ -109,7 +109,7 @@ says, with what the screen does instead — a button that only sends a custom ac
 there, because to the user it looks like a working sign-up.
 
 Never a silent downgrade, and never one line buried in a paragraph — collect assets into the
-missing-assets block `SKILL.md` describes, so the user sees the whole list and can answer it in
+[missing-assets block](build.md#the-missing-assets-block), so the user sees the whole list and can answer it in
 one go. Batch it with the phase-2 asks, because a path they hand over turns a placeholder into a
 finished screen.
 
