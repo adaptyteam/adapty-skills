@@ -14,17 +14,11 @@ lookalike gets built and then graded against the reference by the agent that bui
 sight, because "close" is a claim about *structure* and fidelity lives in everything else — colour,
 weight, glyph style, the proportion between two blocks.
 
-Measured on a real build with the skill loaded: the agent satisfied "look at it against the
-reference" with a gestalt comparison and shipped emoji standing in for designed line icons, colours
-named from memory, a gradient flattened to a solid, eyeballed proportions and an undisclosed font
-downgrade. Every one of those was reachable.
-
-The follow-up micro-test is the reason the *list* is the mechanism rather than the looking:
-baseline agents shipped the substitutions **3/3 while disclosing them** — the disclosure machinery
-worked, the defect frame was missing — and with the pass they produced the inventory and fixed
-everything reachable **3/3**. Agents fix gaps they can see; the gestalt look never produces the
-list. (The first version of that test handed the control arm the gaps pre-enumerated and both arms
-complied, which measured nothing — the enumeration *is* the treatment.)
+A gestalt comparison against the reference ships emoji standing in for designed line icons,
+colours named from memory, a gradient flattened to a solid, eyeballed proportions and an
+undisclosed font downgrade — every one of them reachable, and disclosing a substitution does not
+fix it. You fix the gaps you can see, and only the written inventory makes them visible: the list
+is the mechanism, not the looking.
 
 ## 1. Inventory the reference — and do the ASSET half in phase 2
 
@@ -62,7 +56,7 @@ A reference with a device frame needs its screen bounds located before any measu
 - **Colour** — sample it; never name it from memory.
 - **Size and spacing** — match the reference's *proportions* with relative layout
   (`fill`/`hug`/`relative`). Never hardcode fixed container widths or heights to match image
-  pixels; fixed geometry breaks across devices (team-diagnosed).
+  pixels; fixed geometry breaks across devices.
 - **Layout** — reach for the layout props before padding or docking. A reference is one phone's
   height; on a taller phone the surplus has to go somewhere, and on a screen with a hero it goes
   to the hero at `height: fill`, with the bar in flow
@@ -75,7 +69,7 @@ A reference with a device frame needs its screen bounds located before any measu
 - **Words baked into an illustration** — when a live `text` replaces them, any artwork that sat in
   front of the words goes back on top of the text, never under it. When the source frames have
   similar names, set the exported file beside the reference at its slot and compare before you
-  upload: a near-namesake frame looks right alone and wrong in place (reported).
+  upload: a near-namesake frame looks right alone and wrong in place.
 
 ### Where each kind of graphic goes
 
@@ -89,8 +83,8 @@ real full-resolution asset where a crop gets a 1x copy of their mockup.
 | :--- | :--- |
 | a monochrome glyph | an `icon` with `raw` SVG in `_meta.icons`: a bundle glyph renders in the preview, a `custom` one draws only on a device ([flow-schema.md trap 23](flow-schema.md#23-a-phosphor-icon-resolves-from-the-renderers-own-bundle-and-raw-does-not-override-it)). Never rasterize this one, and **never an emoji** — a placeholder asks to be filled, an emoji looks finished and ships a different design ([flow-schema.md trap 5](flow-schema.md)) |
 | a multicolour or gradient glyph, an illustration | no element expresses it → styled placeholder and an ask. Only if the ask cannot be answered: crop it out of the reference if its backdrop is flat ([crop.py](crop.py)), else draw and rasterize it and **say you drew it** |
-| a textured or photographic background, a glow, a mesh, a chart | an asset. Their file if they have one — and note you **cannot** rebuild a texture from the reference, because the content occludes it and `objectFit` has no tile mode. Measured on a real paywall screenshot: the largest clean band was 352×50, and covering the screen with it stretched the texture 15× into vertical smears. A radial glow is not a `fill` with stops |
-| **lettering whose treatment is unreachable** — gradient- or texture-filled, a display face the account lacks, outlined, distorted | an **asset**, not a downgraded `text`. A `text` element carries `color` and no `fill` — measured across all 7 real exports — so the treatment is genuinely out of reach. Ship a styled empty `image` at the measured box and ask for the lockup. **Unless it carries a variable or a price**, which an image cannot: then it stays `text`, and an unreachable treatment is a disclosed solid-colour downgrade |
+| a textured or photographic background, a glow, a mesh, a chart | an asset. Their file if they have one — and note you **cannot** rebuild a texture from the reference, because the content occludes it and `objectFit` has no tile mode. On a real paywall screenshot the largest clean band is 352×50, and covering the screen with it stretches the texture 15× into vertical smears. A radial glow is not a `fill` with stops |
+| **lettering whose treatment is unreachable** — gradient- or texture-filled, a display face the account lacks, outlined, distorted | an **asset**, not a downgraded `text`. A `text` element carries `color` and no `fill` in every real export, so the treatment is genuinely out of reach. Ship a styled empty `image` at the measured box and ask for the lockup. **Unless it carries a variable or a price**, which an image cannot: then it stays `text`, and an unreachable treatment is a disclosed solid-colour downgrade |
 | a shape that is not a rounded rectangle — a ribbon, a burst, a badge with angled ends | an asset. Its **backing** goes down the ladder; a label on top stays a `text`, so ask for the backing alone whenever the label has to translate |
 
 ## 3. Turn what the format cannot reach into named user asks
@@ -122,8 +116,7 @@ The routes are **not symmetric**, so say which one applies rather than offering 
 | an image over ~2.5 MB | no — bare `http_400` | yes, or a smaller export |
 
 **A font gets a substitute in the meantime, and the substitution is disclosed** — name the face you
-used and how it differs. An undisclosed font downgrade is one of the five original failures that
-put this pass in the skill.
+used and how it differs. An undisclosed font downgrade is one of the defects this pass exists to stop.
 
 ### "Design around it" — the third route, and the one rule that makes it safe
 
@@ -138,7 +131,7 @@ consent, so the rules are about consent and nothing else:
 
 1. **Never take it unasked.** The default is always the styled placeholder. An agent that decides
    for itself that a graphic is "probably a competitor's" and swaps in a gradient card has
-   reproduced the original failure with a better excuse.
+   committed the defect this pass prevents, with a better excuse.
 2. **A substitute is named, not just made** — what it replaced, and what you chose instead. It then
    goes through this pass like anything else, because a replacement you designed is a design you
    are now responsible for.

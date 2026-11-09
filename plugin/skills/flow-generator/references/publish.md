@@ -38,7 +38,7 @@ come back.
 **`flows publish --app <APP_UUID> <FLOW_ID>` is not in every build.** Per the rule in [SKILL.md → The CLI surface](../SKILL.md#the-cli-surface), decide
 that by running `flows publish --help`, not from a version number — the command has left stable
 once already, so a numeric floor is not a reliable test. Its own flags are `--app` plus `--yes`/`-y`, and the CLI's global `--json` on top of
-them. Five measured facts shape how you call it: publication is **asynchronous**, so the response reads
+them. Five facts shape how you call it: publication is **asynchronous**, so the response reads
 `status: publishing` and never `published` — report it that way rather than claiming the flow is
 live; the confirmation prompt goes to **stderr**, so `--json` stdout stays parseable; `--json` or a
 non-TTY **without** `--yes` refuses with **exit 2** (`Re-run with --yes`) instead of hanging, so a

@@ -113,8 +113,8 @@ not_done() {
   echo "${left# }"
 }
 
-# A tool timeout or a Ctrl-C used to lose the whole batch: the finished PNGs stayed on disk, but
-# nothing said where. Now the run says what landed and what did not, and still makes the strip.
+# A tool timeout or a Ctrl-C must not lose the whole batch: the finished PNGs stay on disk, so
+# the run says what landed and what did not, and still makes the strip.
 on_signal() {
   trap - TERM INT HUP
   if [ -n "$CHILD" ]; then

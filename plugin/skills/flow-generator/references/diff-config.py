@@ -52,8 +52,8 @@ WHAT IT DOES NOT SEE, and each of these is a real way to lose work invisibly to 
     are compared with sorted keys, and a collection is addressed by identity rather than index --
     so a builder save that re-sorts `_meta.icons` reads as silent. Do not conclude from a clean
     diff that your bytes equal theirs.
-    The v9 -> v10 fill migration is the exception and is NOT silent (measured: 29 fills rewritten
-    object -> array reported as 25 changed elements). It changes the shape of a value, so it is
+    The v9 -> v10 fill migration is the exception and is NOT silent (29 fills rewritten
+    object -> array come out as 25 changed elements). It changes the shape of a value, so it is
     reported like any other change. Recognise it -- a block of `props` changes across unrelated
     elements right after someone saved in the builder -- rather than reading it as their edits.
   * anything under a key it does not enumerate. A top-level key the format gains next release

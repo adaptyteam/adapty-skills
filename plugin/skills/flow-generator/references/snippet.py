@@ -723,9 +723,9 @@ def rewrite_ids(payload, el_renames, group_renames):
     The groupId head hides in a `conditional`'s payload, and a case there is a
     two-element list -- `[predicate_dict, {"type": "const", "value": [...actions]}]`
     -- not `{"actions": [...]}`, and `default` is a sibling action container of its
-    own (measured against a real quiz-and-paywall export in the tracked fixture
-    corpus). Rather than hand-walk that branch shape (which drifted from it once
-    already, silently), any
+    own (as a real quiz-and-paywall export in the tracked fixture corpus
+    shows). Rather than hand-walk that branch shape (a hand walk drifts from it
+    silently), any
     `variableId` string is rewritten generically wherever it occurs under an element,
     keyed on the FIELD NAME `variableId` -- never on an arbitrary string value, so the
     `tabs` trap stays closed. Element ids an action names (`showElement`/`hideElement`

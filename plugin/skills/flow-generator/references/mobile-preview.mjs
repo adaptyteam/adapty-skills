@@ -278,9 +278,9 @@ if (values.qr || values.out) {
 
   // Then OPEN it, rather than printing something for the reader to act on.
   //
-  // A file:// URL was the first attempt and is not clickable in a terminal (reported from a real
-  // one) — a path with seven useless characters in front of it. Printing `open <path>` instead was
-  // the second, and it still makes the reader copy-paste before they can scan anything. So do the
+  // A file:// URL is not clickable in a terminal — it is a path with seven useless characters in
+  // front of it. Printing `open <path>` instead still makes the reader copy-paste before they can
+  // scan anything. So do the
   // step for them: `flows config preview` already opens a browser on a TTY rather than handing over
   // a URL, and this is the same move.
   //

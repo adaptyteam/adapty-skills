@@ -14,16 +14,16 @@ the URL fragment, so this works on a file you have not written anywhere. It acce
 command opens a browser and prints nothing else. **Piped without `--json` it prints the bare URL**,
 which is the form you want.
 
-**Do not add `--json` here.** It prints `{"render_url": "…"}`, an object — not the URL. An agent
-that captured that into `$URL` and handed it to Chrome silently screenshotted the browser's new-tab
-page and nearly reported it as the paywall. Use the bare form:
+**Do not add `--json` here.** It prints `{"render_url": "…"}`, an object — not the URL. Captured
+into `$URL` and handed to Chrome, it silently screenshots the browser's new-tab page, which passes
+for the paywall at a glance. Use the bare form:
 
 ## What the screenshot is evidence of
 
 **What this catches, precisely.** It catches the class no structural check can see: wrong
 spacing, a magic-number indent, a detached element, a state that is silently wrong. It does
-**not** subsume [Verify](../SKILL.md#verify) — both defects in trap 10 were injected into a known-good
-config and measured, and both still rendered. They lost a selected-tab highlight and nothing
+**not** subsume [Verify](../SKILL.md#verify) — both defects in trap 10, injected into a known-good
+config, still render. They lose a selected-tab highlight and nothing
 else, which is visible to someone who knows what the screen should look like and invisible to
 any "did anything draw" test. The structural rows catch them for free; keep walking them.
 
@@ -31,9 +31,9 @@ any "did anything draw" test. The structural rows catch them for free; keep walk
 
 **If the user gave you a reference image, compare against the image — not your memory of it.**
 Save the attachment to a file the moment you receive it, and re-open it beside every render you
-take. A description you wrote after one look is not the reference: building from one produced a
-timeline whose rail *width* was right to the pixel and whose *continuity, colour order and last-row
-rail* were all wrong, none of which was visible without the two images side by side. If the image
+take. A description you wrote after one look is not the reference: building from one gets a rail's
+*width* right to the pixel and its *continuity, colour order and last-row rail* wrong, none of
+which is visible without the two images side by side. If the image
 has already dropped out of context, it is recoverable — user attachments are stored base64 in the
 session transcript (`~/.claude/projects/<project>/<session>.jsonl`, blocks with
 `"type":"image"`) — so extract it rather than guessing again.
@@ -42,8 +42,8 @@ Comparing means *measuring*, not glancing. [`render-measure.py`](render-measure.
 `--row Y` for widths, `--column X0:X1` for painted runs and the gaps between them, and
 `--scale <image-width>:<device-points>` to convert a reference's pixels into the numbers you put in
 a config.
-That is how the rail was confirmed correct at 46/38 while the eye kept insisting it was too narrow,
-and how the real defect — a 14px break between connector and chip — was found.
+It confirms a width the eye insists is too narrow, and finds the defect the eye misses — a 14px
+break between connector and chip.
 
 **A mockup that shows a device frame needs its screen bounds located before any of that**, and
 fractional coordinates read off the picture are worthless until you have them. Find them from
@@ -59,7 +59,7 @@ becomes exact: three independent samples of the same accent returned the identic
 
 | Route | A screen | What it handles |
 |---|---|---|
-| **The file input**: [`preview-with-playwright.mjs`](preview-with-playwright.mjs), one browser launch for the whole batch | **1-2 s** (measured over 41 real screens and a 533 KB config with 37 languages) | any config size or language count; hides what the page draws over the screen; shows a screen that scrolls; retries once |
+| **The file input**: [`preview-with-playwright.mjs`](preview-with-playwright.mjs), one browser launch for the whole batch | **1-2 s** (over 41 real screens and a 533 KB config with 37 languages) | any config size or language count; hides what the page draws over the screen; shows a screen that scrolls; retries once |
 | **The preview URL**: the browser's own `--screenshot` | **~18 s**, the browser's cold start | none of those |
 
 The file input needs `playwright-core` (13 MB) in `~/.cache/adapty-flow-playwright`. `shoot.sh`
@@ -100,12 +100,11 @@ Measured on the URL route, one config, same machine:
 So *when the host is fast* the cost is Chrome's **cold start** — not the page, not the config size,
 and not the budget.
 
-**Corrected the same day, and the correction matters more than the table:** when the render host
-is *slow*, the budget is the only thing that decides whether you get a file at all. Measured on a
-slow afternoon — an 8 s budget produced nothing for a config that had rendered fine hours earlier,
-Playwright timed out at 30 s on `domcontentloaded`, and **a 60 s budget produced a correct
-screenshot ~72 s later**. The same page loaded normally in a real (non-headless) browser
-throughout. So **"no file" is far more often a slow host than a broken config**: escalate the
+**This matters more than the table:** when the render host
+is *slow*, the budget is the only thing that decides whether you get a file at all. On a slow
+host an 8 s budget produces nothing for a config that renders fine at other times,
+Playwright times out at 30 s on `domcontentloaded`, and **a 60 s budget produces a correct
+screenshot ~72 s later**, while the same page loads normally in a real (non-headless) browser. So **"no file" is far more often a slow host than a broken config**: escalate the
 budget, then check the URL in a real browser, and only then suspect your work.
 The URL route retries at 60 s automatically; the file input waits 30 s, then 60 s.
 
@@ -141,14 +140,14 @@ one it shows that is not there:
 
 - **A stranded variable.** The render prints an unresolved reference as its literal token, so a
   screen reading `{{name.value}}` looks *pixel-identical* whether its producer still exists or was
-  deleted three screens ago — measured, two renders with the same MD5. Whether a consumer still
+  deleted three screens ago — the two renders have the same MD5. Whether a consumer still
   has a producer is a Verify question (invariant 12) and preview will never answer it.
 - **A `states[].condition` — but *not* a `visibility` one.** The two behave oppositely and the
   difference is easy to get backwards. A **`visibility: {"type": "conditional", …}`** condition
   **is** evaluated: a conditionally-shown button correctly appears or hides in the render, which
   makes the empty-field state of a form gate genuinely checkable here. A **`states[].condition`**
-  is **not**: every element draws in its base props, measured on the disable-until-filled probe
-  where four buttons carrying `disabled`-state conditions all drew in base teal. That asymmetry is
+  is **not**: every element draws in its base props, so buttons carrying `disabled`-state
+  conditions all draw in their base fill. That asymmetry is
   survivable only because a conditional `disabled` state is not a real mechanism anyway — see
   [flow-schema.md](flow-schema.md#making-a-field-mandatory-show-the-button-conditionally).
   What the render still cannot tell you about a `visibility` condition: **an unresolvable variable
@@ -158,7 +157,7 @@ one it shows that is not there:
   closed and the element just vanishes.
 - **It can draw something the device will not — the blindnesses are not all one-directional.**
   `old-price` renders a struck-through price in this preview and renders **nothing** in the Adapty
-  app (measured, same config). Every other item in this list is preview showing you *less* than
+  app (same config). Every other item in this list is preview showing you *less* than
   reality; this one shows you *more*, which is worse, because a layout built around a phantom
   element looks correct here and ships broken. Treat an element you have only ever seen in this
   renderer as unproven no matter how right it looks — see
@@ -169,28 +168,27 @@ one it shows that is not there:
   [Being in the schema is not reaching a device](flow-schema.md#being-in-the-schema-is-not-reaching-a-device)
   before you trust this renderer on an element type you have not shipped before.
 - **Selection in a `toggle` or a `multi_choice` group — but `single_choice` and `product` DO
-  draw.** The boundary is per group type, and it is narrower than "not a product group". Measured:
-  a `product` group's `default` renders selected (the chosen plan card shows its selected
+  draw.** The boundary is per group type, and it is narrower than "not a product group".
+  A `product` group's `default` renders selected (the chosen plan card shows its selected
   styling), and so does a **`single_choice`** row — `propsByState.selected` fires, accent border
   and swapped tick included. A **`toggle`** is ignored entirely: flipping `default` between `true`
-  and `false` on a toggle row produced byte-identical screenshots. A **`multi_choice`** is ignored
-  too: measured on a 7-row market picker whose first row carried `default: true`, the
-  render drew every row unselected while a `single_choice` screen in the same config drew its
-  default row selected.
+  and `false` on a toggle row produces byte-identical screenshots. A **`multi_choice`** is ignored
+  too: a picker whose first row carries `default: true` draws every row unselected while a
+  `single_choice` screen in the same config draws its default row selected.
   **You can borrow the renderer to see a toggle's on-state.** Since `single_choice` selection
   *does* draw, temporarily retype the group `"type": "toggle"` → `"single_choice"` in a throwaway
-  copy, render that, look at the on-state, and revert. Used on a real build to confirm a trial
-  card's selected styling — the coral border, the swapped check indicator and a strip of copy that
-  only exists when selected — none of which the toggle form will ever show you. Keep it in a
+  copy, render that, look at the on-state, and revert. That shows a trial card's selected
+  styling — its border, the swapped check indicator and a strip of copy that only exists when
+  selected — none of which the toggle form will ever show you. Keep it in a
   separate file so the shipped config is never the retyped one.
 
   **So a `multi_choice` row drawing unselected is not a defect to chase** — confirm `default` in
   the config and move on; "fixing" a correct config here is the trap. A switch, a checkbox and a
   pre-ticked consent row always draw in their off state, and neither their `propsByState` nor
   their default can be checked visually. Send the user to the Adapty app for those.
-- **A `spinner`, layout-dependently.** Measured: the same `spinner` element drew in an
-  isolated probe and drew **nothing** inside a centred loading screen, while `validate` returned
-  `valid: true` and the device drew the screen's other elements fine. Which layouts suppress it is
+- **A `spinner`, layout-dependently.** The same `spinner` element draws in an
+  isolated probe and draws **nothing** inside a centred loading screen, while `validate` returns
+  `valid: true`. Which layouts suppress it is
   **not isolated**, so a blank where a spinner should be is *unproven, not broken* — and the
   rotation is a device check either way, since a still PNG could not show it even if the glyph
   drew. What this blindness must never license is a repair: swapping the `spinner` for a static
@@ -200,14 +198,14 @@ one it shows that is not there:
   and name it in the device check
   ([flow-schema.md trap 23](flow-schema.md#23-a-phosphor-icon-resolves-from-the-renderers-own-bundle-and-raw-does-not-override-it)).
 - **Any language but the default, unless you ask for one.** The page draws
-  `localization.defaultLocale` and no other (measured: flipping a three-language config's default
-  to `sr` drew the Serbian copy). `LOCALE=de shoot.sh draft.json scr_a` renders German from a copy
+  `localization.defaultLocale` and no other (flipping a config's default
+  to `sr` draws the Serbian copy). `LOCALE=de shoot.sh draft.json scr_a` renders German from a copy
   where `de` is the default and only language (`--locale de` on
   [`preview-with-playwright.mjs`](preview-with-playwright.mjs)), and names the file `…-de.png`. A
   value `de` lacks shows the default language's value, as on a device
   ([transforms.md](transforms.md)), and the script says how many: usually images, stored once
   under the first language. **Do not flip `defaultLocale` by hand instead**:
-  measured, that copy draws such an image as an empty placeholder. Translated text is routinely
+  that copy draws such an image as an empty placeholder. Translated text is routinely
   longer than its source, so render the new language on the screens with the most text and look
   for overflow; the device still owns the glyph metrics (below).
 - **Anything resolving at runtime.** Real prices, store currency, user input. Placeholder `$0.00`
@@ -222,8 +220,8 @@ one it shows that is not there:
   your own edit.
 
 - **Navigation, so the flow cannot be walked.** The page renders the screen named by `--screen`
-  and stops there: measured on a two-screen config, a button carrying a `navigate` action left the
-  page unchanged across two real clicks and a synthetic one. Every screen therefore needs its own
+  and stops there: a button carrying a `navigate` action leaves the
+  page unchanged on a real click and on a synthetic one. Every screen therefore needs its own
   render, and **branching cannot be checked here at all** — a `conditional` fires on a tap that
   never resolves. Route coverage is an Adapty-app check, or a reading of the config. A
   [screen transition](patterns.md#a-screen-transition) is invisible here for the same reason.
@@ -232,8 +230,7 @@ one it shows that is not there:
   [ship the diagnostic](#a-screen-that-advances-itself-ship-the-diagnostic).
 
 - **Text metrics that are not the device's — and a colour emoji is where it shows.** An emoji in a
-  **hug**-width text box renders correctly here and is **clipped on iOS**: reported from a device
-  screenshot of a flow whose preview was clean. The glyph's ink is wider than the advance width the
+  **hug**-width text box renders correctly here and is **clipped on iOS**, with a clean preview. The glyph's ink is wider than the advance width the
   layout engine measures, and a hug box leaves no slack. Give an emoji a **fixed box** — a fixed
   `width` and `height`, with `align: center` for the horizontal — and the same rule applies to any
   glyph you are hugging tightly. **Do not reach for `verticalAlign` here**: it is schema-legal on
@@ -241,8 +238,7 @@ one it shows that is not there:
   ignored`, so it buys a warning per element and no centring
   ([flow-schema.md](flow-schema.md#verticalalign-precisely)). Vertical placement comes from the
   parent's `layout.alignV`.
-  Team-confirmed independently in the support channel: the transformer measures a size-24 emoji as
-  17px, and their recipe is the same — a fixed width (theirs: 28). This is the one blindness on the
+  The transformer measures a size-24 emoji as 17px, and a fixed width of 28 holds it. This is the one blindness on the
   list with **no** preview-side symptom at all, so it cannot be found by iterating here: it is
   found on a device, or by a user.
 
@@ -274,21 +270,20 @@ one it shows that is not there:
   check. An id the page does not know renders `Unknown device "iphone-se".` as a **page**, with
   exit 0, which passes any "did something draw" check; `shoot.sh`'s flat-render guard catches it.
   `--window-size` is **not** a substitute for a device: the page draws its own device frame, so
-  a smaller window crops the screenshot rather than re-laying-out the screen (measured — a
-  375×667 window returned the same 390pt-wide screen with its right edge cut off, which reads
+  a smaller window crops the screenshot rather than re-laying-out the screen (a
+  375×667 window returns the same 390pt-wide screen with its right edge cut off, which reads
   exactly like an overflow bug that is not there).
 
 - **The device's own chrome — a notch, a Dynamic Island, a home indicator — because the render
-  draws none of it.** A screen authored with `safeArea: false` put its back chevron and title into
-  the island zone on a real phone (user-reported, 2026-08-24, from a device screenshot of a flow
-  whose preview was clean) — the preview canvas starts at a bare top edge, so the collision has no
+  draws none of it.** A screen authored with `safeArea: false` puts its back chevron and title into
+  the island zone on a real phone while its preview is clean — the preview canvas starts at a bare top edge, so the collision has no
   preview-side tell. Author new screens with `safeArea: true` unless the design genuinely paints
   under the status bar. The same missing viewport frame hides the bottom half of the problem: an
   in-flow CTA that ends mid-canvas reads fine in a PNG and as a half-empty screen on a device —
   when the reference pins its CTA to the bottom, that is a `fixed` dock
   ([patterns.md → a bottom-docked button](patterns.md)), not a flow item, and docked-over-scrolling
-  content then needs a look at *both* ends: measured in the same session, a docked footnote
-  collided with the last content row at one viewport height and cleared it at another.
+  content then needs a look at *both* ends: a docked footnote can collide with the last content
+  row at one viewport height and clear it at another.
 
 - **Images that have not arrived, or a fill that does not draw.** An image `fill` on a stack or a
   carousel slide can draw blank here while an `image` element in the same place draws:
@@ -304,12 +299,12 @@ one it shows that is not there:
   transformer emits neither, so whatever draws here, the device shows a plain footer. A `fill` or
   a drop shadow on the footer itself does reach the device.
 - **Invisible text defects.** Copy-pasted text carries empty paragraph lines and trailing spaces
-  the preview does not show and the device does — one stray Enter produced a device-only vertical
-  gap that took the support team days to find. Deliberate gaps are separate Text and Spacing
+  the preview does not show and the device does — one stray Enter produces a device-only vertical
+  gap that is hard to trace. Deliberate gaps are separate Text and Spacing
   elements, never blank lines inside a rich-text value.
 - **Prices are hardcoded stubs, everywhere short of a real app.** The builder preview's "3.99" is
   a literal number in the page's code, and the Adapty preview app's prices are mocks too
-  (team-stated) — so no preview surface proves a price, an offer, or trial eligibility; only the
+  — so no preview surface proves a price, an offer, or trial eligibility; only the
   client's own app does. An offer configured as a free trial resolves to 0 where it resolves at
   all.
 
@@ -324,16 +319,16 @@ input rather than reading around it.
 
 **The phone frame is a window, not the whole screen.** When a screen scrolls, the file input also
 writes `<shot>-scroll.png`: every scroll position, left to right, with docked elements where a phone
-keeps them, and the strip uses it (`scrolls: 804pt of content in a 667pt screen`). Measured over 41
-real screens: three scroll on `iphone-se-3` and one on `iphone-14`, and on the SE the first view
-hid a screen's body text under its docked button. The URL route shows the first view only.
+keeps them, and the strip uses it (`scrolls: 804pt of content in a 667pt screen`). Over 41
+real screens, three scroll on `iphone-se-3` and one on `iphone-14`, and on the SE the first view
+can hide a screen's body text under its docked button. The URL route shows the first view only.
 
 ## An element that fails to paint is not automatically yours to fix
 
 **An element that fails to paint is not automatically yours to fix.** A `position: fixed` CTA
-rendering as an empty band — laid out, occupying its height, painting nothing — is a *reported
-renderer defect* on this page, isolated by bisection to `props.position.type == "fixed"` on a
-`schemaVersion` 9 flow. It did **not** reproduce here: on a v10 config, both docked forms
+rendering as an empty band — laid out, occupying its height, painting nothing — is a known
+renderer defect on this page, isolated to `props.position.type == "fixed"` on a
+`schemaVersion` 9 flow. On a v10 config both docked forms
 (`left`/`right` + `width: auto`, and `bottom` alone + a fixed width) paint correctly. So treat a
 missing element as a question, not a verdict — render the *source* config and compare before you
 restyle anything. Deleting a working `position` to make a screenshot look right is how a correct
@@ -341,18 +336,17 @@ config gets broken.
 
 ## The mismatch class is systemic, in both directions
 
-The support channel treats preview-vs-device disagreement as a standing class, not an anomaly, and
+Preview-vs-device disagreement is a standing class, not an anomaly, and
 it runs **both ways**: a carousel that renders correctly in the builder preview and breaks on
-device, and a deliberately device-correct config that "looks broken in the builder" — the team's
-own workaround author could not make one config look right on both. Standing team guidance since
-May 2026: margins, padding and borders "can differ between preview and real device, so do the
-final check on the device." Which is what phase 5's callout hands to the user.
+device, and a deliberately device-correct config that "looks broken in the builder" — one config
+cannot always look right on both. Margins, padding and borders can differ between preview and
+real device, so do the final check on the device. Which is what phase 5's callout hands to the user.
 
 ## Four surfaces, and they do not agree
 
 **A clean preview does not prove the builder will open the flow.** The preview page and the
-Flow Builder's editor are different renderers, and the two configs that broke the builder in
-this project's history both render here. So report a good screenshot as "this looked right at
+Flow Builder's editor are different renderers, and a config that breaks the builder can render
+cleanly here. So report a good screenshot as "this looked right at
 this size", never as "the flow works".
 
 **There are four surfaces and they do not agree.** Know which one you are quoting:
@@ -381,9 +375,9 @@ diagnosis and a guess. Four layers can own a defect: the **config data** you are
 | right in the preview, wrong on the device | the **transformer or the SDK**. Check the known one-way blindnesses on this page before concluding it is a bug: an unsupported element type, a font, an id, an emoji |
 | right on the device, wrong in the preview | the **preview page**. Do not restyle a config to make a screenshot look right — see the section above; that has broken working configs |
 | the transform is green and the device is wrong | not a validation problem at all. Nothing you can publish differently will help; the defect is in one of the two layers downstream of the document |
-| the flow will not open in the **builder** | the config data again, but a shape the *authoring tool* rejects rather than one the SDK does — a different renderer with its own failures, and both configs that broke it in this project's history render fine here |
+| the flow will not open in the **builder** | the config data again, but a shape the *authoring tool* rejects rather than one the SDK does — a different renderer with its own failures, and a config that breaks it can render fine here |
 
-Two rules that keep this honest, and both have cost this project a round:
+Two rules that keep this honest:
 
 - **A suspicious-looking shape in the JSON is not evidence of a bug, and a clean-looking one is
   not evidence of a fix.** The burden is on the claim, and the only thing that discharges it for
@@ -431,7 +425,7 @@ my phone" as "it is live". And a user still on the dashboard preview will report
 missing until they publish, correctly.
 
 **Do not leave the preview open while the flow is being edited.** The draft save and an open
-preview contend for the same draft, and the reported symptom is a save conflict rather than a
+preview contend for the same draft, and the symptom is a save conflict rather than a
 stale render. If a write comes back conflicting, the fix is the one the lock already implies:
 re-read the config and re-apply, never force.
 
@@ -445,8 +439,8 @@ Three details worth not rediscovering:
   the id through would go unnoticed until the first flow where they differ.
 - **The `locales` separator must be a literal comma.** Building the query with `URLSearchParams`
   percent-encodes it to `%2C`, and the app is only *known* to accept the builder's spelling. The
-  script assembles the string by hand for that reason; a rendered QR has been decoded back to
-  confirm the comma survives.
+  script assembles the string by hand for that reason, and a rendered QR decodes back with the
+  comma intact.
 - **`cluster` is hardcoded `us`, and that is a real limitation, not an oversight.** The builder
   hardcodes it too, carrying a TODO to derive it from app config, and nothing on the developer API
   exposes an app's cluster. An EU or CN app therefore gets a US link from the dashboard and from
@@ -466,10 +460,9 @@ never even loaded — which is what to hand over when the user asks for the link
 the phone they want to preview on cannot scan their own screen). When to offer which is
 [Offering the device-preview QR](#offering-the-device-preview-qr).
 
-**Base that decision only on what the user said.** Two drafts of this guidance keyed it on something
-unobservable — first `$TERM` to guess whether images render, then "when the user is at a laptop and
-about to test on a device" — and an unevaluable condition does not become a default, it becomes a
-coin flip. You cannot see their desk. You can see their words: a QR they asked for, the link they
+**Base that decision only on what the user said.** Keyed on something unobservable — `$TERM` to
+guess whether images render, or "when the user is at a laptop and about to test on a device" — an
+unevaluable condition does not become a default, it becomes a coin flip. You cannot see their desk. You can see their words: a QR they asked for, the link they
 asked for, a QR they declined, or no signal, in which case offer in one line and let them answer.
 
 That is a general rule for this file: **a condition written here has to be one an agent can actually
@@ -477,13 +470,13 @@ check.** If it cannot, it will be resolved by guessing, and the guess will read 
 behaviour.
 
 Emit the markdown line `--qr` prints whatever your surface is: where images render the reader scans it inline, and where they do not Claude Code's terminal
-shows `Scan to preview on your phone (flow-preview-qr-b49806c9.png)` — one readable line, measured.
+shows `Scan to preview on your phone (flow-preview-qr-b49806c9.png)` — one readable line.
 
-**How the reachability line got here, because two earlier answers both left work for the reader:**
+**Why the script opens the PNG itself — the other forms leave work for the reader:**
 
-| Attempt | Why it failed |
+| Form | What the reader gets |
 | :--- | :--- |
-| `file:///abs/path.png` | **not clickable in a terminal** (reported from a real one) — a path with seven useless characters in front of it |
+| `file:///abs/path.png` | **not clickable in a terminal** — a path with seven useless characters in front of it |
 | `open /abs/path.png` | reachable, but the reader still has to copy-paste before they can scan |
 | **open it from the script** | a window with a code in it appears; nothing for them to do |
 
@@ -495,15 +488,15 @@ containers and `CI` have nothing to open with, so the script prints the opener c
 **Surface detection does not work, so do not attempt it.** `$TERM` and `tty` describe where your
 *bash calls* run, not where your *answer* is rendered — a property of the subprocess against a
 property of the reader's app, and they come apart over SSH, in containers, and in any client driving
-a remote shell. The one data point in hand is a client with an empty `TERM` that rendered an inline
-image perfectly, i.e. the heuristic pointing the wrong way.
+a remote shell. A client with an empty `TERM` can render an inline
+image perfectly, the heuristic pointing the wrong way.
 
 Emitting both is safe precisely because the image line degrades to **one line** of alt text. That is
-why the rule here inverts the one for character art, where the wrong surface produced 31 rows of
-garbage and choosing correctly was the whole problem.
+why the rule here inverts the one for character art, where the wrong surface produces 31 rows of
+garbage and choosing correctly is the whole problem.
 
 For the inline form the path must be **relative and inside the directory the client resolves from** —
-an absolute one is refused, reported verbatim as *"This file is outside the working directory. It
+an absolute one is refused with *"This file is outside the working directory. It
 can't be opened here."* Pass `--md-base <that directory>`; the script warns instead if the image
 landed outside it.
 
@@ -511,10 +504,9 @@ landed outside it.
 screen. What a camera needs is module size, and the matrix does not shrink just because the image
 does — a 53-module code at 171px is 0.69mm and unproven.
 
-#### Why there is no terminal QR, after two attempts at one
+#### Why there is no terminal QR
 
-A half-block QR was built twice and removed twice. Three findings, in the order they landed, and any
-one of them is disqualifying:
+A half-block QR fails three ways, and any one of them is disqualifying:
 
 **It cannot survive a rendered answer.** The grid packs two module rows into each text line, so those
 rows must touch. Rasterizing the layout with a line gap inserted — which every markdown renderer's
@@ -532,8 +524,7 @@ Zero tolerance. That confines the form to a terminal, where cells are contiguous
 row is emitted as `ESC[0m ESC[37m ▀` per cell, so the glyph lands on the terminal's *default*
 background instead of the white one every other row sets — white-on-white and correct on a light
 theme, a white stripe with no bottom quiet zone on a dark one. And its quiet zone is about 5 module
-rows in total where the spec wants 4 **per side**. Both were found by running it in a real terminal
-and reading the bytes. If anyone tries a third time: render the block yourself, do not call that.
+rows in total where the spec wants 4 **per side**. Render the block yourself; do not call that.
 
 **And then it is simply too big, which is arithmetic rather than a bug.** A correctly rendered block
 for this link is **31 rows x 61 cols**. The only lever is the payload, and it barely moves:
@@ -552,9 +543,9 @@ to scan on a device. A 173-character URL is a 53-module code, and 53 modules at 
 31 lines. **So the terminal answer is the `file://` link**, which is one line and opens something
 that scans properly.
 
-**Verified end to end**: the PNG was decoded back to the exact URL by an independent decoder, then
-scanned off a screen with a real phone, which opened the flow in the Adapty app. The inline form was
-confirmed to render in a desktop client.
+**Verified end to end**: the PNG decodes back to the exact URL with an independent decoder, and
+scanned off a screen with a real phone it opens the flow in the Adapty app. The inline form renders
+in a desktop client.
 
 ## When the render fails: the file input, not a smaller config
 
@@ -567,9 +558,9 @@ config yields a 6,349-character URL. Always try the preview. If the render comes
 truncated or blank, *then* fall back to the dashboard.
 
 **When the URL render fails, switch to the file input — do not shrink the config.** `preview` packs
-the whole config into the URL fragment, and a page that long has drawn its own "There's been a
-glitch" page instead of the screen (reported at ~113K characters; a 160K one rendered correctly
-when re-measured). [`preview-with-playwright.mjs`](preview-with-playwright.mjs) opens the render
+the whole config into the URL fragment, and a page that long can draw its own "There's been a
+glitch" page instead of the screen (it can happen at ~113K characters, and a 160K one can render
+correctly). [`preview-with-playwright.mjs`](preview-with-playwright.mjs) opens the render
 page on a **short** URL and hands the config to its file input
 (`[data-testid="preview-config-input"]`) instead: same page, same renderer, no fragment, so the size
 of the config, its image previews and its language count stop mattering. `shoot.sh` takes that route
@@ -644,7 +635,7 @@ real `components` entry and wire it per screen via `props.progressBar`, never a 
 
 **If you built a screen that advances itself, ship the diagnostic with the first ask.** The page
 never navigates, so a working auto-advance and a broken one look identical here (after 15 s of
-`--virtual-time-budget` a timed screen's DOM was still the same screen) and only the user's
+`--virtual-time-budget` a timed screen's DOM is still the same screen) and only the user's
 device can tell them apart — at a real cycle per attempt. Give the `timer` a child `text` carrying
 the `timer_minutes`/`timer_seconds` tokens: *digits never appear or freeze* is the element not
 mounting, *digits reach zero and nothing happens* is the trigger not firing. Without it a failed

@@ -276,8 +276,8 @@ $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404
 ```
 
 **Resolve `$ADAPTY` once, here, and use it for every command.** A global `adapty` is frequently old
-— measured at `0.3.0` on a real machine, which has no `flows` topic — and three agents read that as
-"validate and preview do not exist" and skipped phases 3 and 4:
+— `0.3.0` has no `flows` topic — and an old install reads as "validate and preview do not exist";
+that is never a reason to skip phases 3 and 4:
 
 ```bash
 npm i -g adapty@latest >/dev/null 2>&1 \
@@ -472,7 +472,7 @@ catches a wrong flow immediately.
 
 **Confirm the transform.** In scope: add a locale, rewrite copy, add/remove/reorder screens,
 branching and conditions, renaming screen ids, and reusing a piece of another flow — its
-dependency resolution has a measured hard-422 class (`flow-schema.md` invariant 8), so it runs
+dependency resolution has a hard-422 class (`flow-schema.md` invariant 8), so it runs
 through `references/snippet.py`, never by hand ([snippets.md](references/snippets.md)). A request
 outside those is named as out of scope, not improvised.
 
@@ -499,7 +499,7 @@ does not already contain via
 
 **Editing one screen of many? Patch in place with a script — never slice the screen out.** An
 isolated mid-flow screen **fails the publish gate** the moment it navigates to a screen that is no
-longer there, and isolation buys no speed on either gate — measured, with nothing to stitch back
+longer there, and isolation buys no speed on either gate
 ([transforms.md](references/transforms.md)). Reach the screen with `jq` or a short Python patch
 instead of reading the whole file into context.
 
@@ -527,7 +527,7 @@ It runs the structural walk, the schema shape check, a read of every bound produ
 against the app (`validate` passes ids the app does not have) and the publish gate over the *same
 bytes*, prints one verdict, and exits non-zero only when something blocking was found. **One call,
 not four** — the gates cost well under a second each while an extra round trip costs tens of
-seconds, so the turns were the expensive part. The three underlying commands, if you need to run one
+seconds, so the turns are the expensive part. The three underlying commands, if you need to run one
 alone, are in [validate.md](references/validate.md).
 
 **Pass `BASELINE=` whenever you fetched a config** — the pristine copy from step 2; diffing
@@ -640,7 +640,7 @@ the variables ([preview.md](references/preview.md#what-a-render-cannot-show-you)
 **A reference image was given?** Run the fidelity pass before anything is written: [preview.md → The fidelity pass](references/preview.md#the-fidelity-pass-when-a-reference-image-was-given).
 
 **Read [preview.md → What a render cannot show you](references/preview.md#what-a-render-cannot-show-you)
-before you report what a screenshot proves** — every blindness on it measured, and two of them run
+before you report what a screenshot proves** — every blindness listed there is real, and two of them run
 the *wrong* way: the render draws things a device will not. Two you act on here: it draws no notch
 and no home indicator, so author `safeArea: true` and hand short-device clipping over as a device
 check; and even then it measures an `absolute` element's `top` from the screen's top edge, not
@@ -830,7 +830,7 @@ a top-level key that vanished, a `status` you should not have emitted. The one e
 difference: the server echoes the legacy top-level `locales` and `defaultLocale` back, which
 `localization.py catalog` drops from what you send. Those two keys alone are not a finding.
 
-A write that changes nothing does not bump `updated_at` (measured once), so re-running the same
+A write that changes nothing does not bump `updated_at`, so re-running the same
 content is not a fresh lock token. **On a 409** (*"already updated by <name>. Reload before
 saving…"*, exit 1) someone edited the flow since you fetched it and nothing was written: re-`get`
 into `flow.working.json`, re-apply your change **to their config**, tell the user someone else
@@ -906,8 +906,8 @@ the rest stays.
 **Fill that slot with the actual list, never with "check it works".** You know which of your
 choices the render could not reach — a branch that fires on tap, a toggle, a locale you did not render, a
 progress bar that advances, a screen that advances itself, glyph metrics that differ on iOS. A
-generic instruction gets skipped; three named things get tapped, and every defect this skill has
-shipped to a user came through a gap this slot exists to hand over
+generic instruction gets skipped; three named things get tapped, and the defects that reach users come through the gaps
+this slot exists to hand over
 ([preview.md](references/preview.md)).
 
 **A custom tag is not done until the app passes it:** on a yes to the callout's offer, write that code as [custom-tags-code.md](references/custom-tags-code.md#writing-the-code-that-passes-a-custom-tag) says.

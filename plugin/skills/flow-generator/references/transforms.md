@@ -1,6 +1,6 @@
 # Flow transforms — what each one endangers
 
-Nothing here tells you how to walk the JSON — measured runs already did that correctly, down
+Nothing here tells you how to walk the JSON — you already do that correctly, down
 to a `navigate` buried two levels deep in a `conditional`'s `default`. What the JSON does not
 contain is **Adapty's rules**: which edits stop a publish, and which choices are not yours to
 make silently. That is all this file carries.
@@ -93,8 +93,8 @@ downstream can tell: the document is well-formed and every render is correct for
 **Your report states** which exit you took, how many fields the entry covered, and — if you split
 it — which fields kept the old text.
 
-**The localization panel and import/export do not cover variables or conditional text**
-(team-confirmed): an exported translation file will not round-trip a variable tag — "you
+**The localization panel and import/export do not cover variables or conditional text**:
+an exported translation file will not round-trip a variable tag — "you
 have to fix the variable by hand in those fields" — and conditional text is edited per locale only,
 by switching the locale in the builder's preview zone. Two working consequences: when a flow will
 be translated through export, **keep each variable in its own text element** rather than inline in
@@ -141,7 +141,7 @@ Three exits, all defensible:
 which of the three exits you took — and, for the third, that the flow still publishes in that
 state.
 
-In the baseline, one run rewrote the consumer and one left it dangling. Both were defensible.
+Rewriting the consumer and leaving it dangling are both defensible.
 The choice is invisible in the output file unless the report names it.
 
 ### 3. Widening a destructive request
@@ -159,9 +159,9 @@ in any branch, still points at them.
 consequence*, and every screen now unreachable that you left in place. Deleting a consequence
 may well be the right call; it is still a widening of the request, and it is reported as one.
 
-Measured: asked to "drop the quiz step", one baseline run deleted **three** screens — Quiz
-plus both genre branches, which become unreachable once the branching conditional goes — and
-another flagged the orphans and left them standing.
+Asked to "drop the quiz step", you can delete **three** screens — Quiz
+plus both genre branches, which become unreachable once the branching conditional goes — or
+flag the orphans and leave them standing.
 
 ### 4. A `product` element the user still has to attach
 
@@ -182,7 +182,7 @@ until the user completes it.
 UUID that `adapty products get` answers with `Adapty product does not exist`. Real configs carry
 these — a flow copied between apps, or one whose products were deleted, or a sanitized fixture.
 
-Both exits are defensible, and two measured runs on the same seed split cleanly between them:
+Both exits are defensible:
 
 - **Carry the dead id through.** The transform stays a transform: you changed what was asked and
   nothing else, and the broken binding is a pre-existing defect you are reporting rather than
@@ -277,7 +277,7 @@ flow the user has to weigh it themselves. Say it before the write, not after.
 **It is a three-site edit and the forgotten site is fatal.** `screens[].id`, every
 `navigate.payload.screen` (including ones nested in a `conditional`'s `cases`/`default`), and the
 `_meta.screens` key — which *is* the screen id. Leave that key behind and the flow will not
-publish: measured against production, `flows config validate` refuses it with
+publish: `flows config validate` refuses it with
 `_meta.screens["<new-id>"].products is missing flowProductId`. Run
 `references/rename-screens.py`, which does all three and refuses a collision, an unknown source
 id or two screens renaming onto one target rather than half-applying. `verify-config.py` errors

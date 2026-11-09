@@ -1,10 +1,10 @@
 # Placements: the evidence behind phase 6
 
-The procedure comes first, below. The rest of this file holds what it was measured against,
+The procedure comes first, below. The rest of this file holds the facts it rests on,
 so the entry point does not carry a caveat an agent cannot act on at that step.
 
-**Everything here was measured against the default production API** — no `ADAPTY_API_URL`
-override — by running the commands. Error strings are quoted exactly, because an agent routes on
+**Everything here holds against the default production API** — no `ADAPTY_API_URL`
+override. Error strings are quoted exactly, because an agent routes on
 them and a paraphrase is a bug.
 
 ## Attaching a flow to a placement: the procedure
