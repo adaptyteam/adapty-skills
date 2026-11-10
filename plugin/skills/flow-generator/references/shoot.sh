@@ -181,12 +181,19 @@ if [ "${PLAYWRIGHT:-1}" != 0 ] && command -v node >/dev/null 2>&1; then
     fi
     # 3 is no browser that starts, 4 a page that never drew anything (it did not load, or did not
     # take the file): the URL route below is a different way into the same page, so try it. Any
-    # other failure is the page's own verdict on the request, which that route would only repeat.
+    # other failure is the page's own verdict on the request, which that route would only repeat;
+    # a code above 128 is a kill (a crash, out of memory), not a verdict, so it takes that route.
     case "$rc" in
       3|4) ;;
       0) echo "   the file-input script exited 0 but wrote no PNG: node did not run it as the main script" \
               "($HERE/preview-with-playwright.mjs)" >&2; exit 1 ;;
-      *) exit 1 ;;
+      *) if [ "$rc" -gt 128 ]; then
+           echo "   the file-input script was killed (exit $rc) before it wrote a PNG" >&2
+         else
+           echo "shoot: the file-input script failed (exit $rc) and rendered nothing; its own" \
+                "message, if it printed one, is above. PLAYWRIGHT=0 takes the URL route instead" >&2
+           exit 1
+         fi ;;
     esac
     echo "   the file-input route rendered nothing; trying the browser's own screenshot of the preview URL" >&2
   fi

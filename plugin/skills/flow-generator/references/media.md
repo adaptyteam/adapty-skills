@@ -94,7 +94,7 @@ used.
 | PNG, JPEG, WEBP | uploads |
 | GIF | `validation_error` with the permitted list below: no GIF |
 | animated WEBP | uploads, and is served as one still frame: motion is a [`video`](#the-video-placeholder) |
-| **SVG** | **`ApiError: http_500`, reproducible** — see below |
+| **SVG** | **`ApiError: http_500`, reproducible**; through the MCP server it has come back as `INVALID_ARGUMENT` — see below |
 | Anything not an image | `validation_error`: `target_format: value is not a valid enumeration member; permitted: 'JPEG', 'JPEG2000', 'WEBP', 'PNG', 'SVG'` |
 | ~2.6 MB file | uploads |
 | ~2.95 MB file | bare `http_400`, no message, no `fieldErrors` |
@@ -465,7 +465,7 @@ spacing bug rather than as an image, so prefer `cover` unless the whole asset mu
 
 ## Still out of reach
 
-- **SVG upload** — `http_500` (above). Icons stay authored inline in `_meta.icons`.
+- **SVG upload** — `http_500`, or `INVALID_ARGUMENT` over MCP (above). Icons stay authored inline in `_meta.icons`.
 - **Video.** No CLI path for the *source* — but the element is not out of reach. Place a real
   `video` element with `customMediaID`/`video` unset: it renders a styled **"Upload Video"**
   placeholder (like an empty `image`), publishes clean (`validate` → `valid: true`),

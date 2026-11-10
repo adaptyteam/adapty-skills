@@ -187,7 +187,8 @@ not run.
 Resolve `$ADAPTY` once and use it for every call:
 
 ```bash
-adapty analytics catalog --help >/dev/null 2>&1 && ADAPTY="adapty" || {
+adapty analytics catalog --help >/dev/null 2>&1 && adapty ab-tests metrics --help >/dev/null 2>&1 \
+  && ADAPTY="adapty" || {
   npm i -g adapty@latest >/dev/null 2>&1
   adapty analytics catalog --help >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
 ```

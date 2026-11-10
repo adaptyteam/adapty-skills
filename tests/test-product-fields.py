@@ -157,6 +157,58 @@ fires('a store offer code bound as offerId', with_offer('free-trial-7d'), OFFER)
 fires('a card given an offer its declaration lacks', with_offer(ADAPTY_OFFER, declare=False), PAIR)
 silent('an Adapty offer id, declared with the card', with_offer(ADAPTY_OFFER))
 
+
+def bound_twice(second_offer, second_fpid='00000000-0000-5000-8000-000000000001'):
+    """The seed's paywall with its second card re-bound to the first card's product, declared as
+    two entries: the first card with ADAPTY_OFFER, the second with `second_offer`. The transform
+    service keys a declaration on (id, offerId, billingPlanId) and on flowProductId, so the same
+    product with two different offers is two entries; only a repeated tuple or flowProductId is
+    `duplicate_flow_product_meta`."""
+    d = copy.deepcopy(SEED_DOC)
+    for s in d['screens']:
+        cards = [e for e in s['elements']['map'].values() if e.get('type') == 'product']
+        if len(cards) < 2:
+            continue
+        pid = cards[0]['props']['product']['id']
+        old = cards[1]['props']['product']['id']
+        raw = json.dumps(s).replace(old, pid)
+        s.clear(); s.update(json.loads(raw))
+        cards = [e for e in s['elements']['map'].values() if e.get('type') == 'product']
+        offers = [ADAPTY_OFFER, second_offer]
+        for c, o in zip(cards[:2], offers):
+            c['props']['product'].pop('offerId', None)
+            if o:
+                c['props']['product']['offerId'] = o
+        entries = [{'id': pid, **({'offerId': o} if o else {})} for o in offers]
+        s['products'] = [dict(x) for x in entries]
+        fpids = ['00000000-0000-5000-8000-000000000000', second_fpid]
+        d['_meta']['screens'][s['id']]['products'] = [
+            {**x, 'flowProductId': f} for x, f in zip(entries, fpids)]
+        return d
+
+
+TWICE = 'products declares'
+OTHER_OFFER = '1e8f5c2a-9d3b-4f7a-b6c4-82d0e1f3a5b7'
+print('\nOne product bound twice on a screen: two entries unless the whole binding repeats:')
+def twice_hits(doc):
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, 'c.json')
+        json.dump(doc, open(path, 'w'))
+        out = subprocess.run([sys.executable, VERIFY, path], capture_output=True, text=True).stdout
+    return [l.strip() for l in out.splitlines() if TWICE in l]
+for name, doc, want in (
+        ('the same product with two different offers', bound_twice(OTHER_OFFER), False),
+        ('the same product with an offer and without one', bound_twice(None), False),
+        ('the same product with the same offer twice', bound_twice(ADAPTY_OFFER), True),
+        ('two bindings sharing one flowProductId',
+         bound_twice(OTHER_OFFER, '00000000-0000-5000-8000-000000000000'), True)):
+    hits = twice_hits(doc)
+    if bool(hits) != want:
+        fails.append(f'{name}: expected {"a" if want else "no"} duplicate finding, got {hits!r}')
+        print(f'  FAIL  {name}')
+    else:
+        print(f'  ok    {name}')
+
 _paths = sorted(glob.glob(os.path.join(CORPUS, '*.json'))) + \
          sorted(glob.glob(os.path.join(RAW, '*.json')))
 print(f'\nSILENT on the corpus ({len(_paths)} configs'

@@ -1428,10 +1428,20 @@ def check(path, baseline_text=None, baseline_images=None):
             if ad:
                 bad.append(f"{eid}: action id {', '.join(ad)} used twice")
 
+    # A declaration is keyed on the whole binding, (id, offerId, billingPlanId), and separately on
+    # flowProductId, as the transform service keys it (`duplicate_flow_product_meta`): the same
+    # product with two offers, or with and without one, is two entries, not a duplicate.
     for sid, dec in (meta.get('screens') or {}).items():
-        pd = _dups([x.get('id') for x in (dec or {}).get('products') or []])
+        entries = (dec or {}).get('products') or []
+        pd = _dups([(x.get('id'), x.get('offerId') or None, x.get('billingPlanId') or None)
+                    for x in entries])
         if pd:
-            bad.append(f"_meta.screens.{sid}.products declares {', '.join(pd)} twice")
+            bad.append(f"_meta.screens.{sid}.products declares "
+                       + ', '.join('/'.join(str(p) for p in k if p) for k in pd) + " twice")
+        fd = _dups([x.get('flowProductId') for x in entries if x.get('flowProductId')])
+        if fd:
+            bad.append(f"_meta.screens.{sid}.products declares flowProductId "
+                       f"{', '.join(fd)} twice")
 
     # Images are invisible to the publish gate: `flows config validate` returns valid:true on an
     # empty values map, a numeric id and a missing id alike. The schema step catches the id
