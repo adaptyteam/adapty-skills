@@ -130,14 +130,20 @@ purchase).
   grade is rough.
 - A weak grade says how much money comes back, not why. Refunds concentrated in one market take
   the pricing sentence in `SKILL.md`; otherwise name no reason (`diagnosis.md`, the Refunds row).
-- **A weak grade is a scorecard line and one "You:" Next step, never the bold answer or a
-  hypothesis:** check that [Refund Saver](https://adapty.io/docs/refund-saver.md) is on in the
+- **Refunds after trials can carry one hypothesis.** When most new buyers come from a trial
+  (chart 4, or `reads.py audit`'s refunds by first-payment offer), the grade is weak against the
+  trial row, and the paywall's screen (a render or a screenshot) does not explain the trial (no
+  timeline of the trial days, no reminder promise, no charge date): a Paywall design hypothesis
+  adds that explanation, from `paywall-teardown`. Untested in `evidence.md`; judged on trial →
+  paid, with refunds as the guardrail. Without the screen seen, it waits for the screenshot.
+- **A weak grade is a scorecard line, never the bold answer, and a "You:" Next step when it wins
+  the feature slot** (`levers.md`, "Adapty features"): check that [Refund Saver](https://adapty.io/docs/refund-saver.md) is on in the
   dashboard. It answers Apple's questions about a refund request, and Google Play's about a
   chargeback, with how the user used the app, so unfair ones get disputed; the store still
   decides. The CLI cannot see whether it is on, so the step asks the user to check, and gives no
   expected cut in refunds.
 
-  > You: check that [Refund Saver](https://adapty.io/docs/refund-saver.md) is on in the Adapty
+  > You: check that [Refund Saver](https://adapty.io/docs/refund-saver) is on in the Adapty
   > dashboard. It answers the store's questions about each refund request with how the user used
   > the app, so unfair ones get disputed.
 
