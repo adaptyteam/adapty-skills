@@ -1405,7 +1405,11 @@ _VIDEO_SOURCE_ARGS = ('url', 'video', 'src', 'media_id', 'customMediaID',
 def _video_value(source, what='source'):
     """`{videoUrl, previewUrl, width?, height?}` -- the flow config video value -- from the
     record of one `flows media upload-video --json` call: its path, its parsed dict (snake
-    case), or a video value read out of a config (camel case)."""
+    case), or a video value read out of a config (camel case).
+
+    The camel-case form is there to pass back a value read from a fetched config, unchanged.
+    Nothing here can tell it from a hand-written one, so never type a `{videoUrl, previewUrl}`
+    yourself: a URL no upload returned is an invented one."""
     rec = source
     if isinstance(source, str):
         try:

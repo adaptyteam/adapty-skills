@@ -5,8 +5,10 @@ a flow config; `flows media upload-video` does the same for a clip
 ([Uploading a video](#uploading-a-video)). Given a file, an image or a video in an authored flow
 is yours to place rather than a user ask.
 
-The image claims below hold against **production** with `adapty` 0.8.0; the video limits are the
-command's own refusals. Where a claim rests on a render rather than on the endpoint, it says so.
+The image claims below hold against **production** with `adapty` 0.8.0, except the refusal texts
+in the tables: those are the texts of the current CLI, and an older CLI refuses the same files
+with a `validation_error`. The video limits are the command's own refusals. Where a claim rests
+on a render rather than on the endpoint, it says so.
 
 ## The call
 

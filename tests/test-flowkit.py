@@ -546,6 +546,13 @@ def main():
           'preview_base64' not in json.dumps(bound['props']['video']))
     check('video(source=...) keeps the fixed height', bound['props']['height']
           == {'type': 'fixed', 'value': 220})
+    def names_upload_video(fn):
+        try:
+            fn()
+            return False
+        except TypeError as e:
+            return 'upload-video' in str(e)
+
     with tempfile.TemporaryDirectory() as _tmp:
         _rec = os.path.join(_tmp, 'intro.json')
         with open(_rec, 'w') as _fh:
@@ -554,8 +561,8 @@ def main():
         check('video(source=<path>) reads the record file', from_file['props']['video']
               == {'values': {'de': WANT}, '_localizable': True})
         check('video(source=<unreadable path>) raises and names the command',
-              raises(lambda: fk.video(fixed_h=220, source=os.path.join(_tmp, 'nope.json')),
-                     TypeError))
+              names_upload_video(
+                  lambda: fk.video(fixed_h=220, source=os.path.join(_tmp, 'nope.json'))))
     check('video(source=config value) takes the camel-case value as read',
           fk.video(fixed_h=220, source=dict(WANT))['props']['video']['values']['en'] == WANT)
     check('video(source=...) without width and height binds the two URLs only',
@@ -573,8 +580,8 @@ def main():
                       ('no video_url', {'preview_url': REC['preview_url']}),
                       ('a non-https url', dict(REC, video_url='clip.mp4')),
                       ('not a dict', ['x'])):
-        check(f'video(source=...) refuses a record with {name}',
-              raises(lambda bad=bad: fk.video(fixed_h=220, source=bad), TypeError))
+        check(f'video(source=...) refuses a record with {name}, naming the command',
+              names_upload_video(lambda bad=bad: fk.video(fixed_h=220, source=bad)))
     check('video(source=...) refuses width without height',
           raises(lambda: fk.video(fixed_h=220, source={k: v for k, v in REC.items()
                                                        if k != 'height'}), ValueError))
