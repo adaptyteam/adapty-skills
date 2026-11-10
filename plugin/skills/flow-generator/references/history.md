@@ -26,15 +26,18 @@ $ADAPTY flows duplicate --help     # before a duplicate
 ```
 
 If `--help` says the command does not exist, try it once as `npx --yes adapty@beta flows versions
---help` (or `flows duplicate --help`), and use that form for the commands if it works. Never decide
-it from a version number. If it is still missing:
+--help` (or `flows duplicate --help`). If that works, use that form for the reads (list, get,
+preview); a restore, a rename or a duplicate with it runs only after you tell the user it is a beta
+release and they say yes. Never decide it from a version number. If it is still missing:
 
 - **No `flows versions`:** this CLI cannot read or restore the history. The draft from before your
   first write comes back from the phase-2 backup (`SKILL.md` phase 5, "Restoring from the backup").
   Say that an earlier published version cannot be read from this CLI.
-- **No `flows duplicate`:** say that the copy cannot be made safely from this CLI, and stop. Never
-  make it with `flows create` and a write: that keeps one layout and drops the rest. Before a
-  restore, the copy of the draft in step 4 still keeps it.
+- **No `flows duplicate`:** the copy cannot be made safely from this CLI. Never make it with
+  `flows create` and a write ([Look at one version](#look-at-one-version) says what that drops).
+  Ask the user to copy the flow in the dashboard (its copy action makes the same copy), then find
+  the copy's id in `flows list` and go on with it. Before a restore,
+  `flow.draft-before-restore.json` (step 4) still keeps the draft.
 
 ## Unsaved changes come first
 
@@ -186,10 +189,22 @@ first ([When the CLI has no history commands](#when-the-cli-has-no-history-comma
 $ADAPTY flows duplicate <FLOW_ID> --app <APP_UUID> --version <FLOW_VERSION_ID> --json
 ```
 
+**Pick the content of the copy first.** Without `--version` the copy takes the draft when the
+flow has one. Read the list:
+
+- **An A/B test copy:** `--version` with the `flow_version_id` of the `live` row, so the copy
+  differs from the live arm only by the change you make next.
+- **To keep a draft before a restore:** the `flow_version_id` of the `draft` row.
+- **Any other copy of a `dirty` flow** (a `draft` row and a `live` row): tell the user that the
+  flow has unpublished changes, and ask which content the copy starts from, the draft or the live
+  version. Use the `flow_version_id` of the row they pick.
+- **The user picked a version** ("try this old version"): its `flow_version_id`. No `draft` row and
+  no pick: leave `--version` out, and the copy takes the live version.
+
 The new flow is named "<name>_copy", is not published, and has one draft with the content of that
-version. The source flow, its draft and its history do not change. Go on with the edit on the new
-flow: phase 2 as an existing flow, with the new flow's `id` from the answer (the flow object, with
-its `name`).
+version (every layout, the remote configs, the paywalls). The source flow, its draft and its
+history do not change. Go on with the edit on the new flow: phase 2 as an existing flow, with the
+new flow's `id` from the answer (the flow object, with its `name`).
 
 `flow_version_products_deleted` means that version sells a product that was deleted: say so and
 offer another version. `flow_archived` is the same as for a restore.

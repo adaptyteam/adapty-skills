@@ -615,7 +615,8 @@ If that fails too, the user's CLI does not read the funnel yet (CLI 0.19.0 is th
 does): say so and ask for a screenshot of the dashboard's Funnel tab for the flow.
 If `flows versions` is missing after `--help`, try `npx --yes adapty@beta flows versions --help`
 once (use that form for the list if it works); never decide it from a version number. If that
-fails too, ask the user for the id of the version they mean.
+fails too, read the published version (leave `--flow-version-id` out) and say that only the
+published version was read; for another version, ask for a screenshot of its Funnel tab.
 
 The answer is `data`: `summary` (`entered`, `completed`, `dropped`, their rates, `revenue`);
 `steps[]` by `step_order` (`reached`, `reached_rate`, `conversion_from_previous`, `completed`,

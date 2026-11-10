@@ -7,11 +7,12 @@
 **New flow from one the user already has** (`flows list`), so theme, fonts, locales and products
 are real — `flows duplicate` it
 ([history.md → Duplicate a version to a new flow](history.md#duplicate-a-version-to-a-new-flow)).
-The copy, "<source name>_copy", keeps every layout, the remote configs and the paywalls, and the
-source does not change; a `flows create` seeded with a fetched config keeps one layout only. Then
-go on as an existing flow on the copy's `id` (phase 2: fetch, back up, patch); in **Rebuild** mode
-(below) the reference's style replaces the copy's theme. The user renames the copy in the builder
-(`flows update --name` is refused in production).
+When the source is `dirty`, tell the user it has unpublished changes and let them pick the content
+of the copy: the draft or the live version. Never a `flows create` seeded with a fetched config
+([history.md → Look at one version](history.md#look-at-one-version) says what it drops). Then go on
+as an existing flow on the copy's `id` (phase 2: fetch, back up, patch); in **Rebuild** mode
+(below) the reference's style replaces the copy's theme. The copy is named "<source name>_copy";
+the user renames it in the builder (`flows update --name` is refused in production).
 
 **New flow with no source** — `flows create`, then author `draft.json` from scratch. Its first
 `config update` omits `--expected-updated-at`.

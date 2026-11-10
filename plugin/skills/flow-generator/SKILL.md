@@ -413,11 +413,15 @@ destroy.
 
 **Existing flow** — the user names it, or `flows list` and confirm the match back to them
 before touching it. Read its `status` with `flows get`: `archived` is a flow deleted in the
-dashboard, and every write to it is refused with `Flow is deleted` (a `flows duplicate` too), so
-say so: the user restores it from the archive in the dashboard, then the edit goes on there, or on
-a copy ([history.md → Duplicate a version to a new flow](references/history.md#duplicate-a-version-to-a-new-flow)). Then
-`flows config get`, and **keep its `updated_at`** for the write, not the one `flows get` or
-`flows list` printed.
+dashboard. Every write to it is refused with `Flow is deleted`, and a `flows duplicate` with
+`flow_archived`. Say so, and ask the user to restore it from the archive in the dashboard; then I
+edit the restored flow. When they say it is restored, run `flows get` again, and go on only when
+its `status` is not `archived`. On a no, keep the config you have (`draft.json`, or the
+`config get` answer saved as `flow.backup.json` if it still comes) and tell the user the file
+name. If they want a new flow anyway, tell them what a `flows create` and a write drop
+([history.md → Look at one version](references/history.md#look-at-one-version)), and make it on
+their yes. For a flow that is not `archived`, `flows config get`, and **keep its `updated_at`**
+for the write, not the one `flows get` or `flows list` printed.
 
 **Take a backup before the first edit.** It is the baseline of every diff and `before` render,
 and the history keeps no draft saves: when `flows versions list` shows a `draft` row, this copy is
@@ -438,8 +442,8 @@ flag on `node` itself: `NODE_OPTIONS` refuses `--stack-size`.
 
 **Two files, two shapes.** `flow.working.json` and `flow.backup.json` are the **envelope**
 `config get` and `config update` return; `draft.json` is the **bare config** you edit, check,
-preview and send. A flow from `flows create` has no envelope until its first write: author straight into
-`draft.json`.
+preview and send. A flow from `flows create` has no envelope until its first write: author
+straight into `draft.json`.
 
 **The text is in the catalog.** Every localizable field holds a `{_lid}` ref, and its per-locale
 values live in `localization.content` — so a copy edit or a translation changes
@@ -691,8 +695,7 @@ already have a config?**
 
 **It does not** — a flow you just created with `flows create`, whose `config get` 404s. Write it.
 There is nothing to lose and nothing to overwrite, and stopping to ask would be friction over an
-empty document. Report what you wrote afterwards. A copy you made with `flows duplicate` in this
-run and have not written yet is the same case: its content is still in the source flow.
+empty document. Report what you wrote afterwards.
 
 **It does** — anything you fetched in phase 2. **Stop and get an explicit yes before the write.**
 `config update` replaces the entire config: no partial write and no undo. A draft you replace
@@ -799,8 +802,9 @@ draft, but the status stays `dirty` until the next publish. Put that in the appr
 proceed — editing a live flow is the normal case, and the preview pair, the backup and the lock
 exist precisely so it is safe. Suggest a copy only when the work is exploratory — a redesign the
 user wants next to the original — never as the default answer to an edit. Make it with
-`flows duplicate` and edit the copy
-([history.md → Duplicate a version to a new flow](references/history.md#duplicate-a-version-to-a-new-flow)),
+`flows duplicate`, with the content the user picks when the flow is `dirty` (the draft or the live
+version), and edit the copy
+([history.md → Duplicate a version to a new flow](references/history.md#duplicate-a-version-to-a-new-flow));
 never with `flows create` and a write of this config.
 
 A published version comes back from the history
@@ -858,9 +862,9 @@ past it and never re-send your local copy — that is the content that would era
 their version differs in ways you did not author, ask rather than restore.
 
 **On `Flow is deleted`** someone deleted the flow in the dashboard after you read it: nothing was
-written, and no write to that id can succeed, a `flows duplicate` included. Say so; your draft is
-intact. When the user restores the flow from the archive in the dashboard, fetch it again and
-re-apply your change as on a 409.
+written, and no write to that id can succeed. Say so; your draft is intact in `draft.json`. Go on
+as for an `archived` flow in [phase 2](#2-new-flow-or-existing-flow); after the restore, fetch it
+again and re-apply your change as on a 409.
 
 **If you rebuilt the config from a script rather than patching the fetched one, you have the wrong
 document** — a rebuild replaces the live flow, taking `_meta.screens` and the `screens[].products`
@@ -951,9 +955,10 @@ confirming it back to them, not for picking one yourself.
 
 **`config update` replaces the whole config.** There is no partial write and no undo; the history
 keeps the published versions, not the draft saves ([history.md](references/history.md)). Prefer a
-new flow for new work: `flows duplicate` of the flow it starts from (it keeps every layout and the
-remote configs; a write of a fetched config keeps one layout), `flows create` only for a flow with
-no source. Make it once: a retry writes to the flow you already made.
+new flow for new work: `flows duplicate` of the flow it starts from (a write of a fetched config
+loses what [history.md → Look at one version](references/history.md#look-at-one-version) names),
+`flows create` only for a flow with no source. Make it once: a retry writes to the flow you
+already made.
 
 **Overwriting an existing config needs an explicit yes.** Phase 5 owns the form. The gate is keyed
 to whether the flow already has a config, not to how confident you feel about the edit — a clean
