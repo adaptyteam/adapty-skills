@@ -492,7 +492,8 @@ started, and it never shows up as a change.
    group names each group's number, a cause found from timing has the Cause check behind it, and
    less money is split into first payments and renewals, each in dollars.
 7. **Offer to build** the hypothesis the user picked, when it is a flow. On a yes, invoke `flow-generator`
-   with the brief. Offer two ways to put the flow in front of users, the first as the default:
+   with the brief. For an A/B test the brief says "a copy of the live version, for an A/B
+   test". Offer two ways to put the flow in front of users, the first as the default:
    - **A/B test it** against what the placement shows now, through "From hypothesis to A/B
      test". This is the only way to know what the change did, and what picking a hypothesis
      means.

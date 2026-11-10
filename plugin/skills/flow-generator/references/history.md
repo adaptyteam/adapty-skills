@@ -34,10 +34,12 @@ release and they say yes. Never decide it from a version number. If it is still 
   first write comes back from the phase-2 backup (`SKILL.md` phase 5, "Restoring from the backup").
   Say that an earlier published version cannot be read from this CLI.
 - **No `flows duplicate`:** the copy cannot be made safely from this CLI. Never make it with
-  `flows create` and a write ([Look at one version](#look-at-one-version) says what that drops).
-  Ask the user to copy the flow in the dashboard (its copy action makes the same copy), then find
-  the copy's id in `flows list` and go on with it. Before a restore,
-  `flow.draft-before-restore.json` (step 4) still keeps the draft.
+  `flows create` and a write ([Look at one version](#look-at-one-version) says what that drops;
+  the one exception is an archived flow the user will not restore,
+  [SKILL.md phase 2](../SKILL.md#2-new-flow-or-existing-flow)). Ask the user to copy the flow in
+  the dashboard (its copy action makes the same copy; for an A/B test copy of a `dirty` flow, tell
+  them to copy the live content), then find the copy's id in `flows list` and go on with it.
+  Before a restore, `flow.draft-before-restore.json` (step 4) still keeps the draft.
 
 ## Unsaved changes come first
 
@@ -122,6 +124,9 @@ layout, the remote configs) into the draft. The live version and the source vers
    > date> by <its `last_edited_by`>. Restoring
    > "<version title>" replaces it, and the draft cannot come back from the history. To keep the
    > draft, I can duplicate it to a new flow first. Replace the draft?
+
+   Offer the duplicate only when `flows duplicate` exists; when it is missing, offer the copy in the
+   dashboard instead ([When the CLI has no history commands](#when-the-cli-has-no-history-commands)).
 
    That is the shape, not words to copy. On a yes (after the duplicate, if they asked for it),
    keep a copy of the draft you replace, then send the draft row's `updated_at` as the token.

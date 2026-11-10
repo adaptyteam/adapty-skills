@@ -7,9 +7,13 @@
 **New flow from one the user already has** (`flows list`), so theme, fonts, locales and products
 are real — `flows duplicate` it
 ([history.md → Duplicate a version to a new flow](history.md#duplicate-a-version-to-a-new-flow)).
-When the source is `dirty`, tell the user it has unpublished changes and let them pick the content
-of the copy: the draft or the live version. Never a `flows create` seeded with a fetched config
-([history.md → Look at one version](history.md#look-at-one-version) says what it drops). Then go on
+An A/B test copy takes the live version with no question
+([history.md → Duplicate a version to a new flow](history.md#duplicate-a-version-to-a-new-flow)).
+For any other copy of a `dirty` source, tell the user it has unpublished changes and let them pick
+the content of the copy: the draft or the live version. Never a `flows create` seeded with a
+fetched config ([history.md → Look at one version](history.md#look-at-one-version) says what it
+drops; the one exception is an archived flow the user will not restore,
+[SKILL.md phase 2](../SKILL.md#2-new-flow-or-existing-flow)). Then go on
 as an existing flow on the copy's `id` (phase 2: fetch, back up, patch); in **Rebuild** mode
 (below) the reference's style replaces the copy's theme. The copy is named "<source name>_copy";
 the user renames it in the builder (`flows update --name` is refused in production).

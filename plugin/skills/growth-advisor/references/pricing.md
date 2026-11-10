@@ -250,7 +250,8 @@ user's yes.
    error. "Missing App Store credentials" or "Missing Play Store credentials" on every row is the
    store connection of step 3. On a yes, the same command without `--dry-run` and with
    `--wait --yes` saves the previewed prices (see "On a yes" below for what its exit codes mean).
-6. **I build the paywall or flow copy** that sells the new product, through `flow-generator`.
+6. **I build the paywall or flow copy** that sells the new product, through `flow-generator`: a
+   copy of the live version, for an A/B test.
 7. **I set up the country segment** through `audiences`.
 8. **I offer to set up the A/B test** ("From hypothesis to A/B test" in `SKILL.md`): the current
    paywall or flow on that placement against the copy's flow, on the country segment's audience,
@@ -277,8 +278,8 @@ refusals and `store_status`), with these differences:
 - **A trial on it is the user's,** in the store after the push (`levers.md`, "By store"): the
   push sets no offer.
 
-Then the flow copy that sells it, through `flow-generator`, and the A/B test as for any
-hypothesis.
+Then the flow copy that sells it, through `flow-generator` (a copy of the live version, for an A/B
+test), and the A/B test as for any hypothesis.
 
 ## Changing a live price
 

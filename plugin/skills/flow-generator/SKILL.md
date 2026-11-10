@@ -414,14 +414,16 @@ destroy.
 **Existing flow** — the user names it, or `flows list` and confirm the match back to them
 before touching it. Read its `status` with `flows get`: `archived` is a flow deleted in the
 dashboard. Every write to it is refused with `Flow is deleted`, and a `flows duplicate` with
-`flow_archived`. Say so, and ask the user to restore it from the archive in the dashboard; then I
-edit the restored flow. When they say it is restored, run `flows get` again, and go on only when
-its `status` is not `archived`. On a no, keep the config you have (`draft.json`, or the
-`config get` answer saved as `flow.backup.json` if it still comes) and tell the user the file
-name. If they want a new flow anyway, tell them what a `flows create` and a write drop
+`flow_archived`. Say so, and ask the user to restore it from the archive in the dashboard; then
+you edit the restored flow. When they say it is restored, run `flows get` again, and go on only
+when its `status` is not `archived`; if it still is, say so and ask again. On a no, run
+`flows config get` once into `flow.backup.json`. If it answers, tell the user the file name; if it
+is refused, say that there is no local copy. If they want a new flow anyway, tell them what a
+`flows create` and a write drop
 ([history.md → Look at one version](references/history.md#look-at-one-version)), and make it on
-their yes. For a flow that is not `archived`, `flows config get`, and **keep its `updated_at`**
-for the write, not the one `flows get` or `flows list` printed.
+their yes: the one case where a copy is made that way. For a flow that is not `archived`,
+`flows config get`, and **keep its `updated_at`** for the write, not the one `flows get` or
+`flows list` printed.
 
 **Take a backup before the first edit.** It is the baseline of every diff and `before` render,
 and the history keeps no draft saves: when `flows versions list` shows a `draft` row, this copy is
@@ -473,7 +475,9 @@ the `ADDS`/`CHANGES` as the human's edits, and move it out of the way:
 python3 references/diff-config.py <the-old-local-copy>.json flow.working.json
 ```
 
-**New flow** — `flows duplicate` once when it starts from a flow the user already has, `flows create` once only when there is no such flow; the steps and the id every retry writes to: [build.md → Creating the flow](references/build.md#creating-the-flow).
+**New flow** — `flows duplicate` once when it starts from a flow the user already has,
+`flows create` once only when there is no such flow; the steps and the id every retry writes to:
+[build.md → Creating the flow](references/build.md#creating-the-flow).
 
 Then, before editing: **report what the source config contains** — screens and captions,
 locales, products, the navigation graph. Before proposing anything; it grounds the user and
@@ -805,7 +809,8 @@ user wants next to the original — never as the default answer to an edit. Make
 `flows duplicate`, with the content the user picks when the flow is `dirty` (the draft or the live
 version), and edit the copy
 ([history.md → Duplicate a version to a new flow](references/history.md#duplicate-a-version-to-a-new-flow));
-never with `flows create` and a write of this config.
+never with `flows create` and a write of this config (the one exception is an archived flow the
+user will not restore, [phase 2](#2-new-flow-or-existing-flow)).
 
 A published version comes back from the history
 ([history.md → Restore a version](references/history.md#restore-a-version)); the backup brings back
