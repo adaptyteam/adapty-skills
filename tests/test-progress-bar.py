@@ -2,7 +2,8 @@
 
 Repo-only. Runs the shipped script as a subprocess. The SILENT shape is the device-verified one: a
 single-segment bar whose loader `fill` is the track and `color` is the progress, which advanced on
-a real device across the screens that switch it on.
+a real device across the screens that switch it on. A `oneSegmentPerScreen` bar with fewer
+segments than the screens that show it FIRES.
 """
 import copy, glob, json, os, subprocess, sys, tempfile
 
@@ -57,6 +58,35 @@ check('FIRES: track and progress the same colour',
 _two = run(doc({'pb_a': bar('a'), 'pb_b': bar('b')}))
 check('FIRES: two bars in one flow, and the message names the fix',
       '2 progress bars' in _two and 'Keep one' in _two, _two[:400])
+
+# One segment per screen: a segment for each screen that shows the bar, or the later ones have
+# none. SILENT with a segment per screen, FIRES with one segment for three screens.
+def per_screen(segments, screens):
+    c = bar('a')
+    b, s0 = 'el_aB', 'el_aS'
+    c['map'][b]['props'].update(type='multiple-segments', template='segmented', oneSegmentPerScreen=True)
+    seg, kids = c['map'].pop(s0), []
+    for i in range(segments):
+        sid = f'el_aS{i}'
+        c['map'][sid] = dict(copy.deepcopy(seg), id=sid)
+        c['map'][sid]['props']['customId'] = f'progress{i}'
+        kids.append({'id': sid, 'children': [{'id': 'el_aL'}] if i == 0 else []})
+    c['hierarchy']['children'][0]['children'] = kids
+    d = doc({'pb_a': c})
+    first = d['screens'][0]
+    d['screens'] = []
+    for i in range(screens):
+        scr = copy.deepcopy(first)
+        scr['id'] = f'scr_{i}'
+        scr['props']['progressBar'] = {'enabled': True, 'segment': f'progress{min(i, segments - 1)}'}
+        d['screens'].append(scr)
+    return d
+check('SILENT: one segment per screen, as many segments as screens',
+      'segment(s) for' not in run(per_screen(3, 3)))
+_few = run(per_screen(1, 3))
+check('FIRES: one segment per screen, 1 segment for 3 screens',
+      '1 segment(s) for 3 screens' in _few, _few[:400])
+
 for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
     out = run(json.load(open(f)))
     check(f'SILENT on real export {os.path.relpath(f, ROOT)}', PB not in out, out[:200])

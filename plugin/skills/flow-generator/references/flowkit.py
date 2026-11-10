@@ -157,10 +157,10 @@ def ids_after(config, *, prefix='el'):
 # bare UUIDs for the entry screen. Same pattern as `verify-config.py`'s `_ID_RE`.
 _IDENT = re.compile(r'[A-Za-z0-9_]+')
 
-# `language[-Script][-REGION]`. The naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong: a script subtag is
-# four letters in Title case and `sr-Latn` is a real code in a real export. Same pattern as
-# `verify-config.py`'s `LOCALE_CODE`.
-LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?\Z')
+# `language[-Script][-REGION]` as the transformer accepts it: any casing, `-` or `_`. It writes
+# every code out in one casing (`pt-br` ships as `pt-BR`), so casing is not checked here. Same
+# pattern as `verify-config.py`'s `LOCALE_CODE`.
+LOCALE_CODE = re.compile(r'(?i)[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?\Z')
 
 
 def eid(kind='S'):
@@ -183,7 +183,7 @@ def color(color_id):
     return {'type': 'color-style', 'colorId': color_id}
 
 
-# A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
+# A THEME colour must be exactly `#RRGGBB`; the transform service enforces it.
 # In `theme.colors[].light/dark`, a 3-digit (`#fff`), 8-digit (`#RRGGBBAA`),
 # 7-digit, unprefixed (`FFFFFF`) or EMPTY hex is refused — and refused with the
 # location-free `Generated JSON failed schema validation`, which names no field, and
@@ -350,7 +350,7 @@ def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
     Give it **both** `top` and `bottom` — with `height='auto'` — and it stretches between the
     anchors instead, following its parent's height however the content grows. A negative
     `bottom` overshoots past the parent's edge, which is how a timeline rail reaches into the
-    next row. Measured, all three parts load-bearing: drop `bottom` and the element collapses to
+    next row. All three parts are load-bearing: drop `bottom` and the element collapses to
     nothing; swap `auto` for `fill` and it stops 2px short.
 
     The horizontal pair works the same way: `left` AND `right` stretch it between them with
@@ -400,11 +400,9 @@ def visible():
 # A condition is a JSON expression tree, and the transform service validates it with ONE
 # walker (`findInvalidExpressionPath`) shared by `props.visibility.condition` and
 # `states[].condition` — which is why the two codes it raises, `invalid_visibility_condition`
-# and `invalid_state_condition`, are one construct here. Between them they were the 3rd most
-# common transformer refusal in production over the 40 days to 2026-08-28 (362 failed
-# requests), and before this section flowkit had NO way to express a condition at all: an
-# author needing one hand-wrote the tree. Finding 12 again — a missing helper is a missing
-# capability, and the hand-written version is what the service rejects.
+# and `invalid_state_condition`, are one construct here. Together they are among the
+# transformer's most common refusals, and they come from hand-written trees: a missing helper
+# is a missing capability, and the hand-written version is what the service rejects.
 
 # Every expression `type` the transform service's condition walker knows. The published schema
 # types a condition as an unconstrained value, so this list is the only check on it.
@@ -783,7 +781,7 @@ RESERVED_TAG_NAMES = frozenset({
 })
 RESERVED_TAG_PREFIX = 'TIMER_'
 _TAG_NAME = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
-_TAG_VALUE_TYPES = {'string': (str,), 'number': (int, float), 'boolean': (bool,)}
+_TAG_VALUE_TYPES = {'string': (str,)}
 
 
 def tag_name_issue(name):
@@ -821,9 +819,9 @@ def app_value(name, *, fallback, value_type='string', variable_id=None, descript
             f'({", ".join(sorted(RESERVED_TAG_NAMES)[:4])}, ..., {RESERVED_TAG_PREFIX}*).')
     if value_type not in _TAG_VALUE_TYPES:
         raise ValueError(f'app_value() value_type must be one of {sorted(_TAG_VALUE_TYPES)}, '
-                         f'got {value_type!r} — the app passes strings, numbers or booleans only')
+                         f'got {value_type!r} — the app passes strings only')
     ok = _TAG_VALUE_TYPES[value_type]
-    if not isinstance(fallback, ok) or (value_type == 'number' and isinstance(fallback, bool)):
+    if not isinstance(fallback, ok):
         raise TypeError(f'app_value() fallback {fallback!r} is not a {value_type}; it is shown '
                         f'in place of the app value, so it must be the same type')
     vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
@@ -894,9 +892,9 @@ def _node(kind, props, *, children=None, caption=None, states=None,
 
 def _check_stretch(props):
     """`height: auto` and a top+bottom anchor pair are one construct, so neither half is
-    representable alone. Both halves were measured on a rendered timeline row: anchors without
-    `auto` (a `fill` height) stopped 2px short of the next chip, and `auto` without the `bottom`
-    anchor collapsed the rail to nothing and left 108px of white.
+    representable alone. On a rendered timeline row, anchors without `auto` (a `fill` height)
+    stop 2px short of the next chip, and `auto` without the `bottom` anchor collapses the rail
+    to nothing and leaves 108px of white.
     """
     pos, h = props['position'], props['height']
     anchored = (pos.get('type') == 'absolute'
@@ -981,12 +979,12 @@ def footer(children=(), *, fill_=None, padding=None, gap=16, direction='vertical
     A `footer` is lifted out of the layout flow and pinned to the bottom of the viewport while
     the content scrolls past it. **It requires the screen to be `scrollable`** -- device-confirmed,
     with the scroll off it does not render at all, and the preview cannot show you that
-    (`screen()` refuses the pair). Measured, one variable at a time: the same props under
+    (`screen()` refuses the pair). Varying one thing at a time: the same props under
     `type: "stack"` put the bar below the fold; the pinned band is identical whether the screen is
     `scrollable` or not, and whether the footer is declared first or last.
 
-    Three measured constraints are enforced here rather than left to the caller, because each one
-    produced a real defect:
+    Three constraints are enforced here rather than left to the caller, because each one breaks
+    the render:
 
     * `fill_` is REQUIRED. The footer overlays the scrolling content, so without an opaque fill
       the content passes visibly behind the CTA — which is the symptom that gets misread as
@@ -1072,8 +1070,8 @@ def _dot_color(value, default):
     """A dot colour: a theme colour id, a literal '#hex', or an already-built colour dict.
 
     `Dots.color`/`activeColor` are `Color`, which accepts a `color-style` reference — so the
-    dots CAN follow the theme, and usually should. Measured: the real export's hardcoded white
-    dots are invisible on a light screen, and the preview draws light mode only, so a hex dot
+    dots CAN follow the theme, and usually should. Hardcoded white dots, as real exports carry
+    them, are invisible on a light screen, and the preview draws light mode only, so a hex dot
     that looks fine in the export is a dot nobody sees. Pass a theme colour id.
     """
     if value is None:
@@ -1173,8 +1171,8 @@ def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None,
     unknown one raises with suggestions.
 
     That guard is the whole point. A phosphor icon resolves by name from the bundle, so an
-    invented name draws NOTHING — measured: correct hand-authored markup under `name: "CloseX"`
-    rendered as empty space twice, `name: "X"` drew immediately. `validate` returns `valid:true`,
+    invented name draws NOTHING: correct hand-authored markup under `name: "CloseX"` renders as
+    empty space, while `name: "X"` draws. `validate` returns `valid:true`,
     the schema types the name as a bare string, and a blank in a screenshot looks like a spacing
     bug. `config()` then declares whatever you used in `_meta.icons`, so the used-but-undeclared
     error is unreachable from here too.
@@ -1299,7 +1297,7 @@ def _image_value(url, media_id, preview):
     return entry
 
 
-def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hexval=None):
+def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None):
     """A background image fill — `props.fill` on a screen or a stack.
 
     The SAME asset binds two different ways and this is the other one: an `image` element wraps
@@ -1312,15 +1310,11 @@ def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hex
     `preview` matters here for the same reason it does on an element, and more visibly: a
     background is usually the largest asset on the screen, so it is the one whose absence reads
     as a broken screen rather than a missing picture.
+
+    An image layer carries no colour: the schema allows only `type`, `image` and
+    `customMediaID`. A tint or a colour behind the photo is its own `fill()` layer in the stack.
     """
-    layer = {'type': 'image', 'image': _image_value(url, media_id, preview)}
-    if color_id is not None and hexval is not None:
-        raise TypeError('image_fill(): pass color_id or hexval, not both')
-    if color_id is not None:
-        layer['color'] = color(color_id)
-    elif hexval is not None:
-        layer['color'] = hex_color(hexval)
-    return [layer]
+    return [{'type': 'image', 'image': _image_value(url, media_id, preview)}]
 
 
 def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width=None, height='hug',
@@ -1339,7 +1333,7 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width=None
     field. Pass `flowkit.PLACEHOLDER` as the url for the no-asset case; anything else falsy is an
     error rather than a silent empty map.
 
-    Geometry, measured (media.md): with `height='hug'` the drawn height comes from the ASSET's
+    Geometry (media.md): with `height='hug'` the drawn height comes from the ASSET's
     aspect ratio, so the screen re-flows if the file is swapped and `fit` has no visible effect.
     With a fixed height the box wins and the asset absorbs the mismatch — `cover` crops it,
     `fit` letterboxes it and leaves a dead band.
@@ -1408,7 +1402,7 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
     element type (the same mistake as the fake footer and the fake spinner), it forces the user
     to delete-and-recreate instead of just binding a file, and no gate flags it.
 
-    Measured against the transform service and the render:
+    What the transform service and the render do with it:
 
     * an unset `video` is PUBLISHABLE -- `valid: true, issues: []`, in the styled, the empty
       `values`-map and the bare forms alike -- and the transform service maps `video`, so
@@ -1418,9 +1412,9 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
       `image` draws) with no relationship to the clip, so the layout you approve is not the
       layout that ships -- everything below the video moves when the file lands. A fixed height
       holds the box and the clip absorbs the mismatch, `cover` cropping it and `fit` leaving
-      bands. Measured: `fixed_h=200` drew exactly 200pt.
-    * the checkerboard IGNORES `borderRadius` in `config preview` -- corner profiles measured
-      flat -- and so does an empty `image`'s, byte for byte, so this is the placeholder drawing
+      bands: `fixed_h=200` draws exactly 200pt.
+    * the checkerboard IGNORES `borderRadius` in `config preview` -- its corners draw square --
+      and so does an empty `image`'s, byte for byte, so this is the placeholder drawing
       unclipped rather than anything video-specific. Author the radius anyway: it is what the
       clip lands into, and do not "fix" the square corners you see in the preview.
 
@@ -1428,7 +1422,7 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
     no `align` and no `layout` -- to place it, position the PARENT stack.
 
     NOT observed in any real export: 0 `video` elements across the 12-config corpus, so this
-    shape is authored from the schema plus the measurements above, not read off builder output.
+    shape is authored from the schema plus the render behaviour above, not read off builder output.
     """
     hit = [k for k in kw if k in _VIDEO_SOURCE_ARGS]
     if hit:
@@ -1443,7 +1437,7 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
     if fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float)):
         raise TypeError(
             f'video(fixed_h=...) wants a height in points, not {fixed_h!r}. A hug-height '
-            'placeholder draws an arbitrary 256pt box (measured) that the real clip will not '
+            'placeholder draws an arbitrary 256pt box that the real clip will not '
             'match, so the layout you preview and approve is not the one that ships.')
     props = {
         'width': _width(width, None, position),
@@ -1461,10 +1455,8 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
 
 
 # --- the input family ---------------------------------------------------------------------
-# Eight element types, and flowkit had a helper for NONE of them, so every authored input was
-# hand-assembled from an export — including in all six runs of the 2026-08-28 GREEN round, one
-# of which said so in its own build script ("flowkit has no helper for the input family, so the
-# props are assembled here"). Finding 12 once more.
+# Eight element types. Without a helper an author hand-assembles each input from an export, and
+# a hand-assembled input is where the defects below come from.
 #
 # The stakes are not cosmetic. An input's `customId` is the PRODUCER for `<customId>.value`,
 # which is what every conditional-visibility gate reads. Get it wrong or leave it out and the
@@ -1526,12 +1518,10 @@ def _input(kind, custom_id, *, placeholder=None, locale='en', width=None, height
         props['placeholder'] = localized(placeholder, locale=locale)
     if fill_ is not None:      props['fill'] = _check_fill(fill_, kind)
     if border is not None:
-        # `border` is a COLOUR ID and is wrapped here, exactly as `stack()` does it. The first
-        # version of this helper passed the argument through verbatim, so `border='line'`
-        # emitted the bare string `"border": "line"` while the same call on a stack produced a
-        # full Border -- two helpers, one parameter name, two meanings. That is the drift this
-        # module exists to prevent (see the rich-text note above); found by an agent in the
-        # 2026-08-28 round, which had to repair it by hand.
+        # `border` is a COLOUR ID and is wrapped here, exactly as `stack()` does it. Passed
+        # through verbatim, `border='line'` would emit the bare string `"border": "line"` while
+        # the same call on a stack produces a full Border -- two helpers, one parameter name, two
+        # meanings. That is the drift this module exists to prevent (see the rich-text note above).
         if not isinstance(border, str):
             raise TypeError(
                 f'{kind} border takes a THEME COLOUR ID like \'line\', not '
@@ -1653,9 +1643,8 @@ def on_selected(node, **props):
     THE reason this exists: without it there is no way to express "selected" from this module,
     so an author styles the card that starts selected differently in its BASE props -- and that
     look is then stuck on that card forever. Tapping flips the internal selection and nothing on
-    screen moves, which reads to a user as "it blinks and nothing changes". Shipped to a real
-    user on 2026-08-28 from a build that had `patterns.md`'s rule in front of it; the words were
-    there and the helper was not, which is the difference this closes.
+    screen moves, which reads to a user as "it blinks and nothing changes". `patterns.md`'s rule
+    alone does not prevent it; a helper does.
 
     Use it on the member AND on every descendant whose colour or font should follow:
 
@@ -1675,6 +1664,14 @@ def on_selected(node, **props):
     if not props:
         raise ValueError('on_selected() with no props does nothing — pass the overrides that '
                          'should apply while selected, e.g. fill=fill("planOn").')
+    # A preset with a weight on top is the shape below; a preset with its own `family` is a
+    # manual font with a preset added (flow-schema.md, trap 3): the preset's face draws and the
+    # family is ignored.
+    font = props.get('font')
+    if isinstance(font, dict) and 'preset' in font and 'family' in font:
+        raise ValueError(
+            f'on_selected(font={font!r}) sets a preset AND a family — a font is either '
+            f'{{"preset": "<id>", ...}} or a manual font (family, size, weight) with no preset.')
     dropped = state_override_drops(node.get('props') or {}, props)
     if dropped:
         raise ValueError(
@@ -1842,22 +1839,20 @@ def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
         └── tab-content-wrapper
             └── tab-content × N -- one panel per tab, matched BY POSITION
 
-    An earlier draft of this helper hung `tab-item`s straight off `tabs` and skipped the
-    other three types. Every gate passed it — and it is a shape the builder never emits,
-    which is this repo's most expensive recurring class. The schema check caught it here
-    only because the schema happens to disagree with `tabs` for unrelated reasons.
+    `tab-item`s hung straight off `tabs`, skipping the other three types, pass every gate —
+    and it is a shape the builder never emits, which is this repo's most expensive recurring
+    class. The schema check catches it only because the schema happens to disagree with
+    `tabs` for unrelated reasons.
 
     The screen must declare `group_id` as **`single_choice`**; the service refuses any other
     type with `wrong_tab_selectable_group_type`, and there is no `tabs` group type however
     much the name suggests one. `screen()` checks that for you.
 
-    **`item_selected` is required, and that is finding 21 in this element.** Until 2026-09-11
-    this helper declared `states: [selected]` on each `tab-item` and emitted **no
-    `propsByState`** — so the state existed, the tap moved the selection, and nothing on screen
-    changed. A pill that never moves. Both sources of truth carry the override: the real export
+    **`item_selected` is required.** `states: [selected]` on each `tab-item` with **no
+    `propsByState`** means the state exists, the tap moves the selection, and nothing on screen
+    changes. A pill that never moves. Both sources of truth carry the override: the real export
     `tests/fixtures/tabs-paywall.json` puts `fill` + `borderRadius` in
-    `propsByState.selected`, and the catalog's `tabs-segmented` puts `fill` there. Two agents
-    building a tab bar from this helper had to patch it in by hand before the bar worked. Pass
+    `propsByState.selected`, and the catalog's `tabs-segmented` puts `fill` there. Pass
     the props the selected pill should carry:
 
         tabs([...], group_id='sections', item_selected={'fill': fill('pillOn'),
@@ -2061,15 +2056,14 @@ def hide_elements(element_ids, action_id='act_hide'):
 
 
 # --- the rest of the action vocabulary ----------------------------------------------------
-# `invalid_action_payload` was the 5th most common transformer refusal in the 40 days to
-# 2026-08-28 (208 failed requests), and it is one code covering sixteen distinct required-field
-# checks. Until now flowkit exposed three action types out of fourteen — purchase, navigate,
-# closeFlow — so ANY other action had to be hand-written, `openUrl` included, which store
-# compliance requires on every paywall (terms and privacy). Finding 12: an author reaches for
-# what the helper exposes, and what is not exposed gets hand-written into a 422.
+# `invalid_action_payload` is one of the transformer's most common refusals, and it is one code
+# covering sixteen distinct required-field checks. This section exposes the rest of the action
+# vocabulary, `openUrl` included, which store compliance requires on every paywall (terms and privacy):
+# an author reaches for what the helper exposes, and what is not exposed gets hand-written
+# into a 422.
 #
 # Every required field below is the transform service's own, read off its error messages in
-# `compile-actions.ts` rather than inferred from the schema — the schema is looser than the
+# the transformer's source rather than inferred from the schema — the schema is looser than the
 # service in each case.
 
 
@@ -2158,8 +2152,7 @@ def navigate_back(action_id='act_back'):
 def navigate_next(action_id='act_next'):
     """`navigateNext` resolves against the flow's screen ORDER, so it is refused on a screen
     the order does not contain. It also makes the graph implicit and order-dependent: an
-    explicit `navigate(screen_id)` is preferred wherever the target is known, and a previous
-    build reverted `navigateNext` after `verify-config.py` reported five screens unreachable.
+    explicit `navigate(screen_id)` is preferred wherever the target is known.
     """
     return {'id': action_id, 'type': 'navigateNext'}
 
@@ -2207,8 +2200,7 @@ def conditional_action(cases, *, default=(), action_id='act_cond'):
 # `days`/`hours`/`minutes`/`seconds` do NOT resolve: the Flow Builder paints them red `Unknown`
 # and the device/preview renders the literal `%hours%`. `config validate` accepts either, so the
 # wrong one is silent — which is exactly why this is a helper and not something you hand-author.
-# `component-catalog.json`'s timer templates carried the bare names until 2026-08-25; if you lift
-# a timer shape from anywhere, run it through here or fix the prefix by hand.
+# If you lift a timer shape from anywhere, run it through here or fix the prefix by hand.
 
 TIMER_UNITS = ('days', 'hours', 'minutes', 'seconds')
 
@@ -2245,16 +2237,15 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     running digits.
 
     **A timer carrying a `timer-end` action must contain its own digits** — a `timer_digits()`
-    text among its children, which may be coloured like the background to stay invisible. Device-
-    measured: a timer whose child was a logo or a plain sentence did not fire either, and the same
-    timers fired once digits were added, visible or background-coloured.
+    text among its children, which may be coloured like the background to stay invisible. On a
+    device, a timer whose child is a logo or a plain sentence does not fire either, and the same
+    timers fire once digits are added, visible or background-coloured.
 
-    The earlier, weaker rule — at least one child — came from these measurements,
-    two writes differing in nothing else: the childless form **did not advance**, the
-    same timer with one child text **did**, and an isolating probe with two exits to different
-    destinations confirmed it on a third trip. So the "purely invisible delay" this docstring used
-    to recommend does not fire at all — an element with nothing to lay out is one the renderer
-    skips, timer included. `config preview` cannot see any of this: it never navigates for any
+    The weaker rule — at least one child — rests on two device writes differing in nothing else:
+    the childless form **does not advance**, the same timer with one child text **does**, and an
+    isolating probe with two exits to different destinations confirms it. So a "purely invisible
+    delay" does not fire at all — an element with nothing to lay out is one the renderer skips,
+    timer included. `config preview` cannot see any of this: it never navigates for any
     reason, so both forms look identical locally and `validate` passes both.
 
     Raised rather than warned because the failure is silent, terminal and remote: the flow stops
@@ -2809,10 +2800,10 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
     if len(feet) > 1:
         raise ValueError(
             f'{len(feet)} footer elements on screen {screen_id!r} ({", ".join(sorted(feet))}) — '
-            'measured, a second footer draws ZERO pixels. Put the CTA and the legal row inside '
+            'a second footer draws ZERO pixels. Put the CTA and the legal row inside '
             'ONE footer as children.')
     # Selectable groups, both directions. `verify-config.py` errors on each of these in a
-    # finished document; raising here is the finding-12 half — the screen that cannot be
+    # finished document; raising here is the helper half — the screen that cannot be
     # built wrong beats the one whose defect is reported afterwards.
     groups = {g['id']: g for g in selectable_groups}
     for gid, g in groups.items():
@@ -3158,21 +3149,13 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             'pass locales=(("en", "English"), ("ru", "Russian"), …) — do not ship it as a '
             'warning for someone else to clear up.')
 
-    # The locale code is what the SDK matches against, and its pattern is case-sensitive per
-    # subtag: `language[-Script][-REGION]`, script four letters in Title case, region two
-    # uppercase letters or three digits. `pt-br` saves fine and is refused at publish with an
-    # output-schema violation on `/localizations/N/id`, and the repair is heavy by then (the key
-    # has to be renamed in `locales`, in every `values` map, and in `remote_configs`) -- so it is
-    # unrepresentable here rather than a warning after the fact. `verify-config.py` warns on the
-    # same shape, for codes that arrive in a config you fetched rather than one you wrote.
+    # A code outside `language[-Script][-REGION]` is refused at publish (`invalid_locale_code`).
+    # `verify-config.py` reports the same shape for codes in a config you fetched.
     for code in declared:
         if not LOCALE_CODE.fullmatch(str(code)):
             raise ValueError(
-                f'locale code {code!r} is not `language[-Script][-REGION]` with the SDK\'s '
-                f'casing. Region is UPPERCASE (`pt-BR`, not `pt-br`) and a script subtag is '
-                f'four letters in Title case (`zh-Hans`, `sr-Latn`). The transform service '
-                f'refuses the flow at publish with a pattern violation on '
-                f'`/localizations/N/id`.')
+                f'locale code {code!r} is not `language[-Script][-REGION]` (`en`, `pt-BR`, '
+                f'`zh-Hans`, `es-419`); the publish refuses it.')
 
     # An element id becomes an IDENTIFIER in the generated runtime script -- the same code path
     # the condition-variable check below documents. A character outside [A-Za-z0-9_] breaks the
@@ -3180,8 +3163,7 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
     # schema check and `config preview` all green: the preview renders the config, not the
     # transformer's output. One script per flow, so a reused id collides in it too.
     #
-    # SCREEN ids are not checked, and that is measured rather than overlooked: 4 of 36 screen
-    # ids in the corpus are bare UUIDs, each the entry screen of a published flow.
+    # SCREEN ids are not checked, deliberately: 4 of 36 screen ids in the corpus are bare UUIDs, each the entry screen of a published flow.
     seen_ids = {}
     for s_ in screens:
         for eid in (s_.get('elements') or {}).get('map', {}):
@@ -3222,8 +3204,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
     # Every condition variable must resolve to something this document produces. An id that
     # resolves to nothing is not dropped: the code generator emits it as a BARE IDENTIFIER into
     # the generated TypeScript, which then fails to compile — `script_type_violation`,
-    # `TS2304: Cannot find name 'email'`, the 4th most common transformer refusal in the 40 days
-    # to 2026-08-28 (253 failed requests). It is checked here rather than in `when()` because
+    # `TS2304: Cannot find name 'email'`, one of the transformer's most common refusals. It is
+    # checked here rather than in `when()` because
     # only the whole document knows what produces what.
     #
     # The same id in RICH TEXT is a different severity and is deliberately left alone: an
@@ -3274,8 +3256,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                 if isinstance(st, dict) and st.get('condition'):
                     trees.append(st['condition'])
             # A conditional-text `switch` (switch_rich) is COMPILED, not rendered, so an
-            # unresolved id there is fatal exactly like a visibility condition -- measured
-            # against the live service: `valid: false`, "Generated scripts failed
+            # unresolved id there is fatal exactly like a visibility condition -- the live
+            # service answers `valid: false`, "Generated scripts failed
             # validation", with `code` and `path` both null, so the refusal names neither the
             # element nor the variable. This is the opposite severity from a `variable` SPAN in
             # rich text, which renders its literal token and publishes; the two shapes sit in
@@ -3315,8 +3297,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             continue
         if v.get('valueType') not in _TAG_VALUE_TYPES:
             raise ValueError(f'variable {v.get("name")!r} is external but its valueType is '
-                             f'{v.get("valueType")!r}; only string, number and boolean '
-                             f'variables can come from the app. Build it with app_value().')
+                             f'{v.get("valueType")!r}; only a string variable can come from the app. '
+                             f'Build it with app_value().')
         issue = tag_name_issue(v.get('name'))
         if issue:
             raise ValueError(f'custom tag name {v.get("name")!r} is {issue} '

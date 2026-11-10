@@ -436,16 +436,17 @@ def main():
     # image_fill() — the SAME asset binds a second way, flat, with no locale map. There was no
     # helper for it, so a background image was hand-assembled and its preview was the easiest
     # thing to leave out.
-    bg = fk.image_fill(HERO, media_id=516395, preview=PREV, hexval='#0B0B10')
+    bg = fk.image_fill(HERO, media_id=516395, preview=PREV)
     check('image_fill emits one flat layer, preview included',
           bg == [{'type': 'image',
-                  'image': {'url': HERO, 'id': '516395', 'previewValue': PREV},
-                  'color': {'type': 'hex', 'hex': '#0B0B10'}}], json.dumps(bg))
+                  'image': {'url': HERO, 'id': '516395', 'previewValue': PREV}}], json.dumps(bg))
     check('image_fill wraps in a one-item array, like every other v10 fill',
           isinstance(bg, list) and len(bg) == 1)
-    check('image_fill refuses two colour sources',
-          raises(lambda: fk.image_fill(HERO, preview=fk.NO_PREVIEW, color_id='bg',
-                                       hexval='#FFF'), TypeError))
+    # The schema's image layer is additionalProperties: false over type/image/customMediaID, so
+    # a colour on it is refused; a tint is a separate fill() layer.
+    for kw in ({'hexval': '#0B0B10'}, {'color_id': 'bg'}):
+        check(f'image_fill takes no colour ({next(iter(kw))}=)',
+              raises(lambda: fk.image_fill(HERO, preview=fk.NO_PREVIEW, **kw), TypeError))
 
     # video() — `flows media upload` REFUSES a clip (permitted formats are JPEG/JPEG2000/WEBP/
     # PNG/SVG), so the only correct artifact is a styled element with NO source plus a spoken
@@ -1154,18 +1155,19 @@ def main():
           raises(lambda: _doc([fk.screen('scr_1', [
               fk.text_input('user-name', node_id='el_in')])])))
 
-    # `pt-br` saves and is refused at publish; `sr-Latn` is a real code in a real export, so the
-    # naive `^[a-z]{2}(-[A-Z]{2})?$` would be wrong in the other direction.
-    check('config() raises on a lowercase region locale code (pt-br)',
+    # The transformer's pattern: any casing, `-` or `_` (the publish writes one casing out);
+    # `sr-Latn` is a real code in a real export, so the naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong.
+    check('config() raises on a code the publish refuses (english)',
           raises(lambda: _doc([_scr('scr_1', 'el_ok')],
-                              locales=(('en', 'English'), ('pt-br', 'Portuguese')))))
-    check('config() raises on a lowercase script subtag (sr-latn)',
-          raises(lambda: _doc([_scr('scr_1', 'el_ok')],
-                              locales=(('en', 'English'), ('sr-latn', 'Serbian')))))
+                              locales=(('en', 'English'), ('english', 'English 2')))))
     check('config() accepts pt-BR, zh-Hans and sr-Latn',
           _doc([_scr('scr_1', 'el_ok')],
                locales=(('en', 'English'), ('pt-BR', 'Portuguese'),
                         ('zh-Hans', 'Chinese'), ('sr-Latn', 'Serbian'))) is not None)
+    check('config() accepts other casings (pt-br, sr-latn)',
+          _doc([_scr('scr_1', 'el_ok')],
+               locales=(('en', 'English'), ('pt-br', 'Portuguese'),
+                        ('sr-latn', 'Serbian'))) is not None)
     # --- icons resolve from the bundle, and _meta.icons is DERIVED ---------------------------
     # Used-here-declared-there is a two-place binding whose second place no gate can see, and the
     # name itself is a third: a phosphor name the renderer's bundle lacks draws blank with an

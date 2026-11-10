@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Measure a flow render, instead of eyeballing it.
 
-Why this exists: "the connector line looks too narrow" sent a whole session's worth of edits
-at an element that was exactly the right size. The same screenshot, measured, said the widths
-were correct (38 against a 46 chip) and that the real defect was a **14px break** before the
-next chip — a gradient fading out onto the page colour. One is a hunch, the other is a bug
+Why this exists: "the connector line looks too narrow" can aim a whole session's worth of edits
+at an element that is exactly the right size. Measuring the same screenshot can show the widths
+are correct (38 against a 46 chip) and the real defect is a **14px break** before the next
+chip — a gradient fading out onto the page colour. One is a hunch, the other is a bug
 report. Reach for this whenever a judgement about a render is about position or size.
 
 Stdlib only (no Pillow): 8-bit non-interlaced PNG, which is what headless Chrome writes.
@@ -28,13 +28,11 @@ import argparse, collections, struct, sys, zlib
 
 # Share of one colour above which a PNG is not a render. Reused verbatim from
 # `tests/render-check.py`, where it was calibrated against real paywall renders; the page it
-# exists to reject is Chrome's own error screen, which measured 99.7% there. Re-measured
-# 2026-08-26 on five DNS-error screenshots from a GREEN round: 97.7-98.0% one colour with
-# 217-228 distinct colours -- so a colour COUNT cannot catch this and the share can.
+# exists to reject is Chrome's own error screen, which reads 99.7% there. Five DNS-error
+# screenshots read 97.7-98.0% one colour with 217-228 distinct colours -- so a colour COUNT cannot catch this and the share can.
 MAX_DOMINANT_SHARE = 0.95
-# ...but flatness ALONE cannot separate the two classes, and shipping it alone was a real
-# false-positive source: four agents in one GREEN round (2026-08-28) had good renders renamed
-# `NOT-A-RENDER-*`. Re-measured over 15 real renders and 4 error pages, the ranges OVERLAP --
+# ...but flatness ALONE cannot separate the two classes: on its own it renames good renders
+# `NOT-A-RENDER-*`. Over 15 real renders and 4 error pages, the ranges OVERLAP --
 # real renders run 0.502-0.991 one colour and error pages 0.976-1.000, so a sparse light signup
 # screen (0.991) is FLATTER than the DNS-error page the guard exists to catch (0.976).
 #
@@ -50,10 +48,9 @@ MAX_DOMINANT_SHARE = 0.95
 # Against that rule the full set is 19/19 correct, with the nearest real render 0.057 clear on
 # flatness (0.893 where 0.95 is needed) and 0.155 clear on span (0.655 where < 0.50 is needed).
 MIN_INK_SPAN = 0.50
-# ...and flatness AND span TOGETHER are still not enough, which is the second over-fire of this
-# guard (2026-08-28, reported after a correct render of a reviews carousel was renamed
-# `NOT-A-RENDER-*`). Measured on that capture against four freshly taken Chrome error pages, the
-# real render sits INSIDE the error-page range on both existing axes -- it is bracketed, so no
+# ...and flatness AND span TOGETHER are still not enough: a correct render of a reviews carousel
+# gets renamed `NOT-A-RENDER-*`. Against four Chrome error pages, that real render sits INSIDE
+# the error-page range on both existing axes -- it is bracketed, so no
 # threshold on them could ever have separated it:
 #
 #     conn-refused        dom 0.976   span 0.263
@@ -63,18 +60,18 @@ MIN_INK_SPAN = 0.50
 # What does separate them is the longest CONTIGUOUS run of ink in any row, as a fraction of the
 # width. Text cannot produce a long one -- there are gaps between glyphs -- while almost any app
 # screen draws a card edge, a divider, a filled button or an image that runs unbroken across
-# much of the frame. Measured:
+# much of the frame:
 #
 #     error pages   n=4   longest run 0.000-0.139   (blank page is 0.000)
 #     real renders  n=3   longest run 0.646-0.792   (carousel, one-card, divider)
 #
 # 0.35 sits in that gap, ~150px at 430 wide, which nothing made of glyphs reaches.
 #
-# KNOWN LIMITATION, measured rather than assumed: a real screen that is ONLY text (a heading
+# KNOWN LIMITATION: a real screen that is ONLY text (a heading
 # alone, 0.042; a paragraph of terms, 0.062) is indistinguishable from an error page on all
 # three axes -- it scores LOWER than the error pages do, because Chrome's error page has a solid
 # icon and button. That is not a threshold that can be tuned; the two are the same image. It is
-# why `shoot.sh` now probes the render host BEFORE launching Chrome: an unreachable host is the
+# why `shoot.sh` probes the render host BEFORE launching Chrome: an unreachable host is the
 # actual cause of the page this guard was invented to catch, and testing it directly is both
 # reliable and 18 seconds cheaper than screenshotting the result.
 MIN_LONGEST_RUN = 0.35
@@ -88,7 +85,7 @@ def sanity_metrics(w, h, chans, buf):
 
     Extracted so the calibration in `tests/test-render-sanity.py` measures the SHIPPED code
     rather than a reimplementation beside it -- the subsampling below means a full-resolution
-    recomputation does not produce the same numbers (0.974 vs 0.976 on the same file, measured).
+    recomputation does not produce the same numbers (0.974 vs 0.976 on the same file).
     """
     # Every 3rd pixel: 20x cheaper and the share does not move meaningfully.
     counts = collections.Counter()

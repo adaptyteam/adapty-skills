@@ -164,7 +164,7 @@ anywhere; nothing in this skill needs it.
 > {count, page, pages}`. Reading page 1 and reporting its length under-reports any
 > account with more than 20 placements or products. Page through to `pages`.
 
-Five checks, in this order. Each one that fails names where the problem is and stops the
+Six checks, in this order. Each one that fails names where the problem is and stops the
 guessing.
 
 **1. Adapty knows the app's store identity.** `apps get` returns `apple_bundle_id` and
@@ -226,13 +226,19 @@ store ID for the platform under test can never resolve a price, and a product wh
 the purchase succeeds and the user stays locked out, which is the most confusing
 symptom in the whole surface.
 
+**6. Nothing in the code grants premium without a purchase.** Grep for a debug or test
+override: a flag, build condition or hardcoded `true` that unlocks access or skips the
+paywall (`isPremium = true`, `#if DEBUG`, `BuildConfig.DEBUG`, `kDebugMode`, a "force
+premium" setting). If the build under test carries one, a sandbox walk through it proves
+nothing: name the line, and test on a build without it.
+
 **Report the preflight before anything else** (the block is under
-[What you print](#what-you-print)). Then go to what failed, or to Phase 2 if all five
+[What you print](#what-you-print)). Then go to what failed, or to Phase 2 if all six
 pass.
 
 ## Phase 2: The first purchase, one step at a time
 
-All five preflight checks pass, so the dashboard and the code agree. What is left is the
+All six preflight checks pass, so the dashboard and the code agree. What is left is the
 store and the phone, and only the user can touch those. **This is a conversation, not a
 document:** the user does a step, comes back, and you take the next one. Send one step
 per message.
@@ -339,6 +345,11 @@ check each one:
   the store ID is. Only the console tells you whether a product with that ID exists,
   is priced, and is active — name the ID and where to look it up.
 - **Events and profiles.** The CLI has no command for either; step 4 is the user's.
+- **The store connection itself.** Check 1 sees only the bundle ID. Whether the In-App
+  Purchase key and the server notifications URL (App Store), or the service account key and
+  RTDN (Google Play), are in place the user checks in the dashboard's App settings:
+  https://adapty.io/docs/app-store-connection-configuration.md,
+  https://adapty.io/docs/google-play-store-connection-configuration.md.
 - **Production behavior.** Sandbox uses different accounts, different servers, and an
   accelerated clock. A working sandbox purchase is necessary and not sufficient.
 

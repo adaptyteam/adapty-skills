@@ -45,6 +45,7 @@
 import {spawnSync} from 'node:child_process'
 import {readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
+import {homedir} from 'node:os'
 import {delimiter, dirname, isAbsolute, join, relative, resolve} from 'node:path'
 import {parseArgs} from 'node:util'
 
@@ -69,10 +70,11 @@ function fail(message) {
   process.exit(2)
 }
 
-/** qrcode is a run-time dependency of the caller: this script, npx, or the current project. */
+/** qrcode is a run-time dependency of the caller: its cache dir, npx, or the current project. */
 function loadQrcode() {
   const roots = [
     process.cwd(),
+    join(homedir(), '.cache', 'adapty-flow-qr'),
     ...(process.env.PATH ?? '')
       .split(delimiter)
       .filter((dir) => dir.endsWith(join('node_modules', '.bin')))
@@ -89,7 +91,7 @@ function loadQrcode() {
 
   console.error(
     'Could not resolve qrcode. Install it ONCE (`npm i --prefix ~/.cache/adapty-flow-qr qrcode`) '
-    + 'and run from that directory. Drop --qr to skip the image and just print the link.',
+    + '(any cwd works after that). Drop --qr to skip the image and just print the link.',
   )
   process.exit(1)
 }
@@ -276,9 +278,9 @@ if (values.qr || values.out) {
 
   // Then OPEN it, rather than printing something for the reader to act on.
   //
-  // A file:// URL was the first attempt and is not clickable in a terminal (reported from a real
-  // one) — a path with seven useless characters in front of it. Printing `open <path>` instead was
-  // the second, and it still makes the reader copy-paste before they can scan anything. So do the
+  // A file:// URL is not clickable in a terminal — it is a path with seven useless characters in
+  // front of it. Printing `open <path>` instead still makes the reader copy-paste before they can
+  // scan anything. So do the
   // step for them: `flows config preview` already opens a browser on a TTY rather than handing over
   // a URL, and this is the same move.
   //

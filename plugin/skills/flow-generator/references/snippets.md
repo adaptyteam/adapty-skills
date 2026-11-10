@@ -172,11 +172,10 @@ It is visible in the plan before anything is written, so a user who wants exact 
 can say so.
 
 **When the destination sells something different from the source, the imported copy is wrong even
-though every gate passes.** This is from a real failure: a three-step "how it works" timeline
-grafted from a personal-finance paywall into an AI language-learning one. `verify-config.py`
-passed (every reference resolves), `validate` passed (the document publishes), the render was
-legible — and the shipped screen told someone learning French to *"Link your accounts once —
-balances keep themselves up to date."* None of those checks knows what the product **is**; each
+though every gate passes.** Graft a three-step "how it works" timeline from a personal-finance paywall into a
+language-learning one: `verify-config.py` passes (every reference resolves), `validate` passes
+(the document publishes), the render is legible — and the screen tells someone learning French to
+*"Link your accounts once — balances keep themselves up to date."* None of those checks knows what the product **is**; each
 checks that a reference resolves, that the document publishes, that pixels are legible, never
 whether the sentence is true of this app. `plan`'s **WILL SAY** section is the moment this becomes
 checkable — it prints the actual copy the graft is importing, in hierarchy order, under the
@@ -184,12 +183,11 @@ destination screen's own name. Read it against the destination screen and rewrit
 doesn't belong, or say plainly that you did not.
 
 **A carried colour brings the source's background assumption with it — an adopted one cannot,
-because the destination already has an opinion about that id.** This is from a real failure: a
-timeline grafted from a light-background flow into a dark one. `muted` existed in both flows and
-was adopted — fine, since it now resolves against the destination's own definition. `ink`
-(`#0C1116`) did not exist in the destination, so it was carried in verbatim, and the destination
-screen's background is `#080D1C` — step titles rendered near-black on near-black. `verify-config.py`
-passed (the reference resolves), the schema passed, and only the render showed it. `plan` now
+because the destination already has an opinion about that id.** Graft a timeline from a light-background flow into a dark one: `muted` exists in both flows and
+is adopted — fine, since it resolves against the destination's own definition. `ink`
+(`#0C1116`) does not exist in the destination, so it is carried in verbatim, and on a destination
+screen whose background is `#080D1C` step titles render near-black on near-black. `verify-config.py`
+passes (the reference resolves), the schema passes, and only the render shows it. `plan`
 checks every **carried** colour actually referenced by an element in the payload against the
 destination screen's own background (a `color` fill via `colorId` or a literal hex, or a
 `gradient`'s first stop — an image fill, or no fill at all, is skipped silently rather than
@@ -221,8 +219,8 @@ collide with the destination are re-minted and every internal reference is rewri
 `WILL RENAME` lines show old → new.
 
 **Media URLs travel unchanged across a cross-app graft; fonts travel but need an ask.** A
-`flows media upload` CDN URL is not app-scoped: a probe image uploaded to one app loaded
-(`200 image/png`) and drew visibly inside a different app's flow with no re-upload. A
+`flows media upload` CDN URL is not app-scoped: an image uploaded to one app loads
+(`200 image/png`) and draws visibly inside a different app's flow with no re-upload. A
 `_meta.fonts` entry lifted from one app's flow also resolves and renders in that face in
 another app's flow preview, but **each app has its own font library**, so the destination's
 library does not have that font and the user cannot manage or replace it there. `graft`
@@ -250,7 +248,7 @@ wrong"* gets argued with.
 **The guarantee `graft` actually gives you**: the output is `verify-config.py`-clean, **or**
 every remaining ERROR corresponds to something the plan already put in `NEEDS YOU`. The graft
 introduces no *undisclosed* breakage — that is not the same claim as "the output always passes".
-Measured: grafting a screen whose `navigate` targets a screen the destination lacks reports that
+Grafting a screen whose `navigate` targets a screen the destination lacks reports that
 target in `NEEDS YOU` and leaves it dangling on purpose, because inventing a destination changes
 routing nothing asked to change. Run `verify-config.py` on the graft output the same way phase 3
 always does, expect it to agree with what the plan told you, and never report a graft as clean

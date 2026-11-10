@@ -129,6 +129,8 @@ template, not the rule. A condition the agent cannot observe is not followed; ma
   a round could not justify is trimmed or reverted. Design a round against
   [`docs/green-round-gate.md`](docs/green-round-gate.md) before dispatching agents. Arms overlay
   only what ships: never put `CLAUDE.md` or `tests/` in one arm only.
+- **A change that moves, collapses or merges skill text is tested old against new** on the same
+  prompts, stand-in and model: tokens loaded, cost, time and quality, judged by `main`'s checker.
 - **Every CLI call goes through `$ADAPTY`, resolved once per run:** `npm i -g adapty@latest`, with
   `npx --yes adapty@latest` as the fallback. Never a bare `adapty` or a per-call `npx` at a call
   site; the one bare call is the readiness check, `adapty auth whoami`, which installs nothing.
@@ -140,12 +142,31 @@ template, not the rule. A condition the agent cannot observe is not followed; ma
 - **Verify CLI facts against each command's own source** (`static flags`, description) in
   `adaptyteam/adapty-cli`, not prose, `--help` or flag-set composition; enumerate `dist/commands/`.
   Print `--version` with anything you test.
+- **Verify builder and device facts against source:** the transformer on both `origin/develop`
+  and `origin/main`, the SDKs at their latest release tags. A thread or a report covers one layer;
+  combine the layers before concluding. A device or service measurement outranks a source reading
+  until re-measured, unless the correction only makes agents more careful.
 - **Docs URLs must literally exist.** Never assemble a slug; take URLs from the skill or a fetched
   `llms.txt` index.
 - **When a fact is superseded, grep every reference and `component-catalog.json` for the old rule
   in the same change.**
 - **Commit with explicit paths during test rounds,** never `git add -A`.
 - **An agent's report is not an artifact:** score the files it wrote.
+
+### Keeping skills short
+
+- **`SKILL.md` holds what every run needs:** routing, the rules any request hits, the output
+  shapes. A part only some requests reach lives in the reference opened at that moment, linked by
+  exact heading.
+- **A rule enforced in code is one line of prose** ("`verify-config.py` refuses X"); the why lives
+  in the error message, which agents read only when it fires.
+- **One owner per fact; link, never restate.**
+- **A fix replaces a sentence before it adds one.**
+- **Remove what loses its premise:** a rule the source disproves, a workaround for a bug fixed
+  upstream, wording a null round showed inert. Remove its check and tests with it; never patch it
+  with a compensating line.
+- **Shipped files carry instructions, not history:** no "reported", "measured on" or retold
+  incidents; evidence goes in the maintainer notes.
 
 ## Per-skill rules
 
@@ -199,9 +220,9 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 ### `audiences`
 
 - **Field names come from a real `segments get`,** never from memory.
-- **Pass A/B test entries back as read** (CLI 0.11.0 is the first release that returns them). Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it. Starting, stopping or replacing a test is `ab-tests`, never a placement write here.
+- **Pass A/B test entries back as read.** Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it. Starting, stopping or replacing a test is `ab-tests`, never a placement write here.
 - **A placement write never stops, starts or moves a test:** every test entry goes back as read, and a request that would stop one (a write that replaces or moves a test's audience) is routed to `ab-tests stop`, and one that would start one to `ab-tests start`; then the write follows. Read the placement again before the write (changed: ask again; unattended: stop and report). The CLI has no such check. An unattended run may write when every test entry is unchanged.
-- **Never delete an entry the CLI refuses** (`content_type` on 0.10.0 and older, "this CLI does not know this audience kind" later); tell the user to update the CLI, re-resolve `$ADAPTY`, then the dashboard.
+- **Never delete an entry the CLI refuses** ("this CLI does not know this audience kind", or an older CLI's `content_type is required and must be "paywall" or "flow"`); tell the user to update the CLI, re-resolve `$ADAPTY`, then the dashboard. Match the strings, never a version number.
 - **OR is two segments** (filters inside one are ANDed); equality is `IN` with one value; new audiences go before the default.
 
 ### `flow-audit`
@@ -215,7 +236,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 - **Never renumber a trap** in `flow-schema.md`; a new one takes the next number after the router's last row, with its router row in the same change.
 - **`SKILL.md` links into its references by exact heading;** grep the links before renaming one.
-- **One owner per fact; link, never restate.** Don't split `flow-schema.md` or `patterns.md` (tried and reverted). Keep `patterns.md`'s skeleton order, `footer` first.
+- **Don't split `flow-schema.md` or `patterns.md`** (tried and reverted). Keep `patterns.md`'s skeleton order, `footer` first.
 - **When guidance prescribes a shape, make `flowkit.py` emit and guard it;** agents build what the helper exposes. Keep design opinions out of `flowkit.py`.
 - **`component-catalog.json` templates carry no sample prices, trials, bound ids or baked selected looks;** keep `tests/test-catalog-premades.py` green.
 - **Calibrate every checker change:** silent on every real export in `tests/fixtures*`, firing on injected defects, each mechanism negative-tested. Never edit a fixture to quiet a check.
@@ -227,7 +248,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 ### `growth-advisor`
 
 - **`references/evidence.md` is vendored byte-for-byte from the growth team.** Repo-specific facts go elsewhere; never quote the raw test library, which names customers.
-- **One owner per number:** uplift ranges from `evidence.md`, market medians and win rates from `market.md`. No Autopilot impact numbers.
+- **One owner per number:** uplift ranges from `evidence.md`, market medians and win rates from `market.md`, onboarding and flow figures that `evidence.md` lacks from `references/onboarding-evidence.md` (each with its label and public link, linking to `market.md` for a number it owns). No Autopilot impact numbers.
 - **Prices come from the price CSV and the vendored index, never from competitors;** a price is tested on a copy and goes live only through "Changing a live price". Don't restore the deleted competitor-price reads.
 - **Two words for users: a hypothesis, and once picked, an A/B test.** Ask which one to start with, never for a verdict on each.
 - **A live placement changes only through the confirmation block:** `update` replaces every audience, so a running A/B test entry not passed back as read stops that test.

@@ -2,7 +2,7 @@
 
 Read this when the flow you are about to change did not stay still: someone generated it, then
 opened the builder and edited it by hand, and now wants more changes. That is the normal life of a
-flow, and it is where this skill has actually destroyed work.
+flow, and it is where a careless write destroys work.
 
 `SKILL.md` owns the rules (phase 2: patch what you fetched; phase 5: diff before the write).
 This file owns why they are shaped that way, what a rebuild costs, and what the check can and
@@ -10,9 +10,9 @@ cannot see.
 
 ## The failure
 
-Reported 2026-08-26: a colleague generated a flow through this skill, made manual edits in the
-dashboard, came back for more changes — and the manual edits were gone. The root cause was never
-isolated, so the guard is aimed at what every candidate has in common rather than at one of them.
+A flow generated through this skill, edited by hand in the dashboard, then changed again by the
+skill can lose the manual edits. The guard is aimed at what every path to that loss has in common
+rather than at one of them.
 
 Three paths reach it, and **all three produce the same observable**: the bytes about to be written
 differ from the live config in ways nobody intended.
@@ -38,9 +38,9 @@ the lock does not watch.
 So the two guards are orthogonal and you need both: **the lock protects the timing, the diff
 protects the content.**
 
-> Reasoned from documented behaviour, not measured against the API. `--expected-updated-at`'s
+> Reasoned from documented behaviour, not confirmed against the API. `--expected-updated-at`'s
 > semantics and the fact that `config update` replaces the whole config are both established
-> elsewhere in this repo; the composition above has not been run against a live flow, because
+> elsewhere; the composition above is unconfirmed against a live flow, because
 > demonstrating it means deliberately destroying someone's edits. What would verify it: edit a
 > sandbox flow in the builder, `config get`, write a config built without it, and confirm the write
 > succeeds — with the flow's owner's consent and the backup taken first.
@@ -61,8 +61,9 @@ replaces it. Everything below lives in the live document and in no script:
 - **Every manual edit** — copy, colours, spacing, a screen someone added, an action they rewired.
 - **Locales added in the dashboard**, and the translations under them.
 - **The builder's own normalisations** — re-sorted `_meta.icons`, a v9 → v10 fill migration on
-  save. Losing these costs nothing, and they are listed only so a byte comparison that flags them
-  is not mistaken for lost work. Note the diff treats them differently: the re-sort is silent, the
+  save, and an auto-saved cleanup of `states` that bumps the version with nobody editing (a 409 you
+  did not expect; `diff-config.py` may show nothing, so diff the raw JSON). Losing these costs
+  nothing, and they are listed only so a byte comparison that flags them is not mistaken for lost work. Note the diff treats them differently: the re-sort is silent, the
   fill migration is **not** (see below).
 
 **Two cases where a rebuild is still right**, and they are the only two: a flow whose `config get`
@@ -133,8 +134,8 @@ a diff:
 - **Key order, and the order of any id-keyed collection.** Deliberate, and two separate
   mechanisms: values are compared with sorted keys, and collections are addressed by identity
   rather than index. Do not read a clean diff as "my bytes equal theirs".
-  **The v9 → v10 fill migration is the exception** — measured, 29 fills rewritten object → array
-  came back as 25 changed elements. It changes a value's shape, so it is reported like any other
+  **The v9 → v10 fill migration is the exception** — 29 fills rewritten object → array
+  come back as 25 changed elements. It changes a value's shape, so it is reported like any other
   change. Recognise the signature (a block of `props` changes across unrelated elements, right
   after someone saved in the builder) instead of reading it as their edits.
 - **Anything under a top-level key it does not enumerate.** A key the format gains next release is
@@ -142,48 +143,5 @@ a diff:
 
 ## The file deliverable has its own way to lose the flow
 
-The diff protects a write you make. A **file** you hand over is imported by the user, and the
-import is not a write you can diff — so it needs its own rule.
-
-**A shape-invalid config can open EMPTY in the builder, and the next save writes that emptiness
-over the real flow.** The screens are not rejected with an error the user can act on; the editor
-comes up blank, they assume the import failed, they save or keep working, and the save is
-authoritative. Losing the flow this way needs no unlucky timing and no concurrent editor.
-
-Two consequences for a file deliverable, and neither is optional:
-
-- **The gates in phase 3 are what stand between the file and this**, so a file that has not been
-  through `verify-config.py`, the schema check and `flows config validate` is not a deliverable.
-  A clean `validate` does not promise the builder can open it — different renderer, and two
-  configs in this project's history broke the editor while rendering fine
-  ([preview.md](preview.md)) — but a config that fails the gates is one you already know is unsafe
-  to import.
-- **Say to back up before importing.** The user's untouched config is the only copy that survives
-  a blank-open followed by a save, and by the time the editor is blank there is nothing left to
-  export. One line in the handoff, next to the import step.
-
-## Open
-
-**Two GREEN rounds, both null on the decisive row.** Round 1: six agents, a one-screen flow, a
-one-string change. Round 2: six agents, five screens, six manual edits, and a task pointing at the
-generator's own content file — a rebuild there produces a *valid* six-row config that passes every
-local gate, so the destructive path was both easiest and best-disguised. **Across both rounds, 12
-agents, zero destructive writes in either arm**; not one agent re-ran the generator. What did
-separate the arms, three times over and never on the outcome: the treatment ran a computed diff
-every run (4/7/6 logged calls) where control reinvented an ad-hoc comparison each time, the
-treatment quarantined the stale bases (3/3 versus 0/3), and only the treatment explained to the
-user why the lock had not protected them (3/3 versus 0/3). So the rules here are worth keeping for
-method and disclosure, and **are not evidence that an agent following this spine would have lost
-the work in the first place.** Full write-up, including a mis-specified rubric row and the flaws in
-round 1's scenario, is in `docs/superpowers/baselines/2026-08-26-merge-green.md`.
-
-**What is still untested, and it is not a third repeat of the same scenario.** Both rounds tested an
-agent that *reads this file's phase spine*. Neither reproduced the original loss, so the open
-question is the one no wording here can answer: what a session that never entered the spine does —
-a one-line "just tweak the copy and push it" with no skill invoked. If that is where the failure
-lives, the fix is a louder trigger in the skill's `description`, not more prose in these rules.
-
-Two smaller gaps worth closing before any further round: score the artifacts by content rather than
-by filename from the start (a round-1 rubric row read a deletion off an agent's report that had not
-happened), and never write a rubric row that punishes restraint (round 2's stale-artifact row failed
-5 of 6 runs for correctly leaving the user's own files alone).
+The diff protects a write you make; a **file** the user imports is not one. Its rule:
+[transforms.md → The file deliverable](transforms.md#the-file-deliverable).

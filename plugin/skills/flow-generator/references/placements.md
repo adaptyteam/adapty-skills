@@ -1,11 +1,96 @@
 # Placements: the evidence behind phase 6
 
-Phase 6 holds the decisions and the two commands. This file holds what they were measured against,
+The procedure comes first, below. The rest of this file holds the facts it rests on,
 so the entry point does not carry a caveat an agent cannot act on at that step.
 
-**Everything here was measured against the default production API** — no `ADAPTY_API_URL`
-override — by running the commands. Error strings are quoted exactly, because an agent routes on
+**Everything here holds against the default production API** — no `ADAPTY_API_URL`
+override. Error strings are quoted exactly, because an agent routes on
 them and a paraphrase is a bug.
+
+## Attaching a flow to a placement: the procedure
+
+**A published flow reaches nobody until a placement points at it.** The placement's **developer
+ID** is the string the app fetches with, so publishing is the middle of the chain and not the end:
+config → publish → placement → the app's call site. Offer this whenever a flow reaches
+`published`. Never run it unasked — a placement cannot be undone.
+
+**Three ways in.** You published it and polled to `published`; the user says they published it, in
+the builder most likely; or this is where the conversation *starts* — then phase 1 has already sent
+you here and phases 2-5 have no work to do.
+
+**Verify the status yourself, whoever published it.** `flows get <FLOW_ID> --app <APP_UUID>` must
+read `published`; `publishing` means poll, and anything else means it is not attachable yet.
+
+**Then read the placements before proposing one** — one call answers both questions, whether this
+location already has a placement and whether the ID you would propose is free:
+
+```bash
+$ADAPTY placements list --app "$APP" --page-size 100 --json    # the default page size is 20
+```
+
+Each placement's `type` is `flow`, `paywall` or `onboarding`. A `null` `type` (a placement made without
+one) leaves it to `placements get` on the candidate: the `content_type` of its audiences.
+
+| What `list` shows | What you do |
+| :--- | :--- |
+| nothing for this location | `placements create` with a new developer ID |
+| a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping, A/B test entries (`flow_ab_test`) and shared ones (`flow_cross_ab_test`) exactly as `placements get` returned them. A write that replaces a running test, for instance this flow on the default audience a test holds, **stops that test**, and a placement write does not do that: route it to the **`ab-tests`** skill (`ab-tests stop`, which shows the user the exact effect first), then write the placement and read it again just before (changed: show the before/after table and ask again; unattended: stop and report). No answer → the change goes in the dashboard |
+| a **paywall** or **onboarding** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
+| a **flow** placement that already points at this flow, and *"nothing shows up in the app"* | Read whether anyone has started it, below, before sending them on |
+| a placement where only **some** users should get this flow — a country, a version, a segment | The **`audiences`** skill. It adds a segment audience beside the existing ones without changing what anyone else sees |
+| the user wants to **test this flow against another** (an A/B test: "split traffic", "run it 50/50", "start the test", "stop the test") | The **`ab-tests`** skill. It creates the test as a draft and starts, stops or replaces it only after the user sees the exact effect. Never start or stop a test with a `placements update` |
+
+**When a placement already points at this flow and nothing shows up, read who started it** over the
+last seven days, to today:
+
+```bash
+$ADAPTY flows metrics get "$FLOW" --app "$APP" --based-on placement \
+  --date-from <seven days ago> --date-to <today> --date-type purchase_date --json
+```
+
+`unique_profiles_views` on a placement's node is how many users started the flow there; it updates
+every few minutes, and the dates are required. Viewers on the placement the app fetches: the app
+shows the flow, so ask what the user sees, on which build, and which audience they fall in. None:
+the app does not fetch or render that placement yet, or the user is outside its audiences; the
+app side is **`adapty-integration`**'s, with the developer ID. When `flows metrics --help` says the
+command does not exist, skip this read and send them on the same way.
+
+**The ID needs an explicit yes, and this is the fourth fixed block.** It is irreversible in a way
+the phase-5 write is not: unique across every placement in the app whatever its type, no rename, no
+delete from the CLI.
+
+> Ready to point a placement at **`<flow name>`** (`<flow-id>`, `published`).
+>
+> - Developer ID: **`<id>`** — the string your app will fetch with.
+> - Placement: `<new, titled "…">` / `<existing "…", now pointing at <what>>`
+> - **Permanent.** IDs are unique across every placement in the app whatever its type, cannot be
+>   renamed, and there is no delete from the CLI — a wrong one is spent.
+>
+> Create it?
+
+On their yes, one call:
+
+```bash
+$ADAPTY placements create --app "$APP" --title "<Title>" --developer-id "<id>" \
+  --audiences '[{"content_type":"flow","flow_id":"'"$FLOW"'","segment_ids":[],"priority":0}]'
+```
+
+The flow form of `--audiences` is the normal path — accepted against production. Every refusal,
+which of them is yours to fix, the `update` variant and the dashboard fallback:
+[placements.md](placements.md).
+
+**Then hand the ID over and stop.** Past the custom-tag call site in phase 5, this skill does not touch app code:
+
+> **Live at `<developer-id>`.** https://app.adapty.io/placements/flows/`<PLACEMENT_UUID>`
+>
+> Nothing in your app changes yet — it still has to fetch this placement and render what comes
+> back. The **`adapty-integration`** skill owns that end: give it this developer ID and it wires
+> the fetch and the rendering into your call sites.
+
+**That link takes the placement's UUID, not its developer ID** — the two are different fields and
+only the UUID routes. `placements create` prints it as `id`. The middle segment is the placement's
+*type*, so a flow placement is `/placements/flows/…` and a paywall one would be
+`/placements/paywalls/…` ([placements.md](placements.md)).
 
 ## Why the flow audience is the normal path
 
@@ -86,7 +171,8 @@ Local, before any request — exit 2, nothing sent:
 | `Invalid --audiences JSON: …` | not parseable |
 | `--audiences must be a JSON array of audience entries.` | parsed to a non-array |
 | `--audiences[<i>]: each entry must be a JSON object` | an entry is a scalar |
-| `--audiences[<i>]: content_type is required and must be "paywall" or "flow"` | missing or misspelled — there is no implicit paywall. **On an entry you read from `placements get` and did not write, it means the CLI is 0.10.0 or older** (CLI 0.11.0 and later say `this CLI does not know this audience kind; update the CLI` for a kind they lack): tell the user to update the CLI and re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is a running A/B test, and the write would stop it |
+| `--audiences[<i>]: content_type is required: …` | missing — there is no implicit paywall |
+| `--audiences[<i>]: this CLI does not know this audience kind; update the CLI` | a kind this CLI lacks. **On an entry you read from `placements get` and did not write**, tell the user to update the CLI and re-resolve `$ADAPTY` once, and if it still refuses, send the change to the dashboard. Never delete the entry; it is a running A/B test, and the write would stop it |
 | `--audiences[<i>]: a flow entry requires flow_id` | flow entry, no `flow_id` |
 | `Invalid placement ID format.` | `update` with a non-UUID placement id |
 
