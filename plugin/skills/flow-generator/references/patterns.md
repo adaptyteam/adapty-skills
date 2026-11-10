@@ -655,11 +655,12 @@ So a carousel screen carries no `fixed` element (a bottom bar is a `footer`), no
 `product` (plan cards go below the carousel), some of the page outside the carousel stays free to
 scroll by, and the slide spacing is checked on a device.
 
-### A video — place the real element empty; the upload is always theirs
+### A video — the real element, bound to the uploaded clip or left empty
 
-`flows media upload` **refuses a clip** (permitted formats are JPEG/JPEG2000/WEBP/PNG/SVG), so
-this is the one asset you can never bind. That does not make the element unreachable, and it does
-not license a lookalike: a `stack` with a Play icon is the
+Given a clip file, upload it with `flows media upload-video` and bind the record
+([media.md → Uploading a video](media.md#uploading-a-video)). With no file, or a CLI with no
+`upload-video`, the element stays empty and the upload is the user's, in the builder. Neither
+case licenses a lookalike: a `stack` with a Play icon is the
 [fake-footer](#a-bar-that-stays-at-the-bottom-use-footer) /
 [fake-spinner](#a-loading-screen--fill-the-loader-spinner-label-template-never-fake-the-spinner)
 mistake wearing a video, and it forces the user to delete and recreate instead of clicking the box
@@ -667,8 +668,11 @@ and picking a file.
 
 **Start from the catalog: `video-hero` and `video-card` are filled templates**, both
 `agent_allowed`, both carrying a `video` with no source. `video-card`'s slots are `title` and
-`description`. Or emit one directly — `flowkit.video(fixed_h=220, corner=fk.radius(16))`. All
-three refuse a source argument by name, because a URL here could only be invented.
+`description`; an uploaded clip goes into the template's `video` prop as the value
+`flowkit.video(source=...)` emits. Or emit one directly —
+`flowkit.video(fixed_h=220, corner=fk.radius(16), source='media/intro.json')`, or without
+`source` for the placeholder. No URL goes in by hand: one that no upload returned could only be
+invented.
 
 **`video-hero`'s 220pt is a STARTING POINT, not a safe default — and on a screen with a pinned
 `footer` the number to check is the gap between the last in-flow content and the footer band.**
@@ -692,7 +696,7 @@ hero](#a-tall-phones-extra-height-goes-to-the-hero).
 Three rules
 ([media.md → The video placeholder](media.md#the-video-placeholder)):
 
-1. **A fixed height, never `hug`.** An unset clip at `height: hug` draws an arbitrary **256pt** —
+1. **A fixed height, never `hug`, bound or not.** An unset clip at `height: hug` draws an arbitrary **256pt** —
    the renderer's default, no function of the file nobody has uploaded — so the layout you
    previewed and got approved is not the one that ships, and everything below the video moves when
    the clip lands. `flowkit.video()` has no default for `fixed_h`, and `verify-config.py` warns.
@@ -703,9 +707,9 @@ Three rules
    itself draws **square** whatever radius you set (an empty `image` at the same radius draws
    identical, so it is the placeholder drawing unclipped, not the element). Author the radius
    anyway; it is what the clip lands into.
-3. **Say the handoff out loud.** The element on the screen is not the handoff. Name it in the
-   missing-assets block and tell them to open the flow in the builder and upload the clip there —
-   that sentence is the only part of this the user can act on.
+3. **Say the handoff out loud, for a placeholder.** The element on the screen is not the handoff.
+   Name it in the missing-assets block and tell them to open the flow in the builder and upload
+   the clip there — that sentence is the only part of this the user can act on.
 
 It publishes clean and reaches a device: an unset `video` returns `valid: true, issues: []`, and
 the transform service maps `video`, so it is not preview-only. Note the

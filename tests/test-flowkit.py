@@ -484,10 +484,10 @@ def main():
         check(f'image_fill takes no colour ({next(iter(kw))}=)',
               raises(lambda: fk.image_fill(HERO, preview=fk.NO_PREVIEW, **kw), TypeError))
 
-    # video() — `flows media upload` REFUSES a clip (permitted formats are JPEG/JPEG2000/WEBP/
-    # PNG/SVG), so the only correct artifact is a styled element with NO source plus a spoken
-    # "open the builder and upload it". Before this helper there was no way to emit one from
-    # this module, so a video was hand-assembled or, worse, faked with a stack and a Play icon.
+    # video() — a clip goes up with `flows media upload-video`, and its `--json` record is the
+    # only way a source gets in (`source=`); with no record the artifact is a styled element
+    # with NO source plus a spoken "open the builder and upload it". Before this helper a video
+    # was hand-assembled or, worse, faked with a stack and a Play icon.
     vid = fk.video(fixed_h=220, corner=fk.radius(16), margin=fk.pad(0, 0, 0, 16))
     check('video emits the element type, not a stack lookalike', vid['type'] == 'video')
     check('video carries NO source key at all',
@@ -524,11 +524,62 @@ def main():
             fk.video(fixed_h=200, **{arg: 'https://cdn/x.mp4'})
             return False
         except TypeError as e:
-            return 'takes no source' in str(e) and 'upload the clip' in str(e)
+            return 'takes no source by URL' in str(e) and 'upload-video' in str(e)
 
-    for arg in ('url', 'video', 'media_id', 'customMediaID', 'videoUrl'):
-        check(f'video refuses a fabricated source by name, and says why ({arg})',
+    for arg in ('url', 'video', 'media_id', 'customMediaID', 'videoUrl', 'previewUrl'):
+        check(f'video refuses a bare URL by name, and says why ({arg})',
               refuses_source(arg))
+
+    # source= takes the record `flows media upload-video --json` wrote: its path, its dict
+    # (snake case), or a video value read out of a config (camel case). It binds the flow
+    # config value `{videoUrl, previewUrl, width, height}` for the default locale only.
+    REC = {'video_url': 'https://media.example/video/1/hls/master.m3u8',
+           'preview_url': 'https://media.example/video/1/preview.jpg',
+           'preview_base64': 'UklGRg==', 'width': 1080, 'height': 1920}
+    WANT = {'videoUrl': REC['video_url'], 'previewUrl': REC['preview_url'],
+            'width': 1080, 'height': 1920}
+    bound = fk.video(fixed_h=220, source=REC)
+    check('video(source=record) binds the config value for the default locale',
+          bound['props'].get('video') == {'values': {'en': WANT}, '_localizable': True},
+          bound['props'].get('video'))
+    check('video(source=...) keeps the upload preview_base64 out of the value',
+          'preview_base64' not in json.dumps(bound['props']['video']))
+    check('video(source=...) keeps the fixed height', bound['props']['height']
+          == {'type': 'fixed', 'value': 220})
+    with tempfile.TemporaryDirectory() as _tmp:
+        _rec = os.path.join(_tmp, 'intro.json')
+        with open(_rec, 'w') as _fh:
+            json.dump(REC, _fh)
+        from_file = fk.video(fixed_h=220, source=_rec, locale='de')
+        check('video(source=<path>) reads the record file', from_file['props']['video']
+              == {'values': {'de': WANT}, '_localizable': True})
+        check('video(source=<unreadable path>) raises and names the command',
+              raises(lambda: fk.video(fixed_h=220, source=os.path.join(_tmp, 'nope.json')),
+                     TypeError))
+    check('video(source=config value) takes the camel-case value as read',
+          fk.video(fixed_h=220, source=dict(WANT))['props']['video']['values']['en'] == WANT)
+    check('video(source=...) without width and height binds the two URLs only',
+          fk.video(fixed_h=220, source={'video_url': REC['video_url'],
+                                        'preview_url': REC['preview_url']}
+                   )['props']['video']['values']['en']
+          == {'videoUrl': REC['video_url'], 'previewUrl': REC['preview_url']})
+    dark = fk.video(fixed_h=220, source=REC, dark_source=dict(REC, video_url=REC['video_url']
+                                                               .replace('/1/', '/2/')))
+    check('video(dark_source=...) binds videoDark beside video',
+          dark['props']['videoDark']['values']['en']['videoUrl'].endswith('/2/hls/master.m3u8'))
+    check('video(dark_source=...) with no source raises',
+          raises(lambda: fk.video(fixed_h=220, dark_source=REC), TypeError))
+    for name, bad in (('no preview_url', {'video_url': REC['video_url']}),
+                      ('no video_url', {'preview_url': REC['preview_url']}),
+                      ('a non-https url', dict(REC, video_url='clip.mp4')),
+                      ('not a dict', ['x'])):
+        check(f'video(source=...) refuses a record with {name}',
+              raises(lambda bad=bad: fk.video(fixed_h=220, source=bad), TypeError))
+    check('video(source=...) refuses width without height',
+          raises(lambda: fk.video(fixed_h=220, source={k: v for k, v in REC.items()
+                                                       if k != 'height'}), ValueError))
+    check('video(source=...) refuses a non-int width',
+          raises(lambda: fk.video(fixed_h=220, source=dict(REC, width='1080')), TypeError))
     check('video enforces the same two-value objectFit enum',
           raises(lambda: fk.video(fixed_h=200, fit='contain'), ValueError))
     # `IVideoElementProps` has no `fill`, no `align` and no `layout` — placement is the parent's

@@ -1512,10 +1512,9 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"mints a second asset. An empty lookup means whoever bound it dropped "
                         f"the field — not that the field is optional")
 
-    # A `video` is the empty-image story one element type over, with one difference that makes
-    # it permanent rather than provisional: `flows media upload` REFUSES a clip outright
-    # (`validation_error`, permitted formats JPEG/JPEG2000/WEBP/PNG/SVG), so nobody can ever
-    # bind it from the CLI and the upload is always the user's, in the builder. Both publish-time
+    # A `video` is the empty-image story one element type over: a clip file is uploaded with
+    # `flows media upload-video` and bound, and with no file -- or a CLI with no such command --
+    # the element stays unset and the upload is the user's, in the builder. Both publish-time
     # gates are blind here exactly as they are for images -- the real transform service
     # returns, for an unset `video`, `valid: true, issues: []` in the styled, the
     # empty-`values`-map and the bare forms alike -- so this warning is the only mechanical slot
@@ -1541,10 +1540,11 @@ def check(path, baseline_text=None, baseline_images=None):
         warn.append(f"{len(unset_vids)} video element(s) with NO source "
                     f"({', '.join(str(i) for i in unset_vids[:4])}"
                     f"{', …' if len(unset_vids) > 4 else ''}) — they publish as an 'Upload Video' "
-                    f"placeholder and no gate objects. This is the EXPECTED shape (there is no "
-                    f"CLI upload path for a clip), so it is not a defect: tell the user to open "
-                    f"the flow in the builder and upload each clip there, and name every one of "
-                    f"these elements when you do")
+                    f"placeholder and no gate objects. Given a clip file, upload it with "
+                    f"`flows media upload-video` and bind it (media.md, Uploading a video). With "
+                    f"no file, or a CLI with no such command, this is the expected shape, not a "
+                    f"defect: tell the user to open the flow in the builder and upload each clip "
+                    f"there, and name every one of these elements when you do")
     if hug_vids:
         hug_unset = [i for i in hug_vids if i in unset_vids]
         if hug_unset:
@@ -1562,10 +1562,10 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"{', …' if len(hug_bound) > 4 else ''}) — the drawn height then comes "
                         f"from the FILE rather than from the design, so replacing the clip with "
                         f"one of a different aspect silently re-flows this screen. (What a bound "
-                        f"clip draws at hug is not measurable from here — there is no CLI upload "
-                        f"path for a video — so this is the sizing model, not a render "
-                        f"measurement.) If you FETCHED this config, report it rather than "
-                        f"rewriting someone else's height silently")
+                        f"clip draws at hug was not measured, so this is the sizing model, not a "
+                        f"render measurement.) Give it a fixed height from the design; if you "
+                        f"FETCHED this config, report it rather than rewriting someone else's "
+                        f"height silently")
 
     # Locale code SHAPE, separate from whether the code is declared. Casing is not checked: the
     # transformer writes every code out in one casing. A code outside the pattern it refuses.
@@ -3822,7 +3822,8 @@ def text_fit_findings(raw):
 # photo under a scrim in dark, and every fill that references it follows the appearance. The
 # transform service refuses a malformed stack with a 422 whose path names the style; the checks
 # below mirror each refusal so a document is named in one local pass. Video layers are only the
-# user's to add, so they are checked for the two topology rules and otherwise carried through.
+# user's to add (an uploaded clip goes into a `video` element), so they are checked for the two
+# topology rules and otherwise carried through.
 STYLE_LAYER_TYPES = {'color', 'gradient', 'image', 'video'}
 # The schema's image fill layer is `additionalProperties: false` over exactly these.
 IMAGE_LAYER_KEYS = {'type', 'image', 'customMediaID'}

@@ -73,15 +73,15 @@ The missing-assets block, when it goes out and its slots: [build.md → The miss
 flow does not perform (creating an account, a permission prompt, a blur), say what the screen really
 does ("sends `create_account` to your app; the flow creates no account") and the routes that fit — a
 custom action your app answers with its own screen, a second flow on its own placement if the
-onboarding continues after it, or an image or a video (uploaded in the builder) of an effect — and
+onboarding continues after it, or an image or a video of an effect — and
 call it "not in the builder yet", never impossible.
 When any route is a custom action, list the action IDs and offer to write their handlers in the
 app: "I can add the code that answers these in your app. Want me to?" — on a yes, hand the IDs to
 the `adapty-integration` skill, which owns app code; without it, find the platform's "Respond to
 actions" page through the `adapty-docs` skill and link it.
 
-Images up to ~2.5 MB you can upload; **SVG, fonts, video and anything larger are builder-only**
-([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
+Images up to ~2.5 MB and mp4 or webm clips you can upload; **SVG, fonts and larger images are
+builder-only** ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
 line, not a repeat of the table.
 
 **Send Adapty one feedback note at the end of every run that called the CLI** — whether it wrote,
@@ -270,7 +270,8 @@ $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--o
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
     (--config-file <file|-> | --config <json-string>) \
     [--expected-updated-at <int>] [--remote-configs <json>]   # left out, the stored ones are cleared
-$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, < ~2.5 MB; no SVG, no GIF
+$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, < ~2.5 MB; no SVG, GIF or HEIC
+$ADAPTY flows media upload-video <VIDEO_FILE> --app <APP_UUID> --json  # mp4/webm, ≤ 30 s, ≥ 640 px each side
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; 405 in prod, rename in the builder
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404 in prod, see below
 ```
@@ -308,7 +309,9 @@ and Chrome or Edge, themselves; set `PYTHON=` or `CHROME=` only when they say th
 
 **`flows media upload` works in production**, so an image the user *handed you a file for* is
 yours to place, not a user ask. Its limits, the `--json` record file to keep, the three values it
-binds and the geometry: [media.md](references/media.md).
+binds and the geometry: [media.md](references/media.md). A clip file is yours too, through
+`flows media upload-video`; when the CLI lacks that command, the fallback is the placeholder:
+[media.md → Uploading a video](references/media.md#uploading-a-video).
 
 **`flows publish`:** whether this build has it, its asynchronous status and the poll, which failure is real, and the deployment gate: [publish.md → Running `flows publish`](references/publish.md#running-flows-publish).
 
