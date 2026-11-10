@@ -613,9 +613,9 @@ a period that has not ended are not a result.
 If `flows funnel` is missing after `--help`, try `npx --yes adapty@beta flows funnel --help` once.
 If that fails too, the user's CLI does not read the funnel yet (CLI 0.19.0 is the first release that
 does): say so and ask for a screenshot of the dashboard's Funnel tab for the flow.
-If `flows versions` is missing, the installed CLI is older than the version history: run the
-list once as `npx --yes adapty@latest flows versions list <FLOW_ID> --app <APP_ID> --json`.
-If that fails too, ask the user for the id of the version they mean.
+If `flows versions` is missing after `--help`, try `npx --yes adapty@beta flows versions --help`
+once (use that form for the list if it works); never decide it from a version number. If that
+fails too, ask the user for the id of the version they mean.
 
 The answer is `data`: `summary` (`entered`, `completed`, `dropped`, their rates, `revenue`);
 `steps[]` by `step_order` (`reached`, `reached_rate`, `conversion_from_previous`, `completed`,

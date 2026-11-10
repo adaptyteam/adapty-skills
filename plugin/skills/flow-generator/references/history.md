@@ -16,6 +16,26 @@ owns the history: what it keeps, how to read it, and the two ways to work from a
 - **Nothing here publishes.** After a restore the users still see the live version until someone
   publishes; that stays the user's decision.
 
+## When the CLI has no history commands
+
+Before the first command of this file, check that it exists:
+
+```bash
+$ADAPTY flows versions --help      # before a list, get, preview, restore or rename
+$ADAPTY flows duplicate --help     # before a duplicate
+```
+
+If `--help` says the command does not exist, try it once as `npx --yes adapty@beta flows versions
+--help` (or `flows duplicate --help`), and use that form for the commands if it works. Never decide
+it from a version number. If it is still missing:
+
+- **No `flows versions`:** this CLI cannot read or restore the history. The draft from before your
+  first write comes back from the phase-2 backup (`SKILL.md` phase 5, "Restoring from the backup").
+  Say that an earlier published version cannot be read from this CLI.
+- **No `flows duplicate`:** say that the copy cannot be made safely from this CLI, and stop. Never
+  make it with `flows create` and a write: that keeps one layout and drops the rest. Before a
+  restore, the copy of the draft in step 4 still keeps it.
+
 ## Unsaved changes come first
 
 Before you switch your work to another version (restore it, or duplicate it and edit the copy),
@@ -157,7 +177,9 @@ before:
 
 ## Duplicate a version to a new flow
 
-For "try this old version in a separate flow", or to keep a draft before a restore replaces it:
+For "try this old version in a separate flow", a redesign next to the original, a new flow that
+starts from an existing one, or to keep a draft before a restore replaces it. Check the command
+first ([When the CLI has no history commands](#when-the-cli-has-no-history-commands)).
 
 ```bash
 # without --version: the draft, else the live version

@@ -263,7 +263,8 @@ $ADAPTY auth whoami                                            # verifies the to
 $ADAPTY apps list --json                                       # to get <APP_UUID>
 
 $ADAPTY flows list   --app <APP_UUID> [--page N] [--page-size N]    # page-size max 100
-$ADAPTY flows create --app <APP_UUID> --name <name>            # row only; always `draft`
+$ADAPTY flows create --app <APP_UUID> --name <name>            # row only; always `draft`; a flow with no source
+$ADAPTY flows duplicate <FLOW_ID> --app <APP_UUID> [--version <FLOW_VERSION_ID>] --json  # copy to "<name>_copy", one draft
 $ADAPTY flows get    <FLOW_ID> --app <APP_UUID>
 $ADAPTY flows config get      <FLOW_ID> --app <APP_UUID> --json     # errors until first write
 $ADAPTY flows config validate <FLOW_ID> --app <APP_UUID> (--config-file <f|-> | --config <json>) --json
@@ -298,8 +299,8 @@ prefix: `ADAPTY='npx --yes adapty@latest' references/gates.sh …`.
 0.07 s installed, and a run makes dozens. Where the global prefix is not writable the `npx` form
 still works, and there `--yes` is not optional: without it npx stops to ask permission to install.
 
-Declare a command unavailable only after `npx --yes adapty@latest` *and* `npx --yes adapty@beta`
-both lack it — never from a version number you read somewhere.
+Declare a command unavailable only after its `--help` says so *and* one `npx --yes adapty@beta`
+attempt lacks it too — never from a version number you read somewhere.
 
 **On Windows, run the `.sh` scripts from Git Bash, and where this skill writes `python3`, call
 `python -X utf8` (or `py -3 -X utf8`).** `python3` there is usually the Microsoft Store stub, and
@@ -412,8 +413,9 @@ destroy.
 
 **Existing flow** — the user names it, or `flows list` and confirm the match back to them
 before touching it. Read its `status` with `flows get`: `archived` is a flow deleted in the
-dashboard, and every write to it is refused with `Flow is deleted`, so say so and offer a new flow
-on a yes (`flows create`, seeded from this config if `config get` still returns it). Then
+dashboard, and every write to it is refused with `Flow is deleted` (a `flows duplicate` too), so
+say so: the user restores it from the archive in the dashboard, then the edit goes on there, or on
+a copy ([history.md → Duplicate a version to a new flow](references/history.md#duplicate-a-version-to-a-new-flow)). Then
 `flows config get`, and **keep its `updated_at`** for the write, not the one `flows get` or
 `flows list` printed.
 
@@ -436,7 +438,7 @@ flag on `node` itself: `NODE_OPTIONS` refuses `--stack-size`.
 
 **Two files, two shapes.** `flow.working.json` and `flow.backup.json` are the **envelope**
 `config get` and `config update` return; `draft.json` is the **bare config** you edit, check,
-preview and send. A new flow has no envelope until its first write: author straight into
+preview and send. A flow from `flows create` has no envelope until its first write: author straight into
 `draft.json`.
 
 **The text is in the catalog.** Every localizable field holds a `{_lid}` ref, and its per-locale
@@ -467,7 +469,7 @@ the `ADDS`/`CHANGES` as the human's edits, and move it out of the way:
 python3 references/diff-config.py <the-old-local-copy>.json flow.working.json
 ```
 
-**New flow** — `flows create` once, seeded from a config the user already has; the steps and the id every retry writes to: [build.md → Creating the flow](references/build.md#creating-the-flow).
+**New flow** — `flows duplicate` once when it starts from a flow the user already has, `flows create` once only when there is no such flow; the steps and the id every retry writes to: [build.md → Creating the flow](references/build.md#creating-the-flow).
 
 Then, before editing: **report what the source config contains** — screens and captions,
 locales, products, the navigation graph. Before proposing anything; it grounds the user and
@@ -546,7 +548,7 @@ answers with an error), so it runs without one and has nothing older to report. 
 `validate` runs the **same transform service that gates publishing**, so it is the only pre-write
 check here that speaks for the publish gate. It saves nothing, needs no confirmation and needs no
 baseline — a v9 config validates clean. The flow must already exist, so on new work it runs after
-`flows create`.
+`flows create` or `flows duplicate`.
 
 **`gates.sh` unwraps an envelope and prints a failed call as `API ERROR`, apart from the verdict**
 (it says what to do); run alone, `validate` is read as [validate.md](references/validate.md) says.
@@ -689,7 +691,8 @@ already have a config?**
 
 **It does not** — a flow you just created with `flows create`, whose `config get` 404s. Write it.
 There is nothing to lose and nothing to overwrite, and stopping to ask would be friction over an
-empty document. Report what you wrote afterwards.
+empty document. Report what you wrote afterwards. A copy you made with `flows duplicate` in this
+run and have not written yet is the same case: its content is still in the source flow.
 
 **It does** — anything you fetched in phase 2. **Stop and get an explicit yes before the write.**
 `config update` replaces the entire config: no partial write and no undo. A draft you replace
@@ -789,12 +792,16 @@ way back are the content, and an approval given without them is not informed. Wa
 screenshot the user liked is not one.
 
 **If the flow is `published`, disclose what the save changes — then edit in place on their yes.**
-A `published` flow you save becomes `dirty`: the status is visible to their whole team and cannot
-be reverted from the CLI, while end users keep seeing the published version until the next
-publish, and that version stays in the history. Put that sentence in the approval ask and
+A `published` flow you save becomes `dirty`: the status is visible to their whole team, while end
+users keep seeing the published version until the next publish, and that version stays in the
+history. A restore of the live version (`flows versions restore`) brings its content back to the
+draft, but the status stays `dirty` until the next publish. Put that in the approval ask and
 proceed — editing a live flow is the normal case, and the preview pair, the backup and the lock
-exist precisely so it is safe. Suggest a fresh `flows create` only when the work is exploratory —
-a redesign the user wants next to the original — never as the default answer to an edit.
+exist precisely so it is safe. Suggest a copy only when the work is exploratory — a redesign the
+user wants next to the original — never as the default answer to an edit. Make it with
+`flows duplicate` and edit the copy
+([history.md → Duplicate a version to a new flow](references/history.md#duplicate-a-version-to-a-new-flow)),
+never with `flows create` and a write of this config.
 
 A published version comes back from the history
 ([history.md → Restore a version](references/history.md#restore-a-version)); the backup brings back
@@ -851,8 +858,9 @@ past it and never re-send your local copy — that is the content that would era
 their version differs in ways you did not author, ask rather than restore.
 
 **On `Flow is deleted`** someone deleted the flow in the dashboard after you read it: nothing was
-written, and no write to that id can succeed. Say so; your draft is intact, so on a yes
-`flows create` a new flow and write the draft there, with no `--expected-updated-at`.
+written, and no write to that id can succeed, a `flows duplicate` included. Say so; your draft is
+intact. When the user restores the flow from the archive in the dashboard, fetch it again and
+re-apply your change as on a 409.
 
 **If you rebuilt the config from a script rather than patching the fetched one, you have the wrong
 document** — a rebuild replaces the live flow, taking `_meta.screens` and the `screens[].products`
@@ -943,8 +951,9 @@ confirming it back to them, not for picking one yourself.
 
 **`config update` replaces the whole config.** There is no partial write and no undo; the history
 keeps the published versions, not the draft saves ([history.md](references/history.md)). Prefer a
-fresh `flows create` for new work, and create it once: a retry writes to the flow you already
-created.
+new flow for new work: `flows duplicate` of the flow it starts from (it keeps every layout and the
+remote configs; a write of a fetched config keeps one layout), `flows create` only for a flow with
+no source. Make it once: a retry writes to the flow you already made.
 
 **Overwriting an existing config needs an explicit yes.** Phase 5 owns the form. The gate is keyed
 to whether the flow already has a config, not to how confident you feel about the edit — a clean
