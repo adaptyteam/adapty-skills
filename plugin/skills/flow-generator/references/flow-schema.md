@@ -1519,6 +1519,23 @@ hex, so a gradient written straight into a `fill` stays the same in dark mode wh
 around it flips. To make it switch, put the gradient in a theme colour as a layer stack and fill
 with a reference to that colour — trap 26.
 
+### Text that must fit: `autoShrink`
+
+`props.autoShrink: true` on a `text` is the builder's **Auto shrink** switch: the whole text
+shrinks evenly until it fits its box, in every locale, down to 10% of its size; text that still
+does not fit ends in "…". Omitted or `false`, a text past its box is cut off with "…" at full size.
+`font.size` and the box stay as written, and the builder's preview draws the same fit as the
+device, so a render of each locale shows the size a user gets.
+
+**It works only inside a bounded box:** `maxLines` above 0, or a fixed `height` with a value
+above 0 that `layout: "auto-height"` does not override. `flowkit.text()` writes `auto-height`, so
+there it needs `max_lines`; elsewhere `autoShrink` does nothing, and `verify-config.py` warns.
+A `hug` text with `maxLines: 1` inside a fixed-size plan card is the case it exists for.
+
+**Shorten the translation first; shrinking is the safety net.** A string twice the source's
+length draws at about half the size, and nothing warns about small type. The minimum is not
+settable.
+
 ### Before authoring a shape you have not seen produced: grep for it
 
 **The schema tells you what is permitted; a real export tells you what is produced; only the
@@ -2021,6 +2038,7 @@ style error: you will search for an element type that does not exist, or invent 
 | a divider, a rule | A `divider` element exists. Both real exports instead use a `stack` with `height: {type: "fixed", value: 1}` and a `fill` — either is valid; prefer whichever the input already uses. |
 | a text field, email, phone, a date picker | `text-input`, or one of `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker`. Its `customId` becomes the variable `<customId>.value`. **An input has no text colour**: no such prop on any input, on `font` or on a `theme.typography` entry, and none in any export (only `clearButtonColor` and `passwordIconColor` exist). The renderer picks it: the preview draws the placeholder in a fixed 38% black whatever the fill, and on a device typed text on a dark fill could not be seen in light mode, in dark mode, or with the screen's `statusBarTheme` set to dark: it is drawn dark whatever you set. So a dark field is never readable; keep the field's fill light and carry a dark design in the screen and the border. `font` is optional (the builder's own input templates carry none); a `font.preset` must be a `theme.typography` id of this file, or `validate` refuses it (trap 3). |
 | a price | Never literal text. A rich-text `variable` node — see invariant 5 for the two forms. |
+| text that fits its box, a smaller font for a long translation, "it's cut off in German" | `props.autoShrink: true` on that `text`, inside a line limit or a fixed height — after shortening the string: [Text that must fit](#text-that-must-fit-autoshrink). Never a smaller `font.size`, which shrinks every locale. |
 | the user's name, their coin balance, streak, level, days left, current plan, "something the app knows" | A **custom tag**: a `variables[]` entry with `external: true` whose `name` the app's code passes, shown by a rich-text `variable` node. Text only, and it needs app code — [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic). |
 | show, hide or skip something based on what the app knows (VIP status, a permission already granted, country) | **Not buildable from a custom tag** — logic sees only its fallback. A separate flow per segment behind the placement's audiences, or a `custom` action the app handles. Say so rather than wiring a condition that never fires. |
 | how a screen arrives — slides up, fades in, no animation | `payload.transition` on the `navigate`: [patterns.md](patterns.md#a-screen-transition). Not a `bottom-sheet` or a `sliding-sheet`, which are parts of one screen. |

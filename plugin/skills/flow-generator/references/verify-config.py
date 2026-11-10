@@ -3748,6 +3748,71 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'with both set the preset\'s face draws and the family is ignored. Keep one: drop the preset, '
                     f'or drop the manual keys and change the preset in `theme.typography`')
 
+    bad_fit, warn_fit = text_fit_findings(raw)
+    bad += bad_fit
+    warn += warn_fit
+    return bad, warn
+
+
+# A text's box is bounded by a positive `maxLines` or a positive fixed height that the
+# `auto-height` layout does not override -- the rule the transformer maps to `on_overflow: scale`
+# and the builder uses to enable the switch. Outside a bounded box `autoShrink` does nothing.
+# Translation length is compared in visible characters against the default locale: a bounded
+# text cuts a longer string off with an ellipsis, in a locale nobody rendered.
+FIT_RATIO = 1.2
+FIT_MIN_EXTRA = 5
+
+
+def _bounded_text(p):
+    h = p.get('height') if isinstance(p.get('height'), dict) else {}
+    ml, hv = p.get('maxLines'), h.get('value')
+    lines = isinstance(ml, (int, float)) and not isinstance(ml, bool) and ml > 0
+    fixed = (p.get('layout') != 'auto-height' and h.get('type') == 'fixed'
+             and isinstance(hv, (int, float)) and not isinstance(hv, bool) and hv > 0)
+    return lines or fixed
+
+
+def text_fit_findings(raw):
+    bad, warn = [], []
+    lz = raw.get('localization') if isinstance(raw.get('localization'), dict) else {}
+    content = lz.get('content') if isinstance(lz.get('content'), dict) else {}
+    default = lz.get('defaultLocale')
+    names = {l.get('id'): l.get('code') or l.get('id')
+             for l in lz.get('locales') or [] if isinstance(l, dict)}
+    maps = [(s.get('id'), (s.get('elements') or {}).get('map') or {})
+            for s in raw.get('screens') or []]
+    maps += [(cid, (c or {}).get('map') or {}) for cid, c in (raw.get('components') or {}).items()]
+    idle, long_ = [], []
+    for where, m in maps:
+        for eid, e in m.items():
+            if not isinstance(e, dict) or e.get('type') != 'text':
+                continue
+            p = e.get('props') if isinstance(e.get('props'), dict) else {}
+            bounded, shrink = _bounded_text(p), p.get('autoShrink') is True
+            if 'autoShrink' in p and not isinstance(p['autoShrink'], bool):
+                bad.append(f'text {eid} on {where}: autoShrink is {p["autoShrink"]!r}; it is '
+                           f'true, false or absent')
+            if shrink and not bounded:
+                idle.append(f'{eid} on {where}')
+            if not bounded or shrink or default is None:
+                continue
+            for lid in _loc.refs_in(p.get('content')):
+                vals = (content.get(lid) or {}).get('values') or {}
+                base = len(_plain(vals.get(default)).strip())
+                for loc, v in vals.items():
+                    n = len(_plain(v).strip())
+                    if loc != default and base and n > base * FIT_RATIO and n - base >= FIT_MIN_EXTRA:
+                        long_.append(f'{eid} on {where} in {names.get(loc, loc)} '
+                                     f'({n} characters against {base})')
+    if idle:
+        warn.append(f'autoShrink does nothing on {", ".join(idle)}: text shrinks only inside a '
+                    f'line limit (maxLines above 0) or a fixed height, and layout "auto-height" '
+                    f'overrides a fixed height. Set the line limit, or drop autoShrink')
+    if long_:
+        warn.append(f'translation longer than the default locale in a text with a line limit or a '
+                    f'fixed height, so it may be cut off with "…": {"; ".join(long_)}. Shorten it '
+                    f'to about the default\'s length; when no shorter wording keeps the meaning, '
+                    f'set autoShrink on that text and render that locale')
     return bad, warn
 
 
