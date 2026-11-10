@@ -28,7 +28,7 @@ Every message, not only the fixed blocks in `## What you print`:
   elsewhere: a placement ID, a product ID, a menu path, a URL. Never state variables, field
   names, internal IDs, or skill or tool names.
 - **Bold at most one thing per paragraph.**
-- **Full, clickable links to the exact page.**
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Could not check it? Say how they can** — where to click and what they should see. Do
   not know something? Look it up before saying so — the CLI, the code, the `adapty-docs`
   skill.
@@ -245,7 +245,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.

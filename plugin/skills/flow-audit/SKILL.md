@@ -32,7 +32,7 @@ Every message, not only the report:
 - **Plain words over raw values.** Show a value only when the user will type it or see it
   elsewhere — a placement ID, a builder label, a URL. Element ids, status codes and tool
   names never.
-- **Full, clickable links to the exact page.**
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Could not check it? Say how they can.** Do not know something? Look it up before
   saying so — the CLI, the flow, the `adapty-docs` skill.
 - **Offer the outcome ("I can fix these"), never the skill that will do it.**
@@ -80,7 +80,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.

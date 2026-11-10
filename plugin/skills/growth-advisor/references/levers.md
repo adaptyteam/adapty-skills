@@ -43,6 +43,7 @@ of them for you; a hypothesis outside the table fills them itself.
 | Core price | Raise/Lower [plan] in [country] from [price] to [price] | Revenue per user | Moving it back | This move in this country |
 | Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there |
 | Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder |
+| Commitment plan | Add a 12-month commitment option to [annual product] on [placement], for App Store users outside the US | Revenue per user | Removing it | Adding it there |
 
 When each price type applies, and how it is tested on a copy: `pricing.md`. Before an Add a trial
 row, the first-use gate in "Trials" below.
@@ -144,6 +145,13 @@ app's US numbers) when you compare, and call the target "the market median", nev
 - The core lengths are weekly, monthly and annual. Weekly plus annual is the most common pair.
 - **One product on the paywall:** add a second length first; nothing can be optimised without a
   comparison. Then a trial if the category uses one.
+- **Before anything that moves buyers toward annual** (adding it, preselecting it, an annual
+  offer on close, a commitment plan): set what annual buyers actually pay in their first year
+  (first-payment revenue, `renewal_period=1`, ÷ new subscriptions for the annual product, offers
+  included) against the leading short
+  plan's LTV at day 365 (read 12; at the furthest day both reached when it has not, and say so).
+  When the short plan earns as much or more, suggest no annual push and say why in one sentence.
+  When it cannot be computed, the Why names that risk.
 - **Two or more products:** find the leading length (by LTV from `analytics ltv`, otherwise by
   revenue share) and push purchases toward it: the trial on it, preselected, a badge. It is
   often weekly, not annual; the evidence library leans annual-first, so check the app's own
@@ -372,12 +380,36 @@ Adapty](https://adapty.io/docs/create-offer.md).
   a longer [grace period](https://adapty.io/docs/grace-period.md) (App Store 3, 16 or 28 days, 3
   or 6 for weekly plans; Google Play set per base plan), given as dashboard steps.
 
+## Adapty features
+
+Some weak parts are moved by an Adapty feature, not an A/B test. A feature is named only when its
+trigger holds in the reads; with no trigger it is not mentioned, not even as "also consider". The
+CLI cannot see whether any of these is on, so each is a "You:" Next step that asks the user to check
+and names the number that fired it ("paid trials pay at 12% against 27% organic"). At most one per
+reply, in the free Next step, after a breakage fix and before the one question (which then joins
+the first item); when two fire, the higher row in the table below.
+
+| Feature | Trigger | Not when | Link |
+|---|---|---|---|
+| The "Trial still active" event sent through the attribution integration (AppsFlyer, Adjust, Branch, Singular, Firebase), so ad networks optimise for users who keep the trial; with Meta or TikTok through Adapty Attribution, Qualified trial instead, never both for one network | `reads.py audit` prints `FEATURE GATE: trial still active` | the app has no attribution integration (the user says so) | [events](https://adapty.io/docs/events), [Qualified trial](https://adapty.io/docs/ua-facebook) |
+| Retention Messaging: a message on Apple's cancel screen | the App Store is the store that earns, voluntary cancellation leads the endings (read 6), and the scorecard grades renewals weak | the money comes from Google Play | [Retention Messaging](https://adapty.io/docs/retention-messaging) |
+| Refund Saver | the scorecard grades refunds weak (`market.md`, Refunds) | | [Refund Saver](https://adapty.io/docs/refund-saver) |
+
+The 12-month commitment plan is a hypothesis, not a step: the Commitment plan row of the Known
+types. It is a candidate when the App Store's main market is outside the US, a shorter plan leads
+new subscriptions while annual sells, and annual brings more per buyer in a year than that plan's
+LTV at day 365 (the annual check in "Plan structure"); buyers who want annual's price but not its
+upfront payment get twelve monthly payments. Not when the US is the main market or there is no
+annual product. `evidence.md` has no entry, so Expected is untested. Whether the app already sells one is a
+question to the user ([12-month commitment](https://adapty.io/docs/app-store-12-month-commitment)).
+
 ## Localization
 
-The kind of test that wins most often (`market.md`). A candidate when installs or revenue from
-countries in another language are a large share and the paywall shows one language. The CLI
-shows which countries the users are in, not which languages the paywall has; check the paywall
-or ask. A flow paywall gets its locales from `flow-generator`, which this skill can run.
+The kind of test that wins most often (`market.md`). A candidate when a top country in another
+language (the top-countries block of `reads.py audit` prints each one's language) is missing from
+the paywall's languages. A flow's languages are its `localization.locales`; a paywall's are not in
+the CLI, so it takes a screenshot in that country's language. A flow paywall gets its locales from
+`flow-generator`, which this skill can run.
 
 ## Paywall design
 
@@ -424,6 +456,21 @@ the offer is real.
 - After adding a plan length, suggest checking in a couple of months that its buyers renew.
 - When a lever stops producing lifts, say further tests on it will likely return little, and
   move to another lever. Never invent rounds to fill a plan.
+
+## Next rung
+
+A basic hypothesis has stronger versions. Move to the next rung when the test history shows the
+rung below finished on that placement, or when the user turns a hypothesis down with a reason
+("we tried it", "we do X instead"); a turn-down with no reason leaves the list. When the history
+does not say what came out, the one question asks what ran and what won. A loss rules out its own
+rung on its target, not the next one.
+
+| Ladder | Rungs, in order |
+|---|---|
+| Annual | Annual as a second plan → annual in an offer when the paywall closes, through a flow → a 12-month commitment plan, outside the US. Each rung passes the annual check in "Plan structure" first |
+| Follow-up offer | A discount on the same plan when the paywall closes → a different product on close (another length, a commitment plan) |
+| Trial | As "Trials" orders it: on the leading length, then its length, then which plan carries it |
+| Localization | Translated copy → local prices in that country (`pricing.md`) |
 
 ## Ideas the user brings
 

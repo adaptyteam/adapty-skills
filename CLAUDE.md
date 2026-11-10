@@ -112,7 +112,7 @@ a single copied skill cannot read this file. Change a rule here first, then in e
 4. **Bold marks the one thing not to miss,** at most once per block.
 5. **Raw values only when the user will type or see them elsewhere.** No element ids, internal
    status codes, tool or variable names.
-6. **Links are full, clickable, and point at the exact page.**
+6. **Links are full, clickable, and point at the exact page.** Agents read a docs page as its `.md` URL; the user gets the same URL without `.md`.
 7. **Honest about scope, then close the gap:** say what was not checked and how the user can check it.
 8. **Fixed blocks where a decision is made, one line otherwise, each thing said once.** Each fixed
    block carries a short example of its shape, marked as not words to copy.

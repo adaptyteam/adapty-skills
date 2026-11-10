@@ -200,7 +200,7 @@ a path that ends in a refusal:
 >
 > `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
 > using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
-> https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, set the iOS and
+> https://adapty.io/docs/using-custom-fonts-in-flow-builder — upload it, set the iOS and
 > Android font name on every face (the flow will not publish without the iOS one), save the flow in
 > the builder, then tell me the family name and I'll point the theme at it. The uploaded file is for
 > the editor preview only: **your app must bundle the font file too**, as that page shows.

@@ -170,10 +170,11 @@ times the revenue of the next country. Compute every country's share of the tota
 qualifies, the app has no main market: say so, and work from the spread. The
 top countries are the three to five that hold most of it. Installs by country (read 3) do not
 make a main market: a country can bring a quarter of the installs and almost none of the money.
-Read chart 2, chart 4 and read 9 filtered to each top country (`--filter country=<value>`): which
-plans sell there, how its conversion moved over the window, and where it loses users. Read each
-country against its own past, not against the US or another country ("Before you state a
-conclusion"). The main market decides which country's stakes come first and
+`reads.py audit` prints the top-countries block: the top five by revenue plus any top-five install
+country under half the app's revenue per install, each with its App Store view → paid and trial →
+paid graded against its region's row in `market-grid.csv`, and its language. Read chart 2, chart 4
+and read 9 filtered to a top country (`--filter country=<value>`) for which plans sell there and
+how its conversion moved ("Before you state a conclusion"). The main market decides which country's stakes come first and
 which region's median applies (`market.md` has US, Europe, MEA and LATAM rows where the report
 gives them; say when it has none). Name the main market in the reply when it is not the US. Add
 `--filter store=<value>` to any of these when the app sells on both stores and the question is
@@ -475,10 +476,11 @@ against these before it goes in a reply:
   is, never as the biggest loss or as low. "One of the lowest" or "mostly Europe" ranks every
   group in the answer, not the ones you looked at; and "74% are weekly with a trial" counts every
   product of that kind, or names the one product it is.
-- **Countries are read against their own past.** Prices and buying power differ by market, so
-  a country's conversion or revenue per install is not ranked against the US or against another
-  country. What a country's numbers mean: its trend over the window, which plans sell there, and
-  where its funnel loses users. Call a market healthy only from its own trend.
+- **A country's trend is read against its own past, its level against its region.** Prices and
+  buying power differ by market, so a country is never ranked against the US or another country;
+  its view → paid and trial → paid are graded against its region's median in `market-grid.csv`
+  (the same measure), and its revenue per install is shown for sizing, never graded. A country with
+  no region row has no grade: say so.
 - **A premise about the market is checked, not adopted.** When the user says most users come
   from one country, compute each country's share of revenue and of installs. If no country has
   50% or more of either, the bold answer corrects it with the real split ("There is no single

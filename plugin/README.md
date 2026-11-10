@@ -336,7 +336,7 @@ Needs a CLI with the `ab-tests` commands (and `ab-tests metrics` for results), w
 
 ## Migrating placements to flows
 
-You have [placements](https://adapty.io/docs/placements.md) pointing at paywalls, and you want them pointing at [flows](https://adapty.io/docs/adapty-flow-builder.md) instead. `migrate-placements` reads every placement in the app, works out which ones are worth moving, and creates the flow placements for you.
+You have [placements](https://adapty.io/docs/placements) pointing at paywalls, and you want them pointing at [flows](https://adapty.io/docs/adapty-flow-builder) instead. `migrate-placements` reads every placement in the app, works out which ones are worth moving, and creates the flow placements for you.
 
 ```
 Move my app's paywall placements to flows
