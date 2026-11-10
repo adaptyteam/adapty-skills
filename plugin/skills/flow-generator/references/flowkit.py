@@ -2215,7 +2215,8 @@ def auto_advance(screen_id, after_ms, *, transition='push', action_id='act_auto'
     It is a `navigate` whose transition `delay` is the wait, run from the screen's On Appear.
     The screen stays live while it waits: a tap that navigates, Back, or anything that opens
     over the screen (a purchase, a restore, an alert, a link, a bottom sheet, a picker, close)
-    cancels the wait, and coming back to the screen waits again. The wait may end up to a
+    cancels the wait. Closing what opened does not restart it; only coming back to the screen
+    waits again. The wait may end up to a
     second late. On a tap the same `delay` only holds the transition while taps do nothing.
 
     `after_ms` is whole ms, 1-5000. Over 5000 the transition is unreadable and the screen moves

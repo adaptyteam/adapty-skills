@@ -340,7 +340,8 @@ any element of the screen. All of a screen's On Appear actions run each time it 
   once, and `none` carries no delay. A longer wait is a [timer](#a-timer-that-fires-an-action).
 - **The screen stays live while it waits.** A button that navigates wins, Back cancels the wait,
   and so does anything that opens over the screen: a purchase, a restore, an alert, a link, a
-  bottom sheet, a picker, Close. Coming back to the screen waits again.
+  bottom sheet, a picker, Close. Closing it does not restart the wait, so the screen then stays
+  until the user taps on; only coming back to the screen waits again.
 - **It may end up to a second late,** so do not promise a wait to the split second.
 - **Only `navigate` waits.** `navigateNext` from On Appear moves on at once. On a tap, the same
   `delay` holds the transition while taps do nothing, so keep it at 0 there.
