@@ -77,7 +77,7 @@ A CLI older than the API refuses these entries on write: what to do is in Never 
 - **Before a write, show the placement's audiences before and after**, as a table in priority
   order: segment, what it serves. That table is the confirmation. Show an A/B test by its title,
   never its id.
-- Bold at most one thing per paragraph. Reply in the user's language.
+- Bold at most one thing per paragraph. Reply in the user's language. A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 
 ## CLI or MCP
 
@@ -121,7 +121,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.

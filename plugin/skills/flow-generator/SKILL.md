@@ -54,7 +54,7 @@ Every line the user reads, the fixed blocks included:
   internal action names (`closeFlow`, `navigate`), config keys (`_meta.screens`), language codes,
   file names, element counts, checker output (`valid: true`) or tool names. Say what it means:
   "the Continue button now opens the paywall", "Spanish", "the publish check passed".
-- **Full, clickable links**, bare on their own line, never in backticks.
+- **Full, clickable links**, bare on their own line, never in backticks. A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Reply in the user's language**, the fixed blocks too. Builder labels stay exactly as the
   builder shows them.
 
@@ -222,7 +222,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.

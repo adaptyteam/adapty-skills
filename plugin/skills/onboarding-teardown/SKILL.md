@@ -44,7 +44,7 @@ Every line the user reads, the fixed blocks included:
   read-back need no bold; quotes mark a screen name.
 - **Raw values only when the user will see them elsewhere** — a screen name or button label from
   their builder, a price. Never element ids or tool names.
-- **Full, clickable links.**
+- **Full, clickable links.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Reply in the user's language — the disclaimer and the builder pitch too.** Labels quoted from
   their flow stay exactly as the flow shows them.
 
