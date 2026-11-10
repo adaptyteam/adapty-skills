@@ -356,6 +356,29 @@ the render and move the element down rather than trusting the number.
 builder and in the local render alike. So the same `top` lands lower on a `fixed` element than on
 an `absolute` one; do not carry a number from one to the other.
 
+**Sides are inset too.** On iPhone Duo, whose system bar sits on one side, a `left` or `right`
+offset on either kind is measured from inside the bar (unless its `position` sets
+`ignoreSafeArea: true`), so write the offset the design wants from the safe edge and never add the
+bar's width ([preview.md](preview.md#what-a-render-cannot-show-you)).
+
+### A hero that runs to the top edge: `ignoreSafeArea` on the first element
+
+A photo or colour block that runs behind the clock keeps the screen's `safeArea: true` and takes
+`position: {"type": "relative", "ignoreSafeArea": true}` itself (`fk.relative(bleed=True)`). It
+reaches the top edge, and on iPhone Duo the side bar too, while everything else on the screen keeps
+its insets: the close button stays clear of the Dynamic Island and the button stays above the home
+indicator.
+
+- **It works only on the screen's first in-flow element:** the first root child that is not
+  `absolute` or `fixed`, a `footer` or a `sliding-sheet`. On any other `relative` element it does
+  nothing, so move the hero there or put it in the screen `fill`. `flowkit.screen()` refuses it
+  anywhere else.
+- **Never turn the screen's `safeArea` off to get the hero to the top.** That takes the close
+  button under the Dynamic Island and the button under the home indicator, and the render shows
+  neither: an `absolute` close button draws in the same place either way.
+- Keep text and faces out of the hero's top edge: the status bar draws over it, at a height
+  that differs by device.
+
 ### A loading screen — fill the `loader-spinner-label` template; never fake the spinner
 
 "A loading screen with a spinner and a label" has a **ready catalog component**,
@@ -646,8 +669,8 @@ schema plus the render checks above rather than read off builder output.
 - **Containers only grow downward in relative layout.** For expanding content, pre-size the
   container for the expanded state and toggle `visibility` — "less pretty, but no jumping".
 - **Fixed widths overflow the right edge on narrow iOS screens (≤375pt)** — any fixed
-  number needs an SE / 13-mini sanity check, and the builder previews only 402×874 (no Pro Max
-  preset either, so `Fill` heights absorb 82 extra points on a 440×956 device).
+  number needs an SE / 13-mini sanity check, and `Fill` heights absorb 82 extra points on a
+  440×956 Pro Max (render it on `iphone-18-pro-max`).
 - **After restructuring a screen, hunt for orphaned fixed buttons**: two stacked CTAs render as
   one, and the SDK taps the topmost — a footer added late can leave an old Continue underneath it.
 - **`Scrollable = off` + `footer` = no footer on the device.** It is a hard constraint and it is

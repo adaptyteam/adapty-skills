@@ -262,12 +262,13 @@ one it shows that is not there:
   |---|---|
   | a short phone | `iphone-se-3` (375×667) |
   | a tall phone | `google-pixel-9` (412×924) |
-  | the others | `iphone-17-pro`, `iphone-17`, `iphone-16-pro`, `iphone-16`, `iphone-15-pro`, `iphone-15`, `iphone-14-pro`, `iphone-14`, `iphone-13-mini`, `google-pixel-8`, `samsung-s24`, `samsung-s23`, `ipad-mini-8-3`, `ipad-air-11`, `ipad-air-13`, `ipad-pro-11`, `ipad-pro-13` |
+  | the tallest iPhone | `iphone-18-pro-max` (440×956) |
+  | iPhone Duo, closed and open | `iphone-duo` (466×678), `iphone-duo-open` (669×951) |
+  | the others | `iphone-18-pro`, `iphone-17-pro`, `iphone-17`, `iphone-16-pro`, `iphone-16`, `iphone-15-pro`, `iphone-15`, `iphone-14-pro`, `iphone-14`, `iphone-13-mini`, `google-pixel-8`, `samsung-s24`, `samsung-s23`, `ipad-mini-8-3`, `ipad-air-11`, `ipad-air-13`, `ipad-pro-11`, `ipad-pro-13` |
 
   `shoot.sh` takes one as `DEVICE=<id>`. Any layout whose look depends on viewport height (a
   fill-height hero, a spread, a fixed height, a tall content column) gets rendered at both ends
-  of that table. There is no Pro Max frame (440×956), so the tallest iPhone stays a device
-  check. An id the page does not know renders `Unknown device "iphone-se".` as a **page**, with
+  of that table. An id the page does not know renders `Unknown device "iphone-se".` as a **page**, with
   exit 0, which passes any "did something draw" check; `shoot.sh`'s flat-render guard catches it.
   `--window-size` is **not** a substitute for a device: the page draws its own device frame, so
   a smaller window crops the screenshot rather than re-laying-out the screen (a
@@ -276,14 +277,34 @@ one it shows that is not there:
 
 - **The device's own chrome — a notch, a Dynamic Island, a home indicator — because the render
   draws none of it.** A screen authored with `safeArea: false` puts its back chevron and title into
-  the island zone on a real phone while its preview is clean — the preview canvas starts at a bare top edge, so the collision has no
-  preview-side tell. Author new screens with `safeArea: true` unless the design genuinely paints
-  under the status bar. The same missing viewport frame hides the bottom half of the problem: an
+  the island zone on a real phone while its preview is clean — the preview canvas starts at a bare
+  top edge, so the collision has no preview-side tell. Author every screen with `safeArea: true`; a
+  hero that runs under the status bar is that element's `ignoreSafeArea`
+  ([patterns.md](patterns.md#a-hero-that-runs-to-the-top-edge-ignoresafearea-on-the-first-element)),
+  never the screen's safe area off. The same missing viewport frame hides the bottom half of the problem: an
   in-flow CTA that ends mid-canvas reads fine in a PNG and as a half-empty screen on a device —
   when the reference pins its CTA to the bottom, that is a `fixed` dock
   ([patterns.md → a bottom-docked button](patterns.md)), not a flow item, and docked-over-scrolling
   content then needs a look at *both* ends: a docked footnote can collide with the last content
   row at one viewport height and clear it at another.
+
+- **iPhone Duo's side system bar, as a bar.** iPhone Duo keeps a system bar on one side: on
+  the right when closed (84pt, in both orientations), at the top when open and upright (82pt), on
+  the right when open and turned. A turned Face ID iPhone has one on each side; an iPad has none.
+  With `safeArea: true` the content, the `footer`'s content and every `fixed` and `absolute`
+  element keep clear of it, while backgrounds, the footer's surface and a full-width `fixed` bar's
+  fill still run edge to edge. An element whose `position` sets `ignoreSafeArea: true` reaches
+  under the side bar as it reaches under the status bar: a `fixed` or `absolute` one, or the
+  screen's first in-flow element (a full-bleed hero). With `safeArea: false` everything runs
+  under it. Nothing in the config is new: the screen's `safeArea` drives it, on iOS only. The render applies those insets on `iphone-duo` and `iphone-duo-open` but draws
+  no bar, so the bar shows as an empty strip. **Render every width-filling screen (a plan row, a
+  full-width CTA) on `iphone-duo` in both orientations and on `iphone-duo-open`,** and check the
+  strip is empty. **Never write side `padding` or a `left`/`right` offset sized to the bar**: the
+  safe area already applies it, and a hand-written one doubles it. What the render still cannot
+  show, so it goes on the device check: a full-width `fixed` bar's fill, which the render clips at
+  the bar and the device paints under it; Android, where a device does not yet keep content clear
+  of a side navigation bar in landscape; and a right-to-left flow in a left-to-right app, where
+  iOS can put the inset on the mirrored side.
 
 - **Images that have not arrived, or a fill that does not draw.** An image `fill` on a stack or a
   carousel slide can draw blank here while an `image` element in the same place draws:

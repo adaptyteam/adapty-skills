@@ -326,15 +326,19 @@ def size(kind='fill', value=None):
     return {'type': 'fixed', 'value': value} if kind == 'fixed' else {'type': kind}
 
 
-def relative(z=None):
+def relative(z=None, *, bleed=False):
     """An in-flow element. It takes no `zIndex`: on a `relative` element the render ignores it, and
-    an `absolute` sibling paints over it wherever either is listed (flow-schema.md trap 9)."""
+    an `absolute` sibling paints over it wherever either is listed (flow-schema.md trap 9).
+
+    `bleed=True` sets `ignoreSafeArea`: the screen's first in-flow element then runs to the top
+    edge, under the status bar, while the screen keeps `safeArea: true` for everything else.
+    It works on that element only; `screen()` refuses it anywhere else."""
     if z is not None:
         raise ValueError('relative() takes no z: a zIndex on a relative element does nothing, and '
                          'an absolute sibling still paints over it. To draw over an absolute '
                          'overlay, put this element inside the overlay, or make the overlay a fill '
                          'layer of the container; a corner control goes absolute() after it')
-    return {'type': 'relative'}
+    return {'type': 'relative', 'ignoreSafeArea': True} if bleed else {'type': 'relative'}
 
 
 def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
@@ -2782,6 +2786,17 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
             'not there, so the footer covers the content under it until the user scrolls. The '
             'preview draws it correctly, so no local check can see this. Keep the fill hero and '
             'put the bar in flow as the last root child, or keep the footer and drop the fill.')
+    in_flow = [c['id'] for c in hierarchy['children']
+               if (node_map[c['id']].get('props', {}).get('position') or {}).get('type', 'relative')
+               == 'relative' and node_map[c['id']].get('type') not in ('footer', 'sliding-sheet')]
+    for k, v in node_map.items():
+        pos = v.get('props', {}).get('position') or {}
+        if pos.get('ignoreSafeArea') and pos.get('type', 'relative') == 'relative' \
+                and k != (in_flow[0] if in_flow else None):
+            raise ValueError(
+                f'screen {screen_id!r}: {k} sets ignoreSafeArea but is not the screen\'s first '
+                'in-flow element, so it does nothing. Only that element runs under the status bar: '
+                'make the hero the first root child, or put the image in the screen fill.')
     if len(feet) > 1:
         raise ValueError(
             f'{len(feet)} footer elements on screen {screen_id!r} ({", ".join(sorted(feet))}) — '
