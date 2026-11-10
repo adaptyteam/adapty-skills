@@ -416,10 +416,21 @@ before touching it. Read its `status` with `flows get`: `archived` is a flow del
 dashboard. Every write to it is refused with `Flow is deleted`, and a `flows duplicate` with
 `flow_archived`. Say so, and ask the user to restore it from the archive in the dashboard; then
 you edit the restored flow. When they say it is restored, run `flows get` again, and go on only
-when its `status` is not `archived`; if it still is, say so and ask again. On a no, run
-`flows config get` once into `flow.backup.json`. If it answers, tell the user the file name; if it
-is refused, say that there is no local copy. If they want a new flow anyway, tell them what a
-`flows create` and a write drop
+when its `status` is not `archived`; if it still is, say so and ask again. On a no:
+
+- **`draft.json` or `flow.backup.json` exists** (the flow was deleted during the run): fetch
+  nothing. Keep these files and tell the user their names. A new flow made anyway takes
+  `draft.json`.
+- **No file exists yet:** fetch once into a temporary file and keep it only on success. If it
+  answers, tell the user the file name; if it is refused, say that there is no local copy. A new
+  flow made anyway takes the `.config` of `flow.archived.json`.
+
+  ```bash
+  $ADAPTY flows config get --app $APP $FLOW --json > flow.archived.tmp \
+    && mv flow.archived.tmp flow.archived.json || rm -f flow.archived.tmp
+  ```
+
+If they want a new flow anyway, tell them what a `flows create` and a write drop
 ([history.md → Look at one version](references/history.md#look-at-one-version)), and make it on
 their yes: the one case where a copy is made that way. For a flow that is not `archived`,
 `flows config get`, and **keep its `updated_at`** for the write, not the one `flows get` or
@@ -867,9 +878,10 @@ past it and never re-send your local copy — that is the content that would era
 their version differs in ways you did not author, ask rather than restore.
 
 **On `Flow is deleted`** someone deleted the flow in the dashboard after you read it: nothing was
-written, and no write to that id can succeed. Say so; your draft is intact in `draft.json`. Go on
-as for an `archived` flow in [phase 2](#2-new-flow-or-existing-flow); after the restore, fetch it
-again and re-apply your change as on a 409.
+written, and no write to that id can succeed. Say so; your draft is intact in `draft.json`, and a
+new flow made anyway takes its content. Go on as for an `archived` flow in
+[phase 2](#2-new-flow-or-existing-flow), with no fetch; after the restore, fetch it again and
+re-apply your change as on a 409.
 
 **If you rebuilt the config from a script rather than patching the fetched one, you have the wrong
 document** — a rebuild replaces the live flow, taking `_meta.screens` and the `screens[].products`

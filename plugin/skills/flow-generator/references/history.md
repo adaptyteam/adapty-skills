@@ -125,11 +125,11 @@ layout, the remote configs) into the draft. The live version and the source vers
    > "<version title>" replaces it, and the draft cannot come back from the history. To keep the
    > draft, I can duplicate it to a new flow first. Replace the draft?
 
-   Offer the duplicate only when `flows duplicate` exists; when it is missing, offer the copy in the
-   dashboard instead ([When the CLI has no history commands](#when-the-cli-has-no-history-commands)).
-
-   That is the shape, not words to copy. On a yes (after the duplicate, if they asked for it),
-   keep a copy of the draft you replace, then send the draft row's `updated_at` as the token.
+   That is the shape, not words to copy. Offer the duplicate only when `flows duplicate` exists;
+   when it is missing, offer the copy in the dashboard instead
+   ([When the CLI has no history commands](#when-the-cli-has-no-history-commands)). On a yes
+   (after the duplicate, if they asked for it), keep a copy of the draft you replace, then send the
+   draft row's `updated_at` as the token.
    Never overwrite an earlier copy: a second restore in the run writes
    `flow.draft-before-restore-2.json`, the next one `-3`, and so on.
 
