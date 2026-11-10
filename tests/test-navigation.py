@@ -266,6 +266,44 @@ check('refused inside a conditional branch', 'bad transition' in verify_out(two_
 for kind in ('navigateBack', 'navigateNext'):
     out = verify_out(two_screens({'id': 'a', 'type': kind, 'payload': {'transition': PUSH}}))
     check(f'{kind} with a transition is refused', 'only `navigate` reads' in out, out)
+print('\nShow / Hide animations (verify-config)')
+
+
+def shown(animation, target='el_n', kind='showElement'):
+    return {'id': 'a', 'type': kind, 'payload': {'elements': [target], 'animation': animation}}
+
+
+FADE_IN = {'type': 'fade', 'duration': 300, 'delay': 3000, 'easing': 'ease-out'}
+for t in (FADE_IN, {**FADE_IN, 'type': 'rise', 'distance': 48}, {**FADE_IN, 'type': 'pop'},
+          {'type': 'none', 'delay': 5000}, {**FADE_IN, 'delay': 60000}):
+    out = verify_out(two_screens(shown(t)))
+    check(f'{t["type"]} animation passes', 'animation' not in out, out)
+check('a hide takes one too', 'animation' not in verify_out(two_screens(shown(FADE_IN, kind='hideElement'))))
+for why, t in (('unknown type', {**FADE_IN, 'type': 'slide'}),
+               ('over 60000 ms', {**FADE_IN, 'delay': 60001}),
+               ('no duration', {k: v for k, v in FADE_IN.items() if k != 'duration'}),
+               ('a bounce easing', {**FADE_IN, 'easing': 'ease-out-bounce'}),
+               ('a pop scale of 1', {**FADE_IN, 'type': 'pop', 'scale': 1}),
+               ('not an object', 'fade')):
+    out = verify_out(two_screens(shown(t)))
+    check(f'refused animation: {why}', 'bad animation' in out, out)
+out = verify_out(two_screens(shown(FADE_IN, target='el_c')))
+check('an animated Show of an element on another screen warns it plays at once',
+      'not on this screen' in out, out)
+cond = two_screens(shown(FADE_IN))
+cond['screens'][0]['elements']['map']['el_n']['props']['visibility'] = {
+    'type': 'conditional', 'condition': {}}
+check('an animated Show of a conditional element warns it plays at once',
+      'conditional visibility' in verify_out(cond))
+check('an instant Show of another screen\'s element is not warned about',
+      'not on this screen' not in verify_out(two_screens(
+          {'id': 'a', 'type': 'showElement', 'payload': {'elements': ['el_c']}})))
+for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
+    out = subprocess.run([sys.executable, VERIFY, f], capture_output=True, text=True).stdout
+    if 'animation' in out and ('Show / Hide' in out or 'bad animation' in out):
+        check(f'animation checks silent on {os.path.basename(f)}', False, out)
+check('animation checks silent on every real export', True)
+
 for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
     out = subprocess.run([sys.executable, VERIFY, f], capture_output=True, text=True).stdout
     if 'bad transition' in out or 'only `navigate` reads' in out:

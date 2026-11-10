@@ -408,6 +408,44 @@ def transition_problem(t):
     return None
 
 
+# A Show / Hide `payload.animation`, read the way the transformer reads it.
+ELEMENT_ANIMATION_TYPES = {'none', 'fade', 'rise', 'pop'}
+ELEMENT_EASINGS = {'linear', 'ease-in', 'ease-out', 'ease-in-out'}
+
+
+def element_animation_problem(a):
+    """What is wrong with a Show / Hide `animation` value, or None."""
+    def ms(v):
+        return type(v) is int and 0 <= v <= 60000
+    if not isinstance(a, dict) or a.get('type') not in ELEMENT_ANIMATION_TYPES:
+        return f'type must be one of {sorted(ELEMENT_ANIMATION_TYPES)}'
+    if not ms(a.get('delay', 0)):
+        return 'delay must be whole ms, 0-60000'
+    if a['type'] == 'none':
+        return None
+    if not ms(a.get('duration')):
+        return 'duration must be whole ms, 0-60000'
+    if a.get('easing') not in ELEMENT_EASINGS:
+        return f'easing must be one of {sorted(ELEMENT_EASINGS)}'
+    dist = a.get('distance', 32)
+    if isinstance(dist, bool) or not isinstance(dist, (int, float)):
+        return 'distance must be a number'
+    sc = a.get('scale', 0.8)
+    if isinstance(sc, bool) or not isinstance(sc, (int, float)) or not 0 <= sc < 1:
+        return 'scale must be a number from 0 to below 1'
+    return None
+
+
+def _iter_dicts(o):
+    if isinstance(o, dict):
+        yield o
+        for v in o.values():
+            yield from _iter_dicts(v)
+    elif isinstance(o, list):
+        for v in o:
+            yield from _iter_dicts(v)
+
+
 def walk(o, fn):
     if isinstance(o, dict):
         fn(o)
@@ -1147,11 +1185,56 @@ def check(path, baseline_text=None, baseline_images=None):
             why = transition_problem(p['transition'])
             if why:
                 bad.append(f'navigate to {p.get("screen")}: bad transition ({why}); '
-                           f'the device would play the default push')
+                           f'the device would play the default push, and from On Appear it '
+                           f'would move on at once instead of waiting')
         elif o.get('type') in ('navigateBack', 'navigateNext'):
             bad.append(f'{o["type"]} carries a transition, which only `navigate` reads: back '
                        f'reverses the arrival, and next needs an explicit `navigate`')
     walk(d, check_transition)
+
+    # A Show / Hide `payload.animation` the transformer cannot read is refused with
+    # `invalid_action_payload`; one on an element it cannot animate plays at once, silently.
+    def check_element_animation(o):
+        p = o.get('payload')
+        if not isinstance(p, dict) or 'animation' not in p:
+            return
+        if o.get('type') in ('showElement', 'hideElement'):
+            why = element_animation_problem(p['animation'])
+            if why:
+                bad.append(f'{o["type"]} of {p.get("elements")}: bad animation ({why}); the '
+                           f'transformer refuses it (invalid_action_payload)')
+    walk(d, check_element_animation)
+
+    def _moving(anim):
+        return isinstance(anim, dict) and (anim.get('delay') or 0) + (
+            0 if anim.get('type') == 'none' else anim.get('duration') or 0) > 0
+
+    for s in d.get('screens', []):
+        smap = s.get('elements', {}).get('map') or {}
+        def _animated(o, out):
+            if isinstance(o, dict):
+                if o.get('type') in ('showElement', 'hideElement') and \
+                        _moving((o.get('payload') or {}).get('animation')):
+                    out += [t for t in (o['payload'].get('elements') or []) if isinstance(t, str)]
+                for v in o.values():
+                    _animated(v, out)
+            elif isinstance(o, list):
+                for v in o:
+                    _animated(v, out)
+            return out
+        for t in sorted(set(_animated([e.get('interactions') for e in smap.values()], []))):
+            if t not in smap:
+                warn.append(f'screen {s["id"]}: an animated Show / Hide targets {t}, which is not '
+                            f'on this screen, so it shows or hides at once with no animation')
+            elif ((smap[t].get('props') or {}).get('visibility') or {}).get('type') == 'conditional':
+                warn.append(f'screen {s["id"]}: {t} has a conditional visibility, so an animated '
+                            f'Show / Hide on it plays at once with no animation')
+    for cid, comp in (d.get('components') or {}).items():
+        if any(isinstance(o, dict) and o.get('type') in ('showElement', 'hideElement')
+               and _moving((o.get('payload') or {}).get('animation'))
+               for o in _iter_dicts(comp)):
+            warn.append(f'component {cid}: an animated Show / Hide inside a component plays at '
+                        f'once with no animation; put the action on the screen')
 
     # An undeclared-but-bound product is a WARNING, not an error: the Flow Builder
     # mints the `flowProductId` and writes the declaration the first time someone opens the

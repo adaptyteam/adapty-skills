@@ -321,30 +321,78 @@ Then, per screen: reference it in `hierarchy` as `{"id": "pb_…", "type": "glob
 - **The preview cannot show the fill.** It draws the track only, so whether the bar advances is a
   device check.
 
+### On Appear: a screen that moves on by itself, an element that appears later
+
+Both are actions of the screen's **On Appear**: an interaction with `trigger: "screen-appear"` on
+any element of the screen. All of a screen's On Appear actions run each time it appears.
+`fk.screen(..., on_appear=fk.on_appear(...))` puts the interaction on the first root element.
+
+**A screen that moves on after a few seconds** (a splash, a "building your plan" screen) is a
+`navigate` whose transition `delay` is the wait: `fk.auto_advance('scr_next', 3000)`.
+
+```json
+{"id": "int_appear", "trigger": "screen-appear", "actions": [
+  {"id": "act_auto", "type": "navigate", "payload": {"type": "screen", "screen": "scr_next",
+   "transition": {"type": "fadeThrough", "easing": "ease-in-out", "duration": 300, "delay": 3000}}}]}
+```
+
+- **The wait is 1 to 5000 ms.** Over 5000 the transition is unreadable and the screen moves on at
+  once, and `none` carries no delay. A longer wait is a [timer](#a-timer-that-fires-an-action).
+- **The screen stays live while it waits.** A button that navigates wins, Back cancels the wait,
+  and so does anything that opens over the screen: a purchase, a restore, an alert, a link, a
+  bottom sheet, a picker, Close. Closing it does not restart the wait, so the screen then stays
+  until the user taps on; only coming back to the screen waits again.
+- **It may end up to a second late,** so do not promise a wait to the split second.
+- **Only `navigate` waits.** `navigateNext` from On Appear moves on at once. On a tap, the same
+  `delay` holds the transition while taps do nothing, so keep it at 0 there.
+
+**An element that appears after a wait or animates in by itself** (a close button after five
+seconds, a headline that rises in) starts `visibility: hidden`, and On Appear shows it with
+`payload.animation`: `fk.show_elements(['el_close'], animation=fk.element_animation('fade', delay=5000))`.
+
+```json
+{"id": "act_reveal", "type": "showElement", "payload": {"elements": ["el_close"],
+ "animation": {"type": "fade", "duration": 300, "delay": 5000, "easing": "ease-out"}}}
+```
+
+| `type` | What the user sees | Extra key |
+|---|---|---|
+| `none` | The element appears after `delay`, with no motion | only `delay` |
+| `fade` | It fades in | |
+| `rise` | It fades in and moves up into place | `distance`, pt below its place, 32 |
+| `pop` | It fades in and grows into place | `scale` it starts from, 0 to below 1, 0.8 |
+
+- **`duration` and `delay` are whole ms, 0 to 60000;** a `duration` of 0 is no motion. `easing` is
+  `linear`, `ease-in`, `ease-out` or `ease-in-out`. The builder starts each at 300 ms, ease out.
+- **The same `animation` works on `hideElement`,** and on a tap: a hint that fades out, a block
+  that pops in when a plan is picked. A hide plays the motion backwards.
+- **A delayed reveal waits once per run of the flow.** Back to the screen before the wait ends
+  waits for the rest; after it, the element is there at once. While it animates in, it does not
+  take taps.
+- **It plays only on an element of the same screen,** outside a component and without a conditional
+  visibility. Anywhere else the element shows at once, and `verify-config.py` warns. A bottom
+  sheet keeps its own open and close.
+- **A malformed `animation` is refused** (`invalid_action_payload`); `verify-config.py` errors on it.
+- **The element's own `animation` prop is Pulse,** and its `showAfterDelay` belongs to Pulse: an
+  element carrying it shows at once.
+
+**The preview never runs On Appear.** It draws the screen as it first appears: the element hidden,
+the screen not moving on. The builder's canvas does not play them either, so say the wait and the
+motion are checked on a device.
+
 ### A countdown
 
-**The Countdown is the flow's only delay primitive.** A Spinner has no completion trigger, and
-`On Screen Appear → Navigate Next` fires instantly — so a timed screen is a `timer` with a
-`timer-end` interaction. Build it in the [device-verified shape](#device-verified-the-json-an-auto-advancing-screen-actually-needs):
-a direct child of the screen root, `hug` with padding, **a text showing its digits inside it**
-(coloured like the background to hide it), no `opacity: 0`,
-and an explicit `navigate`. The builder's own wording ("Opacity 0, Navigate Next") describes the
-dropdown, not the JSON, and followed literally it gives a screen that never advances. When a
-loader must be pinned, the `fixed` position goes on a **container**, not on the Loader element
-itself.
+**A visible countdown is a `timer`** with its digits inside it: `fk.timer()` with
+`fk.timer_digits()`, the token shape at the end of [A timer that fires an action](#a-timer-that-fires-an-action).
+A `timer-end` action is needed only for a screen that moves on after **more than 5 s**; build it
+as in [A timer that fires an action](#a-timer-that-fires-an-action). A Spinner has no completion
+trigger, so it never moves the flow on. When a loader must be pinned, the `fixed` position goes on
+a **container**, not on the Loader element itself.
 
 **A `spinner`'s `duration` is its ROTATION PERIOD, not a completion time.** It loops forever and
 fires nothing, on every surface. The field reads exactly like a delay — a user looking at
 `duration: 1000` reasonably asked why the screen never advanced after a second — so when a
-spinner and a Countdown share a screen, say in the handoff which one moves the flow.
-
-**An element that appears after a delay — a close button after five seconds — is the same
-timer.** The element starts `visibility: hidden`, and the timer's `timer-end` fires `showElement`
-on it (`fk.show_elements`) instead of a `navigate`; the timer keeps its digits, background-coloured,
-exactly as above. On a device this shape shows the X after five seconds, and the X closes the flow; the preview never
-fires a timer, so it draws the screen without it. **The `animation` field's `showAfterDelay` is
-not this**: it is a setting of the Pulse animation, and an element carrying it shows at once on a
-device.
+spinner and the screen's On Appear share a screen, say in the handoff which one moves the flow.
 
 ### Under `safeArea: true`, check where an absolute element lands
 
@@ -394,8 +442,9 @@ the spinner that are not guessable:
   markup is yours to supply through `config(icons=[…])`.
 - **`loader`** — a determinate progress bar (`duration`, `easing`), when the affordance is a bar
   rather than a spinner.
-- the invisible auto-advance **`timer`** below — that is what actually moves the flow on; the
-  spinner is decoration and has no completion trigger.
+- the screen's [On Appear](#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later)
+  `navigate` with a `delay`: that is what moves the flow on; the spinner is decoration and has
+  no completion trigger.
 
 **A blank where the spinner should be is a preview blindness, not a broken element** — the same
 class as a toggle's `selected` state; it lives with the rest
@@ -411,17 +460,18 @@ preview-visible impostor standing in for a real element to satisfy a screenshot.
 to the device check. The bundle's `Spinner`, `SpinnerGap` and `SpinnerBall` are still
 pictures of a loader, never the loader itself.
 
-### DEVICE-VERIFIED: the JSON an auto-advancing screen actually needs
+### A timer that fires an action
 
-The builder's recipe is written in its own vocabulary, and translating it to JSON literally leaves
-three gaps that together produce a screen that spins forever on a real device while `validate`
-returns `valid: true`. This is the shape that **works on a real device** — and the only confirmed
-`timer-end`, since no export in the corpus carries one:
+A screen that moves on after **more than 5 s** is the one case that still needs a `timer-end`
+action; up to 5 s it is [On Appear](#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later).
+Translating the builder's recipe to JSON literally leaves three gaps that together produce a
+screen that spins forever on a real device while `validate` returns `valid: true`. This is the
+shape that **works on a real device**:
 
 ```json
 {"id": "el_delay", "type": "timer", "states": [], "caption": "Delay",
  "props": {"customId": "build_delay", "behavior": "start_at_every_appear",
-           "duration": {"days": 0, "hours": 0, "minutes": 0, "seconds": 3},
+           "duration": {"days": 0, "hours": 0, "minutes": 0, "seconds": 10},
            "width": {"type": "hug"}, "height": {"type": "hug"},
            "padding": {"top": 12, "left": 16, "right": 16, "bottom": 12},
            "visibility": {"type": "visible"},
@@ -474,7 +524,7 @@ the unit that works:
   which is the checker doing its job, not a false positive to suppress.
 
 **Not agent-tested.** The facts above hold on a device; whether an agent handed "add a
-3-second loading screen" produces this shape rather than the 1×1 nested (or childless) form is
+10-second loading screen" produces this shape rather than the 1×1 nested (or childless) form is
 untested, so build it from this section, not from memory.
 
 ```json
@@ -1425,7 +1475,8 @@ screen arrives with the default push, so a user's request is the reason to set o
   arrival matters. A `navigate` inside a `conditional` case or at a `timer`'s end takes one the same
   way.
 - **Taps do nothing while a transition runs, and that includes its `delay`.** Keep `delay` at 0 unless
-  the user asks for a pause.
+  the user asks for a pause. From On Appear the `delay` is different: the screen waits it while
+  still live, then plays the transition ([On Appear](#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later)).
 - **`slideIn` and `ease-out-bounce` can show what is behind the screens:** the first screen's bottom
   color or gradient. Choose another when the screens differ a lot in color.
 - **The preview page never navigates, so a render cannot show a transition.** Say it is checked on a

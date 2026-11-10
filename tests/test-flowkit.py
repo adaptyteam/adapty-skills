@@ -221,6 +221,42 @@ def main():
           fk.screen_transition('push', direction='up')['direction'] == 'up')
     check('none carries only its type',
           fk.navigate('s', transition='none')['payload']['transition'] == {'type': 'none'})
+    # On Appear: auto-advance is a navigate whose transition delay is the wait, a delayed
+    # reveal a Show with an animation delay; both ride one screen-appear interaction.
+    hint = fk.stack([fk.text('X', preset='h2')], visibility=fk.hidden(), actions=[fk.close()],
+                    node_id='el_hint')
+    appear_scr = fk.screen('scr_wait', [fk.text('Wait', preset='h2'), hint],
+                           on_appear=fk.on_appear(fk.auto_advance('scr_next', 3000),
+                                                  fk.show_elements(['el_hint'], animation='fade')))
+    first = appear_scr['elements']['map'][appear_scr['elements']['hierarchy']['children'][0]['id']]
+    inter = (first.get('interactions') or [{}])[-1]
+    check('on_appear goes on the first root element as a screen-appear interaction',
+          inter.get('trigger') == 'screen-appear' and len(inter.get('actions', [])) == 2, str(inter))
+    check('auto_advance waits in the transition delay',
+          fk.auto_advance('s', 2500)['payload']['transition']
+          == {'type': 'push', 'direction': 'left', 'easing': 'ease-out', 'duration': 350,
+              'delay': 2500})
+    check('show_elements(animation=kind) writes the builder defaults',
+          fk.show_elements(['el_a'], animation='rise')['payload']['animation']
+          == {'type': 'rise', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'distance': 32})
+    check('a delay alone is the none kind',
+          fk.element_animation('none', delay=5000) == {'type': 'none', 'delay': 5000})
+    for why, call in (
+            ('auto_advance over 5000 ms moves on at once', lambda: fk.auto_advance('s', 5001)),
+            ('auto_advance of 0 ms is no wait', lambda: fk.auto_advance('s', 0)),
+            ('auto_advance with none has no delay',
+             lambda: fk.auto_advance('s', 1000, transition='none')),
+            ('an unknown element animation', lambda: fk.element_animation('slide')),
+            ('a pop scale of 1', lambda: fk.element_animation('pop', scale=1)),
+            ('an element delay over 60000 ms', lambda: fk.element_animation('fade', delay=60001)),
+            ('a rise takes no scale', lambda: fk.element_animation('rise', scale=0.5)),
+            ('none takes no duration', lambda: fk.element_animation('none', duration=10)),
+            ('an empty on_appear', lambda: fk.on_appear())):
+        try:
+            call()
+            check(f'refused: {why}', False)
+        except (ValueError, TypeError):
+            check(f'refused: {why}', True)
     for why, call in (
             ('unknown kind', lambda: fk.navigate('s', transition='slide')),
             ('fadeThrough has no direction',
