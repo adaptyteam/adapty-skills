@@ -1,6 +1,6 @@
 ---
 name: flow-generator
-description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "show the user's name or coin balance on my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead".
+description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "show the user's name or coin balance on my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead", and on "show my flow's versions", "roll my flow back to the earlier version".
 ---
 
 # Flow generator
@@ -163,6 +163,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [fidelity.md](references/fidelity.md) | A reference image was given — the per-element inventory, the gap-closing ladder, and what becomes a user ask |
 | [media.md](references/media.md) | The screen has an image: the upload's limits, element-versus-`fill` shapes, geometry, and when to rasterize |
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
+| [history.md](references/history.md) | The user asks about an earlier version: the list, a look at one, a restore into the draft, a rollback of a publish, a duplicate to a new flow |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
 | [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, a screen that moves on by itself, an element that appears after a delay or animates in, plan cards |
@@ -416,9 +417,11 @@ on a yes (`flows create`, seeded from this config if `config get` still returns 
 `flows config get`, and **keep its `updated_at`** for the write, not the one `flows get` or
 `flows list` printed.
 
-**Take a backup before the first edit.** `config update` replaces the whole config and there is no
-undo, so the copy you fetched is the only way back. Keep it in the project or another folder that
-survives a reboot, never `/tmp` or `$TMPDIR`: there is no version history to fetch it from again.
+**Take a backup before the first edit.** It is the baseline of every diff and `before` render,
+and the history keeps no draft saves: when `flows versions list` shows a `draft` row, this copy is
+the only way back to that draft, so keep it in a folder that survives a reboot, never `/tmp` or
+`$TMPDIR`. Published versions stay in the history
+([history.md](references/history.md#what-the-history-keeps)).
 
 ```bash
 $ADAPTY flows config get --app $APP $FLOW --json > flow.working.json
@@ -522,6 +525,8 @@ commands below do not. Then **all four gates in one call**:
 ```bash
 BASELINE=flow.backup.json references/gates.sh draft.json <APP_UUID> <FLOW_ID>
 ```
+
+After a restore, use `flow.backup.after-restore.json` as the baseline.
 
 It runs the structural walk, the schema shape check, a read of every bound product and offer
 against the app (`validate` passes ids the app does not have) and the publish gate over the *same
@@ -687,9 +692,9 @@ There is nothing to lose and nothing to overwrite, and stopping to ask would be 
 empty document. Report what you wrote afterwards.
 
 **It does** — anything you fetched in phase 2. **Stop and get an explicit yes before the write.**
-`config update` replaces the entire config: no partial write, no undo, no version history here, so
-the document you are replacing exists in exactly one other place — the phase-2 backup. Put all of
-this in front of the user in one message and wait:
+`config update` replaces the entire config: no partial write and no undo. A draft you replace
+exists in exactly one other place — the phase-2 backup; a published version stays in the history.
+Put all of this in front of the user in one message and wait:
 
 **First, compute what the write destroys — never describe it from memory.** Run this on the bytes
 you are about to write, after the last edit:
@@ -697,6 +702,8 @@ you are about to write, after the last edit:
 ```bash
 python3 references/diff-config.py flow.backup.json draft.json      # REMOVES = what you destroy
 ```
+
+After a restore, use `flow.backup.after-restore.json` in place of `flow.backup.json`.
 
 The **backup** is the baseline, not your working file: it is the one copy nothing in the run has
 touched, so it is the only honest answer to "what was there before me". (An edit that landed after
@@ -784,13 +791,16 @@ screenshot the user liked is not one.
 **If the flow is `published`, disclose what the save changes — then edit in place on their yes.**
 A `published` flow you save becomes `dirty`: the status is visible to their whole team and cannot
 be reverted from the CLI, while end users keep seeing the published version until the next
-publish. Put that sentence in the approval ask and proceed — editing a live flow is the normal
-case, and the preview pair, the backup and the lock exist precisely so it is safe. Suggest a
-fresh `flows create` only when the work is exploratory — a redesign the user wants next to the
-original — never as the default answer to an edit.
+publish, and that version stays in the history. Put that sentence in the approval ask and
+proceed — editing a live flow is the normal case, and the preview pair, the backup and the lock
+exist precisely so it is safe. Suggest a fresh `flows create` only when the work is exploratory —
+a redesign the user wants next to the original — never as the default answer to an edit.
 
-**Restoring from the backup — verified end to end.** Lock it on the version your last write left
-in `flow.working.json`, so a restore cannot erase an edit someone made after yours:
+A published version comes back from the history
+([history.md → Restore a version](references/history.md#restore-a-version)); the backup brings back
+only the draft from before your first write. **Restoring from the backup — verified end to end.**
+Lock it on the version your last write left in `flow.working.json`, so a restore cannot erase an
+edit someone made after yours:
 
 ```bash
 jq '.config' flow.backup.json > restore.json
@@ -931,9 +941,10 @@ diff before you write ([merge.md](references/merge.md)).
 **Never write to a flow the user did not name.** `flows list` is for finding the right one and
 confirming it back to them, not for picking one yourself.
 
-**`config update` replaces the whole config.** There is no partial write, no undo and no version
-history. Prefer a fresh `flows create` for new work, and create it once: a retry writes to the
-flow you already created.
+**`config update` replaces the whole config.** There is no partial write and no undo; the history
+keeps the published versions, not the draft saves ([history.md](references/history.md)). Prefer a
+fresh `flows create` for new work, and create it once: a retry writes to the flow you already
+created.
 
 **Overwriting an existing config needs an explicit yes.** Phase 5 owns the form. The gate is keyed
 to whether the flow already has a config, not to how confident you feel about the edit — a clean
