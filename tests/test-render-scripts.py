@@ -13,7 +13,8 @@ Chromium-based browser are installed (skipped otherwise).
                 --save-config keeps the input's shape (envelope or bare)
     shoot.sh    a browser that exits without a file is reported with what it said, at once and
                 without the 60 s retry; every screen prints progress; TIME_LIMIT stops the run and
-                names what was not rendered; a stopped run keeps and names what it finished
+                names what was not rendered; a stopped run keeps and names what it finished;
+                a render script that dies without a word is named with its exit code
     in-page     overlays beside the screen are hidden and named, the screen's own docked layer is
                 not; the scroller is found only when it is at least half the screen
 
@@ -188,7 +189,8 @@ try:
 
     def shoot(browser_path, screens, extra=None, **kw):
         out = tempfile.mkdtemp(dir=tmp)
-        env = dict(os.environ, PLAYWRIGHT='0', CHROME=browser_path, ADAPTY=adapty, OUT=out, **(extra or {}))
+        env = {**os.environ, 'PLAYWRIGHT': '0', 'CHROME': browser_path, 'ADAPTY': adapty, 'OUT': out,
+               **(extra or {})}
         return out, subprocess.Popen(['bash', SHOOT, cfg, *screens], stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, text=True, env=env, **kw)
 
@@ -206,6 +208,26 @@ try:
     check('a browser that exits without a file: says what it said, no 60 s retry, stops the batch',
           p.returncode == 1 and 'exited without a screenshot' in text and 'no-sandbox' in text
           and 'retrying' not in text and '[2/2]' not in text and took < 20, f'{took:.0f}s\n{text}')
+
+    # The file-input route, killed with nothing written and nothing said (a crash or an OOM kill):
+    # shoot.sh must say it failed and with which code, never exit 1 in silence.
+    fake_pw = os.path.join(tmp, 'fake-pw')
+    os.makedirs(os.path.join(fake_pw, 'node_modules', 'playwright-core'))
+    node_dir = os.path.join(tmp, 'killed-node')
+    os.makedirs(node_dir)
+    def silent_node(code):
+        with open(os.path.join(node_dir, 'node'), 'w') as fh:
+            fh.write(f'#!/bin/bash\nexit {code}\n')
+        os.chmod(os.path.join(node_dir, 'node'), 0o755)
+        out, p = shoot(ok_browser, ['scr_a'], {'PLAYWRIGHT': '1', 'PW_DIR': fake_pw,
+                                               'PATH': node_dir + os.pathsep + os.environ['PATH']})
+        return p, p.communicate(timeout=120)[0]
+    p, text = silent_node(137)
+    check('a render script killed without a word: named, and the URL route renders the screen',
+          p.returncode == 0 and 'killed (exit 137)' in text and '   rendered ' in text, text)
+    p, text = silent_node(1)
+    check('a render script failing without a word: shoot.sh names the exit code and the other route',
+          p.returncode == 1 and 'failed (exit 1)' in text and 'PLAYWRIGHT=0' in text, text)
 
     out, p = shoot(late_browser, ['scr_a', 'scr_b', 'scr_c'], {'TIME_LIMIT': '1'})
     text = p.communicate(timeout=120)[0]
