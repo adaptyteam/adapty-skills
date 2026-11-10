@@ -89,13 +89,13 @@ for path in corpus:
     hits = findings(json.load(open(path)))
     check(f'silent on {os.path.basename(path)}', not hits, hits)
 
-# --- the auto-advance timer ---------------------------------------------------------------------
+# --- the delay timer ---------------------------------------------------------------------
 def timer(**kw):
     return f.timer([f.timer_digits(('seconds',))], seconds=2, **kw)
 
 
-check('a timer that moves the flow on is captioned Auto-advance',
-      timer(actions=[f.navigate('scr_b')]).get('caption') == 'Auto-advance')
+check('a timer that moves the flow on is captioned Delay',
+      timer(actions=[f.navigate('scr_b')]).get('caption') == 'Delay')
 check('an explicit caption wins',
       timer(actions=[f.navigate('scr_b')], caption='Wait').get('caption') == 'Wait')
 check('a display-only timer gets no caption', 'caption' not in timer())

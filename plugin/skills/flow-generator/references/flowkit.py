@@ -1208,7 +1208,7 @@ def spinner(icon_name, *, size_pt=32, color_id=None, hexval=None, duration_ms=10
     does not animate on a device; that is the fake-footer mistake wearing a loader.
 
     `duration_ms` is the ROTATION PERIOD, not a delay. A spinner has no completion trigger and
-    fires nothing — the invisible `timer()` beside it is what moves the flow on. Say which is
+    fires nothing — the screen's `on_appear(auto_advance(...))` is what moves the flow on. Say which is
     which in the handoff, because the field reads exactly like a delay.
 
     The spinner draws blank in `config preview`; that is a render blindness, not a broken
@@ -2033,7 +2033,65 @@ def _element_targets(element_ids, what):
     return out
 
 
-def show_elements(element_ids, action_id='act_show'):
+# How an element appears or leaves on a Show / Hide, as Flow Builder starts each one.
+ELEMENT_ANIMATIONS = {
+    'none': {'type': 'none', 'delay': 0},
+    'fade': {'type': 'fade', 'duration': 300, 'delay': 0, 'easing': 'ease-out'},
+    'rise': {'type': 'rise', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'distance': 32},
+    'pop': {'type': 'pop', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'scale': 0.8},
+}
+ELEMENT_EASINGS = ('linear', 'ease-in', 'ease-out', 'ease-in-out')
+ELEMENT_ANIMATION_MAX_MS = 60000
+
+
+def element_animation(kind, *, duration=None, delay=None, easing=None, distance=None, scale=None):
+    """`payload.animation` of a Show / Hide: `kind` at its builder defaults, plus any overrides.
+
+    `fade` changes opacity, `rise` also moves the element up from `distance` pt below its
+    place (down on a hide), `pop` also scales it from `scale` (0 to below 1). `none` with a
+    `delay` shows or hides the element after the wait with no motion. `duration` and `delay`
+    are whole ms, 0-60000; a `duration` of 0 is no motion. Guarded here because the transformer
+    refuses a malformed one with `invalid_action_payload`.
+    """
+    if kind not in ELEMENT_ANIMATIONS:
+        raise ValueError(f'element_animation({kind!r}): the kinds are {sorted(ELEMENT_ANIMATIONS)}')
+    out = dict(ELEMENT_ANIMATIONS[kind])
+    given = {'duration': duration, 'delay': delay, 'easing': easing, 'distance': distance,
+             'scale': scale}
+    for key, value in given.items():
+        if value is None:
+            continue
+        if key not in out:
+            raise ValueError(f'element_animation({kind!r}) takes no {key}')
+        out[key] = value
+    for key in ('duration', 'delay'):
+        if key in out and (type(out[key]) is not int
+                           or not 0 <= out[key] <= ELEMENT_ANIMATION_MAX_MS):
+            raise ValueError(f'{key} {out[key]!r}: whole ms, 0-{ELEMENT_ANIMATION_MAX_MS}')
+    if 'easing' in out and out['easing'] not in ELEMENT_EASINGS:
+        raise ValueError(f'easing {out["easing"]!r}: use one of {ELEMENT_EASINGS}')
+    if 'distance' in out and (isinstance(out['distance'], bool)
+                              or not isinstance(out['distance'], (int, float))):
+        raise ValueError(f'distance {out["distance"]!r}: a number of pt')
+    if 'scale' in out and (isinstance(out['scale'], bool)
+                           or not isinstance(out['scale'], (int, float))
+                           or not 0 <= out['scale'] < 1):
+        raise ValueError(f'scale {out["scale"]!r}: from 0 to below 1')
+    return out
+
+
+def _with_animation(payload, animation):
+    if animation is not None:
+        if isinstance(animation, dict):
+            animation = element_animation(
+                animation.get('type'), **{k: v for k, v in animation.items() if k != 'type'})
+        else:
+            animation = element_animation(animation)
+        payload['animation'] = animation
+    return payload
+
+
+def show_elements(element_ids, action_id='act_show', animation=None):
     """`showElement`: make hidden elements of this screen visible -- a bottom sheet, a hint.
 
     `element_ids` is a list of element ids, or of the nodes themselves, and the target starts
@@ -2041,18 +2099,24 @@ def show_elements(element_ids, action_id='act_show'):
     element: the schema requires that shape, and `flows config validate` also accepts a single
     `element` id, so the wrong one passes the check you would run. A bare string is refused.
 
+    `animation` is a kind (`'fade'`) or an `element_animation()` result; left out, the element
+    appears at once. It plays only on a target on this same screen, outside a component, and
+    without a conditional visibility: anywhere else the element appears at once.
+
     `config()` refuses a target the document does not contain. The render never runs the tap,
     so whether it fires is a device check (patterns.md, the bottom sheet).
     """
     return {'id': action_id, 'type': 'showElement',
-            'payload': {'elements': _element_targets(element_ids, 'show_elements')}}
+            'payload': _with_animation(
+                {'elements': _element_targets(element_ids, 'show_elements')}, animation)}
 
 
-def hide_elements(element_ids, action_id='act_hide'):
-    """`hideElement`, the inverse of `show_elements()`: same list payload, same refusals. Hiding
-    collapses the space the element took (trap 14)."""
+def hide_elements(element_ids, action_id='act_hide', animation=None):
+    """`hideElement`, the inverse of `show_elements()`: same list payload, same refusals, same
+    `animation`. Hiding collapses the space the element took (trap 14)."""
     return {'id': action_id, 'type': 'hideElement',
-            'payload': {'elements': _element_targets(element_ids, 'hide_elements')}}
+            'payload': _with_animation(
+                {'elements': _element_targets(element_ids, 'hide_elements')}, animation)}
 
 
 # --- the rest of the action vocabulary ----------------------------------------------------
@@ -2143,6 +2207,51 @@ def alert(*, title=None, message=None, action_id='act_alert'):
     if message is not None:
         payload['message'] = message
     return {'id': action_id, 'type': 'alert', 'payload': payload}
+
+
+def auto_advance(screen_id, after_ms, *, transition='push', action_id='act_auto'):
+    """The `navigate` of a screen that moves on by itself: pass it to `on_appear()`.
+
+    It is a `navigate` whose transition `delay` is the wait, run from the screen's On Appear.
+    The screen stays live while it waits: a tap that navigates, Back, or anything that opens
+    over the screen (a purchase, a restore, an alert, a link, a bottom sheet, a picker, close)
+    cancels the wait, and coming back to the screen waits again. The wait may end up to a
+    second late. On a tap the same `delay` only holds the transition while taps do nothing.
+
+    `after_ms` is whole ms, 1-5000. Over 5000 the transition is unreadable and the screen moves
+    on AT ONCE, and `none` carries no delay, so both raise here: a longer wait is a `timer()`
+    with its digits inside it.
+    """
+    if type(after_ms) is not int or not 0 < after_ms <= TRANSITION_MAX_MS:
+        raise ValueError(
+            f'auto_advance({screen_id!r}, {after_ms!r}): whole ms, 1-{TRANSITION_MAX_MS}. Over '
+            f'{TRANSITION_MAX_MS} the screen moves on at once; a longer wait is a timer() with '
+            f'its digits inside it')
+    if isinstance(transition, dict):
+        kind = transition.get('type')
+        rest = {k: v for k, v in transition.items() if k not in ('type', 'delay')}
+    else:
+        kind, rest = transition, {}
+    if kind == 'none':
+        raise ValueError(
+            "auto_advance(transition='none'): `none` has no delay, so the screen moves on at "
+            "once. Pick an animated kind: push, slideIn, slideOut or fadeThrough")
+    return {'id': action_id, 'type': 'navigate',
+            'payload': {'type': 'screen', 'screen': screen_id,
+                        'transition': screen_transition(kind, delay=after_ms, **rest)}}
+
+
+def on_appear(*actions):
+    """The screen's On Appear: pass the result to `screen(..., on_appear=...)`.
+
+    Each action runs every time the screen appears: `auto_advance()` to move on by itself,
+    `show_elements(..., animation=...)` with a `delay` to reveal an element after a wait. A
+    delayed reveal waits once per run of the flow: Back to the screen before the wait ends waits
+    for the rest, and after it the element is already there, with no animation.
+    """
+    if not actions:
+        raise ValueError('on_appear() needs at least one action')
+    return {'trigger': 'screen-appear', 'actions': list(actions)}
 
 
 def navigate_back(action_id='act_back'):
@@ -2236,6 +2345,10 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     """A countdown `timer` element. Pass `timer_digits(...)` as one of its `children` to show the
     running digits.
 
+    A screen that moves on after up to 5 s is `on_appear(auto_advance(...))`, and an element
+    shown after a wait is `on_appear(show_elements(..., animation=...))`: neither is a timer. A
+    `timer-end` action is for a visible countdown, or a screen that moves on after over 5 s.
+
     **A timer carrying a `timer-end` action must contain its own digits** — a `timer_digits()`
     text among its children, which may be coloured like the background to stay invisible. On a
     device, a timer whose child is a logo or a plain sentence does not fire either, and the same
@@ -2261,7 +2374,8 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
             'neither `config preview` nor `flows config validate` can see it. Add '
             'timer_digits(...) to its children; to keep the delay invisible, give it the '
             "background's colour: timer_digits(('seconds',), color_id='<background>'). "
-            'See patterns.md -> the auto-advancing screen.')
+            'A screen that moves on after up to 5 s needs no timer: auto_advance(). '
+            'See patterns.md -> A timer that fires an action.')
     props = {
         'customId': custom_id, 'behavior': behavior,
         'duration': {'days': days, 'hours': hours, 'minutes': minutes, 'seconds': seconds},
@@ -2276,8 +2390,8 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     if visibility is not None: props['visibility'] = _check_visibility(visibility, 'timer')
     if actions and 'caption' not in kw:
         # The builder shows a timer with background-coloured digits as an empty frame; a
-        # layer name says it is the screen's auto-advance, not something left behind.
-        kw['caption'] = 'Auto-advance'
+        # layer name says it is the screen's delay, not something left behind.
+        kw['caption'] = 'Delay'
     node = _node('timer', props, children=list(children), node_id=node_id, **kw)
     if actions:
         # a timer's own interaction fires on `timer-end`, not `tap`
@@ -2729,8 +2843,11 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
            direction='vertical', gap=0, align_h='start', align_v='start',
            distribution=None, scrollable=True, status_bar=False,
            status_bar_theme='light', safe_area=False, selectable_groups=(),
-           progress_bar=False):
-    """A tall phone's extra height needs ONE place to go, chosen per screen:
+           progress_bar=False, on_appear=None):
+    """`on_appear` takes an `on_appear()` result: its actions run when the screen appears, from
+    an interaction on the screen's first root element.
+
+    A tall phone's extra height needs ONE place to go, chosen per screen:
 
     - A screen with a hero image or block: give the hero `height='fill'` as a direct child of
       the root and put the bar in flow as the last root child, no footer. DEVICE-CONFIRMED: the
@@ -2851,6 +2968,15 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
     product_groups = {gid for gid, g in groups.items() if g.get('type') == 'product'}
     _apply_product_refs(node_map, pairs, product_groups)
 
+    if on_appear is not None:
+        if not (isinstance(on_appear, dict) and on_appear.get('trigger') == 'screen-appear'):
+            raise ValueError(f'screen {screen_id!r}: on_appear takes an on_appear(...) result')
+        if not hierarchy['children']:
+            raise ValueError(f'screen {screen_id!r}: on_appear needs an element on the screen '
+                             'to carry the interaction')
+        host = node_map[hierarchy['children'][0]['id']]
+        host.setdefault('interactions', []).append(
+            {'id': 'int_appear' + host['id'][2:], **on_appear})
     out = {'id': screen_id, 'props': props,
            'elements': {'map': node_map, 'hierarchy': hierarchy},
            'selectableGroups': [dict(g) for g in selectable_groups]}

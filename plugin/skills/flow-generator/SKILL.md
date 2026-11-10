@@ -165,7 +165,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
-| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, an element that appears after a delay, plan cards |
+| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, a screen that moves on by itself, an element that appears after a delay or animates in, plan cards |
 | [placements.md](references/placements.md) | **Phase 6** — the procedure and the placement ask, every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
 | the **`paywall-teardown`** skill | **Phase 2** when *you* choose the design of a **screen that sells**, **phase 4** to grade what you built. It owns whether the screen sells; this skill owns the JSON |
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
@@ -648,7 +648,7 @@ from below the status bar ([patterns.md](references/patterns.md#under-safearea-t
 
 **Never stand a lookalike in for a real element** — not for one the preview cannot draw, not for one that looks hard to build: [preview.md → Never fake an element](references/preview.md#never-fake-an-element-to-make-the-screenshot-look-complete).
 
-**Built a screen that advances itself?** Ship the timer-digits diagnostic with the first ask: [preview.md → A screen that advances itself](references/preview.md#a-screen-that-advances-itself-ship-the-diagnostic).
+**Built a screen that advances itself?** Up to 5 s it is On Appear and a device check; a timer ships the timer-digits diagnostic with the first ask: [preview.md → A screen that advances itself](references/preview.md#a-screen-that-advances-itself-ship-the-diagnostic).
 
 **Confirm you screenshotted the flow at all.** A bad `--device`, a broken fragment and a wrong host
 all render as *pages* that pass a "did anything draw" check. `shoot.sh` uses the page's file

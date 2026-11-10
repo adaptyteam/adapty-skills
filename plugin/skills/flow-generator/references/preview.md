@@ -654,16 +654,18 @@ real `components` entry and wire it per screen via `props.progressBar`, never a 
 
 ## A screen that advances itself: ship the diagnostic
 
-**If you built a screen that advances itself, ship the diagnostic with the first ask.** The page
-never navigates, so a working auto-advance and a broken one look identical here (after 15 s of
-`--virtual-time-budget` a timed screen's DOM is still the same screen) and only the user's
-device can tell them apart — at a real cycle per attempt. Give the `timer` a child `text` carrying
-the `timer_minutes`/`timer_seconds` tokens: *digits never appear or freeze* is the element not
-mounting, *digits reach zero and nothing happens* is the trigger not firing. Without it a failed
-test returns one bit ("still spinning") and you guess again. **The digits never leave the timer: a timer fires only when a text
-inside it shows its digits** — a logo or plain copy as its only child does not fire. To hide them
-once the user has checked, colour them like the background; never delete them. The device-verified
-shape is in [patterns.md](patterns.md).
+**The page never navigates and never runs On Appear,** so a screen that moves on by itself and an
+element that appears after a wait look the same here working or not, and only the user's device
+can tell. An On Appear wait needs no diagnostic: say it is a device check.
+
+**A timer that moves the screen on (a wait over 5 s) ships its diagnostic with the first ask.** Give
+the `timer` a child `text` carrying the `timer_minutes`/`timer_seconds` tokens: *digits never
+appear or freeze* is the element not mounting, *digits reach zero and nothing happens* is the
+trigger not firing. Without it a failed test returns one bit ("still spinning") and you guess
+again. **The digits never leave the timer: a timer fires only when a text inside it shows its
+digits** — a logo or plain copy as its only child does not fire. To hide them once the user has
+checked, colour them like the background; never delete them. The device-verified shape is in
+[patterns.md](patterns.md#a-timer-that-fires-an-action).
 
 ## When to take an App Store review screenshot
 
