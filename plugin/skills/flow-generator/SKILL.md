@@ -733,7 +733,7 @@ four screenshots will otherwise assume the pictures were the whole change:
 
 > - Daily goal: the Continue button now opens the paywall instead of closing the flow.
 > - The two new plan cards are registered with their products, so the flow can publish.
-> - 38 texts translated into German, checked for overflow in a German render. The 4 images stay the same in every language.
+> - 38 texts translated into German, checked for overflow in a German render. Two plan titles were shortened to fit their cards. The 4 images stay the same in every language.
 
 **Open exactly one of them live, and mark which row it is.** You are on their machine, so open it
 rather than handing over a command to paste:
