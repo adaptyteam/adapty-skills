@@ -129,6 +129,8 @@ template, not the rule. A condition the agent cannot observe is not followed; ma
   a round could not justify is trimmed or reverted. Design a round against
   [`docs/green-round-gate.md`](docs/green-round-gate.md) before dispatching agents. Arms overlay
   only what ships: never put `CLAUDE.md` or `tests/` in one arm only.
+- **A change that moves, collapses or merges skill text is tested old against new** on the same
+  prompts, stand-in and model: tokens loaded, cost, time and quality, judged by `main`'s checker.
 - **Every CLI call goes through `$ADAPTY`, resolved once per run:** `npm i -g adapty@latest`, with
   `npx --yes adapty@latest` as the fallback. Never a bare `adapty` or a per-call `npx` at a call
   site; the one bare call is the readiness check, `adapty auth whoami`, which installs nothing.
@@ -140,6 +142,10 @@ template, not the rule. A condition the agent cannot observe is not followed; ma
 - **Verify CLI facts against each command's own source** (`static flags`, description) in
   `adaptyteam/adapty-cli`, not prose, `--help` or flag-set composition; enumerate `dist/commands/`.
   Print `--version` with anything you test.
+- **Verify builder and device facts against source:** the transformer on both `origin/develop`
+  and `origin/main`, the SDKs at their latest release tags. A thread or a report covers one layer;
+  combine the layers before concluding. A device or service measurement outranks a source reading
+  until re-measured, unless the correction only makes agents more careful.
 - **Docs URLs must literally exist.** Never assemble a slug; take URLs from the skill or a fetched
   `llms.txt` index.
 - **When a fact is superseded, grep every reference and `component-catalog.json` for the old rule
@@ -214,9 +220,9 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 ### `audiences`
 
 - **Field names come from a real `segments get`,** never from memory.
-- **Pass A/B test entries back as read** (CLI 0.11.0 is the first release that returns them). Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it. Starting, stopping or replacing a test is `ab-tests`, never a placement write here.
+- **Pass A/B test entries back as read.** Shared-test (`cross_*`) entries stay unchanged, and a test id goes only on the audience that already carries it. Starting, stopping or replacing a test is `ab-tests`, never a placement write here.
 - **A placement write never stops, starts or moves a test:** every test entry goes back as read, and a request that would stop one (a write that replaces or moves a test's audience) is routed to `ab-tests stop`, and one that would start one to `ab-tests start`; then the write follows. Read the placement again before the write (changed: ask again; unattended: stop and report). The CLI has no such check. An unattended run may write when every test entry is unchanged.
-- **Never delete an entry the CLI refuses** (`content_type` on 0.10.0 and older, "this CLI does not know this audience kind" later); tell the user to update the CLI, re-resolve `$ADAPTY`, then the dashboard.
+- **Never delete an entry the CLI refuses** ("this CLI does not know this audience kind", or an older CLI's `content_type is required and must be "paywall" or "flow"`); tell the user to update the CLI, re-resolve `$ADAPTY`, then the dashboard. Match the strings, never a version number.
 - **OR is two segments** (filters inside one are ANDed); equality is `IN` with one value; new audiences go before the default.
 
 ### `flow-audit`
