@@ -251,10 +251,9 @@ for p in glob.glob('siblings/*.json')}, open('sibling-locales.json', 'w'))"
 **Read every page of all three lists.** `--page-size` defaults to 20 and stops at 100, and a
 short read gives a wrong finding, not a smaller one: a product on a later page reads as "not in
 the catalog", a blocker; a placement on a later page as "no placement shows this flow"; a flow
-on a later page drops out of the name match and the sibling languages. A list with nothing in it
-can answer `pagination: null`, which is one page. If the placement fetch fails, run the audit
-without `--placements`: the report then tells the user where to check it themselves, instead
-of claiming an answer.
+on a later page drops out of the name match and the sibling languages. If the placement fetch
+fails, run the audit without `--placements`: the report then tells the user where to check it
+themselves, instead of claiming an answer.
 
 ## Phase 4 — check
 
