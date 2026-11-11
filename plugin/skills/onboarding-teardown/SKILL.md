@@ -44,7 +44,7 @@ Every line the user reads, the fixed blocks included:
   read-back need no bold; quotes mark a screen name.
 - **Raw values only when the user will see them elsewhere** — a screen name or button label from
   their builder, a price. Never element ids or tool names.
-- **Full, clickable links.**
+- **Full, clickable links.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Reply in the user's language — the disclaimer and the builder pitch too.** Labels quoted from
   their flow stay exactly as the flow shows them.
 
@@ -482,7 +482,7 @@ config cleanly, some need something only the user has, and **two cannot be built
 | Before/after, results with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, a copy-tier change |
 | Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | The paywall at the end | Yes | **The products are theirs to pick**, not yours — catalog first, store ids second, create last (`flow-generator` phase 2). And a trial timeline needs a trial that exists |
-| Second-chance offer after the paywall | Yes, as a screen with its own products | A real discount to offer |
+| Second-chance offer after the paywall | Yes, as its own flow on a placement the app shows later; the paywall's close button closes, since Apple rejects a close that opens another offer (App Store 5.6) | A real discount to offer |
 | Trial or intro-offer wording on any screen — "start your free week", a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
 
 Mechanics for all of these — the `timer` shape, `_meta.icons`, empty asset maps, variable

@@ -54,7 +54,7 @@ Every line the user reads, the fixed blocks included:
   internal action names (`closeFlow`, `navigate`), config keys (`_meta.screens`), language codes,
   file names, element counts, checker output (`valid: true`) or tool names. Say what it means:
   "the Continue button now opens the paywall", "Spanish", "the publish check passed".
-- **Full, clickable links**, bare on their own line, never in backticks.
+- **Full, clickable links**, bare on their own line, never in backticks. A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Reply in the user's language**, the fixed blocks too. Builder labels stay exactly as the
   builder shows them.
 
@@ -223,7 +223,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -270,8 +270,8 @@ $ADAPTY flows config get      <FLOW_ID> --app <APP_UUID> --json     # errors unt
 $ADAPTY flows config validate <FLOW_ID> --app <APP_UUID> (--config-file <f|-> | --config <json>) --json
 $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--orientation …]
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
-    (--config-file <file|-> | --config <json-string>) \
-    [--expected-updated-at <int>] [--remote-configs <json>]   # left out, the stored ones are cleared
+    (--config-file <file|-> | --config <json-string>) --remote-configs <json> \
+    [--expected-updated-at <int>]   # --remote-configs is required: a write replaces the stored list
 $ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, < ~2.5 MB; no SVG, no GIF
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; 405 in prod, rename in the builder
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404 in prod, see below
@@ -420,10 +420,10 @@ when its `status` is not `archived`; if it still is, say so and ask again. On a 
 
 - **`draft.json` or `flow.backup.json` exists** (the flow was deleted during the run): fetch
   nothing. Keep these files and tell the user their names. A new flow made anyway takes
-  `draft.json`.
+  `draft.json`, with the remote configs of `flow.working.json`.
 - **No file exists yet:** fetch once into a temporary file and keep it only on success. If it
   answers, tell the user the file name; if it is refused, say that there is no local copy. A new
-  flow made anyway takes the `.config` of `flow.archived.json`.
+  flow made anyway takes the `.config` and the `.remote_configs` of `flow.archived.json`.
 
   ```bash
   $ADAPTY flows config get --app $APP $FLOW --json > flow.archived.tmp \
@@ -432,7 +432,8 @@ when its `status` is not `archived`; if it still is, say so and ask again. On a 
 
 If they want a new flow anyway, tell them what a `flows create` and a write drop
 ([history.md → Look at one version](references/history.md#look-at-one-version)), and make it on
-their yes: the one case where a copy is made that way. For a flow that is not `archived`,
+their yes: the one case where a copy is made that way. Its first write names the remote configs:
+`--remote-configs "$(jq -c '.remote_configs // []' <that file>)"`. For a flow that is not `archived`,
 `flows config get`, and **keep its `updated_at`** for the write, not the one `flows get` or
 `flows list` printed.
 
@@ -448,10 +449,12 @@ cp flow.working.json flow.backup.json
 jq .config flow.working.json > draft.json
 ```
 
-**If `config get` dies with `Maximum call stack size exceeded`, the flow is too large for Node's
-default stack, not broken.** Run the installed CLI under a bigger stack:
+**If `config get` or `config update` dies with `Maximum call stack size exceeded`, the flow is
+too large for Node's default stack, not broken.** Run the installed CLI under a bigger stack:
 `node --stack-size=4000 "$(npm root -g)/adapty/bin/run.js" flows config get …`. It must be that
-flag on `node` itself: `NODE_OPTIONS` refuses `--stack-size`.
+flag on `node` itself: `NODE_OPTIONS` refuses `--stack-size`. `config update` prints only after
+the server has saved, so **after a crashed update, `config get` before writing again**: the write
+has usually landed, and its new `updated_at` is the lock for the next one.
 
 **Two files, two shapes.** `flow.working.json` and `flow.backup.json` are the **envelope**
 `config get` and `config update` return; `draft.json` is the **bare config** you edit, check,
@@ -761,7 +764,7 @@ four screenshots will otherwise assume the pictures were the whole change:
 
 > - Daily goal: the Continue button now opens the paywall instead of closing the flow.
 > - The two new plan cards are registered with their products, so the flow can publish.
-> - 38 texts translated into German, checked for overflow in a German render. The 4 images stay the same in every language.
+> - 38 texts translated into German, checked for overflow in a German render. Two plan titles were shortened to fit their cards. The 4 images stay the same in every language.
 
 **Open exactly one of them live, and mark which row it is.** You are on their machine, so open it
 rather than handing over a command to paste:
@@ -851,9 +854,9 @@ $ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
 ```
 
 **Send the remote configs back on every write, restore included:** a write without
-`--remote-configs` clears the stored ones. Each entry is `{locale, data}`, and `data` is a JSON
-**string**, not an object; an object is refused with `400 Input should be a valid
-string`, so encode a new one with jq's `tojson`.
+`--remote-configs` is refused (exit 2). `[]` deletes them all, so it is for a flow that has none.
+Each entry is `{locale, data}`, and `data` is a JSON **string**, not an object; an object is
+refused with `400 Input should be a valid string`, so encode a new one with jq's `tojson`.
 
 Validate and preview both run on a local file, which is why the write comes last: one write when
 the thing is right, instead of one per iteration. If you have already written and then found a
@@ -879,7 +882,8 @@ their version differs in ways you did not author, ask rather than restore.
 
 **On `Flow is deleted`** someone deleted the flow in the dashboard after you read it: nothing was
 written, and no write to that id can succeed. Say so; your draft is intact in `draft.json`, and a
-new flow made anyway takes its content. Go on as for an `archived` flow in
+new flow made anyway takes its content, with the remote configs of `flow.working.json` and no
+`--expected-updated-at`. Go on as for an `archived` flow in
 [phase 2](#2-new-flow-or-existing-flow), with no fetch; after the restore, fetch it again and
 re-apply your change as on a 409.
 

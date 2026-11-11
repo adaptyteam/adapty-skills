@@ -36,7 +36,7 @@ Every line the user reads, the fixed blocks included:
 - **Bold at most one thing per paragraph.** Table rows need no bold.
 - **Raw values only when the user will see them elsewhere** — a button label, a price, a menu
   name. Never element ids or tool names.
-- **Full, clickable links.**
+- **Full, clickable links.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Reply in the user's language — the disclaimer and the builder pitch too.** Labels quoted from
   their screen stay exactly as the screen shows them.
 

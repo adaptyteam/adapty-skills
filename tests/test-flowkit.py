@@ -1758,6 +1758,17 @@ def main():
     check('a nested element may not',
           raises(lambda: fk.screen('scr_b', [fk.stack([_hero()])], safe_area=True)))
 
+    # --- text that fits its box: autoShrink inside a line limit ---
+    _fit = fk.text('Plan', max_lines=1, auto_shrink=True)['props']
+    check('text(max_lines=1, auto_shrink=True) writes both',
+          _fit.get('maxLines') == 1 and _fit.get('autoShrink') is True, str(_fit))
+    _plain_t = fk.text('Plan')['props']
+    check('text() leaves both out', 'maxLines' not in _plain_t and 'autoShrink' not in _plain_t)
+    check('auto_shrink without max_lines is refused, saying why',
+          'needs max_lines' in _message(lambda: fk.text('Plan', auto_shrink=True)))
+    check('max_lines=0 is refused', raises(lambda: fk.text('Plan', max_lines=0)))
+    check('max_lines=True is refused', raises(lambda: fk.text('Plan', max_lines=True)))
+
     print()
     if FAILURES:
         print(f'{len(FAILURES)} failure(s): ' + ', '.join(FAILURES))

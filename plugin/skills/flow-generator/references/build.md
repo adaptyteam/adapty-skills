@@ -19,7 +19,8 @@ as an existing flow on the copy's `id` (phase 2: fetch, back up, patch); in **Re
 the user renames it in the builder (`flows update --name` is refused in production).
 
 **New flow with no source** — `flows create`, then author `draft.json` from scratch. Its first
-`config update` omits `--expected-updated-at`.
+`config update` is `--config-file draft.json --remote-configs '[]'`, with no
+`--expected-updated-at`.
 
 **A new flow is the safe default for anything the user calls new**, because `config update`
 replaces everything and generating over a flow with content discards that content. **Run
@@ -213,7 +214,7 @@ a path that ends in a refusal:
 >
 > `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
 > using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
-> https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, set the iOS and
+> https://adapty.io/docs/using-custom-fonts-in-flow-builder — upload it, set the iOS and
 > Android font name on every face (the flow will not publish without the iOS one), save the flow in
 > the builder, then tell me the family name and I'll point the theme at it. The uploaded file is for
 > the editor preview only: **your app must bundle the font file too**, as that page shows.

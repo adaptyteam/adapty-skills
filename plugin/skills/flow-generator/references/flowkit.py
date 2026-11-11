@@ -1145,17 +1145,32 @@ def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width=None,
     return _node('carousel', props, children=slides, node_id=node_id, **kw)
 
 def text(content, *, preset='body', color_id=None, align='left', width=None,
-         margin=None, position=None, visibility=None, **kw):
+         margin=None, position=None, visibility=None, max_lines=None, auto_shrink=False, **kw):
     """A text element. `preset` names a `typography` entry the document must declare.
 
     `visibility` is the same argument `stack()` takes: `hidden()`, `visible()` or
     `when(condition)`, and hiding collapses the space (trap 14). `width` defaults to `fill`, or
     to `auto` when `position` anchors the text left and right (see `absolute()`).
+
+    `max_lines` caps the lines; longer text ends in "…". `auto_shrink=True` instead shrinks the
+    whole text to fit those lines, down to 10% of its size, in every locale. It needs
+    `max_lines`: this text's height is hug, and shrinking works only inside a line limit or a
+    fixed height.
     """
+    if max_lines is not None and (isinstance(max_lines, bool) or not isinstance(max_lines, int)
+                                  or max_lines < 1):
+        raise ValueError(f'text(max_lines={max_lines!r}): a line limit is a whole number of 1 or more')
+    if auto_shrink and max_lines is None:
+        raise ValueError('text(auto_shrink=True) needs max_lines: text shrinks only inside a line '
+                         'limit or a fixed height, and without one autoShrink does nothing')
     props = {'font': {'preset': preset}, 'align': align,
              'width': _width(width, None, position), 'height': size('hug'),
              'layout': 'auto-height',
              'content': content, 'position': position or relative(), 'decoration': 'none'}
+    if max_lines is not None:
+        props['maxLines'] = max_lines
+    if auto_shrink:
+        props['autoShrink'] = True
     if color_id is not None:
         props['color'] = color(color_id)
     if margin is not None:

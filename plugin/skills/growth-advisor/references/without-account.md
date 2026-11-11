@@ -39,7 +39,7 @@ numbers, so check every one:
 - one plan length only, or four or more products (`levers.md`, Plan structure);
 - the plan lengths against the category's revenue split in `market.md`, Plans;
 - copy in one language while the listing or the code supports more (`levers.md`, Localization);
-- one paywall only, or nothing after the paywall closes (`levers.md`, Placements and flows).
+- one paywall only, or no follow-up offer, or a close that opens another offer (`levers.md`, Placements and flows).
 
 Then run `paywall-teardown` on the paywall and `onboarding-teardown` on the onboarding, in their
 audit direction, on the screenshots or on the screens as the code draws them, and take back at

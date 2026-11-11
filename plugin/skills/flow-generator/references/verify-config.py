@@ -185,6 +185,11 @@ _BINARY = {'==', '!=', '>', '<', 'has', 'notHas', 'in', 'notIn'}
 _UNARY = {'empty', 'notEmpty', 'size'}
 
 
+def _strip_monthly(segment):
+    """A product segment without its `@monthly` plan suffix (str.removesuffix needs Python 3.9)."""
+    return segment[:-len('@monthly')] if segment.endswith('@monthly') else segment
+
+
 def bad_expr_path(v, path):
     """Path of the first node the service rejects, or None. Faithful port, including the
     three collections whose ABSENCE is legal — a stricter rule would fire on valid documents."""
@@ -1599,14 +1604,23 @@ def check(path, baseline_text=None, baseline_images=None):
     # rail and both read as "the line is too short", which is why they are mechanical: `fill`
     # with the anchors stops 2px before the next chip, and `auto` with no bottom anchor
     # collapses the rail and leaves 108px of white. Nothing else sees either one — the schema types
-    # both heights as legal and `validate` has no opinion on layout.
+    # both heights as legal and `validate` has no opinion on layout. A `fixed` element anchored top
+    # and bottom is the other way round: the transformer stretches only its wrapper and gives the
+    # element no height for `auto`, so the element hugs its content.
     for s, e in els():
         p = (e.get('props') or {})
         pos, h = p.get('position'), p.get('height')
         if not isinstance(pos, dict) or not isinstance(h, dict):
             continue
-        anchored = (pos.get('type') == 'absolute'
-                    and pos.get('top') is not None and pos.get('bottom') is not None)
+        pinned = pos.get('top') is not None and pos.get('bottom') is not None
+        anchored = pos.get('type') == 'absolute' and pinned
+        if pos.get('type') == 'fixed' and pinned and h.get('type') == 'auto':
+            warn.append(f"{s['id']}/{e['id']}: fixed and anchored top+bottom with height `auto` — "
+                        f"a fixed element stretches only the box around it between the anchors, "
+                        f"so `auto` keeps the element at its content's height at the top; "
+                        f"a `fill` height fills that box, a shape no export shows yet, so check "
+                        f"it on a device")
+            continue
         if anchored and h.get('type') != 'auto':
             warn.append(f"{s['id']}/{e['id']}: absolute and anchored top+bottom, but height is "
                         f"{h.get('type')!r} — only `auto` stretches between the anchors; a fill "
@@ -1848,7 +1862,7 @@ def check(path, baseline_text=None, baseline_images=None):
                        f'{", ".join(sorted(PRODUCT_FIELDS))}')
             continue
         # A monthly binding's product segment is `<id>@monthly`; the declaration names the id.
-        head = v.split('.')[0].removesuffix('@monthly')
+        head = _strip_monthly(v.split('.')[0])
         if '.selectedProduct.' in v:
             if head not in product_groups:
                 bad.append(f'group-relative price variable on unknown product group: {v}')
@@ -3229,7 +3243,7 @@ def check(path, baseline_text=None, baseline_images=None):
                     groups = sorted(f[2:] for f in found if f.startswith('G:'))
                     swaps = []
                     for vid in fixed:
-                        pid = vid.split('.')[0].removesuffix('@monthly')
+                        pid = _strip_monthly(vid.split('.')[0])
                         grp = (groups[0] if len(groups) == 1
                                else group_of.get(pid) or '<groupId>')
                         swaps.append(f'`{vid}` with `{grp}.selectedProduct.{vid.rsplit(".", 1)[-1]}`')
@@ -3748,6 +3762,71 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'with both set the preset\'s face draws and the family is ignored. Keep one: drop the preset, '
                     f'or drop the manual keys and change the preset in `theme.typography`')
 
+    bad_fit, warn_fit = text_fit_findings(raw)
+    bad += bad_fit
+    warn += warn_fit
+    return bad, warn
+
+
+# A text's box is bounded by a positive `maxLines` or a positive fixed height that the
+# `auto-height` layout does not override -- the rule the transformer maps to `on_overflow: scale`
+# and the builder uses to enable the switch. Outside a bounded box `autoShrink` does nothing.
+# Translation length is compared in visible characters against the default locale: a bounded
+# text cuts a longer string off with an ellipsis, in a locale nobody rendered.
+FIT_RATIO = 1.2
+FIT_MIN_EXTRA = 5
+
+
+def _bounded_text(p):
+    h = p.get('height') if isinstance(p.get('height'), dict) else {}
+    ml, hv = p.get('maxLines'), h.get('value')
+    lines = isinstance(ml, (int, float)) and not isinstance(ml, bool) and ml > 0
+    fixed = (p.get('layout') != 'auto-height' and h.get('type') == 'fixed'
+             and isinstance(hv, (int, float)) and not isinstance(hv, bool) and hv > 0)
+    return lines or fixed
+
+
+def text_fit_findings(raw):
+    bad, warn = [], []
+    lz = raw.get('localization') if isinstance(raw.get('localization'), dict) else {}
+    content = lz.get('content') if isinstance(lz.get('content'), dict) else {}
+    default = lz.get('defaultLocale')
+    names = {l.get('id'): l.get('code') or l.get('id')
+             for l in lz.get('locales') or [] if isinstance(l, dict)}
+    maps = [(s.get('id'), (s.get('elements') or {}).get('map') or {})
+            for s in raw.get('screens') or []]
+    maps += [(cid, (c or {}).get('map') or {}) for cid, c in (raw.get('components') or {}).items()]
+    idle, long_ = [], []
+    for where, m in maps:
+        for eid, e in m.items():
+            if not isinstance(e, dict) or e.get('type') != 'text':
+                continue
+            p = e.get('props') if isinstance(e.get('props'), dict) else {}
+            bounded, shrink = _bounded_text(p), p.get('autoShrink') is True
+            if 'autoShrink' in p and not isinstance(p['autoShrink'], bool):
+                bad.append(f'text {eid} on {where}: autoShrink is {p["autoShrink"]!r}; it is '
+                           f'true, false or absent')
+            if shrink and not bounded:
+                idle.append(f'{eid} on {where}')
+            if not bounded or shrink or default is None:
+                continue
+            for lid in _loc.refs_in(p.get('content')):
+                vals = (content.get(lid) or {}).get('values') or {}
+                base = len(_plain(vals.get(default)).strip())
+                for loc, v in vals.items():
+                    n = len(_plain(v).strip())
+                    if loc != default and base and n > base * FIT_RATIO and n - base >= FIT_MIN_EXTRA:
+                        long_.append(f'{eid} on {where} in {names.get(loc, loc)} '
+                                     f'({n} characters against {base})')
+    if idle:
+        warn.append(f'autoShrink does nothing on {", ".join(idle)}: text shrinks only inside a '
+                    f'line limit (maxLines above 0) or a fixed height, and layout "auto-height" '
+                    f'overrides a fixed height. Set the line limit, or drop autoShrink')
+    if long_:
+        warn.append(f'translation longer than the default locale in a text with a line limit or a '
+                    f'fixed height, so it may be cut off with "…": {"; ".join(long_)}. Shorten it '
+                    f'to about the default\'s length; when no shorter wording keeps the meaning, '
+                    f'set autoShrink on that text and render that locale')
     return bad, warn
 
 

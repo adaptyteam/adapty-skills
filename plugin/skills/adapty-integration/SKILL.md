@@ -28,7 +28,7 @@ Every message, not only the fixed blocks in `## What you print`:
   elsewhere: a placement ID, a product ID, a menu path, a URL. Never state variables, field
   names, internal IDs, or skill or tool names.
 - **Bold at most one thing per paragraph.**
-- **Full, clickable links to the exact page.**
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Could not check it? Say how they can** — where to click and what they should see. Do
   not know something? Look it up before saying so — the CLI, the code, the `adapty-docs`
   skill.
@@ -245,7 +245,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -599,7 +599,7 @@ On a yes, five commands — the stub is a draft until published, and a draft can
 ```bash
 $ADAPTY flows create --app <APP_ID> --name "<Location> placeholder"     # returns <FLOW_ID>; draft
 $ADAPTY flows config validate <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
-$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
+$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json --remote-configs '[]'
 $ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes
 $ADAPTY flows get <FLOW_ID> --app <APP_ID>                             # poll until published
 ```
@@ -640,7 +640,7 @@ Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion`
 **If creating new paywalls/placements** (either `appPreference` is `new`, or `existing` but creating new ones), create one paywall and one placement per confirmed location:
 
 ```bash
-# Create paywall — --product-id is required, once per product UUID from Step 4, in display order.
+# Create paywall — --product-id sets the products, once per product UUID from Step 4, in display order.
 # Capture the returned id as <PAYWALL_ID>
 $ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --product-id <PRODUCT_UUID_1> --product-id <PRODUCT_UUID_2>
 
