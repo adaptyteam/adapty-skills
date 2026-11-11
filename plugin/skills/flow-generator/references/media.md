@@ -96,8 +96,8 @@ used.
 |---|---|
 | PNG, JPEG, WEBP | uploads |
 | GIF | refused: `GIF is not supported.` |
-| HEIC | refused (over MCP: `Only PNG, JPEG, WEBP and SVG images are allowed.`): ask for a PNG or JPEG export |
-| a video file (`.mp4`, `.webm`, `.mov`) | refused: `This is a video file. Use flows media upload-video.`; over MCP the server's `This is a video file. Upload it as a flow video.` ([Uploading a video](#uploading-a-video)) |
+| HEIC | refused: not an image type here; ask for a PNG or JPEG export |
+| a video file (`.mp4`, `.webm`, `.mov`) | refused: `This is a video file. Use flows media upload-video.` ([Uploading a video](#uploading-a-video)) |
 | animated WEBP | uploads, and is served as one still frame: motion is a [`video`](#uploading-a-video) |
 | **SVG** | **`ApiError: http_500`, reproducible**; through the MCP server it has come back as `INVALID_ARGUMENT` — see below |
 | Anything else that is not an image | refused with the list of the image types |
@@ -493,8 +493,7 @@ mkdir -p media
 $ADAPTY flows media upload-video ./intro.mp4 --app "$APP" --json > media/intro.json
 ```
 
-Over MCP it is the tool `flows_media_upload_video` with `app_id`, `filename` and the file as
-`content_base64`.
+Over MCP there is no video upload tool yet: use the CLI, else [the placeholder](#the-video-placeholder).
 
 **The command is newer than `flows media upload`.** When `$ADAPTY flows media upload-video --help`
 says there is no such command, try `npx --yes adapty@latest flows media upload-video --help` once
@@ -510,7 +509,6 @@ and use [the placeholder](#the-video-placeholder) — the user uploads the clip 
 | longer than 30 s | `Video duration should not exceed 30 seconds` |
 | width or height under 640 | `Video resolution should be at least 640x640` |
 | over 50 MiB | `File size must not exceed 50 MiB.` |
-| over MCP, over 3 MB (3,000,000 bytes) | refused by the tool, with a text that names 3 MB and `flows media upload-video`; a much larger file gets `413 Request body too large` from the MCP server. Either way, upload it with the CLI |
 
 Each refusal stores nothing. Ask for a clip that fits, in the user's words: an mp4 or webm, 30
 seconds or less, at least 640 px on its shorter side. The call returns after the server has
