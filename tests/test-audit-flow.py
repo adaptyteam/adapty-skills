@@ -1476,9 +1476,25 @@ check('comparison-paywall.json still raises 3 separate dead-affordance findings 
       f'got {len(of(findings_cmp2, "dead-affordance"))}')
 
 # The fixture's fonts carry real, malformed Android names, so the fonts family adds its
-# own blocker; this case counts the collapse, so it reads a copy without fonts.
-_cmp_nofonts = json.load(open(cmp_fixture))
-_cmp_nofonts['_meta']['fonts'] = []
+# own blocker; this case counts the collapse, so it reads a copy without fonts. The texts'
+# references go too: a reference the copy lacks is a font-names-unchecked question.
+def _without_fonts(c):
+    c['_meta']['fonts'] = []
+
+    def drop(o):
+        if isinstance(o, dict):
+            if isinstance(o.get('family'), dict):
+                del o['family']
+            for v in o.values():
+                drop(v)
+        elif isinstance(o, list):
+            for v in o:
+                drop(v)
+    drop(c)
+    return c
+
+
+_cmp_nofonts = _without_fonts(json.load(open(cmp_fixture)))
 with tempfile.TemporaryDirectory() as _tmp:
     _cmp_path = os.path.join(_tmp, 'c.json')
     json.dump(_cmp_nofonts, open(_cmp_path, 'w'))
@@ -2236,7 +2252,7 @@ def _font(fid, path, ios, android, faces=None):
 
 
 FONT_CHECKS = ('android-font-name', 'ios-font-name', 'variable-font',
-               'duplicate-ios-font-name', 'font-file-unread')
+               'duplicate-ios-font-name', 'font-file-unread', 'font-names-unchecked')
 
 # Real exports: every tracked fixture with fonts carries Android names Android cannot
 # use ("Inter Medium", "Avenir-Heavy"), so android-font-name FIRES on both. Their urls are
@@ -2315,6 +2331,37 @@ for _path, _why in (('/not-a-font', 'a file that is not a font'),
     check(f'{_why} degrades to font-file-unread and the run still succeeds',
           len(of(_f, 'font-file-unread')) == 1 and not of(_f, 'ios-font-name')
           and _rc in (0, 1), _f)
+
+# Publishing reads the app's own font settings; the audit reads the copy saved with the flow. A
+# custom font a text names but the copy lacks (an agent- or API-written config) is unchecked.
+_uncopied = load(os.path.join(FIX, 'vpn-timer-draft.json'))
+_uncopied['_meta']['fonts'] = []
+_f = run(_uncopied)[1]
+check('fonts named by texts but missing from _meta.fonts raise ONE font-names-unchecked question',
+      [f['severity'] for f in of(_f, 'font-names-unchecked')] == ['question'], _f)
+_by_name = load(os.path.join(FIX, 'vpn-timer-draft.json'))
+_names = {x['id']: x['name'] for x in _by_name['_meta']['fonts']}
+_first = next(iter(_names))
+
+
+def _rename(o):
+    if isinstance(o, dict):
+        if isinstance(o.get('family'), dict) and o['family'].get('id') == _first:
+            o['family']['id'] = _names[_first]
+        for v in o.values():
+            _rename(v)
+    elif isinstance(o, list):
+        for v in o:
+            _rename(v)
+
+
+_rename(_by_name)
+_f = run(_by_name)[1]
+check('a font named by its family name instead of its id is unchecked too',
+      len(of(_f, 'font-names-unchecked')) == 1, _f)
+_f = run(_with_fonts([_good]))[1]
+check('every font a text names is in _meta.fonts: font-names-unchecked is SILENT',
+      not of(_f, 'font-names-unchecked'), _f)
 _srv.shutdown()
 
 if fails:

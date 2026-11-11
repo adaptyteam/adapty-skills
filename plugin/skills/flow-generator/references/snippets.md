@@ -218,14 +218,14 @@ blocker or a renders-empty risk, `?` for something milder (a placeholder asset).
 collide with the destination are re-minted and every internal reference is rewritten with them —
 `WILL RENAME` lines show old → new.
 
-**Media URLs travel unchanged across a cross-app graft; fonts travel but need an ask.** A
+**Media URLs travel unchanged across a cross-app graft; fonts do not.** A
 `flows media upload` CDN URL is not app-scoped: an image uploaded to one app loads
 (`200 image/png`) and draws visibly inside a different app's flow with no re-upload. A
-`_meta.fonts` entry lifted from one app's flow also resolves and renders in that face in
-another app's flow preview, but **each app has its own font library**, so the destination's
-library does not have that font and the user cannot manage or replace it there. `graft`
-carries the entry, `faces` included, and with `--scope any-app` adds a `?` line to `NEEDS YOU`
-per carried font: upload it to this app, or pick one this app has, then repoint. A resolvable
+`_meta.fonts` entry lifted from one app's flow still renders in that face in another app's flow
+preview, but **each app has its own font library** and publishing looks fonts up there, so the
+flow fails with `missing_flow_font_meta` while a text uses it. `graft` carries the entry, `faces`
+included, and with `--scope any-app` adds a `!` line to `NEEDS YOU` per carried font: upload it
+to this app, or pick one this app has, then repoint. A resolvable
 reference is also no device guarantee (`flow-schema.md` trap 8 — the app bundle supplies the
 font), so name it as unconfirmed-on-device either way. The
 `fill` object-versus-array question was only tested for a single-layer `color` fill in
