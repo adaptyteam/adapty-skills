@@ -454,7 +454,7 @@ re-read the config and re-apply, never force.
 **Print this URL freely.** At ~170 characters it is the opposite of the render URL above — every
 part of it is meaningful and a human may well need to read it aloud or retype it.
 
-Three details worth not rediscovering:
+Four details worth not rediscovering:
 
 - **`localization.defaultLocale` holds a locale *id*, and the link wants a *code*.** The builder
   resolves id→code before building the URL. They are often equal, which is exactly why passing
@@ -463,6 +463,12 @@ Three details worth not rediscovering:
   percent-encodes it to `%2C`, and the app is only *known* to accept the builder's spelling. The
   script assembles the string by hand for that reason, and a rendered QR decodes back with the
   comma intact.
+- **The link carries each code in the publish's casing: `es-MX`, `zh-Hans`, never the builder's
+  `es-mx`.** The app matches `current_locale` and `locales` exactly against the published ids, so a
+  code in the wrong casing opens the flow on its default locale. The script maps both. If the user
+  scanned the builder's own Test on Device QR and a locale with a region or script opened on the
+  default language, give them this script's QR with `--locale <code>`, and name both codes in the
+  reply: the builder's QR sends `es-mx`, the app wants `es-MX`.
 - **`cluster` is hardcoded `us`, and that is a real limitation, not an oversight.** The builder
   hardcodes it too, carrying a TODO to derive it from app config, and nothing on the developer API
   exposes an app's cluster. An EU or CN app therefore gets a US link from the dashboard and from
