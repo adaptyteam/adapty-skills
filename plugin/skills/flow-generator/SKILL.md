@@ -426,10 +426,12 @@ cp flow.working.json flow.backup.json
 jq .config flow.working.json > draft.json
 ```
 
-**If `config get` dies with `Maximum call stack size exceeded`, the flow is too large for Node's
-default stack, not broken.** Run the installed CLI under a bigger stack:
+**If `config get` or `config update` dies with `Maximum call stack size exceeded`, the flow is
+too large for Node's default stack, not broken.** Run the installed CLI under a bigger stack:
 `node --stack-size=4000 "$(npm root -g)/adapty/bin/run.js" flows config get …`. It must be that
-flag on `node` itself: `NODE_OPTIONS` refuses `--stack-size`.
+flag on `node` itself: `NODE_OPTIONS` refuses `--stack-size`. `config update` prints only after
+the server has saved, so **after a crashed update, `config get` before writing again**: the write
+has usually landed, and its new `updated_at` is the lock for the next one.
 
 **Two files, two shapes.** `flow.working.json` and `flow.backup.json` are the **envelope**
 `config get` and `config update` return; `draft.json` is the **bare config** you edit, check,

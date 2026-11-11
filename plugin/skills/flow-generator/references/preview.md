@@ -298,7 +298,8 @@ one it shows that is not there:
   screen's first in-flow element (a full-bleed hero). With `safeArea: false` everything runs
   under it. Nothing in the config is new: the screen's `safeArea` drives it, on iOS only. The render applies those insets on `iphone-duo` and `iphone-duo-open` but draws
   no bar, so the bar shows as an empty strip. **Render every width-filling screen (a plan row, a
-  full-width CTA) on `iphone-duo` in both orientations and on `iphone-duo-open`,** and check the
+  full-width CTA) on `iphone-duo` in both orientations and on `iphone-duo-open`,** turning it with
+  `ORIENTATION=landscape` on `shoot.sh` (portrait is the default), and check the
   strip is empty. **Never write side `padding` or a `left`/`right` offset sized to the bar**: the
   safe area already applies it, and a hand-written one doubles it. What the render still cannot
   show, so it goes on the device check: a full-width `fixed` bar's fill, which the render clips at
