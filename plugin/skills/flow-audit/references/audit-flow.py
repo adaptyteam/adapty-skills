@@ -2588,6 +2588,43 @@ def _norm_label(text):
     return re.sub(r'\s+', ' ', text or '').strip().lower()
 
 
+def _shown_selling(screen, element):
+    """Elements this element's showElement actions reveal whose subtree sells: a purchase
+    action or a bound product. A sheet opened from a close is the same exit offer as a
+    second screen."""
+    emap = (screen.get('elements') or {}).get('map') or {}
+    kids = {}
+
+    def walk(n):
+        kids[n.get('id')] = [c.get('id') for c in n.get('children') or []]
+        for c in n.get('children') or []:
+            walk(c)
+    walk((screen.get('elements') or {}).get('hierarchy') or {})
+
+    def sells(x, seen):
+        if x in seen:
+            return False
+        seen.add(x)
+        e = emap.get(x) or {}
+        if ((e.get('props') or {}).get('product') or {}).get('id') or any(
+                a.get('type') == 'purchase' for _, a in actions_of(e)):
+            return True
+        return any(sells(k, seen) for k in kids.get(x, []))
+
+    def shown(node):
+        if isinstance(node, dict):
+            got = []
+            if node.get('type') == 'showElement':
+                got += [x for x in (node.get('payload') or {}).get('elements') or []
+                        if isinstance(x, str)]
+            return got + [x for v in node.values() for x in shown(v)]
+        if isinstance(node, list):
+            return [x for v in node for x in shown(v)]
+        return []
+    return [x for x in dict.fromkeys(shown(element.get('interactions')))
+            if x in emap and sells(x, set())]
+
+
 def check_exit_and_cta(config, stores=None):
     """Two paywall-in-onboarding shapes (store review, advisory).
 
@@ -2622,12 +2659,15 @@ def check_exit_and_cta(config, stores=None):
                 types += _action_types(a)
                 targets += _nav_targets(a, s['id'], list(screens))
             text = label(s['id'], eid)
-            offers = [t for t in targets if t in selling and t != s['id']]
+            offers = [screen_name(config, t) for t in targets
+                      if t in selling and t != s['id']]
+            offers += [(s['elements']['map'][x].get('caption') or 'a sheet')
+                       for x in _shown_selling(s, e)]
             if offers and 'purchase' not in types and (not text or CLOSE_WORDS.search(text)):
                 out.append(finding(
                     'risk', 'compliance', 'exit-offer-on-dismiss',
                     f'Closing the "{screen_name(config, s["id"])}" screen opens another '
-                    f'offer ("{screen_name(config, offers[0])}") instead of letting people '
+                    f'offer ("{offers[0]}") instead of letting people '
                     f'leave. Apple has rejected this as pushing people into a purchase they '
                     f'did not want.',
                     'Make the close button close the flow ("Close Flow"), and show the '
