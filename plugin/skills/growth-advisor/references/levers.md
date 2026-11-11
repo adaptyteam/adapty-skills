@@ -32,7 +32,7 @@ of them for you; a hypothesis outside the table fills them itself.
 | Add a trial | Add a [N]-day trial to [product] on [placement] | Trial conversion and trial-to-paid together | Adding it again | Adding it on that product |
 | Move a trial | Move the [N]-day trial from [product] to [product] on [placement] | Trial conversion and trial-to-paid together | Every trial test on that paywall | This move |
 | Change trial length | Change the trial on [product] from [N] to [M] days on [placement] | Trial conversion and trial-to-paid together | This change | This change |
-| Follow-up offer | Show [offer] when [paywall] closes on [placement] | Revenue per user across the placement | This offer on that placement | This offer on that placement |
+| Follow-up offer | Show [offer] at [later moment], on its own placement, to users who closed [paywall] without buying | Revenue per user across the placement | This offer on that placement | This offer on that placement |
 | Audience split | Show [paywall or change] instead of [current] on [placement], for [segment] | The change's own metric, in that segment | That change for that segment | That change for that segment |
 | Win-back offer | Replace [current paywall] with a [offer] paywall on [placement], for [former subscribers / lapsed trials] | Revenue per user in that segment | This offer for that segment | This offer for that segment |
 | Seasonal paywall | Show a [event] paywall instead of [current] on [placement] from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event |
@@ -146,7 +146,7 @@ app's US numbers) when you compare, and call the target "the market median", nev
 - **One product on the paywall:** add a second length first; nothing can be optimised without a
   comparison. Then a trial if the category uses one.
 - **Before anything that moves buyers toward annual** (adding it, preselecting it, an annual
-  offer on close, a commitment plan): set what annual buyers actually pay in their first year
+  follow-up offer, a commitment plan): set what annual buyers actually pay in their first year
   (first-payment revenue, `renewal_period=1`, ÷ new subscriptions for the annual product, offers
   included) against the leading short
   plan's LTV at day 365 (read 12; at the furthest day both reached when it has not, and say so).
@@ -196,13 +196,17 @@ app's US numbers) when you compare, and call the target "the market median", nev
 These are the hypotheses this skill can build: a flow, put in front of users by an A/B test (`SKILL.md`, "From hypothesis to A/B test"), a new placement, or a change to an existing one (`SKILL.md`, "Changing a live placement").
 
 - **A healthy set is about three placements:** the onboarding paywall (push the leading length), an in-app
-  paywall at a value moment (a limit hit, a locked feature, settings), and an offer after the
-  onboarding paywall closes.
+  paywall at a value moment (a limit hit, a locked feature, settings), and a follow-up offer for
+  users who closed the onboarding paywall without buying.
 - **Only one placement** is itself an opportunity. A large share of revenue outside onboarding
   (chart 8 in `diagnosis.md`) calls for a dedicated paywall at that moment.
-- **Follow-up offer:** a discounted second screen when the onboarding paywall closes. Well
-  evidenced after the onboarding paywall, and it loses after the main in-app paywall
-  (`evidence.md`, across the flow).
+- **Follow-up offer:** a discount for users who closed the onboarding paywall without buying, on
+  its own placement the app shows at a later moment (the next app open, a limit hit). **The close
+  button always closes:** Apple rejects a close that opens another offer, a second screen or a
+  sheet (App Store 5.6), so never propose that shape, and an offer live in it is a fix to move,
+  not a hypothesis to drop. `evidence.md` measured the offer right after the close, so the later
+  one's Expected is untested; after the main in-app paywall it loses (`evidence.md`, across the
+  flow).
 - **Before any win-back plan, say who leaves, with numbers** (the "Winning back users who left"
   reads in `diagnosis.md`): how many endings are users cancelling and how many are billing
   issues, and how many trials end without paying. Billing issues come back through grace period
@@ -243,7 +247,7 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
 
 Before ranking, drop any hypothesis that:
 
-- matches what is live now (a trial already on that plan, an offer already shown on close, a
+- matches what is live now (a trial already on that plan, a follow-up offer already on its own placement, a
   placement that already exists). A default plan counts as live when any paywall that sold on
   that placement in the last full month has it: check every paywall's name and plans, not the
   top ones. When some paywalls have it and others not, say "N of your paywalls there already
@@ -357,7 +361,7 @@ Adapty](https://adapty.io/docs/create-offer.md).
 | Add a plan length | A new subscription in the existing group, created and pushed from Adapty (`pricing.md`, "Adding a plan length"); a lifetime plan is a non-consumable in-app purchase | A new base plan on the existing subscription, pushed from Adapty; a lifetime plan is a one-time product |
 | Add, change or remove a trial | An introductory offer on the product. It reaches every eligible buyer of that product, so a test needs a second product with or without it | An offer on the product's base plan (at least 3 days). Its offer ID goes on the product in Adapty; the test is a paywall that sells the product with the offer against one without |
 | A discount for former subscribers | A win-back offer on the existing product, added to it in Adapty and picked on the paywall. Only churned users are eligible; no new product | An offer on the base plan with "Developer determined" eligibility, shown only to the win-back audience |
-| A discount for anyone (an offer on close) | A promotional offer on the existing product, or a second product | An offer on the base plan |
+| A discount for anyone (a follow-up offer) | A promotional offer on the existing product, or a second product | An offer on the base plan |
 
 - **The Adapty side of an offer is yours to add.** Once the user has created the offer in the
   store and given its offer ID (never guess one), add it on their yes; a Google Play trial or
@@ -467,8 +471,8 @@ rung on its target, not the next one.
 
 | Ladder | Rungs, in order |
 |---|---|
-| Annual | Annual as a second plan → annual in an offer when the paywall closes, through a flow → a 12-month commitment plan, outside the US. Each rung passes the annual check in "Plan structure" first |
-| Follow-up offer | A discount on the same plan when the paywall closes → a different product on close (another length, a commitment plan) |
+| Annual | Annual as a second plan → annual in a follow-up offer → a 12-month commitment plan, outside the US. Each rung passes the annual check in "Plan structure" first |
+| Follow-up offer | A discount on the same plan → a different product (another length, a commitment plan), each on the follow-up placement |
 | Trial | As "Trials" orders it: on the leading length, then its length, then which plan carries it |
 | Localization | Translated copy → local prices in that country (`pricing.md`) |
 

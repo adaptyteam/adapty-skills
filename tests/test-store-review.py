@@ -1281,6 +1281,36 @@ check('...silent for an app that ships on Android only',
 check('...and the close that really closes is silent', not of(run(QUIZ)[1], 'exit-offer-on-dismiss'))
 
 
+def _sheet_offer(sell=True, opener='el_WaTCB9iWLJ'):
+    """The quiz with a hidden bottom sheet on its paywall, opened by `opener`; the sheet
+    holds a purchase button when `sell`, an info line otherwise."""
+    c = load(QUIZ)
+    pw = next(s for s in c['screens'] if s['id'] == PAYWALL)
+    m = pw['elements']['map']
+    m['el_sheet'] = {'id': 'el_sheet', 'type': 'bottom-sheet', 'caption': 'Trial sheet',
+                     'props': {'visibility': {'type': 'hidden'}}, 'states': []}
+    m['el_sheetBtn'] = {'id': 'el_sheetBtn', 'type': 'button', 'caption': 'Sheet button',
+                        'props': {}, 'states': [], 'interactions': [{'actions': [
+                            {'id': 'act_p', 'type': 'purchase', 'payload': {}} if sell else
+                            {'id': 'act_h', 'type': 'hideElement',
+                             'payload': {'elements': ['el_sheet']}}]}]}
+    pw['elements']['hierarchy'].setdefault('children', []).append(
+        {'id': 'el_sheet', 'children': [{'id': 'el_sheetBtn', 'children': []}]})
+    m[opener]['interactions'][0]['actions'] = [
+        {'id': 'act_s', 'type': 'showElement', 'payload': {'elements': ['el_sheet']}}]
+    return c
+
+
+_f = run(_sheet_offer())[1]
+check('closing the paywall opens a sheet with a purchase: one exit-offer-on-dismiss risk',
+      [(f['severity'], f['screen']) for f in of(_f, 'exit-offer-on-dismiss')]
+      == [('risk', PAYWALL)], of(_f, 'exit-offer-on-dismiss'))
+check('...silent when the sheet sells nothing',
+      not of(run(_sheet_offer(sell=False))[1], 'exit-offer-on-dismiss'))
+check('...and silent when the purchase button itself opens the sheet (plans in a sheet)',
+      not of(run(_sheet_offer(opener='el_DnQrboHhqE'))[1], 'exit-offer-on-dismiss'))
+
+
 def _relabel_purchase(text_value):
     c = load(QUIZ)
     pw = next(s for s in c['screens'] if s['id'] == PAYWALL)
