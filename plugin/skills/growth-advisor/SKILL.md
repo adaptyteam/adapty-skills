@@ -508,7 +508,8 @@ started, and it never shows up as a change.
    group names each group's number, a cause found from timing has the Cause check behind it, and
    less money is split into first payments and renewals, each in dollars.
 7. **Offer to build** the hypothesis the user picked, when it is a flow. On a yes, invoke `flow-generator`
-   with the brief. Offer two ways to put the flow in front of users, the first as the default:
+   with the brief. For an A/B test the brief says "a copy of the live version, for an A/B
+   test". Offer two ways to put the flow in front of users, the first as the default:
    - **A/B test it** against what the placement shows now, through "From hypothesis to A/B
      test". This is the only way to know what the change did, and what picking a hypothesis
      means.
@@ -639,7 +640,7 @@ test needs with a read. Never assume a thing exists because the user said they w
 | The test needs | It exists when | Who makes it |
 |---|---|---|
 | The content the placement shows now (arm A) | `placements get` names a paywall or flow on the audience the test would run on | Nothing to make |
-| A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
+| A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` copies the live version (`flows duplicate --version` with the `flow_version_id` of the `live` row in `flows versions list`) and edits the copy, so arm B differs from arm A only by the change. The user publishes it, or says yes to `flow-generator` publishing it |
 | A new plan length | `products get` shows its store product in each store the app sells in, with `store_status` `approved`, and a flow that sells it exists | Me: the product and its push, on your yes to its store product IDs and USD price (`references/pricing.md`, "Adding a plan length"), and the flow that sells it |
 | A trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"); a second product it needs I make as a new plan length. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
 | A price test's copy of a product | `products get` shows the copy's store product with `store_status` `approved`, and a flow that sells it exists | Me: the copy, its push and its prices (`references/pricing.md`, "Setting up a price A/B test"), and the flow that sells it |

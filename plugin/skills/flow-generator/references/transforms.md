@@ -348,5 +348,6 @@ Two consequences, and neither is optional:
   broke the editor while rendering fine ([preview.md](preview.md#four-surfaces-and-they-do-not-agree))
   — but a config that fails the gates is one you already know is unsafe to import.
 - **Tell them to back up before importing it**, in one line next to the import step. Their
-  untouched config is the only copy that survives a blank-open followed by a save, and by the time
-  the editor is blank there is nothing left to export.
+  untouched draft is the only copy of that draft that survives a blank-open followed by a save, and
+  by the time the editor is blank there is nothing of it left to export. A version that was
+  published stays in the version history.

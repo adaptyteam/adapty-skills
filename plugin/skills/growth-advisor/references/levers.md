@@ -431,8 +431,10 @@ the offer is real.
 - **Which flow:** the one that brings the most purchases first; a placement that brings almost
   none is a question about the moment it shows, not only about its screen.
 - **A change to a live flow is a copy.** Offer: "I can build this as a copy of your flow and,
-  once it is published, set up an A/B test of it against the current one." `flow-generator` builds the copy as a new flow. Never
-  edit the live flow in place: every user gets the change, and nothing measures it.
+  once it is published, set up an A/B test of it against the current one." `flow-generator`
+  copies the live version (`flows duplicate --version` with the `live` row of
+  `flows versions list`, never the draft) and edits it. Never edit the live flow in place: every
+  user gets the change, and nothing measures it.
 - **A paywall from the old Paywall Builder** (the user confirms it; the CLI cannot tell it from a
   custom one) cannot be copied this way. Offer the dashboard's
   **Move to new builder** first ([convert a paywall to a flow](https://adapty.io/docs/convert-paywall-to-flow.md)),
