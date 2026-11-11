@@ -599,7 +599,7 @@ On a yes, five commands — the stub is a draft until published, and a draft can
 ```bash
 $ADAPTY flows create --app <APP_ID> --name "<Location> placeholder"     # returns <FLOW_ID>; draft
 $ADAPTY flows config validate <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
-$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
+$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json --remote-configs '[]'
 $ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes
 $ADAPTY flows get <FLOW_ID> --app <APP_ID>                             # poll until published
 ```
@@ -640,7 +640,7 @@ Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion`
 **If creating new paywalls/placements** (either `appPreference` is `new`, or `existing` but creating new ones), create one paywall and one placement per confirmed location:
 
 ```bash
-# Create paywall — --product-id is required, once per product UUID from Step 4, in display order.
+# Create paywall — --product-id sets the products, once per product UUID from Step 4, in display order.
 # Capture the returned id as <PAYWALL_ID>
 $ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --product-id <PRODUCT_UUID_1> --product-id <PRODUCT_UUID_2>
 

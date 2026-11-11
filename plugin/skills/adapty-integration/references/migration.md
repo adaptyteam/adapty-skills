@@ -84,7 +84,16 @@ Vocabulary differs per source: what Adapty calls an **access level** the source 
   - **`paywallApproach` is `flow_builder`: create NOTHING for it yet — its ID becomes a *flow* placement.** Paywall placements and flow placements share one ID namespace in Adapty and a placement's type is fixed at creation, so a paywall placement created now permanently blocks the flow placement with that ID. List each reserved ID, with its product list, under a **"Rebuild as flows"** heading in `ADAPTY_SETUP.md`; `references/migration-flow-rebuild.md` rebuilds each paywall as a flow from screenshots the user sends and creates the flow placement on that ID once the flow is published.
   - **Any other approach that uses placements (`custom`): nothing is reserved.** No flow will claim the ID, so map the offering like any other — a paywall placement on the offering's identifier, per the placements rule above. The source's design does not transfer: the user's own screen replaces it, so say so in `ADAPTY_SETUP.md`.
 
-- **Offering/campaign metadata maps to paywall remote config**, which the CLI cannot set. Put the metadata JSON in `ADAPTY_SETUP.md` next to the paywall it belongs to.
+- **Offering/campaign metadata maps to paywall remote config.** The CLI sets it with the paywall's `remote_configs`, a list of `{"locale", "data"}` items where `data` is the metadata as a JSON string (a non-empty list needs an `en` item; a write replaces the whole list). Read the paywall, edit `remote_configs` in the file, send the file back:
+
+  ```bash
+  P="${TMPDIR:-/tmp}/paywall.json"      # a temp path, not the user's project
+  $ADAPTY paywalls get <PAYWALL_ID> --app <APP_ID> --json > "$P"
+  jq --arg d '<metadata JSON>' '.remote_configs = [{"locale":"en","data":$d}]' "$P" > "$P.new" && mv "$P.new" "$P"
+  $ADAPTY paywalls update <PAYWALL_ID> --app <APP_ID> --file "$P"
+  ```
+
+  Metadata you only know from the source's dashboard is not yours to write: put its JSON in `ADAPTY_SETUP.md` next to the paywall it belongs to, with these commands ready to run.
 
 - **Never create or imitate:**
   - **Webhooks** — Adapty's payload format differs from the source's; the user's backend needs work. Checklist item, not a thing you recreate.

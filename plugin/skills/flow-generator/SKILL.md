@@ -268,8 +268,8 @@ $ADAPTY flows config get      <FLOW_ID> --app <APP_UUID> --json     # errors unt
 $ADAPTY flows config validate <FLOW_ID> --app <APP_UUID> (--config-file <f|-> | --config <json>) --json
 $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--orientation …]
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
-    (--config-file <file|-> | --config <json-string>) \
-    [--expected-updated-at <int>] [--remote-configs <json>]   # left out, the stored ones are cleared
+    (--config-file <file|-> | --config <json-string>) --remote-configs <json> \
+    [--expected-updated-at <int>]   # --remote-configs is required: a write replaces the stored list
 $ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, < ~2.5 MB; no SVG, no GIF
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; 405 in prod, rename in the builder
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404 in prod, see below
@@ -412,7 +412,8 @@ destroy.
 **Existing flow** — the user names it, or `flows list` and confirm the match back to them
 before touching it. Read its `status` with `flows get`: `archived` is a flow deleted in the
 dashboard, and every write to it is refused with `Flow is deleted`, so say so and offer a new flow
-on a yes (`flows create`, seeded from this config if `config get` still returns it). Then
+on a yes (`flows create`, seeded from this config if `config get` still returns it, with its
+remote configs: `--remote-configs "$(jq -c '.remote_configs // []' flow.working.json)"`). Then
 `flows config get`, and **keep its `updated_at`** for the write, not the one `flows get` or
 `flows list` printed.
 
@@ -816,9 +817,9 @@ $ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
 ```
 
 **Send the remote configs back on every write, restore included:** a write without
-`--remote-configs` clears the stored ones. Each entry is `{locale, data}`, and `data` is a JSON
-**string**, not an object; an object is refused with `400 Input should be a valid
-string`, so encode a new one with jq's `tojson`.
+`--remote-configs` is refused (exit 2). `[]` deletes them all, so it is for a flow that has none.
+Each entry is `{locale, data}`, and `data` is a JSON **string**, not an object; an object is
+refused with `400 Input should be a valid string`, so encode a new one with jq's `tojson`.
 
 Validate and preview both run on a local file, which is why the write comes last: one write when
 the thing is right, instead of one per iteration. If you have already written and then found a
@@ -844,7 +845,8 @@ their version differs in ways you did not author, ask rather than restore.
 
 **On `Flow is deleted`** someone deleted the flow in the dashboard after you read it: nothing was
 written, and no write to that id can succeed. Say so; your draft is intact, so on a yes
-`flows create` a new flow and write the draft there, with no `--expected-updated-at`.
+`flows create` a new flow and write the draft there, with the remote configs of `flow.working.json`
+and no `--expected-updated-at`.
 
 **If you rebuilt the config from a script rather than patching the fetched one, you have the wrong
 document** — a rebuild replaces the live flow, taking `_meta.screens` and the `screens[].products`

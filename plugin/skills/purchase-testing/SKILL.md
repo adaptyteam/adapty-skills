@@ -215,8 +215,9 @@ looks exactly like a broken SDK call from inside the app. Then check what it sho
   publish the response also carries `publication_error` and `transform_error`: quote
   that string, it is the transform service's own objection.
 - **A paywall** — `$ADAPTY paywalls get --app <APP_ID> <PAYWALL_ID>` returns its title
-  and `product_ids`; there is nothing to publish. The CLI cannot see whether the paywall
-  has a Paywall Builder layout, so if the code renders it with Adapty's own paywall UI,
+  and its products (`products[].product_id`); there is nothing to publish. It also returns
+  `use_paywall_builder_v4`, which says the paywall is set to use Paywall Builder, not
+  that a layout is saved, so if the code renders it with Adapty's own paywall UI,
   name that as something you could not check.
 
 **5. The products carry store IDs and an access level.** `products list` and

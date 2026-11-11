@@ -7,7 +7,7 @@
 **New flow** — `flows create`, then seed its config from one the user already has
 (`flows list` → `config get`) so theme, fonts, locales and products are real — in **Rebuild** mode
 (below) the reference's style then replaces the seed's theme. Its first
-`config update` omits `--expected-updated-at`. **A new flow is the safe default for anything the
+`config update` is `--config-file draft.json --remote-configs '[]'`, with no `--expected-updated-at`. **A new flow is the safe default for anything the
 user calls new**, because `config update` replaces everything and generating over a flow with
 content discards that content. **Run `flows create` once per new flow**, as one explicit command with
 its `--app`, never in a loop: it does not deduplicate and there is no delete, so a second call leaves
