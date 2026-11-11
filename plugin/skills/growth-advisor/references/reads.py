@@ -423,6 +423,70 @@ def refund_share(refunds, revenue):
               'grade the share by its row in market.md, Refunds')
 
 
+def refund_by_length(refunds, revenue):
+    """Refunds over revenue per plan length, for the same months: which length the refunds sit on."""
+    def tot(segs):
+        return {s.get('title'): sum(p.get('value') or 0 for p in s.get('values') or [])
+                for s in segs if not s.get('is_total')}
+    ref, rev = tot(refunds), tot(revenue)
+    cells = [f'{k} {ref[k] / rev[k]:.1%} of its revenue' for k in sorted(ref, key=lambda k: -ref[k])
+             if ref[k] and rev.get(k)]
+    if cells:
+        print('   refunds by plan length: ' + ', '.join(cells) + '; a length far above the rest is the part of '
+              'the refund grade to name')
+
+
+def funnel_reach(body):
+    """Install → first paywall view per group of a funnel answer, {title: (saw a paywall, installs)}; groups with
+    no install step (web stores) are left out. Step x -2 is the install, -1 the first paywall view."""
+    out = {}
+    for s in segments(body):
+        st = {v.get('x'): v.get('value') or 0 for v in s.get('values') or []}
+        if st.get(-2) and (s.get('is_total') or s.get('title') != 'No Data'):
+            out['Total' if s.get('is_total') else s.get('title')] = (st.get(-1, 0), st[-2])
+    return out
+
+
+def pct(part, whole):
+    return f'{part / whole:.0%} {part}/{whole}' if whole else '-'
+
+
+def reach(a, f, t):
+    """Paywall reach: the share of installs that saw a paywall, by store over the window, and the whole app's in
+    the first half of the window against the second. No market median exists for it. Not per country: a country
+    whose installs rarely see a paywall already shows as low revenue per install in the top-countries block."""
+    mid = window(a.months // 2 or 1, a.to)[0]
+    early_to = (dt.date.fromisoformat(mid) - dt.timedelta(days=1)).isoformat()
+    funnel = lambda ff, tt, gb=None: ['analytics', 'funnel', '--date-from', ff, '--date-to', tt] + \
+        (['--group-by', gb] if gb else []) + ['--app', a.app]
+    calls = [funnel(f, t, 'store'), funnel(f, early_to), funnel(mid, t)]
+    prefetch(a.adapty, calls)
+    print('\n## 10. paywall reach: installs that saw a paywall at least once (no market median: grade it against '
+          'the other store and the app\'s own earlier months)')
+    print('   ' + argv_text(calls[0]))
+    body, err = cli(a.adapty, calls[0])
+    if err:
+        FAILED.append(f'paywall reach by store: {err}')
+        print(f'   failed: {err}')
+        return
+    rows = funnel_reach(body)
+    if not rows.get('Total'):
+        print('   (no data)')
+        return
+    print('   ' + ', '.join(f'{k} {pct(*v)}' for k, v in rows.items()))
+    halves = []
+    for (ff, tt), c in zip(((f, early_to), (mid, t)), calls[1:]):
+        b, e = cli(a.adapty, c)
+        r = funnel_reach(b).get('Total') if not e else None
+        halves.append(f'{ff[:7]}..{tt[:7]} {pct(*r)}' if r else f'{ff[:7]}..{tt[:7]} -')
+    print('   the whole app, earlier against later: ' + ' -> '.join(halves))
+    return rows
+
+
+def argv_text(args):
+    return 'adapty ' + ' '.join(x for x in args if x not in ('--app',) and not re.fullmatch(r'[0-9a-f-]{36}', x))
+
+
 def same_windows(segs):
     """Installs per store for the same two comparisons split_money prints, so traffic and money in one reply
     always compare the same months."""
@@ -896,8 +960,8 @@ def channels(a, f, t):
 def geo(a, by_country, installs, f, t):
     """The top countries: the five with the most revenue, plus any of the five with the most installs whose
     revenue per install is under half the app's. Each with revenue per install (shown for sizing, never graded)
-    and its App Store view → paid and trial → paid, rates across plans, graded against its region's All plans
-    row in market-grid.csv."""
+    and its App Store view → paid, view → trial and trial → paid, rates across plans, graded against its
+    region's All plans row in market-grid.csv; then, across stores, its new subscriptions by plan length, and for the top three its main plan length's first renewal over 12 months."""
     plan = 'All plans'
     rev = {s.get('key'): s.get('value') or 0 for s in by_country if not s.get('is_total') and s.get('key')}
     ins = {s.get('key'): s.get('value') or 0 for s in installs if not s.get('is_total') and s.get('key')}
@@ -916,17 +980,25 @@ def geo(a, by_country, installs, f, t):
           f'revenue per install; App Store conversions against their region\'s market-grid row ({plan}, {category})')
     if not ios:
         print('   no median: Google Play only, and the market grid covers the App Store')
+    measures = (('view-paid', 'view_paid'), ('view-trial', 'view_trial'), ('trial-paid', 'trial_paid'))
     reads = {(c, m): conversion(m, f, t, filters=[f'country={fval[c]}', f'store={ios}']) + ['--app', a.app]
-             for c in top for m in ('view-paid', 'trial-paid')} if ios else {}
-    prefetch(a.adapty, list(reads.values()))
+             for c in top for m, _ in measures} if ios else {}
+    td = dt.date.fromisoformat(t)
+    rf = dt.date(td.year - (td.month < 12), td.month % 12 + 1, 1).isoformat()
+    mix = {c: chart('subscriptions_new', f, t, 'duration', filters=[f'country={fval[c]}']) + ['--app', a.app]
+           for c in top}
+    renew = {c: conversion('paid-2period', rf, t, filters=[f'country={fval[c]}']) + ['--group-by', 'duration',
+                                                                                     '--app', a.app]
+             for c in top[:3]}
+    prefetch(a.adapty, list(reads.values()) + list(mix.values()) + list(renew.values()))
     out = []
     for c in top:
         region = REGION.get(c)
         r = {'country': c, 'plan_used': plan, 'revenue': rev.get(c, 0), 'installs': ins.get(c, 0), 'rpi': rpi.get(c),
              'low_rpi': c in low, 'region': region, 'language': LANGUAGE.get(c, '?')}
         cells = []
-        for m, k in (('view-paid', 'view_paid'), ('trial-paid', 'trial_paid')):
-            v = None
+        for m, k in measures:
+            v, base = None, 0
             if ios:
                 body, err = cli(a.adapty, reads[(c, m)])
                 d = ((body or {}).get('data') or {}) if not err else {}
@@ -944,6 +1016,33 @@ def geo(a, by_country, installs, f, t):
         flag = ' LOW' if c in low else ''
         print(f"   {c} {names.get(c) or ''}: revenue {num(r['revenue'])}, installs {num(r['installs'])}, "
               f"rpi {num(r['rpi'])}{flag} | " + ' | '.join(cells) + f" | language {r['language']}")
+        more = []
+        body, err = cli(a.adapty, mix[c])
+        if err:
+            FAILED.append(f'new subscriptions by plan length in {c}: {err}')
+        lengths = {s.get('title'): s.get('value') or 0 for s in segments(body) if not s.get('is_total')}
+        total = sum(lengths.values())
+        main = max(lengths, key=lengths.get) if total else None
+        r['plan_mix'] = {k: v / total for k, v in lengths.items()} if total else {}
+        more.append('new subscriptions ' + (', '.join(f'{k} {v / total:.0%}' for k, v in
+                                                      sorted(lengths.items(), key=lambda x: -x[1]) if v)
+                                           + f' (of {total})' if total else 'none'))
+        if c in renew and main:
+            body, err = cli(a.adapty, renew[c])
+            if err:
+                FAILED.append(f'first renewal in {c}: {err}')
+            s = next((s for s in segments(body) if s.get('title') == main), None)
+            if s and s.get('value_from'):
+                few = ' (too few to grade)' if s['value_from'] < 20 else ''
+                more.append(f"first renewal of {main} {num(s.get('value'))}% "
+                            f"{s.get('value_to')}/{s.get('value_from')}, {rf[:7]}..{t[:7]}{few}")
+                r['first_renewal'] = {'plan': main, 'rate': s.get('value'), 'base': s['value_from']}
+            else:
+                more.append(f'first renewal of {main}: none yet')
+        print('      ' + ' | '.join(more))
+    print('   the plan mix is across stores; the first renewal is for the country\'s main plan length, top 3 only. '
+          'Grade a country\'s first renewal of an annual plan by market.md, Renewals, of a shorter plan against the '
+          'app\'s own rate for that length.')
     return out
 
 
@@ -974,7 +1073,8 @@ def audit_reads(a, f, t):
               chart('subscriptions_new', f, t, 'placement_id'), chart('subscriptions_new', f, t, 'paywall_id'),
               chart('revenue', f, t, 'placement_id', filters=['renewal_period=1']),
               chart('subscriptions_new', wf, t, 'placement_id', 'week')]
-    reads += [conversion(c, f, t) for c in ('install-trial', 'trial-paid', 'install-paid', 'view-paid')]
+    reads += [chart('refund_money', f, t, 'duration')]
+    reads += [conversion(c, f, t) for c in ('install-trial', 'trial-paid', 'install-paid', 'view-trial', 'view-paid')]
     reads += [breaks_read(a)[2]]
     reads += [conversion(c, f12, t12) + ['--group-by', 'store'] for c in ('install-trial', 'view-trial', 'view-paid')]
     reads += [['analytics', 'values', '--dimension', 'country'], ['analytics', 'values', '--dimension', 'store'],
@@ -1023,7 +1123,7 @@ def audit(a):
                   chart('revenue', f, t, 'period')))
     R('revenue by store', chart('revenue', f, t, 'store'))
     year_over_year(a)
-    R('2. revenue by plan length', chart('revenue', f, t, 'duration'))
+    by_length = R('2. revenue by plan length', chart('revenue', f, t, 'duration'))
     by_country = R('revenue by country', chart('revenue', f, t, 'country'), top=12)
     main_market(by_country)
     top_country = max((s for s in by_country if not s.get('is_total')), key=lambda s: s.get('value') or 0,
@@ -1040,6 +1140,7 @@ def audit(a):
     R('6. endings by reason', chart('subscriptions_expired', f, t, 'cancellation_reason'))
     refund_share(R('7. refunds by country', chart('refund_money', f, t, 'country'), top=12), by_country)
     R('refunds by first-payment offer (whether refunds follow trials)', chart('refund_money', f, t, 'offer_category'))
+    refund_by_length(R('refunds by plan length', chart('refund_money', f, t, 'duration')), by_length)
     placements = R('8. new subscriptions by placement', chart('subscriptions_new', f, t, 'placement_id'))
     R('new subscriptions by paywall', chart('subscriptions_new', f, t, 'paywall_id'))
     R('first-payment revenue by placement (the base for a hypothesis\'s dollars a month)',
@@ -1047,8 +1148,9 @@ def audit(a):
     wf = (dt.date.fromisoformat(t) - dt.timedelta(days=27)).isoformat()
     R('new subscriptions per week by placement, the last 4 weeks (the count a Time line uses)',
       chart('subscriptions_new', wf, t, 'placement_id', 'week'))
-    for c in ('install-trial', 'trial-paid', 'install-paid', 'view-paid'):
+    for c in ('install-trial', 'trial-paid', 'install-paid', 'view-trial', 'view-paid'):
         R(f'9. conversion {c}', conversion(c, f, t), conv=True)
+    reach(a, f, t)
     short_breaks(a, names)
     still_down(a, names)
     weakest(a, names, placements, top_country)
