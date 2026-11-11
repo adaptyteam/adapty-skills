@@ -55,6 +55,11 @@ def run(stores=('app_store',), category='Productivity'):
         if args[:3] == ['analytics', 'values', '--dimension'] and args[3] == 'store':
             labels = {'app_store': 'App Store', 'play_store': 'Google Play'}
             return {'data': [{'value': s, 'label': labels[s]} for s in stores]}, None
+        if args[:2] == ['analytics', 'chart'] and 'subscriptions_new' in args:
+            return {'data': {'segments': total([seg('Annual', 'Annual', 30), seg('Weekly', 'Weekly', 70)])}}, None
+        if args[:2] == ['analytics', 'conversion'] and 'paid-2period' in args:
+            return {'data': {'segments': [{'title': 'Weekly', 'value': 60.0, 'value_from': 200, 'value_to': 120},
+                                          {'title': 'Annual', 'value': 30.0, 'value_from': 10, 'value_to': 3}]}}, None
         if args[:2] == ['analytics', 'conversion']:
             conv = args[args.index('--conversion') + 1]
             flt = [args[i + 1] for i, x in enumerate(args) if x == '--filter']
@@ -141,7 +146,19 @@ def test_all_plans_row():
     check('the filter value comes from analytics values', not reads.FAILED, reads.FAILED)
 
 
-for t in (test_all_plans_row, test_small_base_not_graded, test_zero_revenue_not_top, test_top_countries, test_grade, test_category_fallback, test_google_play_only, test_print):
+def test_deeper_countries():
+    rows, out = run()
+    by = {r['country']: r for r in rows}
+    check('view-trial is graded per country', by['US'].get('view_trial_grade') is not None, by['US'])
+    check('plan mix per country', abs(by['US']['plan_mix'].get('Weekly', 0) - 0.7) < 1e-9, by['US'].get('plan_mix'))
+    check('first renewal of the main plan, top 3 only',
+          by['US'].get('first_renewal', {}).get('plan') == 'Weekly' and 'first_renewal' not in by['CA'],
+          (by['US'].get('first_renewal'), by['CA'].get('first_renewal')))
+    check('the second line carries the mix', 'Weekly 70%' in out, out[-900:])
+    check('no per-country reach read', 'reach' not in out.split('## top countries')[1], out[-900:])
+
+
+for t in (test_deeper_countries, test_all_plans_row, test_small_base_not_graded, test_zero_revenue_not_top, test_top_countries, test_grade, test_category_fallback, test_google_play_only, test_print):
     try:
         t()
     except Exception as e:  # a missing function is a failure, not a crash of the whole file

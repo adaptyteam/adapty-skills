@@ -416,20 +416,23 @@ started, and it never shows up as a change.
    app's own six-month level otherwise. Judge each part on the store that earns, in the main
    market when there is one.
    - where the money comes from: store, main market, first payments against renewals
-   - the funnel: install → trial or paid, paywall view → paid, trial → paid
+   - the funnel: paywall reach (installs that saw a paywall), install → trial or paid, paywall view →
+     trial, paywall view → paid, trial → paid
    - the plan mix, and which length leads by LTV
    - renewals: the main plan's first renewal, and why subscribers leave
-   - refunds as a share of revenue
-   - the top countries: each one's view → paid and trial → paid against its region's median, from
-     the top-countries block `reads.py audit` prints; one below its region's p25 is a weak part,
-     sized by the purchases the gap costs there, and can be the main finding
+   - refunds as a share of revenue, and the plan length they sit on
+   - the top countries: each one's view → paid, view → trial and trial → paid against its region's
+     median, and its plan mix and first renewal against the app's other countries, from the
+     top-countries block `reads.py audit` prints; one below its region's p25 is a weak part, sized by
+     the purchases the gap costs there, and can be the main finding
    - the setup: how many placements, what follows the onboarding paywall, offers that run all the
      time
 
    Call each part strong, typical or weak, and rank the weak ones by dollars a month at stake.
    A conversion (paywall view → paid, paywall view → trial, trial → paid) is graded by its row in
    `references/market-grid.csv` (`market.md`, "The full grid"): below p25 weak, above p75 strong.
-   An annual plan's first renewal is graded against its row in `market.md`, Renewals, and
+   Paywall reach has no market median: a store a third or more below the app's reach is weak, as is a fall of a quarter or more from the window's first half to its second. An annual plan's first renewal is graded
+   against its row in `market.md`, Renewals, and
    refunds as a share of revenue against theirs in `market.md`, Refunds.
    That ranking, not the newest change, decides the main finding and the first hypothesis.
    A weak refund grade is never the main finding. When most buyers start from a trial and the

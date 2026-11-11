@@ -103,8 +103,9 @@ $ADAPTY analytics chart --app <APP_ID> --chart trials_new --date-from $FROM --da
 # 6. Endings, by reason, then the same per store when the app sells on both
 $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_expired --date-from $FROM --date-to $TO --group-by cancellation_reason --json
 $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_expired --date-from $FROM --date-to $TO --group-by cancellation_reason --filter store=<VALUE> --json
-# 7. Refunds
+# 7. Refunds, then by plan length
 $ADAPTY analytics chart --app <APP_ID> --chart refund_money --date-from $FROM --date-to $TO --json
+$ADAPTY analytics chart --app <APP_ID> --chart refund_money --date-from $FROM --date-to $TO --group-by duration --json
 ```
 
 ```bash
@@ -121,9 +122,9 @@ purchases, not a conversion rate: see 9 for the rate. Where users leave a flow i
 is the flow's funnel ("Reading a flow").
 
 ```bash
-# 9. Conversion rates: one call per pair (install-trial, trial-paid, install-paid, view-paid)
+# 9. Conversion rates: one call per pair (install-trial, trial-paid, install-paid, view-trial, view-paid)
 $ADAPTY analytics conversion --app <APP_ID> --conversion <CONVERSION_ID> --date-from $FROM --date-to $TO --granularity month --json
-# 10. The funnel from install on, by store
+# 10. The funnel from install on, by store: its "Paywall displayed" step over installs is paywall reach
 $ADAPTY analytics funnel --app <APP_ID> --date-from $FROM --date-to $TO --group-by store --json
 # 11. Retention of subscribers by plan length (add --use-trial to count from the trial)
 $ADAPTY analytics retention --app <APP_ID> --date-from $FROM --date-to $TO --group-by duration --json
@@ -171,8 +172,10 @@ qualifies, the app has no main market: say so, and work from the spread. The
 top countries are the three to five that hold most of it. Installs by country (read 3) do not
 make a main market: a country can bring a quarter of the installs and almost none of the money.
 `reads.py audit` prints the top-countries block: the top five by revenue plus any top-five install
-country under half the app's revenue per install, each with its App Store view → paid and trial →
-paid graded against its region's row in `market-grid.csv`, and its language. Read chart 2, chart 4
+country under half the app's revenue per install, each with its App Store view → paid, view → trial
+and trial → paid graded against its region's row in `market-grid.csv`, and its language; under it,
+across stores, the country's new subscriptions by plan length, and for the top three its main plan
+length's first renewal. Read chart 2, chart 4
 and read 9 filtered to a top country (`--filter country=<value>`) for which plans sell there and
 how its conversion moved ("Before you state a conclusion"). The main market decides which country's stakes come first and
 which region's median applies (`market.md` has US, Europe, MEA and LATAM rows where the report
@@ -188,6 +191,7 @@ What to compute from them, and how much to trust each:
 | Conversion per paywall | read 9 with `view-paid`, filtered per paywall | Compare inside one placement only |
 | Conversion and views per placement | read 13: `value` and `value_from` | Ranks placements (`levers.md`) |
 | Where users drop | read 10, the step with the largest fall | |
+| Paywall reach | read 10: installs that saw a paywall ÷ installs, by store, and the window's first half against its second | No market median: grade it against the other store and the app's own earlier months |
 | Revenue per install | revenue ÷ installs, per country | Revenue includes renewals from older users |
 | Share by plan length | each length's revenue ÷ total; same for new subscriptions | |
 | Leading length | read 12 at a period every length reached; read 11 for why | |
