@@ -630,10 +630,9 @@ design needs a weight the family lacks, say which face will draw instead.
 
 **A face a text draws with needs an iOS font name.** That face is the one the rule above picks
 for each text, rich-text span, state override and typography preset, in every locale. Without a
-name the transform service refuses the flow with `font_face_missing_ios_name`; an unnamed face
-nothing draws with publishes. The message names the font and the face: go by those, not by the
-path, whose `_meta.fonts[<n>]` counts the fonts the publish looked up rather than the entries in
-the config you fetched. `flows config validate` reports it; `verify-config.py` does not. It is
+name the transform service refuses the flow with `font_face_missing_ios_name`, and its message
+names the font and the face; an unnamed face nothing draws with publishes.
+`flows config validate` reports it; `verify-config.py` does not. It is
 the user's to fix, not yours: they set the name on that face in the builder's font settings, then
 you validate again. Never type a name into `_meta.fonts` — it would not match their bundle.
 
