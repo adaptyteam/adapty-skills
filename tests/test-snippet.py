@@ -311,9 +311,9 @@ p3a, _s3a, _ = extract(COMP, '--screen', COMP_S0, 'Comparison table any-app',
                        extra=('--scope', 'any-app'))
 _rc2a, pl2a = plan_json(QUIZ, p3a, QUIZ_S0)
 font_asks = [n for n in pl2a['needs'] if "font library" in n['text']]
-case('theme: an any-app carried font raises one ? ask per carried font',
+case('theme: an any-app carried font raises one ! ask per carried font (it blocks publishing)',
      (len(font_asks), {n['level'] for n in font_asks}),
-     (len(pl2a['carry']['fonts']), {'?'}))
+     (len(pl2a['carry']['fonts']), {'!'}))
 
 # Same flow, same theme: nothing to adopt, nothing to carry.
 _rc3, pl3 = plan_json(QUIZ, p, QUIZ_S0)

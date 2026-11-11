@@ -187,7 +187,7 @@ the one invariant on this list that a real multi-locale export has never exercis
 | 6 | Every `selectableGroups[].id` has at least one member element carrying that `groupId`, and every `groupId` in use has a declared group | branching edits | A group with no members and a member with no group are both broken selection state. Groups are per screen and typed (`single_choice`, `product`). Two naming rules: a `groupId` must **not start with a digit** (`1a` generates invalid JavaScript and blocks publish), and should be **unique across the flow**, not merely its screen — two screens sharing `"products"` break selection rendering. |
 | 7 | Every `const` compared against `<groupId>.selectedOptionId` matches some member's `customId` | branching edits, renaming an option | The case never matches, so every user takes the `default` branch. Silent — the flow still routes somewhere. |
 | 8 | Every `colorId` and every `font.preset` resolves in **that file's own** `theme` | pasting a screen from another flow | **A hard 422, confirmed.** A screen pasted in from another flow kept `font.preset: "button-label"`, a preset the destination theme does not define; device preview returned `unknown_font_preset` as **severity `error`**, once per text element, blocking the whole flow. `config update` had saved it without complaint. So this is a publish blocker, not a cosmetic drift — and `references/verify-config.py` catches it, which is the check earning its place. Fix by repointing to a preset the destination theme has, not by adding the source's name to the theme. Never validate these against a remembered list of built-in names — see [Shape traps](#shape-traps). |
-| 9 | Every `family.id` resolves in `_meta.fonts` — via **all four** reference paths: an element's `props.font.family.id`, `theme.typography[].settings.family.id`, a state override's `propsByState.<state>.font.family.id`, and a rich-text span's `attrs.family.id` (a span's `family: null` clears the family and references nothing) | pasting a screen from another flow, editing or deleting a typography preset | Unresolvable font reference. **Check every path or you check nothing**: element-level refs number 7 in `timer` and 0 in both `quiz` and `comparison`, so in `comparison` all three declared fonts are reached only through theme presets, and in `timer` the element and preset paths together are what reach all four. A check that reads only element props would find `comparison`'s `_meta.fonts` entirely unreferenced and could license deleting them. Resolving here also does not mean the font ships — trap 8. |
+| 9 | Every `family.id` names a font **this app** has — its id, or its family name (trimmed, any case) when exactly one of the app's fonts has that name — via **all four** reference paths: an element's `props.font.family.id`, `theme.typography[].settings.family.id`, a state override's `propsByState.<state>.font.family.id`, and a rich-text span's `attrs.family.id` (a span's `family: null` clears the family and references nothing) | pasting a screen from another flow or another app, editing or deleting a typography preset | `missing_flow_font_meta` blocks publishing. Publishing looks every reference up in the app's own fonts and ignores the `_meta.fonts` the config carries, so a font copied from another app's flow fails even with its entry carried along. Only `flows config validate` sees the app's fonts; `verify-config.py` warns on a reference `_meta.fonts` lacks. **Check every path or you check nothing**: element-level refs number 7 in `timer` and 0 in both `quiz` and `comparison`, so in `comparison` all three declared fonts are reached only through theme presets, and in `timer` the element and preset paths together are what reach all four. A check that reads only element props would find `comparison`'s `_meta.fonts` entirely unreferenced and could license deleting them. Resolving here also does not mean the font ships — trap 8. |
 | 10 | Every `(name, weight)` icon pair used by an `icon` element appears in `_meta.icons` | adding an icon | `_meta.icons[].raw` carries the literal SVG markup the renderer draws, so an unlisted pair has nothing to draw. The markup is **no longer unobtainable**: [`icons.py`](icons.py) resolves any `phosphor` name+weight and the five Builder spinners, byte-identically to a real export — and `flowkit.config()` derives the whole list from the tree, which makes this invariant unrepresentable to violate from the module. A `custom` icon nobody has markup for is still yours to supply. Note the harder sibling: for a `phosphor` icon, being declared is not enough, because the renderer resolves the NAME from its own bundle — trap 23. |
 | 11 | Every **text and placeholder** entry has a value for the default locale, and a translated value for each locale the flow is translated into. An **image or video** entry holds the default locale plus only the locales that get a different file | adding a locale | A missing text value falls back to the default locale's text, so the field shows in the wrong language; `verify-config.py` warns per locale. A missing default value leaves every locale with nothing to fall back to. A missing image value shows the default's file, which is what you want; a copy of it duplicates the preview once per locale. |
 | 12 | Every variable **consumer** still has a **producer**, and *which* producer depends on the form: `<inputCustomId>.value` needs the `text-input` carrying that `customId`; `<groupId>.selectedOptionId` needs a group with that id; `<productUUID>.prod_*` needs that product declared; `<groupId>.selectedProduct.<field>` needs a `product`-typed **group** — resolve it against `selectableGroups`, never against the product list, or you repeat invariant 5's false positive | **screen deletion**, moving an element between screens | Breaks the **opposite way** from invariant 3: the reference survives and its producer dies, so nothing on the screen you edited looks wrong. In `quiz`, the `text-input` with `customId: "name"` lives on the Quiz screen while `name.value` is read on three *other* screens (both genre branches and the paywall) — deleting Quiz strands all three, and none of them is the screen that was touched. |
@@ -628,26 +628,28 @@ to the lighter face), and the device draws that face at its own weight. So a `se
 over a family with only Regular and Bold draws one of those two, never a faked semibold. When the
 design needs a weight the family lacks, say which face will draw instead.
 
-**A face with no iOS font name blocks publishing.** The transform service refuses the flow with
-`font_face_missing_ios_name`, at `_meta.fonts[<n>].faces[<m>].iosName`, for any face of a declared
-family that has none. `flows config validate` reports it; `verify-config.py` does not. It is the
-user's to fix, not yours: they set the name on that face in the builder's font settings, then
-you re-fetch. Never type a name into `_meta.fonts` — it would not match their bundle.
+**A face a text draws with needs an iOS font name.** That face is the one the rule above picks
+for each text, rich-text span, state override and typography preset, in every locale. Without a
+name the transform service refuses the flow with `font_face_missing_ios_name`; an unnamed face
+nothing draws with publishes. The message names the font and the face: go by those, not by the
+path, whose `_meta.fonts[<n>]` counts the fonts the publish looked up rather than the entries in
+the config you fetched. `flows config validate` reports it; `verify-config.py` does not. It is
+the user's to fix, not yours: they set the name on that face in the builder's font settings, then
+you validate again. Never type a name into `_meta.fonts` — it would not match their bundle.
 
-**`_meta.fonts` is a copy of the app's font record, and a builder save overwrites it.** The
-custom font lives once per app; each flow carries a snapshot of it, refreshed from the app's
-record when someone saves that flow in the builder. So a name corrected through
-`config update` comes back on read, and then the next builder save restores the old value.
-The fix is always the user's, in the font's settings in the builder
-([Manage a custom font](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)), and it
-reaches each flow only when that flow is saved again in the builder. Opening it is not enough.
-After that fix, every other flow that uses the font still carries the old name until it is
-re-saved, so name those flows in the handoff. The names have one shape each
+**Publishing reads the app's fonts, not the copy in `_meta.fonts`.** The custom font lives once
+per app. Each flow carries a snapshot of it, refreshed when someone saves that flow in the
+builder, so a name corrected through `config update` comes back on read and changes nothing at
+publish. The fix is always the user's, in the font's settings in the builder
+([Manage a custom font](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)).
+`flows config validate` sees it at once, and a flow picks it up the next time its config changes
+and it is published. A flow left as it was keeps the names it was last published with, so name
+those flows in the handoff. The names have one shape each
 ([Add the font files to your app's bundle](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)):
 
 | Field | Must be |
 |---|---|
-| `iosName` | the PostScript name stored in the font file, unique across the app's custom fonts. A variable font file often declares none, so the user enters it |
+| `iosName` | the PostScript name stored in the font file, unique across the app's custom fonts. A variable font file often declares none for an instance; iOS then registers it as `<the file's own PostScript name>_<the instance's style name, spaces as dashes>`, such as `RobotoFlex-Regular_Bold-Italic`, which the builder offers as a hint |
 | `androidName` | the file name in `res/font/` without the extension: lowercase letters, digits and `_` only. The builder never fills it in |
 
 When a flow you touch carries a name of the wrong shape, report it with that rule and the

@@ -638,16 +638,17 @@ def resolve_theme(snippet, config, dest_screen=None):
 
     contrast_needs = check_carried_contrast(carry['colors'], dest_screen, dest_colors)
 
-    # Each app has its own font library. A font entry carried into another app keeps the
-    # reference resolvable and the preview drawing, but the destination's library does not have
-    # it, so the user cannot manage or replace it there. Carry it, and ask.
+    # Each app has its own font library, and publishing looks every font reference up in the
+    # destination app's library, ignoring the `_meta.fonts` entry carried with it. A font from
+    # another app keeps the preview drawing but blocks the publish. Carry it, and ask.
     font_needs = []
     if snippet.get('intendedScope', 'same-app') == 'any-app':
         for f in carry['fonts']:
-            font_needs.append({'level': '?', 'text':
+            font_needs.append({'level': '!', 'text':
                                f'font "{f.get("name") or f.get("id")}" comes from another app\'s '
-                               f'font library. Upload it to this app in the Flow Builder (or pick '
-                               f'a font this app has), then repoint the text to it.'})
+                               f'font library, and the flow will not publish while a text uses '
+                               f'it. Upload it to this app in the Flow Builder (or pick a font '
+                               f'this app has), then repoint the text to it.'})
 
     return {'adopt': adopt, 'carry': carry, 'reuse': sorted(set(reuse)),
             'needs': contrast_needs + font_needs}

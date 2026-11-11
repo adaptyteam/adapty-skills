@@ -24,7 +24,8 @@ declared in _meta.screens;
 price variables name a field in the closed product set and reference declared
 products, across all three families (prod_/offer_/is_); selectableGroups and groupId agree
 both ways; font.preset and colorId resolve in the file's own theme;
-font.family resolves in _meta.fonts; every icon used appears in _meta.icons;
+font.family not in _meta.fonts (a warning: publishing resolves it against the app's own
+fonts, which only `flows config validate` sees); every icon used appears in _meta.icons;
 image elements carry a bound asset with a string id, since neither publish-time
 gate looks at an image at all; no id is declared twice in any id-keyed
 collection, and theme colour and typography ids do not collide; element types the transform
@@ -2096,8 +2097,15 @@ def check(path, baseline_text=None, baseline_images=None):
     uf = set()
     walk(d, lambda o: uf.add(o['family']['id'])
          if isinstance(o.get('family'), dict) and o['family'].get('id') else None)
+    # Publishing replaces `_meta.fonts` with the app's own fonts and resolves each reference
+    # there, by id or by a family name one font has (trimmed, any case). So a reference the copy
+    # lacks may publish, and one it holds may not (a font from another app); only
+    # `flows config validate` sees the app's fonts. A warning, then, never an error.
     if uf - fonts:
-        bad.append(f'font.family.id not in _meta.fonts: {sorted(uf - fonts)}')
+        warn.append(f'font.family.id not in _meta.fonts: {sorted(uf - fonts)}. Publishing looks '
+                    f'each one up in the app\'s own fonts, by id or by family name, so run '
+                    f'`flows config validate`: a font the app lacks fails with '
+                    f'missing_flow_font_meta')
 
     # Both halves read `name`+`weight` off dicts an author wrote, so both must survive one being
     # absent. A direct subscript on a `_meta.icons` entry with no `weight` kills the script with
