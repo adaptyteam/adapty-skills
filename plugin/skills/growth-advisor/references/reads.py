@@ -140,8 +140,20 @@ def call(adapty, args):
 
 
 def cli(adapty, args):
-    """One CLI read, waited for. Returns (body, error)."""
-    return call(adapty, args).result()
+    """One CLI read, waited for. Returns (body, error), with any period after `--date-to` dropped."""
+    body, err = call(adapty, args).result()
+    if '--date-to' in args[:-1]:
+        clip(body, args[args.index('--date-to') + 1])
+    return body, err
+
+
+def clip(body, end):
+    """Drop every dated period after `end` from each group: a period after the window's end is a partial
+    bucket, and a reader that took the last period would grade the month still running as the last full one."""
+    for s in segments(body):
+        v = s.get('values')
+        if v and all(len(label(p.get('x'))) == 10 and label(p.get('x'))[4] == '-' for p in v):
+            s['values'] = [p for p in v if label(p.get('x')) <= end]
 
 
 def prefetch(adapty, calls):
@@ -261,7 +273,8 @@ def show(title, cmd, body, err, names=None, conv=False, top=None, cols=None):
     dated = bool(xs) and all(len(x) == 10 and x[4] == '-' for x in xs)
     end = re.search(r'--date-to (\d{4}-\d\d-\d\d)', cmd)
     if dated and end:
-        xs = [x for x in xs if x <= end.group(1)]   # a period after the window's end is a partial bucket
+        clip(body, end.group(1))
+        xs = [x for x in xs if x <= end.group(1)]
     if dated and all(x.endswith('-01') for x in xs):
         xs = [x[:7] for x in xs]
     n = len(xs) if dated or not cols else min(cols, len(xs))

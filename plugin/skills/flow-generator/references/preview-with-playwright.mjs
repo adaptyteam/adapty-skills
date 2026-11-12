@@ -119,7 +119,8 @@ export function localeCopy(flow, code) {
   if (!isRecord(lz) || !isRecord(lz.content) || !Array.isArray(lz.locales)) {
     throw new UsageError(
       'This config keeps its texts outside a localization catalog (schemaVersion below 13), so a ' +
-        'language cannot be picked here. Open the flow in the builder and switch the language there.',
+        'language cannot be picked from it. Render a catalogued copy: copy the file, run ' +
+        '`python3 references/localization.py catalog <copy>` on the copy, and pass the copy.',
     )
   }
 

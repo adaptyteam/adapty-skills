@@ -620,6 +620,9 @@ def _format_sites(sites, config, cap=3):
     return f'the {_join_and(shown)} screen' + ('s' if len(shown) > 1 else '')
 
 
+SUB_PERIODS = {'weekly', 'monthly', 'two_months', 'trimonthly', 'semiannual', 'annual'}
+
+
 def check_products_catalog(config, catalog, stores):
     """Cross-reference bound products against the live catalog.
 
@@ -711,7 +714,9 @@ def check_products_catalog(config, catalog, stores):
                         first_sid, first_eid), _title=title, _store=store_name,
                         _platform=platform, _sites=sites))
             play = vendors.get('play_store')
-            if play and not play.get('base_plan_id'):
+            # A one-time product (lifetime) has no base plan: the SDK sells a Play product
+            # without one as a one-time purchase. Only a subscription period needs it.
+            if play and not play.get('base_plan_id') and (prod.get('period') or 'monthly') in SUB_PERIODS:
                 out.append(finding(
                     'blocker', 'products', 'play-base-plan-missing',
                     f'"{title}" has a Google Play product ID but no base plan ID. '

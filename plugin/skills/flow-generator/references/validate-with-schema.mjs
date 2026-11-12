@@ -247,11 +247,16 @@ const validate = ajv.compile(prepare(schema))
 
 // Compare against the baseline by screen ID, not screen position: inserting or reordering a screen
 // shifts every index after it, and a positional key would report the moved screen's old findings
-// as new ones.
-const byScreenId = (doc) => (path) =>
+// as new ones. A screen whose ID the other side lacks, at a position whose screen on the other side
+// is gone too, is the same screen renamed: it keys by the baseline's ID.
+const ids = (doc) => new Set((doc?.screens ?? []).map((s) => s?.id))
+const byScreenId = (doc, other) => (path) =>
   path.replace(/^\/screens\/(\d+)(?=\/|$)/, (whole, i) => {
     const id = doc?.screens?.[Number(i)]?.id
-    return typeof id === 'string' ? `/screens/${id}` : whole
+    if (typeof id !== 'string') return whole
+    if (!other || ids(other).has(id)) return `/screens/${id}`
+    const was = other?.screens?.[Number(i)]?.id
+    return typeof was === 'string' && !ids(doc).has(was) ? `/screens/${was}` : `/screens/${id}`
   })
 const key = (stable) => ({details, path}) => details.map((d) => `${stable(path)} :: ${d}`)
 const found = validate(config) ? [] : summarize(validate.errors)
@@ -259,6 +264,7 @@ const found = validate(config) ? [] : summarize(validate.errors)
 // A flow older than the schema fails in hundreds of places that have nothing to do with the edit
 // being made. Validating the backup too, and reporting only what is new, cuts that to signal.
 let preexisting = new Set()
+let baseline = null
 if (args.baseline) {
   let baseDoc
   try {
@@ -268,11 +274,12 @@ if (args.baseline) {
   }
 
   const base = dropServerEcho(baseDoc && typeof baseDoc === 'object' && 'config' in baseDoc ? baseDoc.config : baseDoc)
+  baseline = base
   if (!validate(base)) preexisting = new Set(summarize(validate.errors).flatMap(key(byScreenId(base))))
 }
 
 const fresh = found
-  .map(({details, path}) => ({details: details.filter((d) => !preexisting.has(`${byScreenId(config)(path)} :: ${d}`)), path}))
+  .map(({details, path}) => ({details: details.filter((d) => !preexisting.has(`${byScreenId(config, baseline)(path)} :: ${d}`)), path}))
   .filter(({details}) => details.length > 0)
 
 const scope = args.baseline ? ' new since the baseline' : ''
