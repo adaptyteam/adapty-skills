@@ -498,9 +498,8 @@ Over MCP there is no video upload tool yet: use the CLI, else [the placeholder](
 
 **The command is newer than `flows media upload`.** When `$ADAPTY flows media upload-video --help`
 says there is no such command, try `npx --yes adapty@latest flows media upload-video --help` once
-(and the beta, as `SKILL.md` says for any missing command). Still missing, or the upload answers
-that this backend has no video upload yet: say that the CLI does not support video upload yet,
-and use [the placeholder](#the-video-placeholder) — the user uploads the clip in the builder.
+(and the beta, as `SKILL.md` says for any missing command). Still missing, or the upload fails
+with HTTP 404 (`http_404`, exit 4): say that video upload is not available yet, and use [the placeholder](#the-video-placeholder) — the user uploads the clip in the builder.
 
 | Input | Result |
 |---|---|
