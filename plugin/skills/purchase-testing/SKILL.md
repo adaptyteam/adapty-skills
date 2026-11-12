@@ -38,7 +38,7 @@ Every message, not only the fixed blocks:
   saved while working.
 - **Bold at most one thing per paragraph.** A label the user must pick or match (a test
   card, a menu item) goes in quotes, not bold.
-- **Full, clickable links to the exact page.**
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Could not check it? Say how they can** — where to click and what they should see.
   Do not know something? Look it up before saying so — the CLI, the code, the
   `adapty-docs` skill.
@@ -109,7 +109,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -215,8 +215,9 @@ looks exactly like a broken SDK call from inside the app. Then check what it sho
   publish the response also carries `publication_error` and `transform_error`: quote
   that string, it is the transform service's own objection.
 - **A paywall** — `$ADAPTY paywalls get --app <APP_ID> <PAYWALL_ID>` returns its title
-  and `product_ids`; there is nothing to publish. The CLI cannot see whether the paywall
-  has a Paywall Builder layout, so if the code renders it with Adapty's own paywall UI,
+  and its products (`products[].product_id`); there is nothing to publish. It also returns
+  `use_paywall_builder_v4`, which says the paywall is set to use Paywall Builder, not
+  that a layout is saved, so if the code renders it with Adapty's own paywall UI,
   name that as something you could not check.
 
 **5. The products carry store IDs and an access level.** `products list` and

@@ -118,6 +118,25 @@ function readLocales(config) {
     .map((entry) => ({code: entry.code, id: typeof entry.id === 'string' ? entry.id : entry.code}))
 }
 
+/**
+ * The builder stores `es-mx` and `zh-hans`; the publish writes the config the app reads with
+ * `es-MX` and `zh-Hans`, and the app matches the link's locales against those exactly, so a code
+ * in the builder's casing opens the flow on its default locale. This is the transformer's
+ * `tryCanonicalizeLocaleCode`: language lower case, a 4-letter script title case, a region upper
+ * case, `_` read as `-`. Not `Intl.getCanonicalLocales`, which rewrites `sh` and `tl`. A code
+ * outside the shape passes through; the publish refuses that flow anyway.
+ */
+const LOCALE_CODE_RE = /^[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?$/i
+
+function sdkLocaleCode(code) {
+  if (!LOCALE_CODE_RE.test(code)) return code
+  const [language, ...subtags] = code.replaceAll('_', '-').split('-')
+  return [
+    language.toLowerCase(),
+    ...subtags.map((s) => (s.length === 4 ? s[0].toUpperCase() + s.slice(1).toLowerCase() : s.toUpperCase())),
+  ].join('-')
+}
+
 function resolveLocales(locales, defaultLocaleId, requested) {
   if (locales.length === 0) {
     console.error(
@@ -130,12 +149,13 @@ function resolveLocales(locales, defaultLocaleId, requested) {
   let current
   if (requested) {
     current = locales.find((locale) => locale.id === requested || locale.code === requested)
+      ?? locales.find((locale) => sdkLocaleCode(locale.code) === sdkLocaleCode(requested))
     if (!current) fail(`Flow has no locale "${requested}". Available: ${locales.map((l) => l.code).join(', ')}.`)
   } else {
     current = locales.find((locale) => locale.id === defaultLocaleId) ?? locales[0]
   }
 
-  return {codes: locales.map((locale) => locale.code), current: current.code}
+  return {codes: locales.map((locale) => sdkLocaleCode(locale.code)), current: sdkLocaleCode(current.code)}
 }
 
 /**

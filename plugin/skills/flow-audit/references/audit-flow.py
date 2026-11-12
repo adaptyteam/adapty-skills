@@ -2588,6 +2588,43 @@ def _norm_label(text):
     return re.sub(r'\s+', ' ', text or '').strip().lower()
 
 
+def _shown_selling(screen, element):
+    """Elements this element's showElement actions reveal whose subtree sells: a purchase
+    action or a bound product. A sheet opened from a close is the same exit offer as a
+    second screen."""
+    emap = (screen.get('elements') or {}).get('map') or {}
+    kids = {}
+
+    def walk(n):
+        kids[n.get('id')] = [c.get('id') for c in n.get('children') or []]
+        for c in n.get('children') or []:
+            walk(c)
+    walk((screen.get('elements') or {}).get('hierarchy') or {})
+
+    def sells(x, seen):
+        if x in seen:
+            return False
+        seen.add(x)
+        e = emap.get(x) or {}
+        if ((e.get('props') or {}).get('product') or {}).get('id') or any(
+                a.get('type') == 'purchase' for _, a in actions_of(e)):
+            return True
+        return any(sells(k, seen) for k in kids.get(x, []))
+
+    def shown(node):
+        if isinstance(node, dict):
+            got = []
+            if node.get('type') == 'showElement':
+                got += [x for x in (node.get('payload') or {}).get('elements') or []
+                        if isinstance(x, str)]
+            return got + [x for v in node.values() for x in shown(v)]
+        if isinstance(node, list):
+            return [x for v in node for x in shown(v)]
+        return []
+    return [x for x in dict.fromkeys(shown(element.get('interactions')))
+            if x in emap and sells(x, set())]
+
+
 def check_exit_and_cta(config, stores=None):
     """Two paywall-in-onboarding shapes (store review, advisory).
 
@@ -2622,12 +2659,15 @@ def check_exit_and_cta(config, stores=None):
                 types += _action_types(a)
                 targets += _nav_targets(a, s['id'], list(screens))
             text = label(s['id'], eid)
-            offers = [t for t in targets if t in selling and t != s['id']]
+            offers = [screen_name(config, t) for t in targets
+                      if t in selling and t != s['id']]
+            offers += [(s['elements']['map'][x].get('caption') or 'a sheet')
+                       for x in _shown_selling(s, e)]
             if offers and 'purchase' not in types and (not text or CLOSE_WORDS.search(text)):
                 out.append(finding(
                     'risk', 'compliance', 'exit-offer-on-dismiss',
                     f'Closing the "{screen_name(config, s["id"])}" screen opens another '
-                    f'offer ("{screen_name(config, offers[0])}") instead of letting people '
+                    f'offer ("{offers[0]}") instead of letting people '
                     f'leave. Apple has rejected this as pushing people into a purchase they '
                     f'did not want.',
                     'Make the close button close the flow ("Close Flow"), and show the '
@@ -2887,6 +2927,29 @@ def _font_list(items, cap=4, sep=None):
 
 FONT_SETTINGS = ('In the Flow Builder, open the font settings (Edit custom font in any font '
                  'dropdown) and click the row of each face named above')
+# The names come from the copy of the font settings saved with the flow; publishing reads the
+# app's own settings, and a Builder save of the flow refreshes the copy.
+FONT_COPY = (' If you already changed it there, save this flow in the Flow Builder and run the '
+             'audit again: I read the font names saved with the flow.')
+
+
+def _font_references(config):
+    """Every custom `family.id` the flow's texts, spans, states and presets name, in order."""
+    refs = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            fam = o.get('family')
+            if isinstance(fam, dict) and fam.get('type', 'user') == 'user' and \
+                    isinstance(fam.get('id'), str) and fam['id']:
+                refs.append(fam['id'])
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(config)
+    return list(dict.fromkeys(refs))
 
 
 def check_fonts(config, fetch=read_font, stores=None):
@@ -2898,9 +2961,21 @@ def check_fonts(config, fetch=read_font, stores=None):
     the set from `--stores`, or None when unknown: an app that does not ship on Android
     gets no `android-font-name`; unknown stores keep it.
     """
+    out = []
+    declared = {font.get('id') for font, _ in _font_faces(config)}
+    uncopied = [r for r in _font_references(config) if r not in declared]
+    if uncopied:
+        out.append(finding(
+            'question', 'fonts', 'font-names-unchecked',
+            f'Text in this flow uses '
+            f'{"a custom font" if len(uncopied) == 1 else f"{len(uncopied)} custom fonts"} '
+            f'whose settings the flow does not carry, so I could not check '
+            f'{"its" if len(uncopied) == 1 else "their"} iOS and Android font names.',
+            'Open this flow in the Flow Builder and save it, which copies the font settings '
+            'into the flow, then run the audit again.'))
     faces = list(_font_faces(config))
     if not faces:
-        return []
+        return out
     urls = list(dict.fromkeys(face.get('url') for _, face in faces
                               if isinstance(face.get('url'), str)))
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -2931,7 +3006,6 @@ def check_fonts(config, fetch=read_font, stores=None):
                 not is_variable or ANDROID_FONT_NAME_RE.match(ios)):
             bad_ios.append(f'{label} has "{ios}", its file says "{postscript}"')
 
-    out = []
     if bad_android:
         out.append(finding(
             'blocker', 'fonts', 'android-font-name',
@@ -2942,7 +3016,7 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'{FONT_SETTINGS}. Set its Android font name to the font file\'s name in your '
             f'app\'s res/font/ folder, without the extension, using only lowercase '
             f'letters, numbers and underscores (for example inter_medium), and name the '
-            f'file in your app the same.'))
+            f'file in your app the same.' + FONT_COPY))
     if bad_ios:
         out.append(finding(
             'blocker', 'fonts', 'ios-font-name',
@@ -2950,14 +3024,15 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'by the PostScript name stored in its file, and these iOS font names do not '
             f'match it: {_font_list(bad_ios, sep="; ")}. The Builder preview still looks '
             f'right because it draws the uploaded file.',
-            f'{FONT_SETTINGS}. Set its iOS font name to the name its file says.'))
+            f'{FONT_SETTINGS}. Set its iOS font name to the name its file says.' + FONT_COPY))
     dupes = [(ios, labels) for ios, labels in by_ios.items() if len(labels) > 1]
     for ios, labels in dupes:
         out.append(finding(
             'risk', 'fonts', 'duplicate-ios-font-name',
             f'{_join_and(sorted(labels.values()))} share the iOS font name "{ios}". iOS '
             f'keeps one font per name, so one of them will show in the other\'s typeface.',
-            f'{FONT_SETTINGS}. Give each one the PostScript name stored in its own file.'))
+            f'{FONT_SETTINGS}. Give each one the PostScript name stored in its own file.'
+            + FONT_COPY))
     if variable:
         out.append(finding(
             'question', 'fonts', 'variable-font',

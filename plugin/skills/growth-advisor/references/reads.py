@@ -423,6 +423,70 @@ def refund_share(refunds, revenue):
               'grade the share by its row in market.md, Refunds')
 
 
+def refund_by_length(refunds, revenue):
+    """Refunds over revenue per plan length, for the same months: which length the refunds sit on."""
+    def tot(segs):
+        return {s.get('title'): sum(p.get('value') or 0 for p in s.get('values') or [])
+                for s in segs if not s.get('is_total')}
+    ref, rev = tot(refunds), tot(revenue)
+    cells = [f'{k} {ref[k] / rev[k]:.1%} of its revenue' for k in sorted(ref, key=lambda k: -ref[k])
+             if ref[k] and rev.get(k)]
+    if cells:
+        print('   refunds by plan length: ' + ', '.join(cells) + '; a length far above the rest is the part of '
+              'the refund grade to name')
+
+
+def funnel_reach(body):
+    """Install → first paywall view per group of a funnel answer, {title: (saw a paywall, installs)}; groups with
+    no install step (web stores) are left out. Step x -2 is the install, -1 the first paywall view."""
+    out = {}
+    for s in segments(body):
+        st = {v.get('x'): v.get('value') or 0 for v in s.get('values') or []}
+        if st.get(-2) and (s.get('is_total') or s.get('title') != 'No Data'):
+            out['Total' if s.get('is_total') else s.get('title')] = (st.get(-1, 0), st[-2])
+    return out
+
+
+def pct(part, whole):
+    return f'{part / whole:.0%} {part}/{whole}' if whole else '-'
+
+
+def reach(a, f, t):
+    """Paywall reach: the share of installs that saw a paywall, by store over the window, and the whole app's in
+    the first half of the window against the second. No market median exists for it. Not per country: a country
+    whose installs rarely see a paywall already shows as low revenue per install in the top-countries block."""
+    mid = window(a.months // 2 or 1, a.to)[0]
+    early_to = (dt.date.fromisoformat(mid) - dt.timedelta(days=1)).isoformat()
+    funnel = lambda ff, tt, gb=None: ['analytics', 'funnel', '--date-from', ff, '--date-to', tt] + \
+        (['--group-by', gb] if gb else []) + ['--app', a.app]
+    calls = [funnel(f, t, 'store'), funnel(f, early_to), funnel(mid, t)]
+    prefetch(a.adapty, calls)
+    print('\n## 10. paywall reach: installs that saw a paywall at least once (no market median: grade it against '
+          'the other store and the app\'s own earlier months)')
+    print('   ' + argv_text(calls[0]))
+    body, err = cli(a.adapty, calls[0])
+    if err:
+        FAILED.append(f'paywall reach by store: {err}')
+        print(f'   failed: {err}')
+        return
+    rows = funnel_reach(body)
+    if not rows.get('Total'):
+        print('   (no data)')
+        return
+    print('   ' + ', '.join(f'{k} {pct(*v)}' for k, v in rows.items()))
+    halves = []
+    for (ff, tt), c in zip(((f, early_to), (mid, t)), calls[1:]):
+        b, e = cli(a.adapty, c)
+        r = funnel_reach(b).get('Total') if not e else None
+        halves.append(f'{ff[:7]}..{tt[:7]} {pct(*r)}' if r else f'{ff[:7]}..{tt[:7]} -')
+    print('   the whole app, earlier against later: ' + ' -> '.join(halves))
+    return rows
+
+
+def argv_text(args):
+    return 'adapty ' + ' '.join(x for x in args if x not in ('--app',) and not re.fullmatch(r'[0-9a-f-]{36}', x))
+
+
 def same_windows(segs):
     """Installs per store for the same two comparisons split_money prints, so traffic and money in one reply
     always compare the same months."""
@@ -818,6 +882,170 @@ def main_market(segs):
           f'   main market: none ({top[1]} {top[0]:.0%}, next {second[1]} {second[0]:.0%})')
 
 
+_EU = ('GB IE FR DE AT CH NL BE LU DK NO SE FI IS ES PT IT GR MT CY PL CZ SK HU RO BG HR SI RS BA ME MK AL '
+       'EE LV LT UA BY MD RU TR GE AM AZ').split()
+_LATAM = 'MX GT BZ HN SV NI CR PA CU DO HT JM PR TT BB BS CO VE EC PE BO PY UY AR CL BR GY SR'.split()
+_MEA = ('AE SA QA KW BH OM YE IQ IR JO LB SY IL PS EG LY TN DZ MA SD NG GH KE ET TZ UG ZA ZW ZM AO MZ CM CI '
+        'SN RW BW NA MU').split()
+_APAC = ('JP KR CN HK TW MO SG MY TH VN PH ID IN PK BD LK NP MM KH LA MN KZ UZ AU NZ').split()
+REGION = dict([('US', 'US')] + [(c, 'Europe') for c in _EU] + [(c, 'LATAM') for c in _LATAM]
+              + [(c, 'MEA') for c in _MEA] + [(c, 'APAC') for c in _APAC])
+LANGUAGE = {'US': 'en', 'GB': 'en', 'IE': 'en', 'CA': 'en', 'AU': 'en', 'NZ': 'en', 'IN': 'en', 'SG': 'en',
+            'ZA': 'en', 'NG': 'en', 'KE': 'en', 'PH': 'en', 'DE': 'de', 'AT': 'de', 'CH': 'de', 'FR': 'fr',
+            'BE': 'fr', 'LU': 'fr', 'NL': 'nl', 'ES': 'es', 'MX': 'es', 'AR': 'es', 'CO': 'es', 'CL': 'es',
+            'PE': 'es', 'VE': 'es', 'EC': 'es', 'UY': 'es', 'PY': 'es', 'BO': 'es', 'GT': 'es', 'CR': 'es',
+            'PA': 'es', 'DO': 'es', 'PT': 'pt', 'BR': 'pt', 'IT': 'it', 'PL': 'pl', 'CZ': 'cs', 'SK': 'sk',
+            'HU': 'hu', 'RO': 'ro', 'BG': 'bg', 'GR': 'el', 'DK': 'da', 'NO': 'nb', 'SE': 'sv', 'FI': 'fi',
+            'UA': 'uk', 'RU': 'ru', 'BY': 'ru', 'KZ': 'ru', 'TR': 'tr', 'IL': 'he', 'SA': 'ar', 'AE': 'ar',
+            'EG': 'ar', 'QA': 'ar', 'KW': 'ar', 'JP': 'ja', 'KR': 'ko', 'CN': 'zh-Hans', 'TW': 'zh-Hant',
+            'HK': 'zh-Hant', 'TH': 'th', 'VN': 'vi', 'ID': 'id', 'MY': 'ms'}
+GRID = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'market-grid.csv')
+
+
+def grid_row(measure, plan, region, category):
+    """The market-grid row for one measure, plan, region and category: {median, p25, p75, category_used}, the
+    category falling back to All categories, never another region. None when the region has no row."""
+    rows = {}
+    with open(GRID) as fh:
+        for line in fh:
+            c = line.rstrip('\n').split(',')
+            if c[:3] == [measure, plan, region]:
+                rows[c[3]] = c
+    for cat in (category, 'All categories'):
+        c = rows.get(cat)
+        if c and c[5] and c[6]:
+            return {'median': float(c[4]), 'p25': float(c[5]), 'p75': float(c[6]), 'category_used': cat}
+    return None
+
+
+def grade(v, row):
+    if v is None or not row:
+        return None
+    return 'weak' if v < row['p25'] else 'strong' if v > row['p75'] else 'typical'
+
+
+def channels(a, f, t):
+    """Paid against organic trials, by `attribution_status` (No Data counts as neither): the paid share of new
+    trials and each side's trial → paid. FEATURE GATE when paid brings 30%+ of trials and converts 5+ points
+    below organic. None when either side has no trials."""
+    body, err = cli(a.adapty, chart('trials_new', f, t, 'attribution_status') + ['--app', a.app])
+    segs = segments(body) if not err else []
+    tot = next((s.get('value') or 0 for s in segs if s.get('is_total')), 0)
+    side = {'non organic': 'non_organic', 'organic': 'organic'}
+    by = {}
+    for s_ in segs:
+        k = s_.get('key') if s_.get('key') in ('non_organic', 'organic') else side.get(str(s_.get('title') or '').lower())
+        if k and not s_.get('is_total'):
+            by[k] = s_.get('value') or 0
+    if err or not tot or not by.get('non_organic') or not by.get('organic'):
+        return None
+    rate, base = {}, {}
+    for st in ('non_organic', 'organic'):
+        b, e = cli(a.adapty, conversion('trial-paid', f, t, filters=[f'attribution_status={st}']) + ['--app', a.app])
+        d = ((b or {}).get('data') or {}) if not e else {}
+        rate[st], base[st] = d.get('value'), d.get('value_from') or 0
+    if rate['non_organic'] is None or rate['organic'] is None or min(base.values()) < 20:
+        return None
+    r = {'paid_share': by['non_organic'] / tot, 'paid_trial_paid': rate['non_organic'],
+         'organic_trial_paid': rate['organic']}
+    r['fires'] = r['paid_share'] >= 0.3 and r['organic_trial_paid'] - r['paid_trial_paid'] >= 5
+    print(f"\n## paid against organic trials (attribution status; No Data is neither)\n"
+          f"   paid {r['paid_share']:.0%} of new trials; trial-paid paid {num(r['paid_trial_paid'])}% "
+          f"vs organic {num(r['organic_trial_paid'])}%")
+    if r['fires']:
+        print('   FEATURE GATE: trial still active (levers.md, Adapty features)')
+    return r
+
+
+def geo(a, by_country, installs, f, t):
+    """The top countries: the five with the most revenue, plus any of the five with the most installs whose
+    revenue per install is under half the app's. Each with revenue per install (shown for sizing, never graded)
+    and its App Store view → paid, view → trial and trial → paid, rates across plans, graded against its
+    region's All plans row in market-grid.csv; then, across stores, its new subscriptions by plan length, and for the top three its main plan length's first renewal over 12 months."""
+    plan = 'All plans'
+    rev = {s.get('key'): s.get('value') or 0 for s in by_country if not s.get('is_total') and s.get('key')}
+    ins = {s.get('key'): s.get('value') or 0 for s in installs if not s.get('is_total') and s.get('key')}
+    names = {s.get('key'): s.get('title') for s in list(by_country) + list(installs) if s.get('key')}
+    app_rpi = sum(rev.values()) / sum(ins.values()) if sum(ins.values()) else None
+    rpi = {c: (rev.get(c, 0) / ins[c]) if ins.get(c) else None for c in set(rev) | set(ins)}
+    low = {c for c in rpi if app_rpi and rpi[c] is not None and rpi[c] < app_rpi / 2}
+    top = sorted((c for c in rev if rev[c] > 0), key=lambda c: -rev[c])[:5]
+    top += [c for c in sorted(ins, key=lambda c: -ins[c])[:5] if c in low and c not in top]
+    ios = store_value(a, 'app_store', 'App Store')
+    cbody, cerr = cli(a.adapty, ['analytics', 'values', '--dimension', 'country', '--app', a.app])
+    labels = {r.get('label'): r.get('value') for r in (cbody or {}).get('data') or []} if not cerr else {}
+    fval = {c: labels.get(names.get(c)) or c for c in set(rev) | set(ins)}
+    category = getattr(a, 'category', None) or 'All categories'
+    print(f'\n## top countries: the 5 with the most revenue, plus top-5 install countries under half the app\'s '
+          f'revenue per install; App Store conversions against their region\'s market-grid row ({plan}, {category})')
+    if not ios:
+        print('   no median: Google Play only, and the market grid covers the App Store')
+    measures = (('view-paid', 'view_paid'), ('view-trial', 'view_trial'), ('trial-paid', 'trial_paid'))
+    reads = {(c, m): conversion(m, f, t, filters=[f'country={fval[c]}', f'store={ios}']) + ['--app', a.app]
+             for c in top for m, _ in measures} if ios else {}
+    td = dt.date.fromisoformat(t)
+    rf = dt.date(td.year - (td.month < 12), td.month % 12 + 1, 1).isoformat()
+    mix = {c: chart('subscriptions_new', f, t, 'duration', filters=[f'country={fval[c]}']) + ['--app', a.app]
+           for c in top}
+    renew = {c: conversion('paid-2period', rf, t, filters=[f'country={fval[c]}']) + ['--group-by', 'duration',
+                                                                                     '--app', a.app]
+             for c in top[:3]}
+    prefetch(a.adapty, list(reads.values()) + list(mix.values()) + list(renew.values()))
+    out = []
+    for c in top:
+        region = REGION.get(c)
+        r = {'country': c, 'plan_used': plan, 'revenue': rev.get(c, 0), 'installs': ins.get(c, 0), 'rpi': rpi.get(c),
+             'low_rpi': c in low, 'region': region, 'language': LANGUAGE.get(c, '?')}
+        cells = []
+        for m, k in measures:
+            v, base = None, 0
+            if ios:
+                body, err = cli(a.adapty, reads[(c, m)])
+                d = ((body or {}).get('data') or {}) if not err else {}
+                v, base = d.get('value'), d.get('value_from') or 0
+                if err:
+                    FAILED.append(f'{m} in {c}: {err}')
+            row = grid_row(m, plan, region, category) if region and ios else None
+            few = ios and v is not None and base < 20
+            r[k], r[k + '_grade'] = v, (None if few else grade(v, row))
+            against = f' (on {base}: too few to grade)' if few else \
+                f" vs {row['median']}% {region} median, {r[k + '_grade']}" if row else \
+                ('' if not ios else ' (no regional median)')
+            cells.append(f'{m} {num(v)}%{against}')
+        out.append(r)
+        flag = ' LOW' if c in low else ''
+        print(f"   {c} {names.get(c) or ''}: revenue {num(r['revenue'])}, installs {num(r['installs'])}, "
+              f"rpi {num(r['rpi'])}{flag} | " + ' | '.join(cells) + f" | language {r['language']}")
+        more = []
+        body, err = cli(a.adapty, mix[c])
+        if err:
+            FAILED.append(f'new subscriptions by plan length in {c}: {err}')
+        lengths = {s.get('title'): s.get('value') or 0 for s in segments(body) if not s.get('is_total')}
+        total = sum(lengths.values())
+        main = max(lengths, key=lengths.get) if total else None
+        r['plan_mix'] = {k: v / total for k, v in lengths.items()} if total else {}
+        more.append('new subscriptions ' + (', '.join(f'{k} {v / total:.0%}' for k, v in
+                                                      sorted(lengths.items(), key=lambda x: -x[1]) if v)
+                                           + f' (of {total})' if total else 'none'))
+        if c in renew and main:
+            body, err = cli(a.adapty, renew[c])
+            if err:
+                FAILED.append(f'first renewal in {c}: {err}')
+            s = next((s for s in segments(body) if s.get('title') == main), None)
+            if s and s.get('value_from'):
+                few = ' (too few to grade)' if s['value_from'] < 20 else ''
+                more.append(f"first renewal of {main} {num(s.get('value'))}% "
+                            f"{s.get('value_to')}/{s.get('value_from')}, {rf[:7]}..{t[:7]}{few}")
+                r['first_renewal'] = {'plan': main, 'rate': s.get('value'), 'base': s['value_from']}
+            else:
+                more.append(f'first renewal of {main}: none yet')
+        print('      ' + ' | '.join(more))
+    print('   the plan mix is across stores; the first renewal is for the country\'s main plan length, top 3 only. '
+          'Grade a country\'s first renewal of an annual plan by market.md, Renewals, of a shorter plan against the '
+          'app\'s own rate for that length.')
+    return out
+
+
 def name_map(adapty, app, topics):
     names, lists = {}, {}
     prefetch(adapty, [list_args(app, n) for n in topics])
@@ -839,12 +1067,14 @@ def audit_reads(a, f, t):
     reads += [args for _, args in yoy_reads(a)]
     reads += [chart('revenue', f, t, 'duration'), chart('installs', f, t, 'country'), chart('installs', f, t, 'store'),
               chart('installs', f, t, 'attribution_channel'), chart('subscriptions_new', f, t, 'offer_category'),
+              chart('trials_new', f, t, 'attribution_status'), chart('refund_money', f, t, 'offer_category'),
               chart('subscriptions_new', f, t, 'duration'), chart('trials_new', f, t, 'store_product_id'),
               chart('subscriptions_expired', f, t, 'cancellation_reason'), chart('refund_money', f, t, 'country'),
               chart('subscriptions_new', f, t, 'placement_id'), chart('subscriptions_new', f, t, 'paywall_id'),
               chart('revenue', f, t, 'placement_id', filters=['renewal_period=1']),
               chart('subscriptions_new', wf, t, 'placement_id', 'week')]
-    reads += [conversion(c, f, t) for c in ('install-trial', 'trial-paid', 'install-paid', 'view-paid')]
+    reads += [chart('refund_money', f, t, 'duration')]
+    reads += [conversion(c, f, t) for c in ('install-trial', 'trial-paid', 'install-paid', 'view-trial', 'view-paid')]
     reads += [breaks_read(a)[2]]
     reads += [conversion(c, f12, t12) + ['--group-by', 'store'] for c in ('install-trial', 'view-trial', 'view-paid')]
     reads += [['analytics', 'values', '--dimension', 'country'], ['analytics', 'values', '--dimension', 'store'],
@@ -893,20 +1123,24 @@ def audit(a):
                   chart('revenue', f, t, 'period')))
     R('revenue by store', chart('revenue', f, t, 'store'))
     year_over_year(a)
-    R('2. revenue by plan length', chart('revenue', f, t, 'duration'))
+    by_length = R('2. revenue by plan length', chart('revenue', f, t, 'duration'))
     by_country = R('revenue by country', chart('revenue', f, t, 'country'), top=12)
     main_market(by_country)
     top_country = max((s for s in by_country if not s.get('is_total')), key=lambda s: s.get('value') or 0,
                       default={}).get('title')
-    R('3. installs by country', chart('installs', f, t, 'country'), top=12)
+    installs_by_country = R('3. installs by country', chart('installs', f, t, 'country'), top=12)
     same_windows(R('installs by store', chart('installs', f, t, 'store')))
     moved(R('installs by channel', chart('installs', f, t, 'attribution_channel'), top=12), 'channel')
+    channels(a, f, t)
     R('4. new paid subscriptions by first-payment offer (a converted trial counts as No Offer)',
       chart('subscriptions_new', f, t, 'offer_category'))
     R('new paid subscriptions by plan length', chart('subscriptions_new', f, t, 'duration'))
+    geo(a, by_country, installs_by_country, f, t)
     R('5. new trials by product (whether a plan has a trial)', chart('trials_new', f, t, 'store_product_id'))
     R('6. endings by reason', chart('subscriptions_expired', f, t, 'cancellation_reason'))
     refund_share(R('7. refunds by country', chart('refund_money', f, t, 'country'), top=12), by_country)
+    R('refunds by first-payment offer (whether refunds follow trials)', chart('refund_money', f, t, 'offer_category'))
+    refund_by_length(R('refunds by plan length', chart('refund_money', f, t, 'duration')), by_length)
     placements = R('8. new subscriptions by placement', chart('subscriptions_new', f, t, 'placement_id'))
     R('new subscriptions by paywall', chart('subscriptions_new', f, t, 'paywall_id'))
     R('first-payment revenue by placement (the base for a hypothesis\'s dollars a month)',
@@ -914,8 +1148,9 @@ def audit(a):
     wf = (dt.date.fromisoformat(t) - dt.timedelta(days=27)).isoformat()
     R('new subscriptions per week by placement, the last 4 weeks (the count a Time line uses)',
       chart('subscriptions_new', wf, t, 'placement_id', 'week'))
-    for c in ('install-trial', 'trial-paid', 'install-paid', 'view-paid'):
+    for c in ('install-trial', 'trial-paid', 'install-paid', 'view-trial', 'view-paid'):
         R(f'9. conversion {c}', conversion(c, f, t), conv=True)
+    reach(a, f, t)
     short_breaks(a, names)
     still_down(a, names)
     weakest(a, names, placements, top_country)
@@ -1819,6 +2054,7 @@ def run():
     ap.add_argument('--adapty', default='adapty', help='the resolved $ADAPTY command string')
     ap.add_argument('--placement', action='append', help='placement: repeat it to read several in one run')
     ap.add_argument('--months', type=int)
+    ap.add_argument('--category', help="audit: the app's App Store primary category, for the market-grid rows")
     ap.add_argument('--to', help='YYYY-MM-DD; the window ends with the last full month before it')
     a = ap.parse_args()
     if a.command == 'check-reply':

@@ -103,8 +103,9 @@ $ADAPTY analytics chart --app <APP_ID> --chart trials_new --date-from $FROM --da
 # 6. Endings, by reason, then the same per store when the app sells on both
 $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_expired --date-from $FROM --date-to $TO --group-by cancellation_reason --json
 $ADAPTY analytics chart --app <APP_ID> --chart subscriptions_expired --date-from $FROM --date-to $TO --group-by cancellation_reason --filter store=<VALUE> --json
-# 7. Refunds
+# 7. Refunds, then by plan length
 $ADAPTY analytics chart --app <APP_ID> --chart refund_money --date-from $FROM --date-to $TO --json
+$ADAPTY analytics chart --app <APP_ID> --chart refund_money --date-from $FROM --date-to $TO --group-by duration --json
 ```
 
 ```bash
@@ -121,9 +122,9 @@ purchases, not a conversion rate: see 9 for the rate. Where users leave a flow i
 is the flow's funnel ("Reading a flow").
 
 ```bash
-# 9. Conversion rates: one call per pair (install-trial, trial-paid, install-paid, view-paid)
+# 9. Conversion rates: one call per pair (install-trial, trial-paid, install-paid, view-trial, view-paid)
 $ADAPTY analytics conversion --app <APP_ID> --conversion <CONVERSION_ID> --date-from $FROM --date-to $TO --granularity month --json
-# 10. The funnel from install on, by store
+# 10. The funnel from install on, by store: its "Paywall displayed" step over installs is paywall reach
 $ADAPTY analytics funnel --app <APP_ID> --date-from $FROM --date-to $TO --group-by store --json
 # 11. Retention of subscribers by plan length (add --use-trial to count from the trial)
 $ADAPTY analytics retention --app <APP_ID> --date-from $FROM --date-to $TO --group-by duration --json
@@ -170,10 +171,13 @@ times the revenue of the next country. Compute every country's share of the tota
 qualifies, the app has no main market: say so, and work from the spread. The
 top countries are the three to five that hold most of it. Installs by country (read 3) do not
 make a main market: a country can bring a quarter of the installs and almost none of the money.
-Read chart 2, chart 4 and read 9 filtered to each top country (`--filter country=<value>`): which
-plans sell there, how its conversion moved over the window, and where it loses users. Read each
-country against its own past, not against the US or another country ("Before you state a
-conclusion"). The main market decides which country's stakes come first and
+`reads.py audit` prints the top-countries block: the top five by revenue plus any top-five install
+country under half the app's revenue per install, each with its App Store view → paid, view → trial
+and trial → paid graded against its region's row in `market-grid.csv`, and its language; under it,
+across stores, the country's new subscriptions by plan length, and for the top three its main plan
+length's first renewal. Read chart 2, chart 4
+and read 9 filtered to a top country (`--filter country=<value>`) for which plans sell there and
+how its conversion moved ("Before you state a conclusion"). The main market decides which country's stakes come first and
 which region's median applies (`market.md` has US, Europe, MEA and LATAM rows where the report
 gives them; say when it has none). Name the main market in the reply when it is not the US. Add
 `--filter store=<value>` to any of these when the app sells on both stores and the question is
@@ -187,6 +191,7 @@ What to compute from them, and how much to trust each:
 | Conversion per paywall | read 9 with `view-paid`, filtered per paywall | Compare inside one placement only |
 | Conversion and views per placement | read 13: `value` and `value_from` | Ranks placements (`levers.md`) |
 | Where users drop | read 10, the step with the largest fall | |
+| Paywall reach | read 10: installs that saw a paywall ÷ installs, by store, and the window's first half against its second | No market median: grade it against the other store and the app's own earlier months |
 | Revenue per install | revenue ÷ installs, per country | Revenue includes renewals from older users |
 | Share by plan length | each length's revenue ÷ total; same for new subscriptions | |
 | Leading length | read 12 at a period every length reached; read 11 for why | |
@@ -272,7 +277,7 @@ Say it as facts with the dates. Say too that the data cannot show ideas they dis
 ran.
 
 Then sort what you found by kind of change, from `paywalls list` (which products each paywall
-sells):
+sells: `products[].product_id`):
 
 | Kind | How it shows |
 |---|---|
@@ -475,10 +480,11 @@ against these before it goes in a reply:
   is, never as the biggest loss or as low. "One of the lowest" or "mostly Europe" ranks every
   group in the answer, not the ones you looked at; and "74% are weekly with a trial" counts every
   product of that kind, or names the one product it is.
-- **Countries are read against their own past.** Prices and buying power differ by market, so
-  a country's conversion or revenue per install is not ranked against the US or against another
-  country. What a country's numbers mean: its trend over the window, which plans sell there, and
-  where its funnel loses users. Call a market healthy only from its own trend.
+- **A country's trend is read against its own past, its level against its region.** Prices and
+  buying power differ by market, so a country is never ranked against the US or another country;
+  its view → paid and trial → paid are graded against its region's median in `market-grid.csv`
+  (the same measure), and its revenue per install is shown for sizing, never graded. A country with
+  no region row has no grade: say so.
 - **A premise about the market is checked, not adopted.** When the user says most users come
   from one country, compute each country's share of revenue and of installs. If no country has
   50% or more of either, the bold answer corrects it with the real split ("There is no single
@@ -603,14 +609,20 @@ $ADAPTY flows funnel get <FLOW_ID> --app <APP_ID> --date-from $FROM --date-to $T
 
 Find the flags with `--help`. `--date-type` is required: `purchase_date` counts the sessions that
 started in the period, `profile_install_date` the users who installed in it. Without
-`--flow-version-id` it reads the published version; the CLI lists no versions, so ask the user
-for the id of another one. `--filter key=value` takes the keys and values that `flows funnel
-values` lists (platform, subscription state, store, country, attribution). End the period on the
-last complete day: the last days of a period that has not ended are not a result.
+`--flow-version-id` it reads the published version. For another version, take its
+`flow_version_id` from `$ADAPTY flows versions list <FLOW_ID> --app <APP_ID> --json` (newest first,
+`state` `live`, `previous` or `draft`) and name it to the user by its `title`. `--filter
+key=value` takes the keys and values that `flows funnel values` lists (platform, subscription
+state, store, country, attribution). End the period on the last complete day: the last days of
+a period that has not ended are not a result.
 
 If `flows funnel` is missing after `--help`, try `npx --yes adapty@beta flows funnel --help` once.
 If that fails too, the user's CLI does not read the funnel yet (CLI 0.19.0 is the first release that
 does): say so and ask for a screenshot of the dashboard's Funnel tab for the flow.
+If `flows versions` is missing after `--help`, try `npx --yes adapty@beta flows versions --help`
+once (use that form for the list if it works); never decide it from a version number. If that
+fails too, read the published version (leave `--flow-version-id` out) and say that only the
+published version was read; for another version, ask for a screenshot of its Funnel tab.
 
 The answer is `data`: `summary` (`entered`, `completed`, `dropped`, their rates, `revenue`);
 `steps[]` by `step_order` (`reached`, `reached_rate`, `conversion_from_previous`, `completed`,
@@ -733,6 +745,13 @@ $ADAPTY placements metrics get <PLACEMENT_ID> --app <APP_ID> --type flow --based
   it with `flows funnel get` ("Reading a flow") when a low share would change a hypothesis. A
   screen row's views in this answer are not that funnel: they count only users who started the
   flow on that screen.
+- **A flow's numbers need a publish.** Before you show a flow's metrics or revenue, read
+  `$ADAPTY flows get <FLOW_ID> --app <APP_ID> --json`: `published_flow_version_id` null means the
+  flow was never published, so say "No data: the flow was never published." in place of its
+  numbers (`flows metrics get` adds `note: "never_published"` to its `--json` then). A flow object
+  without the field says nothing either way. One flow's revenue is the revenue chart with
+  `--filter flow_id=<FLOW_ID>`; for a published flow with no purchases its 0 for the period is a
+  real 0.
 - **A flow or paywall on several placements, or two compared:** `flows metrics list --ids
   <FLOW_ID>,…` or `paywalls metrics list --ids <PAYWALL_ID>,…` gives lifetime rows, and `flows
   metrics get <FLOW_ID>` or `paywalls metrics get <PAYWALL_ID>` with `--based-on placement

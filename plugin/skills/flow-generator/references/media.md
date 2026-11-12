@@ -299,13 +299,14 @@ is also what `flowkit.image()` emits — and run `localization.py catalog` over 
 ([flow-schema.md](flow-schema.md#localization-the-catalog)).
 
 **A background fill** on a screen's or stack's `props.fill` takes the image **flat**, with no
-ref and no catalog entry:
+ref and no catalog entry, as one layer of the fill array — what `flowkit.image_fill()` emits. An
+image layer holds only `type`, `image` and `customMediaID`; a colour is a layer of its own
+([flow-schema.md](flow-schema.md#a-fill-is-a-layer-stack-bottom-to-top)):
 
 ```json
-"fill": {"type": "image",
-         "image": {"id": "516395", "url": "https://…/hero.png",
-                   "previewValue": "UklGRhQJAABXRUJQVlA4…"},
-         "color": {"type": "hex", "hex": "#FFFFFF"}}
+"fill": [{"type": "image",
+          "image": {"id": "516395", "url": "https://…/hero.png",
+                    "previewValue": "UklGRhQJAABXRUJQVlA4…"}}]
 ```
 
 **Upload an opaque file for a background fill.** On a device, the transparent part of a fill's

@@ -4,17 +4,31 @@
 
 ## Creating the flow
 
-**New flow** — `flows create`, then seed its config from one the user already has
-(`flows list` → `config get`) so theme, fonts, locales and products are real — in **Rebuild** mode
-(below) the reference's style then replaces the seed's theme. Its first
-`config update` omits `--expected-updated-at`. **A new flow is the safe default for anything the
-user calls new**, because `config update` replaces everything and generating over a flow with
-content discards that content. **Run `flows create` once per new flow**, as one explicit command with
-its `--app`, never in a loop: it does not deduplicate and there is no delete, so a second call leaves
-a second flow in the user's account for good. Then `flows get` the id to confirm it landed in that
-app. Keep
-the id it prints, and on any retry (a failed save, a read-back that looks wrong, a later turn)
-write to that id. Coming back without it, look for the name in `flows list` before creating.
+**New flow from one the user already has** (`flows list`), so theme, fonts, locales and products
+are real — `flows duplicate` it
+([history.md → Duplicate a version to a new flow](history.md#duplicate-a-version-to-a-new-flow)).
+An A/B test copy takes the live version with no question
+([history.md → Duplicate a version to a new flow](history.md#duplicate-a-version-to-a-new-flow)).
+For any other copy of a `dirty` source, tell the user it has unpublished changes and let them pick
+the content of the copy: the draft or the live version. Never a `flows create` seeded with a
+fetched config ([history.md → Look at one version](history.md#look-at-one-version) says what it
+drops; the one exception is an archived flow the user will not restore,
+[SKILL.md phase 2](../SKILL.md#2-new-flow-or-existing-flow)). Then go on
+as an existing flow on the copy's `id` (phase 2: fetch, back up, patch); in **Rebuild** mode
+(below) the reference's style replaces the copy's theme. The copy is named "<source name>_copy";
+the user renames it in the builder (`flows update --name` is refused in production).
+
+**New flow with no source** — `flows create`, then author `draft.json` from scratch. Its first
+`config update` is `--config-file draft.json --remote-configs '[]'`, with no
+`--expected-updated-at`.
+
+**A new flow is the safe default for anything the user calls new**, because `config update`
+replaces everything and generating over a flow with content discards that content. **Run
+`flows duplicate` or `flows create` once per new flow**, as one explicit command with its `--app`,
+never in a loop: neither deduplicates and there is no delete, so a second call leaves a second flow
+in the user's account for good. Then `flows get` the id to confirm it landed in that app. Keep the
+id it prints, and on any retry (a failed save, a read-back that looks wrong, a later turn) write to
+that id. Coming back without it, look for the name in `flows list` before making another.
 
 ## Were you given a design, and whose is it?
 
@@ -202,7 +216,7 @@ a path that ends in a refusal:
 >
 > `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
 > using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
-> https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, set the iOS and
-> Android font name on every face (the flow will not publish without the iOS one), save the flow in
+> https://adapty.io/docs/using-custom-fonts-in-flow-builder — upload it, set the iOS and
+> Android font name on every face (the flow will not publish while a face it uses lacks the iOS one), save the flow in
 > the builder, then tell me the family name and I'll point the theme at it. The uploaded file is for
 > the editor preview only: **your app must bundle the font file too**, as that page shows.

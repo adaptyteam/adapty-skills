@@ -741,7 +741,7 @@ def fetch_flows(adapty, app_id, page_size=MAX_PAGE_SIZE):
 
 
 def fetch_paywalls(adapty, app_id, page_size=MAX_PAGE_SIZE):
-    """Every paywall row, all pages: `{id, title, product_ids}`.
+    """Every paywall row, all pages.
 
     Read for the TITLES. A placement audience carries `paywall_id` and no
     name, so without this there is nothing to match a flow's name against,

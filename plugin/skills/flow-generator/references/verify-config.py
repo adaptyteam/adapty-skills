@@ -24,7 +24,8 @@ declared in _meta.screens;
 price variables name a field in the closed product set and reference declared
 products, across all three families (prod_/offer_/is_); selectableGroups and groupId agree
 both ways; font.preset and colorId resolve in the file's own theme;
-font.family resolves in _meta.fonts; every icon used appears in _meta.icons;
+font.family not in _meta.fonts (a warning: publishing resolves it against the app's own
+fonts, which only `flows config validate` sees); every icon used appears in _meta.icons;
 image elements carry a bound asset with a string id, since neither publish-time
 gate looks at an image at all; no id is declared twice in any id-keyed
 collection, and theme colour and typography ids do not collide; element types the transform
@@ -183,6 +184,11 @@ _ID_RE = re.compile(r'[A-Za-z0-9_]+')
 LOCALE_CODE = re.compile(r'(?i)[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?\Z')
 _BINARY = {'==', '!=', '>', '<', 'has', 'notHas', 'in', 'notIn'}
 _UNARY = {'empty', 'notEmpty', 'size'}
+
+
+def _strip_monthly(segment):
+    """A product segment without its `@monthly` plan suffix (str.removesuffix needs Python 3.9)."""
+    return segment[:-len('@monthly')] if segment.endswith('@monthly') else segment
 
 
 def bad_expr_path(v, path):
@@ -1599,14 +1605,23 @@ def check(path, baseline_text=None, baseline_images=None):
     # rail and both read as "the line is too short", which is why they are mechanical: `fill`
     # with the anchors stops 2px before the next chip, and `auto` with no bottom anchor
     # collapses the rail and leaves 108px of white. Nothing else sees either one — the schema types
-    # both heights as legal and `validate` has no opinion on layout.
+    # both heights as legal and `validate` has no opinion on layout. A `fixed` element anchored top
+    # and bottom is the other way round: the transformer stretches only its wrapper and gives the
+    # element no height for `auto`, so the element hugs its content.
     for s, e in els():
         p = (e.get('props') or {})
         pos, h = p.get('position'), p.get('height')
         if not isinstance(pos, dict) or not isinstance(h, dict):
             continue
-        anchored = (pos.get('type') == 'absolute'
-                    and pos.get('top') is not None and pos.get('bottom') is not None)
+        pinned = pos.get('top') is not None and pos.get('bottom') is not None
+        anchored = pos.get('type') == 'absolute' and pinned
+        if pos.get('type') == 'fixed' and pinned and h.get('type') == 'auto':
+            warn.append(f"{s['id']}/{e['id']}: fixed and anchored top+bottom with height `auto` — "
+                        f"a fixed element stretches only the box around it between the anchors, "
+                        f"so `auto` keeps the element at its content's height at the top; "
+                        f"a `fill` height fills that box, a shape no export shows yet, so check "
+                        f"it on a device")
+            continue
         if anchored and h.get('type') != 'auto':
             warn.append(f"{s['id']}/{e['id']}: absolute and anchored top+bottom, but height is "
                         f"{h.get('type')!r} — only `auto` stretches between the anchors; a fill "
@@ -1848,7 +1863,7 @@ def check(path, baseline_text=None, baseline_images=None):
                        f'{", ".join(sorted(PRODUCT_FIELDS))}')
             continue
         # A monthly binding's product segment is `<id>@monthly`; the declaration names the id.
-        head = v.split('.')[0].removesuffix('@monthly')
+        head = _strip_monthly(v.split('.')[0])
         if '.selectedProduct.' in v:
             if head not in product_groups:
                 bad.append(f'group-relative price variable on unknown product group: {v}')
@@ -2096,8 +2111,15 @@ def check(path, baseline_text=None, baseline_images=None):
     uf = set()
     walk(d, lambda o: uf.add(o['family']['id'])
          if isinstance(o.get('family'), dict) and o['family'].get('id') else None)
+    # Publishing replaces `_meta.fonts` with the app's own fonts and resolves each reference
+    # there, by id or by a family name one font has (trimmed, any case). So a reference the copy
+    # lacks may publish, and one it holds may not (a font from another app); only
+    # `flows config validate` sees the app's fonts. A warning, then, never an error.
     if uf - fonts:
-        bad.append(f'font.family.id not in _meta.fonts: {sorted(uf - fonts)}')
+        warn.append(f'font.family.id not in _meta.fonts: {sorted(uf - fonts)}. Publishing looks '
+                    f'each one up in the app\'s own fonts, by id or by family name, so run '
+                    f'`flows config validate`: a font the app lacks fails with '
+                    f'missing_flow_font_meta')
 
     # Both halves read `name`+`weight` off dicts an author wrote, so both must survive one being
     # absent. A direct subscript on a `_meta.icons` entry with no `weight` kills the script with
@@ -3229,7 +3251,7 @@ def check(path, baseline_text=None, baseline_images=None):
                     groups = sorted(f[2:] for f in found if f.startswith('G:'))
                     swaps = []
                     for vid in fixed:
-                        pid = vid.split('.')[0].removesuffix('@monthly')
+                        pid = _strip_monthly(vid.split('.')[0])
                         grp = (groups[0] if len(groups) == 1
                                else group_of.get(pid) or '<groupId>')
                         swaps.append(f'`{vid}` with `{grp}.selectedProduct.{vid.rsplit(".", 1)[-1]}`')

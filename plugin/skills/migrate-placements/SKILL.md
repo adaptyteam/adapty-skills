@@ -21,7 +21,7 @@ Every line the user reads, the fixed blocks included:
 - **Ask only what changes the plan.** If every answer to a question gives the same result, say so
   in one line instead of asking it.
 - **Say each thing once.** What the approval gate said, the final report does not repeat.
-- **Full, clickable links.** Reply in the user's language, the fixed blocks too.
+- **Full, clickable links.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`. Reply in the user's language, the fixed blocks too.
 
 ## What this does, and what it cannot do
 
@@ -103,7 +103,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -396,8 +396,9 @@ some do not. Four routes, in the order to offer them:
   is served from.
 
 **Whether Convert is even available is not readable from the CLI.** `paywalls list`/`get` return
-`{id, title, product_ids}` and nothing about which builder made the paywall, and **Move to new
-builder** appears only on legacy Paywall Builder paywalls. So do not tell a user the button is
+`{id, title, products}` and
+nothing about whether a paywall is a legacy Paywall Builder paywall (`get` adds only
+`use_paywall_builder_v4`), and **Move to new builder** appears only on those. So do not tell a user the button is
 there — say what it does and where to look for it, and let them report back.
 
 Never pick for them. The four differ in what users will see, which is not the agent's call. **What
@@ -445,7 +446,7 @@ $ADAPTY flows create --app "$APP" --name "<paywall title> (flow)" --json      # 
 $ADAPTY flows config validate <FLOW> --app "$APP" \
   --config-file <skill>/references/stub-flow.json --json                      # expect valid: true
 $ADAPTY flows config update <FLOW> --app "$APP" \
-  --config-file <skill>/references/stub-flow.json --json                      # or flow-generator's config
+  --config-file <skill>/references/stub-flow.json --remote-configs '[]' --json  # or flow-generator's config
 $ADAPTY flows publish --app "$APP" <FLOW> --yes
 $ADAPTY flows get <FLOW> --app "$APP" --json                                  # poll until published
 ```

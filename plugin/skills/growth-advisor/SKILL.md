@@ -50,8 +50,10 @@ These are the only two words for what you suggest, and the user sees them exactl
 - **Ask what they want to start with, never for a verdict on each.** "Which one do you want to
   start with?" is the question; "accept or decline these" is not. When they are unsure, say which
   one you would start with and why in one sentence, and offer to walk them through it.
-- **One they turn down leaves the list.** It is not a lost test and rules nothing out; do not
-  suggest it again in this conversation unless the user asks or their numbers change.
+- **One they turn down leaves the list,** unless they give a reason ("we tried it"): then its
+  next rung takes its place (`references/levers.md`, "Next rung"). It is not a lost test and rules
+  nothing out; do not suggest it again in this conversation unless the user asks or their numbers
+  change.
 - **The reply is the record.** There is no backlog to save hypotheses to yet; never offer one.
 
 ## Questions about the numbers
@@ -158,7 +160,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -233,7 +235,7 @@ user. The one other call that sends anything is the [feedback note](#feedback-no
   placement's developer ID. Never chart ids, filter keys or tool names, and never this skill's
   own scripts, checks or feedback note: when a read could not run, name the data you lack
   ("refunds by country"), not what failed or why.
-- **Full links to the exact docs page.** Find pages through `adapty-docs` when one is not here.
+- **Full links to the exact docs page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`. Find pages through `adapty-docs` when one is not here.
 - **Honest about scope, in one line.** Say what you could not check only when it could change
   the decision, and where they can check it. What you checked and ruled out is not a section; at
   most one clause ("it's not the paywall: organic conversion held").
@@ -261,7 +263,8 @@ and the reason.
   ("the US market median").
 - **A table when the numbers run across months or groups.** An audit, or an answer to "why did
   X drop", may show up to two Markdown tables: the audit's scorecard, and one table that proves
-  the main finding (months across, the groups that carry it down the side). Keep each one to
+  the main finding (in an audit whose main finding is not a country, a third: the top countries,
+  at most five rows) (months across, the groups that carry it down the side). Keep each one to
   about six rows and seven columns, put the store that earns first, and bold the cell the
   sentence under it talks about. Each table is followed by one sentence saying what it shows. A
   table is never a list of what you checked, and a hypothesis block never holds one.
@@ -276,7 +279,9 @@ and the reason.
 - **End with Next steps:** a numbered list of at most three items, each starting with who acts,
   "You:" or "Me:". Questions to the user go there as "You:" items. After hypotheses, the first
   item asks which one they want to start with, and names the one you would pick. The last item
-  is what you can do now if they say yes. You will not remember this conversation, so a check
+  is what you can do now if they say yes. The one slot between goes to a breakage fix, else an
+  Adapty feature step (`references/levers.md`, "Adapty features"), else the one question; a
+  question that loses the slot joins the first item. You will not remember this conversation, so a check
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
   back and ask, never a "Me:" item.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
@@ -329,7 +334,8 @@ started, and it never shows up as a change.
 
 1. **Pick the app** (`apps list`, every page; ask when there are several) and read the catalog.
 2. **Read the numbers and the setup:** run `python3 <skill>/references/reads.py audit --app <APP_ID>
-   --adapty "$ADAPTY"` once. It runs every read in `references/diagnosis.md`, "The audit reads", side
+   --adapty "$ADAPTY"` once, with `--category "<category>"` when the user or the app's code names its
+   App Store category. It runs every read in `references/diagnosis.md`, "The audit reads", side
    by side within the CLI's rate limits, and prints month tables with every group; read further with
    single calls only for what it does not print. For the placements a hypothesis would run on, run
    `reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID>` once, with one
@@ -354,8 +360,9 @@ started, and it never shows up as a change.
    and a store with under about a fifth of revenue gets one line at most unless its dollars at
    stake rank first), its main market (a country with
    50% or more of revenue, or 40% or more and at least five times the next country's; when none
-   has it, say there is none, and correct a user who says there is; read each country against its own past, never ranked against the US or
-   another country), its main product by
+   has it, say there is none, and correct a user who says there is; a country's trend is read
+   against its own past, its level against its region's median, never against another country),
+   its main product by
    revenue (often weekly; never assume annual), offers that change the first payment (read new purchases by
    offer category: a paid first period means buyers pay less than the plan's price at first, so
    name it and judge the plan from what they actually pay), products split by market (compare a product only with others sold in the same
@@ -409,21 +416,28 @@ started, and it never shows up as a change.
    app's own six-month level otherwise. Judge each part on the store that earns, in the main
    market when there is one.
    - where the money comes from: store, main market, first payments against renewals
-   - the funnel: install → trial or paid, paywall view → paid, trial → paid
+   - the funnel: paywall reach (installs that saw a paywall), install → trial or paid, paywall view →
+     trial, paywall view → paid, trial → paid
    - the plan mix, and which length leads by LTV
    - renewals: the main plan's first renewal, and why subscribers leave
-   - refunds as a share of revenue
+   - refunds as a share of revenue, and the plan length they sit on
+   - the top countries: each one's view → paid, view → trial and trial → paid against its region's
+     median, and its plan mix and first renewal against the app's other countries, from the
+     top-countries block `reads.py audit` prints; one below its region's p25 is a weak part, sized by
+     the purchases the gap costs there, and can be the main finding
    - the setup: how many placements, what follows the onboarding paywall, offers that run all the
      time
 
    Call each part strong, typical or weak, and rank the weak ones by dollars a month at stake.
    A conversion (paywall view → paid, paywall view → trial, trial → paid) is graded by its row in
    `references/market-grid.csv` (`market.md`, "The full grid"): below p25 weak, above p75 strong.
-   An annual plan's first renewal is graded against its row in `market.md`, Renewals, and
+   Paywall reach has no market median: a store a third or more below the app's reach is weak, as is a fall of a quarter or more from the window's first half to its second. An annual plan's first renewal is graded
+   against its row in `market.md`, Renewals, and
    refunds as a share of revenue against theirs in `market.md`, Refunds.
    That ranking, not the newest change, decides the main finding and the first hypothesis.
-   Refunds stay out of it: no hypothesis acts on them, so a weak refund grade is never the main
-   finding and gets a Next step instead (`market.md`, Refunds). A
+   A weak refund grade is never the main finding. When most buyers start from a trial and the
+   screen seen does not explain it, the trial-explanation hypothesis is the one that acts on it: its
+   Why names the refund share, and refunds are its guardrail (`market.md`, Refunds). A
    recent change leads only when its dollars rank first. Every part is scored even when a
    recent change is large, because the user asked about the whole app.
 
@@ -453,10 +467,12 @@ started, and it never shows up as a change.
    - more than one product carries a trial
    - only one plan length on the paywall
    - a plan length with under 5% of purchases
-   - only one placement, or nothing after the onboarding paywall closes
+   - only one placement, or no follow-up offer for users who close the onboarding paywall
    - a main market
    - a main-market plan below the 25th percentile for its category (`references/pricing.md`)
    - a top country 15% or more off the market's price ratio to the main market
+   - a top country whose language the paywall or flow does not have
+   - a `FEATURE GATE` line, or a trigger in `references/levers.md`, "Adapty features"
    - fewer than about 200 purchases in two weeks
    - a discount or promo that runs all the time (an onboarding offer, a win-back paywall) with no
      group kept from it
@@ -492,7 +508,8 @@ started, and it never shows up as a change.
    group names each group's number, a cause found from timing has the Cause check behind it, and
    less money is split into first payments and renewals, each in dollars.
 7. **Offer to build** the hypothesis the user picked, when it is a flow. On a yes, invoke `flow-generator`
-   with the brief. Offer two ways to put the flow in front of users, the first as the default:
+   with the brief. For an A/B test the brief says "a copy of the live version, for an A/B
+   test". Offer two ways to put the flow in front of users, the first as the default:
    - **A/B test it** against what the placement shows now, through "From hypothesis to A/B
      test". This is the only way to know what the change did, and what picking a hypothesis
      means.
@@ -623,7 +640,7 @@ test needs with a read. Never assume a thing exists because the user said they w
 | The test needs | It exists when | Who makes it |
 |---|---|---|
 | The content the placement shows now (arm A) | `placements get` names a paywall or flow on the audience the test would run on | Nothing to make |
-| A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
+| A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` copies the live version (`flows duplicate --version` with the `flow_version_id` of the `live` row in `flows versions list`) and edits the copy, so arm B differs from arm A only by the change. The user publishes it, or says yes to `flow-generator` publishing it |
 | A new plan length | `products get` shows its store product in each store the app sells in, with `store_status` `approved`, and a flow that sells it exists | Me: the product and its push, on your yes to its store product IDs and USD price (`references/pricing.md`, "Adding a plan length"), and the flow that sells it |
 | A trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"); a second product it needs I make as a new plan length. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
 | A price test's copy of a product | `products get` shows the copy's store product with `store_status` `approved`, and a flow that sells it exists | Me: the copy, its push and its prices (`references/pricing.md`, "Setting up a price A/B test"), and the flow that sells it |

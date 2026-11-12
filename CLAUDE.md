@@ -112,7 +112,7 @@ a single copied skill cannot read this file. Change a rule here first, then in e
 4. **Bold marks the one thing not to miss,** at most once per block.
 5. **Raw values only when the user will type or see them elsewhere.** No element ids, internal
    status codes, tool or variable names.
-6. **Links are full, clickable, and point at the exact page.**
+6. **Links are full, clickable, and point at the exact page.** Agents read a docs page as its `.md` URL; the user gets the same URL without `.md`.
 7. **Honest about scope, then close the gap:** say what was not checked and how the user can check it.
 8. **Fixed blocks where a decision is made, one line otherwise, each thing said once.** Each fixed
    block carries a short example of its shape, marked as not words to copy.
@@ -247,7 +247,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 ### `growth-advisor`
 
-- **`references/evidence.md` is vendored byte-for-byte from the growth team.** Repo-specific facts go elsewhere; never quote the raw test library, which names customers.
+- **`references/evidence.md` came from the growth team's A/B test library and is edited here like any reference;** never quote the raw test library, which names customers.
 - **One owner per number:** uplift ranges from `evidence.md`, market medians and win rates from `market.md`, onboarding and flow figures that `evidence.md` lacks from `references/onboarding-evidence.md` (each with its label and public link, linking to `market.md` for a number it owns). No Autopilot impact numbers.
 - **Prices come from the price CSV and the vendored index, never from competitors;** a price is tested on a copy and goes live only through "Changing a live price". Don't restore the deleted competitor-price reads.
 - **Two words for users: a hypothesis, and once picked, an A/B test.** Ask which one to start with, never for a verdict on each.
@@ -267,7 +267,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 ### `onboarding-teardown` and `paywall-teardown`
 
-- **Their `references/patterns.md` files are vendored from the growth team** (onboarding byte-for-byte). Repo-specific facts go in `SKILL.md`, `categories.md` or `look.md`; impact ranges change upstream first. Never name a company.
+- **Their `references/patterns.md` files came from the growth team and are edited here like any reference.** Never name a company.
 - **Onboarding owns the sequence and the seam; paywall owns the screen.** Don't duplicate rows.
 - **No interview inside a build:** called from `flow-generator`, answer from the brief, config and catalog, and batch the rest.
 - **Choose skeletons and archetypes by observable prerequisites,** disclose the choice, and never fake a missing prerequisite (an offer, an asset, a personalized result). A flow cannot request a permission.

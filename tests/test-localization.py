@@ -282,7 +282,7 @@ d['localization']['content'][url_entries(d)[0]['_lid']]['values'] = {
     'en': [{'type': 'text', 'text': 'https://x/'}, {'type': 'text', 'text': 'terms'}]}
 check('text nodes are an address', 'openUrl' not in verify(d) and 'address' not in verify(d))
 
-print('\nrename_locale(): the repair for a code the SDK cannot match')
+print('\nrename_locale(): rename a locale everywhere it is keyed')
 # A real multi-locale export with a lowercase-region locale added the way a dashboard language
 # list has served it: declared, translated in a few entries, and the default of nothing.
 pt = copy.deepcopy(multi)
