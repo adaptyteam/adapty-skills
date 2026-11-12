@@ -19110,7 +19110,7 @@
       "keywords": [
         "button",
         "animated",
-        "glow"
+        "pulse"
       ],
       "agent_allowed": true,
       "slots": {
@@ -19168,12 +19168,7 @@
             "duration": 1500,
             "delayBetweenLoops": 300,
             "showAfterDelay": 0,
-            "easing": "cubic-bezier(.75, 0, 0, 1)",
-            "shadowColor": {
-              "type": "color-style",
-              "colorId": "gray-700"
-            },
-            "shadowSize": 8
+            "easing": "cubic-bezier(.75, 0, 0, 1)"
           }
         },
         "children": [
