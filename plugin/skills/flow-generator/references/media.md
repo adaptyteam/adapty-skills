@@ -1,11 +1,14 @@
-# Media assets: uploading an image and binding it into a config
+# Media assets: uploading an image or a video and binding it into a config
 
 `flows media upload` puts a local image file on Adapty's CDN and prints the URL to reference from
-a flow config. It is the only asset path an agent has: given a file, an image in an authored flow
+a flow config; `flows media upload-video` does the same for a clip
+([Uploading a video](#uploading-a-video)). Given a file, an image or a video in an authored flow
 is yours to place rather than a user ask.
 
-Everything below holds against **production** with `adapty` 0.8.0.
-Where a claim rests on a render rather than on the endpoint, it says so.
+The image claims below hold against **production** with `adapty` 0.8.0, except the refusal texts
+in the tables: those are the texts of the current CLI, and an older CLI refuses the same files
+with a `validation_error`. The video limits are the command's own refusals. Where a claim rests
+on a render rather than on the endpoint, it says so.
 
 ## The call
 
@@ -92,10 +95,12 @@ used.
 | Input | Result |
 |---|---|
 | PNG, JPEG, WEBP | uploads |
-| GIF | `validation_error` with the permitted list below: no GIF |
-| animated WEBP | uploads, and is served as one still frame: motion is a [`video`](#the-video-placeholder) |
+| GIF | refused: `GIF is not supported.` |
+| HEIC | refused: not an image type here; ask for a PNG or JPEG export |
+| a video file (`.mp4`, `.webm`, `.mov`) | refused: `This is a video file. Use flows media upload-video.` ([Uploading a video](#uploading-a-video)) |
+| animated WEBP | uploads, and is served as one still frame: motion is a [`video`](#uploading-a-video) |
 | **SVG** | **`ApiError: http_500`, reproducible**; through the MCP server it has come back as `INVALID_ARGUMENT` — see below |
-| Anything not an image | `validation_error`: `target_format: value is not a valid enumeration member; permitted: 'JPEG', 'JPEG2000', 'WEBP', 'PNG', 'SVG'` |
+| Anything else that is not an image | refused with the list of the image types |
 | ~2.6 MB file | uploads |
 | ~2.95 MB file | bare `http_400`, no message, no `fieldErrors` |
 
@@ -467,26 +472,73 @@ spacing bug rather than as an image, so prefer `cover` unless the whole asset mu
 ## Still out of reach
 
 - **SVG upload** — `http_500`, or `INVALID_ARGUMENT` over MCP (above). Icons stay authored inline in `_meta.icons`.
-- **Video.** No CLI path for the *source* — but the element is not out of reach. Place a real
-  `video` element with `customMediaID`/`video` unset: it renders a styled **"Upload Video"**
-  placeholder (like an empty `image`), publishes clean (`validate` → `valid: true`),
-  and the user binds the clip in the builder. Style it (`loop`, `objectFit`,
-  `borderRadius`, fixed height) and report it as an upload ask. **Never** substitute a `stack` with
+- **A clip nobody has a file for, or a CLI with no `upload-video`.** The element is not out of
+  reach: place a real `video` element with `customMediaID`/`video` unset. It renders a styled
+  **"Upload Video"** placeholder (like an empty `image`), publishes clean (`validate` →
+  `valid: true`), and the user binds the clip in the builder. **Never** substitute a `stack` with
   a Play icon — that ships a lookalike of a different element type (flow-schema.md trap 5).
-  Use [`flowkit.video()`](flowkit.py) or the catalog's `video-hero` / `video-card`; both emit the
-  element with no source and refuse to be handed one. See **The video placeholder** below for the
-  three facts that shape it.
+  See [The video placeholder](#the-video-placeholder).
 - **Fonts.** Still a manual Flow Builder upload; a typeface the account lacks is a named ask, not a
   silent substitution. No CLI command lists an app's fonts: a font uploaded in the builder reaches
   the config only once the user saves the flow there, so `config get` again before you reference it.
-- **Deleting or listing uploaded media.** `flows media` has only `upload`, so an upload cannot be
+- **Deleting or listing uploaded media.** `flows media` only uploads, so an upload cannot be
   undone from the CLI — one more reason not to re-upload per iteration.
+
+## Uploading a video
+
+Given a clip file (a path, as for an image: [Getting the file](#getting-the-file-the-upload-needs-a-path-not-a-picture)),
+upload it once and keep the `--json` record, exactly as for an image:
+
+```bash
+mkdir -p media
+$ADAPTY flows media upload-video ./intro.mp4 --app "$APP" --json > media/intro.json
+```
+
+Over MCP there is no video upload tool yet: use the CLI, else [the placeholder](#the-video-placeholder).
+
+**The command is newer than `flows media upload`.** When `$ADAPTY flows media upload-video --help`
+says there is no such command, try `npx --yes adapty@latest flows media upload-video --help` once
+(and the beta, as `SKILL.md` says for any missing command). Still missing, or the upload fails
+with HTTP 404 (`http_404`, exit 4): say that video upload is not available yet, and use [the placeholder](#the-video-placeholder) — the user uploads the clip in the builder.
+
+| Input | Result |
+|---|---|
+| `.mp4` or `.webm`, at most 30 s, width and height each at least 640 px, at most 50 MiB | uploads |
+| another extension (`.mov`, an animated `.webp`) | `Only mp4 and webm videos are allowed.` |
+| GIF, under any extension | `GIF is not supported.` |
+| longer than 30 s | `Video duration should not exceed 30 seconds` |
+| width or height under 640 | `Video resolution should be at least 640x640` |
+| over 50 MiB | `File size must not exceed 50 MiB.` |
+
+Each refusal stores nothing. Ask for a clip that fits, in the user's words: an mp4 or webm, 30
+seconds or less, at least 640 px on its shorter side. The call returns after the server has
+transcoded the clip, so a long clip takes a while: wait for it, and never run it twice for one
+file — the upload does not deduplicate.
+
+**The record holds five values, and the config binds four.** `{video_url, preview_url,
+preview_base64, width, height}`: `video_url` is an HLS playlist (it ends in `master.m3u8`),
+`preview_url` a still frame the renderer shows until the clip plays, `width` and `height` the
+pixel size of the largest rendition, with the clip's aspect ratio. `preview_base64` is not part of
+a video value; leave it in the file. The video value is:
+
+```json
+"video": {"_localizable": true, "values": {"<defaultLocaleId>": {
+  "videoUrl": "<video_url>", "previewUrl": "<preview_url>", "width": 1080, "height": 1920}}}
+```
+
+`flowkit.video(fixed_h=220, source='media/intro.json')` reads the record and emits it, and
+`dark_source=` the dark file's record (`videoDark`). Bind the default locale only, as for an
+image ([flow-schema.md](flow-schema.md) trap 1), then run `localization.py catalog` over the
+document. Give the element a fixed height from the design all the same: the clip absorbs the
+mismatch (`cover` crops it, `fit` leaves bands). Render the screen after the bind to check the
+layout; that the clip plays is a device check, so say it was not checked on a device.
 
 ## The video placeholder
 
-Everything here holds against the real transform service and the render. A video is the one asset whose upload is **never** the
-agent's, so the placeholder is not a provisional state to be cleared later in the same run, it
-is what gets handed over.
+Everything here holds against the real transform service and the render. The placeholder is
+for a clip nobody has a file for, and for a CLI with no `upload-video`
+([Uploading a video](#uploading-a-video)): then the upload is the user's, in the builder, so the
+placeholder is what gets handed over.
 
 **It is publishable, and it reaches a device.** An unset `video` returns `valid: true, issues:
 []` in three forms — fully styled, with an empty entry, and bare with nothing but a
@@ -521,7 +573,7 @@ read off builder output. Treat the device check as load-bearing rather than cere
 **Once the user has uploaded the clip, read the config back and check every locale.** `video` is a
 catalog ref like an image's, and its value — `{previewUrl, videoUrl, width?, height?}` — is kept
 per locale. A builder upload can land only under a non-default locale; every other
-language then falls back to the empty default and shows no clip. So after the upload,
+language then falls back to the empty default and shows no clip. So after their upload,
 `flows config get`, follow the element's `video` (and `videoDark`) ref into
 `localization.content`, and confirm the default locale holds a `videoUrl`. If only another locale
 does, ask the user to switch the builder to the default language and upload it there.
@@ -541,8 +593,9 @@ ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,bit_rat
 A stock Mac has no `ffprobe`, and neither `mdls` nor `afinfo` reads a clip's
 streams, so without it report the bytes and say the rest was not checked. `avconvert`, which a
 Mac does have, is not a way to shrink one: its presets set the resolution, and a 720p preset makes a
-4.3 MB clip 11 MB. What to ask for: H.264, about 720 px wide, under 5 MB, and no audio
-track on a silent loop — the element has no mute setting, so a track is weight at best.
+4.3 MB clip 11 MB. What to ask for: H.264, at least 640 px and about 720 px on the shorter side
+(the upload refuses less than 640), under 5 MB, and no audio track on a silent loop — the
+element has no mute setting, so a track is weight at best.
 
 ## Weighing a config before a write or a publish
 
@@ -558,7 +611,7 @@ to the draft, run phase 3's gates and the weigh again, and re-render a screen wh
 - **A copy of the default's image in another locale:** delete it. Nothing on screen changes
   ([flow-schema.md](flow-schema.md) trap 1).
 - **A heavy PNG or JPEG** (a heavy GIF is the builder's: its WebP would play one frame, so offer
-  a `video` instead): download it, convert it, upload the WebP and rebind every place
+  a `video` from an mp4 of it instead): download it, convert it, upload the WebP and rebind every place
   that uses it. `--max-width` is 3× the widest box it fills, in points; the default, 1290, fits a
   full-width image. The old file stays in their media library: the upload cannot delete.
   ```bash
@@ -571,5 +624,5 @@ to the draft, run phase 3's gates and the weigh again, and re-render a screen wh
   choice between two routes. On "one image": move the words into a text element and show that
   screen like any other change. On "split": build one flow per language group here and hand the
   audiences to the `audiences` skill.
-- **A heavy video:** theirs to re-encode and upload again in the builder; say the size it should
-  get under.
+- **A heavy video:** theirs to re-encode; say the size it should get under, and on the new file
+  upload it again ([Uploading a video](#uploading-a-video)) and rebind the element.

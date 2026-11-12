@@ -145,8 +145,8 @@ For every asset the screen needs, one of three states, decided before you write 
 1. **You have a path that reads** — one they gave you, or a project file you found and *named*.
    A PNG or JPEG over 500 KB is converted first, and you upload the WebP and say so:
    `python3 references/weigh-config.py webp <file> media/<name>.webp`. A GIF does not upload and an
-   animated WebP plays one frame, so motion is a `video` element
-   ([media.md → The video placeholder](media.md#the-video-placeholder)).
+   animated WebP plays one frame, so motion is a `video` element from an mp4 or webm
+   ([media.md → Uploading a video](media.md#uploading-a-video)).
    Upload it now as [media.md → The call](media.md#the-call) says — `--json` into a record file,
    **three** values off it, `previewValue` included — and bind them in one of
    [the two shapes](media.md#binding-the-url-two-different-shapes). **An asset you uploaded
@@ -166,9 +166,11 @@ For every asset the screen needs, one of three states, decided before you write 
    cut it out instead — [`references/crop.py`](crop.py), which refuses rather than
    guessing when the backdrop is textured or the box is wrong.
 
-**A clip is in none of those three states**: the upload refuses a video, so emit a sourceless
-`video` element — `flowkit.video(fixed_h=…)` or the catalog's `video-hero` / `video-card` — and
-say in words that they upload it in the builder
+**A clip takes the same three states, with its own command.** A path that reads: upload it with
+`flows media upload-video` and bind it, `flowkit.video(fixed_h=…, source=<record>)`
+([media.md → Uploading a video](media.md#uploading-a-video)). No path, or a CLI with no
+`upload-video`: a sourceless `video` element — `flowkit.video(fixed_h=…)` or the catalog's
+`video-hero` / `video-card` — and say in words that they upload it in the builder
 ([media.md](media.md#the-video-placeholder)).
 
 **Upload before the preview loop, not after it, and upload each asset once.** A placeholder does
@@ -193,7 +195,7 @@ a path that ends in a refusal:
 > | 1 | `<what it is, in their words>` | `<where on the screen>` | `<w>`×`<h>` |
 >
 > Tell me which, per asset or for all of them:
-> - Send me a path — I'll upload and bind it. Images only.
+> - Send me a path — I'll upload and bind it. Images and videos (mp4 or webm, up to 30 seconds).
 > - Upload it yourself at https://app.adapty.io/flows/`<FLOW_ID>`/builder — the placeholder is
 >   already styled, so it lands finished.
 > - Design around it — I'll replace that region with something the format can build, and say
@@ -206,9 +208,9 @@ a path that ends in a refusal:
 > look finished — `<which>`. They are stand-ins, not your art: replace each one the same way, by
 > path or in the builder.
 >
-> `<only if a clip is missing:>` `<what>` is a **video**, and there is no upload path for a clip —
-> not one I can take either, so this one is yours whichever route you pick. The element is on the
-> screen already, sized `<w>`×`<h>` to match the design: open
+> `<only if a clip is missing and this CLI has no video upload:>` `<what>` is a **video**, and
+> this CLI cannot upload one yet, so this one is yours whichever route you pick. The element is on
+> the screen already, sized `<w>`×`<h>` to match the design: open
 > https://app.adapty.io/flows/`<FLOW_ID>`/builder, click it and upload the file. Nothing else
 > about the screen changes.
 >

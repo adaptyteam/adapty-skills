@@ -461,8 +461,10 @@ the file, never from a docs table.
 **If you were given a file, upload it** — `flows media upload` returns a live CDN URL to bind, and
 the shapes it binds into (a catalog entry for an element, flat inside a `fill`), the
 `id`-is-a-string rule and the third field to carry across, `previewValue`, all live in
-[media.md](media.md). This trap governs what is left after that: an
-image nobody has a file for, an SVG (upload returns `http_500`), or a video (no path at all).
+[media.md](media.md); a clip goes up with `flows media upload-video`
+([media.md → Uploading a video](media.md#uploading-a-video)). This trap governs what is left
+after that: an image or a clip nobody has a file for, an SVG (upload returns `http_500`), or a
+clip on a CLI with no `upload-video`.
 
 You still cannot *create* media. An `image` whose asset does not exist keeps its ref, and its
 entry holds **nothing**:
@@ -486,22 +488,21 @@ The same holds for the asset `id` — omit the whole entry rather than inventing
 Report every element whose entry has empty `values` in your handover, so the user knows
 exactly what to upload.
 
-**A video is the same story one element type over — a real `video` element with its source unset,
-NEVER a stack that looks like one.** `flows media upload` has no video path
-([media.md](media.md)), so you cannot bind a source — but the element itself is yours to place. A
-`video` with no `customMediaID`/`video` renders a styled **"Upload Video"** placeholder in the
+**A video with no clip is the same story one element type over — a real `video` element with its
+source unset, NEVER a stack that looks like one.** With no file, or no `upload-video` in the CLI
+([media.md](media.md#uploading-a-video)), you cannot bind a source — but the element itself is
+yours to place. A `video` with no `customMediaID`/`video` renders a styled **"Upload Video"** placeholder in the
 builder and in `config preview`, and it **publishes clean** (`validate` →
 `valid: true`) — exactly the empty-`image` case, one type over. Author it fully styled — `loop:
 true`, `objectFit`, `borderRadius`, a fixed height — so the box the user drops a clip into is
 already the right shape, and report it as an upload ask like any empty image. Reach for
 [`flowkit.video()`](flowkit.py) or the catalog's `video-hero` / `video-card` rather than
-assembling one: all three refuse a source by name, since a URL here could only be invented.
+assembling one: none takes a URL by hand, since a URL that no upload returned could only be
+invented (`flowkit.video(source=...)` takes the upload's record).
 
-Two differences from the empty-`image` case are worth holding on to
-([media.md → The video placeholder](media.md#the-video-placeholder)). The upload is **never**
-yours — `flows media upload` refuses a clip outright — so the placeholder is what gets handed
-over rather than a provisional state you clear later in the run, and the handoff has to be
-*spoken*: open the flow in the builder and upload it there. And a **fixed height is required**,
+Two things to hold on to ([media.md → The video placeholder](media.md#the-video-placeholder)).
+The handoff of a placeholder has to be *spoken*: open the flow in the builder and upload the clip
+there. And a **fixed height is required**,
 because an unset clip at `height: hug` draws an arbitrary 256pt box (the renderer's default, no
 function of the eventual file), so the previewed layout is not the shipped one and everything
 below the video moves when the clip lands. Do **not** stand a
@@ -1105,8 +1106,8 @@ depending on the service build, and an unreadable stop vanishes from the gradien
 layer wants its `previewValue` exactly as an image fill does ([media.md](media.md)); the Flow
 Builder rewrites it into a catalog ref when the flow is opened.
 
-**Video layers** are the user's to add in the Flow Builder: there is no CLI upload for a clip, so
-this skill never writes one. On a fetched config, keep the ones it carries and their two rules:
+**Video layers** are the user's to add in the Flow Builder: a clip this skill uploads goes into a
+`video` element, never into a style. On a fetched config, keep the ones it carries and their two rules:
 if one side has a video the other must have the same number of videos, and every video in the
 style shares one `loop`. Breaking either is refused (`unsupported_appearance_fill_topology`).
 
@@ -2052,7 +2053,7 @@ style error: you will search for an element type that does not exist, or invent 
 | an image, a background | An `image` element for content; `props.fill` with `{"type": "image"}` for a screen or element background. **Different shapes** — see trap 1. |
 | a background or card that changes with dark mode — a gradient in one, an image or a scrimmed photo in the other | A **layered color style** (trap 26): the layers go in `theme.colors[].light` / `.dark`, and the fill holds one `color-style` reference to it. `flowkit.config(colors=...)` takes the stack. Keep the text on it bound to a single-colour style — text on a style with no solid layer draws transparent. |
 | an image or a video that changes with dark mode — a logo, an illustration, a hero | The element's own dark file: `imageDark` beside `image`, `videoDark` beside `video`, both catalog refs keyed by locale. `flowkit.image(url, dark=...)` emits it; upload both files. See [`media.md`](media.md). |
-| a video, a looping banner | A `video` element (`loop`, `objectFit`). No CLI upload for the source — the command refuses a clip — so leave `customMediaID`/`video` unset: it renders a styled **"Upload Video"** placeholder and publishes clean. Give it a **fixed** height (a `hug` one draws an arbitrary 256pt) plus the radius and margins of the design around it, then tell the user in words to upload it in the builder. `flowkit.video()`, or the catalog's `video-hero` / `video-card`. **Never** fake it with a `stack` + Play icon — trap 5. |
+| a video, a looping banner | A `video` element (`loop`, `objectFit`). Given a clip file, upload it with `flows media upload-video` and bind it: `flowkit.video(fixed_h=…, source=<record>)` ([`media.md`](media.md#uploading-a-video)). With no file, or a CLI with no `upload-video`, leave `customMediaID`/`video` unset: it renders a styled **"Upload Video"** placeholder and publishes clean; tell the user in words to upload it in the builder. Either way give it a **fixed** height (a `hug` one draws an arbitrary 256pt unset) plus the radius and margins of the design around it. `flowkit.video()`, or the catalog's `video-hero` / `video-card`. **Never** fake it with a `stack` + Play icon — trap 5. |
 | a carousel, reviews/testimonials, a slider, swipeable cards, cards with dots | A `carousel` element, one child `stack` per slide. It is swipeable and **renders its own indicator dots** from `props.dots` (`{size, color, activeColor}`) — you never build the dots by hand. Fixed geometry only (`slideWidth`/`slideHeight`/`height`; `hug` is dropped on device). **Never** fake it with a static card plus decorative dot `stack`s — that ships one frozen slide and dots that do nothing, the same lookalike mistake as the fake footer/spinner/video (trap 5). If the seed flow has one, copy it; otherwise take `component-catalog.json`'s filled **`reviews-carousel`** template, never the single-card `ue-review` — [`patterns.md`](patterns.md). |
 
 Two rules that follow from the whole table: **the user's noun is rarely the element `type`**,

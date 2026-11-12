@@ -1393,25 +1393,71 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width=None
     return _node('image', props, **kw)
 
 
-#: `video` takes no source argument ON PURPOSE, so these names raise instead of being accepted.
-#: `flows media upload` refuses a clip outright -- `validation_error: target_format: value is not
-#: a valid enumeration member; permitted: 'JPEG', 'JPEG2000', 'WEBP', 'PNG', 'SVG'` -- so any URL
-#: reaching this helper could only have been invented, which is worse than an empty box three
-#: ways (flow-schema.md trap 5): it looks resolved so nobody uploads anything, it fails at
-#: runtime instead of showing as unset in the builder, and it collides with the real asset
-#: namespace.
-_VIDEO_SOURCE_ARGS = ('url', 'video', 'src', 'source', 'media_id', 'customMediaID',
+#: `video` takes its clip ONLY through `source=` -- the record `flows media upload-video --json`
+#: wrote -- so these names raise instead of being accepted. A bare URL argument is the shape of
+#: an invented source, which is worse than an empty box three ways (flow-schema.md trap 5): it
+#: looks resolved so nobody uploads anything, it fails at runtime instead of showing as unset in
+#: the builder, and it collides with the real asset namespace.
+_VIDEO_SOURCE_ARGS = ('url', 'video', 'src', 'media_id', 'customMediaID',
                       'custom_media_id', 'video_url', 'videoUrl', 'preview_url', 'previewUrl')
 
 
-def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=None,
-          margin=None, opacity=None, position=None, visibility=None, **kw):
-    """A `video` element with NO source, styled to the box the user's clip will land in.
+def _video_value(source, what='source'):
+    """`{videoUrl, previewUrl, width?, height?}` -- the flow config video value -- from the
+    record of one `flows media upload-video --json` call: its path, its parsed dict (snake
+    case), or a video value read out of a config (camel case).
 
-    There is no CLI upload path for a clip, so this helper cannot bind one and deliberately
-    refuses to be handed one. What it emits is the whole correct answer: a real `video` element
-    the user opens in the Flow Builder and drops a file into. Say that to them in words --
-    the element alone is not the handoff.
+    The camel-case form is there to pass back a value read from a fetched config, unchanged.
+    Nothing here can tell it from a hand-written one, so never type a `{videoUrl, previewUrl}`
+    yourself: a URL no upload returned is an invented one."""
+    rec = source
+    if isinstance(source, str):
+        try:
+            with open(source) as fh:
+                rec = json.load(fh)
+        except (OSError, ValueError) as e:
+            raise TypeError(f'video({what}={source!r}) wants the file that '
+                            f'`flows media upload-video --json` wrote; it does not read: {e}')
+    if not isinstance(rec, dict):
+        raise TypeError(f'video({what}=...) wants the record of a `flows media upload-video '
+                        f'--json` call (its path or its dict), not {rec!r}')
+    url = rec.get('videoUrl', rec.get('video_url'))
+    prev = rec.get('previewUrl', rec.get('preview_url'))
+    for name, val in (('video_url', url), ('preview_url', prev)):
+        if not (isinstance(val, str) and val.startswith('https://')):
+            raise TypeError(
+                f'video({what}=...) has no {name}: pass the record that '
+                '`flows media upload-video --json` wrote, unchanged. Both URLs are required: a '
+                'video value with no preview is refused by the builder. With no record, emit '
+                'the element with no source and tell the user to upload the clip in the builder')
+    out = {'videoUrl': url, 'previewUrl': prev}
+    w, h = rec.get('width'), rec.get('height')
+    if (w is None) != (h is None):
+        raise ValueError(f'video({what}=...) has only one of width and height: they give the '
+                         'aspect ratio and come together, so pass both or neither')
+    if w is not None:
+        for name, val in (('width', w), ('height', h)):
+            if isinstance(val, bool) or not isinstance(val, int) or val <= 0:
+                raise TypeError(f'video({what}=...) {name} wants pixels as a positive int, '
+                                f'not {val!r}')
+        out['width'], out['height'] = w, h
+    return out
+
+
+def video(*, fixed_h, source=None, dark_source=None, locale='en', width=None, fit='cover',
+          loop=True, corner=None, border=None, margin=None, opacity=None, position=None,
+          visibility=None, **kw):
+    """A `video` element, styled to the box the clip plays in.
+
+    `source` is the clip: the record that `flows media upload-video --json` wrote -- its path
+    or its parsed dict -- and `dark_source` the dark file's record (`props.videoDark`). The
+    element then carries `{videoUrl, previewUrl, width, height}` for `locale`, the default
+    locale, as an inline localizable (run `localization.py catalog` over the document). The
+    upload's `preview_base64` is not part of a video value and stays in the file.
+
+    With no `source` the element has NO clip: a styled "Upload Video" placeholder for a clip
+    nobody has a file for, or a CLI with no `upload-video`. Say to the user in words that they
+    upload it in the builder -- the element alone is not the handoff.
 
     NEVER stand a `stack` with a Play icon in for this. That is a lookalike of a different
     element type (the same mistake as the fake footer and the fake spinner), it forces the user
@@ -1442,18 +1488,21 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
     hit = [k for k in kw if k in _VIDEO_SOURCE_ARGS]
     if hit:
         raise TypeError(
-            f'video() takes no source ({", ".join(hit)}): `flows media upload` refuses a clip '
-            "(permitted formats are JPEG/JPEG2000/WEBP/PNG/SVG), so a URL here could only be "
-            'invented — and an invented URL looks resolved, so nobody ever uploads the real '
-            'one. Emit the element empty, style it to the box you want, and tell the user to '
-            'open the flow in the builder and upload the clip there.')
+            f'video() takes no source by URL ({", ".join(hit)}): pass source= the record that '
+            '`flows media upload-video --json` wrote, so every URL comes from the upload. A '
+            'URL passed by hand could be invented — and an invented URL looks resolved, so '
+            'nobody ever uploads the real one. With no file, emit the element empty, style it '
+            'to the box you want, and tell the user to upload the clip in the builder.')
     if fit not in OBJECT_FIT:
         raise ValueError(f'objectFit must be one of {OBJECT_FIT}, not {fit!r}')
     if fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float)):
         raise TypeError(
             f'video(fixed_h=...) wants a height in points, not {fixed_h!r}. A hug-height '
-            'placeholder draws an arbitrary 256pt box that the real clip will not '
-            'match, so the layout you preview and approve is not the one that ships.')
+            'video draws a box that is no function of the design (an unset one an arbitrary '
+            '256pt), so the layout you preview and approve is not the one that ships.')
+    if dark_source is not None and source is None:
+        raise TypeError('video(dark_source=...) without source=: the light file is the one '
+                        'every appearance falls back to, so upload and pass it first')
     props = {
         'width': _width(width, None, position),
         'height': size('fixed', fixed_h),
@@ -1461,6 +1510,11 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
         'loop': loop,
         'position': position or relative(),
     }
+    if source is not None:
+        props['video'] = {'values': {locale: _video_value(source)}, '_localizable': True}
+    if dark_source is not None:
+        props['videoDark'] = {'values': {locale: _video_value(dark_source, 'dark_source')},
+                              '_localizable': True}
     if visibility is not None: props['visibility'] = _check_visibility(visibility, 'video')
     if corner is not None:   props['borderRadius'] = corner
     if border is not None:   props['border'] = border
@@ -3187,8 +3241,9 @@ def _style_value(value, where):
             if not (layer.get('image') or {}).get('url'):
                 raise ValueError(f'{w}: an image layer needs a url')
         elif t == 'video':
-            raise ValueError(f'{w}: flowkit does not author video layers in a style — there is no '
-                             f'CLI upload for a clip; the user adds it in the Flow Builder')
+            raise ValueError(f'{w}: flowkit does not author video layers in a style; a clip is '
+                             f'a `video` element (video(source=...)), or the user adds the '
+                             f'layer in the Flow Builder')
         else:
             raise TypeError(f'{w}: not a fill layer: {layer!r}')
     return list(value)

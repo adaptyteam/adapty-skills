@@ -4,21 +4,23 @@
 Repo-only. Runs the shipped script as a subprocess -- never imports it, so nothing writes a
 `__pycache__` into `references/`.
 
-Why this file exists. `flows media upload` REFUSES a clip: `validation_error: target_format:
-value is not a valid enumeration member; permitted: 'JPEG', 'JPEG2000', 'WEBP', 'PNG', 'SVG'`.
-So a video source can never be bound from the CLI, and the correct artifact is a real `video`
-element with no source, styled to the box the user's clip will land in, plus a spoken handoff:
-open the flow in the builder and upload it there. Two things then need a mechanical slot,
-because every publish-time gate is blind to both (measured 2026-09-10 against the real transform
-service in the sandbox app -- an unset `video` returns `valid: true, issues: []` in the styled, the
-empty-`values`-map and the bare forms alike, and the JSON-schema check passes them too):
+Why this file exists. A clip file is uploaded with `flows media upload-video` and bound
+(`flowkit.video(source=...)`); with no file, or a CLI with no such command, the correct artifact
+is a real `video` element with no source, styled to the box the user's clip will land in, plus a
+spoken handoff: open the flow in the builder and upload it there. Two things then need a
+mechanical slot, because every publish-time gate is blind to both (measured 2026-09-10 against
+the real transform service in the sandbox app -- an unset `video` returns `valid: true,
+issues: []` in the styled, the empty-`values`-map and the bare forms alike, and the JSON-schema
+check passes them too):
 
-    FIRES   -- a `video` with no source at all (the upload the user still owes)
+    FIRES   -- a `video` with no source at all (an upload still owed: the agent's when it has
+               the file, else the user's)
     FIRES   -- a `video` with `height: hug` (measured: an unset clip draws an arbitrary 256pt
                placeholder, the renderer's default and the same box an empty `image` draws, so
                the layout that was previewed is not the one that ships)
-    SILENT  -- a video bound three ways (`customMediaID`, a flat `{videoUrl}`, a per-locale
-               `values` map), a fixed-height video, and all 12 real exports
+    SILENT  -- a video bound four ways (`customMediaID`, a flat `{videoUrl}`, a per-locale
+               `values` map, a `{_lid}` catalog ref as `flowkit.video(source=...)` writes it),
+               a fixed-height video, and all 12 real exports
 
 THE CORPUS CANNOT CALIBRATE THE FIRST CHECK, and that is stated rather than discovered later:
 0 of the 12 tracked and raw exports contain a `video` element at all, so "silent on the corpus"
@@ -167,6 +169,21 @@ silent('bound by a flat {videoUrl, previewUrl}', screen_with(video(source=BOUND_
 silent('bound by a per-locale values map', screen_with(video(source=BOUND_LOCALIZED)),
        NO_SOURCE)
 
+
+def catalog_doc(values):
+    """The schemaVersion 13 form: the element holds a `{_lid}` ref and the clip sits in
+    `localization.content` -- what `flowkit.video(source=...)` emits once `config()` catalogs it."""
+    doc = screen_with(video(source={'video': {'_lid': 'lc_v'}}))
+    doc['schemaVersion'] = 13
+    doc['localization'] = {'locales': doc.pop('locales'), 'defaultLocale': doc.pop('defaultLocale'),
+                           'content': {'lc_v': {'kind': 'video', 'values': values}}}
+    return doc
+
+
+silent('bound through a catalog ref (the upload-video bind)',
+       catalog_doc(BOUND_LOCALIZED['video']['values']), NO_SOURCE)
+fires('a catalog ref whose entry is empty counts as unset', catalog_doc({}), NO_SOURCE)
+
 print('\nSILENT on a fixed height:')
 silent('a fixed-height video', screen_with(video(source=BOUND_FLAT)))
 silent('a fill-height video is not a hug', screen_with(video(height=('fill',),
@@ -219,8 +236,8 @@ for _c in _vids:
     _els = _videos(_c['template'], [])
     _bad = [k for el in _els for k in _SOURCE_KEYS if k in json.dumps(el.get('props', {}))]
     if _bad:
-        fails.append(f'{_c["id"]}: template carries a fabricated source ({_bad}) — there is no '
-                     f'CLI upload path, so any URL in a template is invented')
+        fails.append(f'{_c["id"]}: template carries a fabricated source ({_bad}) — a template '
+                     f'is filled before any upload, so any URL in it is invented')
         print(f'  FAIL  {_c["id"]} carries no source')
     else:
         print(f'  ok    {_c["id"]} carries no source')

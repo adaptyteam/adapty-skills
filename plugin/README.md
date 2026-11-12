@@ -444,6 +444,7 @@ The skills are instructions and a few local helper scripts. They run nothing on 
 | **Flow config schema** | When `flow-generator` checks a config | `app.adapty.io/flow-schema/latest.json`, cached in your temp directory |
 | **Flow previews** | When `flow-generator` renders a screen for you to look at | Your flow config is opened in Adapty's preview page (`app.adapty.io`) in a Chromium-based browser already on your machine (Chrome, Edge, Brave or Chromium), run headless. The preview link for a phone is `mobile-app.adapty.io` |
 | **Images you hand over** | Only when you give `flow-generator` an image for a flow | Uploaded to your Adapty account's media library through the CLI |
+| **Videos you hand over** | Only when you give `flow-generator` a video for a flow | Uploaded to your Adapty account through the CLI's `flows media upload-video`, which converts it for streaming to phones |
 | **App Store review screenshots** | Only when `growth-advisor` or `adapty-integration` pushes a product to the App Store | Sent through the CLI to Adapty, which uploads it to your App Store Connect account for Apple's review |
 | **Optional helper packages** (`ajv`, `playwright-core`, `qrcode`) | Only for the schema check, the preview and the QR code, each installed once into `~/.cache/`; `flow-generator` installs `playwright-core` the first time it renders, when npm is available | The npm registry |
 
