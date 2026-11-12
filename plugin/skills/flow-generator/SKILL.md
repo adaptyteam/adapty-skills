@@ -858,6 +858,10 @@ $ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
 
 **Send the remote configs back on every write, restore included:** a write without
 `--remote-configs` is refused (exit 2). `[]` deletes them all, so it is for a flow that has none.
+An older CLI gets a 400 on `remote_configs` instead (`is required: a write replaces the stored list`, or
+`Field required`):
+**never answer it with `[]`** — update the CLI, re-resolve `$ADAPTY`, run `flows config get`, and
+send its `remote_configs`.
 Each entry is `{locale, data}`, and `data` is a JSON **string**, not an object; an object is
 refused with `400 Input should be a valid string`, so encode a new one with jq's `tojson`.
 
