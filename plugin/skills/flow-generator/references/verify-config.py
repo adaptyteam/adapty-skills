@@ -2246,7 +2246,8 @@ def check(path, baseline_text=None, baseline_images=None):
     # device-confirmed: the prefixed ids render live `23:59:59`. A timer lifted from an older
     # template is the usual source of this. Render-wrong-but-publishes, so a warning by the
     # severity rule — but it is the author's to fix if this run wrote it.
-    valid_timer_tokens = {'timer_days', 'timer_hours', 'timer_minutes', 'timer_seconds'}
+    valid_timer_tokens = {'timer_days', 'timer_hours', 'timer_total_hours', 'timer_minutes',
+                          'timer_seconds'}
     bad_tokens = []
     def _timer_tokens(o):
         if isinstance(o, dict):

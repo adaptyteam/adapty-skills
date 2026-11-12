@@ -2320,14 +2320,16 @@ def conditional_action(cases, *, default=(), action_id='act_cond'):
 
 # --- timer -------------------------------------------------------------------------------
 # A countdown's digits are `token` nodes, and the token ids carry a `timer_` PREFIX:
-# `timer_days`, `timer_hours`, `timer_minutes`, `timer_seconds`. Builder- and device-confirmed
+# `timer_days`, `timer_hours`, `timer_total_hours`, `timer_minutes`, `timer_seconds`.
+# `timer_hours` is the hour of the day (0-23); `timer_total_hours` is every hour left (`72` for a
+# 3-day countdown), for a `72:00:00` format without days. Builder- and device-confirmed
 # (the builder shows a recognised chip and renders live `23:59:59`). The bare names
 # `days`/`hours`/`minutes`/`seconds` do NOT resolve: the Flow Builder paints them red `Unknown`
 # and the device/preview renders the literal `%hours%`. `config validate` accepts either, so the
 # wrong one is silent — which is exactly why this is a helper and not something you hand-author.
 # If you lift a timer shape from anywhere, run it through here or fix the prefix by hand.
 
-TIMER_UNITS = ('days', 'hours', 'minutes', 'seconds')
+TIMER_UNITS = ('days', 'hours', 'total_hours', 'minutes', 'seconds')
 
 
 def timer_digits(units=('hours', 'minutes', 'seconds'), *, sep=':', preset='h2',
@@ -2335,11 +2337,15 @@ def timer_digits(units=('hours', 'minutes', 'seconds'), *, sep=':', preset='h2',
     """The digit `text` that goes INSIDE a `timer` element, as `HH:MM:SS`.
 
     `units` is any ordered subset of `TIMER_UNITS`; each becomes a `timer_<unit>` token, joined by
-    `sep`. Never write the bare token name — see the note above.
+    `sep`. Never write the bare token name — see the note above. A countdown of a day or more
+    shows `('days', 'hours', ...)` or `('total_hours', ...)`: `hours` alone wraps at 24.
     """
     bad = [u for u in units if u not in TIMER_UNITS]
     if bad:
         raise ValueError(f'timer units must be a subset of {TIMER_UNITS}, not {bad}')
+    if 'total_hours' in units and ('days' in units or 'hours' in units):
+        raise ValueError("'total_hours' already counts the days: pair it with 'minutes' and "
+                         "'seconds', not with 'days' or 'hours'")
     content = []
     for i, u in enumerate(units):
         if i:
@@ -2380,9 +2386,23 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     Raised rather than warned because the failure is silent, terminal and remote: the flow stops
     dead on that screen, and the only surface that can show it is a device.
 
-    `duration` is `{days, hours, minutes, seconds}`. `behavior='start_at_every_appear'` restarts
-    the countdown each time the screen appears.
+    `duration` is `{days, hours, minutes, seconds}`; `hours` may exceed 23 (the builder accepts up
+    to 999), and `hours=72` is the same countdown as `days=3`. `behavior='start_at_every_appear'`
+    restarts the countdown each time the screen appears.
+
+    **A countdown of 24 hours or more shows `timer_days` or `timer_total_hours`.** `timer_hours`
+    is the hour of the day, so `HH:MM:SS` built from it starts a 72-hour countdown at `00:00:00`.
     """
+    if hours > 999:
+        raise ValueError(f'timer hours go up to 999 in the Flow Builder, not {hours}; '
+                         'put the rest in days')
+    shown = json.dumps(list(children))
+    if (days * 24 + hours >= 24 and '"timer_hours"' in shown
+            and '"timer_days"' not in shown and '"timer_total_hours"' not in shown):
+        raise ValueError(
+            'a countdown of 24 hours or more shows timer_hours without the days, so it reads as '
+            'the hour of the day: a 72-hour countdown starts at 00:00:00. Use '
+            "timer_digits(('total_hours', 'minutes', 'seconds')) for 72:00:00, or add 'days'.")
     if actions and '"timer_' not in json.dumps(list(children)):
         raise ValueError(
             'a timer with a `timer-end` action fires on a device only when a text inside it '

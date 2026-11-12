@@ -609,6 +609,26 @@ def main():
     check('an unknown timer unit raises rather than emitting a bare token',
           raises(lambda: fk.timer_digits(units=('hours', 'mins'))))
 
+    # timer_total_hours is every hour left (72 for 3 days); timer_hours wraps at 24, so a
+    # countdown of a day or more shown as hours of the day starts at 00:00:00.
+    total = fk.timer_digits(units=('total_hours', 'minutes', 'seconds'))
+    check('total_hours emits the timer_total_hours token',
+          [n['attrs']['token'] for n in total['props']['content']['values']['en'][0]['content']
+           if n.get('type') == 'token'] == ['timer_total_hours', 'timer_minutes', 'timer_seconds'])
+    check('total_hours with days or hours raises: it already counts the days',
+          raises(lambda: fk.timer_digits(units=('days', 'total_hours', 'minutes')))
+          and raises(lambda: fk.timer_digits(units=('total_hours', 'hours'))))
+    check('a 72-hour countdown with total_hours builds',
+          fk.timer([total], hours=72)['props']['duration']['hours'] == 72)
+    check('a countdown of a day or more showing hours without days raises',
+          raises(lambda: fk.timer([digits], days=3))
+          and raises(lambda: fk.timer([digits], hours=48)))
+    check('the same countdown with days shown builds',
+          fk.timer([fk.timer_digits(units=('days', 'hours', 'minutes'))], days=3)['type'] == 'timer')
+    check('a countdown under a day showing hours builds',
+          fk.timer([digits], hours=23, minutes=59)['type'] == 'timer')
+    check('hours above 999 raise', raises(lambda: fk.timer([total], hours=1000)))
+
     # SUPERSEDED 2026-09-01: this block used to build the delay timer CHILDLESS and assert
     # that "a delay timer with no digit child draws nothing, which is the invisible-delay
     # shape". Device-measured over three trips, that shape does not fire at all — see the
