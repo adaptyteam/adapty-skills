@@ -512,6 +512,23 @@ check('store gap is SILENT when only ios is declared',
 check('a null base_plan_id on an app_store entry stays SILENT',
       len(of(run(FLOW)[1], 'play-base-plan-missing')) == 0)
 
+
+def _play_catalog(period):
+    # every product bound by FLOW gets a play_store entry with no base plan, at `period`
+    cat = json.load(open(CATALOG))
+    for p in cat:
+        p['period'] = period
+        p['vendor_products']['play_store'] = {'id': 'x', 'product_id': 'com.example.p', 'base_plan_id': None}
+    path = os.path.join(tempfile.mkdtemp(), 'cat.json')
+    json.dump(cat, open(path, 'w'))
+    return path
+
+
+check('a subscription with a Play product and no base plan FIRES play-base-plan-missing',
+      len(of(run(FLOW, catalog=_play_catalog('annual'))[1], 'play-base-plan-missing')) > 0)
+check('a lifetime product with a Play product and no base plan stays SILENT (a one-time purchase)',
+      len(of(run(FLOW, catalog=_play_catalog('lifetime'))[1], 'play-base-plan-missing')) == 0)
+
 print('\nproducts / offers')
 
 # A flow binds an offer by its Adapty `id` (`product-offers list`); `validate` passes a
