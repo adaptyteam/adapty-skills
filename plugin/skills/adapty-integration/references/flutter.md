@@ -312,13 +312,12 @@ await Adapty().activate(
 **If passing a known customer user ID at launch:**
 
 ```dart
-final userId = await UserManager.getCurrentUserId();
+final userId = await UserManager.getCurrentUserId(); // null until the user logs in
 
-await Adapty().activate(
-  configuration: AdaptyConfiguration(apiKey: AppConstants.adaptyPublicKey)
-    ..withLogLevel(AdaptyLogLevel.info)
-    ..withCustomerUserId(userId), // can be null if user not yet logged in
-);
+final configuration = AdaptyConfiguration(apiKey: AppConstants.adaptyPublicKey)
+  ..withLogLevel(AdaptyLogLevel.info);
+if (userId != null) configuration.withCustomerUserId(userId); // takes a non-null String
+await Adapty().activate(configuration: configuration);
 ```
 
 The SDK key comes from `AppConstants` — already set in the recommended architecture step above.
@@ -651,7 +650,7 @@ curl -s "https://adapty.io/docs/flutter-quickstart-identify.md?ref=skill-<sessio
 ```
 
 **What to do:**
-- If the user ID is known at launch, pass it to `activate()` via `..withCustomerUserId(userId)` — already covered in Stage 1
+- If the user ID is known at launch, pass it to `activate()` via `withCustomerUserId(userId)` on the configuration — already covered in Stage 1
 - If users log in after launch, call `Adapty().identify()` after `activate()` and before `getFlow()`
 - Call `Adapty().logout()` when users log out
 
