@@ -373,12 +373,55 @@ seconds, a headline that rises in) starts `visibility: hidden`, and On Appear sh
   visibility. Anywhere else the element shows at once, and `verify-config.py` warns. A bottom
   sheet keeps its own open and close.
 - **A malformed `animation` is refused** (`invalid_action_payload`); `verify-config.py` errors on it.
-- **The element's own `animation` prop is Pulse,** and its `showAfterDelay` belongs to Pulse: an
-  element carrying it shows at once.
+- **Not the element's own `animation` prop,** which loops while the screen shows
+  ([An element that keeps moving](#an-element-that-keeps-moving-pulse-waves-and-effects)): its
+  `showAfterDelay` delays the loop, and the element itself shows at once.
 
 **The preview never runs On Appear.** It draws the screen as it first appears: the element hidden,
 the screen not moving on. The builder's canvas does not play them either, so say the wait and the
 motion are checked on a device.
+
+### An element that keeps moving: pulse, waves and effects
+
+**A button that draws the eye — it pulses, ripples, glows, shakes or shimmers — is the element's
+own `props.animation`.** It starts when the screen appears and loops while the screen shows. Build
+it with `fk.animate(node, fk.loop_animation(kind, ...))`: the helper starts each kind at Flow
+Builder's defaults and refuses a layout the device would skip. Never a `video` or a stack lookalike
+for one of these.
+
+```json
+"animation": {"type": "glow", "glowColor": {"type": "hex", "hex": "#9751F2"}, "glowSize": 16,
+              "duration": 1500, "delayBetweenLoops": 500, "showAfterDelay": 0,
+              "easing": "ease-in-out"}
+```
+
+| `type` | What the user sees | Own keys | Plays only on |
+|---|---|---|---|
+| `pulse` | The element grows by `scaleAmount` % and back | `scaleAmount` | any element |
+| `wave-fill` / `wave-outline` | A filled / 2 pt outlined copy of its shape spreads out and fades | `scaleAmount` %, `waveSize` pt, `waveColor`, optional `pulseScaleAmount` | a **fixed width and height, no margin** |
+| `glow` | A soft halo swells around its shape | `glowColor`, `glowSize` pt of blur | any element |
+| `shake` / `wiggle` | It moves `distance` pt side to side / tilts `angle` degrees each way | `distance` / `angle` | any element |
+| `bounce` | It hops `distance` pt up and lands | `distance` | any element |
+| `breathe` | It fades by `fadeAmount` % and back | `fadeAmount` (0-100) | any element |
+| `color-shift` | Its fill turns into `shiftColor` and back | `shiftColor` | one solid colour fill, or none |
+| `border-flash` | A `flashWidth` pt border in `flashColor` lights up and fades | `flashColor`, `flashWidth` | any element |
+| `shimmer` | A band of `shimmerColor` sweeps across at `shimmerAngle` (a gradient's angle) | `shimmerColor`, `shimmerSize` (0-100 %), `shimmerAngle` | one solid colour fill: a hex, or a theme colour whose dark value equals its light one |
+
+- **Every kind also takes `duration` (one burst), `delayBetweenLoops` and `showAfterDelay`, in ms,
+  and `easing`:** `linear`, `ease-in`, `ease-out`, `ease-in-out`, `ease-out-elastic` (overshoots
+  and settles), `ease-out-bounce`, or a `cubic-bezier(...)`.
+- **One animation per element.** Asked for two effects on one element, put the one its layout
+  plays on it and say which, or put the second on another element; never stack two elements to
+  fake it.
+- **A layout it cannot play on publishes clean and nothing moves.** `flows config validate` passes
+  any `animation`, even an unknown type; `verify-config.py` warns on each skip. A wave on a Fill or
+  Hug button: give it a fixed width and height, or pick `glow`.
+- **A `pulse` only scales.** Its `shadowColor` / `shadowSize`, on older pulses and in some templates,
+  draw a halo on the builder canvas alone; leave them out, and use `glow` or a wave for a halo.
+- **On iOS a `shake` or `wiggle` is one jump that springs back,** not the canvas's four swings; below
+  iOS 17 it jumps and glides back. Say so when the user asks for a shake.
+- **The preview draws the element at rest,** and so does the builder canvas until its ▷ is on.
+  Say the motion is checked on a device.
 
 ### A countdown
 

@@ -442,6 +442,65 @@ def element_animation_problem(a):
     return None
 
 
+
+# An element's own looping `props.animation`, by type: the keys each one takes besides `type`
+# and the four timing keys. Read the way the transformer reads it: an unknown type or a
+# malformed one publishes and plays nothing.
+LOOP_TIMING_KEYS = {'duration', 'delayBetweenLoops', 'showAfterDelay', 'easing'}
+LOOP_ANIMATION_KEYS = {
+    'pulse': {'scaleAmount'},
+    'wave-fill': {'scaleAmount', 'waveSize', 'waveColor'},
+    'wave-outline': {'scaleAmount', 'waveSize', 'waveColor'},
+    'glow': {'glowColor', 'glowSize'},
+    'shake': {'distance'},
+    'wiggle': {'angle'},
+    'bounce': {'distance'},
+    'breathe': {'fadeAmount'},
+    'color-shift': {'shiftColor'},
+    'border-flash': {'flashColor', 'flashWidth'},
+    'shimmer': {'shimmerColor', 'shimmerSize', 'shimmerAngle'},
+}
+LOOP_OPTIONAL_KEYS = {'pulse': {'shadowColor', 'shadowSize'},
+                      'wave-fill': {'pulseScaleAmount'}, 'wave-outline': {'pulseScaleAmount'}}
+LOOP_EASINGS = ELEMENT_EASINGS | {'ease-out-elastic', 'ease-out-bounce'}
+_LOOP_CUBIC = re.compile(r'^cubic-bezier\(-?(?:\d+\.?\d*|\.\d+)(?:, -?(?:\d+\.?\d*|\.\d+)){3}\)$')
+
+
+def loop_animation_problem(a):
+    """What is wrong with an element's own `animation` value, or None."""
+    if not isinstance(a, dict) or a.get('type') not in LOOP_ANIMATION_KEYS:
+        return f'type must be one of {sorted(LOOP_ANIMATION_KEYS)}'
+    kind = a['type']
+    need = LOOP_ANIMATION_KEYS[kind] | LOOP_TIMING_KEYS
+    have = set(a) - {'type'}
+    if need - have:
+        return f'{kind} is missing {sorted(need - have)}'
+    if have - need - LOOP_OPTIONAL_KEYS.get(kind, set()):
+        return f'{kind} takes no {sorted(have - need - LOOP_OPTIONAL_KEYS.get(kind, set()))}'
+    e = a['easing']
+    if e not in LOOP_EASINGS and not (isinstance(e, str) and _LOOP_CUBIC.match(e)):
+        return f'easing must be one of {sorted(LOOP_EASINGS)} or a cubic-bezier(...)'
+    for k, v in a.items():
+        if k in ('type', 'easing') or k.endswith('Color'):
+            continue
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return f'{k} must be a number'
+        if k != 'shimmerAngle' and v < 0 and kind != 'pulse':
+            return f'{k} must not be below 0'
+        if k in ('fadeAmount', 'shimmerSize') and v > 100:
+            return f'{k} is a 0-100 percentage'
+    return None
+
+
+def solid_fill_color(fill):
+    """The one colour of a fill made of exactly one colour layer, else None."""
+    layers = fill if isinstance(fill, list) else [fill] if isinstance(fill, dict) else []
+    if len(layers) != 1 or not isinstance(layers[0], dict):
+        return None
+    if 'hex' in layers[0]:
+        return layers[0]
+    return layers[0].get('color') if layers[0].get('type') == 'color' else None
+
 def _iter_dicts(o):
     if isinstance(o, dict):
         yield o
@@ -468,7 +527,8 @@ def walk(o, fn):
 # over an element reaches `propsByState` and rich-text spans too, which a props-path walk
 # would miss.
 ICOLOR_KEYS = frozenset({'color', 'activeColor', 'shadowColor', 'overlayColor',
-                         'clearButtonColor', 'passwordIconColor'})
+                         'clearButtonColor', 'passwordIconColor', 'waveColor', 'glowColor',
+                         'shiftColor', 'flashColor', 'shimmerColor'})
 
 
 def iter_elements(d):
@@ -1210,6 +1270,53 @@ def check(path, baseline_text=None, baseline_images=None):
                 bad.append(f'{o["type"]} of {p.get("elements")}: bad animation ({why}); the '
                            f'transformer refuses it (invalid_action_payload)')
     walk(d, check_element_animation)
+
+    # An element's own looping `animation` publishes whatever it holds (`flows config validate`
+    # passes an unknown type), and the transformer skips what it cannot play, so each of these
+    # is a warning: it publishes and nothing moves.
+    theme_colors = {c.get('id'): c for c in ((d.get('theme') or {}).get('colors') or [])
+                    if isinstance(c, dict)}
+    for where, eid, e in iter_elements(d):
+        props = e.get('props') or {}
+        variants = [('', props)] + [(f' ({st})', v) for st, v in
+                                    (e.get('propsByState') or {}).items() if isinstance(v, dict)]
+        for state, pv in variants:
+            a = pv.get('animation')
+            if a is None:
+                continue
+            at = f'{where}/{eid}{state}'
+            why = loop_animation_problem(a)
+            if why:
+                warn.append(f'{at}: its animation does not play ({why}); build it with '
+                            f'flowkit.loop_animation()')
+                continue
+            kind = a['type']
+            look = {**props, **pv}
+            if kind == 'pulse' and ('shadowColor' in a or 'shadowSize' in a):
+                warn.append(f'{at}: the pulse carries shadowColor/shadowSize, a halo only the '
+                            f'builder canvas draws; the device scales the element alone. Drop '
+                            f'them, or use glow or a wave for a halo')
+            if kind.startswith('wave'):
+                sizes = [(look.get(k) or {}).get('type') for k in ('width', 'height')]
+                margin = look.get('margin') or {}
+                if sizes != ['fixed', 'fixed'] or any(
+                        v for v in margin.values() if isinstance(v, (int, float))):
+                    warn.append(f'{at}: a {kind} plays only around a fixed width and height with '
+                                f'no margin (this one is {sizes[0]} x {sizes[1]}); it publishes '
+                                f'and never shows')
+            if kind in ('color-shift', 'shimmer'):
+                fill = look.get('fill')
+                solid = solid_fill_color(fill)
+                if solid is None and (kind == 'shimmer' or fill not in (None, [])):
+                    warn.append(f'{at}: a {kind} needs one solid colour fill'
+                                + (' or none' if kind == 'color-shift' else '')
+                                + '; on this fill it publishes and never plays')
+                elif kind == 'shimmer' and solid.get('type') == 'color-style':
+                    c = theme_colors.get(solid.get('colorId')) or {}
+                    if c and c.get('dark') is not None and c.get('dark') != c.get('light'):
+                        warn.append(f'{at}: a shimmer on the theme colour {solid.get("colorId")!r}, '
+                                    f'whose dark value differs from its light one (letter case '
+                                    f'counts), is skipped; fill it with a hex colour')
 
     def _moving(anim):
         return isinstance(anim, dict) and (anim.get('delay') or 0) + (

@@ -241,6 +241,13 @@ def main():
           == {'type': 'rise', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'distance': 32})
     check('a delay alone is the none kind',
           fk.element_animation('none', delay=5000) == {'type': 'none', 'delay': 5000})
+    fixed = {'id': 'b', 'props': {'width': {'type': 'fixed', 'value': 300},
+                                  'height': {'type': 'fixed', 'value': 56}}}
+    check('animate() puts a wave on a fixed element',
+          fk.animate(fixed, 'wave-fill')['props']['animation']['waveColor']
+          == {'type': 'hex', 'hex': '#9751F2'})
+    check('loop_animation() takes a wave pulseScaleAmount',
+          fk.loop_animation('wave-outline', pulseScaleAmount=3)['pulseScaleAmount'] == 3)
     for why, call in (
             ('auto_advance over 5000 ms moves on at once', lambda: fk.auto_advance('s', 5001)),
             ('auto_advance of 0 ms is no wait', lambda: fk.auto_advance('s', 0)),
@@ -251,6 +258,20 @@ def main():
             ('an element delay over 60000 ms', lambda: fk.element_animation('fade', delay=60001)),
             ('a rise takes no scale', lambda: fk.element_animation('rise', scale=0.5)),
             ('none takes no duration', lambda: fk.element_animation('none', duration=10)),
+            ('an unknown loop animation', lambda: fk.loop_animation('sparkle')),
+            ('a pulse takes no waveColor', lambda: fk.loop_animation('pulse', waveColor='#FFFFFF')),
+            ('a breathe over 100 %', lambda: fk.loop_animation('breathe', fadeAmount=120)),
+            ('a loop easing it lacks', lambda: fk.loop_animation('glow', easing='spring')),
+            ('a 3-digit glow colour', lambda: fk.loop_animation('glow', glowColor='#FFF')),
+            ('a wave on Fill x Hug', lambda: fk.animate(
+                {'id': 'b', 'props': {'width': {'type': 'fill'}, 'height': {'type': 'hug'}}},
+                'wave-fill')),
+            ('a shimmer on no fill', lambda: fk.animate(
+                {'id': 'b', 'props': {}}, 'shimmer')),
+            ('a shimmer on a theme colour whose dark differs', lambda: fk.animate(
+                {'id': 'b', 'props': {'fill': [{'type': 'color', 'color': fk.color('c')}]}},
+                'shimmer', theme={'colors': [{'id': 'c', 'light': {'hex': '#adbfad'},
+                                              'dark': {'hex': '#ADBFAD'}}]})),
             ('an empty on_appear', lambda: fk.on_appear())):
         try:
             call()

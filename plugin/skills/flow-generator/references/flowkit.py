@@ -2188,6 +2188,144 @@ def hide_elements(element_ids, action_id='act_hide', animation=None):
                 {'elements': _element_targets(element_ids, 'hide_elements')}, animation)}
 
 
+# --- an element's own looping animation (`props.animation`) --------------------------------
+# What Flow Builder's Animation panel starts each type with. Every type also takes the four
+# timing keys: `duration` (one burst, ms), `delayBetweenLoops` (rest after it, ms),
+# `showAfterDelay` (wait before the first, ms) and `easing`. It starts when the screen appears
+# and loops for as long as it is on screen.
+LOOP_ANIMATIONS = {
+    'pulse': {'scaleAmount': 2, 'duration': 1500, 'delayBetweenLoops': 300,
+              'easing': 'cubic-bezier(.75, 0, 0, 1)'},
+    'wave-fill': {'scaleAmount': 20, 'waveSize': 8, 'waveColor': '#9751F2', 'duration': 1000,
+                  'delayBetweenLoops': 1000, 'easing': 'ease-in'},
+    'wave-outline': {'scaleAmount': 20, 'waveSize': 8, 'waveColor': '#9751F2', 'duration': 1000,
+                     'delayBetweenLoops': 1000, 'easing': 'ease-in'},
+    'glow': {'glowColor': '#9751F2', 'glowSize': 16, 'duration': 1500, 'delayBetweenLoops': 500,
+             'easing': 'ease-in-out'},
+    'shake': {'distance': 6, 'duration': 500, 'delayBetweenLoops': 2500, 'easing': 'ease-in-out'},
+    'wiggle': {'angle': 4, 'duration': 500, 'delayBetweenLoops': 2500, 'easing': 'ease-in-out'},
+    'bounce': {'distance': 8, 'duration': 600, 'delayBetweenLoops': 1400, 'easing': 'ease-out'},
+    'breathe': {'fadeAmount': 30, 'duration': 2000, 'delayBetweenLoops': 0,
+                'easing': 'ease-in-out'},
+    'color-shift': {'shiftColor': '#9751F2', 'duration': 2000, 'delayBetweenLoops': 0,
+                    'easing': 'ease-in-out'},
+    'border-flash': {'flashColor': '#9751F2', 'flashWidth': 3, 'duration': 1000,
+                     'delayBetweenLoops': 1000, 'easing': 'ease-in-out'},
+    'shimmer': {'shimmerColor': '#FFFFFF', 'shimmerSize': 30, 'shimmerAngle': 135,
+                'duration': 1200, 'delayBetweenLoops': 1800, 'easing': 'ease-in-out'},
+}
+LOOP_EASINGS = ('linear', 'ease-in', 'ease-out', 'ease-in-out', 'ease-out-elastic',
+                'ease-out-bounce')
+_LOOP_COLORS = ('waveColor', 'glowColor', 'shiftColor', 'flashColor', 'shimmerColor')
+_LOOP_PERCENTS = ('fadeAmount', 'shimmerSize')
+_CUBIC_BEZIER = re.compile(r'^cubic-bezier\(-?(?:\d+\.?\d*|\.\d+)(?:, -?(?:\d+\.?\d*|\.\d+)){3}\)$')
+
+
+def loop_animation(kind, **overrides):
+    """An element's own `props.animation`: `kind` at Flow Builder's defaults, plus overrides.
+
+    Set it with `animate(node, ...)`, which also refuses the layouts the device skips. Keys are
+    the builder's own (`scaleAmount`, `waveColor`, `delayBetweenLoops`, ...); a colour is a
+    `#RRGGBB` string, `hex_color(...)` or `color(theme_id)`. `pulseScaleAmount` on a wave also
+    pulses the element by that %. Not the Show / Hide `payload.animation`: that is
+    `element_animation()`, played once.
+    """
+    if kind not in LOOP_ANIMATIONS:
+        raise ValueError(f'loop_animation({kind!r}): the kinds are {sorted(LOOP_ANIMATIONS)}')
+    out = {'type': kind, **LOOP_ANIMATIONS[kind], 'showAfterDelay': 0}
+    allowed = set(out) - {'type'} | ({'pulseScaleAmount'} if kind.startswith('wave') else set())
+    for key, value in overrides.items():
+        if key not in allowed:
+            raise ValueError(f'loop_animation({kind!r}) takes no {key}; it takes {sorted(allowed)}')
+        out[key] = value
+    for key, value in out.items():
+        if key == 'type':
+            continue
+        if key in _LOOP_COLORS:
+            if isinstance(value, str):
+                if not re.fullmatch(r'#[0-9A-Fa-f]{6}', value):
+                    raise ValueError(f'{key} {value!r}: write #RRGGBB, or pass hex_color()/color()')
+                out[key] = hex_color(value)
+            elif not (isinstance(value, dict) and value.get('type') in ('hex', 'color-style')):
+                raise TypeError(f'{key} wants #RRGGBB, hex_color() or color(), not {value!r}')
+        elif key == 'easing':
+            if value not in LOOP_EASINGS and not (isinstance(value, str)
+                                                   and _CUBIC_BEZIER.match(value)):
+                raise ValueError(f'easing {value!r}: one of {LOOP_EASINGS} or a cubic-bezier(...)')
+        elif isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError(f'{key} wants a number, not {value!r}')
+        elif key == 'shimmerAngle':
+            continue
+        elif value < 0 or (key in _LOOP_PERCENTS and value > 100):
+            raise ValueError(f'{key} {value!r}: '
+                             + ('0-100 %' if key in _LOOP_PERCENTS else 'not below 0'))
+    return out
+
+
+def _solid_fill(fill):
+    """The one colour of a fill made of exactly one colour layer, else None."""
+    layers = fill if isinstance(fill, list) else [fill] if isinstance(fill, dict) else []
+    if len(layers) != 1 or not isinstance(layers[0], dict):
+        return None
+    layer = layers[0]
+    if 'hex' in layer:
+        return layer
+    return layer.get('color') if layer.get('type') == 'color' else None
+
+
+def theme_color_is_solid(entry):
+    """True when a `theme.colors[]` entry is one hex in both appearances: its `dark` is absent
+    or exactly its `light`, letter case included. Only such a colour can start a shimmer."""
+    light, dark = entry.get('light'), entry.get('dark')
+    return (isinstance(light, dict) and isinstance(light.get('hex'), str)
+            and (dark is None or dark == light))
+
+
+def animate(node, animation, *, theme=None):
+    """Put a `loop_animation()` (or a kind, at its defaults) on `node` as `props.animation`.
+
+    Refuses what publishes but never plays on the device: a wave on an element without a fixed
+    width AND height, or with a margin; a colour shift on a gradient, image or layered fill; a
+    shimmer on anything but one solid colour, or (with `theme`, the config's `theme`) on a
+    theme colour whose dark value differs. One element carries one animation.
+    """
+    if isinstance(animation, str):
+        animation = loop_animation(animation)
+    elif isinstance(animation, dict):
+        animation = loop_animation(animation.get('type'),
+                                   **{k: v for k, v in animation.items() if k != 'type'})
+    props = node.setdefault('props', {})
+    kind = animation['type']
+    if kind.startswith('wave'):
+        sizes = [(props.get(k) or {}).get('type') for k in ('width', 'height')]
+        margin = props.get('margin') or {}
+        if sizes != ['fixed', 'fixed'] or any(v for v in margin.values()
+                                              if isinstance(v, (int, float))):
+            raise ValueError(
+                f'{kind} on {node.get("id")}: a wave plays only around a fixed width AND height '
+                f'with no margin (this one is {sizes[0]} x {sizes[1]}). Elsewhere it publishes '
+                f'and never shows. Give the element fixed sizes, or pick glow or pulse')
+    if kind in ('color-shift', 'shimmer'):
+        fill = props.get('fill')
+        solid = _solid_fill(fill)
+        if solid is None and (kind == 'shimmer' or fill not in (None, [])):
+            raise ValueError(
+                f'{kind} on {node.get("id")} needs one solid colour fill'
+                + (' (or no fill)' if kind == 'color-shift' else '')
+                + ': on a gradient, image or layered fill it publishes and never plays')
+        if kind == 'shimmer' and theme is not None and solid.get('type') == 'color-style':
+            entry = next((c for c in theme.get('colors') or []
+                          if c.get('id') == solid.get('colorId')), None)
+            if entry and not theme_color_is_solid(entry):
+                raise ValueError(
+                    f'shimmer on {node.get("id")}: its fill is the theme colour '
+                    f'{solid.get("colorId")!r}, whose dark value differs from its light one '
+                    f'(letter case counts), so the shimmer is skipped. Fill it with a hex '
+                    f'colour, or pick another effect')
+    props['animation'] = animation
+    return node
+
+
 # --- the rest of the action vocabulary ----------------------------------------------------
 # `invalid_action_payload` is one of the transformer's most common refusals, and it is one code
 # covering sixteen distinct required-field checks. This section exposes the rest of the action
