@@ -543,9 +543,12 @@ with a child `text` whose rich text carries `token` nodes:
   {"type": "token", "attrs": {"token": "timer_seconds"}}]}
 ```
 
-**The token id carries a `timer_` PREFIX — this is not optional.** The four ids are
-`timer_days`, `timer_hours`,
-`timer_minutes`, `timer_seconds`. The bare names (`hours`, `minutes`, `seconds`) **do not
+**The token id carries a `timer_` PREFIX — this is not optional.** The five ids are
+`timer_days`, `timer_hours`, `timer_total_hours`,
+`timer_minutes`, `timer_seconds`. `timer_hours` is the hour of the day (0–23) and wraps at 24;
+`timer_total_hours` is every hour left, so a 72-hour sale shows `72:00:00` from
+`timer_digits(('total_hours', 'minutes', 'seconds'))` with no days block. A countdown of a day or
+more never shows `timer_hours` without `timer_days`: it would start at `00:00:00`. The bare names (`hours`, `minutes`, `seconds`) **do not
 resolve**: `config validate` accepts them, but the Flow Builder paints them red `Unknown` and the
 device/preview renders the literal `%hours%:%minutes%:%seconds%`. Confirmed by pushing
 both forms to a real flow and reloading the builder — the prefixed ids render a live `23:59:59`
