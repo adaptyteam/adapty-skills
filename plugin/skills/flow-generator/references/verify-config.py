@@ -427,18 +427,18 @@ def element_animation_problem(a):
         return f'type must be one of {sorted(ELEMENT_ANIMATION_TYPES)}'
     if not ms(a.get('delay', 0)):
         return 'delay must be whole ms, 0-60000'
-    if a['type'] == 'none':
-        return None
+    # The published schema requires `duration` and `easing` on every type, `none` included;
+    # `flows config validate` refuses one without them.
     if not ms(a.get('duration')):
-        return 'duration must be whole ms, 0-60000'
+        return 'duration must be whole ms, 0-60000 (`none` needs one too)'
     if a.get('easing') not in ELEMENT_EASINGS:
-        return f'easing must be one of {sorted(ELEMENT_EASINGS)}'
+        return f'easing must be one of {sorted(ELEMENT_EASINGS)} (`none` needs one too)'
     dist = a.get('distance', 32)
-    if isinstance(dist, bool) or not isinstance(dist, (int, float)):
-        return 'distance must be a number'
+    if isinstance(dist, bool) or not isinstance(dist, (int, float)) or not 1 <= dist <= 200:
+        return 'distance must be a number of pt, 1-200'
     sc = a.get('scale', 0.8)
-    if isinstance(sc, bool) or not isinstance(sc, (int, float)) or not 0 <= sc < 1:
-        return 'scale must be a number from 0 to below 1'
+    if isinstance(sc, bool) or not isinstance(sc, (int, float)) or not 0.1 <= sc <= 0.99:
+        return 'scale must be a number from 0.1 to 0.99'
     return None
 
 
@@ -2066,6 +2066,12 @@ def check(path, baseline_text=None, baseline_images=None):
                     thin_opacity(v, where)
         for eid, e in s['elements']['map'].items():
             thin_opacity(e.get('props'), eid)
+            # An element's own `opacity` is on the same 0-100 scale. The device reads a value
+            # below 1 as a fraction, but 1 is 1%, and the builder reads every value as a percentage.
+            op = (e.get('props') or {}).get('opacity')
+            if isinstance(op, (int, float)) and not isinstance(op, bool) and 0 < op <= 1:
+                warn.append(f'{eid}: element opacity is {op} on a 0-100 scale; the builder shows '
+                            f'it ~{op}% opaque — did you mean {int(op * 100)}?')
             thin_opacity(e.get('propsByState'), f'{eid}.propsByState')
         thin_opacity(s['props'], f'screen {s["id"]}')
 

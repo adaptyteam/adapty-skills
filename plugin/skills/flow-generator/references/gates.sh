@@ -111,8 +111,9 @@ if [ -z "$APP" ]; then
   echo "   SKIPPED — pass APP_UUID to read them"
 else
   if $PY - "$CFG" "$APP" "$ADAPTY_BIN" <<'PYEOF'
-import json, re, shlex, subprocess, sys
+import json, re, shlex, shutil, subprocess, sys
 cfg, app, cli = json.load(open(sys.argv[1], encoding='utf-8')), sys.argv[2], shlex.split(sys.argv[3])
+cli[0] = shutil.which(cli[0]) or cli[0]  # Windows: `adapty` and `npx` are .cmd shims
 pairs, where = set(), {}
 def bind(pid, oid, at):
     if isinstance(pid, str) and pid:
