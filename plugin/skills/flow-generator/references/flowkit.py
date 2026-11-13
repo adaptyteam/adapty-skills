@@ -2104,7 +2104,7 @@ def _element_targets(element_ids, what):
 
 # How an element appears or leaves on a Show / Hide, as Flow Builder starts each one.
 ELEMENT_ANIMATIONS = {
-    'none': {'type': 'none', 'delay': 0},
+    'none': {'type': 'none', 'duration': 300, 'delay': 0, 'easing': 'ease-out'},
     'fade': {'type': 'fade', 'duration': 300, 'delay': 0, 'easing': 'ease-out'},
     'rise': {'type': 'rise', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'distance': 32},
     'pop': {'type': 'pop', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'scale': 0.8},
@@ -2117,10 +2117,12 @@ def element_animation(kind, *, duration=None, delay=None, easing=None, distance=
     """`payload.animation` of a Show / Hide: `kind` at its builder defaults, plus any overrides.
 
     `fade` changes opacity, `rise` also moves the element up from `distance` pt below its
-    place (down on a hide), `pop` also scales it from `scale` (0 to below 1). `none` with a
-    `delay` shows or hides the element after the wait with no motion. `duration` and `delay`
-    are whole ms, 0-60000; a `duration` of 0 is no motion. Guarded here because the transformer
-    refuses a malformed one with `invalid_action_payload`.
+    place (down on a hide), `pop` also scales it from `scale` (0.1 to 0.99). `none` with a
+    `delay` shows or hides the element after the wait with no motion; it still carries
+    `duration` and `easing`, which the schema requires on every kind and the device ignores on
+    `none`. `duration` and `delay` are whole ms, 0-60000; a `duration` of 0 is no motion;
+    `distance` is 1-200 pt. Guarded here because `flows config validate` refuses a malformed
+    one, and the transformer with `invalid_action_payload`.
     """
     if kind not in ELEMENT_ANIMATIONS:
         raise ValueError(f'element_animation({kind!r}): the kinds are {sorted(ELEMENT_ANIMATIONS)}')
@@ -2140,12 +2142,13 @@ def element_animation(kind, *, duration=None, delay=None, easing=None, distance=
     if 'easing' in out and out['easing'] not in ELEMENT_EASINGS:
         raise ValueError(f'easing {out["easing"]!r}: use one of {ELEMENT_EASINGS}')
     if 'distance' in out and (isinstance(out['distance'], bool)
-                              or not isinstance(out['distance'], (int, float))):
-        raise ValueError(f'distance {out["distance"]!r}: a number of pt')
+                              or not isinstance(out['distance'], (int, float))
+                              or not 1 <= out['distance'] <= 200):
+        raise ValueError(f'distance {out["distance"]!r}: a number of pt, 1-200')
     if 'scale' in out and (isinstance(out['scale'], bool)
                            or not isinstance(out['scale'], (int, float))
-                           or not 0 <= out['scale'] < 1):
-        raise ValueError(f'scale {out["scale"]!r}: from 0 to below 1')
+                           or not 0.1 <= out['scale'] <= 0.99):
+        raise ValueError(f'scale {out["scale"]!r}: from 0.1 to 0.99')
     return out
 
 

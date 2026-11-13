@@ -357,17 +357,20 @@ seconds, a headline that rises in) starts `visibility: hidden`, and On Appear sh
 
 | `type` | What the user sees | Extra key |
 |---|---|---|
-| `none` | The element appears after `delay`, with no motion | only `delay` |
+| `none` | The element appears after `delay`, with no motion | |
 | `fade` | It fades in | |
-| `rise` | It fades in and moves up into place | `distance`, pt below its place, 32 |
-| `pop` | It fades in and grows into place | `scale` it starts from, 0 to below 1, 0.8 |
+| `rise` | It fades in and moves up into place | `distance`, pt below its place, 1 to 200, 32 |
+| `pop` | It fades in and grows into place | `scale` it starts from, 0.1 to 0.99, 0.8 |
 
-- **`duration` and `delay` are whole ms, 0 to 60000;** a `duration` of 0 is no motion. `easing` is
-  `linear`, `ease-in`, `ease-out` or `ease-in-out`. The builder starts each at 300 ms, ease out.
+- **Every type carries `duration`, `delay` and `easing`,** `none` too: `flows config validate`
+  refuses one without them, and the device ignores them on `none`. `duration` and `delay` are
+  whole ms, 0 to 60000; a `duration` of 0 is no motion. `easing` is `linear`, `ease-in`,
+  `ease-out` or `ease-in-out`. The builder starts each at 300 ms, ease out.
 - **The same `animation` works on `hideElement`,** and on a tap: a hint that fades out, a block
   that pops in when a plan is picked. A hide plays the motion backwards.
-- **A delayed reveal waits once per run of the flow.** Back to the screen before the wait ends
-  waits for the rest; after it, the element is there at once. While it animates in, it does not
+- **A delayed reveal waits once per run of the flow, and may end up to a second late on iOS,**
+  so steps less than a second apart can land together there. Back to the screen before the wait
+  ends waits for the rest; after it, the element is there at once. While it animates in, it does not
   take taps.
 - **It plays only on an element of the same screen,** outside a component and without a conditional
   visibility. Anywhere else the element shows at once, and `verify-config.py` warns. A bottom
