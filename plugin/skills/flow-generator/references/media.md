@@ -64,7 +64,7 @@ never as a fact about the format.
 ### When the upload warns that an image is heavy
 
 The `--json` answer also carries `size` (bytes of the file sent) and `warnings`: an item with
-`code` `heavy_image`, a `title` and a `message` when the sent file is over 1 MB. Read it off the
+`code` `heavy_image`, a `title` and a `message` when the sent file is over 1 048 576 bytes (1 MiB). Read it off the
 record: `jq -c '.warnings // empty' media/hero.json`. No `warnings` key (an older server): say
 nothing about the weight of the upload.
 
@@ -129,7 +129,7 @@ used.
 | animated WEBP | uploads, and is served as one still frame: motion is a [`video`](#uploading-a-video) |
 | **SVG** | **`ApiError: http_500`, reproducible**; through the MCP server it has come back as `INVALID_ARGUMENT` — see below |
 | Anything else that is not an image | refused with the list of the image types |
-| up to 20 MiB | uploads; over 1 MB the answer carries a [`heavy_image` warning](#when-the-upload-warns-that-an-image-is-heavy) |
+| up to 20 MiB | uploads; over 1 MiB the answer carries a [`heavy_image` warning](#when-the-upload-warns-that-an-image-is-heavy) |
 | over 20 MiB | refused: `File size must not exceed 20 MiB.` (`media_file_too_large`, HTTP 413) |
 
 **The size cap is on file bytes, not on dimensions:** a **3000×2000** PNG at 22 KB uploads fine.
@@ -484,7 +484,7 @@ Two riders. **Crop before the first upload, not after** — the upload does not 
 `flows media` has no delete, so a re-crop leaves the uncropped copies in the user's library
 permanently (disclose them). And
 because the box is in **points** while the asset scales to it, upsample the crop 2–3× on the way
-out: it costs bytes (keep the file at 1 MB or less, where the upload does not warn) and keeps the
+out: it costs bytes (keep the file at 1 MiB or less, where the upload does not warn) and keeps the
 artwork crisp on a retina device, which no preview render can confirm.
 
 **`hug` reflows and `fixed` does not.** With `hug`, the element's height is a function of the file
