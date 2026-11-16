@@ -158,8 +158,10 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
 2. **Check the platform.** A native iOS app on Adapty iOS SDK 4.4 or later serves the view. Any
    other app gets no code: say its users see the fallback until its SDK supports custom elements,
    and stop. An iOS app below 4.4 needs the SDK updated first, and **4.4 breaks code that builds
-   today**: a custom action's handler, custom asset names, and the fallback file, whose old format
-   fails silently with no build error. Say so, and ask before touching the dependency; on a yes,
+   today**: flows need iOS 16, so an app that targets iOS 15 wraps its flow code in an
+   availability check; a custom action's handler and custom asset names change; and the fallback
+   file's old format fails silently with no build error. Say so, and ask before touching the
+   dependency; on a yes,
    apply https://adapty.io/docs/migration-to-ios-sdk-44.md and tell the user to download the
    fallback file again for 4.4.
 3. **Find where the app shows flows.** None: the app does not render flows yet, which is SDK
