@@ -53,7 +53,8 @@ Tell the user, in plain words; on a yes, this is what you write ([custom-element
 - Adds Lottie to the app (the `lottie-ios` package) and the animation file to the app bundle,
   named after the ID.
 - **Grows to a number:** plays the file from the start to the user's progress (0 to 1) once and
-  stops; the app works the progress out from its own data. The file needs nothing grown on its
+  stops; the app works the progress out from its own data, and the view follows that data, so
+  the screen shows the current streak each time it opens. The file needs nothing grown on its
   first frame, fully grown on its last, and a steady pace with no easing, or halfway through the
   file is not half the progress: say so to whoever makes the file.
 - **A segment per user:** plays the segment between the markers named for the user's state, and a

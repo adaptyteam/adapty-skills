@@ -37,8 +37,9 @@ map would move both.
 - Asks for location access when the map appears, only if the user has not answered yet; the app
   needs its location usage description (`NSLocationWhenInUseUsageDescription`) in `Info.plist`.
 - Finds the places itself and drops a marker for each one. The flow passes nothing.
-- Draws nothing when the user denied location access, so users see the fallback rather than an
-  empty map.
+- Draws nothing when the user denied location access before the screen opened, so users see the
+  fallback rather than an empty map. When the user denies it on the screen, the view stays and
+  says how to allow it in Settings: drawing nothing then would swap in the fallback mid-screen.
 - Apple's newest map view needs iOS 17; on iOS 16 the app either uses the older map view or
   draws nothing.
 

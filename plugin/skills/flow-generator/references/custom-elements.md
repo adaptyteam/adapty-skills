@@ -43,8 +43,9 @@ What it is, read from the builder, the transformer and the iOS SDK:
   **outside** the box.
 - **Taps inside the view stay inside the view.** A map pans, a chart answers a drag, a Rive
   mascot reacts. A link the view opens goes to the system browser.
-- **The builder canvas shows the fallback, never the native view.** No render does; only a
-  device with an app build that serves the Type shows the real thing.
+- **The builder canvas shows the fallback, never the native view.** No render does, nor the
+  Adapty mobile app's preview; only a device with an app build that serves the Type shows the
+  real thing.
 - **Users see the fallback** when their app version has no view for this Type, when their app's
   Adapty SDK is older than custom element support, when the Type or ID is spelled differently
   from the app's code, and when the app chooses not to draw (a missing file, a denied
@@ -105,6 +106,8 @@ fk.custom_element('lottie_animation', 'streak_plant', fixed_h=220,
   app draws the view.
 - **Not inside a carousel or another container that answers a swipe** when the view answers a
   drag (a map, a chart, a Rive mascot): one drag moves both.
+- **Not inside a product card or another selectable element:** when the selection changes, the
+  native view can lose its state (a played animation restarts, a map recentres).
 - **`clipContent: true`** in `layout` clips the native view to the box's `borderRadius`. Set it
   whenever the box has rounded corners and the view fills it (a map, a camera).
 
@@ -154,11 +157,21 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
    ask for its path rather than guess one.
 2. **Check the platform.** A native iOS app on Adapty iOS SDK 4.4 or later serves the view. Any
    other app gets no code: say its users see the fallback until its SDK supports custom elements,
-   and stop. An iOS app below 4.4 needs the SDK updated first: say so and ask before touching the
-   dependency.
-3. **Find where the app shows flows**, the call that gets this flow's configuration. Several:
-   match the one for this flow's placement, and ask when you cannot tell. None: the app does not
-   render flows yet, which is SDK integration, so offer `adapty-integration` instead.
+   and stop. An iOS app below 4.4 needs the SDK updated first, and **4.4 breaks code that builds
+   today**: a custom action's handler, custom asset names, and the fallback file, whose old format
+   fails silently with no build error. Say so, and ask before touching the dependency; on a yes,
+   apply https://adapty.io/docs/migration-to-ios-sdk-44.md and tell the user to download the
+   fallback file again for 4.4.
+3. **Find where the app shows flows.** None: the app does not render flows yet, which is SDK
+   integration, so offer `adapty-integration` instead. Then pick where the view is registered:
+   - **App-wide, once at launch: the default.** Every flow and A/B test that uses the Type then
+     gets the view with no app release. Add a case to the app's existing app-wide registration
+     when it has one.
+   - **For one flow, when its configuration is fetched:** only when the view needs data the app
+     has only when it opens that flow, such as answers from an earlier flow
+     ([chart.md](custom-elements/chart.md)). Those values are fixed at the fetch, and this
+     registration replaces the app-wide one in that flow, so it hands every other Type on to the
+     app-wide one.
 4. **Write the view** the template's "What the app's view does" describes, in its own file, with
    the library the template names added the way the project adds packages.
 5. **Register it for the Type**, as the docs page shows: the iOS setup at
@@ -166,9 +179,13 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
    does not show the call, read the SDK source at the release tag the app depends on
    (https://github.com/adaptyteam/AdaptySDK-iOS, search it for "custom element") rather than
    guessing a signature. Match the Type and ID letter for letter, return no view for any other
-   pair and whenever the view's file, data or permission is missing, so users see the fallback.
-   Data that comes from the app (the streak, the series) is read where the app already holds it;
-   ask when you cannot find it, never pass a sample value.
+   pair and whenever the view's file or data is missing, so users see the fallback. A permission
+   returns no view only when it was denied before the screen opened; when it is not answered
+   yet, the view asks for it, and when the user denies it on the screen, the view stays and says
+   how to allow it in Settings. Data that comes from the app (the streak, the level) is read
+   where the app already holds it, and the view observes it, so the screen shows the current
+   value each time it opens; a value copied in at registration stays as it was. Ask when you
+   cannot find the data, never pass a sample value.
 6. **Build if the project lets you,** and show the diff in one line per file. Add any
    `Info.plist` usage description the template names.
 

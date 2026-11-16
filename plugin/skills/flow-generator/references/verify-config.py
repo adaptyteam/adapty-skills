@@ -3433,12 +3433,17 @@ def check(path, baseline_text=None, baseline_images=None):
                                 f'so a button or a plan inside it disappears for them. Keep it '
                                 f'outside the box')
                 stack_.extend(k.get('children') or [])
-            up = parent.get(eid)
+            up, seen_kinds = parent.get(eid), set()
             while up:
-                if (m.get(up) or {}).get('type') == 'carousel':
+                ut = (m.get(up) or {}).get('type')
+                if ut == 'carousel' and ut not in seen_kinds:
                     warn.append(f'{where}: custom element {eid} sits inside carousel {up} — a drag '
                                 f'in a map, a chart or a Rive view also swipes the carousel')
-                    break
+                if ut in ('product', 'selectable') and not seen_kinds & {'product', 'selectable'}:
+                    warn.append(f'{where}: custom element {eid} sits inside {ut} {up} — when the '
+                                f'selection changes, the native view can lose its state; keep '
+                                f'the box outside selectable elements')
+                seen_kinds.add(ut)
                 up = parent.get(up)
         for (ctype, cid_), eids in pairs.items():
             if len(eids) > 1:

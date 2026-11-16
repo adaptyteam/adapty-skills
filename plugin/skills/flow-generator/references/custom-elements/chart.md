@@ -17,7 +17,9 @@ numbers and a paywall that shows the chart; then:
 1. The **onboarding flow** asks with inputs (a `number-input` per value, format `integer` so the
    app reads the same digits in every locale), each with a `customId` the app reads.
 2. The **app** collects the answers from the flow's events, works out the series, and holds it.
-3. The **paywall** is a separate flow with the chart, and the app hands its view the series.
+3. The **paywall** is a separate flow with the chart, and the app hands its view the series
+   when it fetches the paywall's configuration, the one case for registering the view for one
+   flow. The series is fixed from that fetch, so the app fetches after the onboarding closes.
 
 When the inputs are in the same flow as the chart, the app still has to read them from the flow's
 events before the chart's screen opens: say so, because the chart then shows the fallback for a
