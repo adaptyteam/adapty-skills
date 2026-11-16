@@ -4,6 +4,7 @@
     python3 <skill>/references/reads.py audit --app <APP_ID> --adapty "$ADAPTY" [--months 6]
     python3 <skill>/references/reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID> [--placement <ID> ...] [--months 12]
     python3 <skill>/references/reads.py health --app <APP_ID> --adapty "$ADAPTY"
+    python3 <skill>/references/reads.py backlog --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID> [--placement <ID> ...] [--drafts <drafts.json>]
     python3 <skill>/references/reads.py check-reply <<'DRAFT'   # the draft on stdin, or --file <DRAFT>
 
 `health` reads the last 12 weeks by day and compares the recent days with the app's own normal level: the
@@ -13,6 +14,11 @@ signals, the costliest first, or NONE.
 
 `check-reply` reads no data: it flags the sentences of a draft reply that claim "every" group, a cause
 from timing, or less money without the first-payment / renewal split.
+
+`backlog` lists the hypotheses saved on the placements given, then what is due on them (a result to ask for, a
+test to read, a change put live without a test, a hypothesis whose flow is gone). With --drafts, a file of create
+bodies, it first checks each draft against what the server accepts and gives it an id, then says what the backlog
+already holds of each: new, tested, testing, in the backlog, live or dismissed.
 
 `audit` runs "The audit reads" in diagnosis.md over the last full months, and lists the app's paywall
 and flow A/B tests. `placement` reads each placement given: its audiences by name, the A/B tests that
@@ -2333,9 +2339,217 @@ def health(a):
               'with the table above.')
 
 
+# The hypothesis backlog (`hypotheses list`). A row's `phase` is its state, except that an accepted row follows its A/B
+# test (test_draft, testing, ended) or its live audience (applied). The server calls two rows the same change when
+# placement, subject and type agree, and refuses a second one while the first is open (proposed or accepted); it never
+# looks at the products, so two countries' price moves on one screen look like one change to it.
+OPEN = ('proposed', 'accepted')
+BUCKET = {'won': 'tested', 'lost': 'tested', 'inconclusive': 'tested', 'ended': 'tested', 'testing': 'testing',
+          'proposed': 'backlog', 'accepted': 'backlog', 'test_draft': 'backlog', 'applied': 'live',
+          'dismissed': 'dismissed'}
+RANK = ('testing', 'backlog', 'live', 'tested', 'dismissed')   # the bucket said when one change has several rows
+PRODUCT_TYPES = ('new_duration', 'remove_duration', 'duration_swap', 'trial', 'trial_length_change',
+                 'trial_restructure', 'price_change')
+STORE_PRODUCT_TYPES = ('trial', 'trial_length_change', 'trial_restructure', 'price_change')
+FRESH = ('fresh', 'not_applicable', '', None)
+
+
+def change_key(h):
+    s = h.get('subject') or {}
+    return (h.get('placement_id'), s.get('type'), s.get('flow_id'), s.get('flow_screen_id'), s.get('segment_id'),
+            h.get('type'))
+
+
+def products_key(h):
+    return sorted(tuple('' if v is None else str(v) for v in (p.get('duration_type'), p.get('trial_duration'),
+                                                               p.get('country')))
+                  for p in h.get('products') or [])
+
+
+def match(draft, rows):
+    """What the backlog already holds of a draft: (bucket, row). A product change matches only a row with the same
+    products; one that differs only in products while a row of that change is open needs `force` to be saved."""
+    same = [r for r in rows if change_key(r) == change_key(draft)]
+    if (draft.get('type') or '').split(':')[-1] in PRODUCT_TYPES:
+        exact = [r for r in same if products_key(r) == products_key(draft)]
+        if not exact:
+            blocking = next((r for r in same if r.get('state') in OPEN), None)
+            return ('force', blocking) if blocking else ('new', None)
+        same = exact
+    if not same:
+        return 'new', None
+    return min(((BUCKET.get(r.get('phase') or r.get('state'), 'backlog'), r) for r in same),
+               key=lambda x: RANK.index(x[0]))
+
+
+def match_all(drafts, rows):
+    """`match` for each draft of one batch: the server saves a batch one item at a time, so each draft also meets
+    the drafts before it, as open rows."""
+    out, seen = [], list(rows)
+    for d in drafts:
+        out.append(match(d, seen))
+        seen.append(dict(d, state='proposed', phase='proposed'))
+    return out
+
+
+def due(rows, audiences_of):
+    """The rows a returning session acts on, as (what, row): `ask-result` (a test stopped without one, or a result the
+    server suggests), `read-test` (a test running), `live-check` (an accepted flow change put live without a test: a
+    regular audience of its placement shows its variant flow, or an audience split accepted live), `stale` (a flow, version or placement it names is
+    gone). `audiences_of` maps a placement id to its `placements get` audiences."""
+    out = []
+    for h in rows:
+        phase = h.get('phase') or h.get('state')
+        live = {x.get('flow_id') for x in audiences_of.get(h.get('placement_id')) or []
+                if x.get('content_type') != 'ab_test' and not x.get('ab_test_id')}
+        if h.get('suggested_result') or phase == 'ended':
+            out.append(('ask-result', h))
+        elif phase == 'testing':
+            out.append(('read-test', h))
+        elif phase == 'applied' or (phase == 'accepted' and not h.get('ab_test_id')
+                                    and h.get('variant_flow_id') in live):
+            out.append(('live-check', h))
+        elif h.get('state') in OPEN and h.get('stale') not in FRESH:
+            out.append(('stale', h))
+    return out
+
+
+# What the server takes in a create body: the `adapty` types and the subjects each takes,
+# the metrics, and the text limits. Any other namespace is the app's own and only has to match the form.
+SERVER_TYPES = {'adapty:flow_design': ('flow', 'flow_screen'), 'adapty:audience_split': ('audience',),
+                **{f'adapty:{t}': ('flow_screen',) for t in PRODUCT_TYPES}}
+METRICS = ('arpu', 'cr_to_purchase', 'ltv', 'cr_to_paid', 'cr_to_trial', 'refund_rate', 'day_1_retention')
+LIMITS = (('title', 80), ('rationale', 1200), ('action', 700))
+OWN_TYPES = ('growth_advisor:follow_up_offer', 'growth_advisor:seasonal', 'growth_advisor:new_placement',
+             'growth_advisor:commitment')   # levers.md, "Saved as": the only types of our own
+TYPE_FORM = re.compile(r'^[a-z][a-z0-9_]{0,31}:[a-z][a-z0-9_]{0,63}$')
+
+
+def check_drafts(drafts):
+    """What the server would refuse in each draft, as sentences to fix before `hypotheses create`."""
+    out = []
+    for i, d in enumerate(drafts, 1):
+        name = f"draft {i} ({(d.get('title') or '')[:40]})"
+        for field, most in LIMITS:
+            if len(d.get(field) or '') > most:
+                out.append(f'{name}: the {field} has {len(d[field])} characters, the server takes {most}; shorten it')
+        kind, subj = d.get('type') or '', (d.get('subject') or {}).get('type')
+        if subj == 'paywall':
+            out.append(f'{name}: Adapty keeps paywall hypotheses read only, so a change to a legacy or custom paywall '
+                       'is not saved; keep it in the reply')
+            continue
+        name_only = kind.split(':')[-1]
+        if name_only in PRODUCT_TYPES and not d.get('products'):
+            out.append(f'{name}: {kind} needs the full target product set of the screen: every product the screen '
+                       'shows after the change')
+        if any(p.get('store_product_id') for p in d.get('products') or []) and kind.startswith('adapty:') \
+                and name_only not in STORE_PRODUCT_TYPES:
+            out.append(f'{name}: store_product_id goes only on a price change or a trial; name the product by its '
+                       'product_id')
+        if not TYPE_FORM.match(kind):
+            out.append(f'{name}: type "{kind}" is not namespace:name in lower case')
+        elif not kind.startswith('adapty:') and kind not in OWN_TYPES \
+                and f'adapty:{kind.split(":")[1]}' not in SERVER_TYPES:
+            out.append(f'{name}: type {kind} is not in levers.md "Saved as"; use the type that column gives')
+        elif kind.startswith('adapty:') and kind not in SERVER_TYPES:
+            out.append(f'{name}: the server has no type {kind}; use growth_advisor:{kind.split(":")[1]}')
+        elif kind in SERVER_TYPES and subj not in SERVER_TYPES[kind]:
+            out.append(f'{name}: {kind} takes a {" or ".join(SERVER_TYPES[kind])} subject, not {subj}')
+        elif (not kind.startswith('adapty:') and f'adapty:{kind.split(":")[1]}' in SERVER_TYPES
+              and subj in SERVER_TYPES[f'adapty:{kind.split(":")[1]}']):
+            out.append(f'{name}: use the server\'s own type adapty:{kind.split(":")[1]} instead of {kind}')
+        exp = d.get('expected') or {}
+        trio = [exp.get(k) for k in ('metric', 'low_pct', 'high_pct')]
+        if any(v is None for v in trio) and any(v is not None for v in trio):
+            out.append(f'{name}: expected metric, low_pct and high_pct go together or not at all')
+        for m in [exp.get('metric')] + list(d.get('metrics_impact') or []):
+            if m is not None and m not in METRICS:
+                out.append(f'{name}: metric "{m}" is not one the server knows ({", ".join(METRICS)})')
+    return out
+
+
+def mint_ids(path):
+    """Give each draft without one a `hypothesis_id` and write the file back: a create sent again with the same id
+    and payload replays the stored row instead of saving a second one."""
+    import uuid
+    data = json.load(open(path))
+    items = data.get('hypotheses', data) if isinstance(data, dict) else data
+    for d in items if isinstance(items, list) else [items]:
+        d.setdefault('hypothesis_id', str(uuid.uuid4()))
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    return items if isinstance(items, list) else [items]
+
+
+def backlog_rows(adapty, app, placements):
+    return every_page(adapty, app, 'hypotheses', [w for p in placements for w in ('--placement', p)])
+
+
+DUE_WORDS = {
+    'ask-result': 'its A/B test stopped without a result: show what `ab-tests metrics` says, ask the user, then '
+                  '`hypotheses resolve --result`',
+    'read-test': 'its A/B test runs: read `ab-tests metrics` and offer the stop through `ab-tests` once the leader '
+                 'rules settle',
+    'live-check': 'put live without a test: compare before and after (reads.py health), then resolve on the '
+                  "user's word",
+    'stale': 'what it names is gone or changed: tell the user and offer to dismiss it',
+}
+SAY = {
+    'new': 'new: suggest it',
+    'force': 'new, but an open hypothesis of the same change, saved or earlier in this file, differs only in '
+             'products: save it with "force": true',
+    'tested': 'tested: do not suggest it again; its next rung can take its place (levers.md, "Next rung")',
+    'testing': 'its A/B test runs now: remind the user, do not suggest it',
+    'backlog': 'in the backlog: remind the user only if its Why still holds in this month\'s numbers; otherwise offer '
+               'to dismiss it',
+    'live': 'already live: do not suggest it',
+    'dismissed': 'dismissed: do not suggest it unless the numbers changed since',
+}
+
+
+def say(bucket, r):
+    """What to do with a draft the backlog already holds; a dismissed one carries the user's reason."""
+    text = SAY[bucket]
+    if bucket == 'dismissed':
+        reason = (r or {}).get('dismiss_reason')
+        text += f'. Reason given: "{reason}"' if reason else '. No reason was given'
+    return text
+
+
+def backlog(a):
+    rows = backlog_rows(a.adapty, a.app, a.placement)
+    if FAILED:
+        return
+    own = [r for r in rows if not r.get('is_projected')]
+    print(f'## backlog: {len(own)} hypotheses on {len(a.placement)} placement(s)')
+    for r in own:
+        test = f", test {r['ab_test_id']}" if r.get('ab_test_id') else ''
+        print(f"   {r.get('phase') or r.get('state'):12} {r.get('type'):28} {r.get('title')}  "
+              f"[{r.get('hypothesis_id')}{test}]")
+    if not own:
+        print('   empty: the reply explains what the backlog gives the user, once')
+    auds = {}
+    for pid in a.placement:
+        body, err = cli(a.adapty, ['placements', 'get', pid, '--app', a.app])
+        auds[pid] = audiences(body) if not err else []
+    todo = due(own, auds)
+    print('\n## due' + ('' if todo else ': nothing'))
+    for what, r in todo:
+        print(f"   {r.get('title')} [{r.get('hypothesis_id')}]: {DUE_WORDS[what]}")
+    if a.drafts:
+        drafts = mint_ids(a.drafts)
+        for p in check_drafts(drafts):
+            print('CHECK ' + p)
+        print('\n## drafts against the backlog')
+        for i, (d, (bucket, r)) in enumerate(zip(drafts, match_all(drafts, own)), 1):
+            seen = f" (matches \"{r.get('title')}\" [{r.get('hypothesis_id')}])" if r else ''
+            print(f"   {i}. {d.get('title')}: {say(bucket, r)}{seen}")
+
+
 def run():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('command', choices=('audit', 'placement', 'health', 'check-reply'))
+    ap.add_argument('command', choices=('audit', 'placement', 'health', 'check-reply', 'backlog'))
+    ap.add_argument('--drafts', help='backlog: a JSON file of hypothesis create bodies to check and match')
     ap.add_argument('--app')
     ap.add_argument('--file', help='check-reply: the draft reply to check (default: stdin)')
     ap.add_argument('--adapty', default='adapty', help='the resolved $ADAPTY command string')
@@ -2349,14 +2563,24 @@ def run():
         return 0
     if not a.app:
         ap.error(f'{a.command} needs --app <APP_ID>')
-    if a.command == 'placement' and not a.placement:
-        ap.error('placement needs --placement <PLACEMENT_ID>')
+    if a.command in ('placement', 'backlog') and not a.placement:
+        ap.error(f'{a.command} needs --placement <PLACEMENT_ID>')
     a.months = a.months or (6 if a.command == 'audit' else 12)
     if not a.adapty.strip():
         print('STOP: --adapty is empty, so no read was made: $ADAPTY was not set in the shell that ran this. '
               'Resolve $ADAPTY in the same command as this one, as "The CLI" says, or pass the command itself: '
               '--adapty "npx --yes adapty@latest".')
         return 2
+    if a.command == 'backlog':
+        if not has(a.adapty, ['hypotheses', 'list']):
+            print(f'STOP: `{a.adapty}` has no hypotheses commands, so no read was made. Update the CLI: rerun with '
+                  '--adapty "npx --yes adapty@latest"; only if that lacks them too, try `npx --yes adapty@beta '
+                  'hypotheses list --help` once before telling the user the backlog cannot be read.')
+            return 2
+        backlog(a)
+        for x in FAILED:
+            print('FAILED: ' + x)
+        return 1 if FAILED else 0
     if not has_analytics(a.adapty):
         print(f'STOP: `{a.adapty}` has no analytics commands, so no read was made. It is an adapty CLI older '
               'than the analytics topic, or not the one npm just updated (another install comes first on '
