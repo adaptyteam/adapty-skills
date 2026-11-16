@@ -73,6 +73,48 @@ testing, name that change in the offer instead: for a leaking screen of a flow, 
 change hypothesis, and that its design comes from `onboarding-teardown`; for the paywall of a
 flow, the untested Paywall design hypothesis, and that its design comes from `paywall-teardown`.
 
+## A health check
+
+"How is my app doing", "how was this week", "anything wrong?", "check on my app" ask how the last
+days went against the app's own normal level, and people ask it every week or month. The audit
+judges the whole business against the market; this is not the audit.
+
+1. Pick the app and run `python3 <skill>/references/reads.py health --app <APP_ID> --adapty
+   "$ADAPTY"` once. It reads the last 12 weeks by day and prints a table (the last 7 days against
+   a usual week, the last 28 against the 28 before) and the signals, costliest first, or NONE.
+   The thresholds live in it; never judge a change by eye.
+2. Reply in about 150 words plus the table, in this order:
+   - the bold verdict: a normal week, or the costliest signal with the day it started and the
+     money so far;
+   - the table, with revenue, new paid subscriptions, new trials, installs and refunds: the 7-day
+     columns, or the 28-day ones when the user asks about a month; bold the cell that moved;
+   - each other signal in one sentence: a spike or a climb is good news, fewer installs is an
+     early sign rather than money lost, fewer new buyers is money the weeks ahead will miss;
+   - Next steps: for a signal, at most one "You:" question about that day (a release, a
+     campaign, a price change), then "Me:" find why ("Questions after the audit", why did revenue
+     drop). For a normal week, "Me:" suggest what to test next, which is the audit.
+   No market medians and no hypotheses: the audit owns those. Call a fall traffic only when the
+   trials per 1,000 installs row is not marked DOWN; name no other cause the reads do not show.
+
+Shape (the form, not words to copy):
+
+> **Revenue has been 22% under its usual level since March 3, about $9k so far, and all of it is
+> Google Play.**
+>
+> | | Last 7 days | Usual week | Change |
+> |---|---|---|---|
+> | Revenue | $31.2k | $40.0k | **−22%** |
+> | New paid subscriptions | 410 | 425 | −4% |
+> | New trials | 1,180 | 1,210 | −2% |
+> | Installs | 24.1k | 24.6k | −2% |
+> | Refunds | $610 | $590 | +3% |
+>
+> Buyers are coming in as usual, so the money is lost on renewals or on one store's payments.
+>
+> **Next steps**
+> 1. You: did anything ship on Google Play around March 3?
+> 2. Me: find why Google Play revenue fell. Want me to?
+
 ## Without an Adapty account
 
 The user sends an App Store or Google Play link, screenshots, or the app's code, and no account can
@@ -267,7 +309,8 @@ and the reason.
   at most five rows) (months across, the groups that carry it down the side). Keep each one to
   about six rows and seven columns, put the store that earns first, and bold the cell the
   sentence under it talks about. Each table is followed by one sentence saying what it shows. A
-  table is never a list of what you checked, and a hypothesis block never holds one.
+  table is never a list of what you checked, and a hypothesis block holds one only for the
+  country price list (`references/pricing.md`).
 - **Evidence is part of the argument, not a labelled slot.** Say what their numbers show, then
   what tends to happen when apps make this change and how sure that is, naming the source in
   passing: "in Adapty's library of real subscription A/B tests", "Adapty's State of Paywalls
@@ -312,7 +355,8 @@ Shape of an answer (the form, not words to copy; in another language Next steps,
 Shape of an audit's opening (the form, not words to copy; the scorecard's labels are translated
 too):
 
-> **Your app converts like a typical US app; renewals are what cost you most.**
+> **Monthly renewals cost you most: 41% of monthly subscribers renew, against 58% six months ago,
+> about $5k a month.** The rest converts like a typical US app.
 >
 > | Part | Yours | Against | |
 > |---|---|---|---|
@@ -323,12 +367,13 @@ too):
 > | First renewal, monthly | **41%** | 58% six months ago | weak |
 > | Setup | 1 placement, nothing after onboarding | | weak |
 >
-> Monthly renewals cost the most: about $5k a month against your own level in spring.
+> The fall is all on the March cohort, which came in on a discounted first month.
 
 ## The audit
 
 The audit is the default when the user has no specific question, and the start of every
-conversation that asks "what should I do". It looks at the whole business over the window, not at
+conversation that asks "what should I do"; how the app is doing gets "A health check" instead. It
+looks at the whole business over the window, not at
 what changed last: a part that has been weak for all six months costs more than a dip that just
 started, and it never shows up as a change.
 
@@ -470,7 +515,7 @@ started, and it never shows up as a change.
    - only one placement, or no follow-up offer for users who close the onboarding paywall
    - a main market
    - a main-market plan below the 25th percentile for its category (`references/pricing.md`)
-   - a top country 15% or more off the market's price ratio to the main market
+   - the country price list (`references/pricing.md`, "The country list"), built in every audit
    - a top country whose language the paywall or flow does not have
    - a `FEATURE GATE` line, or a trigger in `references/levers.md`, "Adapty features"
    - fewer than about 200 purchases in two weeks
@@ -490,7 +535,15 @@ started, and it never shows up as a change.
    with a setup to copy, are where the rest come from, or the screenshots to ask for ("What a
    hypothesis needs").
 6. **Report**, following "How you write a reply" and "What a hypothesis needs". The bold answer
-   is about the business as a whole: where it stands and which part costs it most. Under it goes
+   opens with the part that costs most, as the numbers show it: the group or step, its number
+   against its yardstick, and the dollars a month at stake. It tells the user something about
+   their money they did not know; a test or a hypothesis is never in it, those start under
+   Suggested hypotheses. A setting the user chose (one language, one price everywhere, one
+   placement) explains that number after it, never leads.
+   Where the business stands as a whole, "nothing is broken" included, is the sentence after the
+   bold one, never in it; when nothing stands out, the bold answer leads with the biggest bet's
+   number and stake. Hypothesis 1 acts on the part the bold answer names, or, when that part is a
+   breakage, the fix is the Next step between. Under it goes
    the scorecard from step 4 as a table, one row per part, then what the app already tried (the
    paragraph, or the **What you already tested** list from step 3), then the main finding. An audit always ends with hypotheses. When an open question could change the first pick, give them anyway and
    say in one line what the answer would change. Before sending any reply with numbers, pass the
@@ -503,7 +556,8 @@ started, and it never shows up as a change.
    DRAFT
    ```
 
-   Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped), then send.
+   Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped), then send
+   the draft as checked; a draft edited after the check is checked again.
    If it cannot run, check the draft for the same three things yourself: a claim about every
    group names each group's number, a cause found from timing has the Cause check behind it, and
    less money is split into first payments and renewals, each in dollars.
