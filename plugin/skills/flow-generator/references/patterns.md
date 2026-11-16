@@ -687,7 +687,9 @@ transformer (Android stretches the slide full-width, the peek disappears), and a
 footer under a carousel collapses to zero when Android measures a flat+scrollable layout. The
 working recipe is all-fixed geometry — verified numbers for a centered 3-card
 layout: card width **245**, carousel **402**, symmetric padding **66.5**, gap **12**, footer
-heights fixed; the CTA may stay `Fill`. Swipe and autoplay survive. Two more: the slide's configured size and its hugged content are independent (a 200 slide over 148
+heights fixed; the CTA may stay `Fill`. With a padding, each card is
+`slideWidth − 2 × (padding + gap)` wide on both platforms, so the slide width there is 402, not
+245. Swipe and autoplay survive. Two more: the slide's configured size and its hugged content are independent (a 200 slide over 148
 content is a 52px gap you did not author), and slides have no auto-height — fix the carousel height
 to the tallest slide or cut the copy.
 

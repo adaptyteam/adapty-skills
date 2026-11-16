@@ -72,8 +72,9 @@ The missing-assets block, when it goes out and its slots: [build.md → The miss
 **Name what the builder cannot do yet, beside it**: for each behaviour or effect in the design the
 flow does not perform (creating an account, a permission prompt, a blur), say what the screen really
 does ("sends `create_account` to your app; the flow creates no account") and the routes that fit — a
-custom action your app answers with its own screen, a second flow on its own placement if the
-onboarding continues after it, or an image or a video of an effect — and
+custom action your app answers with its own screen (it does not pause the flow: the actions after
+it run at once, so a step that must wait for the app, such as a sign-in, ends this flow and the app
+opens a second one), a second flow on its own placement if the onboarding continues after it, or an image or a video of an effect — and
 call it "not in the builder yet", never impossible.
 When any route is a custom action, list the action IDs and offer to write their handlers in the
 app: "I can add the code that answers these in your app. Want me to?" — on a yes, hand the IDs to
@@ -246,7 +247,8 @@ Example of the question's shape, not words to copy:
 **This skill prefers the CLI:** `gates.sh`, `shoot.sh` and the preview script run it, and over
 MCP a whole config or image passes through the conversation as a tool argument. With MCP only,
 offer the CLI in one line; on a no, go on over MCP, run the local checks yourself, and name each
-check that did not run.
+check that did not run. With no Python, the same holds: `flows config validate` on the exact bytes
+is the gate, and each local check that did not run is named.
 
 **A 5xx (a `520` too) on `flows config update` may or may not have landed:** `config get` and
 diff before any retry.

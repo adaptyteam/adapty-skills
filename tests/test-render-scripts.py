@@ -135,8 +135,15 @@ try:
         r, _ = save(multi, '--locale', 'xx', name='bad.json')
         check('--locale unknown: exit 2 and lists the codes', r.returncode == 2 and 'sr-Latn' in r.stderr, r.stderr)
         r, _ = save(load('onboarding-custom-actions.json'), '--locale', 'en', name='old.json')
-        check('--locale on a config with no catalog: exit 2 and says so',
-              r.returncode == 2 and 'schemaVersion below 13' in r.stderr, r.stderr)
+        check('--locale on a config too old to convert (v10): exit 2, names the device preview',
+              r.returncode == 2 and 'schemaVersion 10' in r.stderr
+              and 'mobile-preview.mjs' in r.stderr, r.stderr)
+        v12 = copy.deepcopy(load('onboarding-custom-actions.json'))
+        flow_of(v12)['schemaVersion'] = 12
+        r, _ = save(v12, '--locale', 'en', name='v12.json')
+        check('--locale on a v12 config with no catalog: exit 2, names localization.py catalog',
+              r.returncode == 2 and 'schemaVersion below 13' in r.stderr
+              and 'localization.py catalog' in r.stderr, r.stderr)
 
         quiz = load('onboarding-custom-actions.json')
         assert 'previewValue' in json.dumps(quiz), 'fixture lost its previews; pick another'

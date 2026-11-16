@@ -60,7 +60,9 @@ replaces it. Everything below lives in the live document and in no script:
   ([products.md](products.md)).
 - **Every manual edit** — copy, colours, spacing, a screen someone added, an action they rewired.
 - **Locales added in the dashboard**, and the translations under them.
-- **The builder's own normalisations** — re-sorted `_meta.icons`, a v9 → v10 fill migration on
+- **The builder's own normalisations** — re-sorted `_meta.icons` (a builder save has also been
+  seen to drop `custom` icon entries, and the next publish then fails with
+  `unknown_flow_icon_variant`: fetch again, add the entry back from `icons.py`, update), a v9 → v10 fill migration on
   save, and an auto-saved cleanup of `states` that bumps the version with nobody editing (a 409 you
   did not expect; `diff-config.py` may show nothing, so diff the raw JSON). Losing these costs
   nothing, and they are listed only so a byte comparison that flags them is not mistaken for lost work. Note the diff treats them differently: the re-sort is silent, the
