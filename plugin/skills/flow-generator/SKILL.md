@@ -1,6 +1,6 @@
 ---
 name: flow-generator
-description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "show the user's name or coin balance on my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead", and on "show my flow's versions", "roll my flow back to the earlier version".
+description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "show the user's name or coin balance on my paywall", "add a Lottie animation, a map or a chart", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead", and on "show my flow's versions", "roll my flow back to the earlier version".
 ---
 
 # Flow generator
@@ -79,6 +79,15 @@ When any route is a custom action, list the action IDs and offer to write their 
 app: "I can add the code that answers these in your app. Want me to?" — on a yes, hand the IDs to
 the `adapty-integration` skill, which owns app code; without it, find the platform's "Respond to
 actions" page through the `adapty-docs` skill and link it.
+
+**A view the app can draw is a custom element, not a gap.** A Lottie or Rive animation that
+follows the user, a map, a chart of the user's data, a camera preview, any view the app already
+has: the flow gets a box with a Type and an ID, the app's code draws into it, and users the app
+does not serve see the box's fallback. Read
+[custom-elements.md](references/custom-elements.md) before you call any of these "not in the
+builder yet", and build it from its template in
+[custom-elements/](references/custom-elements/). An animation that plays the same for everyone
+stays an image or a video.
 
 Images up to ~2.5 MB and mp4 or webm clips you can upload; **SVG, fonts and larger images are
 builder-only** ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
@@ -162,6 +171,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [custom-tags-code.md](references/custom-tags-code.md) | The user said yes to passing the flow's custom tags from their app's code |
 | [fidelity.md](references/fidelity.md) | A reference image was given — the per-element inventory, the gap-closing ladder, and what becomes a user ask |
 | [media.md](references/media.md) | The screen has an image: the upload's limits, element-versus-`fill` shapes, geometry, and when to rasterize |
+| [custom-elements.md](references/custom-elements.md) | The user wants something the builder has no element for that the app could draw — a Lottie or Rive animation, a map, a chart, a camera, a view from the app — and the templates in [custom-elements/](references/custom-elements/) |
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
 | [history.md](references/history.md) | The user asks about an earlier version: the list, a look at one, a restore into the draft, a rollback of a publish, a duplicate to a new flow |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
@@ -795,6 +805,9 @@ show. **Identical screenshots do not mean an identical config**
 > Removes: <each `REMOVES` line in plain words, traced to the request that asked for it — or "nothing">.
 > I kept a copy of the current version, so I can put it back if you need it.
 >
+> `<only if the save adds a custom element:>` After the save, I can add `<what each view shows>`
+> to your app — `<Type>`/`<ID>`, … — which is what users see in place of the fallback.
+>
 > `<only if the weigh exited 1:>` Load time: <the three sentences the weigh printed under "Say
 > this", as they are: what is heavy, what it does to the person opening the flow, what I can do>.
 >
@@ -946,6 +959,10 @@ the rest stays.
 > It shows `<n>` values only your app knows — `<name>`, `<name>` — and everyone sees the fallback
 > text until your app passes them. Want me to update your app code to pass them now?
 >
+> `<only if the flow has custom elements:>`
+> `<n>` boxes are drawn by your app — `<Type>`/`<ID>`, … — and everyone sees their fallback until
+> an app release draws them. Want me to add those views to your app now?
+>
 > `<the closing line, by the flow's status:>`
 > `dirty` — Until you publish, everyone continues to see the previous version.
 > `draft` — Nothing is live yet: nobody sees this flow until it is published and attached to a
@@ -961,6 +978,10 @@ this slot exists to hand over
 ([preview.md](references/preview.md)).
 
 **A custom tag is not done until the app passes it:** on a yes to the callout's offer, write that code as [custom-tags-code.md](references/custom-tags-code.md#writing-the-code-that-passes-a-custom-tag) says.
+
+**A custom element is not done until the app draws it, so offer the view, and on a yes write
+it** — the callout line above, then the steps in
+[custom-elements.md](references/custom-elements.md#on-a-yes-the-apps-view).
 
 ### 6. Attach it to a placement, then hand the ID over
 
