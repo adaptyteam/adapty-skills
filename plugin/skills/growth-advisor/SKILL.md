@@ -512,7 +512,7 @@ started, and it never shows up as a change.
    - more than one product carries a trial
    - only one plan length on the paywall
    - a plan length with under 5% of purchases
-   - only one placement, or no follow-up offer for users who close the onboarding paywall
+   - only one placement
    - a main market
    - a main-market plan below the 25th percentile for its category (`references/pricing.md`)
    - the country price list (`references/pricing.md`, "The country list"), built in every audit
