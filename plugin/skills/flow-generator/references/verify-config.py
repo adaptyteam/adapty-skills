@@ -952,7 +952,8 @@ def catalog_findings(raw):
         where = 'top-level `locales`/`defaultLocale`' if ('locales' in raw or 'defaultLocale'
                                                          in raw) else 'no `localization`'
         v = raw.get('schemaVersion')
-        route = ('run `localization.py catalog` over it' if v == _loc.MIN_SOURCE_VERSION else
+        route = ('run `localization.py catalog` over it'
+                 if isinstance(v, int) and not isinstance(v, bool) and v >= _loc.MIN_SOURCE_VERSION else
                  f'it is schemaVersion {v!r}, so have the user open the flow in the Flow Builder '
                  f'and save it, then fetch it again')
         # Keyed on the version. A document whose number predates the catalog (013) is in the
@@ -964,8 +965,11 @@ def catalog_findings(raw):
             warn.append(f'pre-catalog document (schemaVersion {v}, {where}, inline localizable '
                         f'values): valid as it is, but convert it before you edit it — {route}')
             return bad, warn
-        bad.append(f'pre-catalog document ({where}, inline localizable values): the transform '
-                   f'service refuses it. To convert it, {route}')
+        bad.append(f'pre-catalog document ({where}, inline localizable values) stamped '
+                   f'schemaVersion {v!r}: the catalog that version declares is missing, so the '
+                   f'transform service reads it only as a legacy document (a '
+                   f'`legacy_localization_format` warning). Convert it before you edit or save '
+                   f'it: {route}')
         return bad, warn
 
     if raw.get('schemaVersion') != _loc.SCHEMA_VERSION:
@@ -1092,6 +1096,13 @@ def catalog_findings(raw):
         if kind in ('image', 'video'):
             key = 'url' if kind == 'image' else 'videoUrl'
             asset = src.get(key) if isinstance(src, dict) else None
+            if not asset and any(isinstance(vals.get(l), dict) and vals[l].get(key)
+                                 for l in others):
+                warn.append(f'catalog entry {lid} ({used[lid][0]}) has its {kind} only under '
+                            f'{", ".join(l for l in others if isinstance(vals.get(l), dict) and vals[l].get(key))}'
+                            f', not under {dflt} — every locale without its own value falls back '
+                            f'to {dflt}, so those locales show an empty {kind}. Bind the asset '
+                            f'under {dflt} (flowkit.image(..., locale=<default locale>))')
             for loc in others:
                 v = vals.get(loc)
                 if asset and isinstance(v, dict) and v.get(key) == asset:
@@ -2982,6 +2993,34 @@ def check(path, baseline_text=None, baseline_images=None):
             for c in n.get('children') or []:
                 _empty_products(c)
         _empty_products(s['elements']['hierarchy'])
+
+    # A SPREAD STACK WITH A FILL CHILD AMONG NON-FILL ONES. The transformer puts a spacer between
+    # the children of a space-between/-around/-evenly stack unless every child fills the main
+    # axis; on iOS a fill child is then exactly as flexible as each spacer, so it gets only an
+    # equal share of the free space and its text truncates. Android and the builder canvas give
+    # it the rest. `gap` distribution gives the fill child the rest on both.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+
+        def _spread_fill(n):
+            lay = (m.get(n.get('id'), {}).get('props') or {}).get('layout')
+            dist = lay.get('distribution') if isinstance(lay, dict) else None
+            kind = dist.get('type') if isinstance(dist, dict) else None
+            axis = {'horizontal': 'width', 'vertical': 'height'}.get(
+                lay.get('direction') if isinstance(lay, dict) else None)
+            kids = n.get('children') or []
+            if kind in ('space-between', 'space-around', 'space-evenly') and axis and kids:
+                fills = [_obj((m.get(c.get('id'), {}).get('props') or {}).get(axis)).get('type')
+                         == 'fill' for c in kids]
+                if any(fills) and not all(fills):
+                    warn.append(
+                        f'screen {s["id"]}: {n["id"]} is a {kind} stack with a fill-{axis} child '
+                        f'beside fixed or hug ones. On iOS the fill child gets only an equal '
+                        f'share of the free space with the gaps, so its text truncates; the '
+                        f'builder and Android give it the rest. Use a `gap` distribution')
+            for c in kids:
+                _spread_fill(c)
+        _spread_fill(s['elements']['hierarchy'])
 
     # A `const` PURCHASE OF A PRODUCT A `product` ELEMENT ON THE SAME SCREEN ALREADY BINDS. The
     # product is then named twice: swap it on the card in the builder and the button keeps buying

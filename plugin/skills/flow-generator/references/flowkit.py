@@ -256,7 +256,8 @@ def _check_fill(value, where):
 
 def gradient(angle, *stops):
     """`gradient(180, ('#E1D6EB', 0), ('#EDE9F0', 1))`, or with a per-stop alpha as a third
-    item: `gradient(180, ('#0E9F6E', 0, 100), ('#0E9F6E', 1, 22))`.
+    item: `gradient(180, ('#0E9F6E', 0, 100), ('#0E9F6E', 1, 22))`. `angle` works as in CSS:
+    180 runs position 0 at the top to 1 at the bottom, 0 the reverse, 90 left to right.
 
     A fade whose last stop IS the page colour makes the element's tail invisible, so it renders
     shorter than it is — see trap 12. Stop one step short of the background, or better, fade

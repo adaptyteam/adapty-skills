@@ -770,6 +770,9 @@ the shape, it is the vocabulary:
 | `direction` | `vertical`, `horizontal`, **`free`** |
 | `clipContent`, `rtl` | booleans, optional |
 
+**A spread distribution with a `fill` child beside fixed or hug ones** gives the fill child only
+an equal share of the free space on iOS, so its text truncates; use `gap`. `verify-config.py` warns.
+
 **`space-between` on a screen root spreads a SHORT screen's content away from its bottom bar** —
 give the root two children and the free space lands between them. It does **not** pin anything: a
 bar that has to stay at the bottom while content scrolls past it is the `footer` element, whose
@@ -1087,7 +1090,8 @@ In the Flow Builder this is a **color style** (the **Styles** panel, **Colors** 
 of two forms: the `{hex, opacity}` object, or an **array of fill layers**, bottom to top —
 `color`, `gradient`, `image`, `video`. Every fill that references the style with
 `{"type": "color-style", "colorId": …}` then follows the appearance, so one style can be a
-gradient in light mode and a photo under a scrim in dark:
+gradient in light mode and a photo under a scrim in dark (a gradient's `angle` works as in CSS:
+`180` runs stop position 0 at the top to 1 at the bottom, `0` the reverse, `90` left to right):
 
 ```json
 {"id": "hero_bg", "name": "Hero background",

@@ -393,7 +393,8 @@ the config you send:
   {"id": "<product-uuid>", "offerId": "<offer-id>", "flowProductId": "<derived>"}]}}}
 ```
 
-`flowkit.predeclare(screen_id, products)` generates it. Pass **exact bindings** — a bare product
+`flowkit.predeclare(screen_id, products)` generates it, as `{screen_id: {...}}`: merge that into
+`_meta.screens`, never assign it as one screen's entry. Pass **exact bindings** — a bare product
 id, a `(product_id, offer_id)` or `(product_id, offer_id, billing_plan)` tuple, or the screen's own
 registry, `scr['products']`. The offer and the plan are part of the id, so a product bound with an
 offer and the same product bound without one are two entries:

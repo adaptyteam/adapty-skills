@@ -110,7 +110,7 @@ Each row is the defect injected into a real, otherwise-clean config.
 | Deleting a screen something still navigates to | same, reported at the surviving caller |
 | An id in `hierarchy` with no `elements.map` entry | `Element "<id>" referenced in hierarchy but missing from element map (…)` |
 | `localization.defaultLocale` naming no configured locale id | `Default locale "<id>" does not match a configured locale` — match on that prefix, not the path in brackets |
-| A pre-catalog document: top-level `locales` / `defaultLocale`, inline localizable values | refused — the service takes the catalog form only. `references/verify-config.py` names it first, with the way through |
+| A pre-catalog document: top-level `locales` / `defaultLocale`, inline localizable values | accepted with a `legacy_localization_format` warning, so `valid: true` does not mean it is converted. `references/verify-config.py` names it, with the way through |
 | An input whose `font.preset` is not a `theme.typography` id | `Unsupported flow input: Input element references unknown typography preset "<preset>" (…props.font.preset)` |
 | A malformed hex colour (e.g. `#FFf`) | `Generated JSON failed schema validation` |
 | An `icon` used but not declared in `_meta.icons` — **including a `custom` icon whose name is a builtin**, and a `custom` icon carrying a `weight` (a key the schema refuses) that its entry lacks: `regular` passes, `bold` against a `regular` entry is refused | `Unsupported flow input: Icon "<name>" with weight "<w>" is missing from flow._meta.icons (screens[…].props.icon)` |

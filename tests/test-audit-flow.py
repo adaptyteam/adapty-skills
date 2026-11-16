@@ -1186,6 +1186,38 @@ check('an all-empty conditional-text switch still FIRES',
       len(of(run(c)[1], 'empty-translation')) == 1,
       f'got {len(of(run(c)[1], "empty-translation"))}')
 
+# A field whose default-locale text has no letters (a lone price variable, "50%") falls
+# back to that same text, so a locale without it is not missing a translation.
+def _drop_first_sr(o, en_value):
+    if isinstance(o, dict):
+        if 'values' in o and isinstance(o['values'], dict) and {'en', 'sr'} <= set(o['values']):
+            o['values']['en'] = en_value
+            del o['values']['sr']
+            return True
+        return any(_drop_first_sr(v, en_value) for v in o.values())
+    if isinstance(o, list):
+        return any(_drop_first_sr(v, en_value) for v in o)
+    return False
+
+
+_base_cov = audit_mod.locale_coverage(load())[0]['sr']['missing']
+c = load()
+check('fixture setup: a letterless default with no sr value was injected',
+      _drop_first_sr(c, _para('50%')))
+check('a letterless field missing in a locale is NOT counted missing',
+      audit_mod.locale_coverage(c)[0]['sr']['missing'] == _base_cov)
+check('...and raises no missing-translation', not of(run(c)[1], 'missing-translation'))
+c = load()
+_drop_first_sr(c, [{'type': 'paragraph', 'content': [
+    {'type': 'variable', 'attrs': {'id': 'product.price'}}]}])
+check('a lone-variable field missing in a locale is NOT counted missing',
+      audit_mod.locale_coverage(c)[0]['sr']['missing'] == _base_cov)
+c = load()
+_drop_first_sr(c, _para('Save 50%'))
+check('a field with words missing in a locale still counts missing',
+      audit_mod.locale_coverage(c)[0]['sr']['missing'] == _base_cov + 1)
+check('...and still raises missing-translation', len(of(run(c)[1], 'missing-translation')) >= 1)
+
 print('\nlocalization: delegation to verify-config.py (Step 5)')
 # A MISSING locale key (one field, present in some locales and absent in this one) is
 # already reported by verify-config.py, per field. `locale_coverage` may COUNT it for
@@ -2013,6 +2045,41 @@ check('a placement showing a DIFFERENT flow does not count as showing this one',
 _rep, _f = _placements_run(_shown, flow_id=None)
 check('placements without --flow-id cannot be matched, so nothing is claimed either way',
       not of(_f, 'no-placement') and 'fetches it through' not in _rep, _rep[:300])
+# A placement that runs an A/B test shows the test's variants.
+def _ab_run(placements, tests, flow_id='abc'):
+    with tempfile.TemporaryDirectory() as tmp:
+        pp, tp = os.path.join(tmp, 'p.json'), os.path.join(tmp, 't.json')
+        json.dump(placements, open(pp, 'w'))
+        json.dump(tests, open(tp, 'w'))
+        cmd = [sys.executable, AUDIT, FLOW, '--catalog', CATALOG, '--placements', pp,
+               '--ab-tests', tp, '--flow-id', flow_id]
+        rep = subprocess.run(cmd + ['--report'], capture_output=True, text=True)
+        js = subprocess.run(cmd + ['--json'], capture_output=True, text=True)
+    return rep.stdout, json.loads(js.stdout)['findings']
+_tested = [{'id': 'p-uuid-3', 'developer_id': 'paywall', 'is_active': True,
+            'audiences': [{'content_type': 'flow_ab_test', 'ab_test_id': 't-1',
+                           'segment_ids': [], 'priority': 0},
+                          {'content_type': 'flow', 'flow_id': 'other-flow'}]}]
+_test = {'ab_test_id': 't-1', 'type': 'flow', 'state': 'live', 'title': 'T',
+         'flows': [{'flow_id': 'other-flow', 'weight': 50}, {'flow_id': 'abc', 'weight': 50}],
+         'paywalls': []}
+_rep, _f = _ab_run(_tested, [_test])
+check('a flow that is a variant of a test on a placement counts as shown',
+      'Your app fetches it through placement `paywall`.' in _rep
+      and not of(_f, 'no-placement') and not of(_f, 'placement-test-unread'), _rep[:400])
+_rep, _f = _ab_run(_tested, [dict(_test, flows=[{'flow_id': 'other-flow', 'weight': 100}])])
+check('a test without this flow among its variants does not count',
+      len(of(_f, 'no-placement')) == 1 and not of(_f, 'placement-test-unread'))
+_rep, _f = _ab_run(_tested, [])
+check('a test that was not read turns no-placement into placement-test-unread, a question',
+      not of(_f, 'no-placement') and len(of(_f, 'placement-test-unread')) == 1
+      and of(_f, 'placement-test-unread')[0]['severity'] == 'question'
+      and 'https://app.adapty.io/placements/flows/p-uuid-3' in _rep, _rep)
+_rep, _f = _ab_run([dict(_tested[0], is_active=False)], [])
+check('...but not for a placement that is switched off', len(of(_f, 'no-placement')) == 1)
+_rep, _f = _placements_run(_tested)
+check('without --ab-tests a test entry is unread too',
+      len(of(_f, 'placement-test-unread')) == 1 and not of(_f, 'no-placement'))
 check('placement findings keep the exact 7-key contract',
       all(set(f) == {'severity', 'family', 'check', 'screen', 'element', 'message',
                       'fix'} for f in _placements_run([_shown[1]])[1]))
