@@ -44,7 +44,7 @@ Every line the user reads, the fixed blocks included:
   read-back need no bold; quotes mark a screen name.
 - **Raw values only when the user will see them elsewhere** — a screen name or button label from
   their builder, a price. Never element ids or tool names.
-- **Full, clickable links.**
+- **Full, clickable links.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Reply in the user's language — the disclaimer and the builder pitch too.** Labels quoted from
   their flow stay exactly as the flow shows them.
 
@@ -198,6 +198,28 @@ sequence produces confidently wrong findings.
 
 **Omit this offer entirely when you were given a config or renders.** You already have every
 screen; asking for three of them reads as a bot that didn't open the file.
+
+## A flow with a question about the numbers
+
+A flow can be asked about in two ways, and the user may phrase both the same: what is wrong with
+the sequence, or what the app's own numbers show ("where do users drop off", "why don't users
+finish my onboarding", "which branch works better"). Only `growth-advisor` reads the numbers; this
+skill reads none. When the message asks about the app's own numbers:
+
+- **It asks only about the numbers** (where or why users drop off, which branch works better,
+  whether the paywall is the problem): invoke `growth-advisor` with the flow, before any
+  teardown. It reads the funnel first and calls this skill back for the design part. If
+  `growth-advisor` is not installed, say you cannot read the numbers and go on with the sequence.
+- **It also asks what to change in the flow, or you cannot tell which it wants:** ask one
+  question before reading the flow. Use `AskUserQuestion` if your harness has it; otherwise ask
+  in one message with the options numbered, and wait. The shape, not words to copy:
+
+  > Do you want me to review the sequence and suggest changes, or look at your numbers to find
+  > the screen where users leave and suggest an A/B test?
+
+  The sequence: this skill, in Audit. Numbers, or both: `growth-advisor` first.
+
+When `growth-advisor` or `flow-generator` invoked this skill, never ask: answer the design part.
 
 ## Reference
 
@@ -390,9 +412,12 @@ three-screen ask. A note that fits nowhere else belongs in the table or nowhere.
 
 **7. The end.** One line with [the next step](#the-next-step), then the
 [disclaimer](#the-disclaimer). Nothing after the disclaimer. The example shows the shape of 6 and
-7, not words to copy:
+7, not words to copy. Line 1 below is only for a teardown that `growth-advisor` did not call:
+when it called this skill, it already holds the numbers, so line 1 names the screen to check
+instead.
 
-> 1. Where people drop: if you have per-screen numbers, look at screens 4 and 6 first.
+> 1. Where people drop: I read the sequence, not your numbers. For the screens where users
+>    leave, `growth-advisor` reads your flow's funnel.
 > 2. Does the app really use the goal and the level? If not, row 3 stays an echo of their answers, never a plan.
 > 3. Want me to go deeper? Send three screens: your first, the one right before the paywall, and the paywall. More or fewer is fine.
 >
@@ -455,9 +480,9 @@ config cleanly, some need something only the user has, and **two cannot be built
 | **Permission request** | **Not in the builder yet — there is no permission action.** The 15 action types are alert, closeFlow, conditional, custom, hideElement, navigate, navigateBack, navigateNext, nothing, openUrl, purchase, restorePurchases, selectProduct, setVariable, showElement | The **app** makes the system call. The flow can render the pre-permission soft prompt and fire a `custom` action the app handles — so permission-timing findings are a handoff to whoever owns the app code, not a build item |
 | Social proof — rating, review count, testimonials | Element yes | The real numbers and the real quotes, verbatim. Several testimonials on one screen is the `carousel` element, never a static card with hand-built dots |
 | Before/after, results with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, a copy-tier change |
-| Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
+| Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it, a video too (not SVG) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | The paywall at the end | Yes | **The products are theirs to pick**, not yours — catalog first, store ids second, create last (`flow-generator` phase 2). And a trial timeline needs a trial that exists |
-| Second-chance offer after the paywall | Yes, as a screen with its own products | A real discount to offer |
+| Second-chance offer after the paywall | Yes, as its own flow on a placement the app shows later; the paywall's close button closes, since Apple rejects a close that opens another offer (App Store 5.6) | A real discount to offer |
 | Trial or intro-offer wording on any screen — "start your free week", a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
 
 Mechanics for all of these — the `timer` shape, `_meta.icons`, empty asset maps, variable
@@ -518,13 +543,16 @@ Drop "also" when the pitch stands alone. Keep the link exactly as written.
 
 ## Scope
 
-This skill owns the **sequence** and the **seam**. Three neighbours, and the boundary is one owner
+This skill owns the **sequence** and the **seam**. Five neighbours, and the boundary is one owner
 per fact:
 
 - **`paywall-teardown`** owns the paywall screen's own execution — plan cards, price display,
   savings framing, CTA, proof placement, trust signals. When you have both, run both and don't
   duplicate rows: whether the paywall *reflects the goal* is yours; whether its annual card is
   legible is theirs.
+- **`growth-advisor`** owns the app's own numbers: where users leave the flow, which branch,
+  whether the paywall is reached. This skill turns the screen it names into a design change; it
+  reads no data.
 - **`flow-generator`** owns the JSON — editing the flow, previewing it, writing it back. This skill
   decides *what* should change and what it is worth; it writes nothing anywhere.
 - **`flow-audit`** owns whether the flow is safe to ship (triggers, products, locales, store

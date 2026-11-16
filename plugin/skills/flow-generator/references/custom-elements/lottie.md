@@ -18,7 +18,7 @@ per user. Two shapes do that:
 
 **Does not fit:**
 
-- An animation that plays the same for everyone: an animated WebP in an `image`, or a `video`.
+- An animation that plays the same for everyone: a `video` (an animated WebP plays one frame).
   No app release, and the file can be replaced in the builder.
 - A plain progress ring or bar: the app draws one natively in a few lines, with no Lottie file.
   It is still a custom element when the user asks for it, and the docs recipe below is one; say

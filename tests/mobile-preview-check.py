@@ -15,6 +15,8 @@ Two things this exists to guard, both of which would fail silently:
     corpus — and every live flow checked — has `id == code`, so a regression to passing the id
     through is invisible against real data. The synthetic case below is the only coverage that
     distinction has.
+  * **Codes go out in the publish's casing** (`es-mx` -> `es-MX`). The app matches them exactly
+    against the published ids; the builder's casing opens the flow on its default locale.
 
 Usage:
     tests/mobile-preview-check.py                 # the whole fixture corpus
@@ -24,6 +26,7 @@ Exit: 0 clean, 1 findings, 2 infrastructure problem.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -69,14 +72,22 @@ def params_of(url):
     return out
 
 
+def sdk_code(code):
+    """The transformer's casing, written independently of the script so the two can disagree."""
+    if not re.fullmatch(r'[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?', code, re.I):
+        return code
+    language, *subtags = code.replace('_', '-').split('-')
+    return '-'.join([language.lower(), *(s.title() if len(s) == 4 else s.upper() for s in subtags)])
+
+
 def expected_locales(path):
     config = json.load(open(path))
     config = config.get('config', config)
     lz = config.get('localization') or {}
     locales = [l for l in lz.get('locales', []) if isinstance(l, dict) and l.get('code')]
-    codes = [l['code'] for l in locales]
+    codes = [sdk_code(l['code']) for l in locales]
     default_id = lz.get('defaultLocale')
-    current = next((l['code'] for l in locales if l.get('id') == default_id), codes[0] if codes else None)
+    current = next((sdk_code(l['code']) for l in locales if l.get('id') == default_id), codes[0] if codes else None)
     return codes, current
 
 
@@ -168,6 +179,59 @@ def check_id_differs_from_code(findings):
             print('  synthetic id!=code: --locale en-US -> en, correct')
     finally:
         os.unlink(path)
+
+
+def check_sdk_casing(findings):
+    """The builder stores `es-mx`; the published config the app reads holds `es-MX`, and the app
+    matches the link's locales against it exactly. So the link carries the publish's casing
+    (the transformer's `tryCanonicalizeLocaleCode`), for `current_locale` AND `locales`: the app
+    picks `current_locale` only when it is in `locales`. A code outside the shape passes through."""
+    config = {
+        'localization': {
+            'defaultLocale': 'es-mx',
+            'locales': [
+                {'id': 'en', 'code': 'en', 'name': 'English'},
+                {'id': 'es-mx', 'code': 'es-mx', 'name': 'Spanish (Mexico)'},
+                {'id': 'zh-hans', 'code': 'zh-hans', 'name': 'Chinese (Simplified)'},
+                {'id': 'pt_br', 'code': 'pt_br', 'name': 'Portuguese (Brazil)'},
+                {'id': 'es-419', 'code': 'es-419', 'name': 'Spanish (Latin America)'},
+                {'id': 'SR-LATN-rs', 'code': 'SR-LATN-rs', 'name': 'Serbian (Latin, Serbia)'},
+            ],
+            'content': {},
+        },
+        'screens': [],
+    }
+    want = 'en,es-MX,zh-Hans,pt-BR,es-419,sr-Latn-RS'
+    with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as fh:
+        json.dump(config, fh)
+        path = fh.name
+
+    try:
+        code, stdout, stderr = run(['--app', APP, '--flow', FLOW, '--config', path])
+        params = params_of(link_of(stdout)) if code == 0 else {}
+        if code != 0:
+            findings.append(f'casing: exit {code}: {stderr.strip()}')
+        elif params.get('locales') != want or params.get('current_locale') != 'es-MX':
+            findings.append(
+                f'casing: locales={params.get("locales")!r} current_locale='
+                f'{params.get("current_locale")!r}, expected {want!r} and "es-MX"')
+        else:
+            print('  casing: es-mx -> es-MX, zh-hans -> zh-Hans, pt_br -> pt-BR, correct')
+
+        # --locale takes the builder's spelling or the SDK's.
+        for asked in ('zh-hans', 'zh-Hans'):
+            code, stdout, _ = run(['--app', APP, '--flow', FLOW, '--config', path, '--locale', asked])
+            if code != 0 or params_of(link_of(stdout)).get('current_locale') != 'zh-Hans':
+                findings.append(f'casing: --locale {asked} did not resolve to zh-Hans')
+        print('  casing: --locale accepts zh-hans and zh-Hans')
+    finally:
+        os.unlink(path)
+
+    code, stdout, _ = run(['--app', APP, '--flow', FLOW, '--locales', 'en,es-mx,english'])
+    if code != 0 or params_of(link_of(stdout)).get('locales') != 'en,es-MX,english':
+        findings.append('casing: --locales was not mapped, or an off-shape code was not passed through')
+    else:
+        print('  casing: --locales mapped, off-shape code passed through, correct')
 
 
 def check_rejections(findings):
@@ -376,6 +440,7 @@ def main():
 
     print('resolution:')
     check_id_differs_from_code(findings)
+    check_sdk_casing(findings)
     print('usage:')
     check_rejections(findings)
     print('qr:')

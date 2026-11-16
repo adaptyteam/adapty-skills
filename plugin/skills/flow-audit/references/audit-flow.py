@@ -19,8 +19,8 @@ data, and the traps are recorded there.
 Usage:
   audit-flow.py <config.json> [--catalog <catalog.json>] [--stores ios,android]
                 [--json | --report] [--name <name>] [--flow-id <id>] [--status <status>]
-                [--placements <placements.json>] [--custom-actions id=kind,...]
-                [--offers <offers.json>]
+                [--placements <placements.json>] [--ab-tests <ab-tests.json>]
+                [--custom-actions id=kind,...] [--offers <offers.json>]
   audit-flow.py <config.json> --list-offer-products
 Exit: 0 no blockers, 1 at least one blocker, 2 usage or unreadable input.
 
@@ -29,7 +29,8 @@ findings by severity, languages, store review, what happens next, what to check
 yourself) and the two are mutually exclusive. `--name`/`--flow-id`/`--status` come
 from `flows list`, not the config, and feed `render()`'s header and the
 `flow-untitled` check. `--placements` is a JSON array of `placements get` bodies; with
-`--flow-id` it answers whether any placement shows this flow. `--offers` maps a product id
+`--flow-id` it answers whether any placement shows this flow; `--ab-tests` is a JSON array
+of `ab-tests get` bodies for the tests those placements run, whose variants count. `--offers` maps a product id
 to its `product-offers list` rows; `--list-offer-products` prints the product ids bound with an
 offer, one per line, which is the list Phase 3 reads offers for.
 """
@@ -176,8 +177,8 @@ def branch_text(value, locale=None):
     `flat_text` renders a switch as '' (see `_has_content`), so a price line written as
     "7 days free, then $4.99/week" inside a switch on the trial flag was invisible to the
     disclosure checks and `trial-terms-incomplete` fired on a screen that states its terms.
-    Used by `check_disclosure` only: the other text readers are calibrated against
-    `flat_text` as it is. Branches are joined with ' | ', as elements are, so a term in one
+    Used by `check_disclosure` and `_is_neutral_field` only: the other text readers are
+    calibrated against `flat_text` as it is. Branches are joined with ' | ', as elements are, so a term in one
     branch never runs into the next. Recursed the way `_has_content` recurses, so a switch
     nested in a branch is read too.
     """
@@ -620,6 +621,9 @@ def _format_sites(sites, config, cap=3):
     return f'the {_join_and(shown)} screen' + ('s' if len(shown) > 1 else '')
 
 
+SUB_PERIODS = {'weekly', 'monthly', 'two_months', 'trimonthly', 'semiannual', 'annual'}
+
+
 def check_products_catalog(config, catalog, stores):
     """Cross-reference bound products against the live catalog.
 
@@ -711,7 +715,9 @@ def check_products_catalog(config, catalog, stores):
                         first_sid, first_eid), _title=title, _store=store_name,
                         _platform=platform, _sites=sites))
             play = vendors.get('play_store')
-            if play and not play.get('base_plan_id'):
+            # A one-time product (lifetime) has no base plan: the SDK sells a Play product
+            # without one as a one-time purchase. Only a subscription period needs it.
+            if play and not play.get('base_plan_id') and (prod.get('period') or 'monthly') in SUB_PERIODS:
                 out.append(finding(
                     'blocker', 'products', 'play-base-plan-missing',
                     f'"{title}" has a Google Play product ID but no base plan ID. '
@@ -1671,11 +1677,54 @@ def _is_media_field(vals, base):
         isinstance(v.get(k), str) and v[k].strip() for k in ('url', 'videoUrl'))
 
 
+# A bare link address: the whole default-locale value is one URL and nothing else.
+BARE_URL_RE = re.compile(r'^(?:https?://|mailto:|tel:)\S+$', re.I)
+
+
+def _link_values(config):
+    """The `values` maps of every openUrl action's `url`, by identity. A link address is
+    usually the same in every locale on purpose (one Terms page, one Privacy page), and a
+    locale with no value of its own opens the default's, so it is never a missing translation.
+    `verify-config.py` tells the builder never to copy the default into other locales to fill
+    the gap, so counting it would make the two skills contradict each other."""
+    found = set()
+
+    def walk(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'openUrl':
+                url = (o.get('payload') or {}).get('url')
+                if isinstance(url, dict) and isinstance(url.get('values'), dict):
+                    found.add(id(url['values']))
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(config)
+    return found
+
+
+def _is_link_field(vals, base, links):
+    """True for an openUrl url (see `_link_values`), or for any localizable whose default
+    value is a bare URL: either way the default is meant to serve every locale."""
+    if id(vals) in links:
+        return True
+    text = flat_text(vals.get(base), base).strip() if base in vals else ''
+    return bool(BARE_URL_RE.match(text))
+
+
 def _is_empty_value(v):
     """The catalog's emptiness rule, for either value family: text or media."""
     if isinstance(v, dict) and v.get('type') != 'switch' and ('url' in v or 'videoUrl' in v):
         return _loc.is_empty('image' if 'url' in v else 'video', v)
     return _loc.is_empty('rich-text', v)
+
+
+def _is_neutral_field(vals, base):
+    """True when the default locale's text, every branch included, has no letters: a lone
+    price variable, "50%", "4.9". A locale without it falls back to that same text, so it
+    is neither missing nor untranslated."""
+    return base in vals and not any(ch.isalpha() for ch in branch_text(vals[base], base))
 
 
 def locale_coverage(config):
@@ -1694,9 +1743,14 @@ def locale_coverage(config):
     base = default_locale(config)
     stat = {l: {'missing': 0, 'empty': 0, 'same': 0} for l in locales}
     examples = {l: [] for l in locales}
+    links = _link_values(config)
     for vals in _localizable_values(config, locales):
         base_text = flat_text(vals.get(base), base) if base in vals else ''
         media = _is_media_field(vals, base)
+        # A link address, or text with no letters, falls back to the default's on purpose:
+        # neither missing nor untranslated. A blank one still shows nothing, so `empty` still
+        # counts.
+        link = _is_link_field(vals, base, links) or _is_neutral_field(vals, base)
         for code in locales:
             # An EMPTY value ('' , [], an emptied paragraph) is the same as no value: both
             # fall back to the default locale's text. So both count as missing, never as a
@@ -1706,14 +1760,14 @@ def locale_coverage(config):
                 # resolves a locale's assets on top of the default's), so it is not missing --
                 # and counting it would push a copy of the default's image, preview and all,
                 # into every locale.
-                if not media:
+                if not media and not link:
                     stat[code]['missing'] += 1
                 continue
             if not _has_content(vals[code], code):
                 stat[code]['empty'] += 1
                 continue
-            if code != base and base_text and flat_text(vals[code], code) == base_text \
-                    and len(base_text) > 3:
+            if code != base and not link and base_text \
+                    and flat_text(vals[code], code) == base_text and len(base_text) > 3:
                 stat[code]['same'] += 1
                 if len(examples[code]) < 4:
                     examples[code].append(base_text[:40])
@@ -1743,8 +1797,10 @@ def check_localization(config):
     name = locale_names(config)
     nm = lambda c: name.get(c) or c
     stat, examples = locale_coverage(config)
+    links = _link_values(config)
     total = sum(1 for vals in _localizable_values(config, locales)
-                if not _is_media_field(vals, base))
+                if not _is_media_field(vals, base) and not _is_link_field(vals, base, links)
+                and not _is_neutral_field(vals, base))
 
     for code in locales:
         s = stat[code]
@@ -2547,6 +2603,43 @@ def _norm_label(text):
     return re.sub(r'\s+', ' ', text or '').strip().lower()
 
 
+def _shown_selling(screen, element):
+    """Elements this element's showElement actions reveal whose subtree sells: a purchase
+    action or a bound product. A sheet opened from a close is the same exit offer as a
+    second screen."""
+    emap = (screen.get('elements') or {}).get('map') or {}
+    kids = {}
+
+    def walk(n):
+        kids[n.get('id')] = [c.get('id') for c in n.get('children') or []]
+        for c in n.get('children') or []:
+            walk(c)
+    walk((screen.get('elements') or {}).get('hierarchy') or {})
+
+    def sells(x, seen):
+        if x in seen:
+            return False
+        seen.add(x)
+        e = emap.get(x) or {}
+        if ((e.get('props') or {}).get('product') or {}).get('id') or any(
+                a.get('type') == 'purchase' for _, a in actions_of(e)):
+            return True
+        return any(sells(k, seen) for k in kids.get(x, []))
+
+    def shown(node):
+        if isinstance(node, dict):
+            got = []
+            if node.get('type') == 'showElement':
+                got += [x for x in (node.get('payload') or {}).get('elements') or []
+                        if isinstance(x, str)]
+            return got + [x for v in node.values() for x in shown(v)]
+        if isinstance(node, list):
+            return [x for v in node for x in shown(v)]
+        return []
+    return [x for x in dict.fromkeys(shown(element.get('interactions')))
+            if x in emap and sells(x, set())]
+
+
 def check_exit_and_cta(config, stores=None):
     """Two paywall-in-onboarding shapes (store review, advisory).
 
@@ -2581,12 +2674,15 @@ def check_exit_and_cta(config, stores=None):
                 types += _action_types(a)
                 targets += _nav_targets(a, s['id'], list(screens))
             text = label(s['id'], eid)
-            offers = [t for t in targets if t in selling and t != s['id']]
+            offers = [screen_name(config, t) for t in targets
+                      if t in selling and t != s['id']]
+            offers += [(s['elements']['map'][x].get('caption') or 'a sheet')
+                       for x in _shown_selling(s, e)]
             if offers and 'purchase' not in types and (not text or CLOSE_WORDS.search(text)):
                 out.append(finding(
                     'risk', 'compliance', 'exit-offer-on-dismiss',
                     f'Closing the "{screen_name(config, s["id"])}" screen opens another '
-                    f'offer ("{screen_name(config, offers[0])}") instead of letting people '
+                    f'offer ("{offers[0]}") instead of letting people '
                     f'leave. Apple has rejected this as pushing people into a purchase they '
                     f'did not want.',
                     'Make the close button close the flow ("Close Flow"), and show the '
@@ -2707,18 +2803,22 @@ def check_sibling_locales(config, siblings):
     """
     if not siblings:
         return []
-    names = {l.get('code'): l.get('name') or l.get('code')
-             for l in config.get('locales') or [] if l.get('code')}
-    # Sibling flows are compared by language CODE: ids are per-flow and need not agree.
+    # Sibling flows are compared by language CODE: ids are per-flow and need not agree. And
+    # case-insensitively, with `_` read as `-`: pt-BR, pt-br and pt_BR are one language, so a
+    # sibling flow that spells it another way is not a language this flow lacks.
+    key = lambda c: c.strip().lower().replace('_', '-')
+    names = {key(l['code']): l.get('name') or l['code']
+             for l in config.get('locales') or []
+             if isinstance(l.get('code'), str) and l['code'].strip()}
     mine = set(names)
     have = {}
     for flow, entries in siblings.items():
         for x in entries or []:
             code = x.get('code') if isinstance(x, dict) else x
-            if not code or code in mine:
+            if not isinstance(code, str) or not code.strip() or key(code) in mine:
                 continue
-            names.setdefault(code, (x.get('name') if isinstance(x, dict) else None) or code)
-            have.setdefault(code, []).append(flow)
+            names.setdefault(key(code), (x.get('name') if isinstance(x, dict) else None) or code)
+            have.setdefault(key(code), []).append(flow)
     if not have:
         return []
     langs = _join_and(names[c] for c in sorted(have))
@@ -2842,18 +2942,55 @@ def _font_list(items, cap=4, sep=None):
 
 FONT_SETTINGS = ('In the Flow Builder, open the font settings (Edit custom font in any font '
                  'dropdown) and click the row of each face named above')
+# The names come from the copy of the font settings saved with the flow; publishing reads the
+# app's own settings, and a Builder save of the flow refreshes the copy.
+FONT_COPY = (' If you already changed it there, save this flow in the Flow Builder and run the '
+             'audit again: I read the font names saved with the flow.')
 
 
-def check_fonts(config, fetch=read_font):
+def _font_references(config):
+    """Every custom `family.id` the flow's texts, spans, states and presets name, in order."""
+    refs = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            fam = o.get('family')
+            if isinstance(fam, dict) and fam.get('type', 'user') == 'user' and \
+                    isinstance(fam.get('id'), str) and fam['id']:
+                refs.append(fam['id'])
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(config)
+    return list(dict.fromkeys(refs))
+
+
+def check_fonts(config, fetch=read_font, stores=None):
     """Do the custom fonts' iOS and Android names match what the app bundle can carry?
 
     One finding per check, listing every face it applies to: the user fixes them on one
     settings screen, and a template with four fonts would otherwise print eight rows.
-    `fetch` is `read_font`; each distinct url is downloaded once, in parallel.
+    `fetch` is `read_font`; each distinct url is downloaded once, in parallel. `stores` is
+    the set from `--stores`, or None when unknown: an app that does not ship on Android
+    gets no `android-font-name`; unknown stores keep it.
     """
+    out = []
+    declared = {font.get('id') for font, _ in _font_faces(config)}
+    uncopied = [r for r in _font_references(config) if r not in declared]
+    if uncopied:
+        out.append(finding(
+            'question', 'fonts', 'font-names-unchecked',
+            f'Text in this flow uses '
+            f'{"a custom font" if len(uncopied) == 1 else f"{len(uncopied)} custom fonts"} '
+            f'whose settings the flow does not carry, so I could not check '
+            f'{"its" if len(uncopied) == 1 else "their"} iOS and Android font names.',
+            'Open this flow in the Flow Builder and save it, which copies the font settings '
+            'into the flow, then run the audit again.'))
     faces = list(_font_faces(config))
     if not faces:
-        return []
+        return out
     urls = list(dict.fromkeys(face.get('url') for _, face in faces
                               if isinstance(face.get('url'), str)))
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -2863,7 +3000,7 @@ def check_fonts(config, fetch=read_font):
     for font, face in faces:
         label = _face_label(font, face)
         android = face.get('androidName') or ''
-        if not ANDROID_FONT_NAME_RE.match(android):
+        if (stores is None or 'android' in stores) and not ANDROID_FONT_NAME_RE.match(android):
             bad_android.append(f'{label} has "{android}"' if android else
                                f'{label} has none')
         ios = face.get('iosName') or ''
@@ -2884,7 +3021,6 @@ def check_fonts(config, fetch=read_font):
                 not is_variable or ANDROID_FONT_NAME_RE.match(ios)):
             bad_ios.append(f'{label} has "{ios}", its file says "{postscript}"')
 
-    out = []
     if bad_android:
         out.append(finding(
             'blocker', 'fonts', 'android-font-name',
@@ -2895,7 +3031,7 @@ def check_fonts(config, fetch=read_font):
             f'{FONT_SETTINGS}. Set its Android font name to the font file\'s name in your '
             f'app\'s res/font/ folder, without the extension, using only lowercase '
             f'letters, numbers and underscores (for example inter_medium), and name the '
-            f'file in your app the same.'))
+            f'file in your app the same.' + FONT_COPY))
     if bad_ios:
         out.append(finding(
             'blocker', 'fonts', 'ios-font-name',
@@ -2903,14 +3039,15 @@ def check_fonts(config, fetch=read_font):
             f'by the PostScript name stored in its file, and these iOS font names do not '
             f'match it: {_font_list(bad_ios, sep="; ")}. The Builder preview still looks '
             f'right because it draws the uploaded file.',
-            f'{FONT_SETTINGS}. Set its iOS font name to the name its file says.'))
+            f'{FONT_SETTINGS}. Set its iOS font name to the name its file says.' + FONT_COPY))
     dupes = [(ios, labels) for ios, labels in by_ios.items() if len(labels) > 1]
     for ios, labels in dupes:
         out.append(finding(
             'risk', 'fonts', 'duplicate-ios-font-name',
             f'{_join_and(sorted(labels.values()))} share the iOS font name "{ios}". iOS '
             f'keeps one font per name, so one of them will show in the other\'s typeface.',
-            f'{FONT_SETTINGS}. Give each one the PostScript name stored in its own file.'))
+            f'{FONT_SETTINGS}. Give each one the PostScript name stored in its own file.'
+            + FONT_COPY))
     if variable:
         out.append(finding(
             'question', 'fonts', 'variable-font',
@@ -2955,7 +3092,7 @@ def audit(config, catalog=None, stores=None, answers=None, offers=None):
     findings += check_permission_screens(config, answers, stores)
     findings += check_rating_and_signup(config, answers, stores)
     findings += check_exit_and_cta(config, stores)
-    findings += check_fonts(config)
+    findings += check_fonts(config, stores=stores)
     return findings
 
 
@@ -3504,6 +3641,7 @@ CHECK_TO_GROUP = {
     'fallthrough-to-answer-screen': GROUP_FLOW,
     'missing-sibling-locale': GROUP_FLOW,
     'placement-inactive': GROUP_DASHBOARD,
+    'placement-test-unread': GROUP_DASHBOARD,
     'trial-toggle': GROUP_FLOW,
     'billed-amount-not-shown': GROUP_FLOW,
     'derived-price-louder': GROUP_FLOW,
@@ -3605,28 +3743,41 @@ def _legal_needs(f):
     return list(f.get('_needs') or [])
 
 
-def check_placements(placements, flow_id, status=None):
+def check_placements(placements, flow_id, status=None, ab_tests=None):
     """Is any placement showing this flow, and is it switched on?
 
     `placements` is a list of `placements get` bodies (the list endpoint carries no
     audiences, so the caller fetches each one), or None when they were not fetched.
-    A flow audience is `{"content_type": "flow", "flow_id": ...}`. Returns
+    A flow audience is `{"content_type": "flow", "flow_id": ...}`; an A/B test audience
+    carries an `ab_test_id` and serves the test's arms. `ab_tests` is a list of
+    `ab-tests get` bodies, whose `flows[].flow_id` are those arms. Returns
     `(findings, shown_by)`: `shown_by` is the developer IDs of the active placements
     that show this flow, for the report header.
 
     Neither finding blocks: a flow is attached AFTER it is published, so "no
     placement yet" is the normal state of a flow being checked before its first
-    publish -- a next step, not a defect.
+    publish -- a next step, not a defect. A test entry whose test was not read could
+    be showing the flow, so it turns `no-placement` into `placement-test-unread`.
     """
     if placements is None or not flow_id:
         return [], None
-    shown_by, out = [], []
+    arms = {}
+    for t in ab_tests or []:
+        t = t.get('data', t) if isinstance(t, dict) else None
+        if isinstance(t, dict) and t.get('ab_test_id'):
+            arms[t['ab_test_id']] = {a.get('flow_id') for a in (t.get('flows') or [])}
+    shown_by, out, unread = [], [], []
     for p in placements:
-        hit = any(a.get('content_type') == 'flow' and a.get('flow_id') == flow_id
-                  for a in (p.get('audiences') or []))
-        if not hit:
-            continue
+        auds = p.get('audiences') or []
         dev = p.get('developer_id') or p.get('id')
+        hit = any(a.get('content_type') == 'flow' and a.get('flow_id') == flow_id
+                  for a in auds)
+        tests = [a.get('ab_test_id') for a in auds if a.get('ab_test_id')]
+        hit = hit or any(flow_id in arms.get(t, ()) for t in tests)
+        if not hit:
+            if any(t not in arms for t in tests) and p.get('is_active') is not False:
+                unread.append((dev, p.get('id')))
+            continue
         if p.get('is_active') is False:
             out.append(finding(
                 'risk', 'placement', 'placement-inactive',
@@ -3636,7 +3787,16 @@ def check_placements(placements, flow_id, status=None):
                 f'https://app.adapty.io/placements/flows/{p.get("id")}'))
         else:
             shown_by.append(dev)
-    if not shown_by and not out:
+    if not shown_by and not out and unread:
+        out.append(finding(
+            'question', 'placement', 'placement-test-unread',
+            f'No placement shows this flow directly. Placement '
+            f'{_join_and(chr(96) + d + chr(96) for d, _ in unread)} runs an A/B test I '
+            f'could not read, so this flow may be one of its variants.',
+            'Open the A/B test on that placement in the Adapty dashboard and check whether '
+            'this flow is one of its variants: '
+            + ', '.join(f'https://app.adapty.io/placements/flows/{i}' for _, i in unread)))
+    elif not shown_by and not out:
         out.append(finding(
             'risk', 'placement', 'no-placement',
             'No placement shows this flow yet, so your app cannot fetch it and nobody '
@@ -3911,7 +4071,8 @@ def _voice(line):
 
 
 VALUE_FLAGS = ('--catalog', '--stores', '--name', '--flow-id', '--status',
-               '--placements', '--sibling-locales', '--custom-actions', '--offers')
+               '--placements', '--ab-tests', '--sibling-locales', '--custom-actions',
+               '--offers')
 
 # What the user said each custom action ID does. A flow cannot request a permission,
 # show the rating sheet or sign anyone in: each of those is a `custom` action whose
@@ -3989,6 +4150,8 @@ def main(argv):
             flags.get('--catalog'), str) else None
         placements = json.load(open(flags['--placements'], encoding='utf-8')) if isinstance(
             flags.get('--placements'), str) else None
+        ab_tests = json.load(open(flags['--ab-tests'], encoding='utf-8')) if isinstance(
+            flags.get('--ab-tests'), str) else None
         siblings = json.load(open(flags['--sibling-locales'], encoding='utf-8')) if isinstance(
             flags.get('--sibling-locales'), str) else None
         offers = json.load(open(flags['--offers'], encoding='utf-8')) if isinstance(
@@ -4020,7 +4183,7 @@ def main(argv):
             else None}
     findings += check_meta(meta)
     placement_findings, meta['shown_by'] = check_placements(placements, meta['flow_id'],
-                                                                meta['status'])
+                                                                meta['status'], ab_tests)
     findings += placement_findings
     findings += check_sibling_locales(config, siblings)
     if flags.get('--report'):

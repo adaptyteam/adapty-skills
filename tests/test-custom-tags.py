@@ -100,7 +100,7 @@ def build(parts, variables, extra=()):
 
 def main():
     name = fk.app_value('user_name', fallback='there')
-    coins = fk.app_value('app.coins-balance', value_type='number', fallback=0)
+    coins = fk.app_value('app.coins-balance', fallback='0')
     good = build(['Hi, ', fk.Var(name), '! You have ', fk.Var(coins), ' coins'], [name, coins])
 
     # --- flowkit ------------------------------------------------------------------------------
@@ -122,8 +122,8 @@ def main():
            'value_type')
     raises('a number fallback for a string tag is refused',
            lambda: fk.app_value('x', fallback=3), 'not a string')
-    raises('a bool is not a number', lambda: fk.app_value('x', value_type='number',
-                                                          fallback=True), 'not a number')
+    raises('a number tag is refused (only a string can be a custom tag)',
+           lambda: fk.app_value('x', value_type='number', fallback=0), 'value_type')
     raises('fallback is required', lambda: fk.app_value('x'), 'fallback', exc=TypeError)
     gated = fk.text(fk.rich('y'), color_id='ink')
     gated['props']['visibility'] = fk.when(fk.eq(fk.ref(name['id']), 'Max'))

@@ -45,9 +45,9 @@ Four jobs:
                   Rename a locale everywhere the document keys by it: the `locales` entry (its
                   `id`, and its `code` when that is the same string), `defaultLocale`, every
                   catalog and inline `values` map, and, in a `flows config get` envelope, each
-                  `remote_configs` entry. The repair for a code the SDK cannot match (`pt-br`
-                  publishes nothing; `pt-BR` does). It refuses a target already in the document
-                  and one that is not `language[-Script][-REGION]` with the SDK's casing.
+                  `remote_configs` entry. For a code the user wants changed (`pt` to `pt-BR`),
+                  never for casing alone: the publish writes every code in one casing. It refuses
+                  a target already in the document and one that is not `language[-Script][-REGION]`.
 
 Two semantics every edit has to keep:
   * `values` is keyed by locale ID (`localization.locales[].id`), not by language code. They are
@@ -59,7 +59,7 @@ Two semantics every edit has to keep:
 CLI:
     python3 localization.py catalog IN.json [--out OUT.json]    # default: rewrite IN in place
     python3 localization.py resolve IN.json                     # print the read view
-    python3 localization.py rename IN.json OLD NEW [--out OUT.json]   # e.g. pt-br pt-BR
+    python3 localization.py rename IN.json OLD NEW [--out OUT.json]   # e.g. pt pt-BR
 
 `rename` exits 2 and writes nothing when it refuses. When it renamed `remote_configs`, send them
 back with the config: `flows config update` takes them as `--remote-configs`.
@@ -100,9 +100,9 @@ LOCALIZABLE_ACTION_FIELDS = {
 }
 
 _CONTENT_ID = re.compile(r'^lc_(\d+)$')
-#: `language[-Script][-REGION]` with the SDK's casing: region UPPERCASE, script in Title case.
+#: `language[-Script][-REGION]` as the transformer accepts it: any casing, `-` or `_`.
 #: Same pattern as `flowkit.LOCALE_CODE` and `verify-config.py`'s.
-LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?\Z')
+LOCALE_CODE = re.compile(r'(?i)[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?\Z')
 _NO_LOCALE_FALLBACK = 'en'
 _SAFE_INT = 2 ** 53 - 1
 _ABSENT = object()
@@ -756,7 +756,7 @@ def rename_locale(doc, old, new):
 
     `doc` is a bare config or a `flows config get` envelope. `counts` says what changed:
     `locales`, `defaultLocale`, `values` and `remote_configs`. Raises `RenameError`, changing
-    nothing, when `new` is not a code the SDK matches, when the document already has `new`
+    nothing, when `new` is not a code the publish accepts, when the document already has `new`
     anywhere (merging two locales is a decision, not a rename), or when it has no `old`.
     """
     if not (isinstance(old, str) and old and isinstance(new, str) and new):
@@ -765,9 +765,8 @@ def rename_locale(doc, old, new):
         raise RenameError(f'{old!r} is already the name')
     if not LOCALE_CODE.fullmatch(new):
         raise RenameError(
-            f'{new!r} is not `language[-Script][-REGION]` with the SDK\'s casing: region in '
-            f'UPPERCASE (`pt-BR`), script in Title case (`zh-Hans`, `sr-Latn`). The transform '
-            f'service refuses it at publish, so it cannot be the target.')
+            f'{new!r} is not `language[-Script][-REGION]` (`en`, `pt-BR`, `zh-Hans`, `es-419`): '
+            f'the publish refuses it.')
     if not _rec(doc):
         raise RenameError('not a flow config (expected a JSON object)')
     envelope = 'screens' not in doc and _rec(doc.get('config'))

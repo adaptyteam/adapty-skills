@@ -208,6 +208,12 @@ def extract(d):
                         trig = f'“{short(lbl, 22)}”' if lbl else 'tap'
                     elif trig in ('timer-end', 'timerEnd'):
                         trig = 'after timer'
+                    elif trig in ('screen-appear', 'appear'):
+                        waits = [((a.get('payload') or {}).get('transition') or {}).get('delay')
+                                 for a in inter.get('actions') or []
+                                 if isinstance(a, dict) and a.get('type') == 'navigate']
+                        waits = [w for w in waits if isinstance(w, int) and w > 0]
+                        trig = f'after {waits[0] / 1000:g} s' if waits else 'on appear'
                     run(inter.get('actions'), s, trig, [])
                 for k, v in o.items():
                     if k != 'interactions':

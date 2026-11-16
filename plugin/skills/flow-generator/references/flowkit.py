@@ -157,10 +157,10 @@ def ids_after(config, *, prefix='el'):
 # bare UUIDs for the entry screen. Same pattern as `verify-config.py`'s `_ID_RE`.
 _IDENT = re.compile(r'[A-Za-z0-9_]+')
 
-# `language[-Script][-REGION]`. The naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong: a script subtag is
-# four letters in Title case and `sr-Latn` is a real code in a real export. Same pattern as
-# `verify-config.py`'s `LOCALE_CODE`.
-LOCALE_CODE = re.compile(r'[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|[0-9]{3}))?\Z')
+# `language[-Script][-REGION]` as the transformer accepts it: any casing, `-` or `_`. It writes
+# every code out in one casing (`pt-br` ships as `pt-BR`), so casing is not checked here. Same
+# pattern as `verify-config.py`'s `LOCALE_CODE`.
+LOCALE_CODE = re.compile(r'(?i)[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?\Z')
 
 
 def eid(kind='S'):
@@ -183,7 +183,7 @@ def color(color_id):
     return {'type': 'color-style', 'colorId': color_id}
 
 
-# A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
+# A THEME colour must be exactly `#RRGGBB`; the transform service enforces it.
 # In `theme.colors[].light/dark`, a 3-digit (`#fff`), 8-digit (`#RRGGBBAA`),
 # 7-digit, unprefixed (`FFFFFF`) or EMPTY hex is refused — and refused with the
 # location-free `Generated JSON failed schema validation`, which names no field, and
@@ -256,7 +256,8 @@ def _check_fill(value, where):
 
 def gradient(angle, *stops):
     """`gradient(180, ('#E1D6EB', 0), ('#EDE9F0', 1))`, or with a per-stop alpha as a third
-    item: `gradient(180, ('#0E9F6E', 0, 100), ('#0E9F6E', 1, 22))`.
+    item: `gradient(180, ('#0E9F6E', 0, 100), ('#0E9F6E', 1, 22))`. `angle` works as in CSS:
+    180 runs position 0 at the top to 1 at the bottom, 0 the reverse, 90 left to right.
 
     A fade whose last stop IS the page colour makes the element's tail invisible, so it renders
     shorter than it is — see trap 12. Stop one step short of the background, or better, fade
@@ -326,15 +327,19 @@ def size(kind='fill', value=None):
     return {'type': 'fixed', 'value': value} if kind == 'fixed' else {'type': kind}
 
 
-def relative(z=None):
+def relative(z=None, *, bleed=False):
     """An in-flow element. It takes no `zIndex`: on a `relative` element the render ignores it, and
-    an `absolute` sibling paints over it wherever either is listed (flow-schema.md trap 9)."""
+    an `absolute` sibling paints over it wherever either is listed (flow-schema.md trap 9).
+
+    `bleed=True` sets `ignoreSafeArea`: the screen's first in-flow element then runs to the top
+    edge, under the status bar, while the screen keeps `safeArea: true` for everything else.
+    It works on that element only; `screen()` refuses it anywhere else."""
     if z is not None:
         raise ValueError('relative() takes no z: a zIndex on a relative element does nothing, and '
                          'an absolute sibling still paints over it. To draw over an absolute '
                          'overlay, put this element inside the overlay, or make the overlay a fill '
                          'layer of the container; a corner control goes absolute() after it')
-    return {'type': 'relative'}
+    return {'type': 'relative', 'ignoreSafeArea': True} if bleed else {'type': 'relative'}
 
 
 def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
@@ -346,7 +351,7 @@ def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
     Give it **both** `top` and `bottom` — with `height='auto'` — and it stretches between the
     anchors instead, following its parent's height however the content grows. A negative
     `bottom` overshoots past the parent's edge, which is how a timeline rail reaches into the
-    next row. Measured, all three parts load-bearing: drop `bottom` and the element collapses to
+    next row. All three parts are load-bearing: drop `bottom` and the element collapses to
     nothing; swap `auto` for `fill` and it stops 2px short.
 
     The horizontal pair works the same way: `left` AND `right` stretch it between them with
@@ -396,11 +401,9 @@ def visible():
 # A condition is a JSON expression tree, and the transform service validates it with ONE
 # walker (`findInvalidExpressionPath`) shared by `props.visibility.condition` and
 # `states[].condition` — which is why the two codes it raises, `invalid_visibility_condition`
-# and `invalid_state_condition`, are one construct here. Between them they were the 3rd most
-# common transformer refusal in production over the 40 days to 2026-08-28 (362 failed
-# requests), and before this section flowkit had NO way to express a condition at all: an
-# author needing one hand-wrote the tree. Finding 12 again — a missing helper is a missing
-# capability, and the hand-written version is what the service rejects.
+# and `invalid_state_condition`, are one construct here. Together they are among the
+# transformer's most common refusals, and they come from hand-written trees: a missing helper
+# is a missing capability, and the hand-written version is what the service rejects.
 
 # Every expression `type` the transform service's condition walker knows. The published schema
 # types a condition as an unconstrained value, so this list is the only check on it.
@@ -779,7 +782,7 @@ RESERVED_TAG_NAMES = frozenset({
 })
 RESERVED_TAG_PREFIX = 'TIMER_'
 _TAG_NAME = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
-_TAG_VALUE_TYPES = {'string': (str,), 'number': (int, float), 'boolean': (bool,)}
+_TAG_VALUE_TYPES = {'string': (str,)}
 
 
 def tag_name_issue(name):
@@ -817,9 +820,9 @@ def app_value(name, *, fallback, value_type='string', variable_id=None, descript
             f'({", ".join(sorted(RESERVED_TAG_NAMES)[:4])}, ..., {RESERVED_TAG_PREFIX}*).')
     if value_type not in _TAG_VALUE_TYPES:
         raise ValueError(f'app_value() value_type must be one of {sorted(_TAG_VALUE_TYPES)}, '
-                         f'got {value_type!r} — the app passes strings, numbers or booleans only')
+                         f'got {value_type!r} — the app passes strings only')
     ok = _TAG_VALUE_TYPES[value_type]
-    if not isinstance(fallback, ok) or (value_type == 'number' and isinstance(fallback, bool)):
+    if not isinstance(fallback, ok):
         raise TypeError(f'app_value() fallback {fallback!r} is not a {value_type}; it is shown '
                         f'in place of the app value, so it must be the same type')
     vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
@@ -890,9 +893,9 @@ def _node(kind, props, *, children=None, caption=None, states=None,
 
 def _check_stretch(props):
     """`height: auto` and a top+bottom anchor pair are one construct, so neither half is
-    representable alone. Both halves were measured on a rendered timeline row: anchors without
-    `auto` (a `fill` height) stopped 2px short of the next chip, and `auto` without the `bottom`
-    anchor collapsed the rail to nothing and left 108px of white.
+    representable alone. On a rendered timeline row, anchors without `auto` (a `fill` height)
+    stop 2px short of the next chip, and `auto` without the `bottom` anchor collapses the rail
+    to nothing and leaves 108px of white.
     """
     pos, h = props['position'], props['height']
     anchored = (pos.get('type') == 'absolute'
@@ -977,12 +980,12 @@ def footer(children=(), *, fill_=None, padding=None, gap=16, direction='vertical
     A `footer` is lifted out of the layout flow and pinned to the bottom of the viewport while
     the content scrolls past it. **It requires the screen to be `scrollable`** -- device-confirmed,
     with the scroll off it does not render at all, and the preview cannot show you that
-    (`screen()` refuses the pair). Measured, one variable at a time: the same props under
+    (`screen()` refuses the pair). Varying one thing at a time: the same props under
     `type: "stack"` put the bar below the fold; the pinned band is identical whether the screen is
     `scrollable` or not, and whether the footer is declared first or last.
 
-    Three measured constraints are enforced here rather than left to the caller, because each one
-    produced a real defect:
+    Three constraints are enforced here rather than left to the caller, because each one breaks
+    the render:
 
     * `fill_` is REQUIRED. The footer overlays the scrolling content, so without an opaque fill
       the content passes visibly behind the CTA — which is the symptom that gets misread as
@@ -1068,8 +1071,8 @@ def _dot_color(value, default):
     """A dot colour: a theme colour id, a literal '#hex', or an already-built colour dict.
 
     `Dots.color`/`activeColor` are `Color`, which accepts a `color-style` reference — so the
-    dots CAN follow the theme, and usually should. Measured: the real export's hardcoded white
-    dots are invisible on a light screen, and the preview draws light mode only, so a hex dot
+    dots CAN follow the theme, and usually should. Hardcoded white dots, as real exports carry
+    them, are invisible on a light screen, and the preview draws light mode only, so a hex dot
     that looks fine in the export is a dot nobody sees. Pass a theme colour id.
     """
     if value is None:
@@ -1143,17 +1146,32 @@ def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width=None,
     return _node('carousel', props, children=slides, node_id=node_id, **kw)
 
 def text(content, *, preset='body', color_id=None, align='left', width=None,
-         margin=None, position=None, visibility=None, **kw):
+         margin=None, position=None, visibility=None, max_lines=None, auto_shrink=False, **kw):
     """A text element. `preset` names a `typography` entry the document must declare.
 
     `visibility` is the same argument `stack()` takes: `hidden()`, `visible()` or
     `when(condition)`, and hiding collapses the space (trap 14). `width` defaults to `fill`, or
     to `auto` when `position` anchors the text left and right (see `absolute()`).
+
+    `max_lines` caps the lines; longer text ends in "…". `auto_shrink=True` instead shrinks the
+    whole text to fit those lines, down to 10% of its size, in every locale. It needs
+    `max_lines`: this text's height is hug, and shrinking works only inside a line limit or a
+    fixed height.
     """
+    if max_lines is not None and (isinstance(max_lines, bool) or not isinstance(max_lines, int)
+                                  or max_lines < 1):
+        raise ValueError(f'text(max_lines={max_lines!r}): a line limit is a whole number of 1 or more')
+    if auto_shrink and max_lines is None:
+        raise ValueError('text(auto_shrink=True) needs max_lines: text shrinks only inside a line '
+                         'limit or a fixed height, and without one autoShrink does nothing')
     props = {'font': {'preset': preset}, 'align': align,
              'width': _width(width, None, position), 'height': size('hug'),
              'layout': 'auto-height',
              'content': content, 'position': position or relative(), 'decoration': 'none'}
+    if max_lines is not None:
+        props['maxLines'] = max_lines
+    if auto_shrink:
+        props['autoShrink'] = True
     if color_id is not None:
         props['color'] = color(color_id)
     if margin is not None:
@@ -1169,8 +1187,8 @@ def icon(name, *, size_pt=22, color_id=None, weight='regular', position=None,
     unknown one raises with suggestions.
 
     That guard is the whole point. A phosphor icon resolves by name from the bundle, so an
-    invented name draws NOTHING — measured: correct hand-authored markup under `name: "CloseX"`
-    rendered as empty space twice, `name: "X"` drew immediately. `validate` returns `valid:true`,
+    invented name draws NOTHING: correct hand-authored markup under `name: "CloseX"` renders as
+    empty space, while `name: "X"` draws. `validate` returns `valid:true`,
     the schema types the name as a bare string, and a blank in a screenshot looks like a spacing
     bug. `config()` then declares whatever you used in `_meta.icons`, so the used-but-undeclared
     error is unreachable from here too.
@@ -1206,7 +1224,7 @@ def spinner(icon_name, *, size_pt=32, color_id=None, hexval=None, duration_ms=10
     does not animate on a device; that is the fake-footer mistake wearing a loader.
 
     `duration_ms` is the ROTATION PERIOD, not a delay. A spinner has no completion trigger and
-    fires nothing — the invisible `timer()` beside it is what moves the flow on. Say which is
+    fires nothing — the screen's `on_appear(auto_advance(...))` is what moves the flow on. Say which is
     which in the handoff, because the field reads exactly like a delay.
 
     The spinner draws blank in `config preview`; that is a render blindness, not a broken
@@ -1295,7 +1313,7 @@ def _image_value(url, media_id, preview):
     return entry
 
 
-def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hexval=None):
+def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None):
     """A background image fill — `props.fill` on a screen or a stack.
 
     The SAME asset binds two different ways and this is the other one: an `image` element wraps
@@ -1308,15 +1326,11 @@ def image_fill(url, *, preview=_PREVIEW_UNSET, media_id=None, color_id=None, hex
     `preview` matters here for the same reason it does on an element, and more visibly: a
     background is usually the largest asset on the screen, so it is the one whose absence reads
     as a broken screen rather than a missing picture.
+
+    An image layer carries no colour: the schema allows only `type`, `image` and
+    `customMediaID`. A tint or a colour behind the photo is its own `fill()` layer in the stack.
     """
-    layer = {'type': 'image', 'image': _image_value(url, media_id, preview)}
-    if color_id is not None and hexval is not None:
-        raise TypeError('image_fill(): pass color_id or hexval, not both')
-    if color_id is not None:
-        layer['color'] = color(color_id)
-    elif hexval is not None:
-        layer['color'] = hex_color(hexval)
-    return [layer]
+    return [{'type': 'image', 'image': _image_value(url, media_id, preview)}]
 
 
 def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width=None, height='hug',
@@ -1335,7 +1349,7 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width=None
     field. Pass `flowkit.PLACEHOLDER` as the url for the no-asset case; anything else falsy is an
     error rather than a silent empty map.
 
-    Geometry, measured (media.md): with `height='hug'` the drawn height comes from the ASSET's
+    Geometry (media.md): with `height='hug'` the drawn height comes from the ASSET's
     aspect ratio, so the screen re-flows if the file is swapped and `fit` has no visible effect.
     With a fixed height the box wins and the asset absorbs the mismatch — `cover` crops it,
     `fit` letterboxes it and leaves a dead band.
@@ -1380,31 +1394,77 @@ def image(url, *, preview=_PREVIEW_UNSET, media_id=None, fit='cover', width=None
     return _node('image', props, **kw)
 
 
-#: `video` takes no source argument ON PURPOSE, so these names raise instead of being accepted.
-#: `flows media upload` refuses a clip outright -- `validation_error: target_format: value is not
-#: a valid enumeration member; permitted: 'JPEG', 'JPEG2000', 'WEBP', 'PNG', 'SVG'` -- so any URL
-#: reaching this helper could only have been invented, which is worse than an empty box three
-#: ways (flow-schema.md trap 5): it looks resolved so nobody uploads anything, it fails at
-#: runtime instead of showing as unset in the builder, and it collides with the real asset
-#: namespace.
-_VIDEO_SOURCE_ARGS = ('url', 'video', 'src', 'source', 'media_id', 'customMediaID',
+#: `video` takes its clip ONLY through `source=` -- the record `flows media upload-video --json`
+#: wrote -- so these names raise instead of being accepted. A bare URL argument is the shape of
+#: an invented source, which is worse than an empty box three ways (flow-schema.md trap 5): it
+#: looks resolved so nobody uploads anything, it fails at runtime instead of showing as unset in
+#: the builder, and it collides with the real asset namespace.
+_VIDEO_SOURCE_ARGS = ('url', 'video', 'src', 'media_id', 'customMediaID',
                       'custom_media_id', 'video_url', 'videoUrl', 'preview_url', 'previewUrl')
 
 
-def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=None,
-          margin=None, opacity=None, position=None, visibility=None, **kw):
-    """A `video` element with NO source, styled to the box the user's clip will land in.
+def _video_value(source, what='source'):
+    """`{videoUrl, previewUrl, width?, height?}` -- the flow config video value -- from the
+    record of one `flows media upload-video --json` call: its path, its parsed dict (snake
+    case), or a video value read out of a config (camel case).
 
-    There is no CLI upload path for a clip, so this helper cannot bind one and deliberately
-    refuses to be handed one. What it emits is the whole correct answer: a real `video` element
-    the user opens in the Flow Builder and drops a file into. Say that to them in words --
-    the element alone is not the handoff.
+    The camel-case form is there to pass back a value read from a fetched config, unchanged.
+    Nothing here can tell it from a hand-written one, so never type a `{videoUrl, previewUrl}`
+    yourself: a URL no upload returned is an invented one."""
+    rec = source
+    if isinstance(source, str):
+        try:
+            with open(source) as fh:
+                rec = json.load(fh)
+        except (OSError, ValueError) as e:
+            raise TypeError(f'video({what}={source!r}) wants the file that '
+                            f'`flows media upload-video --json` wrote; it does not read: {e}')
+    if not isinstance(rec, dict):
+        raise TypeError(f'video({what}=...) wants the record of a `flows media upload-video '
+                        f'--json` call (its path or its dict), not {rec!r}')
+    url = rec.get('videoUrl', rec.get('video_url'))
+    prev = rec.get('previewUrl', rec.get('preview_url'))
+    for name, val in (('video_url', url), ('preview_url', prev)):
+        if not (isinstance(val, str) and val.startswith('https://')):
+            raise TypeError(
+                f'video({what}=...) has no {name}: pass the record that '
+                '`flows media upload-video --json` wrote, unchanged. Both URLs are required: a '
+                'video value with no preview is refused by the builder. With no record, emit '
+                'the element with no source and tell the user to upload the clip in the builder')
+    out = {'videoUrl': url, 'previewUrl': prev}
+    w, h = rec.get('width'), rec.get('height')
+    if (w is None) != (h is None):
+        raise ValueError(f'video({what}=...) has only one of width and height: they give the '
+                         'aspect ratio and come together, so pass both or neither')
+    if w is not None:
+        for name, val in (('width', w), ('height', h)):
+            if isinstance(val, bool) or not isinstance(val, int) or val <= 0:
+                raise TypeError(f'video({what}=...) {name} wants pixels as a positive int, '
+                                f'not {val!r}')
+        out['width'], out['height'] = w, h
+    return out
+
+
+def video(*, fixed_h, source=None, dark_source=None, locale='en', width=None, fit='cover',
+          loop=True, corner=None, border=None, margin=None, opacity=None, position=None,
+          visibility=None, **kw):
+    """A `video` element, styled to the box the clip plays in.
+
+    `source` is the clip: the record that `flows media upload-video --json` wrote -- its path
+    or its parsed dict -- and `dark_source` the dark file's record (`props.videoDark`). The
+    element then carries `{videoUrl, previewUrl, width, height}` for `locale`, the default
+    locale, as an inline localizable (run `localization.py catalog` over the document). The
+    upload's `preview_base64` is not part of a video value and stays in the file.
+
+    With no `source` the element has NO clip: a styled "Upload Video" placeholder for a clip
+    nobody has a file for, or a CLI with no `upload-video`. Say to the user in words that they
+    upload it in the builder -- the element alone is not the handoff.
 
     NEVER stand a `stack` with a Play icon in for this. That is a lookalike of a different
     element type (the same mistake as the fake footer and the fake spinner), it forces the user
     to delete-and-recreate instead of just binding a file, and no gate flags it.
 
-    Measured against the transform service and the render:
+    What the transform service and the render do with it:
 
     * an unset `video` is PUBLISHABLE -- `valid: true, issues: []`, in the styled, the empty
       `values`-map and the bare forms alike -- and the transform service maps `video`, so
@@ -1414,9 +1474,9 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
       `image` draws) with no relationship to the clip, so the layout you approve is not the
       layout that ships -- everything below the video moves when the file lands. A fixed height
       holds the box and the clip absorbs the mismatch, `cover` cropping it and `fit` leaving
-      bands. Measured: `fixed_h=200` drew exactly 200pt.
-    * the checkerboard IGNORES `borderRadius` in `config preview` -- corner profiles measured
-      flat -- and so does an empty `image`'s, byte for byte, so this is the placeholder drawing
+      bands: `fixed_h=200` draws exactly 200pt.
+    * the checkerboard IGNORES `borderRadius` in `config preview` -- its corners draw square --
+      and so does an empty `image`'s, byte for byte, so this is the placeholder drawing
       unclipped rather than anything video-specific. Author the radius anyway: it is what the
       clip lands into, and do not "fix" the square corners you see in the preview.
 
@@ -1424,23 +1484,26 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
     no `align` and no `layout` -- to place it, position the PARENT stack.
 
     NOT observed in any real export: 0 `video` elements across the 12-config corpus, so this
-    shape is authored from the schema plus the measurements above, not read off builder output.
+    shape is authored from the schema plus the render behaviour above, not read off builder output.
     """
     hit = [k for k in kw if k in _VIDEO_SOURCE_ARGS]
     if hit:
         raise TypeError(
-            f'video() takes no source ({", ".join(hit)}): `flows media upload` refuses a clip '
-            "(permitted formats are JPEG/JPEG2000/WEBP/PNG/SVG), so a URL here could only be "
-            'invented — and an invented URL looks resolved, so nobody ever uploads the real '
-            'one. Emit the element empty, style it to the box you want, and tell the user to '
-            'open the flow in the builder and upload the clip there.')
+            f'video() takes no source by URL ({", ".join(hit)}): pass source= the record that '
+            '`flows media upload-video --json` wrote, so every URL comes from the upload. A '
+            'URL passed by hand could be invented — and an invented URL looks resolved, so '
+            'nobody ever uploads the real one. With no file, emit the element empty, style it '
+            'to the box you want, and tell the user to upload the clip in the builder.')
     if fit not in OBJECT_FIT:
         raise ValueError(f'objectFit must be one of {OBJECT_FIT}, not {fit!r}')
     if fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float)):
         raise TypeError(
             f'video(fixed_h=...) wants a height in points, not {fixed_h!r}. A hug-height '
-            'placeholder draws an arbitrary 256pt box (measured) that the real clip will not '
-            'match, so the layout you preview and approve is not the one that ships.')
+            'video draws a box that is no function of the design (an unset one an arbitrary '
+            '256pt), so the layout you preview and approve is not the one that ships.')
+    if dark_source is not None and source is None:
+        raise TypeError('video(dark_source=...) without source=: the light file is the one '
+                        'every appearance falls back to, so upload and pass it first')
     props = {
         'width': _width(width, None, position),
         'height': size('fixed', fixed_h),
@@ -1448,6 +1511,11 @@ def video(*, fixed_h, width=None, fit='cover', loop=True, corner=None, border=No
         'loop': loop,
         'position': position or relative(),
     }
+    if source is not None:
+        props['video'] = {'values': {locale: _video_value(source)}, '_localizable': True}
+    if dark_source is not None:
+        props['videoDark'] = {'values': {locale: _video_value(dark_source, 'dark_source')},
+                              '_localizable': True}
     if visibility is not None: props['visibility'] = _check_visibility(visibility, 'video')
     if corner is not None:   props['borderRadius'] = corner
     if border is not None:   props['border'] = border
@@ -1535,10 +1603,8 @@ def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, al
 
 
 # --- the input family ---------------------------------------------------------------------
-# Eight element types, and flowkit had a helper for NONE of them, so every authored input was
-# hand-assembled from an export — including in all six runs of the 2026-08-28 GREEN round, one
-# of which said so in its own build script ("flowkit has no helper for the input family, so the
-# props are assembled here"). Finding 12 once more.
+# Eight element types. Without a helper an author hand-assembles each input from an export, and
+# a hand-assembled input is where the defects below come from.
 #
 # The stakes are not cosmetic. An input's `customId` is the PRODUCER for `<customId>.value`,
 # which is what every conditional-visibility gate reads. Get it wrong or leave it out and the
@@ -1600,12 +1666,10 @@ def _input(kind, custom_id, *, placeholder=None, locale='en', width=None, height
         props['placeholder'] = localized(placeholder, locale=locale)
     if fill_ is not None:      props['fill'] = _check_fill(fill_, kind)
     if border is not None:
-        # `border` is a COLOUR ID and is wrapped here, exactly as `stack()` does it. The first
-        # version of this helper passed the argument through verbatim, so `border='line'`
-        # emitted the bare string `"border": "line"` while the same call on a stack produced a
-        # full Border -- two helpers, one parameter name, two meanings. That is the drift this
-        # module exists to prevent (see the rich-text note above); found by an agent in the
-        # 2026-08-28 round, which had to repair it by hand.
+        # `border` is a COLOUR ID and is wrapped here, exactly as `stack()` does it. Passed
+        # through verbatim, `border='line'` would emit the bare string `"border": "line"` while
+        # the same call on a stack produces a full Border -- two helpers, one parameter name, two
+        # meanings. That is the drift this module exists to prevent (see the rich-text note above).
         if not isinstance(border, str):
             raise TypeError(
                 f'{kind} border takes a THEME COLOUR ID like \'line\', not '
@@ -1727,9 +1791,8 @@ def on_selected(node, **props):
     THE reason this exists: without it there is no way to express "selected" from this module,
     so an author styles the card that starts selected differently in its BASE props -- and that
     look is then stuck on that card forever. Tapping flips the internal selection and nothing on
-    screen moves, which reads to a user as "it blinks and nothing changes". Shipped to a real
-    user on 2026-08-28 from a build that had `patterns.md`'s rule in front of it; the words were
-    there and the helper was not, which is the difference this closes.
+    screen moves, which reads to a user as "it blinks and nothing changes". `patterns.md`'s rule
+    alone does not prevent it; a helper does.
 
     Use it on the member AND on every descendant whose colour or font should follow:
 
@@ -1749,6 +1812,14 @@ def on_selected(node, **props):
     if not props:
         raise ValueError('on_selected() with no props does nothing — pass the overrides that '
                          'should apply while selected, e.g. fill=fill("planOn").')
+    # A preset with a weight on top is the shape below; a preset with its own `family` is a
+    # manual font with a preset added (flow-schema.md, trap 3): the preset's face draws and the
+    # family is ignored.
+    font = props.get('font')
+    if isinstance(font, dict) and 'preset' in font and 'family' in font:
+        raise ValueError(
+            f'on_selected(font={font!r}) sets a preset AND a family — a font is either '
+            f'{{"preset": "<id>", ...}} or a manual font (family, size, weight) with no preset.')
     dropped = state_override_drops(node.get('props') or {}, props)
     if dropped:
         raise ValueError(
@@ -1916,22 +1987,20 @@ def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
         └── tab-content-wrapper
             └── tab-content × N -- one panel per tab, matched BY POSITION
 
-    An earlier draft of this helper hung `tab-item`s straight off `tabs` and skipped the
-    other three types. Every gate passed it — and it is a shape the builder never emits,
-    which is this repo's most expensive recurring class. The schema check caught it here
-    only because the schema happens to disagree with `tabs` for unrelated reasons.
+    `tab-item`s hung straight off `tabs`, skipping the other three types, pass every gate —
+    and it is a shape the builder never emits, which is this repo's most expensive recurring
+    class. The schema check catches it only because the schema happens to disagree with
+    `tabs` for unrelated reasons.
 
     The screen must declare `group_id` as **`single_choice`**; the service refuses any other
     type with `wrong_tab_selectable_group_type`, and there is no `tabs` group type however
     much the name suggests one. `screen()` checks that for you.
 
-    **`item_selected` is required, and that is finding 21 in this element.** Until 2026-09-11
-    this helper declared `states: [selected]` on each `tab-item` and emitted **no
-    `propsByState`** — so the state existed, the tap moved the selection, and nothing on screen
-    changed. A pill that never moves. Both sources of truth carry the override: the real export
+    **`item_selected` is required.** `states: [selected]` on each `tab-item` with **no
+    `propsByState`** means the state exists, the tap moves the selection, and nothing on screen
+    changes. A pill that never moves. Both sources of truth carry the override: the real export
     `tests/fixtures/tabs-paywall.json` puts `fill` + `borderRadius` in
-    `propsByState.selected`, and the catalog's `tabs-segmented` puts `fill` there. Two agents
-    building a tab bar from this helper had to patch it in by hand before the bar worked. Pass
+    `propsByState.selected`, and the catalog's `tabs-segmented` puts `fill` there. Pass
     the props the selected pill should carry:
 
         tabs([...], group_id='sections', item_selected={'fill': fill('pillOn'),
@@ -2112,7 +2181,68 @@ def _element_targets(element_ids, what):
     return out
 
 
-def show_elements(element_ids, action_id='act_show'):
+# How an element appears or leaves on a Show / Hide, as Flow Builder starts each one.
+ELEMENT_ANIMATIONS = {
+    'none': {'type': 'none', 'duration': 300, 'delay': 0, 'easing': 'ease-out'},
+    'fade': {'type': 'fade', 'duration': 300, 'delay': 0, 'easing': 'ease-out'},
+    'rise': {'type': 'rise', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'distance': 32},
+    'pop': {'type': 'pop', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'scale': 0.8},
+}
+ELEMENT_EASINGS = ('linear', 'ease-in', 'ease-out', 'ease-in-out')
+ELEMENT_ANIMATION_MAX_MS = 60000
+
+
+def element_animation(kind, *, duration=None, delay=None, easing=None, distance=None, scale=None):
+    """`payload.animation` of a Show / Hide: `kind` at its builder defaults, plus any overrides.
+
+    `fade` changes opacity, `rise` also moves the element up from `distance` pt below its
+    place (down on a hide), `pop` also scales it from `scale` (0.1 to 0.99). `none` with a
+    `delay` shows or hides the element after the wait with no motion; it still carries
+    `duration` and `easing`, which the schema requires on every kind and the device ignores on
+    `none`. `duration` and `delay` are whole ms, 0-60000; a `duration` of 0 is no motion;
+    `distance` is 1-200 pt. Guarded here because `flows config validate` refuses a malformed
+    one, and the transformer with `invalid_action_payload`.
+    """
+    if kind not in ELEMENT_ANIMATIONS:
+        raise ValueError(f'element_animation({kind!r}): the kinds are {sorted(ELEMENT_ANIMATIONS)}')
+    out = dict(ELEMENT_ANIMATIONS[kind])
+    given = {'duration': duration, 'delay': delay, 'easing': easing, 'distance': distance,
+             'scale': scale}
+    for key, value in given.items():
+        if value is None:
+            continue
+        if key not in out:
+            raise ValueError(f'element_animation({kind!r}) takes no {key}')
+        out[key] = value
+    for key in ('duration', 'delay'):
+        if key in out and (type(out[key]) is not int
+                           or not 0 <= out[key] <= ELEMENT_ANIMATION_MAX_MS):
+            raise ValueError(f'{key} {out[key]!r}: whole ms, 0-{ELEMENT_ANIMATION_MAX_MS}')
+    if 'easing' in out and out['easing'] not in ELEMENT_EASINGS:
+        raise ValueError(f'easing {out["easing"]!r}: use one of {ELEMENT_EASINGS}')
+    if 'distance' in out and (isinstance(out['distance'], bool)
+                              or not isinstance(out['distance'], (int, float))
+                              or not 1 <= out['distance'] <= 200):
+        raise ValueError(f'distance {out["distance"]!r}: a number of pt, 1-200')
+    if 'scale' in out and (isinstance(out['scale'], bool)
+                           or not isinstance(out['scale'], (int, float))
+                           or not 0.1 <= out['scale'] <= 0.99):
+        raise ValueError(f'scale {out["scale"]!r}: from 0.1 to 0.99')
+    return out
+
+
+def _with_animation(payload, animation):
+    if animation is not None:
+        if isinstance(animation, dict):
+            animation = element_animation(
+                animation.get('type'), **{k: v for k, v in animation.items() if k != 'type'})
+        else:
+            animation = element_animation(animation)
+        payload['animation'] = animation
+    return payload
+
+
+def show_elements(element_ids, action_id='act_show', animation=None):
     """`showElement`: make hidden elements of this screen visible -- a bottom sheet, a hint.
 
     `element_ids` is a list of element ids, or of the nodes themselves, and the target starts
@@ -2120,30 +2250,173 @@ def show_elements(element_ids, action_id='act_show'):
     element: the schema requires that shape, and `flows config validate` also accepts a single
     `element` id, so the wrong one passes the check you would run. A bare string is refused.
 
+    `animation` is a kind (`'fade'`) or an `element_animation()` result; left out, the element
+    appears at once. It plays only on a target on this same screen, outside a component, and
+    without a conditional visibility: anywhere else the element appears at once.
+
     `config()` refuses a target the document does not contain. The render never runs the tap,
     so whether it fires is a device check (patterns.md, the bottom sheet).
     """
     return {'id': action_id, 'type': 'showElement',
-            'payload': {'elements': _element_targets(element_ids, 'show_elements')}}
+            'payload': _with_animation(
+                {'elements': _element_targets(element_ids, 'show_elements')}, animation)}
 
 
-def hide_elements(element_ids, action_id='act_hide'):
-    """`hideElement`, the inverse of `show_elements()`: same list payload, same refusals. Hiding
-    collapses the space the element took (trap 14)."""
+def hide_elements(element_ids, action_id='act_hide', animation=None):
+    """`hideElement`, the inverse of `show_elements()`: same list payload, same refusals, same
+    `animation`. Hiding collapses the space the element took (trap 14)."""
     return {'id': action_id, 'type': 'hideElement',
-            'payload': {'elements': _element_targets(element_ids, 'hide_elements')}}
+            'payload': _with_animation(
+                {'elements': _element_targets(element_ids, 'hide_elements')}, animation)}
+
+
+# --- an element's own looping animation (`props.animation`) --------------------------------
+# What Flow Builder's Animation panel starts each type with. Every type also takes the four
+# timing keys: `duration` (one burst, ms), `delayBetweenLoops` (rest after it, ms),
+# `showAfterDelay` (wait before the first, ms) and `easing`. It starts when the screen appears
+# and loops for as long as it is on screen.
+LOOP_ANIMATIONS = {
+    'pulse': {'scaleAmount': 2, 'duration': 1500, 'delayBetweenLoops': 300,
+              'easing': 'cubic-bezier(.75, 0, 0, 1)'},
+    'wave-fill': {'scaleAmount': 20, 'waveSize': 8, 'waveColor': '#9751F2', 'duration': 1000,
+                  'delayBetweenLoops': 1000, 'easing': 'ease-in'},
+    'wave-outline': {'scaleAmount': 20, 'waveSize': 8, 'waveColor': '#9751F2', 'duration': 1000,
+                     'delayBetweenLoops': 1000, 'easing': 'ease-in'},
+    'glow': {'glowColor': '#9751F2', 'glowSize': 16, 'duration': 1500, 'delayBetweenLoops': 500,
+             'easing': 'ease-in-out'},
+    'shake': {'distance': 6, 'duration': 500, 'delayBetweenLoops': 2500, 'easing': 'ease-in-out'},
+    'wiggle': {'angle': 4, 'duration': 500, 'delayBetweenLoops': 2500, 'easing': 'ease-in-out'},
+    'bounce': {'distance': 8, 'duration': 600, 'delayBetweenLoops': 1400, 'easing': 'ease-out'},
+    'breathe': {'fadeAmount': 30, 'duration': 2000, 'delayBetweenLoops': 0,
+                'easing': 'ease-in-out'},
+    'color-shift': {'shiftColor': '#9751F2', 'duration': 2000, 'delayBetweenLoops': 0,
+                    'easing': 'ease-in-out'},
+    'border-flash': {'flashColor': '#9751F2', 'flashWidth': 3, 'duration': 1000,
+                     'delayBetweenLoops': 1000, 'easing': 'ease-in-out'},
+    'shimmer': {'shimmerColor': '#FFFFFF', 'shimmerSize': 30, 'shimmerAngle': 135,
+                'duration': 1200, 'delayBetweenLoops': 1800, 'easing': 'ease-in-out'},
+}
+LOOP_EASINGS = ('linear', 'ease-in', 'ease-out', 'ease-in-out', 'ease-out-elastic',
+                'ease-out-bounce')
+_LOOP_COLORS = ('waveColor', 'glowColor', 'shiftColor', 'flashColor', 'shimmerColor')
+_LOOP_PERCENTS = ('fadeAmount', 'shimmerSize')
+_CUBIC_BEZIER = re.compile(r'^cubic-bezier\(-?(?:\d+\.?\d*|\.\d+)(?:, -?(?:\d+\.?\d*|\.\d+)){3}\)$')
+
+
+def loop_animation(kind, **overrides):
+    """An element's own `props.animation`: `kind` at Flow Builder's defaults, plus overrides.
+
+    Set it with `animate(node, ...)`, which also refuses the layouts the device skips. Keys are
+    the builder's own (`scaleAmount`, `waveColor`, `delayBetweenLoops`, ...); a colour is a
+    `#RRGGBB` string, `hex_color(...)` or `color(theme_id)`. `pulseScaleAmount` on a wave also
+    pulses the element by that %. Not the Show / Hide `payload.animation`: that is
+    `element_animation()`, played once.
+    """
+    if kind not in LOOP_ANIMATIONS:
+        raise ValueError(f'loop_animation({kind!r}): the kinds are {sorted(LOOP_ANIMATIONS)}')
+    out = {'type': kind, **LOOP_ANIMATIONS[kind], 'showAfterDelay': 0}
+    allowed = set(out) - {'type'} | ({'pulseScaleAmount'} if kind.startswith('wave') else set())
+    for key, value in overrides.items():
+        if key not in allowed:
+            raise ValueError(f'loop_animation({kind!r}) takes no {key}; it takes {sorted(allowed)}')
+        out[key] = value
+    for key, value in out.items():
+        if key == 'type':
+            continue
+        if key in _LOOP_COLORS:
+            if isinstance(value, str):
+                if not re.fullmatch(r'#[0-9A-Fa-f]{6}', value):
+                    raise ValueError(f'{key} {value!r}: write #RRGGBB, or pass hex_color()/color()')
+                out[key] = hex_color(value)
+            elif not (isinstance(value, dict) and value.get('type') in ('hex', 'color-style')):
+                raise TypeError(f'{key} wants #RRGGBB, hex_color() or color(), not {value!r}')
+        elif key == 'easing':
+            if value not in LOOP_EASINGS and not (isinstance(value, str)
+                                                   and _CUBIC_BEZIER.match(value)):
+                raise ValueError(f'easing {value!r}: one of {LOOP_EASINGS} or a cubic-bezier(...)')
+        elif isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError(f'{key} wants a number, not {value!r}')
+        elif key == 'shimmerAngle':
+            continue
+        elif value < 0 or (key in _LOOP_PERCENTS and value > 100):
+            raise ValueError(f'{key} {value!r}: '
+                             + ('0-100 %' if key in _LOOP_PERCENTS else 'not below 0'))
+    return out
+
+
+def _solid_fill(fill):
+    """The one colour of a fill made of exactly one colour layer, else None."""
+    layers = fill if isinstance(fill, list) else [fill] if isinstance(fill, dict) else []
+    if len(layers) != 1 or not isinstance(layers[0], dict):
+        return None
+    layer = layers[0]
+    if 'hex' in layer:
+        return layer
+    return layer.get('color') if layer.get('type') == 'color' else None
+
+
+def theme_color_is_solid(entry):
+    """True when a `theme.colors[]` entry is one hex in both appearances: its `dark` is absent
+    or exactly its `light`, letter case included. Only such a colour can start a shimmer."""
+    light, dark = entry.get('light'), entry.get('dark')
+    return (isinstance(light, dict) and isinstance(light.get('hex'), str)
+            and (dark is None or dark == light))
+
+
+def animate(node, animation, *, theme=None):
+    """Put a `loop_animation()` (or a kind, at its defaults) on `node` as `props.animation`.
+
+    Refuses what publishes but never plays on the device: a wave on an element without a fixed
+    width AND height, or with a margin; a colour shift on a gradient, image or layered fill; a
+    shimmer on anything but one solid colour, or (with `theme`, the config's `theme`) on a
+    theme colour whose dark value differs. One element carries one animation.
+    """
+    if isinstance(animation, str):
+        animation = loop_animation(animation)
+    elif isinstance(animation, dict):
+        animation = loop_animation(animation.get('type'),
+                                   **{k: v for k, v in animation.items() if k != 'type'})
+    props = node.setdefault('props', {})
+    kind = animation['type']
+    if kind.startswith('wave'):
+        sizes = [(props.get(k) or {}).get('type') for k in ('width', 'height')]
+        margin = props.get('margin') or {}
+        if sizes != ['fixed', 'fixed'] or any(v for v in margin.values()
+                                              if isinstance(v, (int, float))):
+            raise ValueError(
+                f'{kind} on {node.get("id")}: a wave plays only around a fixed width AND height '
+                f'with no margin (this one is {sizes[0]} x {sizes[1]}). Elsewhere it publishes '
+                f'and never shows. Give the element fixed sizes, or pick glow or pulse')
+    if kind in ('color-shift', 'shimmer'):
+        fill = props.get('fill')
+        solid = _solid_fill(fill)
+        if solid is None and (kind == 'shimmer' or fill not in (None, [])):
+            raise ValueError(
+                f'{kind} on {node.get("id")} needs one solid colour fill'
+                + (' (or no fill)' if kind == 'color-shift' else '')
+                + ': on a gradient, image or layered fill it publishes and never plays')
+        if kind == 'shimmer' and theme is not None and solid.get('type') == 'color-style':
+            entry = next((c for c in theme.get('colors') or []
+                          if c.get('id') == solid.get('colorId')), None)
+            if entry and not theme_color_is_solid(entry):
+                raise ValueError(
+                    f'shimmer on {node.get("id")}: its fill is the theme colour '
+                    f'{solid.get("colorId")!r}, whose dark value differs from its light one '
+                    f'(letter case counts), so the shimmer is skipped. Fill it with a hex '
+                    f'colour, or pick another effect')
+    props['animation'] = animation
+    return node
 
 
 # --- the rest of the action vocabulary ----------------------------------------------------
-# `invalid_action_payload` was the 5th most common transformer refusal in the 40 days to
-# 2026-08-28 (208 failed requests), and it is one code covering sixteen distinct required-field
-# checks. Until now flowkit exposed three action types out of fourteen — purchase, navigate,
-# closeFlow — so ANY other action had to be hand-written, `openUrl` included, which store
-# compliance requires on every paywall (terms and privacy). Finding 12: an author reaches for
-# what the helper exposes, and what is not exposed gets hand-written into a 422.
+# `invalid_action_payload` is one of the transformer's most common refusals, and it is one code
+# covering sixteen distinct required-field checks. This section exposes the rest of the action
+# vocabulary, `openUrl` included, which store compliance requires on every paywall (terms and privacy):
+# an author reaches for what the helper exposes, and what is not exposed gets hand-written
+# into a 422.
 #
 # Every required field below is the transform service's own, read off its error messages in
-# `compile-actions.ts` rather than inferred from the schema — the schema is looser than the
+# the transformer's source rather than inferred from the schema — the schema is looser than the
 # service in each case.
 
 
@@ -2225,6 +2498,52 @@ def alert(*, title=None, message=None, action_id='act_alert'):
     return {'id': action_id, 'type': 'alert', 'payload': payload}
 
 
+def auto_advance(screen_id, after_ms, *, transition='push', action_id='act_auto'):
+    """The `navigate` of a screen that moves on by itself: pass it to `on_appear()`.
+
+    It is a `navigate` whose transition `delay` is the wait, run from the screen's On Appear.
+    The screen stays live while it waits: a tap that navigates, Back, or anything that opens
+    over the screen (a purchase, a restore, an alert, a link, a bottom sheet, a picker, close)
+    cancels the wait. Closing what opened does not restart it; only coming back to the screen
+    waits again. The wait may end up to a
+    second late. On a tap the same `delay` only holds the transition while taps do nothing.
+
+    `after_ms` is whole ms, 1-5000. Over 5000 the transition is unreadable and the screen moves
+    on AT ONCE, and `none` carries no delay, so both raise here: a longer wait is a `timer()`
+    with its digits inside it.
+    """
+    if type(after_ms) is not int or not 0 < after_ms <= TRANSITION_MAX_MS:
+        raise ValueError(
+            f'auto_advance({screen_id!r}, {after_ms!r}): whole ms, 1-{TRANSITION_MAX_MS}. Over '
+            f'{TRANSITION_MAX_MS} the screen moves on at once; a longer wait is a timer() with '
+            f'its digits inside it')
+    if isinstance(transition, dict):
+        kind = transition.get('type')
+        rest = {k: v for k, v in transition.items() if k not in ('type', 'delay')}
+    else:
+        kind, rest = transition, {}
+    if kind == 'none':
+        raise ValueError(
+            "auto_advance(transition='none'): `none` has no delay, so the screen moves on at "
+            "once. Pick an animated kind: push, slideIn, slideOut or fadeThrough")
+    return {'id': action_id, 'type': 'navigate',
+            'payload': {'type': 'screen', 'screen': screen_id,
+                        'transition': screen_transition(kind, delay=after_ms, **rest)}}
+
+
+def on_appear(*actions):
+    """The screen's On Appear: pass the result to `screen(..., on_appear=...)`.
+
+    Each action runs every time the screen appears: `auto_advance()` to move on by itself,
+    `show_elements(..., animation=...)` with a `delay` to reveal an element after a wait. A
+    delayed reveal waits once per run of the flow: Back to the screen before the wait ends waits
+    for the rest, and after it the element is already there, with no animation.
+    """
+    if not actions:
+        raise ValueError('on_appear() needs at least one action')
+    return {'trigger': 'screen-appear', 'actions': list(actions)}
+
+
 def navigate_back(action_id='act_back'):
     return {'id': action_id, 'type': 'navigateBack'}
 
@@ -2232,8 +2551,7 @@ def navigate_back(action_id='act_back'):
 def navigate_next(action_id='act_next'):
     """`navigateNext` resolves against the flow's screen ORDER, so it is refused on a screen
     the order does not contain. It also makes the graph implicit and order-dependent: an
-    explicit `navigate(screen_id)` is preferred wherever the target is known, and a previous
-    build reverted `navigateNext` after `verify-config.py` reported five screens unreachable.
+    explicit `navigate(screen_id)` is preferred wherever the target is known.
     """
     return {'id': action_id, 'type': 'navigateNext'}
 
@@ -2276,15 +2594,16 @@ def conditional_action(cases, *, default=(), action_id='act_cond'):
 
 # --- timer -------------------------------------------------------------------------------
 # A countdown's digits are `token` nodes, and the token ids carry a `timer_` PREFIX:
-# `timer_days`, `timer_hours`, `timer_minutes`, `timer_seconds`. Builder- and device-confirmed
+# `timer_days`, `timer_hours`, `timer_total_hours`, `timer_minutes`, `timer_seconds`.
+# `timer_hours` is the hour of the day (0-23); `timer_total_hours` is every hour left (`72` for a
+# 3-day countdown), for a `72:00:00` format without days. Builder- and device-confirmed
 # (the builder shows a recognised chip and renders live `23:59:59`). The bare names
 # `days`/`hours`/`minutes`/`seconds` do NOT resolve: the Flow Builder paints them red `Unknown`
 # and the device/preview renders the literal `%hours%`. `config validate` accepts either, so the
 # wrong one is silent — which is exactly why this is a helper and not something you hand-author.
-# `component-catalog.json`'s timer templates carried the bare names until 2026-08-25; if you lift
-# a timer shape from anywhere, run it through here or fix the prefix by hand.
+# If you lift a timer shape from anywhere, run it through here or fix the prefix by hand.
 
-TIMER_UNITS = ('days', 'hours', 'minutes', 'seconds')
+TIMER_UNITS = ('days', 'hours', 'total_hours', 'minutes', 'seconds')
 
 
 def timer_digits(units=('hours', 'minutes', 'seconds'), *, sep=':', preset='h2',
@@ -2292,11 +2611,15 @@ def timer_digits(units=('hours', 'minutes', 'seconds'), *, sep=':', preset='h2',
     """The digit `text` that goes INSIDE a `timer` element, as `HH:MM:SS`.
 
     `units` is any ordered subset of `TIMER_UNITS`; each becomes a `timer_<unit>` token, joined by
-    `sep`. Never write the bare token name — see the note above.
+    `sep`. Never write the bare token name — see the note above. A countdown of a day or more
+    shows `('days', 'hours', ...)` or `('total_hours', ...)`: `hours` alone wraps at 24.
     """
     bad = [u for u in units if u not in TIMER_UNITS]
     if bad:
         raise ValueError(f'timer units must be a subset of {TIMER_UNITS}, not {bad}')
+    if 'total_hours' in units and ('days' in units or 'hours' in units):
+        raise ValueError("'total_hours' already counts the days: pair it with 'minutes' and "
+                         "'seconds', not with 'days' or 'hours'")
     content = []
     for i, u in enumerate(units):
         if i:
@@ -2318,25 +2641,42 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     """A countdown `timer` element. Pass `timer_digits(...)` as one of its `children` to show the
     running digits.
 
-    **A timer carrying a `timer-end` action must contain its own digits** — a `timer_digits()`
-    text among its children, which may be coloured like the background to stay invisible. Device-
-    measured: a timer whose child was a logo or a plain sentence did not fire either, and the same
-    timers fired once digits were added, visible or background-coloured.
+    A screen that moves on after up to 5 s is `on_appear(auto_advance(...))`, and an element
+    shown after a wait is `on_appear(show_elements(..., animation=...))`: neither is a timer. A
+    `timer-end` action is for a visible countdown, or a screen that moves on after over 5 s.
 
-    The earlier, weaker rule — at least one child — came from these measurements,
-    two writes differing in nothing else: the childless form **did not advance**, the
-    same timer with one child text **did**, and an isolating probe with two exits to different
-    destinations confirmed it on a third trip. So the "purely invisible delay" this docstring used
-    to recommend does not fire at all — an element with nothing to lay out is one the renderer
-    skips, timer included. `config preview` cannot see any of this: it never navigates for any
+    **A timer carrying a `timer-end` action must contain its own digits** — a `timer_digits()`
+    text among its children, which may be coloured like the background to stay invisible. On a
+    device, a timer whose child is a logo or a plain sentence does not fire either, and the same
+    timers fire once digits are added, visible or background-coloured.
+
+    The weaker rule — at least one child — rests on two device writes differing in nothing else:
+    the childless form **does not advance**, the same timer with one child text **does**, and an
+    isolating probe with two exits to different destinations confirms it. So a "purely invisible
+    delay" does not fire at all — an element with nothing to lay out is one the renderer skips,
+    timer included. `config preview` cannot see any of this: it never navigates for any
     reason, so both forms look identical locally and `validate` passes both.
 
     Raised rather than warned because the failure is silent, terminal and remote: the flow stops
     dead on that screen, and the only surface that can show it is a device.
 
-    `duration` is `{days, hours, minutes, seconds}`. `behavior='start_at_every_appear'` restarts
-    the countdown each time the screen appears.
+    `duration` is `{days, hours, minutes, seconds}`; `hours` may exceed 23 (the builder accepts up
+    to 999), and `hours=72` is the same countdown as `days=3`. `behavior='start_at_every_appear'`
+    restarts the countdown each time the screen appears.
+
+    **A countdown of 24 hours or more shows `timer_days` or `timer_total_hours`.** `timer_hours`
+    is the hour of the day, so `HH:MM:SS` built from it starts a 72-hour countdown at `00:00:00`.
     """
+    if hours > 999:
+        raise ValueError(f'timer hours go up to 999 in the Flow Builder, not {hours}; '
+                         'put the rest in days')
+    shown = json.dumps(list(children))
+    if (days * 24 + hours >= 24 and '"timer_hours"' in shown
+            and '"timer_days"' not in shown and '"timer_total_hours"' not in shown):
+        raise ValueError(
+            'a countdown of 24 hours or more shows timer_hours without the days, so it reads as '
+            'the hour of the day: a 72-hour countdown starts at 00:00:00. Use '
+            "timer_digits(('total_hours', 'minutes', 'seconds')) for 72:00:00, or add 'days'.")
     if actions and '"timer_' not in json.dumps(list(children)):
         raise ValueError(
             'a timer with a `timer-end` action fires on a device only when a text inside it '
@@ -2344,7 +2684,8 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
             'neither `config preview` nor `flows config validate` can see it. Add '
             'timer_digits(...) to its children; to keep the delay invisible, give it the '
             "background's colour: timer_digits(('seconds',), color_id='<background>'). "
-            'See patterns.md -> the auto-advancing screen.')
+            'A screen that moves on after up to 5 s needs no timer: auto_advance(). '
+            'See patterns.md -> A timer that fires an action.')
     props = {
         'customId': custom_id, 'behavior': behavior,
         'duration': {'days': days, 'hours': hours, 'minutes': minutes, 'seconds': seconds},
@@ -2359,8 +2700,8 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     if visibility is not None: props['visibility'] = _check_visibility(visibility, 'timer')
     if actions and 'caption' not in kw:
         # The builder shows a timer with background-coloured digits as an empty frame; a
-        # layer name says it is the screen's auto-advance, not something left behind.
-        kw['caption'] = 'Auto-advance'
+        # layer name says it is the screen's delay, not something left behind.
+        kw['caption'] = 'Delay'
     node = _node('timer', props, children=list(children), node_id=node_id, **kw)
     if actions:
         # a timer's own interaction fires on `timer-end`, not `tap`
@@ -2812,8 +3153,11 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
            direction='vertical', gap=0, align_h='start', align_v='start',
            distribution=None, scrollable=True, status_bar=False,
            status_bar_theme='light', safe_area=False, selectable_groups=(),
-           progress_bar=False):
-    """A tall phone's extra height needs ONE place to go, chosen per screen:
+           progress_bar=False, on_appear=None):
+    """`on_appear` takes an `on_appear()` result: its actions run when the screen appears, from
+    an interaction on the screen's first root element.
+
+    A tall phone's extra height needs ONE place to go, chosen per screen:
 
     - A screen with a hero image or block: give the hero `height='fill'` as a direct child of
       the root and put the bar in flow as the last root child, no footer. DEVICE-CONFIRMED: the
@@ -2869,13 +3213,24 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
             'not there, so the footer covers the content under it until the user scrolls. The '
             'preview draws it correctly, so no local check can see this. Keep the fill hero and '
             'put the bar in flow as the last root child, or keep the footer and drop the fill.')
+    in_flow = [c['id'] for c in hierarchy['children']
+               if (node_map[c['id']].get('props', {}).get('position') or {}).get('type', 'relative')
+               == 'relative' and node_map[c['id']].get('type') not in ('footer', 'sliding-sheet')]
+    for k, v in node_map.items():
+        pos = v.get('props', {}).get('position') or {}
+        if pos.get('ignoreSafeArea') and pos.get('type', 'relative') == 'relative' \
+                and k != (in_flow[0] if in_flow else None):
+            raise ValueError(
+                f'screen {screen_id!r}: {k} sets ignoreSafeArea but is not the screen\'s first '
+                'in-flow element, so it does nothing. Only that element runs under the status bar: '
+                'make the hero the first root child, or put the image in the screen fill.')
     if len(feet) > 1:
         raise ValueError(
             f'{len(feet)} footer elements on screen {screen_id!r} ({", ".join(sorted(feet))}) — '
-            'measured, a second footer draws ZERO pixels. Put the CTA and the legal row inside '
+            'a second footer draws ZERO pixels. Put the CTA and the legal row inside '
             'ONE footer as children.')
     # Selectable groups, both directions. `verify-config.py` errors on each of these in a
-    # finished document; raising here is the finding-12 half — the screen that cannot be
+    # finished document; raising here is the helper half — the screen that cannot be
     # built wrong beats the one whose defect is reported afterwards.
     groups = {g['id']: g for g in selectable_groups}
     for gid, g in groups.items():
@@ -2923,6 +3278,15 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
     product_groups = {gid for gid, g in groups.items() if g.get('type') == 'product'}
     _apply_product_refs(node_map, pairs, product_groups)
 
+    if on_appear is not None:
+        if not (isinstance(on_appear, dict) and on_appear.get('trigger') == 'screen-appear'):
+            raise ValueError(f'screen {screen_id!r}: on_appear takes an on_appear(...) result')
+        if not hierarchy['children']:
+            raise ValueError(f'screen {screen_id!r}: on_appear needs an element on the screen '
+                             'to carry the interaction')
+        host = node_map[hierarchy['children'][0]['id']]
+        host.setdefault('interactions', []).append(
+            {'id': 'int_appear' + host['id'][2:], **on_appear})
     out = {'id': screen_id, 'props': props,
            'elements': {'map': node_map, 'hierarchy': hierarchy},
            'selectableGroups': [dict(g) for g in selectable_groups]}
@@ -3097,8 +3461,9 @@ def _style_value(value, where):
             if not (layer.get('image') or {}).get('url'):
                 raise ValueError(f'{w}: an image layer needs a url')
         elif t == 'video':
-            raise ValueError(f'{w}: flowkit does not author video layers in a style — there is no '
-                             f'CLI upload for a clip; the user adds it in the Flow Builder')
+            raise ValueError(f'{w}: flowkit does not author video layers in a style; a clip is '
+                             f'a `video` element (video(source=...)), or the user adds the '
+                             f'layer in the Flow Builder')
         else:
             raise TypeError(f'{w}: not a fill layer: {layer!r}')
     return list(value)
@@ -3221,21 +3586,13 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             'pass locales=(("en", "English"), ("ru", "Russian"), …) — do not ship it as a '
             'warning for someone else to clear up.')
 
-    # The locale code is what the SDK matches against, and its pattern is case-sensitive per
-    # subtag: `language[-Script][-REGION]`, script four letters in Title case, region two
-    # uppercase letters or three digits. `pt-br` saves fine and is refused at publish with an
-    # output-schema violation on `/localizations/N/id`, and the repair is heavy by then (the key
-    # has to be renamed in `locales`, in every `values` map, and in `remote_configs`) -- so it is
-    # unrepresentable here rather than a warning after the fact. `verify-config.py` warns on the
-    # same shape, for codes that arrive in a config you fetched rather than one you wrote.
+    # A code outside `language[-Script][-REGION]` is refused at publish (`invalid_locale_code`).
+    # `verify-config.py` reports the same shape for codes in a config you fetched.
     for code in declared:
         if not LOCALE_CODE.fullmatch(str(code)):
             raise ValueError(
-                f'locale code {code!r} is not `language[-Script][-REGION]` with the SDK\'s '
-                f'casing. Region is UPPERCASE (`pt-BR`, not `pt-br`) and a script subtag is '
-                f'four letters in Title case (`zh-Hans`, `sr-Latn`). The transform service '
-                f'refuses the flow at publish with a pattern violation on '
-                f'`/localizations/N/id`.')
+                f'locale code {code!r} is not `language[-Script][-REGION]` (`en`, `pt-BR`, '
+                f'`zh-Hans`, `es-419`); the publish refuses it.')
 
     # An element id becomes an IDENTIFIER in the generated runtime script -- the same code path
     # the condition-variable check below documents. A character outside [A-Za-z0-9_] breaks the
@@ -3243,8 +3600,7 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
     # schema check and `config preview` all green: the preview renders the config, not the
     # transformer's output. One script per flow, so a reused id collides in it too.
     #
-    # SCREEN ids are not checked, and that is measured rather than overlooked: 4 of 36 screen
-    # ids in the corpus are bare UUIDs, each the entry screen of a published flow.
+    # SCREEN ids are not checked, deliberately: 4 of 36 screen ids in the corpus are bare UUIDs, each the entry screen of a published flow.
     seen_ids = {}
     for s_ in screens:
         for eid in (s_.get('elements') or {}).get('map', {}):
@@ -3285,8 +3641,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
     # Every condition variable must resolve to something this document produces. An id that
     # resolves to nothing is not dropped: the code generator emits it as a BARE IDENTIFIER into
     # the generated TypeScript, which then fails to compile — `script_type_violation`,
-    # `TS2304: Cannot find name 'email'`, the 4th most common transformer refusal in the 40 days
-    # to 2026-08-28 (253 failed requests). It is checked here rather than in `when()` because
+    # `TS2304: Cannot find name 'email'`, one of the transformer's most common refusals. It is
+    # checked here rather than in `when()` because
     # only the whole document knows what produces what.
     #
     # The same id in RICH TEXT is a different severity and is deliberately left alone: an
@@ -3337,8 +3693,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                 if isinstance(st, dict) and st.get('condition'):
                     trees.append(st['condition'])
             # A conditional-text `switch` (switch_rich) is COMPILED, not rendered, so an
-            # unresolved id there is fatal exactly like a visibility condition -- measured
-            # against the live service: `valid: false`, "Generated scripts failed
+            # unresolved id there is fatal exactly like a visibility condition -- the live
+            # service answers `valid: false`, "Generated scripts failed
             # validation", with `code` and `path` both null, so the refusal names neither the
             # element nor the variable. This is the opposite severity from a `variable` SPAN in
             # rich text, which renders its literal token and publishes; the two shapes sit in
@@ -3378,8 +3734,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             continue
         if v.get('valueType') not in _TAG_VALUE_TYPES:
             raise ValueError(f'variable {v.get("name")!r} is external but its valueType is '
-                             f'{v.get("valueType")!r}; only string, number and boolean '
-                             f'variables can come from the app. Build it with app_value().')
+                             f'{v.get("valueType")!r}; only a string variable can come from the app. '
+                             f'Build it with app_value().')
         issue = tag_name_issue(v.get('name'))
         if issue:
             raise ValueError(f'custom tag name {v.get("name")!r} is {issue} '

@@ -17,7 +17,7 @@ first row that fits wins.
 
 | The user wants | Build |
 | :--- | :--- |
-| a picture, or an animation that plays the same for everyone (confetti, a looping hero, a recorded demo) | an `image` (an animated WebP plays) or a `video` — no app code, and the file can change without an app release. **Not a custom element** |
+| a picture, or an animation that plays the same for everyone (confetti, a looping hero, a recorded demo) | a `video` (an animated WebP plays one frame), or an `image` for a still — no app code, and the file can change without an app release. **Not a custom element** |
 | an animation that reacts: fills to the user's number, answers a tap, follows a state (a plant that grows with the streak, a mascot that waves on tap) | a custom element: [lottie.md](custom-elements/lottie.md) or [rive.md](custom-elements/rive.md) |
 | a map, places near the user | a custom element: [map.md](custom-elements/map.md) |
 | a chart of the user's data, a chart the user drags along or taps | a custom element: [chart.md](custom-elements/chart.md) |

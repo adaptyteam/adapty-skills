@@ -38,7 +38,7 @@ Every message, not only the fixed blocks:
   saved while working.
 - **Bold at most one thing per paragraph.** A label the user must pick or match (a test
   card, a menu item) goes in quotes, not bold.
-- **Full, clickable links to the exact page.**
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Could not check it? Say how they can** — where to click and what they should see.
   Do not know something? Look it up before saying so — the CLI, the code, the
   `adapty-docs` skill.
@@ -109,7 +109,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -164,7 +164,7 @@ anywhere; nothing in this skill needs it.
 > {count, page, pages}`. Reading page 1 and reporting its length under-reports any
 > account with more than 20 placements or products. Page through to `pages`.
 
-Five checks, in this order. Each one that fails names where the problem is and stops the
+Six checks, in this order. Each one that fails names where the problem is and stops the
 guessing.
 
 **1. Adapty knows the app's store identity.** `apps get` returns `apple_bundle_id` and
@@ -215,8 +215,9 @@ looks exactly like a broken SDK call from inside the app. Then check what it sho
   publish the response also carries `publication_error` and `transform_error`: quote
   that string, it is the transform service's own objection.
 - **A paywall** — `$ADAPTY paywalls get --app <APP_ID> <PAYWALL_ID>` returns its title
-  and `product_ids`; there is nothing to publish. The CLI cannot see whether the paywall
-  has a Paywall Builder layout, so if the code renders it with Adapty's own paywall UI,
+  and its products (`products[].product_id`); there is nothing to publish. It also returns
+  `use_paywall_builder_v4`, which says the paywall is set to use Paywall Builder, not
+  that a layout is saved, so if the code renders it with Adapty's own paywall UI,
   name that as something you could not check.
 
 **5. The products carry store IDs and an access level.** `products list` and
@@ -226,13 +227,19 @@ store ID for the platform under test can never resolve a price, and a product wh
 the purchase succeeds and the user stays locked out, which is the most confusing
 symptom in the whole surface.
 
+**6. Nothing in the code grants premium without a purchase.** Grep for a debug or test
+override: a flag, build condition or hardcoded `true` that unlocks access or skips the
+paywall (`isPremium = true`, `#if DEBUG`, `BuildConfig.DEBUG`, `kDebugMode`, a "force
+premium" setting). If the build under test carries one, a sandbox walk through it proves
+nothing: name the line, and test on a build without it.
+
 **Report the preflight before anything else** (the block is under
-[What you print](#what-you-print)). Then go to what failed, or to Phase 2 if all five
+[What you print](#what-you-print)). Then go to what failed, or to Phase 2 if all six
 pass.
 
 ## Phase 2: The first purchase, one step at a time
 
-All five preflight checks pass, so the dashboard and the code agree. What is left is the
+All six preflight checks pass, so the dashboard and the code agree. What is left is the
 store and the phone, and only the user can touch those. **This is a conversation, not a
 document:** the user does a step, comes back, and you take the next one. Send one step
 per message.
@@ -339,6 +346,11 @@ check each one:
   the store ID is. Only the console tells you whether a product with that ID exists,
   is priced, and is active — name the ID and where to look it up.
 - **Events and profiles.** The CLI has no command for either; step 4 is the user's.
+- **The store connection itself.** Check 1 sees only the bundle ID. Whether the In-App
+  Purchase key and the server notifications URL (App Store), or the service account key and
+  RTDN (Google Play), are in place the user checks in the dashboard's App settings:
+  https://adapty.io/docs/app-store-connection-configuration.md,
+  https://adapty.io/docs/google-play-store-connection-configuration.md.
 - **Production behavior.** Sandbox uses different accounts, different servers, and an
   accelerated clock. A working sandbox purchase is necessary and not sufficient.
 

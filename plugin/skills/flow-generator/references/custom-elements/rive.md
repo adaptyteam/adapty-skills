@@ -9,8 +9,7 @@ level, a rewards counter with their coins. Two things drive it: the file's **sta
 answers touches inside the box, and **data binding** carries the app's values into the file (a
 number, a text, a choice from a list, an image), so it reacts to the user's own data.
 
-**Does not fit** a one-way animation that plays the same for everyone: an animated WebP `image`
-or a `video`. And not a control the **flow** has to read: a tap inside the Rive view never selects
+**Does not fit** a one-way animation that plays the same for everyone: that is a `video`. And not a control the **flow** has to read: a tap inside the Rive view never selects
 an answer, navigates or sets a variable. A choice the flow branches on stays a flow element
 (`selectable`, a button), and the animation beside it only illustrates.
 

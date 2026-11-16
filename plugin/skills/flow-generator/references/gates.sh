@@ -73,9 +73,9 @@ fi
 echo "-- 2/4 schema shape (ADVISORY — does not decide the verdict)"
 # --config, not a positional. Pass BASELINE=flow.backup.json when editing a fetched config, or a
 # v9 flow buries you in pre-existing findings that are not yours.
-# ajv is installed ONCE into a cache dir, never resolved through `npx` per run. Measured: the
-# npx form cost 12.7 s of a 24 s gate run — over half of it — for a step that is only advisory.
-# From the cache dir the same check is 0.3 s. `loadAjv` searches cwd first, hence the subshell cd.
+# ajv is installed ONCE into a cache dir, never resolved through `npx` per run: the npx form
+# costs over half of a gate run (about 12 s of 24) for a step that is only advisory, and from
+# the cache dir the same check takes well under a second. `loadAjv` searches cwd first, hence the subshell cd.
 AJV_DIR="${AJV_DIR:-$HOME/.cache/adapty-flow-schema}"
 if [ -f "$HERE/validate-with-schema.mjs" ]; then
   if [ ! -d "$AJV_DIR/node_modules/ajv" ]; then
@@ -102,8 +102,8 @@ fi
 # findings — on an element you wrote they are usually real — but do not let them gate.
 
 # `validate` answers `valid: true` for a product id the app does not have, a store code in place
-# of an Adapty id, and an offer that is not one of its product's offers (all measured, adapty
-# 0.15.0); the builder then refuses the publish. So the ids are read against the app here: one
+# of an Adapty id, and an offer that is not one of its product's offers; the builder then
+# refuses the publish. So the ids are read against the app here: one
 # `products list`, and one `product-offers list` per product bound with an offer. A flow that binds
 # nothing makes no call.
 echo "-- 3/4 bound products and offers exist in the app"
@@ -111,8 +111,9 @@ if [ -z "$APP" ]; then
   echo "   SKIPPED — pass APP_UUID to read them"
 else
   if $PY - "$CFG" "$APP" "$ADAPTY_BIN" <<'PYEOF'
-import json, re, shlex, subprocess, sys
+import json, re, shlex, shutil, subprocess, sys
 cfg, app, cli = json.load(open(sys.argv[1], encoding='utf-8')), sys.argv[2], shlex.split(sys.argv[3])
+cli[0] = shutil.which(cli[0]) or cli[0]  # Windows: `adapty` and `npx` are .cmd shims
 pairs, where = set(), {}
 def bind(pid, oid, at):
     if isinstance(pid, str) and pid:

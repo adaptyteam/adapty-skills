@@ -2,13 +2,12 @@
 """The renderer's own icon bundle — the markup a flow needs that an author cannot invent.
 
 A `phosphor` icon resolves from the renderer's OWN bundle by name, so an authored
-`raw` under a name the bundle lacks draws NOTHING — measured: a correct two-stroke SVG under
-`name: "CloseX"`, correctly declared in `_meta.icons`, rendered as empty space twice, while
-`name: "X"` drew immediately. Every gate is blind to it: `flows config validate` returns
+`raw` under a name the bundle lacks draws NOTHING: a correct two-stroke SVG under
+`name: "CloseX"`, correctly declared in `_meta.icons`, renders as empty space, while
+`name: "X"` draws. Every gate is blind to it: `flows config validate` returns
 `valid: true`, the schema types `name` as a bare string, and `config preview` draws a blank the
-same way a 1pt element does. The standing advice was therefore "take the name AND its `raw` from
-a real export", which limits an author to the dozen glyphs the corpus happens to contain. This
-module replaces that with the bundle itself: 4,536 variants over 1,512 names, three weights.
+same way a 1pt element does. Taking the name AND its `raw` from a real export limits an author
+to the dozen glyphs the corpus happens to contain, so this module serves the bundle itself: 4,536 variants over 1,512 names, three weights.
 
 The pack is vendored VERBATIM from the icon pack Adapty's own flow tooling generates and ships in
 production. Verbatim is the point: re-vendoring is
@@ -80,7 +79,7 @@ def suggest(name, limit=6):
 def icon_raw(name, weight='regular'):
     """The bundle's markup for one variant, serialized the way the BUILDER writes it.
 
-    Two normalizations, both measured rather than guessed. The builder's export adds
+    Two normalizations, both read off real exports. The builder's export adds
     `width="20" height="20"` and expands `<path/>` to `<path></path>`; with those applied, the
     pack's markup is byte-identical to the export's for all 12 distinct icons in the tracked and
     raw corpus. The baked `20` is inert — real exports carry it unchanged beside elements whose

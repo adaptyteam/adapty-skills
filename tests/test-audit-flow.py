@@ -512,6 +512,23 @@ check('store gap is SILENT when only ios is declared',
 check('a null base_plan_id on an app_store entry stays SILENT',
       len(of(run(FLOW)[1], 'play-base-plan-missing')) == 0)
 
+
+def _play_catalog(period):
+    # every product bound by FLOW gets a play_store entry with no base plan, at `period`
+    cat = json.load(open(CATALOG))
+    for p in cat:
+        p['period'] = period
+        p['vendor_products']['play_store'] = {'id': 'x', 'product_id': 'com.example.p', 'base_plan_id': None}
+    path = os.path.join(tempfile.mkdtemp(), 'cat.json')
+    json.dump(cat, open(path, 'w'))
+    return path
+
+
+check('a subscription with a Play product and no base plan FIRES play-base-plan-missing',
+      len(of(run(FLOW, catalog=_play_catalog('annual'))[1], 'play-base-plan-missing')) > 0)
+check('a lifetime product with a Play product and no base plan stays SILENT (a one-time purchase)',
+      len(of(run(FLOW, catalog=_play_catalog('lifetime'))[1], 'play-base-plan-missing')) == 0)
+
 print('\nproducts / offers')
 
 # A flow binds an offer by its Adapty `id` (`product-offers list`); `validate` passes a
@@ -1169,6 +1186,38 @@ check('an all-empty conditional-text switch still FIRES',
       len(of(run(c)[1], 'empty-translation')) == 1,
       f'got {len(of(run(c)[1], "empty-translation"))}')
 
+# A field whose default-locale text has no letters (a lone price variable, "50%") falls
+# back to that same text, so a locale without it is not missing a translation.
+def _drop_first_sr(o, en_value):
+    if isinstance(o, dict):
+        if 'values' in o and isinstance(o['values'], dict) and {'en', 'sr'} <= set(o['values']):
+            o['values']['en'] = en_value
+            del o['values']['sr']
+            return True
+        return any(_drop_first_sr(v, en_value) for v in o.values())
+    if isinstance(o, list):
+        return any(_drop_first_sr(v, en_value) for v in o)
+    return False
+
+
+_base_cov = audit_mod.locale_coverage(load())[0]['sr']['missing']
+c = load()
+check('fixture setup: a letterless default with no sr value was injected',
+      _drop_first_sr(c, _para('50%')))
+check('a letterless field missing in a locale is NOT counted missing',
+      audit_mod.locale_coverage(c)[0]['sr']['missing'] == _base_cov)
+check('...and raises no missing-translation', not of(run(c)[1], 'missing-translation'))
+c = load()
+_drop_first_sr(c, [{'type': 'paragraph', 'content': [
+    {'type': 'variable', 'attrs': {'id': 'product.price'}}]}])
+check('a lone-variable field missing in a locale is NOT counted missing',
+      audit_mod.locale_coverage(c)[0]['sr']['missing'] == _base_cov)
+c = load()
+_drop_first_sr(c, _para('Save 50%'))
+check('a field with words missing in a locale still counts missing',
+      audit_mod.locale_coverage(c)[0]['sr']['missing'] == _base_cov + 1)
+check('...and still raises missing-translation', len(of(run(c)[1], 'missing-translation')) >= 1)
+
 print('\nlocalization: delegation to verify-config.py (Step 5)')
 # A MISSING locale key (one field, present in some locales and absent in this one) is
 # already reported by verify-config.py, per field. `locale_coverage` may COUNT it for
@@ -1476,9 +1525,25 @@ check('comparison-paywall.json still raises 3 separate dead-affordance findings 
       f'got {len(of(findings_cmp2, "dead-affordance"))}')
 
 # The fixture's fonts carry real, malformed Android names, so the fonts family adds its
-# own blocker; this case counts the collapse, so it reads a copy without fonts.
-_cmp_nofonts = json.load(open(cmp_fixture))
-_cmp_nofonts['_meta']['fonts'] = []
+# own blocker; this case counts the collapse, so it reads a copy without fonts. The texts'
+# references go too: a reference the copy lacks is a font-names-unchecked question.
+def _without_fonts(c):
+    c['_meta']['fonts'] = []
+
+    def drop(o):
+        if isinstance(o, dict):
+            if isinstance(o.get('family'), dict):
+                del o['family']
+            for v in o.values():
+                drop(v)
+        elif isinstance(o, list):
+            for v in o:
+                drop(v)
+    drop(c)
+    return c
+
+
+_cmp_nofonts = _without_fonts(json.load(open(cmp_fixture)))
 with tempfile.TemporaryDirectory() as _tmp:
     _cmp_path = os.path.join(_tmp, 'c.json')
     json.dump(_cmp_nofonts, open(_cmp_path, 'w'))
@@ -1980,6 +2045,41 @@ check('a placement showing a DIFFERENT flow does not count as showing this one',
 _rep, _f = _placements_run(_shown, flow_id=None)
 check('placements without --flow-id cannot be matched, so nothing is claimed either way',
       not of(_f, 'no-placement') and 'fetches it through' not in _rep, _rep[:300])
+# A placement that runs an A/B test shows the test's variants.
+def _ab_run(placements, tests, flow_id='abc'):
+    with tempfile.TemporaryDirectory() as tmp:
+        pp, tp = os.path.join(tmp, 'p.json'), os.path.join(tmp, 't.json')
+        json.dump(placements, open(pp, 'w'))
+        json.dump(tests, open(tp, 'w'))
+        cmd = [sys.executable, AUDIT, FLOW, '--catalog', CATALOG, '--placements', pp,
+               '--ab-tests', tp, '--flow-id', flow_id]
+        rep = subprocess.run(cmd + ['--report'], capture_output=True, text=True)
+        js = subprocess.run(cmd + ['--json'], capture_output=True, text=True)
+    return rep.stdout, json.loads(js.stdout)['findings']
+_tested = [{'id': 'p-uuid-3', 'developer_id': 'paywall', 'is_active': True,
+            'audiences': [{'content_type': 'flow_ab_test', 'ab_test_id': 't-1',
+                           'segment_ids': [], 'priority': 0},
+                          {'content_type': 'flow', 'flow_id': 'other-flow'}]}]
+_test = {'ab_test_id': 't-1', 'type': 'flow', 'state': 'live', 'title': 'T',
+         'flows': [{'flow_id': 'other-flow', 'weight': 50}, {'flow_id': 'abc', 'weight': 50}],
+         'paywalls': []}
+_rep, _f = _ab_run(_tested, [_test])
+check('a flow that is a variant of a test on a placement counts as shown',
+      'Your app fetches it through placement `paywall`.' in _rep
+      and not of(_f, 'no-placement') and not of(_f, 'placement-test-unread'), _rep[:400])
+_rep, _f = _ab_run(_tested, [dict(_test, flows=[{'flow_id': 'other-flow', 'weight': 100}])])
+check('a test without this flow among its variants does not count',
+      len(of(_f, 'no-placement')) == 1 and not of(_f, 'placement-test-unread'))
+_rep, _f = _ab_run(_tested, [])
+check('a test that was not read turns no-placement into placement-test-unread, a question',
+      not of(_f, 'no-placement') and len(of(_f, 'placement-test-unread')) == 1
+      and of(_f, 'placement-test-unread')[0]['severity'] == 'question'
+      and 'https://app.adapty.io/placements/flows/p-uuid-3' in _rep, _rep)
+_rep, _f = _ab_run([dict(_tested[0], is_active=False)], [])
+check('...but not for a placement that is switched off', len(of(_f, 'no-placement')) == 1)
+_rep, _f = _placements_run(_tested)
+check('without --ab-tests a test entry is unread too',
+      len(of(_f, 'placement-test-unread')) == 1 and not of(_f, 'no-placement'))
 check('placement findings keep the exact 7-key contract',
       all(set(f) == {'severity', 'family', 'check', 'screen', 'element', 'message',
                       'fix'} for f in _placements_run([_shown[1]])[1]))
@@ -2236,7 +2336,7 @@ def _font(fid, path, ios, android, faces=None):
 
 
 FONT_CHECKS = ('android-font-name', 'ios-font-name', 'variable-font',
-               'duplicate-ios-font-name', 'font-file-unread')
+               'duplicate-ios-font-name', 'font-file-unread', 'font-names-unchecked')
 
 # Real exports: every tracked fixture with fonts carries Android names Android cannot
 # use ("Inter Medium", "Avenir-Heavy"), so android-font-name FIRES on both. Their urls are
@@ -2262,6 +2362,12 @@ check('a face whose names match its file and the res/font rule is SILENT on ever
 for _bad in ('Inter Medium', 'Inter-Medium', 'InterMedium', 'inter-medium', ''):
     _f = run(_with_fonts([dict(_good, androidName=_bad)]))[1]
     check(f'android-font-name FIRES on {_bad!r}', len(of(_f, 'android-font-name')) == 1)
+
+_bad_android = _with_fonts([dict(_good, androidName='Inter Medium')])
+check('android-font-name is SILENT when the app ships on iOS only',
+      not of(run(_bad_android, stores='ios')[1], 'android-font-name'))
+check('...and FIRES when Android is among the stores',
+      len(of(run(_bad_android, stores='ios,android')[1], 'android-font-name')) == 1)
 
 _f = run(_with_fonts([dict(_good, iosName='Inter Medium')]))[1]
 check('ios-font-name FIRES when the iOS name differs from the file\'s PostScript name',
@@ -2309,6 +2415,37 @@ for _path, _why in (('/not-a-font', 'a file that is not a font'),
     check(f'{_why} degrades to font-file-unread and the run still succeeds',
           len(of(_f, 'font-file-unread')) == 1 and not of(_f, 'ios-font-name')
           and _rc in (0, 1), _f)
+
+# Publishing reads the app's own font settings; the audit reads the copy saved with the flow. A
+# custom font a text names but the copy lacks (an agent- or API-written config) is unchecked.
+_uncopied = load(os.path.join(FIX, 'vpn-timer-draft.json'))
+_uncopied['_meta']['fonts'] = []
+_f = run(_uncopied)[1]
+check('fonts named by texts but missing from _meta.fonts raise ONE font-names-unchecked question',
+      [f['severity'] for f in of(_f, 'font-names-unchecked')] == ['question'], _f)
+_by_name = load(os.path.join(FIX, 'vpn-timer-draft.json'))
+_names = {x['id']: x['name'] for x in _by_name['_meta']['fonts']}
+_first = next(iter(_names))
+
+
+def _rename(o):
+    if isinstance(o, dict):
+        if isinstance(o.get('family'), dict) and o['family'].get('id') == _first:
+            o['family']['id'] = _names[_first]
+        for v in o.values():
+            _rename(v)
+    elif isinstance(o, list):
+        for v in o:
+            _rename(v)
+
+
+_rename(_by_name)
+_f = run(_by_name)[1]
+check('a font named by its family name instead of its id is unchecked too',
+      len(of(_f, 'font-names-unchecked')) == 1, _f)
+_f = run(_with_fonts([_good]))[1]
+check('every font a text names is in _meta.fonts: font-names-unchecked is SILENT',
+      not of(_f, 'font-names-unchecked'), _f)
 _srv.shutdown()
 
 if fails:

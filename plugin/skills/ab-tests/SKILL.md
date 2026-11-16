@@ -42,7 +42,7 @@ It does not own:
 - **Bold the one thing that cannot be undone,** at most once per block.
 - **Be honest about scope:** say what you did not read (shared tests, a period of the results) and how the
   user can check.
-- Full, clickable links. Reply in the user's language; the dashboard's own words stay ("Modify" is
+- Full, clickable links. A docs page is read as its `.md` URL; the user gets the same URL without `.md`. Reply in the user's language; the dashboard's own words stay ("Modify" is
   `replace`).
 
 ## CLI or MCP
@@ -87,7 +87,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.

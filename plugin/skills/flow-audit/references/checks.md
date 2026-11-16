@@ -83,7 +83,7 @@ it is comparing the config against the dashboard, not against itself.
 | `offer-not-on-product` — a bound `offerId` (card, `const` purchase, screen registry, `_meta` declaration, product ref, or a monthly entry's `fallbackOfferId`) is not the `id` of one of that product's offers in `product-offers list` | blocker | the builder refuses the publish, and `flows config validate` passes it (a store code, an unknown offer id and another product's offer, measured on adapty 0.15.0) | **silent** on 15 live flows of a real app (5 bind offers) and on every fixture (none binds one); **fires** on a store code, an unknown offer UUID and another product's offer, each injected into a live flow. Dedups per (product, offer); a product missing from the catalog is left to `product-not-in-catalog`, a product whose offers were not read is one `offers-not-fetched` question |
 | `product-no-access-level` — a catalog product has no `access_level_id` | blocker | a purchase would grant nothing | silent on the real catalog (11 of 11 sandbox products have one, 4 of 4 in `catalog-fixture.json`); not yet proven to fire |
 | `product-store-gap` — a bound product has no `vendor_products` entry for a store the app ships on | blocker (store named) / question (store unknown) | the purchase cannot complete on that store | **fires as blocker**: 8 of 11 sandbox catalog products are `app_store`-only, so any of them would fail an Android build. Question form is silent when only the known store is checked (`--stores ios` clears an `app_store`-only product) |
-| `play-base-plan-missing` — a `play_store` vendor entry has no `base_plan_id` | blocker | Google needs product id + base plan id to complete a purchase | **silent** on the real catalog: all **3** live `play_store` products carry a real base plan (`monthly`, `monthly-base`), and all 3 in `catalog-fixture.json` too. Read **only** off the `play_store` entry — see the trap below |
+| `play-base-plan-missing` — a `play_store` vendor entry has no `base_plan_id` on a subscription period (a `lifetime` product sells as a one-time purchase and has none) | blocker | Google needs product id + base plan id to complete a purchase | **silent** on the real catalog: all **3** live `play_store` products carry a real base plan (`monthly`, `monthly-base`), and all 3 in `catalog-fixture.json` too. Read **only** off the `play_store` entry — see the trap below |
 | `period-claim-mismatch` — a card's copy names exactly one billing period and it disagrees with the bound product's catalog `period` | blocker | the user is shown a period the product does not have | **calibrated both ways**: silent on 8/8 real cards, fires on injected rebinds |
 | `foreign-price-variable` — a card's *only* price-variable reference names a different product than the one it is bound to | blocker | the card displays the wrong price | **calibrated both ways**: silent on 8/8 real cards (6 reference their own product, 2 reference none), including the fixture that was the measured false positive (`onboarding-quiz-paywall.json`'s `el_8rfwhBiXQL`); fires on the injected rebind |
 | `hardcoded-price` — a non-zero currency literal on an element with no price variable of its own | blocker | it will not localise currency and will not follow a store price change | **fires on 2 of 8 real cards** — `$79.99`/`$119.99` written as plain text in a **published** flow |
@@ -124,11 +124,19 @@ same thing in this format: the field falls back to the default locale's text. Bo
 **missing**, never as blank — `verify-config.py` warns on them per locale, and this family turns
 the count into `missing-translation`.
 
+A **link address** is left out of that count and its total, and out of `untranslated`: an
+openUrl action's `url`, and any field whose default-locale value is a bare URL. A Terms or
+Privacy link is the same in every locale on purpose, a locale without its own value opens the
+default's, and `verify-config.py` forbids copying the default into the other locales. A blank
+link value still counts as `empty-translation`. A field whose default-locale text has no
+letters in any branch (a lone price variable, "50%") is left out the same way: the fallback
+shows the same text.
+
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
 | `empty-translation` — a value is present and not empty by the catalog's rule, yet shows nothing (whitespace only, or no literal text and no `variable`/`token`/`image` node, and no non-empty branch if the value is a conditional-text `switch`) | blocker | a real user in that locale sees a blank field — nothing falls back, because the value is not empty | **calibrated both ways**: fires on an injected whitespace-only value and on an all-empty `switch`, counts an emptied value as missing instead, silent on all 43 real fields in `onboarding-multilocale.json`, on every other tracked fixture, and on conditional text |
 | `locale-entirely-empty` — a declared locale has no values anywhere in the flow | blocker | a whole language was declared and never filled | derived from the coverage table; not present in the corpus, not yet proven to fire on real data |
-| `missing-sibling-locale` — a language that at least one of the app's OTHER published flows offers is not among this flow's locales | risk | the audit cannot know the app's markets, but it can see that the rest of the app already speaks a language this flow does not | needs `--sibling-locales` (phase 3 fetches the other published flows); in the sandbox 10 of 11 flows are English-only and one is English plus Russian, so it fires only on a real gap. Tested both ways in `tests/test-navigation.py` |
+| `missing-sibling-locale` — a language that at least one of the app's OTHER published flows offers is not among this flow's locales, codes compared ignoring case and reading `_` as `-` (`pt-BR` = `pt-br` = `pt_BR`) | risk | the audit cannot know the app's markets, but it can see that the rest of the app already speaks a language this flow does not | needs `--sibling-locales` (phase 3 fetches the other published flows); in the sandbox 10 of 11 flows are English-only and one is English plus Russian, so it fires only on a real gap. Tested both ways in `tests/test-navigation.py` |
 | `untranslated` — a value is identical to the base locale's text elsewhere in the flow | risk, grouped once per flow | may be a missed translation, may be a proper noun | **fires** twice on `onboarding-multilocale.json` (and twice on a live flow too) and **both hits are the brand name** (`Nimbus`/`Nimbus Plus` in the fixture, the app's own name and its paid tier in the live one) — correctly untranslated, so this can never be a blocker |
 
 ### False-positive traps — Localization
@@ -197,19 +205,22 @@ own face). Each check is one finding listing every face it applies to, since the
 them all on one settings screen.
 
 **Every fix goes to the font settings (Edit custom font), never to a flow edit:**
-`_meta.fonts` is a copy of the app's font record, and the next Builder save overwrites it.
-All five route to "yours to do in the Adapty dashboard".
+`_meta.fonts` is a copy of the app's font record that publishing does not read; publishing uses
+the app's own settings, and the next Builder save refreshes the copy. So the checks read a copy
+that can be older than the settings, and each name finding says to save the flow in the Builder
+and audit again after a fix there. All six route to "yours to do in the Adapty dashboard".
 
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
-| `android-font-name` — a face's `androidName` fails `^[a-z0-9_]+$` (empty included) | blocker | Android finds the face by its `res/font/` file name, which allows only lowercase letters, numbers and underscores | **fires** on both tracked fixtures that carry fonts, as true positives: `comparison-paywall.json` (`Inter SemiBold`, `Inter Medium`, `Inter Regular`) and `vpn-timer-draft.json` (`AvenirNextCyr-Bold`, `ClashDisplay-Semibold`, `Avenir-Heavy`, `Avenir-Roman`); fires on injected `Inter-Medium`, `InterMedium`, `inter-medium`, empty. **silent** on `inter_medium` and on the five fixtures without fonts |
+| `android-font-name` — a face's `androidName` fails `^[a-z0-9_]+$` (empty included); skipped when `--stores` is given without `android`, kept when the stores are unknown | blocker | Android finds the face by its `res/font/` file name, which allows only lowercase letters, numbers and underscores | **fires** on both tracked fixtures that carry fonts, as true positives: `comparison-paywall.json` (`Inter SemiBold`, `Inter Medium`, `Inter Regular`) and `vpn-timer-draft.json` (`AvenirNextCyr-Bold`, `ClashDisplay-Semibold`, `Avenir-Heavy`, `Avenir-Roman`); fires on injected `Inter-Medium`, `InterMedium`, `inter-medium`, empty. **silent** on `inter_medium` and on the five fixtures without fonts |
 | `ios-font-name` — the face's `iosName` differs from the PostScript name (name ID 6) in the file at its `url`. For a variable file, only when the `iosName` is Android-shaped | blocker | iOS finds the face by the PostScript name stored in the file | **fires** on 4 of 7 real faces in `tests/fixtures-raw/` (the three Inter files say `Inter18pt-SemiBold`/`-Medium`/`-Regular`; one Avenir file says `AvenirLTStd-Roman`). **silent** on the other 3 (`AvenirNextCyr-Bold`, `ClashDisplay-Semibold`, `Avenir-Heavy` match their files) and on an injected matching face, both CFF (`OTTO`) and TrueType |
 | `variable-font` — the file has an `fvar` table | question | Adapty makes one face per named style; a face's iOS name can legitimately be an instance's name, not the file's, so the file alone does not settle it | fires on an injected variable file; no real fixture has one |
 | `duplicate-ios-font-name` — two different `_meta.fonts[].id`s share one `iosName` | risk | the iOS name must be unique across the app; one font draws in the other's typeface | fires on injection; silent when faces of **one** font share a name (one variable file's faces) and on every fixture |
 | `font-file-unread` — a face's file cannot be downloaded, is not an sfnt/TTC file, or declares no PostScript name | question | the degrade path: the iOS name is unchecked, the run goes on | fires on both fixtures above (their urls are sanitized to `example.invalid`), on a 404 and on a non-font body; the run still exits 0/1, never 2 |
+| `font-names-unchecked` — a text, span, state or preset names a custom font (by id or by family name) that `_meta.fonts` lacks | question | publishing resolves it against the app's own fonts, but the flow carries no copy of its names to check; a config written through the CLI or the API often carries none | fires on a fixture with `_meta.fonts` emptied and on a reference by family name; **silent** on every tracked fixture |
 
-The `font_face_missing_ios_name` publish refusal (an empty `iosName`) is not checked here:
-`flows config validate` reports it.
+The `font_face_missing_ios_name` publish refusal (no `iosName` on a face a text draws with) is
+not checked here: `flows config validate` reports it.
 
 ### Traps — Fonts
 

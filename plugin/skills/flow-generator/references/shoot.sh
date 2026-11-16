@@ -6,6 +6,7 @@
 #   OUT=/tmp/x shoot.sh draft.json scr_a                 # choose the output dir
 #   DEVICE=iphone-se-3 shoot.sh draft.json scr_a         # a short phone (375x667)
 #   DEVICE=google-pixel-9 shoot.sh draft.json scr_a      # a tall phone (412x924)
+#   DEVICE=iphone-duo ORIENTATION=landscape shoot.sh draft.json scr_a   # turned (default portrait)
 #   LOCALE=de shoot.sh draft.json scr_a                  # another language (the page draws one)
 #   CHROME=/path/to/browser shoot.sh draft.json scr_a    # any Chromium-based browser
 #   TIME_LIMIT=900 shoot.sh draft.json scr_a ...         # seconds before it stops (default 300)
@@ -31,7 +32,7 @@
 # Each screen prints a line as it starts and as it lands. Every finished PNG is kept: a run that
 # hits TIME_LIMIT, or is stopped, names what it rendered and what it did not.
 set -uo pipefail
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"   # -P: a symlinked install resolves to the real files
 CFG="${1:?usage: shoot.sh <config.json> [screen-id ...]}"; shift || true
 SCREENS="$*"
 if [ -z "${OUT:-}" ]; then
@@ -48,8 +49,14 @@ TIME_LIMIT="${TIME_LIMIT:-300}"
 # A named device can be taller than the default frame (google-pixel-9 is 924pt), and a window
 # shorter than the frame crops it, so a device run gets a taller window.
 DEVICE="${DEVICE:-}"
-if [ -n "$DEVICE" ]; then WINDOW="${WINDOW:-520,1100}"; else WINDOW="${WINDOW:-520,900}"; fi
+# A landscape frame is wider than it is tall, so a turned run swaps the window.
+ORIENTATION="${ORIENTATION:-portrait}"
+case "$ORIENTATION" in portrait|landscape) ;; *) echo "shoot: ORIENTATION is portrait or landscape, not $ORIENTATION" >&2; exit 2 ;; esac
+if [ "$ORIENTATION" = landscape ]; then WINDOW="${WINDOW:-1100,700}"
+elif [ -n "$DEVICE" ]; then WINDOW="${WINDOW:-520,1100}"; else WINDOW="${WINDOW:-520,900}"; fi
 DEVFLAG="${DEVICE:+--device $DEVICE}"; DEVTAG="${DEVICE:+-$DEVICE}"
+ORIFLAG=""; ORITAG=""
+[ "$ORIENTATION" = landscape ] && { ORIFLAG="--orientation landscape"; ORITAG="-landscape"; }
 LOCALE="${LOCALE:-}"; LOCTAG="${LOCALE:+-$LOCALE}"
 [ -f "$CFG" ] || { echo "shoot: no such file: $CFG" >&2; exit 2; }
 mkdir -p "$OUT"
@@ -86,8 +93,8 @@ LINUX=0
 case "$(uname -s)" in Linux*) LINUX=1 ;; esac
 
 png_for() {  # $1 = screen id or __default__
-  if [ "$1" = "__default__" ]; then echo "$OUT/shot-$CFGSIG$LOCTAG$DEVTAG.png"
-  else echo "$OUT/shot-$CFGSIG-$1$LOCTAG$DEVTAG.png"; fi
+  if [ "$1" = "__default__" ]; then echo "$OUT/shot-$CFGSIG$LOCTAG$DEVTAG$ORITAG.png"
+  else echo "$OUT/shot-$CFGSIG-$1$LOCTAG$DEVTAG$ORITAG.png"; fi
 }
 
 [ -n "$SCREENS" ] || SCREENS="__default__"
@@ -100,7 +107,7 @@ finish() {  # $1 = exit code
   if [ "$n" -eq 1 ]; then
     echo; echo "LOOK AT:$shots"
   else
-    strip="$OUT/strip-$CFGSIG$LOCTAG$DEVTAG.png"
+    strip="$OUT/strip-$CFGSIG$LOCTAG$DEVTAG$ORITAG.png"
     $PY "$HERE/montage.py" "$strip" $shots >/dev/null
     echo; echo "LOOK AT: $strip  ($n screens, left to right in the order given)"
   fi
@@ -113,8 +120,8 @@ not_done() {
   echo "${left# }"
 }
 
-# A tool timeout or a Ctrl-C used to lose the whole batch: the finished PNGs stayed on disk, but
-# nothing said where. Now the run says what landed and what did not, and still makes the strip.
+# A tool timeout or a Ctrl-C must not lose the whole batch: the finished PNGs stay on disk, so
+# the run says what landed and what did not, and still makes the strip.
 on_signal() {
   trap - TERM INT HUP
   if [ -n "$CHILD" ]; then
@@ -159,11 +166,12 @@ if [ "${PLAYWRIGHT:-1}" != 0 ] && command -v node >/dev/null 2>&1; then
     args=(--config "$ABS_CFG" --time-limit "$TIME_LIMIT")
     [ -n "$DEVICE" ] && args+=(--device "$DEVICE")
     [ -n "$LOCALE" ] && args+=(--locale "$LOCALE")
+    [ "$ORIENTATION" = landscape ] && args+=(--orientation landscape)
     if [ "$SCREENS" = "__default__" ]; then
       args+=(--out "$(png_for __default__)")
     else
       for s in $SCREENS; do args+=(--screen "$s"); done
-      args+=(--out "$OUT/shot-$CFGSIG-{screen}$LOCTAG$DEVTAG.png")
+      args+=(--out "$OUT/shot-$CFGSIG-{screen}$LOCTAG$DEVTAG$ORITAG.png")
     fi
     # In the background and waited on, so a signal reaches the trap above at once.
     ( cd "$PW_DIR" && exec node "$HERE/preview-with-playwright.mjs" "${args[@]}" ) > "$PWLIST" &
@@ -181,8 +189,20 @@ if [ "${PLAYWRIGHT:-1}" != 0 ] && command -v node >/dev/null 2>&1; then
     fi
     # 3 is no browser that starts, 4 a page that never drew anything (it did not load, or did not
     # take the file): the URL route below is a different way into the same page, so try it. Any
-    # other failure is the page's own verdict on the request, which that route would only repeat.
-    case "$rc" in 3|4) ;; *) exit 1 ;; esac
+    # other failure is the page's own verdict on the request, which that route would only repeat;
+    # a code above 128 is a kill (a crash, out of memory), not a verdict, so it takes that route.
+    case "$rc" in
+      3|4) ;;
+      0) echo "   the file-input script exited 0 but wrote no PNG: node did not run it as the main script" \
+              "($HERE/preview-with-playwright.mjs)" >&2; exit 1 ;;
+      *) if [ "$rc" -gt 128 ]; then
+           echo "   the file-input script was killed (exit $rc) before it wrote a PNG" >&2
+         else
+           echo "shoot: the file-input script failed (exit $rc) and rendered nothing; its own" \
+                "message, if it printed one, is above. PLAYWRIGHT=0 takes the URL route instead" >&2
+           exit 1
+         fi ;;
+    esac
     echo "   the file-input route rendered nothing; trying the browser's own screenshot of the preview URL" >&2
   fi
 fi
@@ -328,8 +348,8 @@ probe_host() {  # $1 = any URL on the host
 }
 
 preview_url() {  # $1 = config, $2 = screen
-  if [ "$2" = "__default__" ]; then $ADAPTY_BIN flows config preview "$1" $DEVFLAG 2>&1
-  else $ADAPTY_BIN flows config preview "$1" --screen "$2" $DEVFLAG 2>&1; fi
+  if [ "$2" = "__default__" ]; then $ADAPTY_BIN flows config preview "$1" $DEVFLAG $ORIFLAG 2>&1
+  else $ADAPTY_BIN flows config preview "$1" --screen "$2" $DEVFLAG $ORIFLAG 2>&1; fi
 }
 
 i=0; failed_in_a_row=0

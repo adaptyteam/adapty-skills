@@ -118,7 +118,7 @@ up exactly with what this file measured, and are worth having in one place:
 | Read | Returns | Read for |
 |---|---|---|
 | `flows list` | `{id, name, status, updated_at}` | the flows that already exist, and their statuses |
-| `paywalls list` | `{id, title, product_ids}` | the **titles** — an audience carries `paywall_id` and no name |
+| `paywalls list` | `{id, title, products}`; each product is `{product_id, offer_id, fallback_offer_id, billing_plan_id, flow_product_id}` | the **titles** — an audience carries `paywall_id` and no name |
 
 Both are `{data, meta.pagination}` behind the same `paginationFlags` as `placements list`, so both
 default to **20 rows a page** and both go through the same exhaustion loop. Two paged reads whatever
@@ -138,8 +138,9 @@ Matching is on **tokens, not substrings**. `main` is inside `Domain expert` and 
 a false candidate is worse than none, because the user is being asked to confirm the flow their
 paying customers get served.
 
-**Whether a paywall CAN be converted is not readable.** `PaywallDTO` is `{id, product_ids, title}` —
-nothing says which builder made it — and **Move to new builder** appears only on legacy Paywall
+**Whether a paywall CAN be converted is not readable.** `paywalls list` rows are `{id, title, products}` (table above);
+`paywalls get` adds `use_paywall_builder_v4`, which does not say whether a paywall is a legacy
+Paywall Builder paywall, and **Move to new builder** appears only on legacy Paywall
 Builder paywalls. So the skill describes the button and where to find it, and never asserts it is
 there.
 

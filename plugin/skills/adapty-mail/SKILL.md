@@ -129,7 +129,7 @@ and the tool to use; do what it says. Three need the user:
 - **Bold the one thing not to miss,** at most once per block.
 - **Raw values only when the user will type or see them elsewhere:** a domain, a DNS record, a
   campaign name, a menu path. Never tool names, ids, status codes or field names.
-- **Full, clickable links to the exact page.** Take docs URLs only from this skill or from an index
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`. Take docs URLs only from this skill or from an index
   the `adapty-docs` skill names; never assemble one.
 - **Say what you could not check and how they can:** the dashboard page to open and what they should
   see there.

@@ -94,6 +94,7 @@ python3 tests/test-audit-flow.py                                         # the a
 python3 tests/test-unmapped-elements.py                                  # old-price: the guarded set vs the corpus
 python3 tests/test-schema-baseline.py                                    # schema --baseline matches by screen id, not position
 python3 tests/test-legibility.py                                         # text-vs-background, both appearance variants
+python3 tests/test-text-fit.py                                           # autoShrink outside a bounded box, a long translation in one
 python3 tests/test-price-literals.py                                     # placeholder + baseline-relative price literals
 python3 tests/test-product-fields.py                                     # the closed product-variable field set
 python3 tests/test-crop.py                                               # cutting a graphic out of a reference

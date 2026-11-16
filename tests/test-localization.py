@@ -173,7 +173,14 @@ d = copy.deepcopy(multi)
 d['locales'] = d['localization'].pop('locales')
 d['defaultLocale'] = d['localization'].pop('defaultLocale')
 del d['localization']
-fires('a pre-catalog document is refused, with the way through', d, 'pre-catalog document')
+fires('a pre-catalog document stamped 13 is an error, with the way through', d, 'pre-catalog document')
+check('...which names the legacy warning, never a refusal',
+      'legacy_localization_format' in verify(d) and 'refuses' not in verify(d))
+d13 = copy.deepcopy(d)
+d13['schemaVersion'] = L.SCHEMA_VERSION
+check('...and routes a 13-stamped document to localization.py catalog, not the builder',
+      any('pre-catalog' in l and 'localization.py catalog' in l for l in verify(d13).splitlines()),
+      verify(d13)[-400:])
 # The same inline shape under a version that predates the catalog is the format that version
 # declares: validate passes it and it publishes. A warning to convert before editing, no error.
 d_old = copy.deepcopy(d)
@@ -185,7 +192,7 @@ check('an older-version inline document raises no catalog error',
       verify(d_old)[-400:])
 d_none = copy.deepcopy(d)
 d_none.pop('schemaVersion', None)
-fires('an inline document with no schemaVersion is still refused', d_none, 'pre-catalog document')
+fires('an inline document with no schemaVersion is still an error', d_none, 'pre-catalog document')
 
 # `config update` echoes the legacy top-level fields back on every saved document: an empty
 # `locales` and the catalog's own default. The transform service ignores both, so that shape is
@@ -282,7 +289,7 @@ d['localization']['content'][url_entries(d)[0]['_lid']]['values'] = {
     'en': [{'type': 'text', 'text': 'https://x/'}, {'type': 'text', 'text': 'terms'}]}
 check('text nodes are an address', 'openUrl' not in verify(d) and 'address' not in verify(d))
 
-print('\nrename_locale(): the repair for a code the SDK cannot match')
+print('\nrename_locale(): rename a locale everywhere it is keyed')
 # A real multi-locale export with a lowercase-region locale added the way a dashboard language
 # list has served it: declared, translated in a few entries, and the default of nothing.
 pt = copy.deepcopy(multi)
@@ -318,9 +325,9 @@ check('remote_configs follow, the other entries untouched',
 check('the envelope keeps its other keys',
       out_env['status'] == 'draft' and out_env['updated_at'] == 1)
 _warn = 'are not `language[-Script][-REGION]`'
-check('verify-config warns on the misshapen code before the rename', _warn in verify(pt))
+check('verify-config is silent on pt-br: the publish writes one casing out', _warn not in verify(pt))
 _after = verify(out_env['config'])
-check('...and not after it', _warn not in _after, _after[-300:])
+check('...and after the rename', _warn not in _after, _after[-300:])
 
 _def = copy.deepcopy(pt)
 _def['localization']['defaultLocale'] = 'pt-br'
@@ -356,8 +363,8 @@ _stray = copy.deepcopy(inline)
 _stray['screens'][0]['elements']['map']['t']['props']['content']['values']['pt-BR'] = 'Olá'
 check('a target only a values map carries (undeclared) is refused too',
       'values map' in _refusal(lambda: L.rename_locale(_stray, 'pt-br', 'pt-BR')))
-check('a target the SDK cannot match is refused, with the casing rule',
-      'UPPERCASE' in _refusal(lambda: L.rename_locale(pt, 'sr', 'pt-br')))
+check('a target the publish refuses is refused',
+      'the publish refuses it' in _refusal(lambda: L.rename_locale(pt, 'sr', 'english')))
 check('a locale the document does not have is refused, naming what it has',
       "'de'" in _refusal(lambda: L.rename_locale(multi, 'de', 'de-DE')))
 check('renaming to the same name is refused', bool(_refusal(lambda: L.rename_locale(multi, 'en', 'en'))))

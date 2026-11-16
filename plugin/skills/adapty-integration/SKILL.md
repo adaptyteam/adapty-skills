@@ -28,7 +28,7 @@ Every message, not only the fixed blocks in `## What you print`:
   elsewhere: a placement ID, a product ID, a menu path, a URL. Never state variables, field
   names, internal IDs, or skill or tool names.
 - **Bold at most one thing per paragraph.**
-- **Full, clickable links to the exact page.**
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Could not check it? Say how they can** — where to click and what they should see. Do
   not know something? Look it up before saying so — the CLI, the code, the `adapty-docs`
   skill.
@@ -245,7 +245,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -451,7 +451,7 @@ The user's yes to the IDs and the price is the confirmation, so each push carrie
 
 At Step 4 there is often no app build and no flow yet. Then push to Google Play now, and come back for the App Store push after Step 5 builds the flow (2), unless the user has a screenshot at hand (3).
 
-A `lifetime` product takes neither `--group-id` nor `--android-base-plan-id`; a push that gets one it should not have, or lacks one it needs, fails with `incompatible_product_type`. A refused push exits 4 with its code in `--json` and leaves the product store-less, so fix the cause and push again: `missing_store_credentials` is the connection; `missing_product_price` means the product has no USD price: set it once with `products update <PRODUCT_ID> --price-usd`; `product_already_exists` means the store already has that ID, or on the App Store that title in the group, so the user picks another ID or title; `duplicate_vendor_product_store` means a product of the app in Adapty already has that ID: another product, so the user picks another ID, or this one after an earlier push went through, so read `products get` instead of pushing again; `review_screenshot_validation_error` is the screenshot's size or transparency. Any other code: say it as the CLI gives it.
+A `lifetime` product takes neither `--group-id` nor `--android-base-plan-id`; a push that gets one it should not have, or lacks one it needs, fails with `incompatible_product_type`. A refused push exits 4 with its code in `--json` and leaves the product store-less, so fix the cause and push again: `missing_store_credentials` is the connection; `missing_product_price` means the product has no USD price: set it once with `products update <PRODUCT_ID> --price-usd`; `product_already_exists` means the store already has that ID, or on the App Store that title in the group, so the user picks another ID or title; `duplicate_vendor_product_store` means a product of the app in Adapty already has that ID: another product, so the user picks another ID, or this one after an earlier push went through, so read `products get` instead of pushing again; `review_screenshot_validation_error` is the screenshot's size or transparency; `google_play_api_error` with a 403 on `products create` or `products push` means the Play service account has no access to this app in Play Console (a store permission), not a bad product ID. Any other code: say it as the CLI gives it. A `store_status` of `null` after `products create` means the store connection or the store product is not there yet.
 
 The push answers with the product, including each store's `store_status`; `products get` reads it again. `in_review` is waiting for Apple. **`draft` after an App Store push means a step after Apple created the product failed:** the user finishes it in App Store Connect. `rejected` and `action_required` are also the user's, in App Store Connect. On Google Play, `action_required` means the base plan was created but not activated: the user activates it in Play Console. Sandbox purchases wait for an App Store product to leave `draft`.
 
@@ -599,7 +599,7 @@ On a yes, five commands — the stub is a draft until published, and a draft can
 ```bash
 $ADAPTY flows create --app <APP_ID> --name "<Location> placeholder"     # returns <FLOW_ID>; draft
 $ADAPTY flows config validate <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
-$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
+$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json --remote-configs '[]'
 $ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes
 $ADAPTY flows get <FLOW_ID> --app <APP_ID>                             # poll until published
 ```
@@ -640,7 +640,7 @@ Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion`
 **If creating new paywalls/placements** (either `appPreference` is `new`, or `existing` but creating new ones), create one paywall and one placement per confirmed location:
 
 ```bash
-# Create paywall — --product-id is required, once per product UUID from Step 4, in display order.
+# Create paywall — --product-id sets the products, once per product UUID from Step 4, in display order.
 # Capture the returned id as <PAYWALL_ID>
 $ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --product-id <PRODUCT_UUID_1> --product-id <PRODUCT_UUID_2>
 
@@ -797,5 +797,10 @@ curl -s "https://adapty.io/docs/release-checklist.md?ref=skill-<sessionToken>"
 ```
 
 Treat it as a pointer list, not a script — don't narrate it or walk through it line by line, and don't re-verify things already done. Skim it only to pick out a few still-relevant items and their links (e.g. server notifications, privacy policy, going to production), and offer those to the user as a brief "before you ship" list of suggested next steps. Keep it to a few bullets.
+
+Two of them are always the user's, so say so plainly, in the closing message and in `ADAPTY_SETUP.md`:
+
+- **The fallback file:** the CLI cannot download it; the user downloads it in the dashboard (https://adapty.io/docs/fallback-flows for a flow, https://adapty.io/docs/local-fallback-paywalls for a paywall) and you add it to the project. Tell them to pick the dashboard option that matches the SDK version the app ships (such as **Adapty SDK v4.4.0 and higher** for iOS 4.4): a file in an older format fails silently, with no build error.
+- **Tapping through the flow:** it cannot be driven in a headless simulator; the user runs it once on a simulator or a device.
 
 **If `migrationSource` is not empty:** before you wrap up, re-read `references/migration.md` section 5 and check the `ADAPTY_SETUP.md` you wrote against it subsection by subsection — every one is mandatory, including the ones whose answer is "nothing to do". The two most often dropped: reconnecting the stores and re-pointing App Store Server Notifications / Google Play RTDN, and the historical data import decision. Add anything missing, with that section's plain `https://adapty.io/docs/<page>` links — no `.md`, no `?ref=` tag, since a human with no copy of this skill reads that document.

@@ -44,7 +44,7 @@
  * [data-testid="preview-config-input"], then screenshot [data-screen-content].
  */
 
-import {existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
 import {homedir} from 'node:os'
 import {basename, delimiter, dirname, join, resolve} from 'node:path'
@@ -117,9 +117,18 @@ export function isEmpty(kind, value) {
 export function localeCopy(flow, code) {
   const lz = flow?.localization
   if (!isRecord(lz) || !isRecord(lz.content) || !Array.isArray(lz.locales)) {
+    const v = flow?.schemaVersion
+    if (typeof v === 'number' && v < 12) {
+      throw new UsageError(
+        `This config is schemaVersion ${v}, too old to convert here, so only its default language ` +
+          'renders locally. Show another language on a device with `node references/mobile-preview.mjs ' +
+          '--locale <code>`, or have the user open and save the flow in the Flow Builder, then fetch it again.',
+      )
+    }
     throw new UsageError(
       'This config keeps its texts outside a localization catalog (schemaVersion below 13), so a ' +
-        'language cannot be picked here. Open the flow in the builder and switch the language there.',
+        'language cannot be picked from it. Render a catalogued copy: copy the file, run ' +
+        '`python3 references/localization.py catalog <copy>` on the copy, and pass the copy.',
     )
   }
 
@@ -615,6 +624,17 @@ async function main() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+/** argv[1] as the real path: Node resolves import.meta.url through symlinks, a symlinked install
+ * would otherwise never match and exit 0 having done nothing. */
+function invokedPath() {
+  if (!process.argv[1]) return null
+  try {
+    return realpathSync(process.argv[1])
+  } catch {
+    return resolve(process.argv[1])
+  }
+}
+
+if (invokedPath() === fileURLToPath(import.meta.url)) {
   await main()
 }
