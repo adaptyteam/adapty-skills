@@ -8,7 +8,8 @@ the **fallback**.
 
 Users rarely say "custom element". They ask for a thing the builder has no element for. This
 file owns when that thing becomes a custom element, how to build one, and what to tell the user.
-The per-use-case templates are in [custom-elements/](custom-elements/).
+The per-use-case templates are in [custom-elements/](custom-elements/); what each platform adds
+is in its own file there, opened only when you write the app's view.
 
 ## When the request becomes a custom element
 
@@ -31,7 +32,7 @@ and the plant that grows to it as a custom element below.
 
 ## What it can and cannot do
 
-What it is, read from the builder, the transformer and the iOS SDK:
+What it is, read from the builder, the transformer and the SDKs:
 
 - **The app draws everything inside the box.** The flow sends the app only the Type and the ID.
   The data the view shows (the streak, the weights, the location) comes from the app's own code,
@@ -50,11 +51,10 @@ What it is, read from the builder, the transformer and the iOS SDK:
   Adapty SDK is older than custom element support, when the Type or ID is spelled differently
   from the app's code, and when the app chooses not to draw (a missing file, a denied
   permission). So the flow can be published before the app release.
-- **Platforms:** the native view is served by the iOS SDK 4.4 and later, in a native iOS app
-  (SwiftUI; a UIKit view is wrapped). Android and the cross-platform SDKs (Flutter, React
-  Native, Unity, Kotlin Multiplatform, Capacitor) are **not yet** supported and show the
-  fallback. Say this when the app is not native iOS, and build the fallback as the real design
-  for those users.
+- **Platforms:** the native view is served by the Adapty SDK 4.4 and later in a native iOS or
+  Android app. The cross-platform SDKs (Flutter, React Native, Unity, Kotlin Multiplatform,
+  Capacitor) are **not yet** supported and show the fallback. Say this when the app is not native
+  iOS or Android, and build the fallback as the real design for those users.
 - **The native view changes only with an app release.** The fallback, the Type, the ID and the
   box's size change with a flow publish.
 
@@ -133,10 +133,10 @@ in this shape. The shape to follow, not words to copy:
 - Name the **Type and ID** exactly: the user types them into code or sees them in the builder.
 - Say what users see until the app draws it (the fallback), and that it ships with an **app
   release**.
-- When the app is not native iOS, say that its platform shows the fallback for now.
+- Name the app's own SDK (iOS or Android) in the "In your app" line. When the app is neither,
+  say that its platform shows the fallback for now.
 - Link the template's docs page; the general page is
-  https://adapty.io/docs/flow-custom-elements.md and the iOS setup is
-  https://adapty.io/docs/ios-flow-custom-elements.md.
+  https://adapty.io/docs/flow-custom-elements.md.
 - **Offer the app code, and on a yes write it** (below). Never a snippet in the reply in place of
   the change.
 - List the custom element in the phase 5 summary like any other element, and never call it
@@ -155,15 +155,11 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
 
 1. **Find the app's code.** Usually the workspace you are in; if no app project is reachable,
    ask for its path rather than guess one.
-2. **Check the platform.** A native iOS app on Adapty iOS SDK 4.4 or later serves the view. Any
-   other app gets no code: say its users see the fallback until its SDK supports custom elements,
-   and stop. An iOS app below 4.4 needs the SDK updated first, and **4.4 breaks code that builds
-   today**: flows need iOS 16, so an app that targets iOS 15 wraps its flow code in an
-   availability check; a custom action's handler and custom asset names change; and the fallback
-   file's old format fails silently with no build error. Say so, and ask before touching the
-   dependency; on a yes,
-   apply https://adapty.io/docs/migration-to-ios-sdk-44.md and tell the user to download the
-   fallback file again for 4.4.
+2. **Check the platform, and open its file:** a native iOS app,
+   [custom-elements/ios.md](custom-elements/ios.md); a native Android app,
+   [custom-elements/android.md](custom-elements/android.md). Open only that one. It says which SDK
+   version serves the view and what updating to it takes. Any other app gets no code: say its
+   users see the fallback until its SDK supports custom elements, and stop.
 3. **Find where the app shows flows.** None: the app does not render flows yet, which is SDK
    integration, so offer `adapty-integration` instead. Then pick where the view is registered:
    - **App-wide, once at launch: the default.** Every flow and A/B test that uses the Type then
@@ -175,13 +171,9 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
      registration replaces the app-wide one in that flow, so it hands every other Type on to the
      app-wide one.
 4. **Write the view** the template's "What the app's view does" describes, in its own file, with
-   the library the template names added the way the project adds packages.
-5. **Register it for the Type**, as the docs page shows: the iOS setup at
-   https://adapty.io/docs/ios-flow-custom-elements.md, and the template's recipe. Where the page
-   does not show the call, read the SDK source at the release tag the app depends on
-   (https://github.com/adaptyteam/AdaptySDK-iOS, search it for "custom element") rather than
-   guessing a signature. Match the Type and ID letter for letter, return no view for any other
-   pair and whenever the view's file or data is missing, so users see the fallback. A permission
+   the library the platform file names for that use case added the way the project adds packages.
+5. **Register it for the Type**, as the platform file says. Match the Type and ID letter for
+   letter, return no view for any other pair and whenever the view's file or data is missing, so users see the fallback. A permission
    returns no view only when it was denied before the screen opened; when it is not answered
    yet, the view asks for it, and when the user denies it on the screen, the view stays and says
    how to allow it in Settings. Data that comes from the app (the streak, the level) is read
@@ -189,7 +181,7 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
    value each time it opens; a value copied in at registration stays as it was. Ask when you
    cannot find the data, never pass a sample value.
 6. **Build if the project lets you,** and show the diff in one line per file. Add any
-   `Info.plist` usage description the template names.
+   permission declaration the platform file names.
 
 Keep the change to the view, its registration and what they need. The app's models and its
 other screens are not this skill's to edit.

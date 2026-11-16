@@ -36,8 +36,7 @@ drags inside the animation.
 
 ## What the app's view does
 
-- Adds the Rive runtime for Apple platforms (the `RiveRuntime` package) and the `.riv` file to the
-  app bundle, named after the ID.
+- Adds the Rive runtime and the `.riv` file to the app, named after the ID.
 - For the Type `rive_animation`, plays the file named by the ID with its state machine, so taps
   and drags inside it work with no code beyond showing it.
 - When the animation shows the user's data, sets the properties of the file's view model from

@@ -50,8 +50,7 @@ as a custom tag. The text also reaches users who see the fallback.
 
 Tell the user, in plain words; on a yes, this is what you write ([custom-elements.md](../custom-elements.md#on-a-yes-the-apps-view)):
 
-- Adds Lottie to the app (the `lottie-ios` package) and the animation file to the app bundle,
-  named after the ID.
+- Adds Lottie to the app and the animation file to the app, named after the ID.
 - **Grows to a number:** plays the file from the start to the user's progress (0 to 1) once and
   stops; the app works the progress out from its own data, and the view follows that data, so
   the screen shows the current streak each time it opens. The file needs nothing grown on its
