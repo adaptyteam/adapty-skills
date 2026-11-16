@@ -741,13 +741,16 @@ Fix every `CHECK` line, then act on what it says for each draft:
   hypotheses as **Already in your backlog**, one line with its title, only when its Why still
   holds in this month's numbers and it still passes "What a hypothesis needs". One that no longer
   holds gets one line saying why, and an offer to dismiss it.
-- **dismissed:** drop it, unless the numbers it rested on have changed since.
+- **dismissed:** drop it, unless the numbers it rested on have changed since. Never ask why it
+  was dismissed.
 
 What it prints as **due** comes first in the reply, before anything new
 (`references/backlog.md`, "Coming back").
 
 **The question.** The first Next step asks which hypotheses to add and which to skip. While the
-backlog is empty, one more sentence says what it gives them. Shape (not words to copy):
+backlog is empty, one more sentence says what it gives them. A hypothesis on a placement that does
+not exist yet is offered like the others: what adding it takes comes only after the user adds it,
+since until then they have not chosen it. Shape (not words to copy):
 
 > 1. You: tell me which of these you'd like to add to your backlog and which you'd skip. If you
 >    skip one, tell me why, so I can make better suggestions later. Your backlog shows in the
@@ -760,6 +763,20 @@ is not saved. The ones skipped
 are saved the same way, then each gets `$ADAPTY hypotheses dismiss <ID> --app <APP_ID>`, so the
 next session does not suggest them again; a skip with "not now" stays saved and is not dismissed.
 No answer saves nothing. A hypothesis is dismissed only on the user's word.
+
+**An added hypothesis whose placement does not exist yet** (a new placement, a follow-up offer)
+cannot be saved yet: a hypothesis needs its placement, and a placement is created only with a
+published flow on it. In the reply to their pick, say it joins the backlog once its flow is
+published, and list what comes first, each with who does it. Shape (not words to copy):
+
+> "Show 'Settings paywall' when a free user taps a locked note" joins your backlog once its flow is
+> ready:
+> 1. Me: build a copy of 'Settings paywall' for that moment; you publish it.
+> 2. Me: create its placement with that flow (I'd call it `locked_note`; the name can't be changed
+>    later) and save the hypothesis.
+
+Then it is started like any other. A skipped one with no placement is not saved, so say once that it
+may be suggested again.
 
 Starting one, linking its A/B test, putting one live without a test, and results:
 `references/backlog.md`.

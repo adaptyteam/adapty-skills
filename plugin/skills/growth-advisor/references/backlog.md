@@ -12,7 +12,7 @@ One JSON object per hypothesis, all in one file (`drafts.json`), the same file `
 
 | Field | From |
 |---|---|
-| `placement_id` | The placement the hypothesis runs on. One that does not exist yet (a new placement, a follow-up offer) is saved once `placements create` has made it; until then, say so |
+| `placement_id` | The placement the hypothesis runs on. One that does not exist yet is created with the hypothesis's published flow, and the hypothesis saved after it (SKILL.md, "The backlog") |
 | `subject` | `type` and ids from `levers.md`, "Saved as": `flow` with `flow_id`; a paywall screen is `flow_screen` with `flow_id` and `flow_screen_id`, the screen's id in the flow config; `audience` with `segment_id`; `paywall` alone for a legacy or custom paywall |
 | `type` | `levers.md`, "Saved as" |
 | `title` | The hypothesis title, at most 80 characters: keep the verb, what and the placement, drop the rest |
