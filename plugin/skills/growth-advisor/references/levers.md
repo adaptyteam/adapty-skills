@@ -276,7 +276,7 @@ stake. It questions money they already spend, which a dashboard never shows them
 ## When nothing stands out
 
 When no split shows one group carrying a gap and no step of the funnel is clearly weak, say so in
-the bold answer ("nothing is broken; these are bets"). Then suggest growth bets, still ranked by
+the sentence after the bold answer ("nothing is broken; these are bets"). Then suggest growth bets, still ranked by
 purchases at stake: a lever the app has not touched (a placement at a value moment, a plan length it does not sell), a strong part copied to a group that lacks
 it ("Build on what works"), something rare in the market with evidence
 behind it (`market.md`, How paywalls look; `evidence.md`), a bet aimed at a segment, and at least

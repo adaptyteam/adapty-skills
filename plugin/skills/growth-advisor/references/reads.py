@@ -2000,6 +2000,8 @@ DROP = re.compile(r'revenue (fell|dropped|declined|is falling)|less money|(вы�
                   r'(упал|снизил|просел|стало меньше|пада|уход)', re.I)
 # the split counts only with a dollar figure beside each side
 MONEY = r'[-−+]?\$\s?\d[\d.,]*\s?[kKmM]?'
+VERDICT = re.compile(r"nothing(?: in [^.]{0,40})? (?:is|'s) broken|\b(?:is|looks|stays) (?:healthy|steady|in good shape)\b|"
+                     r'\bhealthy\b[^.]{0,20}\b(?:business|app)\b', re.I)
 FIRST = re.compile(rf'(first[- ]payments?|перв\w* (платеж|оплат)\w*)[^.\n]{{0,60}}{MONEY}|{MONEY}[^.\n]{{0,60}}'
                    rf'(first[- ]payments?|перв\w* (платеж|оплат))', re.I)
 RENEW = re.compile(rf'(renewals?|продлени\w*)[^.\n]{{0,60}}{MONEY}|{MONEY}[^.\n]{{0,60}}(renewals?|продлени)', re.I)
@@ -2057,6 +2059,30 @@ def check_reply(path):
             print(f'CHECK order: hypothesis {n1} puts ${num(v1)} a month at stake, hypothesis {n0} only ${num(v0)}. '
                   'Order the hypotheses by money at stake, or say in the reply why the smaller one comes first '
                   '(a running test, a breakage to fix first).')
+    # an audit (it carries hypotheses) opens with the costliest part: a rate or share against its yardstick and
+    # the dollars a month, never a verdict on the whole app
+    bold = re.search(r'\*\*(.+?)\*\*', text, re.S)
+    if (bold and not re.match(r'(Hypothesis|Suggested|Next steps)', bold.group(1))
+            and re.search(r'Hypothesis 1|Suggested hypotheses|^\|\s*Part\s*\|', text, re.M)):
+        b = bold.group(1)
+        missing = [w for w, ok in (('a dollar amount', re.search(MONEY, b)),
+                                   ('a rate or share (a %)', re.search(r'\d%|\d+(\.\d+)?\s?x\b|\bper (100|1,?000)\b|'
+                                                             r'\b(half|a (fifth|third|quarter)|twice|\d+ times)\b', b, re.I)),
+                                   ('the yardstick it is set against (against, below, under, than, the median)',
+                                    re.search(r'\b(against|below|above|under|over|than|median|market|compared|versus|vs|but only|while)\b|'
+                                              r'\bit.s \d|\bas (often|much|many) as\b', b, re.I)
+                                    or len(re.findall(r'\d%', b)) >= 2))
+                   if not ok]
+        sells = re.search(r'\b(A/B|tests?|testing|hypothes[ie]s)\b', b, re.I)
+        if VERDICT.search(b) or missing or sells:
+            found += 1
+            print(f'CHECK opening: "{b[:220]}"\n   An audit\'s bold answer opens with the part that costs most: its '
+                  'rate or share against its yardstick, and the dollars a month at stake'
+                  + (f' (missing: {", ".join(missing)})' if missing else '')
+                  + ('; "nothing is broken" or "healthy" goes in the sentence after it' if VERDICT.search(b) else '')
+                  + ('; say what the numbers show about their money, and leave the test for Suggested hypotheses'
+                     if sells else '')
+                  + '. A setting the user chose (one language, one price) explains the number after it.')
     if DROP.search(text) and not (FIRST.search(text) and RENEW.search(text)):
         found += 1
         print('CHECK split: the reply says revenue fell but does not give both sides in dollars, first payments and '

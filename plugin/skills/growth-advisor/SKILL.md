@@ -355,7 +355,8 @@ Shape of an answer (the form, not words to copy; in another language Next steps,
 Shape of an audit's opening (the form, not words to copy; the scorecard's labels are translated
 too):
 
-> **Your app converts like a typical US app; renewals are what cost you most.**
+> **Monthly renewals cost you most: 41% of monthly subscribers renew, against 58% six months ago,
+> about $5k a month.** The rest converts like a typical US app.
 >
 > | Part | Yours | Against | |
 > |---|---|---|---|
@@ -366,7 +367,7 @@ too):
 > | First renewal, monthly | **41%** | 58% six months ago | weak |
 > | Setup | 1 placement, nothing after onboarding | | weak |
 >
-> Monthly renewals cost the most: about $5k a month against your own level in spring.
+> The fall is all on the March cohort, which came in on a discounted first month.
 
 ## The audit
 
@@ -534,7 +535,15 @@ started, and it never shows up as a change.
    with a setup to copy, are where the rest come from, or the screenshots to ask for ("What a
    hypothesis needs").
 6. **Report**, following "How you write a reply" and "What a hypothesis needs". The bold answer
-   is about the business as a whole: where it stands and which part costs it most. Under it goes
+   opens with the part that costs most, as the numbers show it: the group or step, its number
+   against its yardstick, and the dollars a month at stake. It tells the user something about
+   their money they did not know; a test or a hypothesis is never in it, those start under
+   Suggested hypotheses. A setting the user chose (one language, one price everywhere, one
+   placement) explains that number after it, never leads.
+   Where the business stands as a whole, "nothing is broken" included, is the sentence after the
+   bold one, never in it; when nothing stands out, the bold answer leads with the biggest bet's
+   number and stake. Hypothesis 1 acts on the part the bold answer names, or, when that part is a
+   breakage, the fix is the Next step between. Under it goes
    the scorecard from step 4 as a table, one row per part, then what the app already tried (the
    paragraph, or the **What you already tested** list from step 3), then the main finding. An audit always ends with hypotheses. When an open question could change the first pick, give them anyway and
    say in one line what the answer would change. Before sending any reply with numbers, pass the
@@ -547,7 +556,8 @@ started, and it never shows up as a change.
    DRAFT
    ```
 
-   Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped), then send.
+   Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped), then send
+   the draft as checked; a draft edited after the check is checked again.
    If it cannot run, check the draft for the same three things yourself: a claim about every
    group names each group's number, a cause found from timing has the Cause check behind it, and
    less money is split into first payments and renewals, each in dollars.
