@@ -2349,7 +2349,8 @@ BUCKET = {'won': 'tested', 'lost': 'tested', 'inconclusive': 'tested', 'ended': 
           'dismissed': 'dismissed'}
 RANK = ('testing', 'backlog', 'live', 'tested', 'dismissed')   # the bucket said when one change has several rows
 PRODUCT_TYPES = ('new_duration', 'remove_duration', 'duration_swap', 'trial', 'trial_length_change',
-                 'trial_restructure', 'price')
+                 'trial_restructure', 'price_change')
+STORE_PRODUCT_TYPES = ('trial', 'trial_length_change', 'trial_restructure', 'price_change')
 FRESH = ('fresh', 'not_applicable', '', None)
 
 
@@ -2416,9 +2417,11 @@ def due(rows, audiences_of):
 # What the server takes in a create body: the `adapty` types and the subjects each takes,
 # the metrics, and the text limits. Any other namespace is the app's own and only has to match the form.
 SERVER_TYPES = {'adapty:flow_design': ('flow', 'flow_screen'), 'adapty:audience_split': ('audience',),
-                **{f'adapty:{t}': ('flow_screen',) for t in PRODUCT_TYPES if t != 'price'}}
+                **{f'adapty:{t}': ('flow_screen',) for t in PRODUCT_TYPES}}
 METRICS = ('arpu', 'cr_to_purchase', 'ltv', 'cr_to_paid', 'cr_to_trial', 'refund_rate', 'day_1_retention')
 LIMITS = (('title', 80), ('rationale', 1200), ('action', 700))
+OWN_TYPES = ('growth_advisor:follow_up_offer', 'growth_advisor:seasonal', 'growth_advisor:new_placement',
+             'growth_advisor:commitment')   # levers.md, "Saved as": the only types of our own
 TYPE_FORM = re.compile(r'^[a-z][a-z0-9_]{0,31}:[a-z][a-z0-9_]{0,63}$')
 
 
@@ -2431,8 +2434,23 @@ def check_drafts(drafts):
             if len(d.get(field) or '') > most:
                 out.append(f'{name}: the {field} has {len(d[field])} characters, the server takes {most}; shorten it')
         kind, subj = d.get('type') or '', (d.get('subject') or {}).get('type')
+        if subj == 'paywall':
+            out.append(f'{name}: Adapty keeps paywall hypotheses read only, so a change to a legacy or custom paywall '
+                       'is not saved; keep it in the reply')
+            continue
+        name_only = kind.split(':')[-1]
+        if name_only in PRODUCT_TYPES and not d.get('products'):
+            out.append(f'{name}: {kind} needs the full target product set of the screen: every product the screen '
+                       'shows after the change')
+        if any(p.get('store_product_id') for p in d.get('products') or []) and kind.startswith('adapty:') \
+                and name_only not in STORE_PRODUCT_TYPES:
+            out.append(f'{name}: store_product_id goes only on a price change or a trial; name the product by its '
+                       'product_id')
         if not TYPE_FORM.match(kind):
             out.append(f'{name}: type "{kind}" is not namespace:name in lower case')
+        elif not kind.startswith('adapty:') and kind not in OWN_TYPES \
+                and f'adapty:{kind.split(":")[1]}' not in SERVER_TYPES:
+            out.append(f'{name}: type {kind} is not in levers.md "Saved as"; use the type that column gives')
         elif kind.startswith('adapty:') and kind not in SERVER_TYPES:
             out.append(f'{name}: the server has no type {kind}; use growth_advisor:{kind.split(":")[1]}')
         elif kind in SERVER_TYPES and subj not in SERVER_TYPES[kind]:
@@ -2489,6 +2507,15 @@ SAY = {
 }
 
 
+def say(bucket, r):
+    """What to do with a draft the backlog already holds; a dismissed one carries the user's reason."""
+    text = SAY[bucket]
+    if bucket == 'dismissed':
+        reason = (r or {}).get('dismiss_reason')
+        text += f'. Reason given: "{reason}"' if reason else '. No reason was given'
+    return text
+
+
 def backlog(a):
     rows = backlog_rows(a.adapty, a.app, a.placement)
     if FAILED:
@@ -2516,7 +2543,7 @@ def backlog(a):
         print('\n## drafts against the backlog')
         for i, (d, (bucket, r)) in enumerate(zip(drafts, match_all(drafts, own)), 1):
             seen = f" (matches \"{r.get('title')}\" [{r.get('hypothesis_id')}])" if r else ''
-            print(f"   {i}. {d.get('title')}: {SAY[bucket]}{seen}")
+            print(f"   {i}. {d.get('title')}: {say(bucket, r)}{seen}")
 
 
 def run():

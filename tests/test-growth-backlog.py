@@ -94,7 +94,7 @@ check('an audience split on another segment is new',
       == 'new')
 
 # products: the server's duplicate check ignores them, the skill does not
-price = 'growth_advisor:price'
+price = 'adapty:price_change'
 b, r = reads.match(draft(price, PAYWALL_SCREEN, [ANNUAL_BR]),
                    [row(1, 'proposed', kind=price, subj=PAYWALL_SCREEN, products=[ANNUAL_BR])])
 check('the same price move in the same country is in the backlog', b == 'backlog', b)
@@ -184,7 +184,16 @@ check('a product change on a whole flow is flagged', says(draft('adapty:new_dura
 check('an adapty type the server does not have is flagged', says(draft('adapty:price', PAYWALL_SCREEN), 'adapty:price'))
 check('our own type named like a server type is flagged', says(draft('growth_advisor:trial', PAYWALL_SCREEN),
                                                                 'adapty:trial'))
-check('our own price type passes', not problems(draft('growth_advisor:price', PAYWALL_SCREEN, [ANNUAL_BR])))
+check('the price change type passes on a paywall screen with products',
+      not problems(draft('adapty:price_change', PAYWALL_SCREEN, [ANNUAL_BR])), problems(draft('adapty:price_change', PAYWALL_SCREEN, [ANNUAL_BR])))
+check('our own price type is sent to the server type', says(draft('growth_advisor:price_change', PAYWALL_SCREEN, [ANNUAL_BR]),
+                                                            'adapty:price_change'))
+check('a product change without products is flagged', says(draft('adapty:new_duration', PAYWALL_SCREEN), 'product set'))
+check('a store product id on a plan-length change is flagged',
+      says(draft('adapty:new_duration', PAYWALL_SCREEN, [{'duration_type': 'monthly', 'store_product_id': 'x.monthly'}]),
+           'store_product_id'))
+check('a store product id on a price change passes',
+      not problems(draft('adapty:price_change', PAYWALL_SCREEN, [{'duration_type': 'annual', 'store_product_id': 'x.annual2'}])))
 check('a type that breaks the namespace:name form is flagged', says(draft('Growth:Price'), 'namespace:name'))
 
 with tempfile.TemporaryDirectory() as tmp:
@@ -220,8 +229,14 @@ due = {h['hypothesis_id']: what for what, h in reads.due([aud_row], {PID: []})}
 check('an audience split put live is a live check', due.get(hid(9)) == 'live-check', due)
 
 legacy = {'type': 'paywall'}
-check('our own type on a legacy paywall is not sent to a server type',
-      not problems(draft('growth_advisor:new_duration', legacy)), problems(draft('growth_advisor:new_duration', legacy)))
+check('a legacy paywall hypothesis is flagged as not saveable', says(draft('growth_advisor:new_duration', legacy), 'read only'))
+
+said = reads.say('dismissed', row(3, 'dismissed', dismiss_reason='We tried it in spring and it lost'))
+check('a dismissed match carries its reason', 'We tried it in spring and it lost' in said, said)
+check('a dismissed match without a reason says so', 'no reason' in reads.say('dismissed', row(3, 'dismissed')).lower())
+
+check('an invented type of our own is flagged', says(draft('growth_advisor:price_by_country', PAYWALL_SCREEN), 'Saved as'))
+check('a type of our own from the Saved-as column passes', not problems(draft('growth_advisor:follow_up_offer')))
 
 print(f'\n{len(failures)} failed' if failures else '\nall passed')
 sys.exit(1 if failures else 0)

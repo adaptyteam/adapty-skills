@@ -40,14 +40,14 @@ of them for you; a hypothesis outside the table fills them itself.
 | Localization | Translate [paywall] into [language] on [placement], for [countries] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall | `adapty:flow_design`, flow |
 | Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion; on a flow paywall, two rates that are never added: purchases per user who reached it, and trials per user who reached it | That change on that paywall | That change on that paywall | `adapty:flow_design`, paywall screen |
 | Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Purchases (or trials) per user who entered the flow | That change on that flow | That change on that flow | `adapty:flow_design`, flow or its screen |
-| Core price | Raise/Lower [plan] in [country] from [price] to [price] | Revenue per user | Moving it back | This move in this country | `growth_advisor:price`, paywall screen |
-| Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there | `growth_advisor:price`, paywall screen |
-| Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder | `growth_advisor:price`, paywall screen |
+| Core price | Raise/Lower [plan] in [country] from [price] to [price] | Revenue per user | Moving it back | This move in this country | `adapty:price_change`, paywall screen |
+| Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there | `adapty:price_change`, paywall screen |
+| Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder | `adapty:price_change`, paywall screen |
 | Commitment plan | Add a 12-month commitment option to [annual product] on [placement], for App Store users outside the US | Revenue per user | Removing it | Adding it there | `growth_advisor:commitment`, flow |
 
 **Saved as** is the type and subject a hypothesis is saved with in the backlog ("The backlog" in SKILL.md). A
-change to a legacy or custom paywall is saved on a `paywall` subject, with the Saved-as name in the
-`growth_advisor` namespace (`growth_advisor:new_duration`, `growth_advisor:flow_design`).
+change to a legacy or custom paywall is not saved: Adapty keeps paywall hypotheses read only, so it stays in
+the reply.
 Judged on is saved as the expected metric: revenue per user `arpu`, purchase conversion `cr_to_purchase`, trial
 conversion and trial-to-paid `cr_to_trial` with `cr_to_paid` in `metrics_impact`; a metric with no match goes
 in the rationale.

@@ -325,7 +325,8 @@ and the reason.
   it asks which one to start with, and names the one you would pick. The last item
   is what you can do now if they say yes. The one slot between goes to a breakage fix, else an
   Adapty feature step (`references/levers.md`, "Adapty features"), else the one question; a
-  question that loses the slot joins the first item. You will not remember this conversation, so a check
+  question that loses the slot joins the first item, except after hypotheses, when it waits for
+  the next reply. You will not remember this conversation, so a check
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
   back and ask, never a "Me:" item.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
@@ -741,16 +742,16 @@ Fix every `CHECK` line, then act on what it says for each draft:
   hypotheses as **Already in your backlog**, one line with its title, only when its Why still
   holds in this month's numbers and it still passes "What a hypothesis needs". One that no longer
   holds gets one line saying why, and an offer to dismiss it.
-- **dismissed:** drop it, unless the numbers it rested on have changed since. Never ask why it
-  was dismissed.
+- **dismissed:** drop it, unless its saved reason says it may come back ("not now") or the numbers
+  it rested on have changed since. Never ask why it was dismissed.
 
 What it prints as **due** comes first in the reply, before anything new
 (`references/backlog.md`, "Coming back").
 
-**The question.** The first Next step asks which hypotheses to add and which to skip. While the
-backlog is empty, one more sentence says what it gives them. A hypothesis on a placement that does
-not exist yet is offered like the others: what adding it takes comes only after the user adds it,
-since until then they have not chosen it. Shape (not words to copy):
+**The question** is the first Next step, and it holds exactly two parts: which hypotheses to add
+and which to skip, with why for a skip; and, while the backlog is empty, one sentence on what it
+gives them. A hypothesis on a placement that does not exist yet is in the list like the others; what
+saving it takes goes in the reply after the user adds it, because until then they have not chosen it. Shape (not words to copy):
 
 > 1. You: tell me which of these you'd like to add to your backlog and which you'd skip. If you
 >    skip one, tell me why, so I can make better suggestions later. Your backlog shows in the
@@ -760,9 +761,13 @@ since until then they have not chosen it. Shape (not words to copy):
 <file>`, one call per placement (the server takes one placement and at most 50 per call), each file
 holding only that placement's added drafts. "Add all" adds every one; one the user did not mention
 is not saved. The ones skipped
-are saved the same way, then each gets `$ADAPTY hypotheses dismiss <ID> --app <APP_ID>`, so the
-next session does not suggest them again; a skip with "not now" stays saved and is not dismissed.
-No answer saves nothing. A hypothesis is dismissed only on the user's word.
+are saved the same way, then each gets `$ADAPTY hypotheses dismiss <ID> --app <APP_ID> --reason
+"<their reason, in their words>"`, so the next session does not suggest them again and knows why; a
+skip with no reason is dismissed without one, and a skip with "not now" stays saved and is not
+dismissed.
+No answer saves nothing. A hypothesis is dismissed only on the user's word: an answer that does
+not clearly name one (a number the list does not have) is asked back, never guessed, and a
+hypothesis already in the backlog is never dismissed through this question.
 
 **An added hypothesis whose placement does not exist yet** (a new placement, a follow-up offer)
 cannot be saved yet: a hypothesis needs its placement, and a placement is created only with a
