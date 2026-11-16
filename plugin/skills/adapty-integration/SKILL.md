@@ -800,7 +800,7 @@ Treat it as a pointer list, not a script — don't narrate it or walk through it
 
 Two of them are always the user's, so say so plainly, in the closing message and in `ADAPTY_SETUP.md`:
 
-- **The fallback file:** the CLI cannot download it; the user downloads it in the dashboard (https://adapty.io/docs/fallback-flows for a flow, https://adapty.io/docs/local-fallback-paywalls for a paywall) and you add it to the project.
+- **The fallback file:** the CLI cannot download it; the user downloads it in the dashboard (https://adapty.io/docs/fallback-flows for a flow, https://adapty.io/docs/local-fallback-paywalls for a paywall) and you add it to the project. Tell them to pick the dashboard option that matches the SDK version the app ships (such as **Adapty SDK v4.4.0 and higher** for iOS 4.4): a file in an older format fails silently, with no build error.
 - **Tapping through the flow:** it cannot be driven in a headless simulator; the user runs it once on a simulator or a device.
 
 **If `migrationSource` is not empty:** before you wrap up, re-read `references/migration.md` section 5 and check the `ADAPTY_SETUP.md` you wrote against it subsection by subsection — every one is mandatory, including the ones whose answer is "nothing to do". The two most often dropped: reconnecting the stores and re-pointing App Store Server Notifications / Google Play RTDN, and the historical data import decision. Add anything missing, with that section's plain `https://adapty.io/docs/<page>` links — no `.md`, no `?ref=` tag, since a human with no copy of this skill reads that document.
