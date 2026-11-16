@@ -195,13 +195,14 @@ app's US numbers) when you compare, and call the target "the market median", nev
 
 These are the hypotheses this skill can build: a flow, put in front of users by an A/B test (`SKILL.md`, "From hypothesis to A/B test"), a new placement, or a change to an existing one (`SKILL.md`, "Changing a live placement").
 
-- **A healthy set is about three placements:** the onboarding paywall (push the leading length), an in-app
-  paywall at a value moment (a limit hit, a locked feature, settings), and a follow-up offer for
-  users who closed the onboarding paywall without buying.
+- **A healthy set is about two placements:** the onboarding paywall (push the leading length) and an
+  in-app paywall at a value moment (a limit hit, a locked feature, settings).
 - **Only one placement** is itself an opportunity. A large share of revenue outside onboarding
   (chart 8 in `diagnosis.md`) calls for a dedicated paywall at that moment.
 - **Follow-up offer:** a discount for users who closed the onboarding paywall without buying, on
-  its own placement the app shows at a later moment (the next app open, a limit hit). **The close
+  its own placement the app shows at a later moment (the next app open, a limit hit). It is a
+  growth bet only ("When nothing stands out"), never a weak part: its absence is not a finding, and
+  it is sized on the onboarding placement's first payments, never on the users who closed it. **The close
   button always closes:** Apple rejects a close that opens another offer, a second screen or a
   sheet (App Store 5.6), so never propose that shape, and an offer live in it is a fix to move,
   not a hypothesis to drop. `evidence.md` measured the offer right after the close, so the later
@@ -277,7 +278,7 @@ stake. It questions money they already spend, which a dashboard never shows them
 
 When no split shows one group carrying a gap and no step of the funnel is clearly weak, say so in
 the sentence after the bold answer ("nothing is broken; these are bets"). Then suggest growth bets, still ranked by
-purchases at stake: a lever the app has not touched (a placement at a value moment, a plan length it does not sell), a strong part copied to a group that lacks
+purchases at stake: a lever the app has not touched (a placement at a value moment, a plan length it does not sell, a follow-up offer), a strong part copied to a group that lacks
 it ("Build on what works"), something rare in the market with evidence
 behind it (`market.md`, How paywalls look; `evidence.md`), a bet aimed at a segment, and at least
 one bolder change sized to their traffic. Never fill the list with standard moves the app already
@@ -473,7 +474,7 @@ rung on its target, not the next one.
 
 | Ladder | Rungs, in order |
 |---|---|
-| Annual | Annual as a second plan → annual in a follow-up offer → a 12-month commitment plan, outside the US. Each rung passes the annual check in "Plan structure" first |
+| Annual | Annual as a second plan → a 12-month commitment plan, outside the US. Each rung passes the annual check in "Plan structure" first |
 | Follow-up offer | A discount on the same plan → a different product (another length, a commitment plan), each on the follow-up placement |
 | Trial | As "Trials" orders it: on the leading length, then its length, then which plan carries it |
 | Localization | Translated copy → local prices in that country (`pricing.md`) |
