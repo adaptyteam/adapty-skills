@@ -73,41 +73,6 @@ testing, name that change in the offer instead: for a leaking screen of a flow, 
 change hypothesis, and that its design comes from `onboarding-teardown`; for the paywall of a
 flow, the untested Paywall design hypothesis, and that its design comes from `paywall-teardown`.
 
-## A broad question
-
-A user who does not yet know what to ask ("what can you do with my data", "I just connected
-Adapty", a greeting) gets one finding from their numbers, not the audit.
-
-1. Pick the app and run the audit reads ("The audit", steps 1 and 2); write none of the audit.
-2. Choose the one finding the user is least likely to know that moves the most money: a group of
-   theirs against another group or the market median. Usually it is the audit's main finding;
-   never "nothing is broken". Then read what would explain it, as the audit would (for a country:
-   the flow's languages from its config, `references/diagnosis.md`, "Reading a flow", and that
-   country's prices), and say what it shows; a "You:" question asks only what no read can show.
-3. Reply in about 150 words, in this order:
-   - the bold opening sentence states the finding with its number;
-   - two or three short sentences, or one table of at most five rows, that prove it;
-   - one sentence on what else you do with their numbers, at most four things the user can ask
-     for by name (the full audit with hypotheses, prices by country, why a number moved, building
-     and running an A/B test);
-   - Next steps: at most one "You:" question, then "Me:" the full audit with hypotheses, starting
-     from this finding.
-
-Shape (the form, not words to copy):
-
-> **Your monthly plan loses 59% of subscribers at the first renewal, against 42% for apps like
-> yours.**
->
-> The loss is all on the discounted first month: full-price buyers renew at 47%. It costs you
-> about $4k a month.
->
-> I can also audit the whole app against the market, check your prices country by country,
-> explain why a number moved, and build and run the A/B tests that come out of it.
->
-> **Next steps**
-> 1. You: was the discount meant to run all year?
-> 2. Me: run the full audit and suggest what to test, starting with renewals. Want me to?
-
 ## A health check
 
 "How is my app doing", "how was this week", "anything wrong?", "check on my app" ask how the last
@@ -405,9 +370,9 @@ too):
 
 ## The audit
 
-The audit is what "audit my app", "what should I test" and a problem brought for help get, and
-the start of every conversation that asks "what should I do". A broad question that asks none of
-these gets "A broad question" instead, and how the app is doing gets "A health check". It looks at the whole business over the window, not at
+The audit is the default when the user has no specific question, and the start of every
+conversation that asks "what should I do"; how the app is doing gets "A health check" instead. It
+looks at the whole business over the window, not at
 what changed last: a part that has been weak for all six months costs more than a dip that just
 started, and it never shows up as a change.
 
