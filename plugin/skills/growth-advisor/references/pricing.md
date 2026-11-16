@@ -76,7 +76,7 @@ play_store_requested_price, play_store_synced_price, play_store_sync_status`
 `region_code` is the two-letter country code, currency the three-letter code. The price buyers
 pay is `*_synced_price`. Stripe, web and offer prices are not in it; for those, ask.
 
-Read the products that sell in the countries carrying 80% of revenue in the last full month,
+Read the products that sell in the main market and the countries of the country list (below),
 store by store. To compare with the index, convert each price to USD at the rate the app's own
 revenue implies, for one product, store and country:
 
@@ -91,7 +91,7 @@ Revenue ÷ new subscriptions is the USD price there. When either number is empty
 
 ## Placing a price
 
-For each plan in each top country, write down:
+For each plan in each country of the country list (below), write down:
 
 1. **Its percentile:** where the USD price falls among the country's 10th to 90th percentile for
    the app's category and plan.
@@ -110,8 +110,7 @@ this list is the line.
 |---|---|---|
 | Raise the core price | The main market is Tier-1, the plan is below the 50th percentile, and the app's conversion is at or above the market median (`market.md`) | `evidence.md`'s Tier-1 price-increase range |
 | Lower the core price | The plan is above the 75th percentile, conversion is below the median, and the main market is not Tier-1 | Untested |
-| Raise in a country | Tier-1, and the app's ratio to the main market is 15% or more below the market's | `evidence.md`'s Tier-1 range |
-| Lower in a country | Not Tier-1, the app's ratio is 15% or more above the market's, and the country converts below its own past | Untested |
+| Price by country | "The country list" below has a row | `evidence.md`'s Tier-1 range for a raise; a cut is untested |
 | Plan ladder | The app's annual ÷ weekly or annual ÷ monthly differs from the category's 50th-percentile ratio by 20% or more (when that row is thin, from 7× weekly or 5× monthly) | Untested |
 
 - **A price hypothesis's Why ends on what its test settles:** "…, so the A/B test shows whether
@@ -120,12 +119,64 @@ this list is the line.
 - **The new price is set as in "Setting the new price" below.**
 - **Never a raise outside Tier-1.** `evidence.md`: the same increase lost badly there.
 - **One price change, on one product, per hypothesis,** never together with a trial or offer
-  change, and compared inside one store.
+  change, and compared inside one store. The country list is the exception: one hypothesis whose
+  rows are each one such change and one A/B test.
 - **Judged on revenue per user,** refunds included. A cut that lifts conversion and lowers
   revenue per user lost.
 - **Time:** a weekly plan's test runs at least four weeks so renewals show. An annual plan's
   test is judged on first-year revenue and refunds, and the Time line says renewals cannot be
   seen yet.
+
+## The country list
+
+Every audit builds it, and so does any question about prices by country: most apps never set a
+price per country, and this list is how the user learns they can. One row per country:
+
+1. **Which countries:** every country other than the main market with at least 1% of the
+   window's revenue (the audit's revenue by country) whose index grep returns a row. The rest
+   are one line: "Adapty's index has no data for Poland and Sweden."
+2. **Which plan:** the plan with the most new subscriptions in that country (the top-countries
+   block, else the app's), at its `*_synced_price`.
+3. **Which way:** the app's ratio to the main market for that plan against the market's ("Placing
+   a price", 2).
+   - 5% or more below the market's, in a Tier-1 country: a raise.
+   - 5% or more above the market's, outside Tier-1, and the country's install → paid is below the
+     app's overall rate: a cut.
+   - Anything else: no row.
+4. **How much:** "Setting the new price" below, country by country.
+
+**In the reply** the list is one hypothesis, "Price by country", holding every row, and its
+rows are the one table a hypothesis holds: country, plan, the price now and the new price in
+local currency, and the reason in a few words. Its lines:
+
+- **Why:** one sentence on what the rows share ("the same $50 everywhere").
+- **The table,** every row, also a row whose country first gets a translation test.
+- **Expected:** `evidence.md`'s Tier-1 range for the raises; the cuts are untested.
+- **Time:** per test, from its countries' purchases; a row that waits for a translation test
+  says so here.
+- **Who:** one A/B test per country, each on its own country segment. The line ends by saying
+  the tests run at the same time, since a user is in one country only; when some wait for a
+  translation test, they run at the same time once it ends. A country too small to reach about 200 purchases in
+  three months shares one test with the other small rows that move the same way by about the
+  same percent (within 5 points), each at its own new price; say that its result covers those
+  countries together, not each one. A row still too small then leaves the table for one line
+  under it.
+
+A list with no rows is one sentence in the audit: the app's prices by country are in line with
+the market.
+
+Shape of the table and Who line (the form, not words to copy):
+
+| Country | Plan | Now | New | Why |
+|---|---|---|---|---|
+| Germany | Annual | €45.99 | €52.99 | 31% under the market's German price |
+| France | Annual | €45.99 | €52.99 | 18% under the market's French price |
+| Italy | Annual | €45.99 | €52.99 | 18% under the market's Italian price |
+| Brazil | Annual | R$ 249,90 | R$ 219,90 | converts at 1.0% against 2.0% app-wide |
+
+> Who: I make one copy of Annual with these prices: one A/B test for Germany, one for Brazil,
+> and one shared by France and Italy, which are too small on their own; all three run at the same
+> time.
 
 ## Setting the new price
 
@@ -256,6 +307,11 @@ user's yes.
 8. **I offer to set up the A/B test** ("From hypothesis to A/B test" in `SKILL.md`): the current
    paywall or flow on that placement against the copy's flow, on the country segment's audience,
    once the copy is `approved` and its flow is published.
+
+For several rows of the country list, one copy of each plan in the list carries every row's new
+price for that plan (step 4 changes each of those countries), one flow copy sells the copies, and
+each test in the hypothesis's Who line (one country, or the small countries that share one) gets
+its own segment and A/B test; they run side by side.
 
 ## Adding a plan length
 

@@ -3,7 +3,13 @@
 
     python3 <skill>/references/reads.py audit --app <APP_ID> --adapty "$ADAPTY" [--months 6]
     python3 <skill>/references/reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID> [--placement <ID> ...] [--months 12]
+    python3 <skill>/references/reads.py health --app <APP_ID> --adapty "$ADAPTY"
     python3 <skill>/references/reads.py check-reply <<'DRAFT'   # the draft on stdin, or --file <DRAFT>
+
+`health` reads the last 12 weeks by day and compares the recent days with the app's own normal level: the
+last day against its usual range and its weekday, the last 7 days against the 3 weeks before, a 28-day
+trend, each store, refund days and installs. It prints the week and the 28 days as a table, then the
+signals, the costliest first, or NONE.
 
 `check-reply` reads no data: it flags the sentences of a draft reply that claim "every" group, a cause
 from timing, or less money without the first-payment / renewal split.
@@ -2059,9 +2065,251 @@ def check_reply(path):
     print(f'{found} line(s) to check' if found else 'no lines to check')
 
 
+# --- health: the recent days against the app's own normal level -------------------------------------------
+# Size by the last 28 days' revenue: (floor, name, week-drop threshold, level window in days,
+# smallest dollar gap worth a line, smallest daily installs a collapse check runs on, refund floor in USD).
+SIZES = ((1e6, 'very large', .08, 56, 20000, 4000, 3000), (3e5, 'large', .10, 56, 5000, 1000, 1000),
+         (1e5, 'upper mid', .15, 28, 2000, 400, 500), (3e4, 'mid', .20, 28, 500, 100, 200),
+         (1e4, 'small', .30, 28, 150, 30, 100), (3e3, 'very small', .40, 14, 50, 10, 50),
+         (0, 'tiny', .50, 14, 10, 2, 25))
+MAD_K = 1.4826   # MAD to a standard deviation on normal data
+
+
+def _median(xs):
+    s = sorted(xs)
+    n = len(s)
+    return 0.0 if not n else (s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2)
+
+
+def _mad(xs):
+    m = _median(xs)
+    return _median([abs(x - m) for x in xs])
+
+
+def level_band(prior, k=3.0):
+    """The app's normal level for a day: median and a robust band over the prior days."""
+    m = _median(prior)
+    spread = max(MAD_K * _mad(prior), .02 * abs(m), 1.0)
+    return m, max(m - k * spread, 0.0), m + k * spread
+
+
+def weekday_band(vals, i, window, k=2.5):
+    """What day i usually is for its weekday: the level times the median of the last 8 same-weekday ratios,
+    each against the median of the `window` days before it. None when there are fewer than 2 such days."""
+    ratios = []
+    for j in range(i - 7, -1, -7):
+        before = vals[max(0, j - window):j]
+        if len(before) >= 4 and _median(before) > 0:
+            ratios.append(vals[j] / _median(before))
+        if len(ratios) == 8:
+            break
+    if len(ratios) < 2:
+        return None
+    level = _median(vals[max(0, i - window):i])
+    f = _median(ratios)
+    if not (1 / 3 <= f <= 3) or _mad(ratios) / f > .40:
+        f = 1.0
+    exp = level * f
+    spread = max(level * MAD_K * _mad(ratios), .05 * abs(exp), 1.0)
+    return exp, max(exp - k * spread, 0.0)
+
+
+def trend(vals):
+    """Theil-Sen slope as a share of the median per day, and the Mann-Kendall p-value."""
+    n = len(vals)
+    slopes = [(vals[j] - vals[i]) / (j - i) for i in range(n) for j in range(i + 1, n)]
+    m = _median(vals)
+    s = sum((vals[j] > vals[i]) - (vals[j] < vals[i]) for i in range(n) for j in range(i + 1, n))
+    var = n * (n - 1) * (2 * n + 5) / 18
+    z = 0.0 if s == 0 else (s - (1 if s > 0 else -1)) / math.sqrt(var)
+    return (_median(slopes) / max(m, 1.0)), math.erfc(abs(z) / math.sqrt(2))
+
+
+def day_series(body):
+    """{group key or 'total': (dates, values)} from a daily chart."""
+    out = {}
+    for s in segments(body):
+        pts = s.get('values') or []
+        out['total' if s.get('is_total') else s.get('key')] = ([label(p.get('x')) for p in pts],
+                                                                [float(p.get('value') or 0) for p in pts])
+    return out
+
+
+def drift_onset(vals, dates, thr):
+    """The first day of the run of days, ending on the last, whose 7-day mean sits below the 21 days before it
+    by the threshold; and the dollars below that earlier level since then."""
+    start = None
+    for i in range(len(vals) - 1, 27, -1):
+        r7, p21 = sum(vals[i - 6:i + 1]) / 7, sum(vals[i - 27:i - 6]) / 21
+        if p21 > 0 and r7 / p21 < 1 - thr:
+            start = i
+        else:
+            break
+    if start is None:
+        return None, 0.0
+    base = sum(vals[start - 27:start - 6]) / 21
+    # the week that crossed the line began at start - 6, but the fall itself began at its first day that sits
+    # below the line and stays below it on average: a sharp fall crosses in a day or two
+    first = next((d for d in range(start - 6, len(vals))
+                  if vals[d] < base * (1 - thr) and sum(vals[d:]) / len(vals[d:]) < base * (1 - thr)), start)
+    return dates[first], sum(max(base - v, 0) for v in vals[first:])
+
+
+def health(a):
+    end = (dt.date.fromisoformat(a.to) if a.to else dt.date.today()) - dt.timedelta(days=1)
+    start = end - dt.timedelta(days=83)
+    f, t = start.isoformat(), end.isoformat()
+    reads = {'revenue': chart('revenue', f, t, 'store', 'day'), 'installs': chart('installs', f, t, None, 'day'),
+             'new paid subscriptions': chart('subscriptions_new', f, t, None, 'day'),
+             'new trials': chart('trials_new', f, t, None, 'day'), 'refunds': chart('refund_money', f, t, None, 'day')}
+    prefetch(a.adapty, [r + ['--app', a.app] for r in reads.values()])
+    data = {}
+    for name, r in reads.items():
+        body, err = cli(a.adapty, r + ['--app', a.app])
+        if err:
+            FAILED.append(f'{name} by day: {err}')
+            continue
+        data[name] = day_series(body)
+    rev = (data.get('revenue') or {}).get('total')
+    if not rev or len(rev[1]) < 28:
+        print('STOP: fewer than 28 days of revenue, so there is no normal level to compare with. Say the app is too '
+              'new for a health check and give what the days show.')
+        return
+    dates, vals = rev
+    print(f'# health {dates[0]} .. {dates[-1]}, by day; {dates[-1]} is the last full day read (today is not over)')
+    size = next(s for s in SIZES if sum(vals[-28:]) >= s[0])
+    _, sname, thr, win, gap, inst_floor, ref_floor = size
+    print(f'size: {sname} (${num(sum(vals[-28:]))} in the last 28 days): a week counts as down at {thr:.0%} below '
+          f'the 3 weeks before it; a slide under ${gap / 4:,.0f} a day is noise for an app this size')
+
+    print('\n## the last 7 days against the 3 weeks before them (a week), and the last 28 against the 28 before')
+    print(f'   {"":24} {"last 7 d":>10} {"usual week":>11} {"change":>7} {"":5}  {"last 28 d":>10} '
+          f'{"28 before":>10} {"change":>7}')
+    for name in reads:
+        s = (data.get(name) or {}).get('total')
+        if not s or len(s[1]) < 56:
+            continue
+        v = s[1]
+        w, usual = sum(v[-7:]), sum(v[-28:-7]) / 3
+        m, before = sum(v[-28:]), sum(v[-56:-28])
+        ch = lambda x, y: f'{(x / y - 1):+.0%}' if y else '-'
+        flag = 'DOWN' if usual and w / usual < 1 - thr and name != 'refunds' else (
+            'UP' if name == 'refunds' and usual and w / usual > 1 + thr else '')
+        print(f'   {name:24} {num(w):>10} {num(usual):>11} {ch(w, usual):>7} {flag:5}  {num(m):>10} '
+              f'{num(before):>10} {ch(m, before):>7}')
+    ti, ii = (data.get('new trials') or {}).get('total'), (data.get('installs') or {}).get('total')
+    if ti and ii and len(ti[1]) >= 56 and len(ii[1]) >= 56:
+        tv, iv = ti[1], ii[1]
+        r = lambda a, b: 1000 * sum(tv[a:b]) / max(sum(iv[a:b]), 1)
+        w, usual, m, before = r(-7, None), r(-28, -7), r(-28, None), r(-56, -28)
+        ch = lambda x, y: f'{(x / y - 1):+.0%}' if y else '-'
+        flag = 'DOWN' if usual and w / usual < 1 - thr / 2 else ''   # a rate moves less than a count
+        print(f'   {"trials per 1,000 installs":24} {w:>10.1f} {usual:>11.1f} {ch(w, usual):>7} {flag:5}  {m:>10.1f} '
+              f'{before:>10.1f} {ch(m, before):>7}')
+        print('   (the rate: unmarked, a fall in installs is traffic; DOWN, the people who came also start fewer trials, '
+              'so it is not traffic alone)')
+    for k, (_, sv) in sorted((data.get('revenue') or {}).items(), key=lambda kv: -sum(kv[1][1][-28:])):
+        if k == 'total' or len(sv) < 56:
+            continue
+        w, usual = sum(sv[-7:]), sum(sv[-28:-7]) / 3
+        print(f'   revenue, {str(k):15} {num(w):>10} {num(usual):>11} {(w / usual - 1 if usual else 0):+7.0%}')
+
+    found = []
+    # 1. the last day against its normal level and its weekday
+    m, lo, hi = level_band(vals[-1 - win:-1])
+    wd = weekday_band(vals, len(vals) - 1, win)
+    x = vals[-1]
+    if x < lo and (wd is None or x < wd[1]):
+        found.append((-3e9 + m - x, f'DAY DOWN: revenue on {dates[-1]} was ${num(x)}, under its usual ${num(lo)}-{num(hi)} '
+                             f'({1 - x / m:.0%} below the ${num(m)} median)'))
+    elif wd and x < wd[1] and (wd[0] - x) / wd[0] >= .25 and x >= lo:
+        found.append((-3e9 + wd[0] - x, f'DAY DOWN: revenue on {dates[-1]} was ${num(x)}, {1 - x / wd[0]:.0%} under the '
+                                 f'${num(wd[0])} this weekday usually brings'))
+    if x > hi and m > 0 and (x - m) / m > .5:
+        found.append((-4e9, f'SPIKE: revenue on {dates[-1]} was ${num(x)}, {x / m - 1:.0%} above its ${num(m)} median: '
+                         'good news; ask what drove it before reading it as the new level'))
+    # 2. the last week against the three before it, with when it started and what it has cost
+    r7, p21 = sum(vals[-7:]) / 7, sum(vals[-28:-7]) / 21
+    if p21 and r7 / p21 < 1 - thr:
+        since, lost = drift_onset(vals, dates, thr)
+        found.append(((p21 - r7) * 7, f'WEEK DOWN: revenue averaged ${num(r7)} a day over the last 7 days, against '
+                                      f'${num(p21)} in the 3 weeks before ({1 - r7 / p21:.0%} below), down since '
+                                      f'{since}, about ${num(lost)} under that level so far'))
+    # 3. a slow slide (or climb) over 28 days
+    slope, p = trend(vals[-28:])
+    med28 = _median(vals[-28:])
+    if p < .05 and abs(slope) > .007 and (slope > 0 or abs(slope) * med28 >= gap / 4):
+        word = 'SLIDE' if slope < 0 else 'CLIMB'
+        found.append((abs(slope) * med28 * 30 if slope < 0 else -4e9,
+                      f'{word}: revenue moves {slope:+.1%} a day over 28 days (about ${num(abs(slope) * med28)} a day; '
+                      f'{slope * 30:+.0%} over the next 30 days if it holds)'
+                      + ('' if slope < 0 else ': good news, a growth trend')))
+    # 4. one store down while the app as a whole holds
+    for k, (_, sv) in (data.get('revenue') or {}).items():
+        if k == 'total' or len(sv) < 28:
+            continue
+        s7, s21 = sum(sv[-7:]) / 7, sum(sv[-28:-7]) / 21
+        if s21 >= 50 and s7 / s21 < 1 - thr and (not p21 or r7 / p21 >= 1 - .30):
+            found.append(((s21 - s7) * 7, f'STORE DOWN: {k} revenue averaged ${num(s7)} a day over the last 7 days, '
+                                          f'against ${num(s21)} before ({1 - s7 / s21:.0%} below), while the app as a '
+                                          'whole held'))
+    # 5. a refund day far above the usual, unless refunds only follow more purchases
+    ref = (data.get('refunds') or {}).get('total')
+    if ref:
+        rv = ref[1]
+        for i in range(len(rv) - 7, len(rv)):
+            prior = rv[max(0, i - win):i]
+            if len(prior) < 4:
+                continue
+            md = _median(prior)
+            line = max(md + 3 * MAD_K * _mad(prior), 3 * md)
+            if rv[i] >= line and rv[i] >= ref_floor:
+                share = rv[i] / max(sum(vals[max(0, i - 6):i + 1]) / 7, 1)
+                usual = _median([rv[j] / max(sum(vals[max(0, j - 6):j + 1]) / 7, 1) for j in range(max(7, i - 35), i - 7)] or [0])
+                if usual and share / usual < 1.2:
+                    continue
+                found.append((rv[i] - md, f'REFUND DAY: ${num(rv[i])} refunded on {ref[0][i]}, against a usual '
+                                          f'${num(md)} a day' + (f'; {share / usual:.1f}x the usual share of revenue'
+                                                                 if usual else '')))
+    # 6. fewer new buyers: first payments and trials, the money of the weeks to come
+    for name in ('new paid subscriptions', 'new trials'):
+        s = (data.get(name) or {}).get('total')
+        if not s or len(s[1]) < 56:
+            continue
+        n7, n21 = sum(s[1][-7:]) / 7, sum(s[1][-28:-7]) / 21
+        if n21 and n7 / n21 < 1 - thr:
+            since, _ = drift_onset(s[1], s[0], thr)
+            found.append((-1e9, f'{name.upper()} DOWN: '
+                          f'{num(n7)} a day over the last 7 days against {num(n21)} before ({1 - n7 / n21:.0%} below), '
+                          f'down since {since}. Revenue follows as these buyers would have paid'))
+    # 7. installs: a leading sign, not money lost yet
+    ins = (data.get('installs') or {}).get('total')
+    if ins and len(ins[1]) >= 28:
+        iv = ins[1]
+        im, ilo, _ = level_band(iv[-1 - win:-1])
+        same = [iv[j] for j in range(len(iv) - 8, -1, -7)][:4]
+        ref_i = _median(same) if len(same) >= 3 and min(same) > 0 and max(same) / min(same) <= 3 else im
+        i7, ip21 = sum(iv[-7:]) / 7, sum(iv[-28:-7]) / 21
+        if ref_i >= inst_floor and (iv[-1] < ilo or (ref_i - iv[-1]) / ref_i >= .5) and (ref_i - iv[-1]) / ref_i >= .35:
+            found.append((-2e9, f'INSTALLS DOWN: {num(iv[-1])} installs on {ins[0][-1]} against a usual {num(ref_i)} '
+                             f'({1 - iv[-1] / ref_i:.0%} below). A leading sign: revenue follows later, or not at all '
+                             'if it was a campaign or a feature ending'))
+        elif ip21 and i7 / ip21 < 1 - max(thr, .35):
+            since, _ = drift_onset(iv, ins[0], max(thr, .35))
+            found.append((-2e9, f'INSTALLS DOWN: {num(i7)} a day over the last 7 days against {num(ip21)} before '
+                             f'({1 - i7 / ip21:.0%} below), down since {since}. A leading sign, not money lost yet'))
+    print('\n## signals, in this order: money lost over days (costliest first), fewer new buyers, fewer installs, '
+          'a single day, good news')
+    for _, line in sorted(found, key=lambda x: -x[0]):
+        print('   ' + line)
+    if not found:
+        print('   NONE: revenue, refunds and installs sit in their usual range for this app. Say the week is normal, '
+              'with the table above.')
+
+
 def run():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('command', choices=('audit', 'placement', 'check-reply'))
+    ap.add_argument('command', choices=('audit', 'placement', 'health', 'check-reply'))
     ap.add_argument('--app')
     ap.add_argument('--file', help='check-reply: the draft reply to check (default: stdin)')
     ap.add_argument('--adapty', default='adapty', help='the resolved $ADAPTY command string')
@@ -2089,13 +2337,15 @@ def run():
               'PATH). Resolve $ADAPTY again as "The CLI" says; if `adapty analytics catalog --help` still '
               'fails, use `npx --yes adapty@latest`. Then rerun this command with --adapty "$ADAPTY".')
         return 2
-    late = [' '.join(c) for c in LATER if not has(a.adapty, c)]
+    late = [' '.join(c) for c in LATER if a.command != 'health' and not has(a.adapty, c)]
     if late:
         print(f'CHECK: `{a.adapty}` has no {", ".join(late)}, so those reads fail below. That is an older CLI, '
               'not a missing command: rerun with --adapty "npx --yes adapty@latest"; only if that lacks one '
               'too, try `npx --yes adapty@beta <command> --help` once before telling the user it cannot be read.\n')
     if a.command == 'audit':
         audit(a)
+    elif a.command == 'health':
+        health(a)
     else:
         f, t = window(a.months, a.to)
         prefetch(a.adapty, [r for pid in a.placement for r in placement_reads(a, pid, f, t)]

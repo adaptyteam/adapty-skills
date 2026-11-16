@@ -73,6 +73,83 @@ testing, name that change in the offer instead: for a leaking screen of a flow, 
 change hypothesis, and that its design comes from `onboarding-teardown`; for the paywall of a
 flow, the untested Paywall design hypothesis, and that its design comes from `paywall-teardown`.
 
+## A broad question
+
+A user who does not yet know what to ask ("what can you do with my data", "I just connected
+Adapty", a greeting) gets one finding from their numbers, not the audit.
+
+1. Pick the app and run the audit reads ("The audit", steps 1 and 2); write none of the audit.
+2. Choose the one finding the user is least likely to know that moves the most money: a group of
+   theirs against another group or the market median. Usually it is the audit's main finding;
+   never "nothing is broken". Then read what would explain it, as the audit would (for a country:
+   the flow's languages from its config, `references/diagnosis.md`, "Reading a flow", and that
+   country's prices), and say what it shows; a "You:" question asks only what no read can show.
+3. Reply in about 150 words, in this order:
+   - the bold opening sentence states the finding with its number;
+   - two or three short sentences, or one table of at most five rows, that prove it;
+   - one sentence on what else you do with their numbers, at most four things the user can ask
+     for by name (the full audit with hypotheses, prices by country, why a number moved, building
+     and running an A/B test);
+   - Next steps: at most one "You:" question, then "Me:" the full audit with hypotheses, starting
+     from this finding.
+
+Shape (the form, not words to copy):
+
+> **Your monthly plan loses 59% of subscribers at the first renewal, against 42% for apps like
+> yours.**
+>
+> The loss is all on the discounted first month: full-price buyers renew at 47%. It costs you
+> about $4k a month.
+>
+> I can also audit the whole app against the market, check your prices country by country,
+> explain why a number moved, and build and run the A/B tests that come out of it.
+>
+> **Next steps**
+> 1. You: was the discount meant to run all year?
+> 2. Me: run the full audit and suggest what to test, starting with renewals. Want me to?
+
+## A health check
+
+"How is my app doing", "how was this week", "anything wrong?", "check on my app" ask how the last
+days went against the app's own normal level, and people ask it every week or month. The audit
+judges the whole business against the market; this is not the audit.
+
+1. Pick the app and run `python3 <skill>/references/reads.py health --app <APP_ID> --adapty
+   "$ADAPTY"` once. It reads the last 12 weeks by day and prints a table (the last 7 days against
+   a usual week, the last 28 against the 28 before) and the signals, costliest first, or NONE.
+   The thresholds live in it; never judge a change by eye.
+2. Reply in about 150 words plus the table, in this order:
+   - the bold verdict: a normal week, or the costliest signal with the day it started and the
+     money so far;
+   - the table, with revenue, new paid subscriptions, new trials, installs and refunds: the 7-day
+     columns, or the 28-day ones when the user asks about a month; bold the cell that moved;
+   - each other signal in one sentence: a spike or a climb is good news, fewer installs is an
+     early sign rather than money lost, fewer new buyers is money the weeks ahead will miss;
+   - Next steps: for a signal, at most one "You:" question about that day (a release, a
+     campaign, a price change), then "Me:" find why ("Questions after the audit", why did revenue
+     drop). For a normal week, "Me:" suggest what to test next, which is the audit.
+   No market medians and no hypotheses: the audit owns those. Call a fall traffic only when the
+   trials per 1,000 installs row is not marked DOWN; name no other cause the reads do not show.
+
+Shape (the form, not words to copy):
+
+> **Revenue has been 22% under its usual level since March 3, about $9k so far, and all of it is
+> Google Play.**
+>
+> | | Last 7 days | Usual week | Change |
+> |---|---|---|---|
+> | Revenue | $31.2k | $40.0k | **−22%** |
+> | New paid subscriptions | 410 | 425 | −4% |
+> | New trials | 1,180 | 1,210 | −2% |
+> | Installs | 24.1k | 24.6k | −2% |
+> | Refunds | $610 | $590 | +3% |
+>
+> Buyers are coming in as usual, so the money is lost on renewals or on one store's payments.
+>
+> **Next steps**
+> 1. You: did anything ship on Google Play around March 3?
+> 2. Me: find why Google Play revenue fell. Want me to?
+
 ## Without an Adapty account
 
 The user sends an App Store or Google Play link, screenshots, or the app's code, and no account can
@@ -267,7 +344,8 @@ and the reason.
   at most five rows) (months across, the groups that carry it down the side). Keep each one to
   about six rows and seven columns, put the store that earns first, and bold the cell the
   sentence under it talks about. Each table is followed by one sentence saying what it shows. A
-  table is never a list of what you checked, and a hypothesis block never holds one.
+  table is never a list of what you checked, and a hypothesis block holds one only for the
+  country price list (`references/pricing.md`).
 - **Evidence is part of the argument, not a labelled slot.** Say what their numbers show, then
   what tends to happen when apps make this change and how sure that is, naming the source in
   passing: "in Adapty's library of real subscription A/B tests", "Adapty's State of Paywalls
@@ -327,8 +405,9 @@ too):
 
 ## The audit
 
-The audit is the default when the user has no specific question, and the start of every
-conversation that asks "what should I do". It looks at the whole business over the window, not at
+The audit is what "audit my app", "what should I test" and a problem brought for help get, and
+the start of every conversation that asks "what should I do". A broad question that asks none of
+these gets "A broad question" instead, and how the app is doing gets "A health check". It looks at the whole business over the window, not at
 what changed last: a part that has been weak for all six months costs more than a dip that just
 started, and it never shows up as a change.
 
@@ -470,7 +549,7 @@ started, and it never shows up as a change.
    - only one placement, or no follow-up offer for users who close the onboarding paywall
    - a main market
    - a main-market plan below the 25th percentile for its category (`references/pricing.md`)
-   - a top country 15% or more off the market's price ratio to the main market
+   - the country price list (`references/pricing.md`, "The country list"), built in every audit
    - a top country whose language the paywall or flow does not have
    - a `FEATURE GATE` line, or a trigger in `references/levers.md`, "Adapty features"
    - fewer than about 200 purchases in two weeks
