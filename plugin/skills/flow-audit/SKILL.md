@@ -226,7 +226,20 @@ xargs -P 8 -I{} sh -c "$ADAPTY placements get {} --app $APP --json > placements/
   < placement-ids.txt
 python3 -c "import glob, json; json.dump([json.load(open(f)) for f in \
 glob.glob('placements/*.json')], open('placements.json', 'w'))"
+python3 -c "import json; print('\n'.join(sorted({a['ab_test_id'] for p in \
+json.load(open('placements.json')) for a in p.get('audiences') or [] if a.get('ab_test_id')})))" \
+  > ab-test-ids.txt
+mkdir -p ab-tests
+xargs -P 8 -I{} sh -c "$ADAPTY ab-tests get {} --app $APP --json > ab-tests/{}.json" \
+  < ab-test-ids.txt
+python3 -c "import glob, json; json.dump([d for f in glob.glob('ab-tests/*.json') \
+for d in [json.load(open(f))] if isinstance(d, dict) and d.get('ab_test_id')], \
+open('ab-tests.json', 'w'))"
 ```
+
+A placement that runs an A/B test shows the test's variants, which only `ab-tests get` lists.
+A test it cannot read (a shared test, or a CLI without `ab-tests`) is left out, and the audit
+then asks the user to check that placement instead of saying no placement shows the flow.
 
 Then read which languages the app's **other published flows** offer, so the audit can say
 when this one lacks a language the rest of the app speaks:
@@ -270,7 +283,8 @@ it there. Both skills ship in the same plugin, so it is always present in a plug
 FG="$(dirname "<skill>")/flow-generator"        # sibling skill directory
 python3 "$FG/references/verify-config.py" flow.config.json
 python3 <skill>/references/audit-flow.py flow.config.json --catalog catalog.json \
-  --offers offers.json --placements placements.json --sibling-locales sibling-locales.json \
+  --offers offers.json --placements placements.json --ab-tests ab-tests.json \
+  --sibling-locales sibling-locales.json \
   --report --name "$NAME" --status "$STATUS" --flow-id "$FLOW"
 $ADAPTY flows config validate "$FLOW" --app "$APP" --config-file flow.config.json --json
 ```

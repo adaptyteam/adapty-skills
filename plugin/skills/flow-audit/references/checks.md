@@ -128,7 +128,9 @@ A **link address** is left out of that count and its total, and out of `untransl
 openUrl action's `url`, and any field whose default-locale value is a bare URL. A Terms or
 Privacy link is the same in every locale on purpose, a locale without its own value opens the
 default's, and `verify-config.py` forbids copying the default into the other locales. A blank
-link value still counts as `empty-translation`.
+link value still counts as `empty-translation`. A field whose default-locale text has no
+letters in any branch (a lone price variable, "50%") is left out the same way: the fallback
+shows the same text.
 
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |

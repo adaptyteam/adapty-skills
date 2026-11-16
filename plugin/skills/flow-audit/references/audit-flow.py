@@ -19,8 +19,8 @@ data, and the traps are recorded there.
 Usage:
   audit-flow.py <config.json> [--catalog <catalog.json>] [--stores ios,android]
                 [--json | --report] [--name <name>] [--flow-id <id>] [--status <status>]
-                [--placements <placements.json>] [--custom-actions id=kind,...]
-                [--offers <offers.json>]
+                [--placements <placements.json>] [--ab-tests <ab-tests.json>]
+                [--custom-actions id=kind,...] [--offers <offers.json>]
   audit-flow.py <config.json> --list-offer-products
 Exit: 0 no blockers, 1 at least one blocker, 2 usage or unreadable input.
 
@@ -29,7 +29,8 @@ findings by severity, languages, store review, what happens next, what to check
 yourself) and the two are mutually exclusive. `--name`/`--flow-id`/`--status` come
 from `flows list`, not the config, and feed `render()`'s header and the
 `flow-untitled` check. `--placements` is a JSON array of `placements get` bodies; with
-`--flow-id` it answers whether any placement shows this flow. `--offers` maps a product id
+`--flow-id` it answers whether any placement shows this flow; `--ab-tests` is a JSON array
+of `ab-tests get` bodies for the tests those placements run, whose variants count. `--offers` maps a product id
 to its `product-offers list` rows; `--list-offer-products` prints the product ids bound with an
 offer, one per line, which is the list Phase 3 reads offers for.
 """
@@ -176,8 +177,8 @@ def branch_text(value, locale=None):
     `flat_text` renders a switch as '' (see `_has_content`), so a price line written as
     "7 days free, then $4.99/week" inside a switch on the trial flag was invisible to the
     disclosure checks and `trial-terms-incomplete` fired on a screen that states its terms.
-    Used by `check_disclosure` only: the other text readers are calibrated against
-    `flat_text` as it is. Branches are joined with ' | ', as elements are, so a term in one
+    Used by `check_disclosure` and `_is_neutral_field` only: the other text readers are
+    calibrated against `flat_text` as it is. Branches are joined with ' | ', as elements are, so a term in one
     branch never runs into the next. Recursed the way `_has_content` recurses, so a switch
     nested in a branch is read too.
     """
@@ -1719,6 +1720,13 @@ def _is_empty_value(v):
     return _loc.is_empty('rich-text', v)
 
 
+def _is_neutral_field(vals, base):
+    """True when the default locale's text, every branch included, has no letters: a lone
+    price variable, "50%", "4.9". A locale without it falls back to that same text, so it
+    is neither missing nor untranslated."""
+    return base in vals and not any(ch.isalpha() for ch in branch_text(vals[base], base))
+
+
 def locale_coverage(config):
     """Per-locale coverage stats and examples, over every localizable value in the flow.
 
@@ -1739,9 +1747,10 @@ def locale_coverage(config):
     for vals in _localizable_values(config, locales):
         base_text = flat_text(vals.get(base), base) if base in vals else ''
         media = _is_media_field(vals, base)
-        # A link address falls back to the default's on purpose: neither missing nor
-        # untranslated. A blank one still breaks the link, so `empty` still counts.
-        link = _is_link_field(vals, base, links)
+        # A link address, or text with no letters, falls back to the default's on purpose:
+        # neither missing nor untranslated. A blank one still shows nothing, so `empty` still
+        # counts.
+        link = _is_link_field(vals, base, links) or _is_neutral_field(vals, base)
         for code in locales:
             # An EMPTY value ('' , [], an emptied paragraph) is the same as no value: both
             # fall back to the default locale's text. So both count as missing, never as a
@@ -1790,7 +1799,8 @@ def check_localization(config):
     stat, examples = locale_coverage(config)
     links = _link_values(config)
     total = sum(1 for vals in _localizable_values(config, locales)
-                if not _is_media_field(vals, base) and not _is_link_field(vals, base, links))
+                if not _is_media_field(vals, base) and not _is_link_field(vals, base, links)
+                and not _is_neutral_field(vals, base))
 
     for code in locales:
         s = stat[code]
@@ -3631,6 +3641,7 @@ CHECK_TO_GROUP = {
     'fallthrough-to-answer-screen': GROUP_FLOW,
     'missing-sibling-locale': GROUP_FLOW,
     'placement-inactive': GROUP_DASHBOARD,
+    'placement-test-unread': GROUP_DASHBOARD,
     'trial-toggle': GROUP_FLOW,
     'billed-amount-not-shown': GROUP_FLOW,
     'derived-price-louder': GROUP_FLOW,
@@ -3732,28 +3743,41 @@ def _legal_needs(f):
     return list(f.get('_needs') or [])
 
 
-def check_placements(placements, flow_id, status=None):
+def check_placements(placements, flow_id, status=None, ab_tests=None):
     """Is any placement showing this flow, and is it switched on?
 
     `placements` is a list of `placements get` bodies (the list endpoint carries no
     audiences, so the caller fetches each one), or None when they were not fetched.
-    A flow audience is `{"content_type": "flow", "flow_id": ...}`. Returns
+    A flow audience is `{"content_type": "flow", "flow_id": ...}`; an A/B test audience
+    carries an `ab_test_id` and serves the test's arms. `ab_tests` is a list of
+    `ab-tests get` bodies, whose `flows[].flow_id` are those arms. Returns
     `(findings, shown_by)`: `shown_by` is the developer IDs of the active placements
     that show this flow, for the report header.
 
     Neither finding blocks: a flow is attached AFTER it is published, so "no
     placement yet" is the normal state of a flow being checked before its first
-    publish -- a next step, not a defect.
+    publish -- a next step, not a defect. A test entry whose test was not read could
+    be showing the flow, so it turns `no-placement` into `placement-test-unread`.
     """
     if placements is None or not flow_id:
         return [], None
-    shown_by, out = [], []
+    arms = {}
+    for t in ab_tests or []:
+        t = t.get('data', t) if isinstance(t, dict) else None
+        if isinstance(t, dict) and t.get('ab_test_id'):
+            arms[t['ab_test_id']] = {a.get('flow_id') for a in (t.get('flows') or [])}
+    shown_by, out, unread = [], [], []
     for p in placements:
-        hit = any(a.get('content_type') == 'flow' and a.get('flow_id') == flow_id
-                  for a in (p.get('audiences') or []))
-        if not hit:
-            continue
+        auds = p.get('audiences') or []
         dev = p.get('developer_id') or p.get('id')
+        hit = any(a.get('content_type') == 'flow' and a.get('flow_id') == flow_id
+                  for a in auds)
+        tests = [a.get('ab_test_id') for a in auds if a.get('ab_test_id')]
+        hit = hit or any(flow_id in arms.get(t, ()) for t in tests)
+        if not hit:
+            if any(t not in arms for t in tests) and p.get('is_active') is not False:
+                unread.append((dev, p.get('id')))
+            continue
         if p.get('is_active') is False:
             out.append(finding(
                 'risk', 'placement', 'placement-inactive',
@@ -3763,7 +3787,16 @@ def check_placements(placements, flow_id, status=None):
                 f'https://app.adapty.io/placements/flows/{p.get("id")}'))
         else:
             shown_by.append(dev)
-    if not shown_by and not out:
+    if not shown_by and not out and unread:
+        out.append(finding(
+            'question', 'placement', 'placement-test-unread',
+            f'No placement shows this flow directly. Placement '
+            f'{_join_and(chr(96) + d + chr(96) for d, _ in unread)} runs an A/B test I '
+            f'could not read, so this flow may be one of its variants.',
+            'Open the A/B test on that placement in the Adapty dashboard and check whether '
+            'this flow is one of its variants: '
+            + ', '.join(f'https://app.adapty.io/placements/flows/{i}' for _, i in unread)))
+    elif not shown_by and not out:
         out.append(finding(
             'risk', 'placement', 'no-placement',
             'No placement shows this flow yet, so your app cannot fetch it and nobody '
@@ -4038,7 +4071,8 @@ def _voice(line):
 
 
 VALUE_FLAGS = ('--catalog', '--stores', '--name', '--flow-id', '--status',
-               '--placements', '--sibling-locales', '--custom-actions', '--offers')
+               '--placements', '--ab-tests', '--sibling-locales', '--custom-actions',
+               '--offers')
 
 # What the user said each custom action ID does. A flow cannot request a permission,
 # show the rating sheet or sign anyone in: each of those is a `custom` action whose
@@ -4116,6 +4150,8 @@ def main(argv):
             flags.get('--catalog'), str) else None
         placements = json.load(open(flags['--placements'], encoding='utf-8')) if isinstance(
             flags.get('--placements'), str) else None
+        ab_tests = json.load(open(flags['--ab-tests'], encoding='utf-8')) if isinstance(
+            flags.get('--ab-tests'), str) else None
         siblings = json.load(open(flags['--sibling-locales'], encoding='utf-8')) if isinstance(
             flags.get('--sibling-locales'), str) else None
         offers = json.load(open(flags['--offers'], encoding='utf-8')) if isinstance(
@@ -4147,7 +4183,7 @@ def main(argv):
             else None}
     findings += check_meta(meta)
     placement_findings, meta['shown_by'] = check_placements(placements, meta['flow_id'],
-                                                                meta['status'])
+                                                                meta['status'], ab_tests)
     findings += placement_findings
     findings += check_sibling_locales(config, siblings)
     if flags.get('--report'):
