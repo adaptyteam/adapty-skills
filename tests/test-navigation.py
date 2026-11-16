@@ -275,7 +275,7 @@ def shown(animation, target='el_n', kind='showElement'):
 
 FADE_IN = {'type': 'fade', 'duration': 300, 'delay': 3000, 'easing': 'ease-out'}
 for t in (FADE_IN, {**FADE_IN, 'type': 'rise', 'distance': 48}, {**FADE_IN, 'type': 'pop'},
-          {'type': 'none', 'delay': 5000}, {**FADE_IN, 'delay': 60000}):
+          {**FADE_IN, 'type': 'none', 'delay': 5000}, {**FADE_IN, 'delay': 60000}):
     out = verify_out(two_screens(shown(t)))
     check(f'{t["type"]} animation passes', 'animation' not in out, out)
 check('a hide takes one too', 'animation' not in verify_out(two_screens(shown(FADE_IN, kind='hideElement'))))
@@ -284,6 +284,9 @@ for why, t in (('unknown type', {**FADE_IN, 'type': 'slide'}),
                ('no duration', {k: v for k, v in FADE_IN.items() if k != 'duration'}),
                ('a bounce easing', {**FADE_IN, 'easing': 'ease-out-bounce'}),
                ('a pop scale of 1', {**FADE_IN, 'type': 'pop', 'scale': 1}),
+               ('a pop scale under 0.1', {**FADE_IN, 'type': 'pop', 'scale': 0.05}),
+               ('a rise distance over 200', {**FADE_IN, 'type': 'rise', 'distance': 201}),
+               ('none without duration and easing', {'type': 'none', 'delay': 5000}),
                ('not an object', 'fade')):
     out = verify_out(two_screens(shown(t)))
     check(f'refused animation: {why}', 'bad animation' in out, out)
@@ -310,6 +313,20 @@ for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
         check(f'silent on {os.path.basename(f)}', False, out)
 check('silent on every real export', True)
 
+print('\nElement opacity scale (verify-config)')
+for op, fires in ((0.85, True), (1, True), (85, False), (100, False), (0, False)):
+    d = two_screens({'id': 'a', 'type': 'closeFlow', 'payload': {}})
+    d['screens'][0]['elements']['map']['el_n']['props']['opacity'] = op
+    out = verify_out(d)
+    check(f'element opacity {op} {"warns" if fires else "is silent"}',
+          ('element opacity' in out) == fires, out)
+for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
+    out = subprocess.run([sys.executable, VERIFY, f], capture_output=True, text=True).stdout
+    if 'element opacity' in out:
+        check(f'element opacity silent on {os.path.basename(f)}', False, out)
+check('element opacity silent on every real export', True)
+
+
 print()
 if fails:
     print(f'{len(fails)} FAILED')
@@ -317,3 +334,4 @@ if fails:
         print('  -', x)
     sys.exit(1)
 print('all checks passed')
+

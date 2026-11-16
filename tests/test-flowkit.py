@@ -239,8 +239,9 @@ def main():
     check('show_elements(animation=kind) writes the builder defaults',
           fk.show_elements(['el_a'], animation='rise')['payload']['animation']
           == {'type': 'rise', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'distance': 32})
-    check('a delay alone is the none kind',
-          fk.element_animation('none', delay=5000) == {'type': 'none', 'delay': 5000})
+    check('a delay alone is the none kind, with the duration and easing the schema requires',
+          fk.element_animation('none', delay=5000)
+          == {'type': 'none', 'duration': 300, 'delay': 5000, 'easing': 'ease-out'})
     fixed = {'id': 'b', 'props': {'width': {'type': 'fixed', 'value': 300},
                                   'height': {'type': 'fixed', 'value': 56}}}
     check('animate() puts a wave on a fixed element',
@@ -257,7 +258,10 @@ def main():
             ('a pop scale of 1', lambda: fk.element_animation('pop', scale=1)),
             ('an element delay over 60000 ms', lambda: fk.element_animation('fade', delay=60001)),
             ('a rise takes no scale', lambda: fk.element_animation('rise', scale=0.5)),
-            ('none takes no duration', lambda: fk.element_animation('none', duration=10)),
+            ('none takes no distance', lambda: fk.element_animation('none', distance=10)),
+            ('a pop scale under 0.1', lambda: fk.element_animation('pop', scale=0.05)),
+            ('a rise distance over 200', lambda: fk.element_animation('rise', distance=201)),
+            ('a rise distance of 0', lambda: fk.element_animation('rise', distance=0)),
             ('an unknown loop animation', lambda: fk.loop_animation('sparkle')),
             ('a pulse takes no waveColor', lambda: fk.loop_animation('pulse', waveColor='#FFFFFF')),
             ('a breathe over 100 %', lambda: fk.loop_animation('breathe', fadeAmount=120)),

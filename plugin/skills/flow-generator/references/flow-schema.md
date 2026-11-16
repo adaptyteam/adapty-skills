@@ -807,6 +807,10 @@ Write `"opacity": 1` intending "fully opaque" and you get **1%** — a colour so
 absent. Measured on an identical magenta fill: `opacity: 100` and an omitted key both paint 27,956
 coloured pixels; `opacity: 1` paints **zero** at full strength and a barely-detectable 1% tint.
 
+An element's own `props.opacity` is on the same scale: `85`, never `0.85`. The device passes a
+value below 1 on as a fraction, but the builder and the preview read it as a percentage, and
+`verify-config.py` warns on it.
+
 Evidence for the scale, from real exports rather than inference: `opacity: 20` on a tinted card
 background, and `opacity: 0` on a border that is deliberately invisible. Both only make sense on
 0-100.
