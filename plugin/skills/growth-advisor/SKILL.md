@@ -5,7 +5,7 @@ description: >-
   should I test next", "I don't know what to test", "should I add a monthly plan or a trial",
   "why did revenue or renewals drop", "my A/B test ended, what now", "do I need more placements
   or a discount offer", "which of my ideas should I test first", "we don't have much traffic",
-  "we did it, what's next", "what's in my backlog", "only use our own data", "we launch soon, no data yet", "how do we
+  "we did it, what's next", "what's in my backlog", "check my app every week", "only use our own data", "we launch soon, no data yet", "how do we
   win back users who cancelled".
   Also use when a user asks for a growth plan, a monetization audit, hypotheses or test ideas without naming
   one screen, or asks any question about their app's own subscription numbers.
@@ -113,6 +113,14 @@ Shape (the form, not words to copy):
 > **Next steps**
 > 1. You: did anything ship on Google Play around March 3?
 > 2. Me: find why Google Play revenue fell. Want me to?
+
+## Recurring checks
+
+A health check, a test the user is waiting on, and "check my app every week" can run on a
+schedule, as a task the user's agent runs, with its report shown there or posted through a
+connector (Slack, email and the like). Offer one after a health check and after you link a live
+A/B test to its hypothesis; set it up and write its prompt from `references/recurring-checks.md`,
+which also governs a run that starts from one of its prompts and the user's answer to its report.
 
 ## Without an Adapty account
 
@@ -328,7 +336,7 @@ and the reason.
   question that loses the slot joins the first item, except after hypotheses, when it waits for
   the next reply. You will not remember this conversation, so a check
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
-  back and ask, never a "Me:" item.
+  back and ask, never a "Me:" item, unless it is a recurring check ("Recurring checks").
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
   it), one "You:" item asks when it ends. Say how far each arm is from about 200 purchases
   (`references/diagnosis.md`, "Placement metrics"), never which one leads.
@@ -841,6 +849,7 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | I have ideas, which first? | `levers.md`, "Ideas the user brings" |
 | We did it, what's next? | Read what ran and what came out (`diagnosis.md`, "Past tests"), ask only what that leaves open, then `levers.md`, "After a test" |
 | What's in my backlog? How is my test going? | `reads.py backlog` for the app's placements, then `references/backlog.md`, "Coming back" |
+| Check my app every week; tell me when my test is done | `recurring-checks.md` |
 | Any question about the numbers | "Questions about the numbers" |
 
 ## Dashboard steps
@@ -895,7 +904,8 @@ shape to follow, not words to copy:
 > out value per buyer.
 
 - **Type** is one word: `numbers` (a question about the app's data), `ideas` (what to test or
-  change, or a problem brought for help), `decision` ("should I do X"), or `other` (setup, how
+  change, or a problem brought for help), `decision` ("should I do X"), `check` (setting up a recurring check, or acting on what
+  one reported), or `other` (setup, how
   something works, out of scope).
 - **Asked and Answered are a few generic words each.** What the user tried to find out or do, and
   what the reply did: explained a change, gave a split, suggested hypotheses and how many, said
@@ -949,4 +959,5 @@ shape to follow, not words to copy:
 | `references/pricing.md` | Any price: reading, placing, a price hypothesis, its test, a live price change |
 | `references/price-index.csv`, `references/price-response.csv` | Searched from `pricing.md`; never read whole |
 | `references/backlog.md` | Saving hypotheses, starting one, linking its A/B test, putting one live, results |
+| `references/recurring-checks.md` | Offering, setting up or running a check that repeats on a schedule |
 | `references/without-account.md` | A store link, screenshots or code, and no account to read |
