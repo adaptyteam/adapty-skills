@@ -1,11 +1,14 @@
-# Media assets: uploading an image and binding it into a config
+# Media assets: uploading an image or a video and binding it into a config
 
 `flows media upload` puts a local image file on Adapty's CDN and prints the URL to reference from
-a flow config. It is the only asset path an agent has: given a file, an image in an authored flow
+a flow config; `flows media upload-video` does the same for a clip
+([Uploading a video](#uploading-a-video)). Given a file, an image or a video in an authored flow
 is yours to place rather than a user ask.
 
-Everything below was measured against **production** with `adapty` 0.8.0.
-Where a claim rests on a render rather than on the endpoint, it says so.
+The image claims below hold against **production** with `adapty` 0.8.0, except the refusal texts
+in the tables: those are the texts of the current CLI, and an older CLI refuses the same files
+with a `validation_error`. The video limits are the command's own refusals. Where a claim rests
+on a render rather than on the endpoint, it says so.
 
 ## The call
 
@@ -21,8 +24,12 @@ URL: https://public-media.adapty.io/public/1e/5b/1e5bbbb4-.../hero-600x400.png
 ```
 
 The file argument is positional and required; `--app` is the only flag that matters. The printed
-URL is **live immediately** — a `curl` against it returned `200 image/png` in the same second as
-the upload, so there is no propagation wait to build into the workflow.
+URL can answer `200` in the same second, but a preview rendered right after the upload can draw
+the new image blank: render again before you judge a missing asset.
+
+**Upload files one at a time.** Parallel uploads hit `http_429`, and the CLI does not retry an
+upload, so on a rate-limit error pause, then upload the files that failed, one at a time; wait as
+long as the error says when it names a time.
 
 **A config needs three values from this command and the human output carries only two.** The
 JSON body has a fourth key, `preview_base64` — a base64 WEBP thumbnail, thousands of characters
@@ -87,14 +94,18 @@ used.
 
 | Input | Result |
 |---|---|
-| PNG, JPEG, WEBP, GIF | uploads |
-| **SVG** | **`ApiError: http_500`, reproducible** — see below |
-| Anything not an image | `validation_error`: `target_format: value is not a valid enumeration member; permitted: 'JPEG', 'JPEG2000', 'WEBP', 'PNG', 'SVG'` |
+| PNG, JPEG, WEBP | uploads |
+| GIF | refused: `GIF is not supported.` |
+| HEIC | refused: not an image type here; ask for a PNG or JPEG export |
+| a video file (`.mp4`, `.webm`, `.mov`) | refused: `This is a video file. Use flows media upload-video.` ([Uploading a video](#uploading-a-video)) |
+| animated WEBP | uploads, and is served as one still frame: motion is a [`video`](#uploading-a-video) |
+| **SVG** | **`ApiError: http_500`, reproducible**; through the MCP server it has come back as `INVALID_ARGUMENT` — see below |
+| Anything else that is not an image | refused with the list of the image types |
 | ~2.6 MB file | uploads |
 | ~2.95 MB file | bare `http_400`, no message, no `fieldErrors` |
 
-**The size cap is on file bytes, not on dimensions.** Measured both ways: a **3000×2000** PNG at
-22 KB uploaded fine, while a **1150×900** PNG at 3.1 MB was refused. The boundary sits between
+**The size cap is on file bytes, not on dimensions.** A **3000×2000** PNG at
+22 KB uploads fine, while a **1150×900** PNG at 3.1 MB is refused. The boundary sits between
 2,599,724 bytes (accepted) and 2,950,946 bytes (refused), so treat **~2.5 MB as the working
 ceiling**. A bare `http_400` with an empty `fieldErrors` on this command means *too large* — the
 endpoint says nothing else, so do not go hunting for a config problem.
@@ -109,7 +120,7 @@ endpoint is a downgrade, not a workaround.
 **Exit codes:** `0` on success, `1` on any API refusal, `2` on an unreadable local file
 (`Cannot read file: ./nope.png`). Read the exit code, not the presence of output.
 
-**The upload is not idempotent and does not deduplicate.** The same bytes uploaded twice produced
+**The upload is not idempotent and does not deduplicate.** The same bytes uploaded twice produce
 two different ids and two different URLs (516395 and 516396). So **upload once per asset and reuse
 the URL** through the whole preview loop; re-running the upload each iteration silently litters the
 app's media library with duplicates that nobody will be able to tell apart.
@@ -133,7 +144,7 @@ Work down this ladder and take the first rung that fits:
 2. **A flat or linear-gradient surface → a `fill`** (with `stops`), on a stack you already have.
 3. **A composition → stacks**, using the layout vocabulary before padding or docking.
 4. **Nobody has a file → a styled empty `image` and an ASK** (trap 5). This is rung 4, not the
-   last rung, and that ordering was measured the expensive way — see below.
+   last rung — see below for what skipping it costs.
 5. **Only when the ask cannot be answered:** cut it out of the reference
    ([`crop.py`](crop.py), below), or draw and rasterize it. A crop first, since their pixels beat
    your approximation of them.
@@ -152,17 +163,15 @@ someone else's design is excluded on provenance anyway. **So for every legitimat
 strictly dominates.** Crop and draw are for the narrow case where the ask cannot be answered: an
 unattended run, or a graphic that exists only inside a flattened mockup.
 
-Measured, and it is why this is stated so bluntly: across three agent runs on a reference built for
-this exact rung, **two reached the correct outcome by asking and never touched `crop.py`, while the
-one that cropped produced the worst artifact of the three.** The rung is real; it is just not where
-you go first.
+**Asking reaches the correct outcome without touching `crop.py`; cropping first produces the
+worst artifact.** The rung is real; it is just not where you go first.
 
 ### Cutting a graphic out of a reference
 
 `crop.py ref.png out.png --box x0,y0,x1,y1 [--key] [--fit WxH]` — stdlib, PNG in / PNG out,
 8-bit non-interlaced (a macOS screenshot qualifies, a JPEG does not). `--key` floods the backdrop
 away from the border inward, ramps alpha across the anti-aliased band and unpremultiplies it, so
-the cutout composites with no rim. Alpha survives the upload round trip (measured — see above), so
+the cutout composites with no rim. Alpha survives the upload round trip (see above), so
 a transparent crop is a shipping-grade asset.
 
 It **refuses** rather than guessing, and the refusals are the useful part:
@@ -190,7 +199,7 @@ canvas with margin baked in.
 ### Three things never become an image
 
 **Text — drawn by you OR cropped from a reference.** Never bake words into a bitmap: a rasterized
-price is the exact "renders perfectly, ships a lie" failure this skill has already produced once,
+price is the exact "renders perfectly, ships a lie" failure,
 and a missing typeface is a named ask, never a reason to draw the sentence.
 
 **An asset that will never arrive has an exit, and it is not a crop.** When the reference is
@@ -198,12 +207,11 @@ someone else's screen the user cannot supply the file at all, so the placeholder
 that is the case for the missing-assets block's third route, *design around it*
 ([fidelity.md](fidelity.md)). It is the user's call to make, never yours to assume.
 
-> **The crop rung is the easy way to break this, and it was measured breaking it.** This rule used
-> to read "text you would be rasterizing **yourself**", which is about *drawing* — and a crop is
-> not drawing, so the exclusion did not obviously reach it. An agent cropped a whole
-> server-list card out of a reference, baking in `SERVER LOCATIONS`, `United States`,
-> `21.170.236.49`, `Connected` and `Ready`: untranslatable, and the server names and IP are
-> **live app data that must never be a picture**. It rendered perfectly and nothing objected.
+> **The crop rung is the easy way to break this.** The rule covers a crop as well as a drawing:
+> crop a whole server-list card out of a reference and you bake in `SERVER LOCATIONS`,
+> `United States`, `21.170.236.49`, `Connected` and `Ready` — untranslatable, and the server names
+> and IP are **live app data that must never be a picture**. It renders perfectly and nothing
+> objects.
 > **Crop a graphic, never a region containing text or data.** If the region you want is mostly
 > text, it is a composition, not an asset — build it, and crop only the graphic inside it.
 
@@ -220,11 +228,25 @@ correct, and it ships disclosed.
 `image` carrying a `groupId` is inert. So plan cards, toggles and tab bars cannot be pictures of
 themselves, however much easier the picture looks.
 
-**Anything whose colour must follow the theme.** An image has **no** appearance variant — its
-catalog entry is keyed by *locale*, and `ImageProps` has no light/dark hook anywhere. A themed
-colour does (`light`/`dark` per entry in `theme.colors`), and this is not hypothetical: two of the
-four corpus fixtures define a dark variant for **every** colour they declare (14/14 and 11/11). A
-bitmap with a baked-in background is the thing that breaks, which is why:
+**Anything whose colour must follow the theme — unless you upload a dark file too.** A bitmap
+with a baked-in background breaks the moment the app switches to dark mode, while every colour
+around it flips: themed colours carry `light`/`dark` per entry in `theme.colors`, and two of the
+four corpus fixtures define a dark variant for **every** colour they declare (14/14 and 11/11).
+An image can follow the appearance only with a second file:
+
+- **An `image` element takes `imageDark`** beside `image`, and a `video` takes `videoDark`
+  beside `video`. Both are catalog refs of the same kind as their light field, keyed by locale.
+  The device shows the dark file in dark mode and the light one otherwise; either alone shows
+  in both. `flowkit.image(url, dark=dark_url, dark_preview=..., dark_media_id=...)` emits it. A
+  dark entry with no default-locale value shows the light file in dark mode wherever that
+  locale is missing, with a warning.
+- **A background** follows the appearance through a theme colour written as a layer stack — one
+  image for light, another (or a gradient) for dark — with the screen or card filled by a
+  reference to that colour ([flow-schema.md](flow-schema.md), trap 26). The image layer takes
+  the same `{id, url, previewValue}` as an image fill, and `flowkit.image_fill()` emits it.
+
+Upload both files either way. When the user has only one, design the graphic so it works on
+both surfaces, which is why:
 
 ### If you do rasterize
 
@@ -233,7 +255,7 @@ bitmap with a baked-in background is the thing that breaks, which is why:
   screen with no matte or white box. A transparent glyph is the only bitmap that is theme-safe,
   because the screen's own background shows through it.
 - **Draw at 2–3× the box** and size the element in points; the box is in points and the asset
-  scales to it (measured), so the source resolution is free. *Not* device-measured — the preview
+  scales to it, so the source resolution is free. *Not* confirmed on a device — the preview
   renderer is not a retina device — so treat crispness on hardware as something the device check
   confirms.
 - **Rasterize with the Chrome `shoot.sh` already uses** — no Pillow needed. Draw the SVG with a
@@ -263,7 +285,7 @@ silent defect — no gate catches it (see below).
 {"id": "el_PSJTQ6QeQt", "type": "image", "props": {
   "image": {"_lid": "lc_9"},
   "width": {"type": "fixed", "value": 242}, "height": {"type": "hug"},
-  "objectFit": "cover", "borderRadius": {"tl": 20, "tr": 20, "bl": 20, "br": 20}}}
+  "objectFit": "fit", "borderRadius": {"tl": 20, "tr": 20, "bl": 20, "br": 20}}}
 ```
 ```json
 "lc_9": {"kind": "image", "values": {"en": {
@@ -277,22 +299,44 @@ is also what `flowkit.image()` emits — and run `localization.py catalog` over 
 ([flow-schema.md](flow-schema.md#localization-the-catalog)).
 
 **A background fill** on a screen's or stack's `props.fill` takes the image **flat**, with no
-ref and no catalog entry:
+ref and no catalog entry, as one layer of the fill array — what `flowkit.image_fill()` emits. An
+image layer holds only `type`, `image` and `customMediaID`; a colour is a layer of its own
+([flow-schema.md](flow-schema.md#a-fill-is-a-layer-stack-bottom-to-top)):
 
 ```json
-"fill": {"type": "image",
-         "image": {"id": "516395", "url": "https://…/hero.png",
-                   "previewValue": "UklGRhQJAABXRUJQVlA4…"},
-         "color": {"type": "hex", "hex": "#FFFFFF"}}
+"fill": [{"type": "image",
+          "image": {"id": "516395", "url": "https://…/hero.png",
+                    "previewValue": "UklGRhQJAABXRUJQVlA4…"}}]
 ```
 
+**Upload an opaque file for a background fill.** On a device, the transparent part of a fill's
+image shows black, and an opaque file fixes it. Whether a colour layer under the
+image shows through instead is not verified: the preview draws it, a device may not. So with a
+transparent file, tell the user the transparent area can show black on a phone, and ask for an
+opaque version or a device check of that area. A screen-sized background
+belongs here, not in an `image` element positioned `absolute` or `fixed`: that one takes the
+taps of everything beside it ([flow-schema.md](flow-schema.md), trap 9).
+
+**A photo over a flexible-height band: crop the file to the band's shape.** An image fill draws
+at the file's natural aspect, so a hero stack whose height grows leaves a gap under the photo.
+The fix: crop the file to the band's rendered aspect (`crop.py --box` for a PNG),
+upload it, and put it in that stack's own `fill`; render the tallest device to check the edge.
+
 Because the element form is localizable, **a different asset per locale is expressible** — the
-entry's `values` is keyed by locale id exactly like copy. A fill is not localizable, so a background
-that must change per language has to be an element.
+entry's `values` is keyed by locale id exactly like copy. A fill's image can be localized too: its
+`image` may be a `{_lid}` ref to an `image` catalog entry instead of the flat value, and that is
+how the Flow Builder stores one — it rewrites the inline image of a fill or a theme colour into a
+ref when the flow is opened, so a re-fetched config shows refs where you wrote URLs.
+`localization.py catalog` mints refs for elements only, so a background that must change per
+language is simplest as an element; a fill ref you write needs its catalog entry beside it.
 
 **Write the `id` as a string.** The command prints a number and `--json` returns a JSON integer
 (`"id": 516395`), while the schema's `Image` declares `id` as a required `string` and every real
 builder export carries it quoted. Stringify it as you bind it.
+
+**A script that swaps URLs matches image objects (`{id, url}`), never the key `url`:** an Open URL
+action's `payload.url` can be a `{_lid}` ref, an object whose per-locale values sit in the catalog,
+and a walker that expects a string there crashes.
 
 ## `previewValue`: what the user sees before the image arrives
 
@@ -365,10 +409,10 @@ report and offer rather than to make silently.
 
 ## No publish gate catches an image defect. Only the render does.
 
-Measured on one config, five ways — real URL with a string `id`, with a numeric `id`, with no
+On one config, five ways — real URL with a string `id`, with a numeric `id`, with no
 `id` at all, with no `previewValue`, and with an empty entry:
 
-- **`flows config validate` returned `valid: true` for all four.** An image is not part of the
+- **`flows config validate` returns `valid: true` for all four.** An image is not part of the
   publish gate, so **a flow whose hero is still an empty placeholder publishes cleanly** and ships
   an "Upload Image" checkerboard to real users.
 - **The schema step catches the shape defects and nothing else.** A numeric or missing `id` is a
@@ -391,9 +435,12 @@ boxes for one 600×400 (1.5:1) asset in a 242-wide slot:
 | `fixed: 300` | `fit` | 242×161, centred | the box wins, the asset letterboxes inside it, leaving **139 px of dead band** |
 | *empty `values`* | — | **242×256** | the placeholder checkerboard, near-square whatever the real asset's aspect is |
 
-Two consequences an author acts on:
+Three consequences an author acts on:
 
-**A placeholder does not occupy the space the real asset will.** The empty map drew **95 px taller**
+**`cover` needs a box that no `hug` sizes, its own or a parent's.** Under a `hug` width or inside a
+`hug` parent, iOS draws it a few points tall: give it a `fixed` height, or use `fit`.
+
+**A placeholder does not occupy the space the real asset will.** The empty map draws **95 px taller**
 than the same element with the real 3:2 image — on a 932 px screen, a tenth of the height, and
 everything below it moves. A layout previewed with placeholders is a layout that has not been
 checked. Upload first.
@@ -401,9 +448,9 @@ checked. Upload first.
 **Crop transparent margins off before you upload: the BOX is the asset, so padding baked into a
 PNG becomes layout.** An `image` box is filled by the whole canvas, alpha included, so a glyph
 centred in a generously-padded export draws smaller than its box and pushes its neighbours away by
-the difference. Measured across a six-asset set exported from a design file: the opaque
-ink was **65–87%** of the canvas height (`ink/canvas` of 0.649, 0.706, 0.707, 0.724, 0.735, 0.870),
-so a 302 px box drew a 196 px illustration and spent **106 px on nothing**. Sizing the box to the
+the difference. In a six-asset set exported from a design file the opaque
+ink is **65–87%** of the canvas height (`ink/canvas` of 0.649, 0.706, 0.707, 0.724, 0.735, 0.870),
+so a 302 px box draws a 196 px illustration and spent **106 px on nothing**. Sizing the box to the
 *visible* artwork then requires dividing by that ratio per asset, which is guesswork; cropping to
 the alpha bounding box first makes the box the artwork and the arithmetic disappear.
 
@@ -414,7 +461,7 @@ im.crop(im.getchannel('A').getbbox()).save('out.png')"
 
 Two riders. **Crop before the first upload, not after** — the upload does not deduplicate and
 `flows media` has no delete, so a re-crop leaves the uncropped copies in the user's library
-permanently (this cost six orphans on the build that produced this note; disclose them). And
+permanently (disclose them). And
 because the box is in **points** while the asset scales to it, upsample the crop 2–3× on the way
 out: it costs bytes well inside the ~2.5 MB cap and keeps the artwork crisp on a retina device,
 which no preview render can confirm.
@@ -427,42 +474,89 @@ spacing bug rather than as an image, so prefer `cover` unless the whole asset mu
 
 ## Still out of reach
 
-- **SVG upload** — `http_500` (above). Icons stay authored inline in `_meta.icons`.
-- **Video.** No CLI path for the *source* — but the element is not out of reach. Place a real
-  `video` element with `customMediaID`/`video` unset: it renders a styled **"Upload Video"**
-  placeholder (like an empty `image`), publishes clean (`validate` → `valid: true`, measured),
-  and the user binds the clip in the builder. Style it (`loop`, `objectFit`,
-  `borderRadius`, fixed height) and report it as an upload ask. **Never** substitute a `stack` with
+- **SVG upload** — `http_500`, or `INVALID_ARGUMENT` over MCP (above). Icons stay authored inline in `_meta.icons`.
+- **A clip nobody has a file for, or a CLI with no `upload-video`.** The element is not out of
+  reach: place a real `video` element with `customMediaID`/`video` unset. It renders a styled
+  **"Upload Video"** placeholder (like an empty `image`), publishes clean (`validate` →
+  `valid: true`), and the user binds the clip in the builder. **Never** substitute a `stack` with
   a Play icon — that ships a lookalike of a different element type (flow-schema.md trap 5).
-  Use [`flowkit.video()`](flowkit.py) or the catalog's `video-hero` / `video-card`; both emit the
-  element with no source and refuse to be handed one. See **The video placeholder** below for the
-  three measurements that shape it.
+  See [The video placeholder](#the-video-placeholder).
 - **Fonts.** Still a manual Flow Builder upload; a typeface the account lacks is a named ask, not a
-  silent substitution.
-- **Deleting or listing uploaded media.** `flows media` has only `upload`, so an upload cannot be
+  silent substitution. No CLI command lists an app's fonts: a font uploaded in the builder reaches
+  the config only once the user saves the flow there, so `config get` again before you reference it.
+- **Deleting or listing uploaded media.** `flows media` only uploads, so an upload cannot be
   undone from the CLI — one more reason not to re-upload per iteration.
+
+## Uploading a video
+
+Given a clip file (a path, as for an image: [Getting the file](#getting-the-file-the-upload-needs-a-path-not-a-picture)),
+upload it once and keep the `--json` record, exactly as for an image:
+
+```bash
+mkdir -p media
+$ADAPTY flows media upload-video ./intro.mp4 --app "$APP" --json > media/intro.json
+```
+
+Over MCP there is no video upload tool yet: use the CLI, else [the placeholder](#the-video-placeholder).
+
+**The command is newer than `flows media upload`.** When `$ADAPTY flows media upload-video --help`
+says there is no such command, try `npx --yes adapty@latest flows media upload-video --help` once
+(and the beta, as `SKILL.md` says for any missing command). Still missing, or the upload fails
+with HTTP 404 (`http_404`, exit 4): say that video upload is not available yet, and use [the placeholder](#the-video-placeholder) — the user uploads the clip in the builder.
+
+| Input | Result |
+|---|---|
+| `.mp4` or `.webm`, at most 30 s, width and height each at least 640 px, at most 50 MiB | uploads |
+| another extension (`.mov`, an animated `.webp`) | `Only mp4 and webm videos are allowed.` |
+| GIF, under any extension | `GIF is not supported.` |
+| longer than 30 s | `Video duration should not exceed 30 seconds` |
+| width or height under 640 | `Video resolution should be at least 640x640` |
+| over 50 MiB | `File size must not exceed 50 MiB.` |
+
+Each refusal stores nothing. Ask for a clip that fits, in the user's words: an mp4 or webm, 30
+seconds or less, at least 640 px on its shorter side. The call returns after the server has
+transcoded the clip, so a long clip takes a while: wait for it, and never run it twice for one
+file — the upload does not deduplicate.
+
+**The record holds five values, and the config binds four.** `{video_url, preview_url,
+preview_base64, width, height}`: `video_url` is an HLS playlist (it ends in `master.m3u8`),
+`preview_url` a still frame the renderer shows until the clip plays, `width` and `height` the
+pixel size of the largest rendition, with the clip's aspect ratio. `preview_base64` is not part of
+a video value; leave it in the file. The video value is:
+
+```json
+"video": {"_localizable": true, "values": {"<defaultLocaleId>": {
+  "videoUrl": "<video_url>", "previewUrl": "<preview_url>", "width": 1080, "height": 1920}}}
+```
+
+`flowkit.video(fixed_h=220, source='media/intro.json')` reads the record and emits it, and
+`dark_source=` the dark file's record (`videoDark`). Bind the default locale only, as for an
+image ([flow-schema.md](flow-schema.md) trap 1), then run `localization.py catalog` over the
+document. Give the element a fixed height from the design all the same: the clip absorbs the
+mismatch (`cover` crops it, `fit` leaves bands). Render the screen after the bind to check the
+layout; that the clip plays is a device check, so say it was not checked on a device.
 
 ## The video placeholder
 
-Everything here was measured against the real transform service and the render, because a video is the one asset whose upload is **never** the
-agent's — so the placeholder is not a provisional state to be cleared later in the same run, it
-is what gets handed over.
+Everything here holds against the real transform service and the render. The placeholder is
+for a clip nobody has a file for, and for a CLI with no `upload-video`
+([Uploading a video](#uploading-a-video)): then the upload is the user's, in the builder, so the
+placeholder is what gets handed over.
 
-**It is publishable, and it reaches a device.** An unset `video` returned `valid: true, issues:
+**It is publishable, and it reaches a device.** An unset `video` returns `valid: true, issues:
 []` in three forms — fully styled, with an empty entry, and bare with nothing but a
-`position`. The transform service maps `video`, so unlike [`old-price`](flow-schema.md) it is not
-a preview-only element.
+`position`. The transform service maps `video`.
 
 **A fixed height is the one thing that matters, and `hug` is the trap.** With `height: fixed`
-the box is honoured to the point — `fixed_h: 200` drew exactly 200. With `height: hug` the
+the box is honoured to the point — `fixed_h: 200` draws exactly 200. With `height: hug` the
 placeholder draws an arbitrary **256pt**: the renderer's default, the same box an empty `image`
 draws, and no function of a clip nobody has uploaded yet. So a hug-height video means the
 layout that was previewed and approved is not the layout that ships, and everything below the
 video moves when the file lands. `flowkit.video()` therefore has no default for `fixed_h`, and
 `verify-config.py` warns on a hug height.
 
-**The checkerboard ignores `borderRadius` — author it anyway.** Corner profiles measured flat at
-`borderRadius: 16`, and an empty `image` at the same radius measured **identical**, so this is
+**The checkerboard ignores `borderRadius` — author it anyway.** Corner profiles are flat at
+`borderRadius: 16`, and an empty `image` at the same radius draws **identical**, so this is
 the placeholder drawing unclipped rather than anything video-specific. Do not "fix" the square
 corners you see in the preview by deleting the radius: it is what the clip lands into, and the
 radius is also what makes the box read as part of the design instead of a default block. The
@@ -476,5 +570,62 @@ should not have to.
 `layout`**. To place it, position the parent stack.
 
 **Not observed in any real export.** 0 `video` elements across the 12 tracked and raw configs,
-so this shape is authored from the schema plus the measurements above — evidence tier 3, not a
+so this shape is authored from the schema plus the render checks above — evidence tier 3, not a
 read off builder output. Treat the device check as load-bearing rather than ceremonial.
+
+**Once the user has uploaded the clip, read the config back and check every locale.** `video` is a
+catalog ref like an image's, and its value — `{previewUrl, videoUrl, width?, height?}` — is kept
+per locale. A builder upload can land only under a non-default locale; every other
+language then falls back to the empty default and shows no clip. So after their upload,
+`flows config get`, follow the element's `video` (and `videoDark`) ref into
+`localization.content`, and confirm the default locale holds a `videoUrl`. If only another locale
+does, ask the user to switch the builder to the default language and upload it there.
+
+**Weigh the clip, and say what to upload.** The builder transcodes the upload to HLS (one
+rendition, no smaller variant), so the file's size is roughly what every phone downloads, and the
+transcode drops transparency: a transparent WebM plays on an opaque box, so ask for a clip whose
+background is the design's own. `weigh-config.py` reads
+a bound clip's size with a HEAD request and flags one over 5 MB. For a file the user has not
+uploaded yet: `stat -f%z clip.mp4` (macOS) or `stat -c%s clip.mp4` (Linux) for the bytes, and,
+when `ffprobe` is installed, its codec, size, bit rate and whether it has an audio track:
+
+```bash
+ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,bit_rate -of compact clip.mp4
+```
+
+A stock Mac has no `ffprobe`, and neither `mdls` nor `afinfo` reads a clip's
+streams, so without it report the bytes and say the rest was not checked. `avconvert`, which a
+Mac does have, is not a way to shrink one: its presets set the resolution, and a 720p preset makes a
+4.3 MB clip 11 MB. What to ask for: H.264, at least 640 px and about 720 px on the shorter side
+(the upload refuses less than 640), under 5 MB, and no audio track on a silent loop — the
+element has no mute setting, so a track is weight at best.
+
+## Weighing a config before a write or a publish
+
+Run `python3 references/weigh-config.py draft.json` on the bytes you are about to write (`SKILL.md` phase 5).
+
+It weighs the config itself (mostly image previews, one per image per locale that has its own
+value) and asks the asset host for each file's size and pixel size; nothing is downloaded whole.
+**Exit 1 fills the weight slot of the ask below** with the three sentences it prints under "Say
+this"; its details are for the user's questions and for the fixes. Exit 0 drops the slot. Files it
+lists as not measured get one more sentence: their size was not checked. The weight never blocks a save: it is the user's call. On their yes to a fix, apply it
+to the draft, run phase 3's gates and the weigh again, and re-render a screen whose image changed:
+
+- **A copy of the default's image in another locale:** delete it. Nothing on screen changes
+  ([flow-schema.md](flow-schema.md) trap 1).
+- **A heavy PNG or JPEG** (a heavy GIF is the builder's: its WebP would play one frame, so offer
+  a `video` from an mp4 of it instead): download it, convert it, upload the WebP and rebind every place
+  that uses it. `--max-width` is 3× the widest box it fills, in points; the default, 1290, fits a
+  full-width image. The old file stays in their media library: the upload cannot delete.
+  ```bash
+  mkdir -p media && curl -sSfo media/hero-src.png "<url the weigh printed>"
+  python3 references/weigh-config.py webp media/hero-src.png media/hero.webp [--max-width <px>]
+  $ADAPTY flows media upload --app "$APP" media/hero.webp --json > media/hero.json
+  python3 references/weigh-config.py swap draft.json "<url the weigh printed>" media/hero.json
+  ```
+- **An image with its own file in many languages:** offered in the slot like the others, as one
+  choice between two routes. On "one image": move the words into a text element and show that
+  screen like any other change. On "split": build one flow per language group here and hand the
+  audiences to the `audiences` skill.
+- **A heavy video:** theirs to re-encode; say the size it should get under, and on the new file
+  upload it again ([Uploading a video](#uploading-a-video)) and rebind the element.

@@ -4,7 +4,10 @@ Platform: iOS · Language: Swift · UI: SwiftUI or UIKit
 
 ## Prerequisites
 
-- iOS 15.0+ (iOS 13+ for core module only, but StoreKit 2 and AdaptyUI require 15+)
+- iOS 15.0+ (iOS 13+ for core module only, but StoreKit 2 and AdaptyUI require 15+). Flows need
+  **iOS 16 from SDK 4.4**: read the app target's deployment target; at 15, wrap every flow call
+  and view in `if #available(iOS 16, *)` and give iOS 15 users the app's own screen, or the build
+  fails
 - Xcode with Swift Package Manager
 
 ---
@@ -117,7 +120,7 @@ final class AdaptyService: NSObject, ObservableObject, AdaptyDelegate {
     }
 
     // Called automatically when Adapty detects a subscription change
-    func didReceiveUpdatedProfile(_ profile: AdaptyProfile) {
+    func didLoadLatestProfile(_ profile: AdaptyProfile) {
         self.profile = profile
     }
 }
@@ -143,7 +146,7 @@ curl -s https://api.github.com/repos/adaptyteam/AdaptySDK-iOS/releases/latest | 
 
 It must print `4.` or higher. If it prints nothing — no network, a proxy, no `curl`, or a GitHub rate limit — **stop and ask the user** for the current version from [the releases page](https://github.com/adaptyteam/AdaptySDK-iOS/releases) rather than guessing one. If it prints a `5.` or higher, stop: Stage 2 below is written against v4, so say so and ask whether to take the newest v4 or to proceed and adapt.
 
-Tell the user to do this in Xcode:
+Tell the user to do this in Xcode — or, when nobody is at Xcode (an unattended run), do it yourself in `project.pbxproj` (see below the steps):
 
 1. **File → Add Package Dependencies...**
 2. Enter the repository URL:
@@ -159,9 +162,13 @@ Tell the user to do this in Xcode:
 6. Click **Add Package**
 7. Verify: "Adapty" (and "AdaptyUI" if selected) should appear under **Package Dependencies** in the project navigator
 
+**Nobody to click through Xcode:** copy `project.pbxproj` aside, then add the four entries Xcode would: an `XCRemoteSwiftPackageReference` for the repository URL with `kind = upToNextMajorVersion` and `minimumVersion` set to the printed version, listed in the project's `packageReferences`; an `XCSwiftPackageProductDependency` named `Adapty` pointing at it (and one named `AdaptyUI` on the Flow Builder path), listed in the app target's `packageProductDependencies`; and a `PBXBuildFile` for each product in that target's Frameworks build phase. Then run `xcodebuild -resolvePackageDependencies` and build. Say in `ADAPTY_SETUP.md` that you edited the project file by hand, so the user knows to look at it in Xcode.
+
 **If the project uses a `Package.swift` manifest instead of the Xcode UI:** add `.package(url: "https://github.com/adaptyteam/AdaptySDK-iOS.git", from: "<version-printed-by-the-command-above>")` to the `dependencies` array. `from:` carries the same up-to-next-major semantics as the Xcode rule, so the resolved version goes in as the floor and SwiftPM keeps it current within the major.
 
 If the project is already on a 3.x package, this is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-ios-sdk-v4.md) for the paywall-to-flow API rename, then [Migrate to v4.1](https://adapty.io/docs/migration-to-ios-sdk-41.md) for the attribution changes below.
+
+**A project already on 4.0–4.3 is an upgrade too:** the up-to-next-major rule moves it to the latest 4.x, and 4.3 and 4.4 break code that builds today. From 4.3, `localizedPrice` and `currencyCode` are never `nil` (an `if let` on them stops compiling) and a `switch` over every error code needs `billingPlanUnavailable` or a `default`. From 4.4, flows need iOS 16 (see Prerequisites), a custom action is `case let .custom(id, _)` (Stage 2), custom assets are `AdaptyUIAsset` with new color and font parameters, and **the fallback file must be downloaded again** with the new `--sdk-version` (`references/fallbacks.md`) — an old one fails silently, with no build error. Apply the [4.3.0](https://github.com/adaptyteam/AdaptySDK-iOS/releases/tag/4.3.0) and [4.4.0](https://github.com/adaptyteam/AdaptySDK-iOS/releases/tag/4.4.0) release notes, build, and download the fallback file again.
 
 Use `AskUserQuestion` to confirm the package was added successfully before proceeding.
 
@@ -219,6 +226,8 @@ The SDK key comes from `AppConstants` — already set in the recommended archite
 
 **Checkpoint:** App builds and runs without errors. Xcode console shows an Adapty activation log line.
 
+**Gotcha:** `enum case 'info' is not available due to missing import of defining module 'AdaptyLogger'` on the log-level line → the project enables the `MemberImportVisibility` upcoming Swift feature, and the log levels live in the separate `AdaptyLogger` module. Add `import AdaptyLogger` to the file that sets the log level.
+
 **Gotcha:** "Public API key is missing" or silent failure → the placeholder wasn't replaced with the real key from App settings → General → API keys.
 
 ---
@@ -237,6 +246,8 @@ https://adapty.io/docs/ios-present-paywalls.md
 https://adapty.io/docs/ios-handling-events.md
 https://adapty.io/docs/handle-paywall-actions.md
 ```
+
+**A custom action from 4.4 carries arguments:** match it as `case let .custom(id, _)` (or `.custom(id, arguments)`). A docs snippet written `case let .custom(id)` binds a tuple on 4.4, so comparing `id` to a string does not compile.
 
 **v4 API names:** Flow Builder uses the new `getFlow` / `AdaptyFlow` / `AdaptyFlowController` / `.flow()` / `AdaptyFlowView` family. The same APIs also render existing Paywall Builder paywalls — no dashboard changes are required for users migrating from Paywall Builder.
 
@@ -278,7 +289,18 @@ let products = try await Adapty.getPaywallProducts(flow: flow)
 
 **v4 note:** Even for custom paywalls, the v4 SDK uses `getFlow` / `AdaptyFlow` for the fetch — but products are still `AdaptyPaywallProduct` and `getPaywallProducts(flow:)` is the right call to fetch them. `getPaywallProductsWithoutDeterminingOffer` is removed; all products now include offer information.
 
-**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the sandbox purchase dialog. A restore button calls `restorePurchases()`.
+**Log each view of the paywall.** Adapty records every purchase on a custom paywall but cannot see
+when your own screen appears, so the app reports it. Call `logShowFlow` once each time the paywall
+screen is shown to the user, not when the data loads. Without it, the paywall's views stay at zero,
+and its view → paid conversion and every A/B test result on it stay empty, with no error. Only for a
+custom paywall: a Flow Builder flow logs its own views, and a second call counts each view twice.
+
+```swift
+// Once, when the custom paywall screen appears
+try await Adapty.logShowFlow(flow)
+```
+
+**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the sandbox purchase dialog. A restore button calls `restorePurchases()`. Opening the paywall calls `logShowFlow` once.
 
 **Gotcha:** Empty products array → paywall in the dashboard has no products assigned, or placement has no audience.
 
@@ -488,7 +510,7 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 > 2. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
 > 3. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
 > 4. **Kids mode** — COPPA-compliant mode that disables IDFA and ad data collection
-> 5. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
+> 5. **A/B testing** — test two paywalls or flows against each other, with no app update
 > 6. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
 
 For each item the user picks, fetch the relevant doc and implement it:
@@ -499,8 +521,10 @@ For each item the user picks, fetch the relevant doc and implement it:
 | Promotional offers | `app-store-offers`, `create-offer` |
 | Onboardings | `get-onboardings`, `ios-present-onboardings`, `ios-handling-onboarding-events` |
 | Kids mode | `kids-mode` |
-| A/B testing | `ab-tests`, `run_stop_ab_tests` |
+| A/B testing | None to implement: nothing changes in the app. Invoke the `ab-tests` skill, which creates the test and starts it on the user's yes |
 | Custom access levels | `create-access-level`, `assigning-access-level-to-a-product` |
+
+**Kids mode does not stop Apple Search Ads attribution:** the `KidsMode` trait compiles out IDFA, AdSupport and App Tracking Transparency only; the SDK still fetches the AdServices attribution token once per profile and sends it to Adapty, and no SDK setting turns that off. That is SDK behaviour the Kids Mode page does not state, so don't cite the page for it.
 
 ```bash
 curl -s https://adapty.io/docs/<slug>.md

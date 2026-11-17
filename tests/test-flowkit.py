@@ -213,6 +213,91 @@ def main():
     check('navigate payload is {type: screen, screen: id}',
           fk.navigate('scr_x')['payload'] == {'type': 'screen', 'screen': 'scr_x'},
           json.dumps(fk.navigate('scr_x')['payload']))
+    check('navigate(transition=kind) writes the builder defaults',
+          fk.navigate('s', transition='slideIn')['payload']['transition']
+          == {'type': 'slideIn', 'direction': 'up', 'easing': 'ease-out',
+              'duration': 350, 'delay': 0})
+    check('screen_transition overrides one setting',
+          fk.screen_transition('push', direction='up')['direction'] == 'up')
+    check('none carries only its type',
+          fk.navigate('s', transition='none')['payload']['transition'] == {'type': 'none'})
+    # On Appear: auto-advance is a navigate whose transition delay is the wait, a delayed
+    # reveal a Show with an animation delay; both ride one screen-appear interaction.
+    hint = fk.stack([fk.text('X', preset='h2')], visibility=fk.hidden(), actions=[fk.close()],
+                    node_id='el_hint')
+    appear_scr = fk.screen('scr_wait', [fk.text('Wait', preset='h2'), hint],
+                           on_appear=fk.on_appear(fk.auto_advance('scr_next', 3000),
+                                                  fk.show_elements(['el_hint'], animation='fade')))
+    first = appear_scr['elements']['map'][appear_scr['elements']['hierarchy']['children'][0]['id']]
+    inter = (first.get('interactions') or [{}])[-1]
+    check('on_appear goes on the first root element as a screen-appear interaction',
+          inter.get('trigger') == 'screen-appear' and len(inter.get('actions', [])) == 2, str(inter))
+    check('auto_advance waits in the transition delay',
+          fk.auto_advance('s', 2500)['payload']['transition']
+          == {'type': 'push', 'direction': 'left', 'easing': 'ease-out', 'duration': 350,
+              'delay': 2500})
+    check('show_elements(animation=kind) writes the builder defaults',
+          fk.show_elements(['el_a'], animation='rise')['payload']['animation']
+          == {'type': 'rise', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'distance': 32})
+    check('a delay alone is the none kind, with the duration and easing the schema requires',
+          fk.element_animation('none', delay=5000)
+          == {'type': 'none', 'duration': 300, 'delay': 5000, 'easing': 'ease-out'})
+    fixed = {'id': 'b', 'props': {'width': {'type': 'fixed', 'value': 300},
+                                  'height': {'type': 'fixed', 'value': 56}}}
+    check('animate() puts a wave on a fixed element',
+          fk.animate(fixed, 'wave-fill')['props']['animation']['waveColor']
+          == {'type': 'hex', 'hex': '#9751F2'})
+    check('loop_animation() takes a wave pulseScaleAmount',
+          fk.loop_animation('wave-outline', pulseScaleAmount=3)['pulseScaleAmount'] == 3)
+    for why, call in (
+            ('auto_advance over 5000 ms moves on at once', lambda: fk.auto_advance('s', 5001)),
+            ('auto_advance of 0 ms is no wait', lambda: fk.auto_advance('s', 0)),
+            ('auto_advance with none has no delay',
+             lambda: fk.auto_advance('s', 1000, transition='none')),
+            ('an unknown element animation', lambda: fk.element_animation('slide')),
+            ('a pop scale of 1', lambda: fk.element_animation('pop', scale=1)),
+            ('an element delay over 60000 ms', lambda: fk.element_animation('fade', delay=60001)),
+            ('a rise takes no scale', lambda: fk.element_animation('rise', scale=0.5)),
+            ('none takes no distance', lambda: fk.element_animation('none', distance=10)),
+            ('a pop scale under 0.1', lambda: fk.element_animation('pop', scale=0.05)),
+            ('a rise distance over 200', lambda: fk.element_animation('rise', distance=201)),
+            ('a rise distance of 0', lambda: fk.element_animation('rise', distance=0)),
+            ('an unknown loop animation', lambda: fk.loop_animation('sparkle')),
+            ('a pulse takes no waveColor', lambda: fk.loop_animation('pulse', waveColor='#FFFFFF')),
+            ('a breathe over 100 %', lambda: fk.loop_animation('breathe', fadeAmount=120)),
+            ('a loop easing it lacks', lambda: fk.loop_animation('glow', easing='spring')),
+            ('a 3-digit glow colour', lambda: fk.loop_animation('glow', glowColor='#FFF')),
+            ('a wave on Fill x Hug', lambda: fk.animate(
+                {'id': 'b', 'props': {'width': {'type': 'fill'}, 'height': {'type': 'hug'}}},
+                'wave-fill')),
+            ('a shimmer on no fill', lambda: fk.animate(
+                {'id': 'b', 'props': {}}, 'shimmer')),
+            ('a shimmer on a theme colour whose dark differs', lambda: fk.animate(
+                {'id': 'b', 'props': {'fill': [{'type': 'color', 'color': fk.color('c')}]}},
+                'shimmer', theme={'colors': [{'id': 'c', 'light': {'hex': '#adbfad'},
+                                              'dark': {'hex': '#ADBFAD'}}]})),
+            ('an empty on_appear', lambda: fk.on_appear())):
+        try:
+            call()
+            check(f'refused: {why}', False)
+        except (ValueError, TypeError):
+            check(f'refused: {why}', True)
+    for why, call in (
+            ('unknown kind', lambda: fk.navigate('s', transition='slide')),
+            ('fadeThrough has no direction',
+             lambda: fk.screen_transition('fadeThrough', direction='up')),
+            ('none has no timing', lambda: fk.screen_transition('none', duration=100)),
+            ('over 5000 ms', lambda: fk.screen_transition('push', duration=5001)),
+            ('fractional ms', lambda: fk.screen_transition('push', delay=12.5)),
+            ('unknown easing', lambda: fk.screen_transition('push', easing='spring')),
+            ('unknown direction', lambda: fk.screen_transition('push', direction='bottom')),
+            ('a dict is checked too', lambda: fk.navigate('s', transition={'type': 'push',
+                                                                          'speed': 'fast'}))):
+        try:
+            call()
+            check(f'screen_transition refuses: {why}', False)
+        except (ValueError, TypeError):
+            check(f'screen_transition refuses: {why}', True)
 
     check('_meta.screens is left empty (builder-owned)', cfg['_meta']['screens'] == {})
 
@@ -265,16 +350,16 @@ def main():
           == [fk.flow_product_id('scr_pro', p) for p in pids])
 
     # exact pairs: a product bound WITH an offer is a different entry and a different id
-    paired = fk.predeclare('scr_pro', [pids[0], (pids[0], 'trial')])['scr_pro']['products']
+    paired = fk.predeclare('scr_pro', [pids[0], (pids[0], '7d1a0e5c-1b2c-4d3e-8f40-000000000001')])['scr_pro']['products']
     check('predeclare accepts a (product, offer) pair', len(paired) == 2)
     check('predeclare carries offerId, in the builder key order',
           list(paired[1]) == ['id', 'offerId', 'flowProductId'], json.dumps(paired[1]))
     check('an offer-bound pair gets its own id',
           paired[0]['flowProductId'] != paired[1]['flowProductId'])
     check('the offer-bound id is the builder\'s',
-          paired[1]['flowProductId'] == fk.flow_product_id('scr_pro', pids[0], 'trial'))
+          paired[1]['flowProductId'] == fk.flow_product_id('scr_pro', pids[0], '7d1a0e5c-1b2c-4d3e-8f40-000000000001'))
     check('a list is accepted where a tuple is',
-          fk.predeclare('scr_pro', [[pids[0], 'trial']])['scr_pro']['products'] == [paired[1]])
+          fk.predeclare('scr_pro', [[pids[0], '7d1a0e5c-1b2c-4d3e-8f40-000000000001']])['scr_pro']['products'] == [paired[1]])
     check('config(meta_screens=...) carries it through',
           fk.config(screens=[], meta_screens=dec)['_meta']['screens'] == dec)
     check('opacity, when given, is a percentage not a fraction',
@@ -290,6 +375,32 @@ def main():
     check('color() refuses a hex colour object, and names hex_color()',
           'hex_color()' in _message(lambda: fk.color(fk.hex_color('#101828')), TypeError))
     check('color() refuses an empty id', raises(lambda: fk.color(' '), TypeError))
+
+    # A fill is a list of layers. A colour id string passed as `fill_` used to be written
+    # through and was caught only by the schema check.
+    check('screen() refuses a colour id as fill_, and names fill()',
+          "fill('bg')" in _message(lambda: fk.screen('scr_f', [fk.text(fk.rich('a'))],
+                                                     fill_='bg'), TypeError))
+    check('screen() refuses a bare color() ref as fill_',
+          'list of layers' in _message(lambda: fk.screen('scr_f', [], fill_=fk.color('bg')),
+                                       TypeError))
+    check('screen() refuses a single layer dict as fill_',
+          'list of layers' in _message(lambda: fk.screen('scr_f', [], fill_=fk.fill('bg')[0]),
+                                       TypeError))
+    check('stack() refuses a colour id as fill_',
+          'list of layers' in _message(lambda: fk.stack([], fill_='bg'), TypeError))
+    check('screen() takes fill(), gradient() and image_fill() layers',
+          fk.screen('scr_f', [], fill_=fk.fill('bg'))['props']['fill'] == fk.fill('bg')
+          and fk.screen('scr_g', [], fill_=fk.gradient(180, ('#FFFFFF', 0), ('#EEEEEE', 1)))
+          ['props']['fill'][0]['type'] == 'gradient')
+    # Actions go in as `actions=`; `interactions=` is the JSON key, not the parameter.
+    check('stack(interactions=...) is refused and names actions=',
+          'actions=[...]' in _message(lambda: fk.stack([], interactions=[{'trigger': 'tap'}]),
+                                      TypeError))
+    _tap = fk.stack([], actions=[fk.purchase('plans')])
+    check('stack(actions=...) writes the interactions block',
+          _tap['interactions'][0]['trigger'] == 'tap'
+          and _tap['interactions'][0]['actions'][0]['type'] == 'purchase')
 
     # distribution has four modes, and only the gap form used to be reachable
     check('default distribution is the gap form',
@@ -386,21 +497,22 @@ def main():
     # image_fill() — the SAME asset binds a second way, flat, with no locale map. There was no
     # helper for it, so a background image was hand-assembled and its preview was the easiest
     # thing to leave out.
-    bg = fk.image_fill(HERO, media_id=516395, preview=PREV, hexval='#0B0B10')
+    bg = fk.image_fill(HERO, media_id=516395, preview=PREV)
     check('image_fill emits one flat layer, preview included',
           bg == [{'type': 'image',
-                  'image': {'url': HERO, 'id': '516395', 'previewValue': PREV},
-                  'color': {'type': 'hex', 'hex': '#0B0B10'}}], json.dumps(bg))
+                  'image': {'url': HERO, 'id': '516395', 'previewValue': PREV}}], json.dumps(bg))
     check('image_fill wraps in a one-item array, like every other v10 fill',
           isinstance(bg, list) and len(bg) == 1)
-    check('image_fill refuses two colour sources',
-          raises(lambda: fk.image_fill(HERO, preview=fk.NO_PREVIEW, color_id='bg',
-                                       hexval='#FFF'), TypeError))
+    # The schema's image layer is additionalProperties: false over type/image/customMediaID, so
+    # a colour on it is refused; a tint is a separate fill() layer.
+    for kw in ({'hexval': '#0B0B10'}, {'color_id': 'bg'}):
+        check(f'image_fill takes no colour ({next(iter(kw))}=)',
+              raises(lambda: fk.image_fill(HERO, preview=fk.NO_PREVIEW, **kw), TypeError))
 
-    # video() — `flows media upload` REFUSES a clip (permitted formats are JPEG/JPEG2000/WEBP/
-    # PNG/SVG), so the only correct artifact is a styled element with NO source plus a spoken
-    # "open the builder and upload it". Before this helper there was no way to emit one from
-    # this module, so a video was hand-assembled or, worse, faked with a stack and a Play icon.
+    # video() — a clip goes up with `flows media upload-video`, and its `--json` record is the
+    # only way a source gets in (`source=`); with no record the artifact is a styled element
+    # with NO source plus a spoken "open the builder and upload it". Before this helper a video
+    # was hand-assembled or, worse, faked with a stack and a Play icon.
     vid = fk.video(fixed_h=220, corner=fk.radius(16), margin=fk.pad(0, 0, 0, 16))
     check('video emits the element type, not a stack lookalike', vid['type'] == 'video')
     check('video carries NO source key at all',
@@ -437,11 +549,69 @@ def main():
             fk.video(fixed_h=200, **{arg: 'https://cdn/x.mp4'})
             return False
         except TypeError as e:
-            return 'takes no source' in str(e) and 'upload the clip' in str(e)
+            return 'takes no source by URL' in str(e) and 'upload-video' in str(e)
 
-    for arg in ('url', 'video', 'media_id', 'customMediaID', 'videoUrl'):
-        check(f'video refuses a fabricated source by name, and says why ({arg})',
+    for arg in ('url', 'video', 'media_id', 'customMediaID', 'videoUrl', 'previewUrl'):
+        check(f'video refuses a bare URL by name, and says why ({arg})',
               refuses_source(arg))
+
+    # source= takes the record `flows media upload-video --json` wrote: its path, its dict
+    # (snake case), or a video value read out of a config (camel case). It binds the flow
+    # config value `{videoUrl, previewUrl, width, height}` for the default locale only.
+    REC = {'video_url': 'https://media.example/video/1/hls/master.m3u8',
+           'preview_url': 'https://media.example/video/1/preview.jpg',
+           'preview_base64': 'UklGRg==', 'width': 1080, 'height': 1920}
+    WANT = {'videoUrl': REC['video_url'], 'previewUrl': REC['preview_url'],
+            'width': 1080, 'height': 1920}
+    bound = fk.video(fixed_h=220, source=REC)
+    check('video(source=record) binds the config value for the default locale',
+          bound['props'].get('video') == {'values': {'en': WANT}, '_localizable': True},
+          bound['props'].get('video'))
+    check('video(source=...) keeps the upload preview_base64 out of the value',
+          'preview_base64' not in json.dumps(bound['props']['video']))
+    check('video(source=...) keeps the fixed height', bound['props']['height']
+          == {'type': 'fixed', 'value': 220})
+    def names_upload_video(fn):
+        try:
+            fn()
+            return False
+        except TypeError as e:
+            return 'upload-video' in str(e)
+
+    with tempfile.TemporaryDirectory() as _tmp:
+        _rec = os.path.join(_tmp, 'intro.json')
+        with open(_rec, 'w') as _fh:
+            json.dump(REC, _fh)
+        from_file = fk.video(fixed_h=220, source=_rec, locale='de')
+        check('video(source=<path>) reads the record file', from_file['props']['video']
+              == {'values': {'de': WANT}, '_localizable': True})
+        check('video(source=<unreadable path>) raises and names the command',
+              names_upload_video(
+                  lambda: fk.video(fixed_h=220, source=os.path.join(_tmp, 'nope.json'))))
+    check('video(source=config value) takes the camel-case value as read',
+          fk.video(fixed_h=220, source=dict(WANT))['props']['video']['values']['en'] == WANT)
+    check('video(source=...) without width and height binds the two URLs only',
+          fk.video(fixed_h=220, source={'video_url': REC['video_url'],
+                                        'preview_url': REC['preview_url']}
+                   )['props']['video']['values']['en']
+          == {'videoUrl': REC['video_url'], 'previewUrl': REC['preview_url']})
+    dark = fk.video(fixed_h=220, source=REC, dark_source=dict(REC, video_url=REC['video_url']
+                                                               .replace('/1/', '/2/')))
+    check('video(dark_source=...) binds videoDark beside video',
+          dark['props']['videoDark']['values']['en']['videoUrl'].endswith('/2/hls/master.m3u8'))
+    check('video(dark_source=...) with no source raises',
+          raises(lambda: fk.video(fixed_h=220, dark_source=REC), TypeError))
+    for name, bad in (('no preview_url', {'video_url': REC['video_url']}),
+                      ('no video_url', {'preview_url': REC['preview_url']}),
+                      ('a non-https url', dict(REC, video_url='clip.mp4')),
+                      ('not a dict', ['x'])):
+        check(f'video(source=...) refuses a record with {name}, naming the command',
+              names_upload_video(lambda bad=bad: fk.video(fixed_h=220, source=bad)))
+    check('video(source=...) refuses width without height',
+          raises(lambda: fk.video(fixed_h=220, source={k: v for k, v in REC.items()
+                                                       if k != 'height'}), ValueError))
+    check('video(source=...) refuses a non-int width',
+          raises(lambda: fk.video(fixed_h=220, source=dict(REC, width='1080')), TypeError))
     check('video enforces the same two-value objectFit enum',
           raises(lambda: fk.video(fixed_h=200, fit='contain'), ValueError))
     # `IVideoElementProps` has no `fill`, no `align` and no `layout` — placement is the parent's
@@ -449,6 +619,35 @@ def main():
     # silently land in props.
     check('video takes no fill (the schema has none)',
           raises(lambda: fk.video(fixed_h=200, fill_=fk.fill('bg')), TypeError))
+
+    # custom_element: a box the app fills; its children are the fallback. Messages are asserted
+    # because `actions` would otherwise land in _node and pass silently.
+    still = lambda: fk.image(fk.PLACEHOLDER, fixed_h=200, fit='fit')
+    ce = fk.custom_element('lottie_animation', 'streak_ring', fixed_h=200, clip=True,
+                           fallback=[still()])
+    check('custom_element emits the builder type with Type and ID in base props',
+          ce['type'] == 'custom-element' and ce['props']['customType'] == 'lottie_animation'
+          and ce['props']['customElementId'] == 'streak_ring')
+    check('custom_element holds a fixed height and clipContent in its layout',
+          ce['props']['height'] == {'type': 'fixed', 'value': 200}
+          and ce['props']['layout']['clipContent'] is True)
+    check('custom_element carries its fallback as children and no interactions',
+          len(ce['_children']) == 1 and 'interactions' not in ce)
+    check('custom_element refuses a Type outside [a-z0-9_]',
+          'lowercase' in _message(lambda: fk.custom_element('Lottie-Anim', 'x', fixed_h=200,
+                                                            fallback=[still()])))
+    check('custom_element refuses a hug box',
+          'collapses' in _message(lambda: fk.custom_element('map', 'x', fixed_h=None,
+                                                            fallback=[still()]), TypeError))
+    check('custom_element refuses an empty fallback',
+          'empty box' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200,
+                                                            fallback=[])))
+    check('custom_element refuses actions, and says the button goes outside',
+          'outside the box' in _message(lambda: fk.custom_element(
+              'map', 'x', fixed_h=200, fallback=[still()], actions=[fk.close()]), TypeError))
+    check('custom_element refuses a fixed fallback child at any depth',
+          'never fixed' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200, fallback=[
+              fk.stack([fk.stack([], position={'type': 'fixed', 'top': 0})])])))
 
     spread_stack = fk.stack([], distribution='space-evenly')
     check('stack passes distribution through',
@@ -522,10 +721,30 @@ def main():
     check('an unknown timer unit raises rather than emitting a bare token',
           raises(lambda: fk.timer_digits(units=('hours', 'mins'))))
 
+    # timer_total_hours is every hour left (72 for 3 days); timer_hours wraps at 24, so a
+    # countdown of a day or more shown as hours of the day starts at 00:00:00.
+    total = fk.timer_digits(units=('total_hours', 'minutes', 'seconds'))
+    check('total_hours emits the timer_total_hours token',
+          [n['attrs']['token'] for n in total['props']['content']['values']['en'][0]['content']
+           if n.get('type') == 'token'] == ['timer_total_hours', 'timer_minutes', 'timer_seconds'])
+    check('total_hours with days or hours raises: it already counts the days',
+          raises(lambda: fk.timer_digits(units=('days', 'total_hours', 'minutes')))
+          and raises(lambda: fk.timer_digits(units=('total_hours', 'hours'))))
+    check('a 72-hour countdown with total_hours builds',
+          fk.timer([total], hours=72)['props']['duration']['hours'] == 72)
+    check('a countdown of a day or more showing hours without days raises',
+          raises(lambda: fk.timer([digits], days=3))
+          and raises(lambda: fk.timer([digits], hours=48)))
+    check('the same countdown with days shown builds',
+          fk.timer([fk.timer_digits(units=('days', 'hours', 'minutes'))], days=3)['type'] == 'timer')
+    check('a countdown under a day showing hours builds',
+          fk.timer([digits], hours=23, minutes=59)['type'] == 'timer')
+    check('hours above 999 raise', raises(lambda: fk.timer([total], hours=1000)))
+
     # SUPERSEDED 2026-09-01: this block used to build the delay timer CHILDLESS and assert
     # that "a delay timer with no digit child draws nothing, which is the invisible-delay
     # shape". Device-measured over three trips, that shape does not fire at all — see the
-    # guard below and CLAUDE.md finding 29. The timer-end assertion survives; the
+    # guard below and docs/maintainers/flow-generator.md finding 29. The timer-end assertion survives; the
     # invisible-delay one was encoding the wrong claim and is replaced by its opposite.
     delay = fk.timer([fk.timer_digits(units=('seconds',))],
                      actions=[{'id': 'act_next', 'type': 'navigate',
@@ -692,11 +911,22 @@ def main():
 
     # --- conditions, actions and tabs: the three transformer refusals flowkit could not
     # express before 2026-08-28. Each raise below is a hard 422 made unrepresentable.
-    check('when() builds the third visibility form',
+    check('when() builds the third visibility form, a single predicate in an && group '
+          '(the shape every real export carries and the builder edits)',
           fk.when(fk.not_empty(fk.ref('email.value')))
           == {'type': 'conditional',
-              'condition': {'type': 'notEmpty',
-                            'left': {'type': 'var', 'variableId': 'email.value'}}})
+              'condition': {'type': '&&', 'predicates': [
+                  {'type': 'notEmpty', 'left': {'type': 'var', 'variableId': 'email.value'}}]}})
+    _any = fk.any_(fk.eq(fk.ref('a'), 1), fk.eq(fk.ref('b'), 2))
+    check('when() keeps a group as it is', fk.when(_any)['condition'] == _any)
+    _ca = fk.conditional_action([(fk.eq(fk.ref('a'), 1), [])])
+    check('conditional_action() groups a bare case predicate',
+          _ca['payload']['cases'][0][0]['type'] == '&&')
+    _es = fk.eq({'type': 'elementState', 'elementId': 'el_next'}, 'st_locked')
+    check('an elementState operand is accepted (the service compiles it)',
+          fk.when(_es)['condition']['predicates'][0] == _es)
+    check('an elementState with no elementId is refused',
+          raises(lambda: fk.when(fk.eq({'type': 'elementState'}, 'default'))))
     check('a comparison auto-wraps a bare value as a const, which is what the walker wants',
           fk.eq(fk.ref('g.selectedOptionId'), 'gold')['right']
           == {'type': 'const', 'value': 'gold'})
@@ -894,7 +1124,8 @@ def main():
           fk.email_input('e')['props']['validateEmailFormat'] is True)
 
     def _two_inputs(id_a, id_b):
-        return fk.config(screens=[fk.screen('s1', [fk.email_input(id_a), fk.text_input(id_b)])])
+        return fk.config(screens=[fk.screen('s1', [fk.email_input(id_a), fk.text_input(id_b)])],
+                         typography=[('body', 'Body', 16, 'regular')])
 
     check('config() refuses two inputs sharing one customId', raises(lambda: _two_inputs('x', 'x')))
     check('config() accepts distinct customIds', bool(_two_inputs('x', 'y')['screens']))
@@ -902,7 +1133,8 @@ def main():
     def _gated(vid):
         return fk.config(screens=[fk.screen('s1', [
             fk.email_input('email'),
-            fk.stack([fk.text('Go')], visibility=fk.when(fk.not_empty(fk.ref(vid))))])])
+            fk.stack([fk.text('Go')], visibility=fk.when(fk.not_empty(fk.ref(vid))))])],
+            typography=[('body', 'Body', 16, 'regular')])
 
     check('an input PRODUCES the variable a condition consumes', bool(_gated('email.value')))
     check('...and a typo in that variable is still caught', raises(lambda: _gated('emial.value')))
@@ -938,6 +1170,23 @@ def main():
     check('...and does NOT declare states on a non-member element', _txt.get('states') == [])
     check('on_selected with no overrides raises (it would silently do nothing)',
           raises(lambda: fk.on_selected(fk.text(fk.rich('x')))))
+    # A state replaces each prop whole (flow-schema.md, trap 17): a delta font over a preset
+    # draws in the system font, so the helper refuses an override that drops a base key.
+    check('on_selected refuses a font override that drops the base preset',
+          'font.preset' in _message(lambda: fk.on_selected(
+              fk.text(fk.rich('x'), preset='plan'), font={'weight': 'bold'})))
+    check('on_selected accepts the same override with the preset repeated',
+          fk.on_selected(fk.text(fk.rich('x'), preset='plan'),
+                         font={'preset': 'plan', 'weight': 'bold'})
+          ['propsByState']['selected']['font']['weight'] == 'bold')
+    check('on_selected accepts a manual font with its own size in place of the preset',
+          fk.on_selected(fk.text(fk.rich('x'), preset='plan'),
+                         font={'size': 16, 'weight': 'bold'})
+          ['propsByState']['selected']['font']['size'] == 16)
+    check('on_selected accepts a colour switched to another variant (not a partial value)',
+          fk.on_selected(fk.text(fk.rich('x'), color_id='ink'),
+                         color=fk.hex_color('#FFFFFF'))['propsByState']['selected']['color']
+          ['hex'] == '#FFFFFF')
 
     # --- carousel margin: the dot band is the last few px of the carousel's own box and the
     # next element starts immediately after, so clearance is a margin and nothing else.
@@ -1085,18 +1334,19 @@ def main():
           raises(lambda: _doc([fk.screen('scr_1', [
               fk.text_input('user-name', node_id='el_in')])])))
 
-    # `pt-br` saves and is refused at publish; `sr-Latn` is a real code in a real export, so the
-    # naive `^[a-z]{2}(-[A-Z]{2})?$` would be wrong in the other direction.
-    check('config() raises on a lowercase region locale code (pt-br)',
+    # The transformer's pattern: any casing, `-` or `_` (the publish writes one casing out);
+    # `sr-Latn` is a real code in a real export, so the naive `^[a-z]{2}(-[A-Z]{2})?$` is wrong.
+    check('config() raises on a code the publish refuses (english)',
           raises(lambda: _doc([_scr('scr_1', 'el_ok')],
-                              locales=(('en', 'English'), ('pt-br', 'Portuguese')))))
-    check('config() raises on a lowercase script subtag (sr-latn)',
-          raises(lambda: _doc([_scr('scr_1', 'el_ok')],
-                              locales=(('en', 'English'), ('sr-latn', 'Serbian')))))
+                              locales=(('en', 'English'), ('english', 'English 2')))))
     check('config() accepts pt-BR, zh-Hans and sr-Latn',
           _doc([_scr('scr_1', 'el_ok')],
                locales=(('en', 'English'), ('pt-BR', 'Portuguese'),
                         ('zh-Hans', 'Chinese'), ('sr-Latn', 'Serbian'))) is not None)
+    check('config() accepts other casings (pt-br, sr-latn)',
+          _doc([_scr('scr_1', 'el_ok')],
+               locales=(('en', 'English'), ('pt-br', 'Portuguese'),
+                        ('sr-latn', 'Serbian'))) is not None)
     # --- icons resolve from the bundle, and _meta.icons is DERIVED ---------------------------
     # Used-here-declared-there is a two-place binding whose second place no gate can see, and the
     # name itself is a third: a phosphor name the renderer's bundle lacks draws blank with an
@@ -1171,7 +1421,7 @@ def main():
 
     _groups = [{'id': 'plans', 'type': 'product'}]
     _bound = fk.screen('scr_p', [
-        fk.product([], product_id='p_year', group_id='plans', default=True, offer_id='trial7'),
+        fk.product([], product_id='p_year', group_id='plans', default=True, offer_id='7d1a0e5c-1b2c-4d3e-8f40-000000000007'),
         fk.product([], product_id='p_month', group_id='plans'),
         fk.text(fk.rich('then ', fk.Var('p_year.prod_price'))),
         fk.text(fk.rich('now ', fk.Var('plans.selectedProduct.prod_price'))),
@@ -1179,7 +1429,7 @@ def main():
     ], selectable_groups=_groups)
     _found = _refs(_bound)
     check('a bound product resolves, carrying its offer id',
-          {'target': {'kind': 'product', 'id': 'p_year', 'offerId': 'trial7'},
+          {'target': {'kind': 'product', 'id': 'p_year', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-000000000007'},
            'field': 'prod_price'} in _found, _found)
     check("a product group's selectedProduct resolves",
           {'target': {'kind': 'selected', 'groupId': 'plans'},
@@ -1190,25 +1440,25 @@ def main():
           not any('my_custom' in json.dumps(r) for r in _found))
     check('a base binding omits offerId rather than nulling it',
           {'id': 'p_month'} in _bound['products'] and
-          {'id': 'p_year', 'offerId': 'trial7'} in _bound['products'], _bound['products'])
+          {'id': 'p_year', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-000000000007'} in _bound['products'], _bound['products'])
 
     # A DSL operand, which is REPLACED rather than dual-written: an expression has one type.
     # This is a separate branch from the rich-text spans above and needs its own case — a
     # field-value comparison migrates on its own, independently of the identity pair below.
     _dsl = fk.screen('scr_v', [
-        fk.product([], product_id='p_a', group_id='plans', default=True, offer_id='intro'),
+        fk.product([], product_id='p_a', group_id='plans', default=True, offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000aa'),
         fk.stack([fk.text('Trial')],
                  visibility=fk.when(fk.eq(fk.ref('p_a.is_free_trial'), fk.lit(True)))),
     ], selectable_groups=_groups)
     check('a DSL var operand becomes a productRef node, offer and all',
-          {'target': {'kind': 'product', 'id': 'p_a', 'offerId': 'intro'},
+          {'target': {'kind': 'product', 'id': 'p_a', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000aa'},
            'field': 'is_free_trial'} in _refs(_dsl), _refs(_dsl))
     check('its literal operand is untouched', '"value": true' in json.dumps(_dsl))
 
     # Migration 011's leftovers taxonomy, one case each. All three stay legacy.
     _ambiguous = fk.screen('scr_a', [
-        fk.product([], product_id='p', group_id='plans', default=True, offer_id='t1'),
-        fk.product([], product_id='p', group_id='plans', offer_id='t2'),
+        fk.product([], product_id='p', group_id='plans', default=True, offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000b1'),
+        fk.product([], product_id='p', group_id='plans', offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000b2'),
         fk.text(fk.rich(fk.Var('p.prod_price'))),
     ], selectable_groups=_groups)
     check('two offers of one product on a screen: no ref, the offer is unguessable',
@@ -1269,10 +1519,10 @@ def main():
         fk.stack([fk.text('buy')], actions=[
             {'id': 'a1', 'type': 'purchase',
              'payload': {'product': {'type': 'const',
-                                     'value': {'id': 'p_const', 'offerId': 'intro'}}}}]),
+                                     'value': {'id': 'p_const', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000aa'}}}}]),
     ])
     check('a const purchase product reaches the registry with no product element',
-          _const['products'] == [{'id': 'p_const', 'offerId': 'intro'}], _const['products'])
+          _const['products'] == [{'id': 'p_const', 'offerId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000aa'}], _const['products'])
 
 
     # --- catalog templates -----------------------------------------------------------------
@@ -1385,6 +1635,20 @@ def main():
                         typography=[('b', 'B', 16, w)])['theme']['typography'][0]['settings']
               ['weight'] == w for w in fk.FONT_WEIGHTS))
 
+    # --- line height -------------------------------------------------------------------------
+    # Points, not a multiplier: `1.15` is a 1.15pt line box and collapses the text.
+    check('a multiplier lineHeight is refused with the point value to write',
+          'Write 18 for 1.15' in _message(
+              lambda: fk.config(screens=[], colors=[], typography=[('b', 'B', 16, 'bold', 1.15)])))
+    check('a lineHeight in points is kept',
+          fk.config(screens=[], colors=[], typography=[('h', 'H', 30, 'bold', 34, -1)])
+          ['theme']['typography'][0]['settings'] ==
+          {'size': 30, 'weight': 'bold', 'lineHeight': 34, 'letterSpacing': -1})
+    check('the schema\'s percent form passes through the guard untouched',
+          fk.config(screens=[], colors=[],
+                    typography=[('h', 'H', 32, 'bold', {'type': 'percent', 'value': 110})])
+          ['theme']['typography'][0]['settings']['lineHeight'] == {'type': 'percent', 'value': 110})
+
     # --- theme ids ---------------------------------------------------------------------------
     # One id for a colour and a preset is the device's "Duplicate Key": the flow will not open.
     check('a colour and a preset sharing an id are refused',
@@ -1418,6 +1682,235 @@ def main():
           fk.timer([fk.timer_digits(('seconds',), color_id='bg')], seconds=2, actions=_nav)['type'] == 'timer')
     check('a timer with visible digits beside other copy is accepted',
           fk.timer([fk.stack([fk.text(fk.rich('Loading')), fk.timer_digits(('seconds',))])], seconds=2, actions=_nav)['type'] == 'timer')
+
+    # --- the 12-month commitment plan: a monthly binding is its own identity ---------------
+    # Vectors from the builder's own schema tests: `|bil:monthly` is appended to the frozen
+    # string, so every plan-less id stays byte-identical.
+    check('flow_product_id appends the plan for a monthly binding',
+          fk.flow_product_id('screen-1', 'annual', None, 'monthly') == '8df64459-897f-5c1b-840c-764c04fe5c1c')
+    check('flow_product_id appends the plan after the offer',
+          fk.flow_product_id('screen-1', 'annual', 'promo', 'monthly') == '6159a111-ba8a-59d8-b542-3d255d1d6234')
+    check('product() writes billingPlanId after offerId, in the builder key order',
+          list(fk.product([], product_id='p_year', group_id='plans', offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000c0',
+                          billing_plan='monthly')['props']['product']) == ['id', 'offerId', 'billingPlanId'])
+    check('product() refuses a store offer code, naming where the offer id comes from',
+          'product-offers list' in _message(lambda: fk.product([], product_id='p', group_id='plans',
+                                                               offer_id='free-trial-7d')))
+    check('predeclare() refuses a store offer code too',
+          raises(lambda: fk.predeclare('scr_x', [('p', 'free-trial-7d')])))
+    check('a fallback offer is held to the same rule',
+          raises(lambda: fk.product([], product_id='p', group_id='plans', billing_plan='monthly',
+                                    fallback_offer_id='spring_promo')))
+    check('product() refuses a plan other than monthly, with the reason',
+          'monthly' in _message(lambda: fk.product([], product_id='p', group_id='plans', billing_plan='upfront')))
+    check('product() refuses a fallback offer without the monthly plan',
+          'fallback' in _message(lambda: fk.product([], product_id='p', group_id='plans',
+                                                    fallback_offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000d0')))
+    _plan = fk.screen('scr_m', [
+        fk.product([fk.text(fk.rich(fk.Var('p_year.prod_price')))],
+                   product_id='p_year', group_id='plans', default=True),
+        fk.product([fk.text(fk.rich(fk.Var('p_year@monthly.prod_billing_price'), ' / ',
+                                    fk.Var('p_year@monthly.prod_billing_period')))],
+                   product_id='p_year', group_id='plans', billing_plan='monthly',
+                   fallback_offer_id='7d1a0e5c-1b2c-4d3e-8f40-0000000000d0'),
+    ], selectable_groups=_groups)
+    check('upfront and monthly of one product are two registry entries, the fallback on the monthly one',
+          _plan['products'] == [{'id': 'p_year'},
+                                {'id': 'p_year', 'billingPlanId': 'monthly', 'fallbackOfferId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000d0'}],
+          _plan['products'])
+    check('the fallback offer never reaches the element props',
+          'fallbackOfferId' not in json.dumps([e['props'] for e in _plan['elements']['map'].values()]))
+    _found = _refs(_plan)
+    check('an @monthly variable resolves to the monthly binding',
+          {'target': {'kind': 'product', 'id': 'p_year', 'billingPlanId': 'monthly'},
+           'field': 'prod_billing_price'} in _found, _found)
+    check('a plain variable resolves to the upfront binding beside a monthly one',
+          {'target': {'kind': 'product', 'id': 'p_year'}, 'field': 'prod_price'} in _found, _found)
+    _meta = fk.predeclare('scr_m', _plan['products'])['scr_m']['products']
+    check('predeclare takes registry entries and carries plan and fallback',
+          _meta[1] == {'id': 'p_year', 'billingPlanId': 'monthly', 'fallbackOfferId': '7d1a0e5c-1b2c-4d3e-8f40-0000000000d0',
+                       'flowProductId': fk.flow_product_id('scr_m', 'p_year', None, 'monthly')}, _meta)
+    check('predeclare keeps the plan-less entry byte-identical',
+          _meta[0] == {'id': 'p_year', 'flowProductId': fk.flow_product_id('scr_m', 'p_year')}, _meta)
+    check('the billing price, period and monthly-plan fields are product variables',
+          {'prod_billing_price', 'prod_billing_period', 'is_monthly_plan'} <= set(fk.PRODUCT_VAR_NAMES))
+
+    # --- show/hide: the payload is a LIST under `elements` (ActionShowElement/HideElement in
+    # the published schema), and a single `element` id passes validate while the schema
+    # refuses it, so the helper cannot emit the singular form at all.
+    print('\nshow and hide:')
+    _sheet = fk.stack([fk.text(fk.rich('Plans'))], visibility=fk.hidden(), node_id='el_sheet')
+    check('show_elements emits the schema shape',
+          fk.show_elements(['el_sheet']) == {'id': 'act_show', 'type': 'showElement',
+                                             'payload': {'elements': ['el_sheet']}})
+    check('hide_elements emits the schema shape, several targets in order',
+          fk.hide_elements(['el_a', 'el_b'], action_id='act_x')
+          == {'id': 'act_x', 'type': 'hideElement', 'payload': {'elements': ['el_a', 'el_b']}})
+    check('a node built here is taken for its id', fk.show_elements([_sheet])['payload']
+          == {'elements': ['el_sheet']})
+    check('a bare string is refused, naming the list form',
+          "show_elements(['el_sheet'])" in _message(lambda: fk.show_elements('el_sheet'),
+                                                    TypeError))
+    check('a bare node is refused too', raises(lambda: fk.hide_elements(_sheet), TypeError))
+    check('an empty list is refused', raises(lambda: fk.show_elements([])))
+    _cta = fk.stack([fk.text(fk.rich('Open'))], actions=[fk.show_elements([_sheet])])
+    _sh_cfg = fk.config(screens=[fk.screen('scr_sh', [_cta, _sheet])],
+                        typography=[('body', 'Body', 16, 'regular')])
+    _acts = [a for e in _sh_cfg['screens'][0]['elements']['map'].values()
+             for i in e.get('interactions') or [] for a in i['actions']]
+    check('the payload reaches the document as built', _acts and _acts[0]['payload']
+          == {'elements': ['el_sheet']}, _acts)
+    check('config() refuses a target the document does not contain, naming it',
+          "'el_gone'" in _message(lambda: fk.config(screens=[fk.screen('scr_sh2', [
+              fk.stack([], actions=[fk.hide_elements(['el_gone'])])])])))
+    check('...and a dangling select_product target, nested in a conditional',
+          "'el_none'" in _message(lambda: fk.config(screens=[fk.screen('scr_sh3', [
+              fk.stack([], actions=[fk.conditional_action(
+                  [(fk.eq(fk.lit(1), 1), [fk.select_product('el_none')])])])])])))
+
+    # --- visibility: text takes the argument stack takes, same name, same three shapes
+    print('\nvisibility:')
+    for name, build in (('text', lambda v: fk.text(fk.rich('x'), visibility=v)),
+                        ('stack', lambda v: fk.stack([], visibility=v)),
+                        ('icon', lambda v: fk.icon('X', visibility=v)),
+                        ('image', lambda v: fk.image(fk.PLACEHOLDER, fixed_h=10, visibility=v)),
+                        ('video', lambda v: fk.video(fixed_h=10, visibility=v)),
+                        ('spinner', lambda v: fk.spinner('spinner1', visibility=v)),
+                        ('text_input', lambda v: fk.text_input('t', visibility=v))):
+        check(f'{name}() takes visibility=hidden()',
+              build(fk.hidden())['props']['visibility'] == {'type': 'hidden'})
+        check(f'{name}() takes visibility=when(...)',
+              build(fk.when(fk.not_empty(fk.ref('e.value'))))['props']['visibility']['type']
+              == 'conditional')
+        check(f'{name}() refuses a bare condition, naming when()',
+              'when(' in _message(lambda: build(fk.not_empty(fk.ref('e.value'))), TypeError))
+    check('text() omits visibility when not given (the builder default)',
+          'visibility' not in fk.text(fk.rich('x'))['props'])
+    check('a hidden text reaches config() and the schema shape',
+          fk.config(screens=[fk.screen('scr_v', [fk.text(fk.rich('x'), visibility=fk.hidden())])],
+                    typography=[('body', 'Body', 16, 'regular')])['screens'][0]['elements']
+          ['map'] is not None)
+
+    # --- left AND right: the width is auto, and fill is refused (the render drew a fill-width
+    # anchored text past the right edge; auto fixed it, and the builder's docked CTAs carry it)
+    print('\nhorizontal anchors:')
+    _lr = fk.absolute(top=8, left=16, right=16)
+    for name, build in (('stack', lambda **k: fk.stack([], **k)),
+                        ('text', lambda **k: fk.text(fk.rich('x'), **k)),
+                        ('image', lambda **k: fk.image(fk.PLACEHOLDER, fixed_h=10, **k)),
+                        ('video', lambda **k: fk.video(fixed_h=10, **k)),
+                        ('text_input', lambda **k: fk.text_input('t', **k)),
+                        ('timer', lambda **k: fk.timer(**k))):
+        check(f'{name}(): anchored left and right, the width defaults to auto',
+              build(position=_lr)['props']['width'] == {'type': 'auto'})
+        check(f"{name}(): width='fill' with both anchors is refused, naming width='auto'",
+              "width='auto'" in _message(lambda: build(position=_lr, width='fill')))
+    check('a docked CTA with left and right gets width auto',
+          fk.stack([], position=fk.docked(bottom=18, left=16, right=16))['props']['width']
+          == {'type': 'auto'})
+    check('one anchor keeps the fill default',
+          fk.text(fk.rich('x'), position=fk.absolute(top=0, left=16))['props']['width']
+          == {'type': 'fill'})
+    check('an in-flow element keeps the fill default',
+          fk.stack([])['props']['width'] == {'type': 'fill'})
+    check('a timer keeps its hug default in flow', fk.timer()['props']['width'] == {'type': 'hug'})
+    check('a fixed width with both anchors is the author\'s call and passes',
+          fk.stack([], fixed_w=120, position=_lr)['props']['width']
+          == {'type': 'fixed', 'value': 120})
+
+    # --- inputs: the preset defaults to body, so config() refuses a theme that lacks it
+    print('\ninput presets:')
+    _in_scr = lambda: [fk.screen('scr_in', [fk.text_input('name', fill_=fk.fill('field'))])]
+    _msg_in = _message(lambda: fk.config(screens=_in_scr(),
+                                         colors=[('field', 'Field', '#FFFFFF', '#FFFFFF')],
+                                         typography=[('h1', 'H1', 28, 'bold')]))
+    check('an input whose default preset the theme lacks is refused, naming the input and body',
+          "'body'" in _msg_in and 'text-input' in _msg_in and 'typography=' in _msg_in, _msg_in)
+    check('declaring body clears it',
+          bool(fk.config(screens=_in_scr(), colors=[('field', 'Field', '#FFFFFF', '#FFFFFF')],
+                         typography=[('body', 'Body', 16, 'regular')])['screens']))
+    check('an input given a declared preset passes',
+          bool(fk.config(screens=[fk.screen('scr_in', [fk.text_input('name', preset='h1')])],
+                         typography=[('h1', 'H1', 28, 'bold')])['screens']))
+    check('an empty preset is refused at the helper', raises(lambda: fk.text_input('n', preset='')))
+
+    # --- meta_screens: several predeclare() results, merged
+    print('\npredeclare across screens:')
+    _a, _b = fk.predeclare('scr_a', ['p1']), fk.predeclare('scr_b', ['p2', ('p2', '7d1a0e5c-1b2c-4d3e-8f40-000000000001')])
+    check('config(meta_screens=[...]) merges one predeclare() per screen',
+          fk.config(screens=[], meta_screens=[_a, _b])['_meta']['screens'] == {**_a, **_b})
+    check('a single predeclare() still works', fk.config(screens=[], meta_screens=_a)
+          ['_meta']['screens'] == _a)
+    check('the same screen declared two ways is refused',
+          'twice' in _message(lambda: fk.config(screens=[], meta_screens=[
+              _a, fk.predeclare('scr_a', ['p9'])])))
+    check('the same declaration twice is harmless',
+          fk.config(screens=[], meta_screens=[_a, _a])['_meta']['screens'] == _a)
+    check('a non-dict item is refused', raises(lambda: fk.config(screens=[],
+                                                                  meta_screens=[_a, 'scr_b']),
+                                                TypeError))
+
+    # --- ids_after(): a screen built for a FETCHED config cannot reuse its ids
+    print('\nids after a fetched config:')
+    _live = json.load(open(os.path.join(HERE, 'fixtures', 'onboarding-quiz-paywall.json')))
+    _live = _live.get('config', _live)
+    _taken = set()
+    for _s in _live['screens']:
+        _taken |= set(_s['elements']['map'])
+    _old_ids = fk._ids
+    try:
+        fk._ids = fk.Ids()
+        _clash = fk.screen('scr_patch', [fk.stack([fk.text(fk.rich('x'))]) for _ in range(40)])
+        _flowkit_style = {'screens': [{'id': 's', 'elements': {'map': {
+            k: {} for k in _clash['elements']['map']}, 'hierarchy': {'id': 'root'}}}]}
+        installed = fk.ids_after(_flowkit_style)
+        check('ids_after() installs the counter every helper mints through',
+              installed is fk._ids)
+        _fresh = fk.screen('scr_patch', [fk.stack([fk.text(fk.rich('x'))]) for _ in range(40)])
+        check('a rebuilt screen shares no id with the config it is patched into',
+              not set(_fresh['elements']['map']) & set(_clash['elements']['map']))
+        check('the counter starts past the highest number in the config',
+              min(int(k[3:6]) for k in _fresh['elements']['map']) == 81,
+              sorted(_fresh['elements']['map'])[:2])
+        fk.ids_after(_live)
+        _real = fk.screen('scr_patch', [fk.stack([]) for _ in range(5)])
+        check('a builder export (random ids) is avoided too',
+              not set(_real['elements']['map']) & _taken)
+        fk.ids_after({'config': _live, 'status': 'draft'})
+        check('the envelope form is accepted', fk.eid().startswith('el_'))
+        _path = os.path.join(tempfile.mkdtemp(), 'live.json')
+        json.dump(_flowkit_style, open(_path, 'w'))
+        fk.ids_after(_path)
+        check('a path is accepted', fk.eid() not in _flowkit_style['screens'][0]['elements']['map'])
+        _skip = fk.Ids(start=0, taken={'el_001S'})
+        check('an id the config holds is skipped even below the start', _skip('S') == 'el_002S')
+        check('a document with no screens is refused', raises(lambda: fk.ids_after({'a': 1})))
+    finally:
+        fk._ids = _old_ids
+
+    # --- a hero that runs under the status bar: ignoreSafeArea on the first in-flow element ---
+    check('relative(bleed=True) sets ignoreSafeArea',
+          fk.relative(bleed=True) == {'type': 'relative', 'ignoreSafeArea': True})
+    check('relative() leaves it out', 'ignoreSafeArea' not in fk.relative())
+    _x = lambda: fk.stack([], position=fk.absolute(top=12, right=16))
+    _hero = lambda: fk.stack([], height='fill', position=fk.relative(bleed=True))
+    check('the first in-flow element may bleed, behind an absolute X listed first',
+          not raises(lambda: fk.screen('scr_b', [_x(), _hero(), fk.stack([])], safe_area=True)))
+    check('a later in-flow element may not',
+          raises(lambda: fk.screen('scr_b', [fk.stack([]), _hero()], safe_area=True)))
+    check('a nested element may not',
+          raises(lambda: fk.screen('scr_b', [fk.stack([_hero()])], safe_area=True)))
+
+    # --- text that fits its box: autoShrink inside a line limit ---
+    _fit = fk.text('Plan', max_lines=1, auto_shrink=True)['props']
+    check('text(max_lines=1, auto_shrink=True) writes both',
+          _fit.get('maxLines') == 1 and _fit.get('autoShrink') is True, str(_fit))
+    _plain_t = fk.text('Plan')['props']
+    check('text() leaves both out', 'maxLines' not in _plain_t and 'autoShrink' not in _plain_t)
+    check('auto_shrink without max_lines is refused, saying why',
+          'needs max_lines' in _message(lambda: fk.text('Plan', auto_shrink=True)))
+    check('max_lines=0 is refused', raises(lambda: fk.text('Plan', max_lines=0)))
+    check('max_lines=True is refused', raises(lambda: fk.text('Plan', max_lines=True)))
 
     print()
     if FAILURES:

@@ -79,8 +79,8 @@ Four things about it that the RC codebase cannot teach you:
   what the backend returns. `references/fallbacks.md` owns the command and the platform pages.
 - **`Adapty.setFallback` does not require an activated SDK**, unlike almost everything else, so it can
   be called before or alongside activation.
-- **The file is format-versioned**, and an SDK major upgrade can require re-downloading it. Adapty's own
-  iOS 4.1 migration notes call this out. Put it in the handoff as a recurring chore, not a one-off.
+- **The file is format-versioned**, and an SDK upgrade, even a minor one, can require re-downloading it
+  with the new `--sdk-version`. Put it in the handoff as a recurring chore, not a one-off.
 - **It covers builder paywalls too**, not just product lists — the file carries UI schema alongside the
   placement data, so a flow or builder paywall can render offline.
 
@@ -112,9 +112,9 @@ The rule is conditional, and getting it backwards is its own bug:
   manual call on top produces double-counted views — which the docs list as a known cause of a paywall
   view count showing twice the expected number.
 
-The call is named per platform and per SDK major (`logShowFlow` on Flutter v4+, `logShowPaywall`
-elsewhere), so take the exact spelling from `references/<platform>.md` rather than from here, and put it
-in the same commit as the paywall screen so the two cannot drift apart.
+On SDK v4 the call is `logShowFlow` on every platform (`LogShowFlow` on Unity); v3 named it
+`logShowPaywall`. Take the exact call from the custom paywall stage of `references/<platform>.md` rather
+than from here, and put it in the same commit as the paywall screen so the two cannot drift apart.
 
 **Nothing is prewarmed.** RC refreshes its offerings cache when the SDK is configured *and again every
 time the app comes to the foreground*, so by the time a user reaches a paywall the data is almost always

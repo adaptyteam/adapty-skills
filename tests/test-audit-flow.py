@@ -24,8 +24,9 @@ CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
 fails = []
 
 
-def run(config, catalog=CATALOG, stores=None):
-    """Return (rc, findings). `config` is a path or a dict."""
+def run(config, catalog=CATALOG, stores=None, custom=None, offers=None):
+    """Return (rc, findings). `config` is a path or a dict; `offers` a dict of
+    product id -> `product-offers list` rows."""
     with tempfile.TemporaryDirectory() as tmp:
         if isinstance(config, dict):
             path = os.path.join(tmp, 'c.json')
@@ -35,8 +36,13 @@ def run(config, catalog=CATALOG, stores=None):
         cmd = [sys.executable, AUDIT, path, '--json']
         if catalog:
             cmd += ['--catalog', catalog]
+        if offers is not None:
+            json.dump(offers, open(os.path.join(tmp, 'offers.json'), 'w'))
+            cmd += ['--offers', os.path.join(tmp, 'offers.json')]
         if stores:
             cmd += ['--stores', stores]
+        if custom is not None:
+            cmd += ['--custom-actions', custom]
         r = subprocess.run(cmd, capture_output=True, text=True)
     try:
         return r.returncode, json.loads(r.stdout)['findings']
@@ -343,7 +349,7 @@ check('a flow with no selling screen AND a real escape reports no compliance '
 
 # `no-escape-in-flow` is NOT gated behind selling: a non-paywall onboarding flow
 # with no way off anywhere fires it too -- the early `if not selling: return out`
-# used to defeat this entirely (CLAUDE.md finding, corrected here). A `screens: []`
+# used to defeat this entirely (docs/maintainers/flow-generator.md finding, corrected here). A `screens: []`
 # flow has no escape and no selling screen, so this is the narrowest repro.
 no_sell_no_escape_findings = run(
     {'screens': [], 'locales': [], 'defaultLocale': 'en'})[1] or []
@@ -455,6 +461,36 @@ pw['elements']['map'][eid]['interactions'] = [
 check('a real /terms-of-service url still clears no-terms-link after tokenizing',
       len(of(run(c)[1], 'no-terms-link')) == 0)
 
+# The button that opens a url says what it is. A url whose path names neither link
+# (`/tc`) clears the check when the button carrying it reads "Terms of Use"; a run-together
+# `/privacypolicy` path clears the privacy check on its own. A label never makes a link
+# absent (the "Legal" case above), and an unrelated label still leaves the question.
+def _one_link(url_, label_):
+    c = load()
+    pw = [s for s in c['screens'] if s['id'] == 'scr_paywall'][0]
+    eid = next(iter(pw['elements']['map']))
+    el = pw['elements']['map'][eid]
+    el.setdefault('props', {})['content'] = {
+        'values': {l: label_ for l in ('en', 'sr', 'sr-Latn')}}
+    el['interactions'] = [
+        {'id': 'int_lbl', 'trigger': 'tap',
+         'actions': [{'id': 'act_lbl', 'type': 'openUrl', 'payload': {'url': url_}}]}]
+    return run(c)[1]
+
+
+_lf = _one_link('https://example.com/tc', 'Terms of Use')
+check('a /tc url on a button reading "Terms of Use" clears no-terms-link',
+      len(of(_lf, 'no-terms-link')) == 0, f'got {of(_lf, "no-terms-link")}')
+_lf = _one_link('https://example.com/privacypolicy', 'Read more')
+check('a run-together /privacypolicy url clears no-privacy-link',
+      len(of(_lf, 'no-privacy-link')) == 0, f'got {of(_lf, "no-privacy-link")}')
+check('...and leaves the terms question for an unrelated label',
+      len(of(_lf, 'no-terms-link')) == 1
+      and of(_lf, 'no-terms-link')[0]['severity'] == 'question')
+_lf = _one_link('https://x.co/a1', 'Privacy Policy')
+check('an opaque url on a button reading "Privacy Policy" clears no-privacy-link',
+      len(of(_lf, 'no-privacy-link')) == 0, f'got {of(_lf, "no-privacy-link")}')
+
 print('\nproducts / catalog')
 
 # catalog-not-fetched: no catalog was supplied at all, on a flow that binds products.
@@ -506,6 +542,98 @@ check('store gap is SILENT when only ios is declared',
 check('a null base_plan_id on an app_store entry stays SILENT',
       len(of(run(FLOW)[1], 'play-base-plan-missing')) == 0)
 
+
+def _play_catalog(period):
+    # every product bound by FLOW gets a play_store entry with no base plan, at `period`
+    cat = json.load(open(CATALOG))
+    for p in cat:
+        p['period'] = period
+        p['vendor_products']['play_store'] = {'id': 'x', 'product_id': 'com.example.p', 'base_plan_id': None}
+    path = os.path.join(tempfile.mkdtemp(), 'cat.json')
+    json.dump(cat, open(path, 'w'))
+    return path
+
+
+check('a subscription with a Play product and no base plan FIRES play-base-plan-missing',
+      len(of(run(FLOW, catalog=_play_catalog('annual'))[1], 'play-base-plan-missing')) > 0)
+check('a lifetime product with a Play product and no base plan stays SILENT (a one-time purchase)',
+      len(of(run(FLOW, catalog=_play_catalog('lifetime'))[1], 'play-base-plan-missing')) == 0)
+
+print('\nproducts / offers')
+
+# A flow binds an offer by its Adapty `id` (`product-offers list`); `validate` passes a
+# store code and another product's offer alike, so only this check finds them.
+ANNUAL, MONTHLY = '6cdd73d5-bdb2-4b2e-c207-784fbcb2f408', 'fbc63856-bf3a-45d1-7bee-dd4bcb54b10a'
+TRIAL = '0d7e4b19-8c2a-4e6f-a5b3-71c9d0e2f4a6'
+OFFERS = {ANNUAL: [{'id': TRIAL, 'title': '7-day free trial', 'offer_type': 'promotional',
+                    'store_offers': {'play_store': {'offer_id': 'free-trial-7d'}}}],
+          MONTHLY: []}
+
+
+def with_offer(pid, oid):
+    """The fixture with every card bound to `pid` given offer `oid`."""
+    c = load()
+    for s in c['screens']:
+        for e in s['elements']['map'].values():
+            prod = (e.get('props') or {}).get('product') or {}
+            if prod.get('id') == pid:
+                prod['offerId'] = oid
+    return c
+
+
+check('offers: the fixture binds an annual card (the cases below rely on it)',
+      any(((e.get('props') or {}).get('product') or {}).get('id') == ANNUAL
+          for s in load()['screens'] for e in s['elements']['map'].values()))
+_ok = run(with_offer(ANNUAL, TRIAL), offers=OFFERS)[1]
+check('offer-not-on-product is SILENT on an offer of its own product',
+      not of(_ok, 'offer-not-on-product') and not of(_ok, 'offers-not-fetched'), _ok)
+_code = of(run(with_offer(ANNUAL, 'free-trial-7d'), offers=OFFERS)[1], 'offer-not-on-product')
+check('offer-not-on-product FIRES on the store code, as a blocker naming the right offer',
+      len(_code) == 1 and _code[0]['severity'] == 'blocker'
+      and '7-day free trial' in _code[0]['fix'], _code)
+check('...and its fix never names a flag or a CLI command',
+      bool(_code) and '--offers' not in _code[0]['fix']
+      and 'adapty' not in _code[0]['fix'].lower(), _code)
+_other = of(run(with_offer(MONTHLY, TRIAL), offers=OFFERS)[1], 'offer-not-on-product')
+check('offer-not-on-product FIRES on another product\'s offer, and says this one has none',
+      len(_other) == 1 and 'no offers' in _other[0]['fix'], _other)
+c = load()
+for s in c['screens']:
+    if any(((e.get('props') or {}).get('product') or {}).get('id') == ANNUAL
+           for e in s['elements']['map'].values()):
+        s['products'] = [{'id': ANNUAL}, {'id': ANNUAL, 'offerId': 'spring_ios'}]
+_reg = of(run(c, offers=OFFERS)[1], 'offer-not-on-product')
+check('offer-not-on-product FIRES on an offer named only in the screen registry',
+      len(_reg) == 1, _reg)
+_dup = with_offer(ANNUAL, 'free-trial-7d')
+for s in _dup['screens']:
+    for e in s['elements']['map'].values():
+        prod = (e.get('props') or {}).get('product') or {}
+        if prod.get('offerId'):
+            s.setdefault('products', []).append(dict(prod))
+_dup = of(run(_dup, offers=OFFERS)[1], 'offer-not-on-product')
+check('offer-not-on-product dedups per (product, offer) across card and registry',
+      len(_dup) == 1, _dup)
+_unread = of(run(with_offer(ANNUAL, TRIAL))[1], 'offers-not-fetched')
+check('offers-not-fetched is one question when an offer is bound and none were read',
+      len(_unread) == 1 and _unread[0]['severity'] == 'question', _unread)
+check('offers-not-fetched is SILENT on a flow that binds no offer',
+      not of(run(FLOW)[1], 'offers-not-fetched'))
+check('offers checks stay SILENT with no catalog (catalog-not-fetched covers it)',
+      not [f for f in run(with_offer(ANNUAL, TRIAL), catalog=None)[1] or []
+           if f['check'] in ('offer-not-on-product', 'offers-not-fetched')])
+with tempfile.TemporaryDirectory() as _tmp:
+    _p = os.path.join(_tmp, 'c.json')
+    json.dump(with_offer(ANNUAL, TRIAL), open(_p, 'w'))
+    _r = subprocess.run([sys.executable, AUDIT, _p, '--list-offer-products'],
+                        capture_output=True, text=True)
+check('--list-offer-products prints each product bound with an offer, once',
+      _r.returncode == 0 and _r.stdout.split() == [ANNUAL], _r.stdout + _r.stderr)
+_corpus = [os.path.join(FIX, f) for f in sorted(os.listdir(FIX)) if f.endswith('.json')]
+check('offers checks are SILENT on every fixture (none binds an offer)',
+      all(not [f for f in run(p)[1] or [] if f['check'] in
+               ('offer-not-on-product', 'offers-not-fetched')] for p in _corpus))
+
 print('\nproducts / catalog: dedup arity and site naming')
 
 # The fixture binds two elements to two DIFFERENT real products (el_076S, el_084S).
@@ -554,7 +682,7 @@ check('...and its message names the screen both bindings are on, once',
 
 print('\nproducts / catalog: const-purchase product binding (C1)')
 # A `const` purchase action binds a product with no `product` element and no card
-# copy -- CLAUDE.md documents the shape. `bound_products` must see it: real fixture
+# copy -- docs/maintainers/flow-generator.md documents the shape. `bound_products` must see it: real fixture
 # tabs-paywall.json binds three products this way, none of which exist in the
 # catalog fixture -- previously this family was entirely blind to them.
 rc_tabs, findings_tabs = run(os.path.join(FIX, 'tabs-paywall.json'))
@@ -930,7 +1058,7 @@ check('...and it is reported as a blocker',
 
 # A reproduced false positive, not a hypothetical: a savings figure written beside
 # (never inside) the price-variable element still trips `hardcoded-price`, because
-# the guard is element-scoped, not card-scoped -- CLAUDE.md's own known-limitations
+# the guard is element-scoped, not card-scoped -- docs/maintainers/flow-generator.md's own known-limitations
 # entry had this backwards ("beside" read as the SILENT case; it is the one that
 # FIRES). The message must not assert the literal IS the price -- "Save $20" is a
 # savings figure, not a price -- so it is worded as a currency amount written into
@@ -995,6 +1123,47 @@ unt = of(findings, 'untranslated')
 check('untranslated FIRES once, grouped, for the brand name', len(unt) == 1, f'got {len(unt)}')
 check('untranslated is a risk, never a blocker', bool(unt) and unt[0]['severity'] == 'risk')
 check('untranslated names its examples', bool(unt) and 'Nimbus' in unt[0]['message'])
+
+# A language whose every text repeats the default language's is NOT translated, and its
+# repeats are not brand names: the finding and the table note say the language is not
+# translated, and the note never calls a value "the same in every language" when another
+# language translates it.
+def _copy_default(o, code):
+    if isinstance(o, dict):
+        v = o.get('values')
+        if isinstance(v, dict) and 'en' in v and code in v:
+            v[code] = copy.deepcopy(v['en'])
+        for x in o.values():
+            _copy_default(x, code)
+    elif isinstance(o, list):
+        for x in o:
+            _copy_default(x, code)
+
+
+_c = load()
+_copy_default(_c, 'sr')
+_unt = of(run(_c)[1], 'untranslated')
+_names = audit_mod.locale_names(_c)
+_sr, _srl = _names.get('sr', 'sr'), _names.get('sr-Latn', 'sr-Latn')
+check('a language copied from the default is named as not translated',
+      len(_unt) == 1 and f'{_sr} is not translated' in _unt[0]['message'],
+      _unt[0]['message'] if _unt else '<no finding>')
+check('...and the finding no longer calls the repeats brand names',
+      bool(_unt) and 'brand' not in _unt[0]['message'])
+with tempfile.TemporaryDirectory() as _tmp:
+    _p = os.path.join(_tmp, 'c.json')
+    json.dump(_c, open(_p, 'w'))
+    _txt = subprocess.run([sys.executable, AUDIT, _p, '--report'],
+                          capture_output=True, text=True).stdout
+check('the language note names the untranslated language',
+      bool(re.search(rf"\b{re.escape(_sr)} (is not|isn't) translated", _txt)), _txt[-600:])
+check('the language note does not name the translated one',
+      not re.search(rf"{re.escape(_srl)} (is not|isn't) translated", _txt))
+_rtxt = subprocess.run([sys.executable, AUDIT, FLOW, '--report'],
+                       capture_output=True, text=True).stdout
+check('the untouched fixture still reads its repeats as a brand name',
+      'right for a brand or product name' in _rtxt
+      and not re.search(r"(is not|isn't) translated", _rtxt))
 
 # An EMPTIED translation -- a paragraph holding only an empty `text` node, which is what an
 # emptied editor emits -- is the catalog's "missing": it falls back to the default locale's
@@ -1087,6 +1256,38 @@ _target2['props']['content'] = _switch_val('')
 check('an all-empty conditional-text switch still FIRES',
       len(of(run(c)[1], 'empty-translation')) == 1,
       f'got {len(of(run(c)[1], "empty-translation"))}')
+
+# A field whose default-locale text has no letters (a lone price variable, "50%") falls
+# back to that same text, so a locale without it is not missing a translation.
+def _drop_first_sr(o, en_value):
+    if isinstance(o, dict):
+        if 'values' in o and isinstance(o['values'], dict) and {'en', 'sr'} <= set(o['values']):
+            o['values']['en'] = en_value
+            del o['values']['sr']
+            return True
+        return any(_drop_first_sr(v, en_value) for v in o.values())
+    if isinstance(o, list):
+        return any(_drop_first_sr(v, en_value) for v in o)
+    return False
+
+
+_base_cov = audit_mod.locale_coverage(load())[0]['sr']['missing']
+c = load()
+check('fixture setup: a letterless default with no sr value was injected',
+      _drop_first_sr(c, _para('50%')))
+check('a letterless field missing in a locale is NOT counted missing',
+      audit_mod.locale_coverage(c)[0]['sr']['missing'] == _base_cov)
+check('...and raises no missing-translation', not of(run(c)[1], 'missing-translation'))
+c = load()
+_drop_first_sr(c, [{'type': 'paragraph', 'content': [
+    {'type': 'variable', 'attrs': {'id': 'product.price'}}]}])
+check('a lone-variable field missing in a locale is NOT counted missing',
+      audit_mod.locale_coverage(c)[0]['sr']['missing'] == _base_cov)
+c = load()
+_drop_first_sr(c, _para('Save 50%'))
+check('a field with words missing in a locale still counts missing',
+      audit_mod.locale_coverage(c)[0]['sr']['missing'] == _base_cov + 1)
+check('...and still raises missing-translation', len(of(run(c)[1], 'missing-translation')) >= 1)
 
 print('\nlocalization: delegation to verify-config.py (Step 5)')
 # A MISSING locale key (one field, present in some locales and absent in this one) is
@@ -1212,6 +1413,21 @@ s0['elements']['map'][eid0]['interactions'] = [
             'default': {'type': 'const', 'value': [{'id': '', 'type': 'nothing'}]}}}]}]
 check('variable-no-consumer stays SILENT when a predicate elsewhere reads the variable',
       len(of(run(c2)[1], 'variable-no-consumer')) == 0)
+
+# The schema's payload is a LIST of `assign` expressions (`flowkit.set_variable` emits it);
+# reading it as an object crashed the whole audit on published flows.
+c3 = load()
+s0 = c3['screens'][0]
+eid0 = next(iter(s0['elements']['map']))
+s0['elements']['map'][eid0]['interactions'] = [
+    {'id': 'int_test', 'trigger': 'tap', 'actions': [
+        {'id': 'act_test', 'type': 'setVariable', 'payload': [
+            {'type': 'assign', 'left': {'type': 'var', 'variableId': 'test.orphan'},
+             'right': {'type': 'const', 'value': 'x'}}]}]}]
+rc3, f3 = run(c3)
+check('a list-shaped setVariable payload does not crash the audit', rc3 in (0, 1), f'rc {rc3}')
+check('variable-no-consumer FIRES on an orphaned list-shaped setVariable',
+      len(of(f3 or [], 'variable-no-consumer')) == 1)
 
 print('\nplaceholders + variables: six-fixture calibration')
 # `onboarding-multilocale.json` (== FLOW) is covered by the "is SILENT on the fixture"
@@ -1379,8 +1595,31 @@ check('comparison-paywall.json still raises 3 separate dead-affordance findings 
       len(of(findings_cmp2, 'dead-affordance')) == 3,
       f'got {len(of(findings_cmp2, "dead-affordance"))}')
 
-r_cmp2 = subprocess.run([sys.executable, AUDIT, cmp_fixture, '--catalog', CATALOG,
-                          '--report'], capture_output=True, text=True)
+# The fixture's fonts carry real, malformed Android names, so the fonts family adds its
+# own blocker; this case counts the collapse, so it reads a copy without fonts. The texts'
+# references go too: a reference the copy lacks is a font-names-unchecked question.
+def _without_fonts(c):
+    c['_meta']['fonts'] = []
+
+    def drop(o):
+        if isinstance(o, dict):
+            if isinstance(o.get('family'), dict):
+                del o['family']
+            for v in o.values():
+                drop(v)
+        elif isinstance(o, list):
+            for v in o:
+                drop(v)
+    drop(c)
+    return c
+
+
+_cmp_nofonts = _without_fonts(json.load(open(cmp_fixture)))
+with tempfile.TemporaryDirectory() as _tmp:
+    _cmp_path = os.path.join(_tmp, 'c.json')
+    json.dump(_cmp_nofonts, open(_cmp_path, 'w'))
+    r_cmp2 = subprocess.run([sys.executable, AUDIT, _cmp_path, '--catalog', CATALOG,
+                              '--report'], capture_output=True, text=True)
 cmp_txt = r_cmp2.stdout
 cmp_blocker_count = int(re.search(r'(\d+) things? to fix', cmp_txt.splitlines()[0]).group(1))
 check('comparison-paywall.json reports exactly 2 blockers after the sibling '
@@ -1877,9 +2116,408 @@ check('a placement showing a DIFFERENT flow does not count as showing this one',
 _rep, _f = _placements_run(_shown, flow_id=None)
 check('placements without --flow-id cannot be matched, so nothing is claimed either way',
       not of(_f, 'no-placement') and 'fetches it through' not in _rep, _rep[:300])
+# A placement that runs an A/B test shows the test's variants.
+def _ab_run(placements, tests, flow_id='abc'):
+    with tempfile.TemporaryDirectory() as tmp:
+        pp, tp = os.path.join(tmp, 'p.json'), os.path.join(tmp, 't.json')
+        json.dump(placements, open(pp, 'w'))
+        json.dump(tests, open(tp, 'w'))
+        cmd = [sys.executable, AUDIT, FLOW, '--catalog', CATALOG, '--placements', pp,
+               '--ab-tests', tp, '--flow-id', flow_id]
+        rep = subprocess.run(cmd + ['--report'], capture_output=True, text=True)
+        js = subprocess.run(cmd + ['--json'], capture_output=True, text=True)
+    return rep.stdout, json.loads(js.stdout)['findings']
+_tested = [{'id': 'p-uuid-3', 'developer_id': 'paywall', 'is_active': True,
+            'audiences': [{'content_type': 'flow_ab_test', 'ab_test_id': 't-1',
+                           'segment_ids': [], 'priority': 0},
+                          {'content_type': 'flow', 'flow_id': 'other-flow'}]}]
+_test = {'ab_test_id': 't-1', 'type': 'flow', 'state': 'live', 'title': 'T',
+         'flows': [{'flow_id': 'other-flow', 'weight': 50}, {'flow_id': 'abc', 'weight': 50}],
+         'paywalls': []}
+_rep, _f = _ab_run(_tested, [_test])
+check('a flow that is a variant of a test on a placement counts as shown',
+      'Your app fetches it through placement `paywall`.' in _rep
+      and not of(_f, 'no-placement') and not of(_f, 'placement-test-unread'), _rep[:400])
+_rep, _f = _ab_run(_tested, [dict(_test, flows=[{'flow_id': 'other-flow', 'weight': 100}])])
+check('a test without this flow among its variants does not count',
+      len(of(_f, 'no-placement')) == 1 and not of(_f, 'placement-test-unread'))
+_rep, _f = _ab_run(_tested, [])
+check('a test that was not read turns no-placement into placement-test-unread, a question',
+      not of(_f, 'no-placement') and len(of(_f, 'placement-test-unread')) == 1
+      and of(_f, 'placement-test-unread')[0]['severity'] == 'question'
+      and 'https://app.adapty.io/placements/flows/p-uuid-3' in _rep, _rep)
+_rep, _f = _ab_run([dict(_tested[0], is_active=False)], [])
+check('...but not for a placement that is switched off', len(of(_f, 'no-placement')) == 1)
+_rep, _f = _placements_run(_tested)
+check('without --ab-tests a test entry is unread too',
+      len(of(_f, 'placement-test-unread')) == 1 and not of(_f, 'no-placement'))
 check('placement findings keep the exact 7-key contract',
       all(set(f) == {'severity', 'family', 'check', 'screen', 'element', 'message',
                       'fix'} for f in _placements_run([_shown[1]])[1]))
+
+print('\ncustom-action answers')
+CUSTOM = os.path.join(FIX, 'onboarding-custom-actions.json')
+PRIMER = os.path.join(FIX, 'onboarding-permission-primer.json')
+
+
+def _cli(*args):
+    return subprocess.run([sys.executable, AUDIT, *args], capture_output=True, text=True)
+
+
+_parse = getattr(audit_mod, 'parse_custom_actions', None)
+check('parse_custom_actions trims spaces and skips empty items',
+      _parse is not None and _parse(' a = permission, b=review ,')
+      == {'a': 'permission', 'b': 'review'})
+for _bad in ('a=maybe', 'a'):
+    _r = _cli(os.path.join(FIX, 'tabs-paywall.json'), '--json', '--custom-actions', _bad)
+    check(f'--custom-actions {_bad!r} is a usage error naming the item',
+          _r.returncode == 2 and f'--custom-actions: "{_bad}"' in _r.stderr,
+          (_r.returncode, _r.stderr[-200:]))
+_plain = run(os.path.join(FIX, 'tabs-paywall.json'))
+_extra = run(os.path.join(FIX, 'tabs-paywall.json'), custom='unknown_id=other')
+check('an answered ID that is not in the flow changes nothing',
+      _extra[0] == _plain[0] and _extra[1] == _plain[1])
+
+print('\ncustom-action inventory')
+QUIZ = os.path.join(FIX, 'onboarding-quiz-paywall.json')
+
+
+def _custom(cid):
+    return {'id': f'act_{cid}', 'type': 'custom', 'payload': {'id': cid}}
+
+
+def _with_custom(sites, nested=None):
+    """A quiz copy with a custom action prepended on each (screen caption, element id).
+    `nested` puts one more inside the Quiz screen's conditional "rock" branch."""
+    c = load(QUIZ)
+    by_cap = {s['caption']: s for s in c['screens']}
+    for cap, eid, cid in sites:
+        e = by_cap[cap]['elements']['map'][eid]
+        e['interactions'][0]['actions'].insert(0, _custom(cid))
+    if nested:
+        cond = by_cap['Quiz']['elements']['map']['el_TyXZ9eIxZo']['interactions'][0]['actions'][0]
+        cond['payload']['cases'][0][1]['value'].insert(0, _custom(nested))
+    return c
+
+
+_one = _with_custom([('Welcome', 'el_XKEBYBDCuP', 'notif_prompt')])
+_rc, _f = run(_one)
+check('one unanswered custom action raises exactly one custom-action-unconfirmed question',
+      [f['severity'] for f in of(_f, 'custom-action-unconfirmed')] == ['question'], _f)
+_p = os.path.join(tempfile.gettempdir(), 'ca.json')
+json.dump(_one, open(_p, 'w'))
+_rep = _cli(_p, '--report', '--catalog', CATALOG).stdout
+_answer_first = _rep.split('Answer these first', 1)[1].split('\n\n', 1)[0] if (
+    'Answer these first' in _rep) else ''
+check('...and the report asks it under "Answer these first"',
+      'custom action' in _answer_first, _rep[-900:])
+
+_many = _with_custom([('Welcome', 'el_XKEBYBDCuP', 'notif_prompt'),
+                      ('Rock', 'el_P9W4raTmIO', 'notif_prompt')], nested='rate_app')
+_f = run(_many)[1]
+_sites = audit_mod.custom_sites(_many) if hasattr(audit_mod, 'custom_sites') else {}
+check('the same ID on two screens plus one nested in a quiz branch is still ONE finding',
+      len(of(_f, 'custom-action-unconfirmed')) == 1, _f)
+check('...and the inventory has both IDs, the repeated one at both sites, the nested one too',
+      set(_sites) == {'notif_prompt', 'rate_app'} and len(_sites.get('notif_prompt', [])) == 2,
+      _sites)
+
+_icon = _with_custom([('Paywall After', 'el_WaTCB9iWLJ', 'notif_prompt')])
+_isites = audit_mod.custom_sites(_icon) if hasattr(audit_mod, 'custom_sites') else {}
+check('an icon-only element carrying the action reads "an icon with no text"',
+      [s[2] for s in _isites.get('notif_prompt', [])] == ['an icon with no text'], _isites)
+_wsites = audit_mod.custom_sites(_one) if hasattr(audit_mod, 'custom_sites') else {}
+check('a button\'s label is its descendants\' text in the default locale',
+      bool(_wsites.get('notif_prompt')) and _wsites['notif_prompt'][0][2] not in
+      ('', 'an icon with no text'), _wsites)
+
+_f = run(_many, custom='notif_prompt=other,rate_app=review')[1]
+check('every ID answered: no custom-action question or blocker',
+      not [f for f in _f if f['check'].startswith('custom-action-')], _f)
+_rc, _f = run(_many, custom='notif_prompt=none,rate_app=other')
+check('an ID answered "none" is one custom-action-unhandled blocker',
+      [f['severity'] for f in of(_f, 'custom-action-unhandled')] == ['blocker'] and _rc == 1,
+      _f)
+check('...and the answered IDs no longer raise the question',
+      not of(_f, 'custom-action-unconfirmed'), _f)
+_p = os.path.join(tempfile.gettempdir(), 'cn.json')
+json.dump(_many, open(_p, 'w'))
+_rep = _cli(_p, '--report', '--catalog', CATALOG, '--custom-actions',
+            'notif_prompt=none,rate_app=other').stdout
+check('...and the report routes it to the app\'s code',
+      "yours to do in your app's code" in _rep, _rep[-700:])
+
+_rep = _cli(PRIMER, '--report').stdout
+check('the custom-action question is only asked, never offered as a fix I can make',
+      'custom action' in _rep and 'I can fix' not in _rep, _rep[-700:])
+
+for _name in sorted(os.listdir(FIX)):
+    _f = run(os.path.join(FIX, _name))[1]
+    _n = len(of(_f, 'custom-action-unconfirmed'))
+    _want = 1 if _name in ('onboarding-custom-actions.json',
+                           'onboarding-permission-primer.json') else 0
+    check(f'{_name}: {_want} custom-action-unconfirmed, no unhandled blocker',
+          _n == _want and not of(_f, 'custom-action-unhandled'), _f)
+
+print('\ndead-end screens')
+
+
+def _profile(actions):
+    """The multilocale onboarding with both Profile buttons' actions replaced."""
+    c = load(FLOW)
+    prof = next(s for s in c['screens'] if s['id'] == 'scr_profile')
+    for eid in ('el_022S', 'el_029S'):
+        if actions is None:
+            prof['elements']['map'][eid].pop('interactions', None)
+        else:
+            prof['elements']['map'][eid]['interactions'][0]['actions'] = copy.deepcopy(actions)
+    return c
+
+
+for _name in sorted(os.listdir(FIX)):
+    check(f'{_name}: no dead-end-screen', not of(run(os.path.join(FIX, _name))[1],
+                                                  'dead-end-screen'))
+_f = run(_profile([{'id': 'act_b', 'type': 'navigateBack'}]))[1]
+check('a screen whose only button goes Back is one dead-end-screen blocker on that screen',
+      [(f['severity'], f['screen']) for f in of(_f, 'dead-end-screen')]
+      == [('blocker', 'scr_profile')], of(_f, 'dead-end-screen'))
+_f = run(_profile(None))[1]
+check('a screen with no actions at all is a dead end too',
+      [f['screen'] for f in of(_f, 'dead-end-screen')] == ['scr_profile'], _f)
+_f = run(_profile([_custom('save_profile')]))[1]
+check('a screen whose only button fires a custom action is NOT a dead end',
+      not of(_f, 'dead-end-screen'), of(_f, 'dead-end-screen'))
+
+_t = load(os.path.join(FIX, 'timeline-anchored.json'))
+_second = copy.deepcopy(_t['screens'][0])
+_second['id'], _second['caption'] = 'scr_second', 'Second'
+_t['screens'].append(_second)
+_first_map = _t['screens'][0]['elements']['map']
+next(iter(_first_map.values()))['interactions'] = [
+    {'id': 'int_n', 'trigger': 'tap',
+     'actions': [{'id': 'act_n', 'type': 'navigate',
+                  'payload': {'type': 'screen', 'screen': 'scr_second'}}]}]
+_f = run(_t)[1]
+check('a dead end in a flow with no way out anywhere is left to no-escape-in-flow',
+      not of(_f, 'dead-end-screen') and of(_f, 'no-escape-in-flow'), _f)
+
+_b = load(PRIMER)
+_bn = next(s for s in _b['screens'] if s['id'] == 'scr_notifications')
+_bn['elements']['map']['el_099S']['interactions'][0]['actions'] = [
+    {'id': 'act_bk', 'type': 'navigateBack'}]
+_f = run(_b)[1]
+check('a dead end in a flow whose only escape is Back is not a blocker (nothing closes it)',
+      not of(_f, 'dead-end-screen'), of(_f, 'dead-end-screen'))
+
+_guess = {cid: audit_mod.custom_kinds({'screens': [{'id': 's', 'elements': {
+    'map': {'e': {'type': 'stack', 'interactions': [{'trigger': 'tap', 'actions': [
+        {'type': 'custom', 'payload': {'id': cid}}]}]}}, 'hierarchy': {'id': 'root',
+        'children': [{'id': 'e'}]}}}]})[cid][0] for cid in (
+    'rate_us', 'rateApp', 'request_att', 'att_prompt', 'request_mic', 'request_notifications',
+    'enablePush', 'request_location', 'sign_in_apple', 'createAccount', 'log_in',
+    'start_tracking', 'habit_tracking_setup', 'select_location', 'upload_photo',
+    'push_to_paywall', 'account_type', 'no_bank_account')}
+check('the kind guess reads underscore and camelCase IDs',
+      [_guess[c] for c in ('rate_us', 'rateApp', 'request_att', 'att_prompt', 'request_mic',
+                           'request_notifications', 'enablePush', 'request_location',
+                           'sign_in_apple', 'createAccount', 'log_in')]
+      == ['review', 'review', 'tracking', 'tracking', 'permission', 'permission',
+          'permission', 'permission', 'sign-in', 'sign-in', 'sign-in'], _guess)
+check('...and does not guess from a word that only looks like one',
+      all(_guess[c] == 'unknown' for c in ('start_tracking', 'habit_tracking_setup',
+                                           'select_location', 'upload_photo',
+                                           'push_to_paywall', 'account_type',
+                                           'no_bank_account')), _guess)
+
+_u = load(FLOW)
+_orphan = copy.deepcopy(next(s for s in _u['screens'] if s['id'] == 'scr_profile'))
+_orphan['id'], _orphan['caption'] = 'scr_orphan', 'Orphan'
+for _e in _orphan['elements']['map'].values():
+    _e.pop('interactions', None)
+_u['screens'].append(_orphan)
+check('an unreachable dead end is silent (unreachability is the structural checker\'s)',
+      not of(run(_u)[1], 'dead-end-screen'))
+
+_ends = audit_mod.end_screens(load(PRIMER)) if hasattr(audit_mod, 'end_screens') else None
+check('end_screens lists the screens with nowhere further to go',
+      _ends == ['scr_notifications'], _ends)
+_rep = _cli(PRIMER, '--report', '--custom-actions',
+            'add_pregnancy=other,set_move_goal_lightly=other,set_move_goal_moderately=other,'
+            'set_move_goal_highly=other,request_notifications=permission').stdout
+_mine = _rep.split('Check these yourself', 1)[1] if 'Check these yourself' in _rep else ''
+check('"Check these yourself" names the screen where the flow ends',
+      'it ends on' in _mine and '"Notifications"' in _mine, _rep[-800:])
+_rep = _cli(os.path.join(FIX, 'reviews-carousel.json'), '--report').stdout
+check('...and a one-screen flow gets no such line', 'it ends on' not in _rep)
+print('\nfonts')
+import http.server, struct, threading  # noqa: E402
+
+
+def _font_bytes(postscript, variable=False, magic=b'OTTO'):
+    """A minimal sfnt: a `name` table holding one Windows name ID 6, plus an `fvar`
+    table when `variable`. Enough for the audit's reader; no renderer would load it."""
+    raw = postscript.encode('utf-16-be')
+    tables = {b'name': struct.pack('>HHH', 0, 1, 18) + struct.pack('>6H', 3, 1, 0x409, 6,
+                                                                       len(raw), 0) + raw}
+    if variable:
+        tables[b'fvar'] = bytes(16)
+    head = magic + struct.pack('>HHHH', len(tables), 0, 0, 0)
+    off, recs, body = 12 + 16 * len(tables), b'', b''
+    for tag, data in tables.items():
+        recs += struct.pack('>4sIII', tag, 0, off + len(body), len(data))
+        body += data + bytes(-len(data) % 4)
+    return head + recs + body
+
+
+_FONT_FILES = {
+    '/inter-medium': _font_bytes('Inter-Medium'),
+    '/inter-bold': _font_bytes('Inter-Bold', magic=b'\x00\x01\x00\x00'),
+    '/variable': _font_bytes('Roboto-Regular', variable=True),
+    '/not-a-font': b'\x89PNG\r\n\x1a\n' + bytes(32),
+}
+
+
+class _FontHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = _FONT_FILES.get(self.path)
+        self.send_response(200 if body else 404)
+        self.end_headers()
+        self.wfile.write(body or b'')
+
+    def log_message(self, *a):
+        pass
+
+
+_srv = http.server.HTTPServer(('127.0.0.1', 0), _FontHandler)
+threading.Thread(target=_srv.serve_forever, daemon=True).start()
+_BASE = f'http://127.0.0.1:{_srv.server_port}'
+
+
+def _with_fonts(fonts):
+    c = load(os.path.join(FIX, 'tabs-paywall.json'))
+    c.setdefault('_meta', {})['fonts'] = fonts
+    return c
+
+
+def _font(fid, path, ios, android, faces=None):
+    f = {'id': fid, 'name': fid, 'url': _BASE + path, 'iosName': ios, 'androidName': android}
+    if faces is not None:
+        f['faces'] = faces
+    return f
+
+
+FONT_CHECKS = ('android-font-name', 'ios-font-name', 'variable-font',
+               'duplicate-ios-font-name', 'font-file-unread', 'font-names-unchecked')
+
+# Real exports: every tracked fixture with fonts carries Android names Android cannot
+# use ("Inter Medium", "Avenir-Heavy"), so android-font-name FIRES on both. Their urls are
+# sanitized to example.invalid, so the file check degrades to one question.
+for _name in ('comparison-paywall.json', 'vpn-timer-draft.json'):
+    _rc, _f = run(os.path.join(FIX, _name))
+    check(f'{_name}: android-font-name FIRES as one blocker on its real Android names',
+          [f['severity'] for f in of(_f, 'android-font-name')] == ['blocker'])
+    check(f'{_name}: an unreachable font url degrades to font-file-unread, a question',
+          [f['severity'] for f in of(_f, 'font-file-unread')] == ['question']
+          and not of(_f, 'ios-font-name') and _rc in (0, 1))
+for _name in ('onboarding-multilocale.json', 'onboarding-quiz-paywall.json',
+              'reviews-carousel.json', 'tabs-paywall.json', 'timeline-anchored.json'):
+    _f = run(os.path.join(FIX, _name))[1]
+    check(f'{_name} (no custom fonts) is SILENT on every font check',
+          not [f for f in _f if f['check'] in FONT_CHECKS])
+
+_good = _font('inter', '/inter-medium', 'Inter-Medium', 'inter_medium')
+_f = run(_with_fonts([_good]))[1]
+check('a face whose names match its file and the res/font rule is SILENT on every font '
+      'check', not [f for f in _f if f['check'] in FONT_CHECKS], _f)
+
+for _bad in ('Inter Medium', 'Inter-Medium', 'InterMedium', 'inter-medium', ''):
+    _f = run(_with_fonts([dict(_good, androidName=_bad)]))[1]
+    check(f'android-font-name FIRES on {_bad!r}', len(of(_f, 'android-font-name')) == 1)
+
+_bad_android = _with_fonts([dict(_good, androidName='Inter Medium')])
+check('android-font-name is SILENT when the app ships on iOS only',
+      not of(run(_bad_android, stores='ios')[1], 'android-font-name'))
+check('...and FIRES when Android is among the stores',
+      len(of(run(_bad_android, stores='ios,android')[1], 'android-font-name')) == 1)
+
+_f = run(_with_fonts([dict(_good, iosName='Inter Medium')]))[1]
+check('ios-font-name FIRES when the iOS name differs from the file\'s PostScript name',
+      [f['severity'] for f in of(_f, 'ios-font-name')] == ['blocker']
+      and 'Inter-Medium' in of(_f, 'ios-font-name')[0]['message'], _f)
+_f = run(_with_fonts([_font('inter', '/inter-bold', 'Inter-Bold', 'inter_bold')]))[1]
+check('a TrueType file (0x00010000) is read as well as a CFF one (OTTO)',
+      not [f for f in _f if f['check'] in FONT_CHECKS], _f)
+
+_faces = [{'id': 'f1', 'url': _BASE + '/inter-medium', 'iosName': 'Inter-Medium',
+           'androidName': 'inter_medium', 'weight': 500, 'italic': False, 'isDefault': True},
+          {'id': 'f2', 'url': _BASE + '/inter-bold', 'iosName': 'Inter-Heavy',
+           'androidName': 'Inter Bold', 'weight': 700, 'italic': False, 'isDefault': False}]
+_f = run(_with_fonts([_font('inter', '/inter-medium', 'Inter-Medium', 'inter_medium',
+                            faces=_faces)]))[1]
+check('with faces[], each face is checked, not only the copied default',
+      len(of(_f, 'android-font-name')) == 1 and len(of(_f, 'ios-font-name')) == 1
+      and '700' in of(_f, 'ios-font-name')[0]['message'], _f)
+
+_var = _font('roboto', '/variable', 'Roboto-Bold', 'roboto')
+_f = run(_with_fonts([_var]))[1]
+check('a variable file raises variable-font, a question',
+      [f['severity'] for f in of(_f, 'variable-font')] == ['question'], _f)
+check('...and a variable face named after another instance is NOT an ios-font-name '
+      'blocker', not of(_f, 'ios-font-name'), _f)
+_f = run(_with_fonts([dict(_var, iosName='roboto_bold')]))[1]
+check('a variable face whose iOS name is Android-shaped and differs from the file FIRES '
+      'ios-font-name', len(of(_f, 'ios-font-name')) == 1, _f)
+
+_f = run(_with_fonts([_good, _font('inter2', '/inter-bold', 'Inter-Medium',
+                                   'inter_bold')]))[1]
+check('two font ids sharing one iOS name raise duplicate-ios-font-name, a risk',
+      [f['severity'] for f in of(_f, 'duplicate-ios-font-name')] == ['risk'], _f)
+_f = run(_with_fonts([_font('roboto', '/variable', 'Roboto-Regular', 'roboto', faces=[
+    {'id': 'a', 'url': _BASE + '/variable', 'iosName': 'Roboto-Regular',
+     'androidName': 'roboto'},
+    {'id': 'b', 'url': _BASE + '/variable', 'iosName': 'Roboto-Regular',
+     'androidName': 'roboto'}])]))[1]
+check('...and faces of ONE font sharing a name are SILENT on it',
+      not of(_f, 'duplicate-ios-font-name'), _f)
+
+for _path, _why in (('/not-a-font', 'a file that is not a font'),
+                    ('/missing', 'a 404')):
+    _rc, _f = run(_with_fonts([_font('inter', _path, 'Inter-Medium', 'inter_medium')]))
+    check(f'{_why} degrades to font-file-unread and the run still succeeds',
+          len(of(_f, 'font-file-unread')) == 1 and not of(_f, 'ios-font-name')
+          and _rc in (0, 1), _f)
+
+# Publishing reads the app's own font settings; the audit reads the copy saved with the flow. A
+# custom font a text names but the copy lacks (an agent- or API-written config) is unchecked.
+_uncopied = load(os.path.join(FIX, 'vpn-timer-draft.json'))
+_uncopied['_meta']['fonts'] = []
+_f = run(_uncopied)[1]
+check('fonts named by texts but missing from _meta.fonts raise ONE font-names-unchecked question',
+      [f['severity'] for f in of(_f, 'font-names-unchecked')] == ['question'], _f)
+_by_name = load(os.path.join(FIX, 'vpn-timer-draft.json'))
+_names = {x['id']: x['name'] for x in _by_name['_meta']['fonts']}
+_first = next(iter(_names))
+
+
+def _rename(o):
+    if isinstance(o, dict):
+        if isinstance(o.get('family'), dict) and o['family'].get('id') == _first:
+            o['family']['id'] = _names[_first]
+        for v in o.values():
+            _rename(v)
+    elif isinstance(o, list):
+        for v in o:
+            _rename(v)
+
+
+_rename(_by_name)
+_f = run(_by_name)[1]
+check('a font named by its family name instead of its id is unchecked too',
+      len(of(_f, 'font-names-unchecked')) == 1, _f)
+_f = run(_with_fonts([_good]))[1]
+check('every font a text names is in _meta.fonts: font-names-unchecked is SILENT',
+      not of(_f, 'font-names-unchecked'), _f)
+_srv.shutdown()
 
 if fails:
     print(f'\n{len(fails)} FAILED')

@@ -11,7 +11,8 @@ Calibration corpus: six tracked flow fixtures under `tests/fixtures/` (five from
 plus `tests/catalog-fixture.json` (a product catalog, not a flow config, so it lives
 outside `fixtures/`) plus five real flows measured while this
 skill was written. `vpn-timer-draft.json` is this skill's **negative control** — it
-produces **zero** findings across all six families. `timeline-anchored.json` is
+produces **zero** findings across every family except Fonts, where its real, malformed
+font names fire correctly (see Fonts below). `timeline-anchored.json` is
 **not** a full negative control: it carries **zero actions anywhere** — no purchase,
 no `closeFlow`/`navigateBack`, nothing tappable at all — so `no-escape-in-flow` fires
 on it, correctly, as a `question`. That is a true positive, not a blind spot: a flow
@@ -38,6 +39,8 @@ fixture/live flow it fires on, or both — a check with only one half proven is 
 | `action-nothing` — an action explicitly typed `nothing` | risk | a forgotten stub the schema allows (`ActionNothing`) | absent from the whole corpus and the five live flows — **untested in both directions** until injected |
 | `openurl-no-url` — an `openUrl` action with no address in the default locale (the url is a catalog entry, read through the catalog; every other locale falls back to the default's value) | blocker | the button does nothing when tapped | 0 occurrences in the corpus — **untested in both directions** until injected |
 | `interaction-no-actions` — an interaction with an empty `actions` array | risk | wired but does nothing | 0 occurrences across 5 flows, so no false positives measured; not proven to fire on real data (fires on injection in `test-audit-flow.py`) |
+| `custom-action-unconfirmed` — one finding per flow listing every custom action ID not yet answered through `--custom-actions`, each with its screen and button text (an icon-only button reads "an icon with no text"); IDs inside conditional branches included, a repeated ID listed once | question | Adapty's actions doc: "A custom action does nothing on its own" — the app must handle each ID, and only the user knows whether it does and what it does. It routes to **Answer these first** only, never to "I can fix", because nothing can be fixed before the answer | fires exactly once on every one of the 38 flows with custom actions (2 tracked, 36 local); silent on the 7 tracked fixtures without one and once every ID is answered |
+| `custom-action-unhandled` — an ID the user answered `none` | blocker | the button does nothing when tapped | fires on an injected `none` answer; routes to **yours to do in your app's code** |
 
 ### False-positive traps — Triggers
 
@@ -56,7 +59,7 @@ the Play equivalents) and a fix shape.
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
 | `no-restore` — the flow sells (binds a product, or carries a `purchase` action) but has no `restorePurchases` action anywhere | blocker | App Store 3.1.1 requires a restore path | **fires**: 3 of 4 real selling flows measured, including one whose copy literally says "Restore purchase". **silent**: any flow once a `restorePurchases` action exists anywhere (calibrated by injection) |
-| `no-terms-link` / `no-privacy-link` — a selling flow has no `openUrl` action whose URL tokenizes to a terms/EULA or privacy vocabulary word. The URL is a catalog entry and is read in the default locale; reading the stored `{_lid}` ref instead finds no URL at all and fires both checks on a paywall that has both links | blocker (no `openUrl` at all) or question (an `openUrl` exists but no URL matches) | App Store 3.1.2 requires both links on a subscription screen | **fires as blocker**: `openUrl` occurs in **none** of the 5 live flows measured, so no flow there ships a working legal link. **silent**: `tabs-paywall.json` (real `/terms` and `/privacy` URLs) |
+| `no-terms-link` / `no-privacy-link` — a selling flow has no `openUrl` action whose URL tokenizes to a terms/EULA or privacy vocabulary word (`privacy` also inside a run-together segment, `/privacypolicy`), or whose button's own text names it ("Privacy Policy", "Terms of Use"); a label never makes a link absent. The URL is a catalog entry and is read in the default locale; reading the stored `{_lid}` ref instead finds no URL at all and fires both checks on a paywall that has both links | blocker (no `openUrl` at all) or question (an `openUrl` exists but no URL matches) | App Store 3.1.2 requires both links on a subscription screen | **fires as blocker**: `openUrl` occurs in **none** of the 5 live flows measured, so no flow there ships a working legal link. **silent**: `tabs-paywall.json` (real `/terms` and `/privacy` URLs) |
 | `no-escape-from-paywall` — a selling screen has no `closeFlow`/`navigateBack` reachable via the navigation graph (`navigate`/`navigateNext` edges) | blocker | a user who does not buy must be able to leave | **fires**: one live paywall (only action is `purchase`); silent on `tabs-paywall.json` and the other 3 live paywalls, each with one escape reachable |
 | `no-escape-in-flow` — no `closeFlow`/`navigateBack` anywhere in the flow at all, on ANY flow (selling or not) | question | may be legitimate if the host app presents the flow modally with a system dismiss | fires on `d1faba75` (3 screens, no dismissal anywhere) and on `timeline-anchored.json` (1 screen, zero actions of any kind — a true positive on a non-selling flow with genuinely no way off); silent once a `closeFlow`/`navigateBack` exists anywhere, selling or not |
 
@@ -77,9 +80,10 @@ it is comparing the config against the dashboard, not against itself.
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
 | `product-not-in-catalog` — a bound product id does not exist in `products list` | blocker | the purchase cannot complete | not yet proven to fire on a real flow; fires on injection (rebind to a nonexistent id) — dedups per product id, message names every binding site |
+| `offer-not-on-product` — a bound `offerId` (card, `const` purchase, screen registry, `_meta` declaration, product ref, or a monthly entry's `fallbackOfferId`) is not the `id` of one of that product's offers in `product-offers list` | blocker | the builder refuses the publish, and `flows config validate` passes it (a store code, an unknown offer id and another product's offer, measured on adapty 0.15.0) | **silent** on 15 live flows of a real app (5 bind offers) and on every fixture (none binds one); **fires** on a store code, an unknown offer UUID and another product's offer, each injected into a live flow. Dedups per (product, offer); a product missing from the catalog is left to `product-not-in-catalog`, a product whose offers were not read is one `offers-not-fetched` question |
 | `product-no-access-level` — a catalog product has no `access_level_id` | blocker | a purchase would grant nothing | silent on the real catalog (11 of 11 sandbox products have one, 4 of 4 in `catalog-fixture.json`); not yet proven to fire |
 | `product-store-gap` — a bound product has no `vendor_products` entry for a store the app ships on | blocker (store named) / question (store unknown) | the purchase cannot complete on that store | **fires as blocker**: 8 of 11 sandbox catalog products are `app_store`-only, so any of them would fail an Android build. Question form is silent when only the known store is checked (`--stores ios` clears an `app_store`-only product) |
-| `play-base-plan-missing` — a `play_store` vendor entry has no `base_plan_id` | blocker | Google needs product id + base plan id to complete a purchase | **silent** on the real catalog: all **3** live `play_store` products carry a real base plan (`monthly`, `monthly-base`), and all 3 in `catalog-fixture.json` too. Read **only** off the `play_store` entry — see the trap below |
+| `play-base-plan-missing` — a `play_store` vendor entry has no `base_plan_id` on a subscription period (a `lifetime` product sells as a one-time purchase and has none) | blocker | Google needs product id + base plan id to complete a purchase | **silent** on the real catalog: all **3** live `play_store` products carry a real base plan (`monthly`, `monthly-base`), and all 3 in `catalog-fixture.json` too. Read **only** off the `play_store` entry — see the trap below |
 | `period-claim-mismatch` — a card's copy names exactly one billing period and it disagrees with the bound product's catalog `period` | blocker | the user is shown a period the product does not have | **calibrated both ways**: silent on 8/8 real cards, fires on injected rebinds |
 | `foreign-price-variable` — a card's *only* price-variable reference names a different product than the one it is bound to | blocker | the card displays the wrong price | **calibrated both ways**: silent on 8/8 real cards (6 reference their own product, 2 reference none), including the fixture that was the measured false positive (`onboarding-quiz-paywall.json`'s `el_8rfwhBiXQL`); fires on the injected rebind |
 | `hardcoded-price` — a non-zero currency literal on an element with no price variable of its own | blocker | it will not localise currency and will not follow a store price change | **fires on 2 of 8 real cards** — `$79.99`/`$119.99` written as plain text in a **published** flow |
@@ -120,11 +124,19 @@ same thing in this format: the field falls back to the default locale's text. Bo
 **missing**, never as blank — `verify-config.py` warns on them per locale, and this family turns
 the count into `missing-translation`.
 
+A **link address** is left out of that count and its total, and out of `untranslated`: an
+openUrl action's `url`, and any field whose default-locale value is a bare URL. A Terms or
+Privacy link is the same in every locale on purpose, a locale without its own value opens the
+default's, and `verify-config.py` forbids copying the default into the other locales. A blank
+link value still counts as `empty-translation`. A field whose default-locale text has no
+letters in any branch (a lone price variable, "50%") is left out the same way: the fallback
+shows the same text.
+
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
 | `empty-translation` — a value is present and not empty by the catalog's rule, yet shows nothing (whitespace only, or no literal text and no `variable`/`token`/`image` node, and no non-empty branch if the value is a conditional-text `switch`) | blocker | a real user in that locale sees a blank field — nothing falls back, because the value is not empty | **calibrated both ways**: fires on an injected whitespace-only value and on an all-empty `switch`, counts an emptied value as missing instead, silent on all 43 real fields in `onboarding-multilocale.json`, on every other tracked fixture, and on conditional text |
 | `locale-entirely-empty` — a declared locale has no values anywhere in the flow | blocker | a whole language was declared and never filled | derived from the coverage table; not present in the corpus, not yet proven to fire on real data |
-| `missing-sibling-locale` — a language that at least one of the app's OTHER published flows offers is not among this flow's locales | risk | the audit cannot know the app's markets, but it can see that the rest of the app already speaks a language this flow does not | needs `--sibling-locales` (phase 3 fetches the other published flows); in the sandbox 10 of 11 flows are English-only and one is English plus Russian, so it fires only on a real gap. Tested both ways in `tests/test-navigation.py` |
+| `missing-sibling-locale` — a language that at least one of the app's OTHER published flows offers is not among this flow's locales, codes compared ignoring case and reading `_` as `-` (`pt-BR` = `pt-br` = `pt_BR`) | risk | the audit cannot know the app's markets, but it can see that the rest of the app already speaks a language this flow does not | needs `--sibling-locales` (phase 3 fetches the other published flows); in the sandbox 10 of 11 flows are English-only and one is English plus Russian, so it fires only on a real gap. Tested both ways in `tests/test-navigation.py` |
 | `untranslated` — a value is identical to the base locale's text elsewhere in the flow | risk, grouped once per flow | may be a missed translation, may be a proper noun | **fires** twice on `onboarding-multilocale.json` (and twice on a live flow too) and **both hits are the brand name** (`Nimbus`/`Nimbus Plus` in the fixture, the app's own name and its paid tier in the live one) — correctly untranslated, so this can never be a blocker |
 
 ### False-positive traps — Localization
@@ -133,7 +145,7 @@ the count into `missing-translation`.
 | :--- | :--- |
 | A literal-text-only presence test | Every price element's whole content is a single `variable` node with no literal text — a blank-text check flags every price on every paywall. A value counts as present if it carries text **or** a `variable`/`token`/`image` node. |
 | Treating an empty `text` node as substantive | Counting a paragraph containing `{'type': 'text', 'text': ''}` as content makes the check miss its own injected empty-translation defect — a truly empty field slips through as "has a text node". |
-| Reading a per-locale value as always richtext-shaped | **Three measured instances of one trap**, and the third is the worst: variable-only content (every price on every paywall reads as empty), a per-locale image object (`{id, url}`, no `type` — fired on two real fixtures), and a **conditional-text `switch`**, which is what a personalization payoff's copy is made of. That last one put a *blocker* on a real 6-screen onboarding, naming the three fields of its payoff — the read-only auditor blocking the exact screen `onboarding-teardown` exists to produce. The fix recurses the branches rather than accepting the type, so an all-empty switch still counts as empty. **Known limitation, labelled in the code:** `flat_text` still returns `''` for a switch, so conditional copy stays invisible to the `same`-as-base parity count and to every check that reads visible text — widening it reaches the price and store-review checks, which are calibrated against measured false positives. |
+| Reading a per-locale value as always richtext-shaped | **Three measured instances of one trap**, and the third is the worst: variable-only content (every price on every paywall reads as empty), a per-locale image object (`{id, url}`, no `type` — fired on two real fixtures), and a **conditional-text `switch`**, which is what a personalization payoff's copy is made of. That last one put a *blocker* on a real 6-screen onboarding, naming the three fields of its payoff — the read-only auditor blocking the exact screen `onboarding-teardown` exists to produce. The fix recurses the branches rather than accepting the type, so an all-empty switch still counts as empty. **Known limitation, labelled in the code:** `flat_text` still returns `''` for a switch, so conditional copy stays invisible to the `same`-as-base parity count and to every check that reads visible text except the two disclosure checks, which read `branch_text` (every branch) after `trial-terms-incomplete` fired on trial terms written inside a switch. Widening `flat_text` itself reaches the price checks, which are calibrated against measured false positives. |
 | A per-locale **image** value read by the richtext-only walk | A per-locale image value is a bare `{id, url}` object with **no `type` key at all**, so a `type`-based substantive test sees nothing and calls a real, filled image asset empty. Measured on two real, working fixtures before the fix (`onboarding-quiz-paywall.json`, `vpn-timer-draft.json`). Fixed: a truthy `url` on the value also counts as present. |
 | Treating any identical-to-base value as a defect | The only two untranslated values in the whole corpus are the brand name — correctly untranslated. `untranslated` is inherently judgmental, so it can never be a blocker and is never reported per-field: it is a count with up-to-4 examples, grouped once for the whole flow, and the human judges. |
 
@@ -147,6 +159,12 @@ cases compare `<groupId>.selectedOptionId` with an answer's `customId`.
 | `dead-branch` — a branch names an answer ID that no answer in the question has | blocker | that branch can never fire: everyone takes the other path, silently | silent on all 23 real configs (tracked, raw and sandbox); fires when the quiz fixture's `rock` answer is renamed to `rock_music` |
 | `branch-mismatch` — a branch leads to a screen NAMED after a different answer (Rock → "Rap") | risk | the likeliest reading is a swapped target | silent on all 23; fires when the quiz fixture's two targets are swapped |
 | `fallthrough-to-answer-screen` — the "otherwise" path leads to a screen named after ONE answer while other answers also fall through to it | risk | those answers land on another answer's screen | silent on all 23; fires when a third answer is added to the quiz with no branch |
+| `dead-end-screen` — a screen reachable from the first one with no navigate, Navigate Next (with a screen after it), Close Flow, purchase or custom action, branches and timer-end included; only when the flow has a Close Flow somewhere (a flow that never closes itself relies on the host app, `no-escape-in-flow`'s question) | blocker | Adapty's screen map says such a screen passes the publish check and strands users on a device | silent on every tracked fixture and all 36 local custom-action onboardings; fires on an injected Back-only screen and on a screen with no actions. silent in a flow with no Close Flow anywhere, including one whose only escape is Navigate Back, on a screen whose only button is a custom action, and on an unreachable screen (`verify-config.py` warns on those) |
+
+The end screens — reachable screens with nowhere further to go — are not a finding. Each one
+reports itself to the app as the last screen, and a branching flow can have several, so once
+nothing blocks, **Check these yourself** names them and tells the user to mark the onboarding
+done on every one, or when the flow closes. A one-screen flow gets no such line.
 
 ### False-positive traps — Navigation
 
@@ -155,6 +173,8 @@ cases compare `<groupId>.selectedOptionId` with an answer's `customId`.
 | Counting the quiz's Next button as an answer | The builder makes the submit button a member of the answer group (caption "Button" in the quiz fixture, no `customId`). Counted as an answer, it "fell through" to the Hip hop screen and the correctly wired quiz reported a defect. The element that carries the branch on its own group is excluded. |
 | Firing on every answer that has no branch of its own | Sending everyone past beginner to one "Accelerated path" screen is a design (the sandbox "Language onboarding" flow does exactly that). The two risk checks need a NAME signal — the target screen is named after a specific answer — or they stay silent. |
 | Walking only top-level actions for reachability | A way off a screen reached through a conditional branch was invisible, so a paywall whose close button lived behind a branch read as a trap. `nav_graph` now follows branches. |
+| Counting Navigate Back as a way forward | Back only returns to the screen that led here; Adapty's screen map counts a Back-only screen as a dead end. |
+| Counting a custom action as a dead end | Adapty's own pattern for a step that depends on the app (signing in) ends the flow on a custom action and lets the app close it, and a purchase already counts although the flow does not close itself after one either. Calling it a dead end would also put a blocker on every advisory `signup-wall` screen. What the app does with the action is `custom-action-unconfirmed`'s question. |
 
 ## Placeholders
 
@@ -172,6 +192,43 @@ cases compare `<groupId>.selectedOptionId` with an answer's `customId`.
 | A bare word match instead of an anchored one | "Sample a new workout every week" is legitimate copy — `sample` alone cannot be a signal. The vocabulary is anchored (`lorem ipsum` as a phrase, `your … here` as a phrase, whole-word `TODO`/`TBD`/`FIXME`, and a handful of bare structural nouns matched only as the **entire** stripped string) so a real sentence containing one of those words in passing never matches. |
 | Keying a dot on `width == height` | The **active** dot is very often drawn as a wider pill. With one pill among three, only two equal dots remain — which is how the shape in the original bug report passed a check written against three identical dots. Height anchors the test instead, and width may run to 3× it. |
 | Counting any small icon as a dot | `ue-review` ships a five-`Star` rating row, so a size-only test would fire on every review card in the corpus. The icon test is name-scoped to `Circle`/`Dot`/`DotOutline`. |
+
+## Fonts
+
+Adapty does not send custom fonts to the device: the app bundle carries every face, and the
+flow finds each one by the names in the Builder's font settings. A name that does not match
+draws SF Pro or Roboto **silently**, and every Builder preview still looks right, because the
+preview draws the uploaded file. The naming rules are the "Add the font files to your app's
+bundle" section of https://adapty.io/docs/using-custom-fonts-in-flow-builder.md. Each
+`_meta.fonts[]` entry is read face by face (`faces[]`; an older entry with no `faces` is its
+own face). Each check is one finding listing every face it applies to, since the user fixes
+them all on one settings screen.
+
+**Every fix goes to the font settings (Edit custom font), never to a flow edit:**
+`_meta.fonts` is a copy of the app's font record that publishing does not read; publishing uses
+the app's own settings, and the next Builder save refreshes the copy. So the checks read a copy
+that can be older than the settings, and each name finding says to save the flow in the Builder
+and audit again after a fix there. All six route to "yours to do in the Adapty dashboard".
+
+| Check | Severity | Why | Calibration |
+| :--- | :--- | :--- | :--- |
+| `android-font-name` — a face's `androidName` fails `^[a-z0-9_]+$` (empty included); skipped when `--stores` is given without `android`, kept when the stores are unknown | blocker | Android finds the face by its `res/font/` file name, which allows only lowercase letters, numbers and underscores | **fires** on both tracked fixtures that carry fonts, as true positives: `comparison-paywall.json` (`Inter SemiBold`, `Inter Medium`, `Inter Regular`) and `vpn-timer-draft.json` (`AvenirNextCyr-Bold`, `ClashDisplay-Semibold`, `Avenir-Heavy`, `Avenir-Roman`); fires on injected `Inter-Medium`, `InterMedium`, `inter-medium`, empty. **silent** on `inter_medium` and on the five fixtures without fonts |
+| `ios-font-name` — the face's `iosName` differs from the PostScript name (name ID 6) in the file at its `url`. For a variable file, only when the `iosName` is Android-shaped | blocker | iOS finds the face by the PostScript name stored in the file | **fires** on 4 of 7 real faces in `tests/fixtures-raw/` (the three Inter files say `Inter18pt-SemiBold`/`-Medium`/`-Regular`; one Avenir file says `AvenirLTStd-Roman`). **silent** on the other 3 (`AvenirNextCyr-Bold`, `ClashDisplay-Semibold`, `Avenir-Heavy` match their files) and on an injected matching face, both CFF (`OTTO`) and TrueType |
+| `variable-font` — the file has an `fvar` table | question | Adapty makes one face per named style; a face's iOS name can legitimately be an instance's name, not the file's, so the file alone does not settle it | fires on an injected variable file; no real fixture has one |
+| `duplicate-ios-font-name` — two different `_meta.fonts[].id`s share one `iosName` | risk | the iOS name must be unique across the app; one font draws in the other's typeface | fires on injection; silent when faces of **one** font share a name (one variable file's faces) and on every fixture |
+| `font-file-unread` — a face's file cannot be downloaded, is not an sfnt/TTC file, or declares no PostScript name | question | the degrade path: the iOS name is unchecked, the run goes on | fires on both fixtures above (their urls are sanitized to `example.invalid`), on a 404 and on a non-font body; the run still exits 0/1, never 2 |
+| `font-names-unchecked` — a text, span, state or preset names a custom font (by id or by family name) that `_meta.fonts` lacks | question | publishing resolves it against the app's own fonts, but the flow carries no copy of its names to check; a config written through the CLI or the API often carries none | fires on a fixture with `_meta.fonts` emptied and on a reference by family name; **silent** on every tracked fixture |
+
+The `font_face_missing_ios_name` publish refusal (no `iosName` on a face a text draws with) is
+not checked here: `flows config validate` reports it.
+
+### Traps — Fonts
+
+| Trap | What would have shipped |
+| :--- | :--- |
+| Comparing a variable face's iOS name with the file's PostScript name | Name ID 6 is the default instance's name; a Bold face of the same file is correctly named after its own instance, so the plain comparison would block every variable font but its default face. A variable face fires only when its iOS name is Android-shaped (the Android name copied across, which no PostScript name looks like); everything else is the `variable-font` question. |
+| Treating a missing download as a clean font | A silent skip reads as "fonts checked". The unread faces become one question naming them, with the Font Book step. |
+| Sending the fix to a flow edit | `_meta.fonts` is overwritten by the app's font record on the next Builder save, so an edited name would revert. |
 
 ## Store review
 

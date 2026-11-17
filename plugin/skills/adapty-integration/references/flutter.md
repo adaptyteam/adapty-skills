@@ -312,13 +312,12 @@ await Adapty().activate(
 **If passing a known customer user ID at launch:**
 
 ```dart
-final userId = await UserManager.getCurrentUserId();
+final userId = await UserManager.getCurrentUserId(); // null until the user logs in
 
-await Adapty().activate(
-  configuration: AdaptyConfiguration(apiKey: AppConstants.adaptyPublicKey)
-    ..withLogLevel(AdaptyLogLevel.info)
-    ..withCustomerUserId(userId), // can be null if user not yet logged in
-);
+final configuration = AdaptyConfiguration(apiKey: AppConstants.adaptyPublicKey)
+  ..withLogLevel(AdaptyLogLevel.info);
+if (userId != null) configuration.withCustomerUserId(userId); // takes a non-null String
+await Adapty().activate(configuration: configuration);
 ```
 
 The SDK key comes from `AppConstants` — already set in the recommended architecture step above.
@@ -493,7 +492,18 @@ Future<void> restorePurchases() async {
 }
 ```
 
-**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the sandbox purchase dialog. A restore button calls `restorePurchases()`.
+**Log each view of the paywall.** Adapty records every purchase on a custom paywall but cannot see
+when your own screen appears, so the app reports it. Call `logShowFlow` once each time the paywall
+screen is shown to the user, not when the data loads. Without it, the paywall's views stay at zero,
+and its view → paid conversion and every A/B test result on it stay empty, with no error. Only for a
+custom paywall: a Flow Builder flow logs its own views, and a second call counts each view twice.
+
+```dart
+// Once, when the custom paywall screen appears
+await Adapty().logShowFlow(flow: flow);
+```
+
+**Checkpoint:** Custom paywall UI shows products fetched from Adapty. Tapping a product triggers the sandbox purchase dialog. A restore button calls `restorePurchases()`. Opening the paywall calls `logShowFlow` once.
 
 **Gotcha:** Empty products array → paywall in the dashboard has no products assigned, or placement has no audience.
 
@@ -640,7 +650,7 @@ curl -s "https://adapty.io/docs/flutter-quickstart-identify.md?ref=skill-<sessio
 ```
 
 **What to do:**
-- If the user ID is known at launch, pass it to `activate()` via `..withCustomerUserId(userId)` — already covered in Stage 1
+- If the user ID is known at launch, pass it to `activate()` via `withCustomerUserId(userId)` on the configuration — already covered in Stage 1
 - If users log in after launch, call `Adapty().identify()` after `activate()` and before `getFlow()`
 - Call `Adapty().logout()` when users log out
 
@@ -777,7 +787,7 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 > 1. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
 > 2. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
 > 3. **Kids mode** — COPPA/COPPA-compliant mode that disables IDFA/GAID and ad data collection
-> 4. **A/B testing** — run experiments on paywalls and offers from the dashboard without app updates
+> 4. **A/B testing** — test two paywalls or flows against each other, with no app update
 > 5. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
 > 6. **Web paywalls** — set up web-based paywalls to accept payments outside the app stores
 
@@ -788,7 +798,7 @@ For each item the user picks, fetch the relevant doc and implement it:
 | Custom user attributes | `flutter-setting-user-attributes` |
 | Onboardings | `flutter-get-onboardings`, `flutter-present-onboardings`, `flutter-handling-onboarding-events` |
 | Kids mode | `kids-mode-flutter` |
-| A/B testing | `ab-tests`, `run_stop_ab_tests` |
+| A/B testing | None to implement: nothing changes in the app. Invoke the `ab-tests` skill, which creates the test and starts it on the user's yes |
 | Custom access levels | `create-access-level`, `assigning-access-level-to-a-product` |
 | Web paywalls | `flutter-web-paywall` |
 

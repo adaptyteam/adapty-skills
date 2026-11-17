@@ -118,7 +118,7 @@ up exactly with what this file measured, and are worth having in one place:
 | Read | Returns | Read for |
 |---|---|---|
 | `flows list` | `{id, name, status, updated_at}` | the flows that already exist, and their statuses |
-| `paywalls list` | `{id, title, product_ids}` | the **titles** — an audience carries `paywall_id` and no name |
+| `paywalls list` | `{id, title, products}`; each product is `{product_id, offer_id, fallback_offer_id, billing_plan_id, flow_product_id}` | the **titles** — an audience carries `paywall_id` and no name |
 
 Both are `{data, meta.pagination}` behind the same `paginationFlags` as `placements list`, so both
 default to **20 rows a page** and both go through the same exhaustion loop. Two paged reads whatever
@@ -138,8 +138,9 @@ Matching is on **tokens, not substrings**. `main` is inside `Domain expert` and 
 a false candidate is worse than none, because the user is being asked to confirm the flow their
 paying customers get served.
 
-**Whether a paywall CAN be converted is not readable.** `PaywallDTO` is `{id, product_ids, title}` —
-nothing says which builder made it — and **Move to new builder** appears only on legacy Paywall
+**Whether a paywall CAN be converted is not readable.** `paywalls list` rows are `{id, title, products}` (table above);
+`paywalls get` adds `use_paywall_builder_v4`, which does not say whether a paywall is a legacy
+Paywall Builder paywall, and **Move to new builder** appears only on legacy Paywall
 Builder paywalls. So the skill describes the button and where to find it, and never asserts it is
 there.
 
@@ -162,9 +163,18 @@ is there to be read, and a run that ignores it looks exactly like a run on a sma
 
 ## Summary vs detail
 
-**`placements list` returns `PlacementSummaryDTO` — `{developer_id, id, title}`, with no
-`audiences`.** Only `placements get` returns `PlacementDetailDTO`, which carries `audiences?`.
-There is no bulk read, so classifying N placements costs N GETs.
+**`placements list` returns `PlacementSummaryDTO` — `{developer_id, id, title}` and `type`
+(`paywall`, `flow` or `onboarding`; `null` when a placement has none), with no `audiences`.** Only
+`placements get` returns `PlacementDetailDTO`, which carries `audiences?`. There is no bulk read, so
+classifying costs one GET per paywall placement: `migrate.py` reads no flow or onboarding row, and
+reads every row of a list that carries no `type`. `placements list --type paywall|flow|onboarding`
+lists one type.
+
+**`placements metrics` answers flow and paywall placements, and they differ.** `list --type flow`
+rows carry `unique_profiles_views`, so one call says whether any build calls a new flow placement.
+`list --type paywall` rows carry sales and no views, so whether a shipped app still calls a paywall
+placement takes one `get --type paywall` each, with `--based-on audience` and the dates, reading
+`unique_profiles_views` on the root: phase 8.
 
 **`paywalls placements <paywall_id>` is un-paginated** — no `paginationFlags`, and `printList` is
 called without pagination — and returns summaries only. It answers *which* placements use a
@@ -244,8 +254,10 @@ behind, and it must accept both shapes rather than injecting unconditionally. It
 the thing that would be a bug, not its presence.
 
 The CLI validates the field itself, before any request. `audienceEntryProblem` (**exit 2**, no
-request sent): `content_type` is required and must be one of `{paywall, flow}`; a paywall entry
-requires `paywall_id`, a flow entry requires `flow_id`. Reported as `--audiences[<i>]: <problem>`.
+request sent): `content_type` is required and must be one of `{paywall, flow}` on a CLI before
+0.11.0, which also accepts the four A/B-test kinds (see "Blind spots" below) and, for an unknown
+kind, says `this CLI does not know this audience kind; update the CLI`; a paywall entry requires
+`paywall_id`, a flow entry requires `flow_id`. Reported as `--audiences[<i>]: <problem>`.
 
 **Exit 2 no longer means "nothing was sent".** The draft-flow refusal above also exits 2, and that
 one is a *rejected* request rather than a withheld one. Both are safe to retry after fixing the
@@ -350,24 +362,41 @@ Worth reporting to the CLI/API team alongside QA case C7.
 
 ## Blind spots in the reads themselves
 
-**`placements get` SILENTLY OMITS an audience that is neither paywall nor flow.**
-`PlacementDetailDTO.factory` appends only `PAYWALL` and `FLOW` entries; the source's own test
-`test_factory_skips_content_that_is_neither_paywall_nor_flow` exercises it with
-`PlacementContentType.AB_TEST`. So a placement carrying an A/B-test audience **reports fewer
-audiences than it has**, and every count derived from that read — including this skill's — is short
-by exactly the entries the DTO dropped.
+**What the read returns now.** `placements get` lists an audience that runs an A/B test as an entry
+of its own kind: `content_type` `ab_test` (paywall family) or `flow_ab_test` (flow family), with
+`ab_test_id`, `ab_test_title`, `segment_ids` and `priority`. A test shared across placements shows
+as `cross_ab_test` or `flow_cross_ab_test`, read-only: the backend ignores such an entry on a write
+and keeps the stored ones, and it counts their priorities and their default audience apart from the
+regular ones. The state of a test is not shown (the content of an audience is always the running
+one), and neither are its arms. CLI 0.11.0 is the first release that returns, accepts and writes
+back these entries; an older CLI refuses an entry of these kinds on write with
+`content_type is required and must be "paywall" or "flow"`.
 
-**We cannot detect it, and saying so is the honest answer rather than inventing a check.** The read
-is the only view we have; a placement with 3 audiences of which 1 is an A/B test is
-indistinguishable from a placement with 2. Nothing in the response says an entry was skipped, so
-there is no count to compare against and no flag to test. The only way to know is to look at the
-placement in the dashboard.
+**What follows for the migration.** A paywall test cannot become a flow, and a test id on a new
+placement would start that test there (read from the backend's source, not measured: a test id
+on a write moves or starts that test on the audience that names it). So `migrate.py` **skips every test entry and names it**; it never writes one. The new placement
+is created from the paywall entries only, with priorities renumbered with no gap when a test of the
+placement itself was skipped. A test on the **default audience** would leave the new placement with
+no default audience, which the write refuses (exactly one entry with `segment_ids=[]`, holding the
+highest priority), so that whole placement is skipped. The source placement is never changed: the
+skill only creates, and the test keeps running there.
 
-**What follows for the migration, stated precisely.** This skill creates and never updates, so
-nothing is destroyed and the source placement keeps its A/B-test audience serving. But the **new
-flow placement would not carry that audience**, because the read never showed it — so the migration
-is incomplete in a way the plan cannot show. Disclose it wherever audience counts are reported:
-they are counts of what the API returned, not necessarily of what exists.
+**What `plan` reports.** One stderr line per skipped entry (`skipped: A/B test <title>`, with
+"(cross-placement)" for a shared test, or the id when the test has no title), `summary.ab_tests`
+(`skipped_entries`, `skipped_placements`; absent when the account has no test), `skipped` on a
+created row, and `skipped_placements` for a placement skipped whole. A test on a segment audience
+means that segment's users reach the new flow through the next audience, so the new placement
+differs from the old one there. A shared test never changes the other priorities: the backend
+counts them apart.
+
+**What is still blind.** A deployment that predates the A/B-test read **still omits a test
+audience from `placements get` without a word** (the placement read's factory appended only paywall
+and flow entries, and its own test exercised a skipped A/B-test entry). Such a placement reports
+fewer audiences than it has, and nothing in the response says an entry was left out: a placement
+with 3 audiences of which 1 is a test is indistinguishable from one with 2. **We cannot detect it,
+and saying so is the honest answer rather than inventing a check.** The new flow placement then
+misses an audience the read never showed, so the counts the plan reports are counts of what the API
+returned, not necessarily of what exists. Disclose it wherever audience counts are reported.
 
 ## What the write requires, and why we carry values verbatim
 
@@ -376,7 +405,7 @@ From the same source, the audience array a `placements create` must satisfy:
 | Constraint | |
 |---|---|
 | `segment_ids` per entry | **at most one** — a `field_validator` refuses more (see the legacy trap below) |
-| exactly one entry | must have `segment_ids=[]`, the default, and it must hold the **highest priority** |
+| exactly one entry | must have `segment_ids=[]`, the default, and it must hold the **largest `priority` number**: a smaller number is checked first, and the default is the fallback, checked last |
 | `priority` values | must be **unique** across the array |
 | `segment_ids` values | must be **unique** across the array |
 

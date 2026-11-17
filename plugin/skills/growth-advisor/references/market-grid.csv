@@ -1,0 +1,677 @@
+measure,plan,region,category,median,p25,p75,p90,apps
+trial-cancelled-1h,All plans,APAC,All categories,32.59,,,,
+trial-cancelled-1h,All plans,All regions,All categories,31.87,,,,
+trial-cancelled-1h,All plans,All regions,Education,22.37,,,,
+trial-cancelled-1h,All plans,All regions,Entertainment,34.76,,,,
+trial-cancelled-1h,All plans,All regions,Graphics & Design,36.78,,,,
+trial-cancelled-1h,All plans,All regions,Health & Fitness,20.88,,,,
+trial-cancelled-1h,All plans,All regions,Lifestyle,30.96,,,,
+trial-cancelled-1h,All plans,All regions,Photo & Video,40,,,,
+trial-cancelled-1h,All plans,All regions,Productivity,32.04,,,,
+trial-cancelled-1h,All plans,All regions,Utilities,34.47,,,,
+trial-cancelled-1h,All plans,Europe,All categories,40.75,,,,
+trial-cancelled-1h,All plans,LATAM,All categories,34.36,,,,
+trial-cancelled-1h,All plans,MEA,All categories,25,,,,
+trial-cancelled-1h,All plans,US,All categories,27.83,,,,
+trial-cancelled-24h,All plans,APAC,All categories,44,,,,
+trial-cancelled-24h,All plans,All regions,All categories,44.14,,,,
+trial-cancelled-24h,All plans,All regions,Education,31.86,,,,
+trial-cancelled-24h,All plans,All regions,Entertainment,50,,,,
+trial-cancelled-24h,All plans,All regions,Graphics & Design,50,,,,
+trial-cancelled-24h,All plans,All regions,Health & Fitness,31.03,,,,
+trial-cancelled-24h,All plans,All regions,Lifestyle,42.65,,,,
+trial-cancelled-24h,All plans,All regions,Photo & Video,54.58,,,,
+trial-cancelled-24h,All plans,All regions,Productivity,45.43,,,,
+trial-cancelled-24h,All plans,All regions,Utilities,46.22,,,,
+trial-cancelled-24h,All plans,Europe,All categories,55.15,,,,
+trial-cancelled-24h,All plans,LATAM,All categories,46.07,,,,
+trial-cancelled-24h,All plans,MEA,All categories,34.36,,,,
+trial-cancelled-24h,All plans,US,All categories,39.77,,,,
+trial-paid,All plans,APAC,All categories,17.24,10,27.13,38.46,
+trial-paid,All plans,APAC,Education,20.49,12.94,30.25,45.25,
+trial-paid,All plans,APAC,Entertainment,12.41,6.57,19.32,28.33,
+trial-paid,All plans,APAC,Graphics & Design,15.71,9.85,21.43,30,
+trial-paid,All plans,APAC,Health & Fitness,24.91,15.94,35.31,50,
+trial-paid,All plans,APAC,Lifestyle,14.87,8.16,23.81,35.17,
+trial-paid,All plans,APAC,Photo & Video,13.68,8.62,21,29.22,
+trial-paid,All plans,APAC,Productivity,19.36,10.3,27.68,39.69,
+trial-paid,All plans,APAC,Utilities,17.65,10.53,29.33,38.47,
+trial-paid,All plans,All regions,All categories,20.4,12.72,31.45,41.61,
+trial-paid,All plans,All regions,Education,26.64,16.67,37.97,50,
+trial-paid,All plans,All regions,Entertainment,15.07,9.09,23.84,33.33,
+trial-paid,All plans,All regions,Graphics & Design,18.63,11.68,25.77,33.33,
+trial-paid,All plans,All regions,Health & Fitness,28.11,17.32,40.81,53.57,
+trial-paid,All plans,All regions,Lifestyle,19.99,11.45,30.26,40.96,
+trial-paid,All plans,All regions,Photo & Video,15.38,9.35,23.51,35.52,
+trial-paid,All plans,All regions,Productivity,21.05,13.1,30,38.46,
+trial-paid,All plans,All regions,Utilities,20.17,13.34,31.49,38.52,
+trial-paid,All plans,Europe,All categories,18.39,10.88,28.57,40.71,
+trial-paid,All plans,Europe,Education,23,12.44,33.81,48.15,
+trial-paid,All plans,Europe,Entertainment,13.68,8.33,21,33.33,
+trial-paid,All plans,Europe,Graphics & Design,15.92,8.59,21.04,29.86,
+trial-paid,All plans,Europe,Health & Fitness,27.45,17.39,40.56,53.3,
+trial-paid,All plans,Europe,Lifestyle,16.84,9.91,26.67,40.26,
+trial-paid,All plans,Europe,Photo & Video,13.29,6.6,20.41,30.11,
+trial-paid,All plans,Europe,Productivity,19.14,11.54,28.49,37.63,
+trial-paid,All plans,Europe,Utilities,18.75,11.87,28.52,36.65,
+trial-paid,All plans,LATAM,All categories,17.79,10.17,26.89,38.38,
+trial-paid,All plans,LATAM,Education,23.62,16.09,33.37,47.3,
+trial-paid,All plans,LATAM,Entertainment,11.99,6.32,18.72,27.59,
+trial-paid,All plans,LATAM,Graphics & Design,15.12,9.16,19.55,28.27,
+trial-paid,All plans,LATAM,Health & Fitness,26.79,16.23,39.59,50,
+trial-paid,All plans,LATAM,Lifestyle,14.29,7.28,22.25,30.77,
+trial-paid,All plans,LATAM,Photo & Video,12.98,7.69,21.51,29.41,
+trial-paid,All plans,LATAM,Productivity,20,11.48,27.94,41.58,
+trial-paid,All plans,LATAM,Utilities,19.25,11.81,27.03,35.36,
+trial-paid,All plans,MEA,All categories,15.09,8.82,23.73,33.33,
+trial-paid,All plans,MEA,Education,17.71,11.71,25.93,36.13,
+trial-paid,All plans,MEA,Entertainment,11.76,5.88,18.96,27.52,
+trial-paid,All plans,MEA,Graphics & Design,14.01,8.57,20.83,27.72,
+trial-paid,All plans,MEA,Health & Fitness,19.82,11.25,32.63,47.76,
+trial-paid,All plans,MEA,Lifestyle,13.99,7.73,22.22,30.77,
+trial-paid,All plans,MEA,Photo & Video,13.46,8.55,20.7,29.87,
+trial-paid,All plans,MEA,Productivity,15.91,10.01,23.66,33.73,
+trial-paid,All plans,MEA,Utilities,15.16,8.76,23.72,32.26,
+trial-paid,All plans,US,All categories,26.17,17,36.95,47.2,
+trial-paid,All plans,US,Education,31.27,23.46,41.76,53.54,
+trial-paid,All plans,US,Entertainment,17.83,12.07,26.61,34.09,
+trial-paid,All plans,US,Graphics & Design,23.08,16.24,30.56,38.82,
+trial-paid,All plans,US,Health & Fitness,33.33,23.21,48.01,57.42,
+trial-paid,All plans,US,Lifestyle,22.82,13.11,34.67,46.55,
+trial-paid,All plans,US,Photo & Video,21.92,13.92,32.54,45.97,
+trial-paid,All plans,US,Productivity,26.67,18.52,37.4,45.6,
+trial-paid,All plans,US,Utilities,27.34,17.64,36.62,42.16,
+trial-paid,Annual,APAC,All categories,14.54,6.25,26.46,44.64,
+trial-paid,Annual,APAC,Education,18.92,10,26.46,40,
+trial-paid,Annual,APAC,Entertainment,7.17,2.17,16.2,33.33,
+trial-paid,Annual,APAC,Graphics & Design,11.28,6.87,17.36,25,
+trial-paid,Annual,APAC,Health & Fitness,22.77,13.64,33.73,52.93,
+trial-paid,Annual,APAC,Lifestyle,12.63,5.46,20.73,35.13,
+trial-paid,Annual,APAC,Photo & Video,13.82,6.69,22.06,33.33,
+trial-paid,Annual,APAC,Productivity,18.18,8.11,29.63,44.64,
+trial-paid,Annual,APAC,Utilities,11.95,3.7,26.32,63.01,
+trial-paid,Annual,All regions,All categories,20.45,11.23,35.59,56.6,
+trial-paid,Annual,All regions,Education,23.54,13.49,35.42,50,
+trial-paid,Annual,All regions,Entertainment,11.98,5.8,23.75,37.14,
+trial-paid,Annual,All regions,Graphics & Design,15.38,10.13,21.6,40.38,
+trial-paid,Annual,All regions,Health & Fitness,28.57,16.85,41.86,57.14,
+trial-paid,Annual,All regions,Lifestyle,21.05,11.86,35.71,65.1,
+trial-paid,Annual,All regions,Photo & Video,16.67,9.84,26.02,40,
+trial-paid,Annual,All regions,Productivity,20,11.47,33.51,55.56,
+trial-paid,Annual,All regions,Utilities,20,10.34,40,66.67,
+trial-paid,Annual,Europe,All categories,17.65,8.16,32.26,50,
+trial-paid,Annual,Europe,Education,20.59,10,33.9,50,
+trial-paid,Annual,Europe,Entertainment,8.49,2.79,18.12,27,
+trial-paid,Annual,Europe,Graphics & Design,11.36,6.51,18.5,33.33,
+trial-paid,Annual,Europe,Health & Fitness,27.62,16.67,41.74,55.56,
+trial-paid,Annual,Europe,Lifestyle,17.31,9.43,30.77,50,
+trial-paid,Annual,Europe,Photo & Video,13.62,6.82,22.22,33.33,
+trial-paid,Annual,Europe,Productivity,17.58,9.52,30.32,46.15,
+trial-paid,Annual,Europe,Utilities,17.28,6.83,33.33,69.81,
+trial-paid,Annual,LATAM,All categories,15.21,6.13,28,44.94,
+trial-paid,Annual,LATAM,Education,19.92,10,31.82,50,
+trial-paid,Annual,LATAM,Entertainment,8.7,2.88,18.18,33.33,
+trial-paid,Annual,LATAM,Graphics & Design,10.45,4.69,18.75,28.17,
+trial-paid,Annual,LATAM,Health & Fitness,25.93,14.11,41.09,50,
+trial-paid,Annual,LATAM,Lifestyle,13.08,3.04,26.67,36.84,
+trial-paid,Annual,LATAM,Photo & Video,12.37,6.38,21.53,31.98,
+trial-paid,Annual,LATAM,Productivity,18.31,8.54,29.15,45.76,
+trial-paid,Annual,LATAM,Utilities,11.69,2.13,25.13,50,
+trial-paid,Annual,MEA,All categories,12.15,4.51,23.75,37.5,
+trial-paid,Annual,MEA,Education,17.38,7.53,25,38.46,
+trial-paid,Annual,MEA,Entertainment,7.72,0,19.44,34.48,
+trial-paid,Annual,MEA,Graphics & Design,8.93,4.17,16.16,28.57,
+trial-paid,Annual,MEA,Health & Fitness,19.9,10.34,32.5,50,
+trial-paid,Annual,MEA,Lifestyle,11.13,3.17,21.74,33.33,
+trial-paid,Annual,MEA,Photo & Video,12.17,7.3,21.05,31.29,
+trial-paid,Annual,MEA,Productivity,12.77,6.67,24.31,33.8,
+trial-paid,Annual,MEA,Utilities,10,0.83,19.33,35.29,
+trial-paid,Annual,US,All categories,25.38,14.63,42.78,62.87,
+trial-paid,Annual,US,Education,29,21.51,43.12,71.43,
+trial-paid,Annual,US,Entertainment,15.49,7.96,25,39.64,
+trial-paid,Annual,US,Graphics & Design,20,13.64,28.24,50,
+trial-paid,Annual,US,Health & Fitness,34.28,22.47,50,66.03,
+trial-paid,Annual,US,Lifestyle,22.81,13.63,35.71,57.14,
+trial-paid,Annual,US,Photo & Video,22.24,12.5,36.29,46.67,
+trial-paid,Annual,US,Productivity,26.37,15.33,41.64,62.11,
+trial-paid,Annual,US,Utilities,26.53,14.29,50,72.15,
+trial-paid,Monthly,APAC,All categories,24.7,8.35,43.75,65.24,
+trial-paid,Monthly,APAC,Education,30,17.16,50,73.76,
+trial-paid,Monthly,APAC,Entertainment,14.57,0,35.56,56.12,
+trial-paid,Monthly,APAC,Graphics & Design,16.07,8.35,33.33,81.82,
+trial-paid,Monthly,APAC,Health & Fitness,40.12,24.7,56.52,70,
+trial-paid,Monthly,APAC,Lifestyle,22.22,6.67,36.64,61.41,
+trial-paid,Monthly,APAC,Photo & Video,23.94,12.05,40.67,54.01,
+trial-paid,Monthly,APAC,Productivity,26.99,6.75,50,66.67,
+trial-paid,Monthly,APAC,Utilities,15.18,4.57,28.33,50,
+trial-paid,Monthly,All regions,All categories,30.58,16.67,47.24,66.67,
+trial-paid,Monthly,All regions,Education,40.62,25.4,55.56,76.96,
+trial-paid,Monthly,All regions,Entertainment,21.88,10.79,42.75,54,
+trial-paid,Monthly,All regions,Graphics & Design,20,10.17,33.33,46.67,
+trial-paid,Monthly,All regions,Health & Fitness,38.04,25,56,71.75,
+trial-paid,Monthly,All regions,Lifestyle,26.15,14.29,40.19,58.8,
+trial-paid,Monthly,All regions,Photo & Video,25.1,13.73,48.88,66.67,
+trial-paid,Monthly,All regions,Productivity,28.89,17.27,45.99,62.5,
+trial-paid,Monthly,All regions,Utilities,25,12.5,41.86,60,
+trial-paid,Monthly,Europe,All categories,25.81,11.11,45,66.67,
+trial-paid,Monthly,Europe,Education,33.24,20.13,46.66,71.15,
+trial-paid,Monthly,Europe,Entertainment,19.12,6.01,37.86,60,
+trial-paid,Monthly,Europe,Graphics & Design,16.36,4.55,28.57,39.13,
+trial-paid,Monthly,Europe,Health & Fitness,39.19,22.76,60.66,78.33,
+trial-paid,Monthly,Europe,Lifestyle,20,5,40,51.61,
+trial-paid,Monthly,Europe,Photo & Video,22.43,11.11,46.88,51.92,
+trial-paid,Monthly,Europe,Productivity,26.92,11.11,43.04,66.67,
+trial-paid,Monthly,Europe,Utilities,19.23,8.04,35.65,54.7,
+trial-paid,Monthly,LATAM,All categories,25,9.09,46.13,67.5,
+trial-paid,Monthly,LATAM,Education,37.5,16.67,42.86,67.35,
+trial-paid,Monthly,LATAM,Entertainment,14.22,10.32,34.29,53.57,
+trial-paid,Monthly,LATAM,Graphics & Design,12.5,0,25,37.5,
+trial-paid,Monthly,LATAM,Health & Fitness,46.67,30.51,66.67,73.53,
+trial-paid,Monthly,LATAM,Lifestyle,16.67,5.26,40,56.12,
+trial-paid,Monthly,LATAM,Photo & Video,21.05,10.24,40.98,59.63,
+trial-paid,Monthly,LATAM,Productivity,29.31,8.92,50,66.67,
+trial-paid,Monthly,LATAM,Utilities,14.84,4.74,30.67,60,
+trial-paid,Monthly,MEA,All categories,19.3,5.26,44.44,62.26,
+trial-paid,Monthly,MEA,Education,23.53,11.11,39.53,52.5,
+trial-paid,Monthly,MEA,Entertainment,8.7,0,31.58,53.33,
+trial-paid,Monthly,MEA,Graphics & Design,22.68,5.62,50,66.67,
+trial-paid,Monthly,MEA,Health & Fitness,41.3,20,56.76,68.75,
+trial-paid,Monthly,MEA,Lifestyle,18.42,0,41.67,60.96,
+trial-paid,Monthly,MEA,Photo & Video,20.59,7.69,37.61,54.55,
+trial-paid,Monthly,MEA,Productivity,20,8.87,46.15,60,
+trial-paid,Monthly,MEA,Utilities,14.3,0,26.32,50,
+trial-paid,Monthly,US,All categories,35.71,20.55,51.85,71.43,
+trial-paid,Monthly,US,Education,43.75,31.41,56.92,78.26,
+trial-paid,Monthly,US,Entertainment,25.01,13.04,47.73,79.35,
+trial-paid,Monthly,US,Graphics & Design,27.78,14.49,44.44,50,
+trial-paid,Monthly,US,Health & Fitness,42.86,25.93,58.46,72.09,
+trial-paid,Monthly,US,Lifestyle,30.51,17.73,46.34,66.33,
+trial-paid,Monthly,US,Photo & Video,28.9,20,55.92,84.21,
+trial-paid,Monthly,US,Productivity,41.38,22.89,53.17,70.79,
+trial-paid,Monthly,US,Utilities,32.54,16.67,50,66.67,
+trial-paid,Weekly,APAC,All categories,18.09,10.81,27.83,38.89,
+trial-paid,Weekly,APAC,Education,22.28,15.53,35.29,47.62,
+trial-paid,Weekly,APAC,Entertainment,14.01,9.09,20.9,30.48,
+trial-paid,Weekly,APAC,Graphics & Design,17.5,11.76,25,34.04,
+trial-paid,Weekly,APAC,Health & Fitness,25.66,14.2,50,64.29,
+trial-paid,Weekly,APAC,Lifestyle,15.32,9.09,25.53,37.93,
+trial-paid,Weekly,APAC,Photo & Video,14.43,8.48,22.25,28.12,
+trial-paid,Weekly,APAC,Productivity,18.11,10.53,26.39,34.55,
+trial-paid,Weekly,APAC,Utilities,18.75,11.36,29.92,39.01,
+trial-paid,Weekly,All regions,All categories,21.37,13.79,31.48,40.28,
+trial-paid,Weekly,All regions,Education,26.33,17.65,37.93,51.72,
+trial-paid,Weekly,All regions,Entertainment,16.31,11.09,24.31,34,
+trial-paid,Weekly,All regions,Graphics & Design,20.69,14.19,26.58,34.72,
+trial-paid,Weekly,All regions,Health & Fitness,30.19,19.23,48.81,61.97,
+trial-paid,Weekly,All regions,Lifestyle,20.61,12.5,29.73,42.49,
+trial-paid,Weekly,All regions,Photo & Video,17.6,8.96,25,37.5,
+trial-paid,Weekly,All regions,Productivity,22.04,14.37,30,38.46,
+trial-paid,Weekly,All regions,Utilities,21.71,14.61,32.35,38.74,
+trial-paid,Weekly,Europe,All categories,18.63,11.27,28.29,38.16,
+trial-paid,Weekly,Europe,Education,22.39,12.93,33.98,47.83,
+trial-paid,Weekly,Europe,Entertainment,14.29,9.13,21.01,28.95,
+trial-paid,Weekly,Europe,Graphics & Design,18.87,12.38,24.71,30.95,
+trial-paid,Weekly,Europe,Health & Fitness,30.12,16.67,50,61.54,
+trial-paid,Weekly,Europe,Lifestyle,17.51,10.56,25.71,37.5,
+trial-paid,Weekly,Europe,Photo & Video,14.12,5.81,21.82,31.58,
+trial-paid,Weekly,Europe,Productivity,18.88,11.12,27.27,36.36,
+trial-paid,Weekly,Europe,Utilities,19.67,12.63,29.51,36.36,
+trial-paid,Weekly,LATAM,All categories,18.72,11.76,27.59,38.44,
+trial-paid,Weekly,LATAM,Education,26.67,18.01,42.86,54.55,
+trial-paid,Weekly,LATAM,Entertainment,13.32,7.76,19.7,25.89,
+trial-paid,Weekly,LATAM,Graphics & Design,17.86,10.42,23.53,34.62,
+trial-paid,Weekly,LATAM,Health & Fitness,30.97,16.72,58.7,66.67,
+trial-paid,Weekly,LATAM,Lifestyle,13.33,8.33,21.12,27.27,
+trial-paid,Weekly,LATAM,Photo & Video,15,9.3,24.14,35.3,
+trial-paid,Weekly,LATAM,Productivity,20.22,12.05,28.69,34.24,
+trial-paid,Weekly,LATAM,Utilities,20.93,13.48,28.8,37.01,
+trial-paid,Weekly,MEA,All categories,15.79,9.64,24.54,35.29,
+trial-paid,Weekly,MEA,Education,21.11,13.56,33.33,50,
+trial-paid,Weekly,MEA,Entertainment,12.76,7.03,18.76,27.56,
+trial-paid,Weekly,MEA,Graphics & Design,17.58,12.16,24.68,36.36,
+trial-paid,Weekly,MEA,Health & Fitness,18.51,8.89,37.21,66.67,
+trial-paid,Weekly,MEA,Lifestyle,13.36,7.32,21.43,32.05,
+trial-paid,Weekly,MEA,Photo & Video,15.22,9.06,25,38.35,
+trial-paid,Weekly,MEA,Productivity,15.51,10,23.54,35.4,
+trial-paid,Weekly,MEA,Utilities,15.91,9.94,25,32.72,
+trial-paid,Weekly,US,All categories,26.55,17.91,36.2,45.1,
+trial-paid,Weekly,US,Education,31.84,24.34,43.44,58.35,
+trial-paid,Weekly,US,Entertainment,20,14.25,27.14,35.37,
+trial-paid,Weekly,US,Graphics & Design,25.9,18.18,34.53,42.71,
+trial-paid,Weekly,US,Health & Fitness,32,20.65,50,72.73,
+trial-paid,Weekly,US,Lifestyle,23.83,15.92,33.96,45.83,
+trial-paid,Weekly,US,Photo & Video,23.52,17.49,33.06,47.9,
+trial-paid,Weekly,US,Productivity,26.79,19.73,35.29,45.1,
+trial-paid,Weekly,US,Utilities,28.69,18.63,37.46,42.89,
+view-paid,All plans,APAC,All categories,1.03,0.34,2.33,4.75,1950
+view-paid,All plans,APAC,Education,0.89,0.29,2.26,3.84,138
+view-paid,All plans,APAC,Entertainment,1.01,0.31,1.89,3.93,226
+view-paid,All plans,APAC,Graphics & Design,1.18,0.51,2.33,3.95,142
+view-paid,All plans,APAC,Health & Fitness,1.01,0.3,2.32,4.58,207
+view-paid,All plans,APAC,Lifestyle,1.26,0.37,3.06,6.19,158
+view-paid,All plans,APAC,Photo & Video,1.29,0.46,2.59,4.1,214
+view-paid,All plans,APAC,Productivity,0.86,0.32,2.05,4.25,253
+view-paid,All plans,APAC,Utilities,1,0.32,2.38,6.37,612
+view-paid,All plans,All regions,All categories,1.51,0.52,3.43,6.74,3411
+view-paid,All plans,All regions,Education,1.85,0.5,5.06,8.99,331
+view-paid,All plans,All regions,Entertainment,1.43,0.47,2.88,5.39,351
+view-paid,All plans,All regions,Graphics & Design,1.7,0.73,3.54,5.96,228
+view-paid,All plans,All regions,Health & Fitness,1.58,0.55,3.86,7.75,405
+view-paid,All plans,All regions,Lifestyle,1.67,0.55,3.44,6.3,274
+view-paid,All plans,All regions,Photo & Video,1.66,0.74,3.5,6.09,321
+view-paid,All plans,All regions,Productivity,1.34,0.47,2.98,5.95,428
+view-paid,All plans,All regions,Utilities,1.36,0.48,3.03,7.02,1073
+view-paid,All plans,Europe,All categories,1.38,0.5,2.97,5.71,2380
+view-paid,All plans,Europe,Education,1.34,0.37,3.55,7.03,190
+view-paid,All plans,Europe,Entertainment,1.3,0.57,2.61,4.98,261
+view-paid,All plans,Europe,Graphics & Design,1.58,0.7,3.17,4.91,166
+view-paid,All plans,Europe,Health & Fitness,1.54,0.59,3.51,6.13,291
+view-paid,All plans,Europe,Lifestyle,1.64,0.52,3.25,6.45,208
+view-paid,All plans,Europe,Photo & Video,1.78,0.77,3.29,6.25,245
+view-paid,All plans,Europe,Productivity,1.38,0.48,2.66,5.51,289
+view-paid,All plans,Europe,Utilities,1.21,0.4,2.43,5.65,730
+view-paid,All plans,LATAM,All categories,1.01,0.34,2.15,4,1563
+view-paid,All plans,LATAM,Education,0.83,0.24,1.95,3.42,89
+view-paid,All plans,LATAM,Entertainment,0.76,0.28,1.64,2.67,187
+view-paid,All plans,LATAM,Graphics & Design,1.06,0.44,2.24,4,113
+view-paid,All plans,LATAM,Health & Fitness,0.89,0.27,2.5,4.55,150
+view-paid,All plans,LATAM,Lifestyle,1.02,0.38,2.32,3.96,117
+view-paid,All plans,LATAM,Photo & Video,1.18,0.55,2.51,4.04,175
+view-paid,All plans,LATAM,Productivity,0.95,0.34,1.99,4.38,195
+view-paid,All plans,LATAM,Utilities,1.05,0.38,2.25,4.36,537
+view-paid,All plans,MEA,All categories,0.7,0.2,1.66,3.3,1667
+view-paid,All plans,MEA,Education,0.61,0.14,1.43,2.23,108
+view-paid,All plans,MEA,Entertainment,0.71,0.26,1.55,2.74,197
+view-paid,All plans,MEA,Graphics & Design,1.1,0.43,1.92,3.25,122
+view-paid,All plans,MEA,Health & Fitness,0.45,0.16,1.57,3.25,170
+view-paid,All plans,MEA,Lifestyle,0.87,0.17,1.89,4.85,131
+view-paid,All plans,MEA,Photo & Video,0.84,0.41,2.36,3.93,184
+view-paid,All plans,MEA,Productivity,0.72,0.21,1.6,3.15,223
+view-paid,All plans,MEA,Utilities,0.63,0.17,1.45,3.12,532
+view-paid,All plans,US,All categories,2.75,1.03,6,10.36,2378
+view-paid,All plans,US,Education,3.28,0.88,7,10.86,208
+view-paid,All plans,US,Entertainment,2.44,1.02,4.44,7.66,254
+view-paid,All plans,US,Graphics & Design,3.5,1.52,6.6,10.03,148
+view-paid,All plans,US,Health & Fitness,2.86,1.19,6.49,10.31,266
+view-paid,All plans,US,Lifestyle,3.2,1.43,6.11,9.6,182
+view-paid,All plans,US,Photo & Video,3.53,1.44,6.77,11.1,225
+view-paid,All plans,US,Productivity,2.52,0.87,5.7,11.38,289
+view-paid,All plans,US,Utilities,2.5,0.88,5.55,10.79,806
+view-paid,Annual,APAC,All categories,0.24,0.08,0.68,1.57,1288
+view-paid,Annual,APAC,Education,0.32,0.13,0.7,1.69,100
+view-paid,Annual,APAC,Entertainment,0.18,0.06,0.46,0.85,133
+view-paid,Annual,APAC,Graphics & Design,0.27,0.11,0.61,1.29,97
+view-paid,Annual,APAC,Health & Fitness,0.61,0.21,1.5,2.51,157
+view-paid,Annual,APAC,Lifestyle,0.31,0.1,1,2.07,112
+view-paid,Annual,APAC,Photo & Video,0.28,0.13,0.84,1.51,155
+view-paid,Annual,APAC,Productivity,0.23,0.07,0.64,1.41,191
+view-paid,Annual,APAC,Utilities,0.14,0.03,0.4,1.08,343
+view-paid,Annual,All regions,All categories,0.36,0.1,1.01,2.35,2272
+view-paid,Annual,All regions,Education,0.41,0.15,1.22,2.57,190
+view-paid,Annual,All regions,Entertainment,0.27,0.08,0.71,1.57,214
+view-paid,Annual,All regions,Graphics & Design,0.47,0.11,0.95,1.93,164
+view-paid,Annual,All regions,Health & Fitness,0.75,0.32,2.03,4.11,325
+view-paid,Annual,All regions,Lifestyle,0.38,0.14,1.19,2.16,197
+view-paid,Annual,All regions,Photo & Video,0.39,0.13,1.07,2.19,244
+view-paid,Annual,All regions,Productivity,0.36,0.12,0.91,2.6,316
+view-paid,Annual,All regions,Utilities,0.19,0.05,0.6,1.92,622
+view-paid,Annual,Europe,All categories,0.35,0.12,0.96,2.13,1583
+view-paid,Annual,Europe,Education,0.4,0.22,1.06,2.7,128
+view-paid,Annual,Europe,Entertainment,0.21,0.06,0.55,1.1,159
+view-paid,Annual,Europe,Graphics & Design,0.37,0.14,0.85,1.55,115
+view-paid,Annual,Europe,Health & Fitness,0.77,0.3,1.95,3.62,242
+view-paid,Annual,Europe,Lifestyle,0.41,0.16,1.03,2.14,145
+view-paid,Annual,Europe,Photo & Video,0.37,0.14,1.14,1.85,184
+view-paid,Annual,Europe,Productivity,0.36,0.14,0.83,2.22,215
+view-paid,Annual,Europe,Utilities,0.2,0.06,0.59,1.57,395
+view-paid,Annual,LATAM,All categories,0.26,0.08,0.68,1.63,952
+view-paid,Annual,LATAM,Education,0.28,0.12,0.7,1.59,61
+view-paid,Annual,LATAM,Entertainment,0.15,0.04,0.4,0.82,99
+view-paid,Annual,LATAM,Graphics & Design,0.33,0.09,0.75,1.64,75
+view-paid,Annual,LATAM,Health & Fitness,0.5,0.15,1.46,2.7,116
+view-paid,Annual,LATAM,Lifestyle,0.33,0.09,0.7,1.8,75
+view-paid,Annual,LATAM,Photo & Video,0.33,0.13,0.73,1.41,131
+view-paid,Annual,LATAM,Productivity,0.23,0.08,0.65,1.96,135
+view-paid,Annual,LATAM,Utilities,0.17,0.06,0.53,1.33,260
+view-paid,Annual,MEA,All categories,0.2,0.06,0.51,1.33,1025
+view-paid,Annual,MEA,Education,0.17,0.07,0.48,1.19,75
+view-paid,Annual,MEA,Entertainment,0.15,0.04,0.42,0.77,111
+view-paid,Annual,MEA,Graphics & Design,0.3,0.12,0.77,1.4,71
+view-paid,Annual,MEA,Health & Fitness,0.33,0.1,0.91,2,117
+view-paid,Annual,MEA,Lifestyle,0.31,0.09,1.03,1.54,83
+view-paid,Annual,MEA,Photo & Video,0.29,0.11,0.7,1.46,130
+view-paid,Annual,MEA,Productivity,0.17,0.06,0.44,1.11,161
+view-paid,Annual,MEA,Utilities,0.11,0.03,0.3,0.74,277
+view-paid,Annual,US,All categories,0.7,0.21,1.99,4.13,1626
+view-paid,Annual,US,Education,0.74,0.22,1.99,3.27,121
+view-paid,Annual,US,Entertainment,0.47,0.17,1.31,2.7,168
+view-paid,Annual,US,Graphics & Design,1.04,0.3,2.05,4.22,117
+view-paid,Annual,US,Health & Fitness,1.65,0.66,3.68,6.72,217
+view-paid,Annual,US,Lifestyle,1,0.28,2.43,4.32,140
+view-paid,Annual,US,Photo & Video,0.94,0.3,2.28,4.72,178
+view-paid,Annual,US,Productivity,0.65,0.2,1.72,4.4,231
+view-paid,Annual,US,Utilities,0.38,0.11,1.22,3.25,454
+view-paid,Monthly,APAC,All categories,0.2,0.05,0.64,1.63,838
+view-paid,Monthly,APAC,Education,0.37,0.14,1.63,2.35,77
+view-paid,Monthly,APAC,Entertainment,0.14,0.04,0.56,1.28,103
+view-paid,Monthly,APAC,Graphics & Design,0.19,0.07,0.46,1.23,52
+view-paid,Monthly,APAC,Health & Fitness,0.44,0.12,1.15,2,135
+view-paid,Monthly,APAC,Lifestyle,0.28,0.06,1.04,1.87,64
+view-paid,Monthly,APAC,Photo & Video,0.15,0.03,0.33,0.83,90
+view-paid,Monthly,APAC,Productivity,0.24,0.07,0.78,1.51,105
+view-paid,Monthly,APAC,Utilities,0.09,0.02,0.3,1.03,212
+view-paid,Monthly,All regions,All categories,0.31,0.07,1.07,2.69,1662
+view-paid,Monthly,All regions,Education,1.12,0.28,2.94,6.2,208
+view-paid,Monthly,All regions,Entertainment,0.31,0.05,0.89,2.34,160
+view-paid,Monthly,All regions,Graphics & Design,0.25,0.09,0.59,1.11,104
+view-paid,Monthly,All regions,Health & Fitness,0.76,0.18,1.67,3.3,277
+view-paid,Monthly,All regions,Lifestyle,0.44,0.09,1.42,3.27,143
+view-paid,Monthly,All regions,Photo & Video,0.2,0.05,0.65,1.47,137
+view-paid,Monthly,All regions,Productivity,0.31,0.08,0.82,1.98,207
+view-paid,Monthly,All regions,Utilities,0.1,0.02,0.37,1.33,426
+view-paid,Monthly,Europe,All categories,0.32,0.07,0.95,2.46,1101
+view-paid,Monthly,Europe,Education,0.74,0.25,1.94,3.28,111
+view-paid,Monthly,Europe,Entertainment,0.34,0.07,0.72,1.87,114
+view-paid,Monthly,Europe,Graphics & Design,0.29,0.07,0.59,1.05,59
+view-paid,Monthly,Europe,Health & Fitness,0.65,0.18,1.59,3.24,207
+view-paid,Monthly,Europe,Lifestyle,0.36,0.08,1.47,2.58,109
+view-paid,Monthly,Europe,Photo & Video,0.21,0.05,0.69,1.25,103
+view-paid,Monthly,Europe,Productivity,0.28,0.07,0.87,2.16,141
+view-paid,Monthly,Europe,Utilities,0.13,0.03,0.45,1.48,257
+view-paid,Monthly,LATAM,All categories,0.2,0.04,0.52,1.48,641
+view-paid,Monthly,LATAM,Education,0.34,0.15,1.01,2.09,46
+view-paid,Monthly,LATAM,Entertainment,0.22,0.04,0.44,1.65,76
+view-paid,Monthly,LATAM,Graphics & Design,0.22,0.04,0.44,1.07,37
+view-paid,Monthly,LATAM,Health & Fitness,0.34,0.08,1.04,1.85,107
+view-paid,Monthly,LATAM,Lifestyle,0.19,0.04,0.52,1.2,51
+view-paid,Monthly,LATAM,Photo & Video,0.12,0.04,0.34,0.92,69
+view-paid,Monthly,LATAM,Productivity,0.22,0.05,0.5,1.06,87
+view-paid,Monthly,LATAM,Utilities,0.08,0.02,0.36,1.73,168
+view-paid,Monthly,MEA,All categories,0.16,0.04,0.49,1.22,672
+view-paid,Monthly,MEA,Education,0.3,0.09,0.96,1.69,55
+view-paid,Monthly,MEA,Entertainment,0.15,0.04,0.4,0.96,86
+view-paid,Monthly,MEA,Graphics & Design,0.19,0.06,0.52,1.33,42
+view-paid,Monthly,MEA,Health & Fitness,0.21,0.07,0.75,1.42,111
+view-paid,Monthly,MEA,Lifestyle,0.22,0.04,0.54,1.56,54
+view-paid,Monthly,MEA,Photo & Video,0.15,0.05,0.38,0.99,71
+view-paid,Monthly,MEA,Productivity,0.27,0.07,0.6,0.98,86
+view-paid,Monthly,MEA,Utilities,0.09,0.02,0.28,1.06,167
+view-paid,Monthly,US,All categories,0.48,0.11,1.48,3.57,1143
+view-paid,Monthly,US,Education,1.33,0.34,3.57,7.44,129
+view-paid,Monthly,US,Entertainment,0.55,0.12,1.42,2.98,121
+view-paid,Monthly,US,Graphics & Design,0.42,0.06,1.22,2.56,63
+view-paid,Monthly,US,Health & Fitness,1.06,0.26,2.42,4.51,192
+view-paid,Monthly,US,Lifestyle,0.83,0.17,1.9,4.14,89
+view-paid,Monthly,US,Photo & Video,0.34,0.1,1.06,2.36,98
+view-paid,Monthly,US,Productivity,0.6,0.13,1.32,3.18,138
+view-paid,Monthly,US,Utilities,0.15,0.05,0.49,1.72,313
+view-paid,Weekly,APAC,All categories,0.8,0.25,1.84,3.84,1472
+view-paid,Weekly,APAC,Education,0.24,0.09,1.03,2.38,88
+view-paid,Weekly,APAC,Entertainment,0.89,0.32,1.77,3.84,169
+view-paid,Weekly,APAC,Graphics & Design,1.02,0.33,1.9,3.39,123
+view-paid,Weekly,APAC,Health & Fitness,0.11,0.03,0.58,1.98,90
+view-paid,Weekly,APAC,Lifestyle,0.94,0.3,2.02,4.03,117
+view-paid,Weekly,APAC,Photo & Video,0.96,0.38,2.05,3.58,175
+view-paid,Weekly,APAC,Productivity,0.66,0.25,1.61,3.17,188
+view-paid,Weekly,APAC,Utilities,0.93,0.31,2.22,6.09,522
+view-paid,Weekly,All regions,All categories,1.07,0.35,2.35,4.64,2583
+view-paid,Weekly,All regions,Education,0.86,0.16,2.54,4.03,226
+view-paid,Weekly,All regions,Entertainment,1.2,0.43,2.3,4.25,262
+view-paid,Weekly,All regions,Graphics & Design,1.34,0.59,2.67,3.98,198
+view-paid,Weekly,All regions,Health & Fitness,0.22,0.04,0.89,2.14,212
+view-paid,Weekly,All regions,Lifestyle,1.18,0.31,2.53,3.81,199
+view-paid,Weekly,All regions,Photo & Video,1.23,0.6,2.49,4.83,260
+view-paid,Weekly,All regions,Productivity,1.01,0.36,2.17,4.36,308
+view-paid,Weekly,All regions,Utilities,1.21,0.47,2.5,5.89,918
+view-paid,Weekly,Europe,All categories,0.97,0.34,2.06,3.99,1780
+view-paid,Weekly,Europe,Education,0.47,0.11,1.47,2.89,125
+view-paid,Weekly,Europe,Entertainment,1.15,0.41,2.3,4.55,198
+view-paid,Weekly,Europe,Graphics & Design,1.31,0.51,2.69,3.91,142
+view-paid,Weekly,Europe,Health & Fitness,0.14,0.03,0.76,1.94,142
+view-paid,Weekly,Europe,Lifestyle,1.15,0.42,2.27,3.95,150
+view-paid,Weekly,Europe,Photo & Video,1.24,0.55,2.39,5.06,203
+view-paid,Weekly,Europe,Productivity,0.92,0.36,1.88,3.3,216
+view-paid,Weekly,Europe,Utilities,1.05,0.45,2.16,4.86,604
+view-paid,Weekly,LATAM,All categories,0.79,0.25,1.66,3.25,1194
+view-paid,Weekly,LATAM,Education,0.32,0.08,0.89,2.29,58
+view-paid,Weekly,LATAM,Entertainment,0.77,0.27,1.49,2.34,137
+view-paid,Weekly,LATAM,Graphics & Design,0.73,0.31,2.02,3.07,93
+view-paid,Weekly,LATAM,Health & Fitness,0.11,0.03,0.57,1.68,65
+view-paid,Weekly,LATAM,Lifestyle,1.01,0.37,1.84,2.78,88
+view-paid,Weekly,LATAM,Photo & Video,0.88,0.44,1.74,3.35,145
+view-paid,Weekly,LATAM,Productivity,0.75,0.31,1.66,3.38,151
+view-paid,Weekly,LATAM,Utilities,0.95,0.33,1.87,3.75,457
+view-paid,Weekly,MEA,All categories,0.59,0.19,1.28,2.55,1221
+view-paid,Weekly,MEA,Education,0.18,0.05,0.64,1.3,72
+view-paid,Weekly,MEA,Entertainment,0.7,0.3,1.29,2.62,138
+view-paid,Weekly,MEA,Graphics & Design,0.76,0.33,1.37,2.55,101
+view-paid,Weekly,MEA,Health & Fitness,0.12,0.02,0.48,1.25,71
+view-paid,Weekly,MEA,Lifestyle,0.6,0.23,1.37,3.64,91
+view-paid,Weekly,MEA,Photo & Video,0.72,0.33,1.57,3.3,151
+view-paid,Weekly,MEA,Productivity,0.5,0.15,1.33,2.32,175
+view-paid,Weekly,MEA,Utilities,0.64,0.23,1.35,2.79,422
+view-paid,Weekly,US,All categories,1.84,0.62,3.98,7.75,1849
+view-paid,Weekly,US,Education,1.6,0.37,3.6,5.85,150
+view-paid,Weekly,US,Entertainment,1.69,0.74,3.71,6.1,195
+view-paid,Weekly,US,Graphics & Design,2.19,0.89,4.63,8.09,130
+view-paid,Weekly,US,Health & Fitness,0.3,0.09,1.3,3.84,130
+view-paid,Weekly,US,Lifestyle,1.96,0.79,3.8,6.8,136
+view-paid,Weekly,US,Photo & Video,2.17,0.93,4.5,7.75,191
+view-paid,Weekly,US,Productivity,1.85,0.49,3.93,7.2,218
+view-paid,Weekly,US,Utilities,2.05,0.8,4.67,9.96,699
+view-trial,All plans,APAC,All categories,4.47,1.38,8.95,14.88,
+view-trial,All plans,APAC,Education,3.46,0.86,6.67,9.42,
+view-trial,All plans,APAC,Entertainment,5.09,1.84,8.76,13.8,
+view-trial,All plans,APAC,Graphics & Design,4.62,2.33,7.91,12.7,
+view-trial,All plans,APAC,Health & Fitness,2.2,0.78,6.71,12.25,
+view-trial,All plans,APAC,Lifestyle,4.49,1.77,7.93,11.38,
+view-trial,All plans,APAC,Photo & Video,5.22,1.4,9.32,13.31,
+view-trial,All plans,APAC,Productivity,3.31,1.09,7.24,12.35,
+view-trial,All plans,APAC,Utilities,5.59,1.8,11.48,19.55,
+view-trial,All plans,All regions,All categories,4.72,1.52,9.83,16.06,
+view-trial,All plans,All regions,Education,3.34,1.06,8.65,13.53,
+view-trial,All plans,All regions,Entertainment,5.22,1.6,10.56,16.91,
+view-trial,All plans,All regions,Graphics & Design,6.74,2.5,10.79,14.78,
+view-trial,All plans,All regions,Health & Fitness,3.45,0.94,8,15.02,
+view-trial,All plans,All regions,Lifestyle,4.51,1.39,9.01,15.22,
+view-trial,All plans,All regions,Photo & Video,4.67,0.85,10.77,16.06,
+view-trial,All plans,All regions,Productivity,4.55,1.76,8.75,14.17,
+view-trial,All plans,All regions,Utilities,5.63,1.77,10.89,19.31,
+view-trial,All plans,Europe,All categories,4.62,1.42,9.34,15.2,
+view-trial,All plans,Europe,Education,3.5,0.98,7.23,12.3,
+view-trial,All plans,Europe,Entertainment,5.07,1.74,10.92,17.02,
+view-trial,All plans,Europe,Graphics & Design,5.97,2.09,10.84,15.42,
+view-trial,All plans,Europe,Health & Fitness,2.93,0.85,7.62,13.45,
+view-trial,All plans,Europe,Lifestyle,4,1.91,7.39,12.71,
+view-trial,All plans,Europe,Photo & Video,5.29,0.88,10.57,15.5,
+view-trial,All plans,Europe,Productivity,3.83,1.4,7.62,12.1,
+view-trial,All plans,Europe,Utilities,5.5,1.95,10.11,16.58,
+view-trial,All plans,LATAM,All categories,4.27,1.38,8.1,12.35,
+view-trial,All plans,LATAM,Education,3.15,1.03,5.95,7.72,
+view-trial,All plans,LATAM,Entertainment,4.23,1.38,7.43,12.34,
+view-trial,All plans,LATAM,Graphics & Design,4.56,1.68,8.14,10.7,
+view-trial,All plans,LATAM,Health & Fitness,1.46,0.57,4.23,10.86,
+view-trial,All plans,LATAM,Lifestyle,4.5,2.27,6.78,10.44,
+view-trial,All plans,LATAM,Photo & Video,4.91,1.19,7.92,10.82,
+view-trial,All plans,LATAM,Productivity,3,1.03,7.2,11.43,
+view-trial,All plans,LATAM,Utilities,5.61,2.16,9.43,15.08,
+view-trial,All plans,MEA,All categories,3.38,1.1,6.61,10.36,
+view-trial,All plans,MEA,Education,2.84,0.47,4.29,5.48,
+view-trial,All plans,MEA,Entertainment,4.07,1.61,7.14,12.02,
+view-trial,All plans,MEA,Graphics & Design,4.75,0.99,8.47,11.05,
+view-trial,All plans,MEA,Health & Fitness,1.46,0.55,3.81,9,
+view-trial,All plans,MEA,Lifestyle,3.94,2.08,5.37,10.47,
+view-trial,All plans,MEA,Photo & Video,3.43,0.98,6.12,9.13,
+view-trial,All plans,MEA,Productivity,2.74,0.99,5.91,8.9,
+view-trial,All plans,MEA,Utilities,4.15,1.46,7.5,12.14,
+view-trial,All plans,US,All categories,6.94,2.18,13.83,21.86,
+view-trial,All plans,US,Education,5.34,1.75,10.89,15.68,
+view-trial,All plans,US,Entertainment,7.13,2.6,14.85,20.71,
+view-trial,All plans,US,Graphics & Design,7.55,2.4,15.82,20.61,
+view-trial,All plans,US,Health & Fitness,5.73,1.58,12.24,18.12,
+view-trial,All plans,US,Lifestyle,7.98,4.11,12.04,22.01,
+view-trial,All plans,US,Photo & Video,7.22,1.43,14.11,20.6,
+view-trial,All plans,US,Productivity,5.77,1.82,11.36,18.64,
+view-trial,All plans,US,Utilities,8.08,2.34,15.04,28.34,
+view-trial,Annual,APAC,All categories,1.35,0.26,4.12,8.29,
+view-trial,Annual,APAC,Education,1.67,0.73,3.97,7.57,
+view-trial,Annual,APAC,Entertainment,0.71,0.06,2.11,5.79,
+view-trial,Annual,APAC,Graphics & Design,2.77,0.43,4.92,8.79,
+view-trial,Annual,APAC,Health & Fitness,1.88,0.57,4.7,9.28,
+view-trial,Annual,APAC,Lifestyle,1.55,0.26,4.19,6.41,
+view-trial,Annual,APAC,Photo & Video,2.95,0.95,7.63,9.65,
+view-trial,Annual,APAC,Productivity,1.19,0.32,4.01,8.09,
+view-trial,Annual,APAC,Utilities,0.67,0.05,2.52,6.81,
+view-trial,Annual,All regions,All categories,1.52,0.28,4.95,9.21,
+view-trial,Annual,All regions,Education,1.32,0.35,3.97,9.13,
+view-trial,Annual,All regions,Entertainment,1.02,0.07,2.78,7.61,
+view-trial,Annual,All regions,Graphics & Design,4.04,0.4,9.02,14.38,
+view-trial,Annual,All regions,Health & Fitness,2.43,0.72,6.17,11.12,
+view-trial,Annual,All regions,Lifestyle,1.46,0.3,4.34,8.25,
+view-trial,Annual,All regions,Photo & Video,2.6,0.33,8.11,11.1,
+view-trial,Annual,All regions,Productivity,2.06,0.45,5.1,9.21,
+view-trial,Annual,All regions,Utilities,0.73,0.05,2.46,7.06,
+view-trial,Annual,Europe,All categories,1.41,0.28,4.66,9.48,
+view-trial,Annual,Europe,Education,1.47,0.42,4.28,7.78,
+view-trial,Annual,Europe,Entertainment,1.04,0.08,3.07,6.8,
+view-trial,Annual,Europe,Graphics & Design,2.93,0.41,7.61,10.76,
+view-trial,Annual,Europe,Health & Fitness,2.14,0.66,5.83,10.96,
+view-trial,Annual,Europe,Lifestyle,1.47,0.58,3.42,5.92,
+view-trial,Annual,Europe,Photo & Video,3.98,0.36,8.55,12.18,
+view-trial,Annual,Europe,Productivity,1.69,0.39,4.6,7.13,
+view-trial,Annual,Europe,Utilities,0.61,0.07,2.38,5.6,
+view-trial,Annual,LATAM,All categories,1.18,0.29,3.56,7.43,
+view-trial,Annual,LATAM,Education,1.03,0.37,3.15,4.85,
+view-trial,Annual,LATAM,Entertainment,0.56,0.1,1.44,6.16,
+view-trial,Annual,LATAM,Graphics & Design,2.28,0.66,5.09,7.73,
+view-trial,Annual,LATAM,Health & Fitness,1.19,0.39,3.1,7.95,
+view-trial,Annual,LATAM,Lifestyle,1.52,0.4,2.85,4.63,
+view-trial,Annual,LATAM,Photo & Video,4.04,1.02,6.69,9.21,
+view-trial,Annual,LATAM,Productivity,1.29,0.32,4,7.15,
+view-trial,Annual,LATAM,Utilities,0.7,0.05,2.33,5.92,
+view-trial,Annual,MEA,All categories,1.18,0.23,3.14,5.78,
+view-trial,Annual,MEA,Education,1.36,0.34,2.8,4.93,
+view-trial,Annual,MEA,Entertainment,0.94,0.16,2.72,5.07,
+view-trial,Annual,MEA,Graphics & Design,2.63,0.45,4.81,7.69,
+view-trial,Annual,MEA,Health & Fitness,1.05,0.43,2.33,5.32,
+view-trial,Annual,MEA,Lifestyle,1.89,0.38,3.95,5.29,
+view-trial,Annual,MEA,Photo & Video,2.61,0.79,5.07,7.35,
+view-trial,Annual,MEA,Productivity,1.22,0.29,2.94,5.9,
+view-trial,Annual,MEA,Utilities,0.53,0.03,1.94,4.85,
+view-trial,Annual,US,All categories,2.28,0.37,7.19,13.03,
+view-trial,Annual,US,Education,2.2,0.47,6.13,12.92,
+view-trial,Annual,US,Entertainment,1.36,0.08,3.76,10.1,
+view-trial,Annual,US,Graphics & Design,6.37,0.56,12.51,15.98,
+view-trial,Annual,US,Health & Fitness,3.24,1.21,9.04,15.81,
+view-trial,Annual,US,Lifestyle,3.79,0.58,8.74,15.31,
+view-trial,Annual,US,Photo & Video,5.04,0.5,11.58,17.49,
+view-trial,Annual,US,Productivity,2.6,0.57,6.23,12.76,
+view-trial,Annual,US,Utilities,0.76,0.08,3.43,9.81,
+view-trial,Monthly,APAC,All categories,0.42,0.07,1.9,3.96,
+view-trial,Monthly,APAC,Education,0.54,0.23,2.87,4.75,
+view-trial,Monthly,APAC,Entertainment,0.5,0.04,1.91,2.67,
+view-trial,Monthly,APAC,Graphics & Design,,,,,
+view-trial,Monthly,APAC,Health & Fitness,0.65,0.04,2.41,4.1,
+view-trial,Monthly,APAC,Lifestyle,0.51,0.05,2.27,10.24,
+view-trial,Monthly,APAC,Photo & Video,1.01,0.11,2.51,4.39,
+view-trial,Monthly,APAC,Productivity,0.62,0.08,1.85,2.98,
+view-trial,Monthly,APAC,Utilities,0.2,0.02,0.71,2.92,
+view-trial,Monthly,All regions,All categories,0.54,0.06,2.44,5.4,
+view-trial,Monthly,All regions,Education,1.2,0.57,4.12,8.48,
+view-trial,Monthly,All regions,Entertainment,0.45,0.07,2.34,4.52,
+view-trial,Monthly,All regions,Graphics & Design,0.17,0.05,1.76,6.1,
+view-trial,Monthly,All regions,Health & Fitness,0.71,0.07,3.36,6.58,
+view-trial,Monthly,All regions,Lifestyle,0.93,0.12,2.56,10.61,
+view-trial,Monthly,All regions,Photo & Video,0.26,0.03,2.6,7.89,
+view-trial,Monthly,All regions,Productivity,0.55,0.03,2.33,4.47,
+view-trial,Monthly,All regions,Utilities,0.23,0.03,0.95,2.68,
+view-trial,Monthly,Europe,All categories,0.54,0.08,2.23,5.33,
+view-trial,Monthly,Europe,Education,1.26,0.53,3.56,8.29,
+view-trial,Monthly,Europe,Entertainment,0.46,0.12,1.81,3.18,
+view-trial,Monthly,Europe,Graphics & Design,,,,,
+view-trial,Monthly,Europe,Health & Fitness,0.65,0.09,2.42,5.22,
+view-trial,Monthly,Europe,Lifestyle,0.86,0.21,2.42,7.39,
+view-trial,Monthly,Europe,Photo & Video,0.47,0.04,2.47,10.06,
+view-trial,Monthly,Europe,Productivity,0.51,0.12,1.98,3.79,
+view-trial,Monthly,Europe,Utilities,0.26,0.04,1.33,5.69,
+view-trial,Monthly,LATAM,All categories,0.37,0.04,1.51,3.46,
+view-trial,Monthly,LATAM,Education,0.8,0.17,1.87,2.99,
+view-trial,Monthly,LATAM,Entertainment,,,,,
+view-trial,Monthly,LATAM,Graphics & Design,,,,,
+view-trial,Monthly,LATAM,Health & Fitness,0.49,0.13,2.6,4.06,
+view-trial,Monthly,LATAM,Lifestyle,,,,,
+view-trial,Monthly,LATAM,Photo & Video,0.69,0.1,2.25,5.18,
+view-trial,Monthly,LATAM,Productivity,0.45,0.03,2.19,4.82,
+view-trial,Monthly,LATAM,Utilities,0.21,0.02,1.19,2.29,
+view-trial,Monthly,MEA,All categories,0.4,0.08,1.27,3.24,
+view-trial,Monthly,MEA,Education,1.1,0.34,2.02,2.84,
+view-trial,Monthly,MEA,Entertainment,,,,,
+view-trial,Monthly,MEA,Graphics & Design,,,,,
+view-trial,Monthly,MEA,Health & Fitness,0.56,0.09,1.5,6.18,
+view-trial,Monthly,MEA,Lifestyle,,,,,
+view-trial,Monthly,MEA,Photo & Video,0.27,0.1,0.88,2.28,
+view-trial,Monthly,MEA,Productivity,0.65,0.03,2.23,3.47,
+view-trial,Monthly,MEA,Utilities,0.19,0.02,0.63,1.35,
+view-trial,Monthly,US,All categories,0.77,0.12,2.97,7.42,
+view-trial,Monthly,US,Education,1.4,0.66,4.08,7.2,
+view-trial,Monthly,US,Entertainment,1.19,0.09,3.85,9.27,
+view-trial,Monthly,US,Graphics & Design,0.38,0.06,2.1,7.42,
+view-trial,Monthly,US,Health & Fitness,1.57,0.2,4.81,7.81,
+view-trial,Monthly,US,Lifestyle,1.28,0.42,4.63,12.11,
+view-trial,Monthly,US,Photo & Video,0.3,0.08,2.74,8.91,
+view-trial,Monthly,US,Productivity,0.93,0.11,2.73,4.67,
+view-trial,Monthly,US,Utilities,0.23,0.05,1.02,2.78,
+view-trial,Weekly,APAC,All categories,4.4,0.97,9.39,16.27,
+view-trial,Weekly,APAC,Education,1.41,0.18,5.14,9.22,
+view-trial,Weekly,APAC,Entertainment,5.09,1.79,10.23,17.45,
+view-trial,Weekly,APAC,Graphics & Design,4.79,1.56,7.1,11.79,
+view-trial,Weekly,APAC,Health & Fitness,0.51,0.08,4.05,10.1,
+view-trial,Weekly,APAC,Lifestyle,4.49,1.17,8.08,11.34,
+view-trial,Weekly,APAC,Photo & Video,2.83,0.32,9.02,13.71,
+view-trial,Weekly,APAC,Productivity,2.9,0.65,5.91,12.3,
+view-trial,Weekly,APAC,Utilities,5.71,1.86,11.91,21.76,
+view-trial,Weekly,All regions,All categories,4.55,1.04,9.72,16.57,
+view-trial,Weekly,All regions,Education,3.35,0.36,8.93,13.47,
+view-trial,Weekly,All regions,Entertainment,5.11,1.75,11.81,18.55,
+view-trial,Weekly,All regions,Graphics & Design,5.91,1.56,9.88,13.11,
+view-trial,Weekly,All regions,Health & Fitness,0.97,0.06,4.86,9.7,
+view-trial,Weekly,All regions,Lifestyle,3.44,0.85,8.33,13.51,
+view-trial,Weekly,All regions,Photo & Video,2.56,0.2,8.75,15.26,
+view-trial,Weekly,All regions,Productivity,3.94,0.93,8.29,13,
+view-trial,Weekly,All regions,Utilities,5.69,1.6,11.34,20.37,
+view-trial,Weekly,Europe,All categories,4.52,0.96,9.22,15.42,
+view-trial,Weekly,Europe,Education,2.14,0.36,5.86,8.85,
+view-trial,Weekly,Europe,Entertainment,6.14,1.8,11.84,18.3,
+view-trial,Weekly,Europe,Graphics & Design,4.99,0.65,10.84,15.42,
+view-trial,Weekly,Europe,Health & Fitness,0.85,0.06,2.91,7.86,
+view-trial,Weekly,Europe,Lifestyle,3.83,1.13,7.36,12.08,
+view-trial,Weekly,Europe,Photo & Video,1.89,0.13,9.78,17.25,
+view-trial,Weekly,Europe,Productivity,2.92,0.87,6.94,10.56,
+view-trial,Weekly,Europe,Utilities,5.82,1.9,10.24,17.66,
+view-trial,Weekly,LATAM,All categories,4.54,1.12,8.21,13.3,
+view-trial,Weekly,LATAM,Education,2.25,0.32,5.98,8.91,
+view-trial,Weekly,LATAM,Entertainment,4.68,1.43,8.19,12.35,
+view-trial,Weekly,LATAM,Graphics & Design,3.33,0.5,6.96,9.2,
+view-trial,Weekly,LATAM,Health & Fitness,0.89,0.09,3.59,10.51,
+view-trial,Weekly,LATAM,Lifestyle,5.17,1.9,7.56,10.44,
+view-trial,Weekly,LATAM,Photo & Video,2.25,0.24,5.56,10.91,
+view-trial,Weekly,LATAM,Productivity,2.28,0.77,7.31,10.61,
+view-trial,Weekly,LATAM,Utilities,5.76,2.06,10.03,16.25,
+view-trial,Weekly,MEA,All categories,3.43,0.83,6.76,10.95,
+view-trial,Weekly,MEA,Education,1.6,0.11,4.09,5.13,
+view-trial,Weekly,MEA,Entertainment,4.07,1.58,7.73,11.79,
+view-trial,Weekly,MEA,Graphics & Design,4.04,0.71,8.38,11.05,
+view-trial,Weekly,MEA,Health & Fitness,0.83,0.07,4.22,9,
+view-trial,Weekly,MEA,Lifestyle,3.79,1.57,5.3,10.49,
+view-trial,Weekly,MEA,Photo & Video,1.62,0.27,5.36,10.05,
+view-trial,Weekly,MEA,Productivity,2.72,0.66,5.72,7.83,
+view-trial,Weekly,MEA,Utilities,4.41,1.46,7.46,12.15,
+view-trial,Weekly,US,All categories,6.11,1.32,13.18,23.02,
+view-trial,Weekly,US,Education,5.03,0.84,12.23,14.5,
+view-trial,Weekly,US,Entertainment,6.96,2.47,15.71,22.5,
+view-trial,Weekly,US,Graphics & Design,4.4,0.21,14.2,20.11,
+view-trial,Weekly,US,Health & Fitness,1.13,0.19,6.31,13.76,
+view-trial,Weekly,US,Lifestyle,6.13,1.77,10.93,21.31,
+view-trial,Weekly,US,Photo & Video,3.59,0.58,10.85,19.46,
+view-trial,Weekly,US,Productivity,4.78,1.02,9.79,18.08,
+view-trial,Weekly,US,Utilities,7.77,2.07,15.73,29.31,

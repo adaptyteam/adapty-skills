@@ -50,7 +50,7 @@ TERMINAL = {'purchase': 'buys', 'restorePurchases': 'restores', 'closeFlow': 'cl
 # ---------- reading the config ----------
 
 def load(path):
-    with open(path) as f:
+    with open(path, encoding='utf-8') as f:
         d = json.load(f)
     if isinstance(d, dict) and 'config' in d and 'screens' not in d:
         d = d['config']
@@ -208,6 +208,12 @@ def extract(d):
                         trig = f'“{short(lbl, 22)}”' if lbl else 'tap'
                     elif trig in ('timer-end', 'timerEnd'):
                         trig = 'after timer'
+                    elif trig in ('screen-appear', 'appear'):
+                        waits = [((a.get('payload') or {}).get('transition') or {}).get('delay')
+                                 for a in inter.get('actions') or []
+                                 if isinstance(a, dict) and a.get('type') == 'navigate']
+                        waits = [w for w in waits if isinstance(w, int) and w > 0]
+                        trig = f'after {waits[0] / 1000:g} s' if waits else 'on appear'
                     run(inter.get('actions'), s, trig, [])
                 for k, v in o.items():
                     if k != 'interactions':
@@ -585,7 +591,7 @@ def main():
     title = a.title
     if not title:
         try:
-            with open(a.config) as f:
+            with open(a.config, encoding='utf-8') as f:
                 env = json.load(f)
             title = env.get('name') or env.get('title')
         except Exception:
@@ -593,7 +599,7 @@ def main():
     title = title or os.path.splitext(os.path.basename(a.config))[0]
     shots = find_shots(a.shots or os.path.dirname(os.path.abspath(a.config)), [s.id for s in screens])
     out = a.out or os.path.join(os.path.dirname(os.path.abspath(a.config)), 'canvas.html')
-    with open(out, 'w') as f:
+    with open(out, 'w', encoding='utf-8') as f:
         f.write(render_html(screens, edges, badges, level, cols, unreachable, shots, title, branches))
     print(f'canvas: {out}')
     print(f'  {len(screens)} screens, {len(edges)} connections, '

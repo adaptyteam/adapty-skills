@@ -81,7 +81,9 @@ RevenueCat, populate its checkboxes with:
   (section 2 above) — still needs the recreate-as-placement-or-rebuild-as-flow decision spine section
   5.1 already calls for.
 - **Offering metadata destined for paywall remote config** (spine section 3). RC stores this per
-  Offering in the dashboard; it does not appear anywhere in a diff of the application code.
+  Offering in the dashboard; it does not appear anywhere in a diff of the application code. List it
+  with the ready-to-run `paywalls get --json` and `paywalls update --file` commands that spine
+  section 3 gives.
 
 Mention that re-running `adapty migrate --rc-key <v2 secret key>` fetches this catalog directly from
 RevenueCat and automates the comparison above — every checkbox in this list becomes a diff the CLI

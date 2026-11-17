@@ -81,7 +81,7 @@ already has one, copy that instead — it is better than anything here.
    `colorId`, `font.preset` and id in them has to be replaced with the input's own before use.
 
 A radio, a toggle, a checkbox and a segmented tab bar all exist as catalog components. Hand-building
-one is how this project shipped a radio whose dot was filled at rest, so it looked selected on every
+one ships a radio whose dot is filled at rest, so it looks selected on every
 card. Check the catalog first.
 
 Never source a shape from memory of some other flow. The vocabulary is per file: `theme` ids,
@@ -123,7 +123,7 @@ design** — no `theme`, no `_meta`, no envelope — so treat them as shape, not
 sizing, fills and typography from the input flow's own conventions.
 
 A fixture is weaker evidence than it looks. It proves only what its own test needed, so a prop
-absent from one is not a prop the builder tolerates — that inference is what broke the tabs
+absent from one is not a prop the builder tolerates — that inference breaks the tabs
 render. Where a skeleton here disagrees with a flow you have seen render, the render wins.
 
 ## One caution about version skew
@@ -149,11 +149,11 @@ There is no `toggle` *element* — the group type is what makes it one — but t
  "propsByState": {"selected": {"fill": {…}}}}
 ```
 
-> **This section previously said `type: "stack"`, and that does not work.** `StackProps`
+> **Never a `type: "stack"` member.** `StackProps`
 > has no `groupId` and no `default`, so a stack carrying them is not a group member: the props are
 > ignored, it never receives the `selected` state, and **tapping it does nothing**. The failure is
-> silent — the config saves, passes a schema check, and renders — and it was shipped to a user
-> before anyone noticed the switch would not flip. `references/verify-config.py` now fails on it.
+> silent — the config saves, passes a schema check, and renders, and the switch does not flip.
+> `references/verify-config.py` fails on it.
 >
 > Verified against real exports, the member type is dictated by the group: `product` for a
 > product group, `selectable` for `single_choice` / `multi_choice` / `toggle`, `tab-item` inside
@@ -173,11 +173,11 @@ in `propsByState`:
 ```
 
 Style only the track and you get a switch that never visibly flips. And `config preview` **ignores
-toggle-group selection** — measured byte-identical renders with `default` true and false — so the
+toggle-group selection** — `default` true and false render byte-identical — so the
 off state is all you will ever see there. Verify a toggle in the Adapty mobile app.
 
 **A toggle cannot drive product selection by itself, and repeated toggling loses the selected
-state.** Both from the support channel: the head-on binding "can't be done", and the standing
+state.** The head-on binding cannot be done, and the standing
 workaround is a **Conditional Action on the toggle's tap that re-asserts the selection** — if
 toggle=true and selected=yearly → `Select product = yearly`, one case per plan. Wire it whenever a
 toggle is supposed to switch plans, and note conditions of the form "if off → turn on" are
@@ -209,12 +209,12 @@ children are positional: the *n*th item shows the *n*th content. Add or remove t
 the mapping silently shifts.
 
 **Verified by render**, not by diff: a three-tab paywall built from exactly these prop sets —
-one product per tab — saved, round-tripped 108 of 108 elements intact, and displayed correctly
-in the builder. Two earlier attempts did not: declaring the group `{"type": "tabs"}`, and
-stripping these props down to `layout` alone, each produced a config the API accepted and the
-builder could not open. See [flow-schema.md trap 10](flow-schema.md) for why the two wrong
-answers looked well-sourced — and use `flows config preview` to check a skeleton you adapt from
-here before you trust it, since that is how this one was confirmed.
+one product per tab — saves, round-trips 108 of 108 elements intact, and displays correctly
+in the builder. Declaring the group `{"type": "tabs"}`, or stripping these props down to
+`layout` alone, each produces a config the API accepts and the
+builder cannot open. See [flow-schema.md trap 10](flow-schema.md) for why the two wrong
+answers look well-sourced — and use `flows config preview` to check a skeleton you adapt from
+here before you trust it.
 
 ### Tabs that switch plans
 
@@ -255,17 +255,20 @@ fk.tabs([fk.tab([label('Monthly')], [fk.single_plan(monthly_copy, product_id=MO,
   fill`, and give each panel `distribution: space-between` with the CTA as its last child — the
   panel then stretches to the bottom and its button lands where the design put it. This is the
   real tabs export's own height chain. It clips on a short phone, so name that as a device check.
-  Only when the screen must scroll does the CTA move up under the price — say so in the report.
+  Only when the screen must scroll does the CTA move up under the price — say so in the report,
+  and find that CTA in the render: on a screen that also has a pinned `footer`, it can land
+  behind the footer or below the fold. Move the tab block up until the button shows above the
+  footer.
 - Declare every plan's product on the screen (`predeclare(screen_id, [MO, YR])`) and every
   group in `selectableGroups`: `period` as `single_choice`, each plan group as `product`.
 
 Verified against the live transform service (`valid: true`) and by render. The catalog's
 `tabs-segmented` is the bar to start from when the reference shows a rounded track.
 
-**Two tab facts from the support channel:** if **no `tab-item` carries `default: true`, no tab
+**Two tab facts:** if **no `tab-item` carries `default: true`, no tab
 renders at all** — always mark one. And conditioning on the selected tab is possible despite the
 UI exposing no tab-item id field: use the tab element's **id from the builder URL** in
-the condition — team-verified in preview, unconfirmed on device.
+the condition — works in preview, not yet confirmed on a device: check it there.
 
 ### A progress bar
 
@@ -318,27 +321,157 @@ Then, per screen: reference it in `hierarchy` as `{"id": "pb_…", "type": "glob
 - **The preview cannot show the fill.** It draws the track only, so whether the bar advances is a
   device check.
 
+### On Appear: a screen that moves on by itself, an element that appears later
+
+Both are actions of the screen's **On Appear**: an interaction with `trigger: "screen-appear"` on
+any element of the screen. All of a screen's On Appear actions run each time it appears.
+`fk.screen(..., on_appear=fk.on_appear(...))` puts the interaction on the first root element.
+
+**A screen that moves on after a few seconds** (a splash, a "building your plan" screen) is a
+`navigate` whose transition `delay` is the wait: `fk.auto_advance('scr_next', 3000)`.
+
+```json
+{"id": "int_appear", "trigger": "screen-appear", "actions": [
+  {"id": "act_auto", "type": "navigate", "payload": {"type": "screen", "screen": "scr_next",
+   "transition": {"type": "fadeThrough", "easing": "ease-in-out", "duration": 300, "delay": 3000}}}]}
+```
+
+- **The wait is 1 to 5000 ms.** Over 5000 the transition is unreadable and the screen moves on at
+  once, and `none` carries no delay. A longer wait is a [timer](#a-timer-that-fires-an-action).
+- **The screen stays live while it waits.** A button that navigates wins, Back cancels the wait,
+  and so does anything that opens over the screen: a purchase, a restore, an alert, a link, a
+  bottom sheet, a picker, Close. Closing it does not restart the wait, so the screen then stays
+  until the user taps on; only coming back to the screen waits again.
+- **It may end up to a second late,** so do not promise a wait to the split second.
+- **Only `navigate` waits.** `navigateNext` from On Appear moves on at once. On a tap, the same
+  `delay` holds the transition while taps do nothing, so keep it at 0 there.
+
+**An element that appears after a wait or animates in by itself** (a close button after five
+seconds, a headline that rises in) starts `visibility: hidden`, and On Appear shows it with
+`payload.animation`: `fk.show_elements(['el_close'], animation=fk.element_animation('fade', delay=5000))`.
+
+```json
+{"id": "act_reveal", "type": "showElement", "payload": {"elements": ["el_close"],
+ "animation": {"type": "fade", "duration": 300, "delay": 5000, "easing": "ease-out"}}}
+```
+
+| `type` | What the user sees | Extra key |
+|---|---|---|
+| `none` | The element appears after `delay`, with no motion | |
+| `fade` | It fades in | |
+| `rise` | It fades in and moves up into place | `distance`, pt below its place, 1 to 200, 32 |
+| `pop` | It fades in and grows into place | `scale` it starts from, 0.1 to 0.99, 0.8 |
+
+- **Every type carries `duration`, `delay` and `easing`,** `none` too: `flows config validate`
+  refuses one without them, and the device ignores them on `none`. `duration` and `delay` are
+  whole ms, 0 to 60000; a `duration` of 0 is no motion. `easing` is `linear`, `ease-in`,
+  `ease-out` or `ease-in-out`. The builder starts each at 300 ms, ease out.
+- **The same `animation` works on `hideElement`,** and on a tap: a hint that fades out, a block
+  that pops in when a plan is picked. A hide plays the motion backwards.
+- **A delayed reveal waits once per run of the flow, and may end up to a second late on iOS,**
+  so steps less than a second apart can land together there. Back to the screen before the wait
+  ends waits for the rest; after it, the element is there at once. While it animates in, it does not
+  take taps.
+- **It plays only on an element of the same screen,** outside a component and without a conditional
+  visibility. Anywhere else the element shows at once, and `verify-config.py` warns. A bottom
+  sheet keeps its own open and close.
+- **A malformed `animation` is refused** (`invalid_action_payload`); `verify-config.py` errors on it.
+- **Not the element's own `animation` prop,** which loops while the screen shows
+  ([An element that keeps moving](#an-element-that-keeps-moving-pulse-waves-and-effects)): its
+  `showAfterDelay` delays the loop, and the element itself shows at once.
+
+**The preview never runs On Appear.** It draws the screen as it first appears: the element hidden,
+the screen not moving on. The builder's canvas does not play them either, so say the wait and the
+motion are checked on a device.
+
+### An element that keeps moving: pulse, waves and effects
+
+**A button that draws the eye — it pulses, ripples, glows, shakes or shimmers — is the element's
+own `props.animation`.** It starts when the screen appears and loops while the screen shows. Build
+it with `fk.animate(node, fk.loop_animation(kind, ...))`: the helper starts each kind at Flow
+Builder's defaults and refuses a layout the device would skip. Never a `video` or a stack lookalike
+for one of these.
+
+```json
+"animation": {"type": "glow", "glowColor": {"type": "hex", "hex": "#9751F2"}, "glowSize": 16,
+              "duration": 1500, "delayBetweenLoops": 500, "showAfterDelay": 0,
+              "easing": "ease-in-out"}
+```
+
+| `type` | What the user sees | Own keys | Plays only on |
+|---|---|---|---|
+| `pulse` | The element grows by `scaleAmount` % and back | `scaleAmount` | any element |
+| `wave-fill` / `wave-outline` | A filled / 2 pt outlined copy of its shape spreads out and fades | `scaleAmount` %, `waveSize` pt, `waveColor`, optional `pulseScaleAmount` | a **fixed width and height, no margin** |
+| `glow` | A soft halo swells around its shape | `glowColor`, `glowSize` pt of blur | any element |
+| `shake` / `wiggle` | It moves `distance` pt side to side / tilts `angle` degrees each way | `distance` / `angle` | any element |
+| `bounce` | It hops `distance` pt up and lands | `distance` | any element |
+| `breathe` | It fades by `fadeAmount` % and back | `fadeAmount` (0-100) | any element |
+| `color-shift` | Its fill turns into `shiftColor` and back | `shiftColor` | one solid colour fill, or none |
+| `border-flash` | A `flashWidth` pt border in `flashColor` lights up and fades | `flashColor`, `flashWidth` | any element |
+| `shimmer` | A band of `shimmerColor` sweeps across at `shimmerAngle` (a gradient's angle) | `shimmerColor`, `shimmerSize` (0-100 %), `shimmerAngle` | one solid colour fill: a hex, or a theme colour whose dark value equals its light one |
+
+- **Every kind also takes `duration` (one burst), `delayBetweenLoops` and `showAfterDelay`, in ms,
+  and `easing`:** `linear`, `ease-in`, `ease-out`, `ease-in-out`, `ease-out-elastic` (overshoots
+  and settles), `ease-out-bounce`, or a `cubic-bezier(...)`.
+- **One animation per element.** Asked for two effects on one element, put the one its layout
+  plays on it and say which, or put the second on another element; never stack two elements to
+  fake it.
+- **A layout it cannot play on publishes clean and nothing moves.** `flows config validate` passes
+  any `animation`, even an unknown type; `verify-config.py` warns on each skip. A wave on a Fill or
+  Hug button: give it a fixed width and height, or pick `glow`.
+- **A `pulse` only scales.** Its `shadowColor` / `shadowSize`, on older pulses and in some templates,
+  draw a halo on the builder canvas alone; leave them out, and use `glow` or a wave for a halo.
+- **On iOS a `shake` or `wiggle` is one jump that springs back,** not the canvas's four swings; below
+  iOS 17 it jumps and glides back. Say so when the user asks for a shake.
+- **The preview draws the element at rest,** and so does the builder canvas until its ▷ is on.
+  Say the motion is checked on a device.
+
 ### A countdown
 
-**The Countdown is the flow's only delay primitive.** A Spinner has no completion trigger, and
-`On Screen Appear → Navigate Next` fires instantly — so a timed screen is a `timer` with a
-`timer-end` interaction. Build it in the [device-verified shape](#device-verified-the-json-an-auto-advancing-screen-actually-needs):
-a direct child of the screen root, `hug` with padding, **a text showing its digits inside it**
-(coloured like the background to hide it), no `opacity: 0`,
-and an explicit `navigate`. The builder's own wording ("Opacity 0, Navigate Next") describes the
-dropdown, not the JSON, and followed literally it gives a screen that never advances. When a
-loader must be pinned, the `fixed` position goes on a **container**, not on the Loader element
-itself.
-
-**Under `safeArea: true`, check where an absolute element lands.** In the render, an absolute
-`top` was measured from the top of the full screen rather than from below the status bar, so a
-timer or back button at `top: 0` sat under the clock. Look for it in the render and move the
-element down rather than trusting the number.
+**A visible countdown is a `timer`** with its digits inside it: `fk.timer()` with
+`fk.timer_digits()`, the token shape at the end of [A timer that fires an action](#a-timer-that-fires-an-action).
+A `timer-end` action is needed only for a screen that moves on after **more than 5 s**; build it
+as in [A timer that fires an action](#a-timer-that-fires-an-action). A Spinner has no completion
+trigger, so it never moves the flow on. When a loader must be pinned, the `fixed` position goes on
+a **container**, not on the Loader element itself.
 
 **A `spinner`'s `duration` is its ROTATION PERIOD, not a completion time.** It loops forever and
 fires nothing, on every surface. The field reads exactly like a delay — a user looking at
 `duration: 1000` reasonably asked why the screen never advanced after a second — so when a
-spinner and a Countdown share a screen, say in the handoff which one moves the flow.
+spinner and the screen's On Appear share a screen, say in the handoff which one moves the flow.
+
+### Under `safeArea: true`, check where an absolute element lands
+
+In the render, an absolute `top` is measured from the top of the full screen rather than from
+below the status bar, so a timer or back button at `top: 0` sits under the clock. Look for it in
+the render and move the element down rather than trusting the number.
+
+**A `fixed` element is the opposite:** its `top` is measured from below the status bar, in the
+builder and in the local render alike. So the same `top` lands lower on a `fixed` element than on
+an `absolute` one; do not carry a number from one to the other.
+
+**Sides are inset too.** On iPhone Duo, whose system bar sits on one side, a `left` or `right`
+offset on either kind is measured from inside the bar (unless its `position` sets
+`ignoreSafeArea: true`), so write the offset the design wants from the safe edge and never add the
+bar's width ([preview.md](preview.md#what-a-render-cannot-show-you)).
+
+### A hero that runs to the top edge: `ignoreSafeArea` on the first element
+
+A photo or colour block that runs behind the clock keeps the screen's `safeArea: true` and takes
+`position: {"type": "relative", "ignoreSafeArea": true}` itself (`fk.relative(bleed=True)`). It
+reaches the top edge, and on iPhone Duo the side bar too, while everything else on the screen keeps
+its insets: the close button stays clear of the Dynamic Island and the button stays above the home
+indicator.
+
+- **It works only on the screen's first in-flow element:** the first root child that is not
+  `absolute` or `fixed`, a `footer` or a `sliding-sheet`. On any other `relative` element it does
+  nothing, so move the hero there or put it in the screen `fill`. `flowkit.screen()` refuses it
+  anywhere else.
+- **Never turn the screen's `safeArea` off to get the hero to the top.** That takes the close
+  button under the Dynamic Island and the button under the home indicator, and the render shows
+  neither: an `absolute` close button draws in the same place either way.
+- Keep text and faces out of the hero's top edge: the status bar draws over it, at a height
+  that differs by device.
 
 ### A loading screen — fill the `loader-spinner-label` template; never fake the spinner
 
@@ -355,11 +488,12 @@ the spinner that are not guessable:
   markup is yours to supply through `config(icons=[…])`.
 - **`loader`** — a determinate progress bar (`duration`, `easing`), when the affordance is a bar
   rather than a spinner.
-- the invisible auto-advance **`timer`** below — that is what actually moves the flow on; the
-  spinner is decoration and has no completion trigger.
+- the screen's [On Appear](#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later)
+  `navigate` with a `delay`: that is what moves the flow on; the spinner is decoration and has
+  no completion trigger.
 
 **A blank where the spinner should be is a preview blindness, not a broken element** — the same
-class as a toggle's `selected` state, and measured on the same day; the finding lives with the rest
+class as a toggle's `selected` state; it lives with the rest
 of the list in [preview.md → What a render cannot show you](preview.md#what-a-render-cannot-show-you).
 Verify the spinner on a device, and never judge it by the screenshot.
 
@@ -372,17 +506,18 @@ preview-visible impostor standing in for a real element to satisfy a screenshot.
 to the device check. The bundle's `Spinner`, `SpinnerGap` and `SpinnerBall` are still
 pictures of a loader, never the loader itself.
 
-### DEVICE-VERIFIED: the JSON an auto-advancing screen actually needs
+### A timer that fires an action
 
-The builder's recipe is written in its own vocabulary, and translating it to JSON left three
-gaps that together produced a screen that spun forever on a real device while `validate` returned
-`valid: true`. This is the shape that **worked on a real device** — the project's
-first confirmed `timer-end`, since no export in the corpus carries one:
+A screen that moves on after **more than 5 s** is the one case that still needs a `timer-end`
+action; up to 5 s it is [On Appear](#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later).
+Translating the builder's recipe to JSON literally leaves three gaps that together produce a
+screen that spins forever on a real device while `validate` returns `valid: true`. This is the
+shape that **works on a real device**:
 
 ```json
 {"id": "el_delay", "type": "timer", "states": [], "caption": "Delay",
  "props": {"customId": "build_delay", "behavior": "start_at_every_appear",
-           "duration": {"days": 0, "hours": 0, "minutes": 0, "seconds": 3},
+           "duration": {"days": 0, "hours": 0, "minutes": 0, "seconds": 10},
            "width": {"type": "hug"}, "height": {"type": "hug"},
            "padding": {"top": 12, "left": 16, "right": 16, "bottom": 12},
            "visibility": {"type": "visible"},
@@ -392,29 +527,22 @@ first confirmed `timer-end`, since no export in the corpus carries one:
                                 "payload": {"type": "screen", "screen": "scr_next"}}]}]}
 ```
 
-> **CORRECTED 2026-09-01 — the block above is incomplete, and the missing part is the one that
-> makes it work. `el_delay` MUST CONTAIN A TEXT SHOWING ITS DIGITS** (see the bullet on the
-> child below — a logo or plain copy is not enough). A childless timer does **not** fire
-> `timer-end` on a device: the flow reaches the screen and stops there for good. Measured over
-> three device trips — a real onboarding stuck on its loader; the identical config with one child
-> `text` added advancing; and an isolating probe whose two exits led to *different* destinations
-> reporting the manual route, never the timer's. The mechanism is the one the fifth bullet below
-> already half-stated and then waved away: an element with nothing to lay out is one the renderer
-> skips, and a timer is not exempt.
+> **The block above is incomplete without its child: `el_delay` MUST CONTAIN A TEXT SHOWING ITS
+> DIGITS** (see the bullet on the child below — a logo or plain copy is not enough). A childless
+> timer does **not** fire `timer-end` on a device: the flow reaches the screen and stops there for
+> good. An element with nothing to lay out is one the renderer skips, and a timer is not exempt.
 >
-> **Why the original verification missed it, and this is the transferable half: that session had
-> added visible countdown digits to diagnose the failure, then wrote the shape down without
-> them.** The instrumentation *was* the fix, and it was removed from the record as noise. If you
-> add instrumentation to make a remote failure observable, the shape you verified is the
-> instrumented one — strip it and re-verify, or document it as required.
+> **If you add instrumentation to make a remote failure observable, the shape you verified is the
+> instrumented one** — strip it and re-verify, or document it as required. Countdown digits added
+> to see why a timer is stuck *are* the fix, not noise.
 >
-> `flowkit.timer()` now raises on the pair and `verify-config.py` errors on it, because no other
+> `flowkit.timer()` raises on the pair and `verify-config.py` errors on it, because no other
 > gate can see it: `validate` returns `valid: true` for both forms and `config preview` never
 > navigates for any reason, so the working and the dead timer produce the identical local
 > observation.
 
-Four things about it, and **which one was decisive is unisolated** — they were fixed together
-before the device test, so treat the whole shape as the unit that works:
+Four things about it, and **which one is decisive is not isolated**, so treat the whole shape as
+the unit that works:
 
 - **It is a direct child of the screen `root`, not nested in a content stack.** `absolute`
   offsets resolve against the **parent** (trap 9), so nesting it made `top/left: 0` mean the
@@ -423,14 +551,11 @@ before the device test, so treat the whole shape as the unit that works:
   is explicit that the transformer believes those. The one real export's timer is `hug` *with*
   padding, so it has a genuine box; copy that.
 - **No `opacity: 0`.** The recipe's opacity exists to hide a countdown showing **digits**, and
-  a zero-opacity element is one a renderer may legitimately skip. **Superseded in its second
-  half:** this bullet went on to say a timer with no child draws nothing "anyway", which read as
-  a licence to ship one childless. It is not — see the correction above. The surviving rule is
-  narrower: do not set `opacity: 0`, *and* put the timer's own digits inside it.
-- **The child must be a text showing its digits, not just any child.** Device-measured on a
-  25-screen flow: four timers whose only child was a logo or a plain sentence never advanced; the
-  same four advanced once a `timer_seconds` text was added — two with the digits visible, two
-  with the digits coloured like the background. So an invisible delay is a timer holding
+  a zero-opacity element is one a renderer may legitimately skip. A timer with no child is no
+  alternative — see above. Do not set `opacity: 0`, *and* put the timer's own digits inside it.
+- **The child must be a text showing its digits, not just any child.** On a device a timer whose
+  only child is a logo or a plain sentence never advances; it advances once a `timer_seconds`
+  text is added, with the digits visible or coloured like the background. So an invisible delay is a timer holding
   `timer_digits(('seconds',), color_id='<background>')`, and the screen's own copy or graphic sits
   beside the digits, never instead of them. **Why, read from the transformer's source:** the
   builder's `timer` box becomes a plain container on the way to the SDK; the SDK's own timer is
@@ -441,12 +566,12 @@ before the device test, so treat the whole shape as the unit that works:
 - **An explicit `navigate`, not `navigateNext`.** The recipe says "Navigate Next" because that is
   the builder's dropdown; in JSON an implicit next-in-order target silently re-routes if anyone
   reorders the screens, and it also makes the graph invisible to the reachability check —
-  `references/verify-config.py` reported five screens unreachable the moment `navigateNext` went in,
+  `references/verify-config.py` reports screens unreachable once `navigateNext` goes in,
   which is the checker doing its job, not a false positive to suppress.
 
-**Not agent-tested.** The facts above are device-measured, but whether an agent handed "add a
-3-second loading screen" produces this shape rather than the 1×1 nested (or childless) form has
-had no baseline round — per the Iron Law in `superpowers:writing-skills`, treat that as open.
+**Not agent-tested.** The facts above hold on a device; whether an agent handed "add a
+10-second loading screen" produces this shape rather than the 1×1 nested (or childless) form is
+untested, so build it from this section, not from memory.
 
 ```json
 {"id": "el_…", "type": "timer",
@@ -464,9 +589,12 @@ with a child `text` whose rich text carries `token` nodes:
   {"type": "token", "attrs": {"token": "timer_seconds"}}]}
 ```
 
-**The token id carries a `timer_` PREFIX — this is not optional.** The four ids are
-`timer_days`, `timer_hours`,
-`timer_minutes`, `timer_seconds`. The bare names (`hours`, `minutes`, `seconds`) **do not
+**The token id carries a `timer_` PREFIX — this is not optional.** The five ids are
+`timer_days`, `timer_hours`, `timer_total_hours`,
+`timer_minutes`, `timer_seconds`. `timer_hours` is the hour of the day (0–23) and wraps at 24;
+`timer_total_hours` is every hour left, so a 72-hour sale shows `72:00:00` from
+`timer_digits(('total_hours', 'minutes', 'seconds'))` with no days block. A countdown of a day or
+more never shows `timer_hours` without `timer_days`: it would start at `00:00:00`. The bare names (`hours`, `minutes`, `seconds`) **do not
 resolve**: `config validate` accepts them, but the Flow Builder paints them red `Unknown` and the
 device/preview renders the literal `%hours%:%minutes%:%seconds%`. Confirmed by pushing
 both forms to a real flow and reloading the builder — the prefixed ids render a live `23:59:59`
@@ -495,9 +623,9 @@ request here for the same reason the video row exists.
 **Start from the catalog: `reviews-carousel` is a filled template** — a real `carousel` with
 `props.dots` already set and three review slides to overwrite. Its slots are
 `review_N_{title,text,author}`. Reach for it before assembling anything, for the reason the
-`loader-spinner-label` row gives: the template's internal wiring is already correct. It exists
-because the catalog previously offered `ue-review` — **one static card** — and nothing else, so
-"add reviews" led straight to a single frozen slide with dots added by hand.
+`loader-spinner-label` row gives: the template's internal wiring is already correct. Never answer
+"add reviews" with `ue-review` — **one static card** — and dots added by hand: that is a single
+frozen slide.
 
 **And the seed flow usually already has one.** A `carousel`
 lifts cleanly (element `type` + nesting are safe, [What is safe to lift](#what-is-safe-to-lift-and-what-breaks));
@@ -516,17 +644,22 @@ one export, for reference:
 ```
 
 **`height` is the whole box, dots included, and the next element starts immediately after it**
-— measured by rendering one template at two heights and scanning the column through
+— render one template at two heights and scan the column through
 the dot row: at `height == slideHeight` the 6px dot band occupies y 324-329 with the following
 element at y 330, and at `slideHeight + 30` it sits at 354-359 with the next element at 360. The
 band is always the last few pixels of the box, so **the dots collide with whatever follows**
-unless you leave room: at `height == slideHeight` the measured clearance to the next element is
+unless you leave room: at `height == slideHeight` the clearance to the next element is
 **0px**, and against a CTA the dots merge into the button's top edge. Real exports and
 `tests/fixtures/reviews-carousel.json` set the two equal — which is fine only because nothing
-follows the carousel on those screens, so do not read them as the recipe. The working shape,
-measured, is `height = slideHeight + ~28` for the dot band plus `margin.bottom` for clearance
-(12px measured); `reviews-carousel` in the catalog ships exactly that. Note that `height` is the
+follows the carousel on those screens, so do not read them as the recipe. The working shape
+is `height = slideHeight + ~28` for the dot band plus `margin.bottom` for clearance
+(12px); `reviews-carousel` in the catalog ships exactly that. Note that `height` is the
 one number a longer translation cannot fix, since slides have no auto-height.
+
+**The dot band is always reserved below the slides, so dots cannot sit over the slide image.**
+Not even at `height == slideHeight`: the slide gives up the band's height instead, and padding on
+`dots` makes the band taller and the visible slide shorter again. Flow Builder cannot overlay the
+dots on a slide yet: design for the dots under the photo, and budget `height` as slide plus band.
 
 Its `hierarchy` children are **one node per slide** (each a `stack` holding the avatar, name, stars
 and body). **The dots come from `props.dots` — do not add your own dot `stack`s**; that is exactly
@@ -544,26 +677,41 @@ screen. `tests/fixtures/reviews-carousel.json` is a rendered example — the dot
 contains no dot `stack` at all.
 
 Now the SDK limitations, which shape the *geometry* of a real carousel — not whether to use one.
-Support-channel distilled (2026-08, team-stated and device-verified). The carousel supports exactly
+On a device the carousel supports exactly
 **two layouts**: adjacent-slide peek (the standard Apple layout), or one full slide with neighbours
 invisible. Anything else is an SDK limitation, not a config error, and a true infinite loop is
-not available yet — the approximation is duplicating slides (team-diagnosed).
+not available yet — the approximation is duplicating slides.
 
 **`hug` does not survive the trip to the device here.** `Slide Width = Hug` is dropped by the
-transformer (Android stretches the slide full-width, the peek disappears; team-diagnosed), and a hugged
+transformer (Android stretches the slide full-width, the peek disappears), and a hugged
 footer under a carousel collapses to zero when Android measures a flat+scrollable layout. The
-working recipe is all-fixed geometry — the team's own verified numbers for a centered 3-card
+working recipe is all-fixed geometry — verified numbers for a centered 3-card
 layout: card width **245**, carousel **402**, symmetric padding **66.5**, gap **12**, footer
-heights fixed; the CTA may stay `Fill`. Swipe and autoplay survive. Two more from the same
-threads: the slide's configured size and its hugged content are independent (a 200 slide over 148
+heights fixed; the CTA may stay `Fill`. With a padding, each card is
+`slideWidth − 2 × (padding + gap)` wide on both platforms, so the slide width there is 402, not
+245. Swipe and autoplay survive. Two more: the slide's configured size and its hugged content are independent (a 200 slide over 148
 content is a 52px gap you did not author), and slides have no auto-height — fix the carousel height
 to the tallest slide or cut the copy.
 
-### A video — place the real element empty; the upload is always theirs
+**On an iPhone, four device behaviours the local preview does not show:**
 
-`flows media upload` **refuses a clip** (permitted formats are JPEG/JPEG2000/WEBP/PNG/SVG), so
-this is the one asset you can never bind. That does not make the element unreachable, and it does
-not license a lookalike: a `stack` with a Play icon is the
+- a `fixed` element on the same screen stops the whole screen from scrolling;
+- a `product` element inside a slide swallows the sideways swipe, so the carousel does not move;
+- a drag that starts on the carousel never scrolls the page, so a carousel that fills the viewport
+  traps the user;
+- carousel `padding` and `gap` lay fixed-width slides out differently on the phone than in the
+  preview.
+
+So a carousel screen carries no `fixed` element (a bottom bar is a `footer`), no slide holds a
+`product` (plan cards go below the carousel), some of the page outside the carousel stays free to
+scroll by, and the slide spacing is checked on a device.
+
+### A video — the real element, bound to the uploaded clip or left empty
+
+Given a clip file, upload it with `flows media upload-video` and bind the record
+([media.md → Uploading a video](media.md#uploading-a-video)). With no file, or a CLI with no
+`upload-video`, the element stays empty and the upload is the user's, in the builder. Neither
+case licenses a lookalike: a `stack` with a Play icon is the
 [fake-footer](#a-bar-that-stays-at-the-bottom-use-footer) /
 [fake-spinner](#a-loading-screen--fill-the-loader-spinner-label-template-never-fake-the-spinner)
 mistake wearing a video, and it forces the user to delete and recreate instead of clicking the box
@@ -571,76 +719,85 @@ and picking a file.
 
 **Start from the catalog: `video-hero` and `video-card` are filled templates**, both
 `agent_allowed`, both carrying a `video` with no source. `video-card`'s slots are `title` and
-`description`. Or emit one directly — `flowkit.video(fixed_h=220, corner=fk.radius(16))`. All
-three refuse a source argument by name, because a URL here could only be invented.
+`description`; an uploaded clip goes into the template's `video` prop as the value
+`flowkit.video(source=...)` emits. Or emit one directly —
+`flowkit.video(fixed_h=220, corner=fk.radius(16), source='media/intro.json')`, or without
+`source` for the placeholder. No URL goes in by hand: one that no upload returned could only be
+invented.
 
 **`video-hero`'s 220pt is a STARTING POINT, not a safe default — and on a screen with a pinned
 `footer` the number to check is the gap between the last in-flow content and the footer band.**
-Measured both ways on the same composition shape (430×900, `scrollable: true`, hero → heading →
+On the same composition shape (430×900, `scrollable: true`, hero → heading →
 three feature rows → two plan cards → `footer`): on a **lean** screen (22 elements) the cards
 clear the CTA by **214–304px** across hero heights 170/190/220/260, so 220 costs nothing there;
 on a **heavier** one (44 elements — a subhead, a line of outcome copy under each row, badges, a
-"cancel anytime" line) a build measured the plan cards falling **behind** the footer at 220 and
-cut the hero to 170 to recover them. Same template, opposite verdicts: **the fold tracks total
+"cancel anytime" line) the plan cards fall **behind** the footer at 220 and a 170 hero
+recovers them. Same template, opposite verdicts: **the fold tracks total
 content height, so the hero's number can only be judged against the rest of the screen.** Render
 it and measure that gap; do not carry 220 over from the template on the strength of it being the
 template's value.
 
-Two limits on that check, both worth knowing before you trust it. It answers **first paint** only
-— content passing behind a pinned footer at full scroll is what a `footer` does, by design (see
-the `footer` section). And the small-device case, which is where a tall hero actually bites, is
-**not locally checkable**: `--device` ids are not enumerable, and a guess (`iphone-se`) renders an
-*unknown-device page* rather than a small frame — caught here by `shoot.sh`'s flat-render guard,
-which is the guard doing its job. A short phone stays a device/handoff check.
+That check answers **first paint** only — content passing behind a pinned footer at full scroll
+is what a `footer` does, by design (see the `footer` section). Render the small-device case too,
+which is where a tall hero actually bites: `DEVICE=iphone-se-3 references/shoot.sh draft.json
+<screen>`. A screen whose height should adapt is better built with a fill-height hero than with a
+tuned number: [A tall phone's extra height goes to the
+hero](#a-tall-phones-extra-height-goes-to-the-hero).
 
-Three rules, each measured
+Three rules
 ([media.md → The video placeholder](media.md#the-video-placeholder)):
 
-1. **A fixed height, never `hug`.** An unset clip at `height: hug` draws an arbitrary **256pt** —
+1. **A fixed height, never `hug`, bound or not.** An unset clip at `height: hug` draws an arbitrary **256pt** —
    the renderer's default, no function of the file nobody has uploaded — so the layout you
    previewed and got approved is not the one that ships, and everything below the video moves when
    the clip lands. `flowkit.video()` has no default for `fixed_h`, and `verify-config.py` warns.
 2. **Style it to the screen it sits in.** The radius, the size and the margins come from the
    design around it, exactly as for an `image`. The user can restyle this element like any other
    media element, and should not have to: a placeholder that reads as a default grey block is a
-   placeholder they have to fix twice. One measured wrinkle not to be misled by — the checkerboard
-   itself draws **square** whatever radius you set (an empty `image` at the same radius measured
+   placeholder they have to fix twice. One wrinkle not to be misled by — the checkerboard
+   itself draws **square** whatever radius you set (an empty `image` at the same radius draws
    identical, so it is the placeholder drawing unclipped, not the element). Author the radius
    anyway; it is what the clip lands into.
-3. **Say the handoff out loud.** The element on the screen is not the handoff. Name it in the
-   missing-assets block and tell them to open the flow in the builder and upload the clip there —
-   that sentence is the only part of this the user can act on.
+3. **Say the handoff out loud, for a placeholder.** The element on the screen is not the handoff.
+   Name it in the missing-assets block and tell them to open the flow in the builder and upload
+   the clip there — that sentence is the only part of this the user can act on.
 
 It publishes clean and reaches a device: an unset `video` returns `valid: true, issues: []`, and
-the transform service maps `video`, so unlike `old-price` it is not preview-only. Note the
+the transform service maps `video`, so it is not preview-only. Note the
 evidence tier — **0 of the 12 real exports carry a `video`**, so this shape is authored from the
-schema plus the measurements above rather than read off builder output.
+schema plus the render checks above rather than read off builder output.
 
 ### Layout discipline the support channel keeps re-learning
 
 - **Mixed sizing modes across siblings is the root cause of "randomly exploding" screens** — the
-  team's own fix for one was "images to fixed, everything else to fill-hug", nothing more.
+  fix is "images to fixed, everything else to fill-hug", nothing more.
 - **Containers only grow downward in relative layout.** For expanding content, pre-size the
   container for the expanded state and toggle `visibility` — "less pretty, but no jumping".
-- **Fixed widths overflow the right edge on narrow iOS screens (≤375pt, team-diagnosed)** — any fixed
-  number needs an SE / 13-mini sanity check, and the builder previews only 402×874 (no Pro Max
-  preset either, so `Fill` heights absorb 82 extra points on a 440×956 device).
+- **Fixed widths overflow the right edge on narrow iOS screens (≤375pt)** — any fixed
+  number needs an SE / 13-mini sanity check, and `Fill` heights absorb 82 extra points on a
+  440×956 Pro Max (render it on `iphone-18-pro-max`).
 - **After restructuring a screen, hunt for orphaned fixed buttons**: two stacked CTAs render as
-  one, and the SDK taps the topmost — a footer added late left an old Continue underneath it,
-  team-diagnosed.
-- **`Scrollable = off` + `footer` = no footer on the device. CONFIRMED, not a dated
-  report** — it is a hard constraint and it is
-  [rule 0](#a-bar-that-stays-at-the-bottom-use-footer). The channel reported it, a preview
-  measurement appeared to contradict it, and the device settled it: the preview draws the footer
-  in both scroll modes, so believing the render is what made this look retired.
-- **The Android height/void report is HISTORICAL — device-tested 2026-08-26 and it did not
-  reproduce** (channel, to 2026-08-22: Android computed the footer's height separately, leaving a
-  void). Retired against a **device** result, the standard every historical device defect here is held to, and the standard
-  a render does not meet. A footer on a short scrollable screen sat flush to the physical bottom
-  with the gap above it, as designed. If a void ever comes back, this is what it is, and docking
-  is the fallback. The pre-2026-08-26 version of this bullet said "prefer a pinned container over
-  the native `footer`" — that steer is what talked an agent into building
-  [a fake footer](#a-bar-that-stays-at-the-bottom-use-footer) out of `fixed` stacks.
+  one, and the SDK taps the topmost — a footer added late can leave an old Continue underneath it.
+- **`Scrollable = off` + `footer` = no footer on the device.** It is a hard constraint and it is
+  [rule 0](#a-bar-that-stays-at-the-bottom-use-footer). The preview draws the footer in both
+  scroll modes, so a render can never clear this one; only a device can.
+- **On Android a footer on a short scrollable screen sits flush to the physical bottom with the
+  gap above it, as designed** — confirmed on a device, the standard a render does not meet. If a
+  void below the footer ever appears (Android computing the footer's height separately), docking
+  is the fallback. Never "prefer a pinned container over the native `footer`": that steer leads to
+  [a fake footer](#a-bar-that-stays-at-the-bottom-use-footer) built out of `fixed` stacks.
+- **A stack cannot wrap.** Flow Builder cannot flow a row onto a second line yet, so a set of
+  chips or tags is several horizontal rows you split by hand, each narrow enough for a 375pt
+  screen.
+- **A `fill`-width row of `hug`-width text children with clipping on: the preview and the device
+  disagree.** The local preview draws an overflowing strip clipped at the edge; on iOS every child
+  is compressed and its text wraps letter by letter. Size the children instead: `fill` on each
+  (equal shares) or fixed widths that add up to less than a 375pt screen minus padding, per the
+  sizing bullets at the top of this list. Check the row on a device.
+- **A column that runs the full height behind content-sized rows has no working shape yet** —
+  for example a comparison table whose highlighted column is one fill spanning rows of different
+  heights. Give every row a fixed height, and paint the column as one cell per row with the same
+  `fill` and width, the first and last cells carrying the column's top and bottom corner radius.
 
 ### A tappable button
 
@@ -656,12 +813,65 @@ There is no `button` element — see the request map in
 
 Actions nested inside a `conditional` case carry `"id": ""` instead of an `act_…` id.
 
+### A tall phone's extra height goes to the hero
+
+A screen whose content fits on a phone has height left over on a taller one: the builder previews
+874pt, an iPhone 15 is 852pt, a Pro Max 956pt. Decide where that surplus goes before you build the
+screen, from what the screen holds:
+
+| The screen holds | The surplus goes to | Build |
+|---|---|---|
+| a photo or colour-block hero | **the hero** | the hero at `height: fill`, a direct child of the root; the content; the bar **in flow** as the last root child. `scrollable: true`, **no footer** |
+| a round or fixed-size illustration | **the band around it** | a root-level `stack` at `height: fill`, `alignH`/`alignV` `center`, carrying the hero's background; the illustration at its fixed size inside it. Then content and bar as above |
+| no hero | **the headline block** | the headline and subtitle in a root-level `stack` at `height: fill`, `alignH`/`alignV` `center`; then the plans and the bar together below it. No spread: it opens a hole between the plans and the button |
+
+```python
+fk.screen('scr_paywall', [
+    fk.image(url, media_id=mid, preview=pv, fit='cover', height='fill'),   # takes the surplus
+    content,                                                               # hugs
+    fk.stack([cta, legal_row], gap=12),                                    # the bar, in flow
+], scrollable=True)
+```
+
+On a short phone it runs the other way: the fill-height block gives up height first, and the
+content and bar keep theirs. A band with an illustration or a headline inside never shrinks
+below what it holds; **a photo can shrink to a strip.** So render the screen with
+`DEVICE=iphone-se-3`: if the photo draws under about 160pt there, the content is too tall for a
+flexible hero. Give the photo a fixed height and put the bar in a `footer`; the small phone
+then scrolls. The same goes for any screen whose content is taller than a phone (a long list, a
+comparison table).
+
+**Device-confirmed** (iPhone 15): a fill-height colour block, a fill-height photo and a fill band
+around a round illustration each grew, and the bar sat on the bottom edge, with no empty band
+anywhere. On a 924pt frame, a pinned `footer` or a spread on the same
+fitting screen leaves a **120-220pt empty band**, between the plans and the button or under the
+links. That band is what users call "doesn't adapt to big screens".
+
+**A fill-height hero can go wrong on a device while the local preview draws it correctly:**
+on a scrollable screen the device lets the hero take the whole viewport and pushes the content
+below the fold. The confirmed case above is a screen whose content fits; build a fill-height hero
+only on one that fits on the `iphone-se-3` render, and check it on a device. When the hero must
+keep its own height, give it a fixed one and put the surplus in an **empty spacer**: a `stack`
+at `height: fill` with nothing in it, between the top block and the body, so the purchase area
+sits on the bottom edge of a tall phone with no `footer`.
+
+**Never pair a fill-height root child with a `footer`.** On a device the fill child is sized as
+if the footer were not there, so the footer covers the plans until the user scrolls. The preview
+reserves the footer and draws it correctly, so no render can show you this. `flowkit.screen()`
+refuses the pair and `verify-config.py` warns on it.
+
+**Render both ends before you hand the screen over:** `DEVICE=google-pixel-9` (412×924) and
+`DEVICE=iphone-se-3` (375×667) on `references/shoot.sh`. `verify-config.py` warns when nothing
+on a screen takes the surplus, and when a spread is set across a list of rows.
+
 ### A bar that stays at the bottom: use `footer`
 
 `footer` is a real element type, and it is the one thing on this page you do **not** build out of
 `fixed` stacks. It is lifted out of the layout flow and pinned to the bottom of the viewport while
 the content scrolls past it — which is exactly what a CTA bar, a legal row or a plan-picker dock
-is for.
+is for **on a screen whose content is taller than a phone**. On a screen that fits, a footer
+leaves the tall phone's surplus as an empty band above the bar; there the surplus goes to the
+hero instead ([the section above](#a-tall-phones-extra-height-goes-to-the-hero)).
 
 Take the shape from the builder's own template rather than authoring it:
 
@@ -673,25 +883,29 @@ It is the only component in that catalog carrying an `insertion_policy` (`screen
 props are the plain container set — `position: relative`, `width: fill`, `height: hug`, padding,
 and **an opaque `fill`**. `flowkit.footer([...])` emits it.
 
-**Measured** on one screen rendered eight ways, changing a single thing at a time
+**On a screen with a footer, keep the screen's `layout.alignV` at `start`.** `center` or `end`
+pins the content against an estimated footer height; on iOS a taller real footer then covers the
+content, and a button under it takes no taps.
+
+**One screen rendered eight ways**, changing a single thing at a time
 (content 14x80pt against a 900px viewport, so an in-flow bar sits below the fold):
 
-| The bar | Where it drew |
+| The bar | Where it draws |
 |---|---|
 | `type: "footer"`, `scrollable: true` | pinned at the viewport bottom, at its authored 88pt |
 | identical props, `type: "stack"` | **nowhere** — below the fold |
 | `type: "footer"`, `scrollable: false` | same pinned band in the preview — **and NO FOOTER AT ALL on device** (see the rule below; this row is why a local render is not a device) |
 | `footer` declared **first** in `hierarchy` | same pinned band — declaration order is irrelevant |
-| a **second** `footer` on the screen | drew **nothing at all**, zero pixels |
+| a **second** `footer` on the screen | draws **nothing at all**, zero pixels |
 | `footer` with **short** content above it | same pinned band, void *above* it |
 | `stack` with short content above it | in flow directly under the content, void *below* it |
 | `footer` with **no `fill`** | content visibly scrolls **through** it |
 
-**Reserve nothing yourself: the scroll extent already accounts for the footer.** Measured by
-scrolling the live preview page to the end rather than screenshotting it (iPhone 14, viewport 844),
-and then **confirmed on a device** — the last row clears the bar at full scroll with no authored
-reservation. Both halves were worth having: `scrollable` proved the two renderers can disagree, so
-a scroll claim from the preview is a hypothesis until hardware agrees.
+**Reserve nothing yourself: the scroll extent already accounts for the footer.** Scrolling the
+live preview page to the end rather than screenshotting it (iPhone 14, viewport 844) shows it, and
+it holds **on a device** — the last row clears the bar at full scroll with no authored
+reservation. A scroll claim from the preview alone is a hypothesis until hardware agrees:
+`scrollable` shows the two renderers can disagree.
 With no authored `padding.bottom`: `scrollHeight` 1424 = 1300 of content **+ the footer's own 124**,
 max scroll 580, and at full scroll the last row ends at 682 against a footer band of 721-844 — it
 clears by 39px, so nothing is ever stranded behind the bar. Author `padding.bottom: 124` "to make
@@ -719,13 +933,14 @@ Five rules follow. The first is a hard requirement and the local render cannot s
    render at all** — not misplaced, absent, and every child inside it goes with it, so a CTA
    living in the footer takes the screen's only navigation with it. The preview draws it
    identically in both modes, so this is invisible to `config preview`, to the schema check and
-   to `flows config validate`. `flowkit.screen()` now refuses the pair and `verify-config.py`
+   to `flows config validate`. `flowkit.screen()` refuses the pair and `verify-config.py`
    errors on it. If a screen must not scroll, it cannot have a footer — use the root's own
    [`space-between`](#putting-a-short-screens-content-and-bar-apart-the-roots-own-distribution)
-   instead. That gives a clean split with no judgement in it: **`scrollable: true` -> `footer`;
-   `scrollable: false` -> a spread distribution.**
+   instead. And a screen whose content fits on a phone does not need a footer at all: see
+   [A tall phone's extra height goes to the hero](#a-tall-phones-extra-height-goes-to-the-hero).
 
-1. **One `footer` per screen.** A second one is silently dropped, so a CTA and a legal row go
+1. **One `footer` per screen.** With two, neither becomes the screen's pinned footer on a device:
+   the transform service keeps both as plain overlays and warns. So a CTA and a legal row go
    inside the *same* footer as children, never as two footers.
 2. **Put it anywhere in the hierarchy** — last child is the readable choice, but position carries
    no meaning.
@@ -736,10 +951,10 @@ Five rules follow. The first is a hard requirement and the local render cannot s
    pattern is broken", and it is a property of the footer, not a reason for a backing plate.
 4. **Never build a lookalike.** An empty `fixed` stack with a `fill`, sitting behind separately
    docked elements, is a *fake footer*: it reproduces the fill and the position and none of the
-   pinning, and every local gate passes it. `verify-config.py` now warns on that shape.
+   pinning, and every local gate passes it. `verify-config.py` warns on that shape.
 
-**No gate but `verify-config.py` sees any of this.** Measured the same day: `flows config
-validate` returned `valid: true, issues: []` for the correct footer *and* for two footers, for the
+**No gate but `verify-config.py` sees any of this.** `flows config
+validate` returns `valid: true, issues: []` for the correct footer *and* for two footers, for the
 fake footer, and for the unfilled footer whose content shows through — and the shipped schema check
 passes them too, because `FooterProps` is the **same property set** as
 `StackProps`. So the schema cannot tell you a footer behaves differently from a stack, and
@@ -748,37 +963,39 @@ look at the render.
 
 ### Putting a *short* screen's content and bar apart: the root's own distribution
 
-Different job, and still the right tool for it. A `footer` pins the bar and leaves the void
-**above** it; when a short screen should instead spread its content out to fill the height, that
-is the root's `distribution`. Give the screen root exactly two children — a content stack and a
-bar stack — and set:
+Not for a paywall: there the surplus goes to the hero or the headline block ([A tall phone's
+extra height goes to the hero](#a-tall-phones-extra-height-goes-to-the-hero)), because a spread
+opens a hole between the plans and the button. For other short screens, a
+`footer` pins the bar and leaves the void **above** it; when a short screen should instead spread
+its content out to fill the height, that is the root's `distribution`. Give the screen root
+exactly two children — a content stack and a bar stack — and set:
 
 ```json
-"props": {"scrollable": false,
+"props": {"scrollable": true,
           "layout": {"direction": "vertical", "alignH": "center", "alignV": "start",
                      "distribution": {"type": "space-between"}}}
 ```
 
 The free space lands between the two, with **no** `fixed` positioning, no `padding.bottom`
-reservation, and no arithmetic to get wrong. Measured across four screens, this
-removed both of the failure modes the `fixed` alternatives carry: a footnote that had slid under a
+reservation, and no arithmetic to get wrong. This
+removes both of the failure modes the `fixed` alternatives carry: a footnote that slides under a
 docked CTA, and the dead void an in-flow bar leaves on a tall device.
-`flowkit.screen(..., distribution='space-between', scrollable=False)`.
+`flowkit.screen(..., distribution='space-between')`.
 
-**Choose per screen, because the cost is real:** a spread mode needs a definite-height container,
-so it wants `scrollable: false`, and that **clips** content taller than the viewport. So: a bar
-that content must scroll past is a `footer`; a short screen whose content should breathe is a
-spread; a screen that needs both is a `footer` plus a spread on the content above it. See
-[flow-schema.md trap 10b](flow-schema.md) for the vocabulary and
-[preview.md](preview.md) for why you cannot check the clipping locally.
+**Keep `scrollable: true`.** On a device a vertical scrollable screen's content is at least one
+viewport tall, so the spread has room on a tall phone, and the screen still scrolls on a short
+one. `scrollable: false` clips content taller than the viewport, and takes a footer away
+entirely (rule 0 above). Spread across the two halves of the screen, never across a list of
+rows: on a tall phone every gap in the list grows. See [flow-schema.md trap 10b](flow-schema.md)
+for the vocabulary.
 
 ### A bottom-docked button
 
-**Reach for this only once `footer` is ruled out.** Docking a bar was the old answer to "keep it
-at the bottom while content scrolls", and `footer` does that natively, opaquely, and with no
+**Reach for this only once `footer` is ruled out.** Docking a bar is not the answer to "keep it
+at the bottom while content scrolls": `footer` does that natively, opaquely, and with no
 offsets to compute. What is left for `fixed` is a single overlay that is *not* a bar — a floating
-close button, a corner badge — and the fallback if a device shows one of the two
-[dated `footer` reports](#layout-discipline-the-support-channel-keeps-re-learning).
+close button, a corner badge — and the fallback if a device shows the `footer` void in
+[Layout discipline](#layout-discipline-the-support-channel-keeps-re-learning).
 
 `fixed` with `left`/`right`/`bottom` plus `width: auto` is the docked-CTA pattern (trap 9).
 
@@ -789,18 +1006,16 @@ close button, a corner badge — and the fallback if a device shows one of the t
  "interactions": [{"id": "int_…", "trigger": "tap", "actions": [ … ]}]}
 ```
 
-**One historical device defect to know before blaming your config:** `fixed` + `left`/`right` +
-`width: auto` once collapsed to content width on device while the preview showed full width
-(team-diagnosed); the era workaround was a sandwich — outer Stack `fixed`/`auto` with no states, inner
-CTA `relative`/`fill` carrying the states and actions. A 2026-08-22 device screenshot from this
-project shows the plain form rendering full-width, so treat it as fixed — but if a docked CTA comes
-back narrow on a device, this is what it is, and the sandwich is the fallback.
+**One device defect to know before blaming your config:** on a device the plain form renders
+full-width, but if a `fixed` + `left`/`right` + `width: auto` CTA comes back collapsed to content
+width on a device while the preview shows full width, this is what it is, and the fallback is a
+sandwich — outer Stack `fixed`/`auto` with no states, inner CTA `relative`/`fill` carrying the
+states and actions.
 
 **The `fixed` element must be the button itself and carry the interaction.** Wrapping buttons in
 a fixed *container* and putting the interactions on relative children leaves the pinned element
 actionless — it still renders and still taps in preview, but in the builder's layer tree you select
-the docked bar, see no action on it, and reasonably conclude the buttons have no navigation. That
-is how this pattern was first built here, and it is what a reviewer noticed.
+the docked bar, see no action on it, and reasonably conclude the buttons have no navigation.
 
 For two docked items, give each its own `fixed` element and stack the offsets bottom-up —
 `bottom: 24` for the lowest, `bottom: 24 + height + gap` for the next. One fixture screen carries
@@ -818,8 +1033,9 @@ can break. **Connect the steps with a thin line, not a track:** in each row but 
 2pt `stack` with `position: absolute`, `top` just below the icon, `bottom` just short of the next
 icon (a negative value about half the list gap), `left` centred under the icon, `height: auto`,
 filled with the done colour for completed steps and a muted one after. **Declare it first in the
-row, before the icon, and give it no `zIndex`**: later siblings paint over earlier ones, so the
-icon and the next row cover the line's ends. A rail as
+row, before the icon, and give it no `zIndex`**, and keep its ends clear of the icons: an
+`absolute` rail paints over the in-flow icon wherever it is listed
+([flow-schema.md](flow-schema.md#9-offsets-must-resolve-against-an-axis-something-defines--the-parent-for-absolute-the-screen-for-fixed)). A rail as
 wide as the icon reads as a row of pills; a hairline reads as one timeline. The anchoring rules
 below still apply to it.
 
@@ -875,8 +1091,8 @@ card. The row, then its three children in this order — **rail first**:
 The chip holds one 24pt `icon`; the text column holds a title and a description. **The last row
 carries no rail.**
 
-**Each part of the rail is load-bearing, measured by changing it** from a rendered row
-whose description had been grown from two lines to four:
+**Each part of the rail is load-bearing** — change one in a rendered row whose description has
+grown from two lines to four:
 
 | Change | Result |
 | :--- | :--- |
@@ -888,8 +1104,9 @@ whose description had been grown from two lines to four:
 
 So: `bottom` is what gives the element height, `auto` is what makes the anchors authoritative, and
 paint order is what keeps the rail behind the chips it runs under. The real export used
-`zIndex: -10` instead, which works only while no ancestor has a fill — a negative `zIndex` goes
-behind every filled ancestor, so the same rail inside a trial-timeline card draws nothing.
+`zIndex: -10` instead, which in the render works only while no ancestor has a fill — there a
+negative `zIndex` goes behind every filled ancestor, so the same rail inside a trial-timeline card
+draws nothing.
 `verify-config.py` warns on a negative `zIndex` under a filled ancestor. `flowkit.absolute()`
 emits the position object and refuses the two broken pairings; `verify-config.py` warns on both if
 you hand-write them.
@@ -973,13 +1190,17 @@ a product attaches to. Exactly one card in the group carries `"default": true`:
 true` sets the initial *selection*, not the styling. Give every card the same neutral border and let
 `propsByState.selected` recolour it — bake an accent border onto the default card instead and it
 stays there forever while only the indicator moves, which reads as "selection is broken on every
-other card". Measured on a shipped flow, from a build that had the skeleton above in front of it.
+other card" — even with the skeleton above in front of you.
 
-**This paragraph was read past and the defect shipped again (2026-08-28), so it is now checked
-rather than only stated**: `flowkit.on_selected()` emits the `states` + `propsByState.selected`
+**A text inside a card can carry its own `propsByState.selected` copy of its style** — `font`,
+`color` — as builder-made cards do. Edit only its `props` and only the unselected cards change; the
+selected card keeps the old look. Change a card's text style in both places, and keep every key
+of the base in the state's copy (trap 17 in [flow-schema.md](flow-schema.md)).
+
+**This is checked, not only stated**: `flowkit.on_selected()` emits the `states` + `propsByState.selected`
 pair — on the member, on any descendant whose colour follows, or both — and `verify-config.py`
 **errors** when a group's members differ in their base props with no `propsByState.selected`
-anywhere in them. It is worth knowing why prose lost: the failure mode is *copying a reference
+anywhere in them. Why it needs a check: the failure mode is *copying a reference
 screenshot*, which can only ever show one card selected, so a literal transcription bakes that
 frame in. No other gate sees it — validate passes, the schema passes, and the render draws one
 frame in which the baked look and the state-driven look are identical.
@@ -1045,12 +1266,12 @@ the *element* or about *what only the builder can write*.
 
 **A `propsByState` entry may restyle an element; it must never resize one.** Colour, fill, opacity,
 border *colour* are free. A **border `width`** that differs between base and `selected` changes the
-card's outer size, and in a `width: fill` column every sibling re-measures with it — a real build
-with base `1` / selected `2` made the comparison table above the cards **grow on every tap**, and
-holding the width at `1` while changing only the colour fixed it (user-confirmed on device; the
-same delta was also on the radio rings). If a selected card needs more presence than a colour
-gives it, change its `fill`, not its geometry. Note also what caught this: **nothing did.** The
-config validated, the structural checks passed, and two renders with different `default` cards were
+card's outer size, and in a `width: fill` column every sibling re-measures with it — base `1` /
+selected `2` makes the comparison table above the cards **grow on every tap** on a device, and
+holding the width at `1` while changing only the colour fixes it (the same holds for the radio
+rings). If a selected card needs more presence than a colour
+gives it, change its `fill`, not its geometry. **No check catches this:** the
+config validates, the structural checks pass, and two renders with different `default` cards are
 byte-identical — a selected-state reflow needs a *tap*, which no check in this skill performs. Treat
 any state that touches `border.width`, `width`, `height`, `padding` or `margin` as a defect on
 sight, because you cannot see it.
@@ -1152,18 +1373,12 @@ Open and close with `showElement` / `hideElement`, whose payload is a **list of 
 {"id": "act_open", "type": "showElement", "payload": {"elements": ["el_planSheet"]}}
 ```
 
-**The trap: a docked element of the screen paints OVER the sheet.** The page's own bottom-docked
-CTA and legal row kept rendering on top of an open sheet, burying the sheet's purchase button under
-the button that had just opened it — measured on the first render of this pattern. A sheet is not a
-layer above everything; it is a sibling. So the opening interaction carries **two** actions, and the
-dismiss carries their inverse:
+**In the render, a docked element of the screen paints over the sheet:** the page's bottom-docked
+CTA and legal row draw on top of a sheet made visible, burying its purchase button. On a device the
+sheet is not part of the page: it opens as a screen of its own above it, so the one `showElement`
+is the whole opening action.
 
-```json
-"actions": [{"id": "act_open",      "type": "showElement", "payload": {"elements": ["el_planSheet"]}},
-            {"id": "act_hide_page", "type": "hideElement", "payload": {"elements": ["el_openCta", "el_legalRow"]}}]
-```
-
-Two more things that follow from the sheet being an ordinary part of the document:
+Two more things:
 
 - **The product group spans both.** The `product` elements live inside the sheet while
   `selectableGroups` is declared on the screen, and the sheet's CTA buys
@@ -1171,7 +1386,7 @@ Two more things that follow from the sheet being an ordinary part of the documen
   sheet-aware.
 - **The render draws whatever `visibility` says and never runs the interaction.** So screenshot it
   twice — once as authored (sheet hidden) and once from a throwaway copy with the sheet visible and
-  the page furniture hidden, which is the state the actions produce. That verifies both layouts and
+  the page furniture hidden, which is what the opened sheet covers on a device. That verifies both layouts and
   proves nothing about the tap: whether `showElement` actually fires is an Adapty-app check.
 
 ### A hero with the content sliding over it: `sliding-sheet`
@@ -1227,11 +1442,18 @@ that is not at the root, and refuses two.
 
   | the image's size | what the band draws |
   | :--- | :--- |
-  | `width` fixed | edge to edge, **ignoring** screen padding and the safe area, so it runs under the status bar. The width is a preview width, so the proportions change on a wider device |
-  | `width` fill, `height` fill | fills the band, inset by the screen padding and the top safe area |
+  | `width` fixed | inset by the screen padding and the top safe area like the rows below — **not** edge to edge, and not under the status bar. With `height` hug and an image that fits the band, it keeps that width from the leading padding and narrows where the band is narrower. Otherwise the width is ignored and the `width` fill row with the same height applies. For a hero that runs under the status bar, use the screen `fill` |
+  | `width` fill, `height` fill | fills the band, inset by the screen padding and the top safe area. Drawn from its top edge: a taller image loses its bottom, not its top and bottom evenly (rendered, with and without a `previewValue`, and the same on a device), so keep the subject high in the file |
   | `width` fill, `height` fixed | exactly that height, top-aligned; the rest of the band shows the screen fill |
   | `width` fill, `height` hug | its natural height if that fits the band, cropped to the band if it is taller. The call is made from the image's **`previewValue`**; without one the image is treated as fitting, so a tall image letterboxes instead of cropping. Carry the preview ([`media.md`](media.md)) |
 
+- **A fade over the hero: a fill layer, or an overlay pinned to the band's bottom.** All three
+  draw in the render: a gradient layer above the image in the screen `fill` (its stops span the
+  whole screen, so the band shows only their top part); a cover `stack` at `height` fill whose
+  `fill` is the image plus the gradient; and an `absolute` stack at `bottom: 0, left: 0, right: 0`,
+  `width` auto, fixed height, listed before or after the image — that last one also drew on a
+  device, with the sheet riding up over it on scroll. **Never anchor it `top` and
+  `bottom` too**: that one stretched over the whole screen and painted over the sheet.
 - **The footer goes inside the sheet, as its last child, or at the root.** Either way it is the
   screen's one pinned bar, and rule 0 of the footer section still holds: `scrollable` must stay
   `true`.
@@ -1240,7 +1462,9 @@ that is not at the root, and refuses two.
   cut off.
 - **Give the sheet an opaque `fill`**, because it rides over the cover. Round the top corners only:
   the bottom edge sits at the screen edge, so bottom radii are never seen.
-- **Put every tappable element inside the sheet, the close button included.** On Android a tap on
+- **Put every tappable element inside the sheet, the close button included.** Not as an
+  `absolute` element at the screen root: that one belongs to the cover band, and the preview does
+  not draw it. On Android a tap on
   an element in the cover band does not register, while the same button works on iOS and works
   inside the sheet on both. `verify-config.py` warns on any interaction in the cover. A close
   button nobody can tap on Android is a store-review problem, not a cosmetic one. A video in a cover
@@ -1278,6 +1502,44 @@ overlap. Budget the row explicitly: `left + w1 + gap + w2 + right` should equal 
 `padding.bottom` to clear the whole bar, or the docked row lands on top of the last content —
 measure it rather than assuming, with
 [`render-measure.py`](render-measure.py).
+
+### A screen transition
+
+How a screen arrives is `payload.transition` on the `navigate` that opens it, so each route has its
+own. Build it with `fk.navigate('scr_paywall', transition='slideIn')`, or pass
+`fk.screen_transition('push', direction='up', duration=500)` to change a setting. Left out, the
+screen arrives with the default push, so a user's request is the reason to set one.
+
+| `type` | What the user sees | Fits | Starts as |
+|---|---|---|---|
+| `none` | The screen switches at once | a technical redirect after a condition | no other keys |
+| `push` | Both screens move together | the next onboarding step | `left`, `ease-out`, 350 ms |
+| `slideIn` | The new screen slides and fades in over the current one | a paywall, a modal | `up`, `ease-out`, 350 ms |
+| `slideOut` | The current screen slides and fades away, showing the new one under it | closing a paywall | `down`, `ease-out`, 400 ms |
+| `fadeThrough` | The new screen dissolves in; takes no `direction` | unrelated sections, tabs | `ease-in-out`, 300 ms |
+
+```json
+{"id": "act_…", "type": "navigate", "payload": {"type": "screen", "screen": "scr_paywall",
+ "transition": {"type": "slideIn", "direction": "up", "easing": "ease-out", "duration": 350, "delay": 0}}}
+```
+
+- **Every key is required except on `none`.** `direction` is `left`, `right`, `up` or `down`, the way
+  the moving screen travels: `left` moves it from the right edge to the left. `easing` is `linear`,
+  `ease-in`, `ease-out`, `ease-in-out` or `ease-out-bounce`. `duration` and `delay` are whole ms,
+  0–5000.
+- **A malformed transition passes `flows config validate` and plays the default push.**
+  `verify-config.py` is the check that stops it.
+- **Only `navigate` takes a transition.** `navigateBack` plays the reverse of how the screen arrived,
+  without the delay. `navigateNext` always plays the default push, so use `navigate` where the
+  arrival matters. A `navigate` inside a `conditional` case or at a `timer`'s end takes one the same
+  way.
+- **Taps do nothing while a transition runs, and that includes its `delay`.** Keep `delay` at 0 unless
+  the user asks for a pause. From On Appear the `delay` is different: the screen waits it while
+  still live, then plays the transition ([On Appear](#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later)).
+- **`slideIn` and `ease-out-bounce` can show what is behind the screens:** the first screen's bottom
+  color or gradient. Choose another when the screens differ a lot in color.
+- **The preview page never navigates, so a render cannot show a transition.** Say it is checked on a
+  device, or in the looping preview in Flow Builder's Navigate to Screen action.
 
 ### A back button, and authoring an icon that does not exist yet
 

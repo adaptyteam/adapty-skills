@@ -18,6 +18,8 @@ copying the image into every locale as the only way to clear it.
       FIRES   -- the default's image copied into every other locale
               -- a copy that differs only in its preview (same url, same asset)
               -- a video copied the same way
+              -- an image or video bound under a non-default locale only (the default and
+                 every other locale fall back to nothing)
       SAYS    -- names the duplicated weight and the different-file exception
       SILENT  -- an image bound in the default locale only (no parity error, no copy warning)
               -- a locale that really does get a different file
@@ -133,9 +135,21 @@ different = {'en': img(), 'sr': img(url=OTHER_URL)}
 check('SILENT: a locale that really gets a different file', not copy_lines(verify(
     with_media(different))))
 
+NOT_DEFAULT = 'only under'
+elsewhere = [l for l in verify(with_media({'sr': img()})) if NOT_DEFAULT in l]
+check('FIRES on an image bound under a non-default locale only, naming it and the default',
+      len(elsewhere) == 1 and 'only under sr' in elsewhere[0] and 'not under en' in elsewhere[0],
+      elsewhere)
+check('FIRES on a video bound the same way', [l for l in verify(with_media(
+    {'sr': {'videoUrl': 'https://x.test/a.mp4', 'previewUrl': 'https://x.test/a.png'}},
+    'video')) if NOT_DEFAULT in l])
+check('SILENT on the non-default-only warning for a default-only image',
+      not [l for l in only_default if NOT_DEFAULT in l])
+
 corpus = sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures', '*.json')) +
                 glob.glob(os.path.join(ROOT, 'tests', 'fixtures-raw', '*.json')))
-noisy = [os.path.basename(p) for p in corpus if copy_lines(verify(json.load(open(p))))]
+noisy = [os.path.basename(p) for p in corpus
+         if [l for l in verify(json.load(open(p))) if COPY in l or NOT_DEFAULT in l]]
 check(f'SILENT on all {len(corpus)} real exports', not noisy, noisy)
 
 text_gap = catalogued(base_flow())

@@ -94,6 +94,7 @@ python3 tests/test-audit-flow.py                                         # the a
 python3 tests/test-unmapped-elements.py                                  # old-price: the guarded set vs the corpus
 python3 tests/test-schema-baseline.py                                    # schema --baseline matches by screen id, not position
 python3 tests/test-legibility.py                                         # text-vs-background, both appearance variants
+python3 tests/test-text-fit.py                                           # autoShrink outside a bounded box, a long translation in one
 python3 tests/test-price-literals.py                                     # placeholder + baseline-relative price literals
 python3 tests/test-product-fields.py                                     # the closed product-variable field set
 python3 tests/test-crop.py                                               # cutting a graphic out of a reference
@@ -101,8 +102,10 @@ python3 tests/test-icon-declarations.py                                  # icon 
 python3 tests/test-icon-assets.py                                        # the vendored phosphor bundle
 python3 tests/test-id-hygiene.py                                         # id charset, cross-screen dupes, locale codes
 python3 tests/test-color-shape.py                                        # every IColor is hex or color-style
+python3 tests/test-theme-styles.py                                       # layered theme colours: refusals, transparent text, flowkit stacks
 python3 tests/test-customid-analytics.py                                 # the customId an input/option reports under
 python3 tests/test-video-element.py                                      # the unset video + its fixed height, and the catalog contract
+python3 tests/test-custom-tags.py                                        # custom tags: names, duplicates, logic and script-context use
 python3 tests/test-sliding-sheet.py                                      # the sheet's root/singleton placement, startPosition, footer placement, taps in the cover band
 python3 tests/test-image-preview.py                                      # previewValue on an image this draft added, both binding shapes
 python3 tests/test-product-template.py                                   # the plan-card catalog entry, and from_catalog
@@ -114,6 +117,7 @@ python3 tests/test-migrate-cli.py                                        # migra
 python3 tests/test-existing-flows.py                                     # flows the account already has, and the name match
 python3 tests/test-stub-flow.py                                          # the shipped stub's publishable floor
 python3 tests/test-negative-zindex.py                                    # a negative zIndex under a filled ancestor draws nothing
+python3 tests/test-relative-zindex.py                                    # a zIndex on a relative element does nothing
 ```
 
 Exit codes match the repo's lint convention: `0` clean, `1` findings, `2` infrastructure
@@ -306,6 +310,21 @@ breakage `plan` did not predict.
 ```bash
 python3 tests/test-snippet.py
 ```
+
+## `test-render-scripts.py` — the render scripts, offline
+
+```bash
+python3 tests/test-render-scripts.py
+```
+
+Runs `shoot.sh`, `preview-with-playwright.mjs` and `montage.py` as subprocesses with no network:
+`shoot.sh` gets a stand-in browser, a stand-in `adapty` and a local HTTP server; the in-page helpers
+run on a `setContent` page, and only when Playwright and a Chromium-based browser are installed.
+Four groups: `montage` (flags anywhere, the argument order on a bad flag), `locale` (the copy that
+renders another language, and its fallback for values the language lacks), `shoot.sh` (a browser
+that exits without a file, progress per screen, `TIME_LIMIT`, a stopped run keeping what it
+finished) and `in-page` (overlays beside the screen hidden, the scroller found). Point
+`RENDER_REF=<copy of references/>` at a mutated copy to confirm a check can fail.
 
 ## `mobile-preview-check.py` — the device-preview link
 

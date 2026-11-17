@@ -61,6 +61,11 @@ Settings → Developer → Sandbox Apple Account. Signing the sandbox account in
 Purchases directly is the single most common iOS testing mistake, and it produces a
 purchase sheet that looks real and charges a real account.
 
+**On the simulator, a sign-in that never completes ends the simulator run.** If the sandbox
+account does not authenticate there and every purchase returns as cancelled by the user,
+move to a real device, built from Xcode or installed from TestFlight, following the same
+page (https://adapty.io/docs/test-purchases-in-sandbox.md).
+
 Developer Mode must be on first (Settings → Privacy & Security → Developer Mode), or the
 Developer menu is not there to find.
 

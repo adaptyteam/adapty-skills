@@ -34,9 +34,10 @@ $ADAPTY fallbacks get --app <appId> --platform android --sdk-version <X.Y.Z> --o
   both needs both files. macOS and visionOS use the `ios` file.
 - **`--sdk-version` is the Adapty SDK version you installed in Phase 4** — for a cross-platform
   app, the Adapty plugin or package version, exactly as the lockfile records it. The server picks
-  the file format from it, and the SDK rejects a file of any other format at startup. Never pass
-  a remembered or rounded version; if you did not install the SDK in this run, read it from the
-  lockfile.
+  the file format from it, and the SDK rejects a file of any other format at startup, with no
+  build error. Never pass a remembered or rounded version; if you did not install the SDK in this
+  run, read it from the lockfile. The flag takes `X.Y.Z` only: for a pre-release such as
+  `4.4.0-beta.1`, pass `4.4.0`.
 - **`<path>` is where the platform's docs page says the file lives** (next section). Read that
   page before choosing it.
 - **Always `--output`.** It writes the file only after a complete download, so a failure keeps
@@ -49,13 +50,16 @@ $ADAPTY fallbacks get --app <appId> --platform android --sdk-version <X.Y.Z> --o
 | 0 | File written | Continue |
 | 2 | Bad input (app ID, platform, version format) | Fix the flag |
 | 3 | No token or access refused | Re-run Phase 3 Step 1 |
-| 4 | API error; on a 429 the message says how long to wait | Wait at least that long, then run it once more; otherwise tell the user |
-| 5 | Adapty was not reached, or the download broke | Check the network, run once more |
+| 4 | API error, or an answer that is not the file; on a 429 (30 downloads per hour per app) the message says how long to wait | Wait at least that long, then run it once more; otherwise tell the user |
+| 5 | Adapty was not reached, did not answer in 300 s, or the download broke | Run it once more later; a large app's file takes minutes to build |
 | 1 | The file could not be written | Check the path and permissions |
 
 If `fallbacks get --help` says the command does not exist, try once with
 `npx --yes adapty@beta fallbacks get --help` before telling the user the CLI cannot do it. Then
-the route is the dashboard download: https://adapty.io/docs/local-fallback-paywalls
+the route is the dashboard download (https://adapty.io/docs/fallback-flows for a flow,
+https://adapty.io/docs/local-fallback-paywalls for a paywall): tell the user to pick the option
+that matches the SDK version the app ships, such as **Adapty SDK v4.4.0 and higher** for iOS 4.4,
+and you add the file to the project.
 
 ## Wire it into the app
 
@@ -90,7 +94,8 @@ So offer the user one of two things, and say which you did:
    version filled in, and tell them to run them before each release build and commit the result.
    Put the lines in the closing message's left-to-do list, or in `ADAPTY_SETUP.md` if you wrote one.
 2. **A CI step**, only if the user asks for one or already runs release builds in CI. Run the same
-   two commands before the build, with the `--sdk-version` read from the lockfile in the job so an
+   two commands before each release build, never on every commit (the 30-per-hour limit is shared
+   by the whole app), with the `--sdk-version` read from the lockfile in the job so an
    SDK upgrade cannot leave it behind. Tell the user plainly what the job authenticates with before
    they set it up:
    - There is no CI token yet. The job uses the personal token that `adapty auth login` stores in

@@ -10,6 +10,7 @@ an add-a-screen task each spent a run proving the "new" findings were pre-existi
 
     SILENT  -- a pre-existing finding on a screen that moved from index 0 to index 1
     FIRES   -- a genuinely new finding on the inserted screen
+    SILENT  -- a pre-existing finding on a screen whose ID was renamed
 
 Usage: python3 tests/test-schema-baseline.py    # 0 all pass, 1 a case regressed
 """
@@ -69,6 +70,20 @@ code, out = run(broken, base)
 check('a new finding on the inserted screen is reported', code == 1 and 'el_new' in out, out)
 check('...and only that one, not the moved screen\'s old finding',
       code == 1 and '1 location(s) new' in out, out)
+
+# A rename (rename-screens.py) changes every screen ID and nothing else: the old findings stay old.
+renamed = copy.deepcopy(base)
+for i, scr in enumerate(renamed['screens']):
+    scr['id'] = f'scr_renamed_{i}'
+code, out = run(renamed, base)
+check('a pre-existing finding on a renamed screen is not reported as new', code == 0, out)
+renamed_broken = copy.deepcopy(renamed)
+el2 = next(e for e in renamed_broken['screens'][0]['elements']['map'].values() if e['type'] == 'stack'
+           and 'border' not in (e.get('props') or {}))
+el2.setdefault('props', {})['border'] = {'color': {'type': 'color-style', 'colorId': 'white'},
+                                        'style': 'solid', 'width': 1}
+code, out = run(renamed_broken, base)
+check('a new finding on a renamed screen is still reported', code == 1 and '1 location(s) new' in out, out)
 
 print()
 if fails:

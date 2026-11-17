@@ -1,0 +1,109 @@
+category,region,start,refund_share
+All categories,APAC,after trial,5.3
+All categories,APAC,direct,3.4
+All categories,All regions,after trial,3.7
+All categories,All regions,direct,3.1
+All categories,Europe,after trial,3.2
+All categories,Europe,direct,3.0
+All categories,LATAM,after trial,4.3
+All categories,LATAM,direct,4.8
+All categories,MEA,after trial,3.1
+All categories,MEA,direct,2.5
+All categories,North America,after trial,3.5
+All categories,North America,direct,3.0
+Education,APAC,after trial,6.0
+Education,APAC,direct,3.5
+Education,All regions,after trial,2.9
+Education,All regions,direct,2.9
+Education,Europe,after trial,3.1
+Education,Europe,direct,2.8
+Education,LATAM,after trial,3.1
+Education,LATAM,direct,3.5
+Education,MEA,after trial,4.0
+Education,MEA,direct,3.6
+Education,North America,after trial,2.4
+Education,North America,direct,2.5
+Entertainment,APAC,after trial,6.9
+Entertainment,APAC,direct,2.6
+Entertainment,All regions,after trial,2.2
+Entertainment,All regions,direct,2.7
+Entertainment,Europe,after trial,1.1
+Entertainment,Europe,direct,3.0
+Entertainment,LATAM,after trial,3.4
+Entertainment,LATAM,direct,4.0
+Entertainment,MEA,after trial,1.6
+Entertainment,MEA,direct,2.2
+Entertainment,North America,after trial,1.7
+Entertainment,North America,direct,2.6
+Graphics & Design,APAC,after trial,8.7
+Graphics & Design,APAC,direct,3.3
+Graphics & Design,All regions,after trial,4.3
+Graphics & Design,All regions,direct,3.6
+Graphics & Design,Europe,after trial,4.0
+Graphics & Design,Europe,direct,4.1
+Graphics & Design,LATAM,after trial,6.8
+Graphics & Design,LATAM,direct,5.1
+Graphics & Design,MEA,after trial,4.1
+Graphics & Design,MEA,direct,2.4
+Graphics & Design,North America,after trial,3.4
+Graphics & Design,North America,direct,3.3
+Health & Fitness,APAC,after trial,6.2
+Health & Fitness,APAC,direct,3.0
+Health & Fitness,All regions,after trial,4.9
+Health & Fitness,All regions,direct,2.7
+Health & Fitness,Europe,after trial,5.4
+Health & Fitness,Europe,direct,2.8
+Health & Fitness,LATAM,after trial,3.9
+Health & Fitness,LATAM,direct,2.9
+Health & Fitness,MEA,after trial,4.2
+Health & Fitness,MEA,direct,2.4
+Health & Fitness,North America,after trial,4.5
+Health & Fitness,North America,direct,2.7
+Lifestyle,APAC,after trial,2.8
+Lifestyle,APAC,direct,3.0
+Lifestyle,All regions,after trial,3.4
+Lifestyle,All regions,direct,2.7
+Lifestyle,Europe,after trial,2.8
+Lifestyle,Europe,direct,2.7
+Lifestyle,LATAM,after trial,3.0
+Lifestyle,LATAM,direct,7.3
+Lifestyle,MEA,after trial,2.1
+Lifestyle,MEA,direct,2.5
+Lifestyle,North America,after trial,4.0
+Lifestyle,North America,direct,2.4
+Photo & Video,APAC,after trial,14.1
+Photo & Video,APAC,direct,2.5
+Photo & Video,All regions,after trial,6.4
+Photo & Video,All regions,direct,2.7
+Photo & Video,Europe,after trial,5.3
+Photo & Video,Europe,direct,2.5
+Photo & Video,LATAM,after trial,7.0
+Photo & Video,LATAM,direct,3.9
+Photo & Video,MEA,after trial,5.2
+Photo & Video,MEA,direct,1.9
+Photo & Video,North America,after trial,4.9
+Photo & Video,North America,direct,2.8
+Productivity,APAC,after trial,3.1
+Productivity,APAC,direct,3.6
+Productivity,All regions,after trial,2.6
+Productivity,All regions,direct,3.1
+Productivity,Europe,after trial,2.1
+Productivity,Europe,direct,2.9
+Productivity,LATAM,after trial,4.4
+Productivity,LATAM,direct,5.4
+Productivity,MEA,after trial,2.8
+Productivity,MEA,direct,2.6
+Productivity,North America,after trial,2.4
+Productivity,North America,direct,2.7
+Utilities,APAC,after trial,4.5
+Utilities,APAC,direct,5.4
+Utilities,All regions,after trial,3.9
+Utilities,All regions,direct,4.3
+Utilities,Europe,after trial,3.3
+Utilities,Europe,direct,3.9
+Utilities,LATAM,after trial,4.0
+Utilities,LATAM,direct,6.0
+Utilities,MEA,after trial,3.0
+Utilities,MEA,direct,2.8
+Utilities,North America,after trial,4.0
+Utilities,North America,direct,4.4

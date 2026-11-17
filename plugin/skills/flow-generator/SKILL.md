@@ -1,6 +1,6 @@
 ---
 name: flow-generator
-description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead".
+description: Use when a user wants to change an Adapty flow by editing its builder config JSON — add a locale, translate a paywall or onboarding, rewrite copy, add/remove/reorder screens, add tabs or plan pickers, wire quiz branching, or build an onboarding sequence — and also once a flow is published, to point a placement at it so an app can fetch it. Triggers on "edit my flow config", "add a language to my paywall", "translate my onboarding", "remove a screen from the flow", "add tabs to my paywall", "show the user's name or coin balance on my paywall", "add a Lottie animation, a map or a chart", "build me a paywall like this", "build me an onboarding", a supplied Adapty flow config, and on "publish my flow", "I published my flow", "attach my flow to a placement", "create a placement for this flow", "my flow does not show up in the app", and on "how are my screens connected", "show me the flow map", "where does this button lead", and on "show my flow's versions", "roll my flow back to the earlier version".
 ---
 
 # Flow generator
@@ -20,28 +20,24 @@ cannot be synthesized:
   express, you draw and rasterize ([media.md](references/media.md)). An icon is **not** in this
   list: `python3 references/icons.py --search <word>` resolves any phosphor glyph, and an
   invented name draws blank however good your markup is (trap 23).
-- **Real store prices.** They come from the store, not from Adapty; `products create` has no price
-  flag.
+- **Real store prices.** They come from the store, not from Adapty; `products create --price-usd`
+  is only the USD base a store push starts from.
 
 Everything else is reachable: product UUIDs from `adapty products list` (or `products create`),
-`theme` colours sampled off a reference screenshot, and icon markup resolved from the bundle
-`references/icons.py` ships.
+offer ids from `adapty product-offers list`, `theme` colours sampled off a reference screenshot,
+and icon markup resolved from the bundle `references/icons.py` ships.
 
-**`flowProductId`** — the per-screen declaration in `_meta.screens[].products[]` — is derived, not
-waited for. `flowkit.predeclare(screen_id, products)` writes the block; pass exact Product + Offer
-pairs, a bare product id or a `(product_id, offer_id)` tuple, because the offer is part of the id.
-Omit the declaration and device preview 422s. When *rewriting* a flow, carry the live
-`_meta.screens` forward instead of regenerating it — **and `screens[].products` with it**, the
-screen-owned registry that `_meta` is derived from. Never write `"products": []`: absent and empty
-mean opposite things to the builder. When *authoring*, `flowkit.screen()` writes the registry and
-the structured product refs for you, from the screen's own bindings — bind an offer with
-`product(..., offer_id=...)` and a dotted price variable picks it up
-([products.md](references/products.md)).
+**A screen's product declarations are derived, never waited for or regenerated:** a rewrite
+carries the live `_meta.screens` and `screens[].products` forward, and when authoring
+`flowkit.screen()` and `flowkit.predeclare()` write both from the screen's own bindings. Never
+write `"products": []`: absent and empty mean opposite things to the builder. Offers, the monthly
+plan and the rest: [products.md](references/products.md).
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
 It also covers conditions (`when`/`ref`/`all_`/`not_empty`), all fourteen action types, the
-eight inputs and the tabs composite — each raising on the shape the transform service refuses.
+eight inputs and the tabs composite — each raising on the shape the transform service refuses,
+`interactions=` included (the error says what to pass).
 
 ## How you sound
 
@@ -58,7 +54,7 @@ Every line the user reads, the fixed blocks included:
   internal action names (`closeFlow`, `navigate`), config keys (`_meta.screens`), language codes,
   file names, element counts, checker output (`valid: true`) or tool names. Say what it means:
   "the Continue button now opens the paywall", "Spanish", "the publish check passed".
-- **Full, clickable links**, bare on their own line, never in backticks.
+- **Full, clickable links**, bare on their own line, never in backticks. A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Reply in the user's language**, the fixed blocks too. Builder labels stay exactly as the
   builder shows them.
 
@@ -71,55 +67,86 @@ callout after one, both in phase 5; the **missing-assets block**, printed in pha
 build has assets nobody has a file for; and the **placement ask** in phase 6, before an
 irreversible developer ID is spent. Fill their slots and do not pad them.
 
-The missing-assets block goes out in phase 2, batched with the product questions, because a path
-they hand over turns a placeholder into a finished screen. **The upload routes are not symmetric** —
-offering both on every row recommends a path that ends in a refusal:
-
-> **`<n>` assets missing — the screen ships with placeholders until these land.**
->
-> | | what | where it goes | size |
-> |---|---|---|---|
-> | 1 | `<what it is, in their words>` | `<where on the screen>` | `<w>`×`<h>` |
->
-> Tell me which, per asset or for all of them:
-> - Send me a path — I'll upload and bind it. Images only.
-> - Upload it yourself at https://app.adapty.io/flows/`<FLOW_ID>`/builder — the placeholder is
->   already styled, so it lands finished.
-> - Design around it — I'll replace that region with something the format can build, and say
->   what I chose. Right when the reference is someone else's screen and that asset was never going
->   to be yours.
->
-> Until you answer, they ship as placeholders.
->
-> `<only if you drew stand-ins:>` `<n>` are **drawings of mine**, already uploaded so the screens
-> look finished — `<which>`. They are stand-ins, not your art: replace each one the same way, by
-> path or in the builder.
->
-> `<only if a clip is missing:>` `<what>` is a **video**, and there is no upload path for a clip —
-> not one I can take either, so this one is yours whichever route you pick. The element is on the
-> screen already, sized `<w>`×`<h>` to match the design: open
-> https://app.adapty.io/flows/`<FLOW_ID>`/builder, click it and upload the file. Nothing else
-> about the screen changes.
->
-> `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
-> using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
-> https://adapty.io/docs/using-custom-fonts-in-flow-builder.md — upload it, then tell me the
-> family name and I'll point the theme at it.
+The missing-assets block, when it goes out and its slots: [build.md → The missing-assets block](references/build.md#the-missing-assets-block).
 
 **Name what the builder cannot do yet, beside it**: for each behaviour or effect in the design the
 flow does not perform (creating an account, a permission prompt, a blur), say what the screen really
 does ("sends `create_account` to your app; the flow creates no account") and the routes that fit — a
 custom action your app answers with its own screen, a second flow on its own placement if the
-onboarding continues after it, or an image or a video (uploaded in the builder) of an effect — and
+onboarding continues after it, or an image or a video of an effect — and
 call it "not in the builder yet", never impossible.
 When any route is a custom action, list the action IDs and offer to write their handlers in the
 app: "I can add the code that answers these in your app. Want me to?" — on a yes, hand the IDs to
 the `adapty-integration` skill, which owns app code; without it, find the platform's "Respond to
 actions" page through the `adapty-docs` skill and link it.
 
-Images up to ~2.5 MB you can upload; **SVG, fonts, video and anything larger are builder-only**
-([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
+**A view the app can draw is a custom element, not a gap.** A Lottie or Rive animation that
+follows the user, a map, a chart of the user's data, a camera preview, any view the app already
+has: the flow gets a box with a Type and an ID, the app's code draws into it, and users the app
+does not serve see the box's fallback. Read
+[custom-elements.md](references/custom-elements.md) before you call any of these "not in the
+builder yet", and build it from its template in
+[custom-elements/](references/custom-elements/). An animation that plays the same for everyone
+stays an image or a video.
+
+Images up to ~2.5 MB and mp4 or webm clips you can upload; **SVG, fonts and larger images are
+builder-only** ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
 line, not a repeat of the table.
+
+**Send Adapty one feedback note at the end of every run that called the CLI** — whether it wrote,
+handed over a file, or stopped on something you could not get past. It tells Adapty how the job
+went for **you** with this skill and the CLI, good runs included. Write it in English, in one of
+these shapes — the shape to follow, not words to copy:
+
+> Added German to a six-screen onboarding.
+
+> Declined to <what was asked, in generic words>, because <the limit this skill states>.
+
+> What I did: tried to save a button label change on a one-screen paywall. What helped: this skill
+> said where button labels live, so the edit was one step. What got in the way: flows config update
+> failed twice with http_500 (request id req_7f3a9c), and this skill does not say whether a retry
+> is safe.
+
+- **Sentiment is your own outcome, never the user's mood**:
+  - `positive` — done the way this skill describes, **or declined because this skill says it
+    cannot be done**. One sentence on what you did or declined and why, and nothing about checks,
+    saving or how it went: the grade already says that.
+  - `neutral` — done, after a wrong turn or a workaround, **or around a problem you found in the
+    flow and left alone**. The third part names that problem by its shape ("a button opens a screen
+    the flow no longer has"), never by the user's values.
+  - `negative` — this skill or the CLI is what stopped you, or you delivered something you know is
+    wrong.
+
+  Neutral and negative notes carry all three parts.
+- **Every sentence is about the task, this skill or the CLI**: the kind of change, a step of this
+  skill, a command and its error. Nothing you read in the user's account (how their placements,
+  audiences, A/B tests, products or segments are set up, any count or value) and none of their
+  copy, brand, product names, file paths or business. The ids in `--context` are all Adapty needs
+  to find the rest.
+- **Plain words, one short sentence each.** No script, file or flag names in the first two parts.
+  The third names the command and its error, and says what this skill or the CLI should have told
+  you.
+- **`--context` carries the ids and the request**: the app id, the flow id, and what was asked in a
+  generic form — `app <app id>, flow <flow id>: rename a button and save the flow`, not the user's
+  words.
+- **Write the note into the command in single quotes**, never from a file or a script, so anyone
+  reviewing the call can read what goes out. Inside single quotes the shell runs nothing, so drop
+  backticks and write "does not" for "doesn't":
+
+  ```bash
+  $ADAPTY feedback --feature flow-generator --sentiment <positive|neutral|negative> \
+    --message '<the note>' \
+    --context 'app <app id>, flow <flow id>: <what was asked, generic>'
+  ```
+
+- **Tell the user in one line, inside your closing message, only when the command printed
+  `Feedback sent.`**: in their language and with nothing about what the note said, "I also sent
+  Adapty a short note on how this went." Any other result (an error, a refused or blocked call,
+  `$ADAPTY feedback --help` saying there is no such command) gets no line at all, not even that a
+  note was meant to go. Never retry, never hold up the task.
+- **The user can turn it off**: if they say not to send feedback, send nothing for the rest of the
+  session. If they tell you mid-run that this skill or the CLI got something wrong, send a note
+  about it then, in their words where they gave them.
 
 **Everything else is one line or omitted** — what changed, what still needs them (products to
 attach, assets to upload), any decision where two answers were defensible, and what your checks
@@ -138,117 +165,176 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [flow-schema.md](references/flow-schema.md) | **Before any edit.** The envelope, `## Invariants`, `## Shape traps`, and `## Vocabulary` — the map from what a user asks for to what the JSON calls it |
 | [validate.md](references/validate.md) | `validate` says no, or you want to know what a green run does *not* prove |
 | the `adapty-docs` skill | You need an Adapty docs page nothing here links — a dashboard behaviour, a CLI or API detail. It routes to the right docs index instead of guessing a URL |
-| [preview.md](references/preview.md) | A render surprises you: what it cannot show, what it costs, the four disagreeing surfaces, and what to do when it fails |
+| [preview.md](references/preview.md) | A render surprises you: what it cannot show, what it costs, the four disagreeing surfaces, and what to do when it fails. Also the fidelity and teardown passes, the flow map and the device-preview QR |
+| [build.md](references/build.md) | **Phase 2** for a new flow or a screen you design: creating it, the design modes, the teardown, products, custom tags, assets, the missing-assets block |
+| [publish.md](references/publish.md) | Before a publish, and before the callout of a flow a placement shows: reach, Terms and Privacy, the weigh, `flows publish` itself |
+| [custom-tags-code.md](references/custom-tags-code.md) | The user said yes to passing the flow's custom tags from their app's code |
 | [fidelity.md](references/fidelity.md) | A reference image was given — the per-element inventory, the gap-closing ladder, and what becomes a user ask |
 | [media.md](references/media.md) | The screen has an image: the upload's limits, element-versus-`fill` shapes, geometry, and when to rasterize |
+| [custom-elements.md](references/custom-elements.md) | The user wants something the builder has no element for that the app could draw — a Lottie or Rive animation, a map, a chart, a camera, a view from the app — and the templates in [custom-elements/](references/custom-elements/) |
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
+| [history.md](references/history.md) | The user asks about an earlier version: the list, a look at one, a restore into the draft, a rollback of a publish, a duplicate to a new flow |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
-| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, plan cards |
-| [placements.md](references/placements.md) | **Phase 6** — every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
+| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, a screen that moves on by itself, an element that appears after a delay or animates in, plan cards |
+| [placements.md](references/placements.md) | **Phase 6** — the procedure and the placement ask, every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
 | the **`paywall-teardown`** skill | **Phase 2** when *you* choose the design of a **screen that sells**, **phase 4** to grade what you built. It owns whether the screen sells; this skill owns the JSON |
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
+| the **`ab-tests`** skill | **Phase 6**, when the user wants this flow tested against another flow. It owns the test from the draft to the stop; this skill hands it the published flow ids |
 | the **`adapty-integration`** skill | **Phase 6**, once a placement points at the flow. It owns the app side — the fetch, the render and the call sites — and this skill hands it one thing: the placement developer ID |
 
 Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph lookup,
 any phase), `localization.py` (phase 2, the catalog), `verify-config.py` (phase 3),
 `validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py`,
-`render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (when a render fails),
-`mobile-preview.mjs` (phase 5, the device-preview QR).
+`render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (phase 4, through `shoot.sh`),
+`mobile-preview.mjs` (phase 5, the device-preview QR), `weigh-config.py` (phase 2 before an
+upload, phase 5 before a write or a publish).
+
+## CLI or MCP
+
+This skill reaches Adapty through the Adapty CLI or the Adapty MCP server. Its commands are written
+for the CLI, and over MCP each one is a tool call. Before the first call, check both, pick one way,
+and keep it for the run:
+
+- **The CLI is ready** when `adapty auth whoami` shows an account. Install nothing for this check.
+- **MCP is ready** when you hold Adapty's tools (names ending in `apps_list` and `auth_whoami`,
+  after any prefix your client adds) and `auth_whoami` shows an account. A `Not Found` or any other
+  error from `auth_whoami` means MCP is not ready: switch to the CLI via `$ADAPTY`, setting it up if it is not ready either.
+
+| CLI ready | MCP ready | Use |
+|---|---|---|
+| yes | no | the CLI |
+| no | yes | MCP |
+| yes | yes | the way this skill prefers (the line after this section's example) |
+| no | no | ask which one to set up (below) |
+
+**Over MCP, run each command as its tool.** `$ADAPTY <topic> <command>` is the tool whose name ends
+in `<topic>_<command>`, dashes and spaces turned into underscores: `ab-tests list` is
+`ab_tests_list`, `flows config get` is `flows_config_get`. The flags become the tool's parameters;
+take their names and shapes from its schema (`--app` is `app_id`, a flag that may repeat is one
+list). The tools return JSON, so drop `--json`. `--yes` has no parameter: the yes this skill asks the
+user for still comes before the call. Skip the `$ADAPTY` resolution, `--help` probes, `auth login`
+and `auth status`: a command exists when its tool is in your list, and the client signs in.
+
+**`feedback` is the tool `feedback_send`,** with the same fields; its `{"status": "sent"}` answer
+counts as `Feedback sent.`
+
+**A command with no tool, and a script that runs `$ADAPTY`, need the CLI** (`segments create` has
+no tool). Run that step with the CLI when it is ready. Otherwise say it needs the CLI and offer to
+set it up.
+
+**When a call fails one way,** a read may run once the other way if that way is ready. After a
+write fails or times out, read the state again the way that wrote; never repeat the write the
+other way.
+
+**Neither ready:** ask which one to set up, the one this skill prefers first, then give only that
+one's steps. Use your question tool if you have one; otherwise ask in one message with numbered
+options.
+
+- **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
+  the user's sign-in. The Claude app also needs Adapty's domains allowed first:
+  https://adapty.io/docs/developer-cli-cowork
+- **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
+  `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
+  sign-in is left.
+  - Claude Code: `/mcp`, pick `plugin:adapty-skills:adapty`, **Authenticate**. Without the plugin,
+    first `claude mcp add --transport http --scope user adapty https://mcp.adapty.io/mcp`.
+  - Codex CLI: the plugin's connect prompt signs in. Without the plugin:
+    `codex mcp add adapty --url https://mcp.adapty.io/mcp`, then `codex mcp login adapty`.
+  - The Claude app: connect it on the plugin's **Connectors** tab. Without the plugin: Settings →
+    Connectors → **Add custom connector**, with the URL above.
+  - Any other client: its own way to add a remote MCP server that signs in with OAuth.
+
+  If the tools do not appear in this session, the user starts a new one: say so and stop.
+
+Example of the question's shape, not words to copy:
+
+> I can reach your Adapty account in two ways. Which one should I set up?
+> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
+
+**This skill prefers the CLI:** `gates.sh`, `shoot.sh` and the preview script run it, and over
+MCP a whole config or image passes through the conversation as a tool argument. With MCP only,
+offer the CLI in one line; on a no, go on over MCP, run the local checks yourself, and name each
+check that did not run.
+
+**A 5xx (a `520` too) on `flows config update` may or may not have landed:** `config get` and
+diff before any retry.
+
+**Over MCP, check a whole config's size before you send it.** Configs above roughly 30 KB have
+failed to reach the tool. Above that, offer the CLI once; never seed a stub and push the rest
+through the edit tool in compressed pieces.
 
 ## The CLI surface
 
 ```
-$ADAPTY auth login                                             # browser flow
+$ADAPTY auth login                                             # code + link, waits; run it as phase 1 says
 $ADAPTY auth whoami                                            # verifies the token server-side
 $ADAPTY apps list --json                                       # to get <APP_UUID>
 
 $ADAPTY flows list   --app <APP_UUID> [--page N] [--page-size N]    # page-size max 100
-$ADAPTY flows create --app <APP_UUID> --name <name>            # row only; always `draft`
+$ADAPTY flows create --app <APP_UUID> --name <name>            # row only; always `draft`; a flow with no source
+$ADAPTY flows duplicate <FLOW_ID> --app <APP_UUID> [--version <FLOW_VERSION_ID>] --json  # copy to "<name>_copy", one draft
 $ADAPTY flows get    <FLOW_ID> --app <APP_UUID>
 $ADAPTY flows config get      <FLOW_ID> --app <APP_UUID> --json     # errors until first write
 $ADAPTY flows config validate <FLOW_ID> --app <APP_UUID> (--config-file <f|-> | --config <json>) --json
 $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--orientation …]
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
-    (--config-file <file|-> | --config <json-string>) \
-    [--expected-updated-at <int>] [--remote-configs <json>]
-$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP/GIF, < ~2.5 MB; no SVG
-$ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; 405 in prod, rename in the builder
-$ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404 in prod, see below
+    (--config-file <file|-> | --config <json-string>) --remote-configs <json> \
+    [--expected-updated-at <int>]   # --remote-configs is required: a write replaces the stored list
+$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, < ~2.5 MB; no SVG, GIF or HEIC
+$ADAPTY flows media upload-video <VIDEO_FILE> --app <APP_UUID> --json  # mp4/webm, ≤ 30 s, ≥ 640 px each side
+$ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; a `Method "PUT" not allowed`: rename in the builder
+$ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; an `http_404`: see below
 ```
 
 **Resolve `$ADAPTY` once, here, and use it for every command.** A global `adapty` is frequently old
-— measured at `0.3.0` on a real machine, which has no `flows` topic — and three agents read that as
-"validate and preview do not exist" and skipped phases 3 and 4:
+— `0.3.0` has no `flows` topic — and an old install reads as "validate and preview do not exist";
+that is never a reason to skip phases 3 and 4:
 
 ```bash
-adapty --version                                   # >= 0.8.0 ?  ADAPTY="adapty", done
 npm i -g adapty@latest >/dev/null 2>&1 \
   && ADAPTY="adapty" \
   || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
 ```
 
+**In `zsh` — the macOS default — a multi-word `$ADAPTY` is not split into words**, so every command
+below fails with `command not found: npx --yes adapty@latest`. Run `setopt shwordsplit` once in the
+same shell (verified), or call `npx --yes adapty@latest` in full. That error is a shell problem,
+never evidence the command or the CLI is missing. A letter after `$VAR:` is a zsh modifier too
+(`$FLOW:l` lowercases the value), so a colon that follows a variable gets braces: `${FLOW}:`.
+`gates.sh` and `shoot.sh` run in `bash` and split it themselves, so hand them the command as a
+prefix: `ADAPTY='npx --yes adapty@latest' references/gates.sh …`.
+
 **Install once; do not wrap every call in `npx`.** The wrapper costs ~1 s *per call* against
 0.07 s installed, and a run makes dozens. Where the global prefix is not writable the `npx` form
 still works, and there `--yes` is not optional: without it npx stops to ask permission to install.
 
-Declare a command unavailable only after `npx --yes adapty@latest` *and* `npx --yes adapty@beta`
-both lack it — never from a version number you read somewhere.
+Declare a command unavailable only after its `--help` says so *and* one `npx --yes adapty@beta`
+attempt lacks it too — never from a version number you read somewhere.
 
-**In `zsh` — the macOS default — a multi-word `$ADAPTY` is not split into words**, so every command
-below fails with `command not found: npx --yes adapty@latest`. Run `setopt shwordsplit` once in the
-same shell (verified), or call `npx --yes adapty@latest` in full. That error is a shell problem,
-never evidence the command or the CLI is missing.
+**On Windows, run the `.sh` scripts from Git Bash, and where this skill writes `python3`, call
+`python -X utf8` (or `py -3 -X utf8`).** `python3` there is usually the Microsoft Store stub, and
+"Python was not found" means the wrong interpreter, never a broken script; `-X utf8` keeps non-Latin
+copy from passing through the console code page. `gates.sh` and `shoot.sh` find a working Python,
+and Chrome or Edge, themselves; set `PYTHON=` or `CHROME=` only when they say they cannot.
 
-**`flows media upload` works in production.** It takes a local image file and prints a live CDN URL
-to bind into the config, so an image the user *handed you a file for* is yours to place, not a user
-ask. Two limits shape when you reach for it: **SVG
-returns `http_500`**, and the ceiling is **~2.5 MB of file bytes** (a bare `http_400` means too
-large). **Run it with `--json` redirected to a file, and keep the file**: the human output omits
-`preview_base64`, the config binds it as `previewValue`, and nothing else returns it — so that
-file is the asset's record, and a second upload is a second asset rather than a way back to the
-value. Call shape, the three values to capture, the two config shapes they bind into, how to get
-a preview back when you no longer have one, and the geometry: [media.md](references/media.md).
+**`flows media upload` works in production**, so an image the user *handed you a file for* is
+yours to place, not a user ask. Its limits, the `--json` record file to keep, the three values it
+binds and the geometry: [media.md](references/media.md). A clip file is yours too, through
+`flows media upload-video`; when the CLI lacks that command, the fallback is the placeholder:
+[media.md → Uploading a video](references/media.md#uploading-a-video).
 
-**`flows publish --app <APP_UUID> <FLOW_ID>` is not in every build.** Per the rule above, decide
-that by running `flows publish --help`, not from a version number — the command has left stable
-once already, so a numeric floor is not a reliable test. Its own flags are `--app` plus `--yes`/`-y`, and the CLI's global `--json` on top of
-them. Five measured facts shape how you call it: publication is **asynchronous**, so the response reads
-`status: publishing` and never `published` — report it that way rather than claiming the flow is
-live; the confirmation prompt goes to **stderr**, so `--json` stdout stays parseable; `--json` or a
-non-TTY **without** `--yes` refuses with **exit 2** (`Re-run with --yes`) instead of hanging, so a
-headless run passes `--yes` only once the user has said yes in the conversation; a declined prompt
-exits **1** (`Cancelled, nothing was sent.`); and a flow with no config exits **1**
-with `Flow has no current version.`
+**`flows publish`:** whether this build has it, its asynchronous status and the poll, which failure is real, and the deployment gate: [publish.md → Running `flows publish`](references/publish.md#running-flows-publish).
 
-**A successful publish tells you what to run next, and you run it.** In human mode it prints three
-lines: that publication is asynchronous and the flow is *not* published yet, the `flows get` poll to
-run until the status reads `published` or `publication_failed`, and the `flows config get` that
-shows why if it fails. They are **suppressed under `--json`**, which leaves you holding
-`status: publishing` and nothing else — poll anyway. **On `publication_failed`, `flows config get`
-is the answer to *why*:** its envelope carries `publication_status`, `transform_error` and
-`publication_error` alongside the config, and `transform_error` is the transform service's own
-objection. It is a raw string — a JSON issues payload or a summary — with no CLI helper to parse it,
-so read it and quote it rather than re-deriving a cause. Where the API does not send those fields
-they are simply absent; that is not an error, and it does not mean the publish succeeded.
-
-**Two things gate this, and neither of them is the account.** One is the **CLI version**, above. The
-other is the **API deployment**: `flows publish` has been observed answering `http_404` and
-`flows update --name` answering `Method "PUT" not allowed`. Neither error means you wrote the
-command wrong and neither is fixable by switching accounts — they are per deployment, every account
-on it alike — so say that and hand the user the editor's publish button or the builder's rename
-field. **Run the call before you believe it, though.** Both routes are unverified rather than known
-absent, so treat a 404 as something you observed, never as something you expected.
-
-**There is still no `flows delete`.** Deleting is a dashboard action, so never claim to have
-deleted a flow. Never write a command name the CLI does not have, and never invent a flag —
+**Never write a command name the CLI does not have** (there is no `flows delete`: [Safety](#safety)), and never invent a flag —
 `config validate` takes only `--app`, `--config`/`--config-file` and `--json`.
 
 Four facts about the config commands that are not guessable:
 
 - **`config get` returns an envelope, not the config**: `{config, remote_configs, status,
   updated_at}`, plus `publication_status`, `transform_error` and `publication_error` when the last
-  publish failed. The document you transform is the `config` field, and both `update` and
+  publish failed; `status` can be missing, so read it with a default. The document you transform is the `config` field, and both `update` and
   `validate` take that field alone. Handing `validate` the envelope returns
   `Invalid flow input` — which reads exactly like a broken config and is not one. (`preview`
   is the odd one out: it accepts either.)
@@ -261,28 +347,36 @@ Four facts about the config commands that are not guessable:
   milliseconds (`1787210847609`), and it marks the last change to the **content**. That value
   is the optimistic lock. `flows get`, `flows list` and `flows create` carry an **ISO string**
   (`2026-09-24T12:14:40Z`), and it marks the last change to the flow **row** (name, status). You
-  already hold that one after a publish poll, and it is the wrong one:
+  already hold that one after a publish poll, and it is the wrong one.
+- **The token is the one your draft is based on, so it lives in `flow.working.json`.** Phase 2's
+  `config get` writes it there, and every successful `config update --json` you move into that file replaces it
+  with the new one (the echoed value equals the next `get`'s). Read it from that file, never from a
+  fresh `config get` just before the write: a fresh read is whoever saved last, which makes the
+  lock pass over the very edit it exists to catch.
 
   ```bash
-  UA="$($ADAPTY flows config get <FLOW_ID> --app <APP_UUID> --json | jq -r .updated_at)"   # right
-  $ADAPTY flows config update <FLOW_ID> --app <APP_UUID> --config-file <f> --expected-updated-at "$UA"
+  UA="$(jq -r .updated_at flow.working.json)"   # right: the version your draft was patched from
+  $ADAPTY flows config update <FLOW_ID> --app <APP_UUID> --config-file draft.json \
+    --expected-updated-at "$UA" \
+    --remote-configs "$(jq -c '.remote_configs // []' flow.working.json)" \
+    --json > write.json && mv write.json flow.working.json
   ```
 
+  The `mv` is only on success: a failed write prints its error JSON to stdout, and redirecting
+  straight into `flow.working.json` would replace your token with it.
+
   A raw ISO string fails before anything is sent (`Expected an integer`, exit 2). Never convert it
-  to milliseconds to make it fit: the flag accepts the number, and the write comes back `409`
-  with *"This flow configuration was already updated by <name>"* — naming a person who did not
-  touch it. So before believing a 409, check where your token came from: if it was not
-  `config get`, the conflict is yours, and re-running `config get` and retrying with its value
-  clears it. A 409 on a token that did come from `config get` is a real edit — re-fetch and apply
-  your change to the new config. Never drop the flag to get past either.
+  to milliseconds to make it fit: the write comes back `409` with *"This flow configuration was
+  already updated by <name>"*, naming a person who did not touch it. A `409` on a token from
+  `flow.working.json` is a real edit: phase 5 says what to do. Never drop the flag, and never
+  re-fetch only the token, to get past it.
 - **`config update` has no dry run.** `validate` and `preview` are the pre-flight checks, and
   both run *before* a write — see phase 5 on why that ordering matters.
 ## The six phases
 
 ### 1. Resolve the invocation, then authenticate
 
-**First** set `$ADAPTY` as [the CLI surface](#the-cli-surface) describes — probe
-`adapty --version`, and if it is old **install once globally** rather than paying the npx wrapper's
+**First** set `$ADAPTY` as [the CLI surface](#the-cli-surface) describes — **install once globally** rather than paying the npx wrapper's
 ~1 s on every later call (`npx` only as the fallback). Do it before the first command, not after one fails,
 and print the version you resolved in the same command you run next so the two cannot disagree.
 
@@ -290,14 +384,34 @@ Then `$ADAPTY auth whoami`. It hits the server and prints the name and companies
 token works. Prefer it to `auth status`, which only reports what is stored locally and does not
 verify it — it prints the stored name and token prefix even when the token no longer works.
 
-If it fails, `$ADAPTY auth login` opens a browser. That is the user's to complete; wait for them
-rather than retrying in a loop. Then `$ADAPTY apps list --json` for the `<APP_UUID>` every later
-command needs.
+If it fails with `Could not reach …` (`network_error`), the network is the problem, not the token,
+so do not log in. Tell the user the CLI could not reach Adapty; on a network with an allowlist or
+proxy, an administrator has to allow both `adapty.io` and `*.adapty.io`.
+
+Any other failure: log in. **`auth login` opens a browser only at a terminal: from your shell it
+prints a code and a link, then waits in the foreground** for the user to approve, holding your
+shell, and some agents kill it at their command timeout. Run it detached and read the link off its
+log:
+
+```bash
+L="${TMPDIR:-/tmp}/adapty-login.log"
+$(command -v setsid) nohup $ADAPTY auth login > "$L" 2>&1 < /dev/null &   # setsid only where it exists
+for i in $(seq 20); do grep -q 'visit:' "$L" && break; sleep 1; done; cat "$L"
+```
+
+Send the code and the link as your next message, on their own: the code expires within minutes.
+With a display, also `open` the link for them (`xdg-open` on Linux). Then run
+`$ADAPTY auth whoami` every few seconds until it succeeds; the login is saved to disk, so later
+shells have it. Never start a second login while the first waits: its code voids the link the
+user is opening. When the log says `The code expired before authorization`, start one more and
+say why there is a new link.
+
+Then `$ADAPTY apps list --json` for the `<APP_UUID>` every later command needs.
 
 **Then check where the request actually starts, because not every run is an edit.** *"I published
 my flow"*, *"how do I get this into my app"*, *"nothing shows up in the app"* is a **phase 6**
-request: the flow exists and is published, and what is missing is the placement pointing at it and
-the app's own call site. Go straight to phase 6 — phases 2-5 have no work to do — and say that is
+request: the flow exists and is published, and what is missing is the placement pointing at it,
+the app's own call site, or users reaching it. Go straight to phase 6 — phases 2-5 have no work to do — and say that is
 what you are doing, so a user who did want an edit can redirect you.
 
 *"How are my screens connected"*, *"where does this button lead"* is a **read**: `flows config get`
@@ -310,11 +424,36 @@ Decide this explicitly and say which you chose, because the two paths differ in 
 destroy.
 
 **Existing flow** — the user names it, or `flows list` and confirm the match back to them
-before touching it. Then `flows config get`, and **keep its `updated_at`** for the write, not
-the one `flows get` or `flows list` printed.
+before touching it. Read its `status` with `flows get`: `archived` is a flow deleted in the
+dashboard. Every write to it is refused with `Flow is deleted`, and a `flows duplicate` with
+`flow_archived`. Say so, and ask the user to restore it from the archive in the dashboard; then
+you edit the restored flow. When they say it is restored, run `flows get` again, and go on only
+when its `status` is not `archived`; if it still is, say so and ask again. On a no:
 
-**Take a backup before the first edit.** `config update` replaces the whole config and there is no
-undo, so the copy you fetched is the only way back:
+- **`draft.json` or `flow.backup.json` exists** (the flow was deleted during the run): fetch
+  nothing. Keep these files and tell the user their names. A new flow made anyway takes
+  `draft.json`, with the remote configs of `flow.working.json`.
+- **No file exists yet:** fetch once into a temporary file and keep it only on success. If it
+  answers, tell the user the file name; if it is refused, say that there is no local copy. A new
+  flow made anyway takes the `.config` and the `.remote_configs` of `flow.archived.json`.
+
+  ```bash
+  $ADAPTY flows config get --app $APP $FLOW --json > flow.archived.tmp \
+    && mv flow.archived.tmp flow.archived.json || rm -f flow.archived.tmp
+  ```
+
+If they want a new flow anyway, tell them what a `flows create` and a write drop
+([history.md → Look at one version](references/history.md#look-at-one-version)), and make it on
+their yes: the one case where a copy is made that way. Its first write names the remote configs:
+`--remote-configs "$(jq -c '.remote_configs // []' <that file>)"`. For a flow that is not `archived`,
+`flows config get`, and **keep its `updated_at`** for the write, not the one `flows get` or
+`flows list` printed.
+
+**Take a backup before the first edit.** It is the baseline of every diff and `before` render,
+and the history keeps no draft saves: when `flows versions list` shows a `draft` row, this copy is
+the only way back to that draft, so keep it in a folder that survives a reboot, never `/tmp` or
+`$TMPDIR`. Published versions stay in the history
+([history.md](references/history.md#what-the-history-keeps)).
 
 ```bash
 $ADAPTY flows config get --app $APP $FLOW --json > flow.working.json
@@ -322,10 +461,17 @@ cp flow.working.json flow.backup.json
 jq .config flow.working.json > draft.json
 ```
 
+**If `config get` or `config update` dies with `Maximum call stack size exceeded`, the flow is
+too large for Node's default stack, not broken.** Run the installed CLI under a bigger stack:
+`node --stack-size=4000 "$(npm root -g)/adapty/bin/run.js" flows config get …`. It must be that
+flag on `node` itself: `NODE_OPTIONS` refuses `--stack-size`. `config update` prints only after
+the server has saved, so **after a crashed update, `config get` before writing again**: the write
+has usually landed, and its new `updated_at` is the lock for the next one.
+
 **Two files, two shapes.** `flow.working.json` and `flow.backup.json` are the **envelope**
 `config get` and `config update` return; `draft.json` is the **bare config** you edit, check,
-preview and send. A new flow has no envelope until its first write: author straight into
-`draft.json`.
+preview and send. A flow from `flows create` has no envelope until its first write: author
+straight into `draft.json`.
 
 **The text is in the catalog.** Every localizable field holds a `{_lid}` ref, and its per-locale
 values live in `localization.content` — so a copy edit or a translation changes
@@ -337,8 +483,13 @@ of them ([transforms.md](references/transforms.md) decision 1). Anything you wri
 python3 references/localization.py catalog draft.json
 ```
 
+When `verify-config.py` reports a string as wrong in the source rather than missing, it names it
+once per locale: fix that string in each locale it names, and when more than one variant could be
+right, ask the user which.
+
 A fetched config below `schemaVersion` 13 is converted first, the same way; below 12 the user opens
-and saves it in the Flow Builder and you fetch again. The rules:
+it in the Flow Builder, makes one real edit (an unchanged flow is not saved), saves, and you fetch
+again. The rules:
 [flow-schema.md → Localization: the catalog](references/flow-schema.md#localization-the-catalog).
 
 **Patch what you just fetched.** A build script or a `draft.json` from an earlier run predates
@@ -350,12 +501,9 @@ the `ADDS`/`CHANGES` as the human's edits, and move it out of the way:
 python3 references/diff-config.py <the-old-local-copy>.json flow.working.json
 ```
 
-**New flow** — `flows create`, then seed its config from one the user already has
-(`flows list` → `config get`) so theme, fonts, locales and products are real — in **Rebuild** mode
-(below) the reference's style then replaces the seed's theme. Its first
-`config update` omits `--expected-updated-at`. **A new flow is the safe default for anything the
-user calls new**, because `config update` replaces everything and generating over a flow with
-content discards that content.
+**New flow** — `flows duplicate` once when it starts from a flow the user already has,
+`flows create` once only when there is no such flow; the steps and the id every retry writes to:
+[build.md → Creating the flow](references/build.md#creating-the-flow).
 
 Then, before editing: **report what the source config contains** — screens and captions,
 locales, products, the navigation graph. Before proposing anything; it grounds the user and
@@ -363,152 +511,24 @@ catches a wrong flow immediately.
 
 **Confirm the transform.** In scope: add a locale, rewrite copy, add/remove/reorder screens,
 branching and conditions, renaming screen ids, and reusing a piece of another flow — its
-dependency resolution has a measured hard-422 class (`flow-schema.md` invariant 8), so it runs
+dependency resolution has a hard-422 class (`flow-schema.md` invariant 8), so it runs
 through `references/snippet.py`, never by hand ([snippets.md](references/snippets.md)). A request
 outside those is named as out of scope, not improvised.
 
 If the request is *"save this for reuse"* or *"add the thing I saved"*, run
 `references/snippet.py plan` before any `graft` — read [snippets.md](references/snippets.md) first.
 
-If it is *"give the screens readable ids"* — usually so a customer's own analytics stops reading
-`scr_oAPBHPa7` — run `references/rename-screens.py`, never a hand edit: a screen id lives in three
-places and the one that gets forgotten, `_meta.screens`, makes the flow unpublishable. Renaming
-breaks analytics continuity, so it goes in the phase-5 ask ([transforms.md](references/transforms.md)
-decision 9). **Element `el_XXXX` ids are not part of this and must not be renamed to match** — a
-bad one compiles into the runtime script as a black screen, and it buys nothing anyway: the id a
-customer's analytics sees is `props.customId`
-([flow-schema.md trap 7b](references/flow-schema.md#7b-the-id-analytics-sees-is-customid-and-leaving-it-blank-is-silent)).
+If it is *"give the screens readable ids"*, run `references/rename-screens.py`, never a hand edit;
+the analytics break goes in the phase-5 ask, and element ids are never renamed to match
+([transforms.md](references/transforms.md) decision 9).
 
-**Were you given a design, and whose is it?** Answer it out loud: it decides where each part of
-the screen comes from.
+**Were you given a design, or are you choosing it?** Decide the mode, and the teardown that is the reference when you choose: [build.md → Were you given a design](references/build.md#were-you-given-a-design-and-whose-is-it).
 
-| What you were given | Mode | Structure from | Style and copy from |
-| :--- | :--- | :--- | :--- |
-| Their own design: their Figma, a screenshot of their own app, or an explicit "rebuild / match / copy this exactly" | **Rebuild** | the reference | the reference |
-| Someone else's design with the mode said: "in my style", "inspired by", "adapt this for my app" | **Adapt** | the reference | **the app** |
-| No design | **You choose** | a teardown skill (below) | the app |
+**A screen that sells resolves its products before the design; a value only the app knows is a custom tag; every image or clip is resolved before you write its element.** Read [build.md → Products](references/build.md#products-catalog-first-store-ids-second-create-last), [Custom tags](references/build.md#something-only-the-app-knows-a-custom-tag) and [Assets](references/build.md#assets-upload-the-file-then-build-with-its-url) at that moment.
 
-**When the request names neither mode — "build the same onboarding", "something like this" — ask
-before you build**, one question, and wait:
-
-> Do you want an exact copy of this, or the same structure in your app's own style and words?
-
-A wrong guess costs a whole build and a flow that cannot be deleted; the question costs one turn.
-**Only when nobody can answer** (an unattended run, or the user said not to wait) take **Adapt**
-and say so in one line.
-
-**In Adapt, the reference gives the shape and the app gives everything else.** Take the sequence,
-the sections, the component patterns and the hierarchy from the reference. Take the palette, type
-scale and weights, corner radii, button and card treatment, icon style and spacing rhythm from the
-app, and **write the copy for the app**: its name, its products, its voice. Never ship another
-brand's name, its claims, its offers or its social proof.
-
-**Take the app's style from its code** when the session is in its repo (theme, colour assets,
-button and card components, strings), **else from its own flows** — the ones its placements show
-first. With neither, ask once; with no answer, use the reference's style and say so.
-
-**In every mode, keep Adapty's fluid layout discipline** (`width: fill`, `height: hug`,
-`position: relative`): never hardcode fixed dimensions or offsets to match a screenshot's pixels,
-because fixed geometry breaks across devices (team-diagnosed). In **Rebuild**, compare against the
-reference file rather than your memory of it (phase 4). **No design means you are choosing it** —
-"build me a paywall", "build me an onboarding", "make one that converts" — and the request map only
-turns nouns into element types; it says nothing about what sells.
-
-**When you are the one choosing, a teardown skill is the reference, and which one is decided by
-what you are building — not by which you reached for last time.**
-
-| What you are building | The reference | What it returns |
-| :--- | :--- | :--- |
-| One screen that sells — a paywall | **`paywall-teardown`** | An **archetype** (the screen's composition) plus the patterns this vertical needs |
-| A sequence — onboarding, welcome, quiz, activation | **`onboarding-teardown`** | A **skeleton** (the sequence's shape) plus the patterns, placed per screen |
-| Both — an onboarding that ends on a paywall | **Both.** `onboarding-teardown` owns the sequence and the seam; `paywall-teardown` owns the paywall screen itself | Run the sequence one first: it decides what the paywall must reflect |
-
-Invoke it before you write anything. Both name the values they refuse to invent — a rating, a
-review count, an outcome stat, a discount, a hero asset, and for a sequence the thing the app must
-really deliver behind a personalized promise. **Put those asks to the user before you write the
-config**, and leave the element out rather than filling it with a plausible number: a missing
-element is recoverable, a fabricated rating is a lie in front of real buyers. Build the shape it
-names and **do not substitute one you built last time** — that is how two unrelated verticals got
-the same screen. It also grades the result in phase 4, where a correction is still free. And when
-the user wants to know how *good* a flow is rather than to change it, that answer is a teardown,
-not a transform.
-
-**In a build there is nobody to interview.** `onboarding-teardown`'s six questions are its
-front door when a user brings a flow to it; invoked from here they are answered from the brief,
-the config and the catalog, and whatever is left becomes one batched ask alongside the others
-above. Do not start a six-turn questionnaire in the middle of a build.
-
-**Products are the user's to pick — catalog first, store ids second, create last.** For any
-screen that sells, resolve the products **before the design**, in this order, and never skip a
-step silently:
-
-1. `$ADAPTY products list` and show what exists — title, period, store bindings — and ask which
-   of these belong on the screen. Most accounts already have the right products.
-2. Only if nothing fits: ask for their **store product ids** (App Store product id; Google
-   product id **plus base plan id** for subscriptions) — those are the bindings `products create`
-   cannot run without, so asking later just stalls the create.
-3. Only then `products create`, behind its own confirmation gate
-   ([products.md → Creating a product](references/products.md)).
-
-Before the design, because the catalog *gates* it: a trial timeline needs a verified offer, a
-period switcher needs plans differing only by period, a price variable needs a matching period.
-And picking for them is not a shortcut — it decides what they sell, and it is the one choice on
-the screen a screenshot cannot show.
-
-**Assets are resolved here too — upload the file, then build with its URL.** The upload reads a
-**path**, so **an image you can only see is not an image you have**: one the user pasted or
-attached arrives as pixels in your context with no file behind it, and you cannot write the bytes
-you were shown.
-
-For every asset the screen needs, one of three states, decided before you write the element:
-
-1. **You have a path that reads** — one they gave you, or a project file you found and *named*.
-   Upload it now and take **three** values off that one call, `--json` into a file that outlives
-   the command so the preview blob stays out of your context:
-   ```bash
-   mkdir -p media
-   $ADAPTY flows media upload --app "$APP" ./hero.png --json > media/hero.json
-   MEDIA_URL=$(jq -r .url media/hero.json); MEDIA_ID=$(jq -r .id media/hero.json)
-   MEDIA_PREVIEW=$(jq -r '.preview_base64 // empty' media/hero.json)
-   ```
-   Bind all three on an `image` element or flat inside a `fill` — two different shapes, and the
-   `id` is a **string** even though the command prints a number. **`previewValue` is not
-   optional in practice**: without it the renderer draws a transparent 1×1 until the asset
-   downloads, so the screen ships with a hole in it. **An asset you uploaded earlier is rebound
-   from its record file, or lifted out of a config that already binds it — never re-uploaded, and
-   never bound as a bare URL you remembered.** Anything that hands you a URL and no preview is
-   silent about the value, not evidence the field is optional
-   ([media.md](references/media.md)).
-2. **You can see the image but have no path** (pasted, attached), or they named one they have not
-   sent — **ask for a path**, once, batched with your other asks. Never guess one: a guess that
-   misses fails loudly, and a guess that *hits* ships the wrong picture in a screen that renders
-   perfectly. A URL they pointed at is fetchable, but say what you are downloading first.
-3. **Nobody has a file** — a **styled empty `image`** where the graphic occupies a box:
-   `borderRadius`, `objectFit`, and a **fixed size taken from the reference**, on the element
-   itself, so the upload lands styled and the layout is checked at the size the asset will fill.
-   Where it has no box of its own — a texture, a glow — leave it out rather than approximating it.
-   Either way it goes on the missing-assets list, never into a paragraph. **Never a made-up URL**
-   (trap 5). If the reference itself contains the graphic on a *flat* backdrop, you may be able to
-   cut it out instead — [`references/crop.py`](references/crop.py), which refuses rather than
-   guessing when the backdrop is textured or the box is wrong.
-
-**A clip is in none of those three states**: the upload refuses a video, so emit a sourceless
-`video` element — `flowkit.video(fixed_h=…)` or the catalog's `video-hero` / `video-card` — and
-say in words that they upload it in the builder
-([media.md](references/media.md#the-video-placeholder)).
-
-**Upload before the preview loop, not after it, and upload each asset once.** A placeholder does
-not occupy the space the real asset will, so a screen previewed with placeholders is a screen whose
-layout was never checked — and the upload does not deduplicate, so re-running it per iteration
-litters the user's media library permanently
-([media.md](references/media.md#geometry-what-changes-when-the-asset-lands)).
-
-**Before you author a construct you have not seen in a real document, count it.** The schema says
-what is *permitted*; a real export says what is *produced*; only the second predicts the device. One
-`jq` over the config you fetched and over `references/component-catalog.json` settles it in seconds,
-and a count of **zero** is a finding to say out loud
-([flow-schema.md](references/flow-schema.md#before-authoring-a-shape-you-have-not-seen-produced-grep-for-it)
-— why, and the defects that shipped from skipping it).
+**Before you author a construct you have not seen in a real document, count it** in the config you
+fetched and in `references/component-catalog.json`; a count of zero is a finding to say out loud
+([flow-schema.md](references/flow-schema.md#before-authoring-a-shape-you-have-not-seen-produced-grep-for-it)).
 
 **Resolve the request into schema terms.** The user's noun is rarely the element `type` — there
 is no `button` and no `toggle` element, and tabs are a five-element composite. Use the request
@@ -518,7 +538,7 @@ does not already contain via
 
 **Editing one screen of many? Patch in place with a script — never slice the screen out.** An
 isolated mid-flow screen **fails the publish gate** the moment it navigates to a screen that is no
-longer there, and isolation buys no speed on either gate — measured, with nothing to stitch back
+longer there, and isolation buys no speed on either gate
 ([transforms.md](references/transforms.md)). Reach the screen with `jq` or a short Python patch
 instead of reading the whole file into context.
 
@@ -530,47 +550,62 @@ Write the result to a local file. Phases 3 and 4 both work on that file, with no
 **and they apply whether the deliverable is a flow write or the file itself.** "No CLI write
 happened" exempts you from the approval gate, never from the phases.
 
-**If the file IS the deliverable, its contract applies the moment you write it, here.** A source
-export carries top-level `status` and `id`; **never emit `"status": "published"`** — it imports as
-live-looking content — and the `id` names the flow the export came *from*. Drop them or downgrade
-`status`, **say which you chose**, and say the import must be pointed at the flow the user means.
-`references/verify-config.py` warns on both fields, and that warning **is** this rule firing —
-act on it, never paste it through.
+**If the file IS the deliverable, `verify-config.py` warns on a top-level `status` or `id`** and
+says what to do: act on it, never paste it through.
 
 ### 3. Check the shape, then clear the publish gate
 
 Walk [Verify](#verify) first — it is local and free and it finds every defect at once, which the
-commands below do not. Then **all three gates in one call**:
+commands below do not. Then **all four gates in one call**:
 
 ```bash
 BASELINE=flow.backup.json references/gates.sh draft.json <APP_UUID> <FLOW_ID>
 ```
 
-It runs the structural walk, the schema shape check and the publish gate over the *same bytes*,
-prints one verdict, and exits non-zero only when something blocking was found. **One call, not
-three** — the gates cost well under a second each while an extra round trip costs tens of seconds,
-so the turns were the expensive part. Drop the app and flow ids and it says so rather than
-pretending a local pass is a publish gate. The three underlying commands, if you need to run one
+After a restore, use `flow.backup.after-restore.json` as the baseline.
+
+It runs the structural walk, the schema shape check, a read of every bound product and offer
+against the app (`validate` passes ids the app does not have) and the publish gate over the *same
+bytes*, prints one verdict, and exits non-zero only when something blocking was found. **One call,
+not four** — the gates cost well under a second each while an extra round trip costs tens of
+seconds, so the turns are the expensive part. The three underlying commands, if you need to run one
 alone, are in [validate.md](references/validate.md).
 
-**Pass `BASELINE=` whenever you fetched a config** — the pristine copy from step 2. A brand-new
-flow has no config to fetch (`config get` answers with an error), so it runs without one and has nothing older to
-report. The schema describes the newest
-`schemaVersion` while most live flows are older, so an unbaselined run on a v9 or v10 flow reports
-pre-existing mismatches, none of them yours. Details in
-[flow-schema.md → the two different validators](references/flow-schema.md).
+**Pass `BASELINE=` whenever you fetched a config** — the pristine copy from step 2; diffing
+against it leaves only what your edit caused. The schema describes the newest `schemaVersion` while
+most live flows are older, so an unbaselined run on a v9 or v10 flow reports pre-existing
+mismatches (a v9 `fill` is one object and the schema wants an array), none of them yours, and that
+noise trains you to ignore a real finding. A brand-new flow has no config to fetch (`config get`
+answers with an error), so it runs without one and has nothing older to report. Details in
+[flow-schema.md → the two different validators](references/flow-schema.md#the-schema-the-catalog-and-the-two-different-validators).
 
 `validate` runs the **same transform service that gates publishing**, so it is the only pre-write
 check here that speaks for the publish gate. It saves nothing, needs no confirmation and needs no
-baseline — a v9 config validates clean. It takes the **bare `config`**, not the envelope, and the
-flow must already exist, so on new work it runs after `flows create`.
+baseline — a v9 config validates clean. The flow must already exist, so on new work it runs after
+`flows create` or `flows duplicate`.
 
-**Read the verdict, not the exit code.** Exit 1 means "not publishable" *or* "the call failed", and
-only `--json` separates them: a `valid` field versus an `error` object. An agent gating on the exit
-code reports a good config as broken and a dead call as a defect.
+**`gates.sh` unwraps an envelope and prints a failed call as `API ERROR`, apart from the verdict**
+(it says what to do); run alone, `validate` is read as [validate.md](references/validate.md) says.
 
 > **Done here is a run that printed `valid: true` over the exact bytes you are about to write.**
 > It reports one fatal per run, so fix, re-run, repeat — a shorter list is not progress.
+
+**When `gates.sh` prints `ALREADY IN` under the verdict, the fatal was in the live flow before your
+edit.** Make your edit anyway:
+
+1. Copy the draft to a scratch file, fix the blocker there, and run `gates.sh` over that copy.
+   That is the only way to see whether your own edit is clean, because the old fatal hides
+   anything of yours behind it.
+2. Once the copy prints `valid: true`, save your edit as the user asked, without the fix, and ask
+   with the fix named:
+
+   > Your headline change is ready. The flow already had a problem before I touched it: one text
+   > uses a type style the theme does not define, so it cannot be published as it is. Should I
+   > point it at the theme's body style in the same save?
+
+   *(The shape, not the words: what is ready, what was already broken, why it blocks publishing,
+   the one fix.)*
+3. On a yes, save the fixed copy.
 
 **And while the products are unsettled it reports nothing but the products** — binding is an
 early stage, so an unbound card or an undeclared product hides every later defect behind it.
@@ -598,106 +633,78 @@ screen with a watchdog, joins them left-to-right and prints the one path to open
 image and look at it**, against what the user asked for and — if they gave one — against the
 reference image file, re-opened, not remembered.
 
-**Render only what you changed.** A screenshot is ~18 s of Chrome cold start, so the number of
+**Run a batch of three or more screens in the background and wait for it.** A screen takes a few
+seconds and can take minutes on a slow host. Each prints a line when it lands, and at
+`TIME_LIMIT` seconds (default 300) the run stops and says what to re-run. A screen that scrolls comes back as every scroll position,
+left to right, and `LOCALE=<code>` renders another language
+([preview.md](references/preview.md#what-a-render-costs-and-which-knobs-do-nothing)).
+
+**A screen that ends in a button bar is rendered twice more, on a short and a tall phone:**
+
+```bash
+DEVICE=iphone-se-3 references/shoot.sh draft.json scr_paywall      # 375x667
+DEVICE=google-pixel-9 references/shoot.sh draft.json scr_paywall   # 412x924
+```
+
+On the tall one, look for an empty band: under the bar, above it, or between rows of a list
+(`render-measure.py --column <x>` reports it as a gap). A band means nothing on the screen takes
+a tall phone's extra height; on a screen with a hero it goes to the hero
+([patterns.md](references/patterns.md#a-tall-phones-extra-height-goes-to-the-hero)). On the short
+one, a photo hero should keep about 160pt; if it draws smaller, give it a fixed height and put
+the bar in a [`footer`](references/patterns.md#a-bar-that-stays-at-the-bottom-use-footer), so the
+small phone scrolls.
+
+**Render only what you changed.** Each screenshot costs seconds, and minutes on a slow host, so the number of
 renders *is* the cost of this phase, and re-shooting seven screens to check an edit to one is six
 wasted launches. One strip is also one *look* instead of N, and a before/after or
 default-vs-selected pair only reads as a *difference* when the halves are adjacent.
 
 **Do not try to speed the screenshot itself up** — shrinking `--virtual-time-budget` does nothing
-on a fast host, and parallel Chrome is slower than serial. But **raise it when a shot comes back
-empty**: on a slow render host 8 s yields no file where 60 s renders correctly, so *no file* is
-usually a slow host, not a broken config — `shoot.sh` retries at 60 s for you, and after that,
-load the URL in a real browser before suspecting your work
+on a fast host, and parallel Chrome is slower than serial. **`shoot.sh` retries an empty or flat
+shot itself and says what to do next**
 ([preview.md](references/preview.md#what-a-render-costs-and-which-knobs-do-nothing)). A dead render
 is never a reason to report the work finished.
 Measure rather than eyeball with `references/render-measure.py`. Always try the preview: never decide
 from the config's size.
 
 **Every image gets its properties checked here — reference build or not — because no other gate
-looks at an image at all.** Read the drawn box off the screenshot and choose: `height: hug` takes
-its height from the **asset's** aspect, so the layout moves if the file changes and any `value` on
-the size is dead; `height: fixed` holds the box and the asset absorbs the mismatch — `cover` crops,
-`fit` letterboxes and leaves a dead band. `objectFit` is `fit` or `cover`, no CSS set. Re-render
-after each change ([media.md → Geometry](references/media.md#geometry-what-changes-when-the-asset-lands)).
+looks at an image at all.** Read the drawn box off the screenshot, choose `hug` or `fixed` and
+`fit` or `cover`, and re-render after each change
+([media.md → Geometry](references/media.md#geometry-what-changes-when-the-asset-lands)).
 
-**A reference image raises the bar from "matches the request" to "matches the reference" — run the
-fidelity pass before anything is written, every time one was given.** "Nothing jumped out" is not a
-result. **Produce a written per-element difference list — colour, typeface, icon style, imagery,
-proportions — marking each one match, gap, or unreachable**, then close every gap the format can
-reach and turn the rest into named asks. The list is the mechanism, not the looking: measured,
-agents who only *looked* shipped emoji for designed icons and colours from memory while disclosing
-them, and agents who wrote the list fixed everything reachable.
+**A screen with price variables is judged and handed over at real price length.** Each unbound
+price renders as its full `{{…prod_price}}` token, which wraps and pushes text under a pinned
+button. Render a throwaway copy with a plausible price in place of each token, fix the layout
+against that, and hand that render over, saying the prices in it are samples; the config keeps
+the variables ([preview.md](references/preview.md#what-a-render-cannot-show-you)).
 
-**Done means every remaining difference is on the ask list** — a user declining previews waives the
-deliverable, not this pass. What to inventory and what to do with each gap:
-[fidelity.md](references/fidelity.md).
+**A reference image was given?** Run the fidelity pass before anything is written: [preview.md → The fidelity pass](references/preview.md#the-fidelity-pass-when-a-reference-image-was-given).
 
 **Read [preview.md → What a render cannot show you](references/preview.md#what-a-render-cannot-show-you)
-before you report what a screenshot proves** — every blindness on it measured, and two of them run
-the *wrong* way: the render draws things a device will not. Two you act on here: it draws no notch
-and no home indicator, so author `safeArea: true` and hand short-device clipping over as a device
-check.
+before you report what a screenshot proves** — every blindness listed there is real, and two of them run
+the *wrong* way: the render draws things a device will not. Two you act on here: it draws no notch,
+no home indicator and no iPhone Duo side bar, so author `safeArea: true`, never pad for the bar by
+hand, and hand short-device clipping over as a device check; and even then it measures an `absolute` element's `top` from the screen's top edge, not
+from below the status bar ([patterns.md](references/patterns.md#under-safearea-true-check-where-an-absolute-element-lands)).
 
-**Never downgrade a correct element to a preview-visible lookalike to make the screenshot look
-complete.** When an element is preview-blind — a `spinner` that draws nothing on this screen, a
-`video`, a toggle's `selected` state, a progress bar's advance — the answer is to keep the real
-element, say the preview cannot show it, and hand it to the device check; not to swap in something
-the render *can* draw. Standing a static `icon` in for a `spinner` (or any impostor for the element
-it mimics) ships a thing that passes the screenshot and does nothing on the device — the
-[fake-footer](references/patterns.md#a-bar-that-stays-at-the-bottom-use-footer) mistake in a new
-place, and no local gate catches it. A blank in the render is a reason to reach for a device (the
-Adapty app), never a reason to author a fake. The loading-screen shape and the `spinner`'s two
-non-guessable facts are in [patterns.md](references/patterns.md).
+**Never stand a lookalike in for a real element** — not for one the preview cannot draw, not for one that looks hard to build: [preview.md → Never fake an element](references/preview.md#never-fake-an-element-to-make-the-screenshot-look-complete).
 
-**And the rule is not only about preview-blind elements — it also forbids faking a fully
-previewable element because building it properly looks hard.** A **`carousel`** renders in the
-preview, so this is where the trap is easiest to rationalize: a static review card plus three
-decorative dot `stack`s screenshots exactly like a testimonials slider and is one — one frozen
-slide, no swipe, dead dots. The `carousel` is a real element with **built-in `dots`**, so the real
-thing is usually *less* work than the fake, and the seed flow you already fetched often contains one
-to copy. Resolve the request through the map in
-[flow-schema.md](references/flow-schema.md#from-what-the-user-asks-for-to-what-the-json-calls-it)
-before you reach for a lookalike — reviews, sliders, swipeable cards and dots all route to
-`carousel`, never to hand-built dots. `component-catalog.json` ships a filled `reviews-carousel`
-template and `flowkit.carousel()` builds one from scratch; `verify-config.py` **errors** on a
-hand-built indicator row and warns on the dotless form. The same trap catches the **`progress-bar`**:
-a static filled `stack` or a row of step `stack`s looks like progress and never advances — build the
-real `components` entry and wire it per screen via `props.progressBar`, never a bar that cannot move.
-
-**If you built a screen that advances itself, ship the diagnostic with the first ask.** The page
-never navigates, so a working auto-advance and a broken one look identical here and only the user's
-device can tell them apart — at a real cycle per attempt. Give the `timer` a child `text` carrying
-the `timer_minutes`/`timer_seconds` tokens: *digits never appear* is the element not mounting,
-*digits reach zero and nothing happens* is the trigger not firing. Without it a failed test returns
-one bit and you guess again. **The digits never leave the timer: a timer fires only when a text
-inside it shows its digits** — a logo or plain copy as its only child does not fire. To hide them
-once the user has checked, colour them like the background; never delete them. The device-verified
-shape is in [patterns.md](references/patterns.md).
+**Built a screen that advances itself?** Up to 5 s it is On Appear and a device check; a timer ships the timer-digits diagnostic with the first ask: [preview.md → A screen that advances itself](references/preview.md#a-screen-that-advances-itself-ship-the-diagnostic).
 
 **Confirm you screenshotted the flow at all.** A bad `--device`, a broken fragment and a wrong host
-all render as *pages* that pass a "did anything draw" check. If the render is blank, slow or wrong,
-switch to [`preview-with-playwright.mjs`](references/preview-with-playwright.mjs), which uses the
-page's file input instead of the URL — do not shrink the config. If you cannot render at all, say
+all render as *pages* that pass a "did anything draw" check. `shoot.sh` uses the page's file
+input ([`preview-with-playwright.mjs`](references/preview-with-playwright.mjs)) whenever it can; if
+it fell back to the URL route and the render is blank, slow or wrong, run the install command it
+prints — do not shrink the config. If you cannot render at all, say
 so and ask the user to look; never report the work finished on a clean validate.
+
+**Asked for an App Store review screenshot of a flow screen:** [preview.md → When to take an App Store review screenshot](references/preview.md#when-to-take-an-app-store-review-screenshot).
 
 **A missing element may not be your bug, and a clean preview is not the builder opening the flow.**
 Both, with the four surfaces and what each one proves:
 [preview.md](references/preview.md).
 
-**A render that matches the request can still be a weak screen — and a set of renders that each
-match can still be a weak flow.** Every check above asks whether you built what was asked; none
-asks whether it sells. **If you chose the design — no reference, no source screen — running the
-teardown over what you built is part of the work, not a courtesy.** Same routing as phase 2: a
-paywall goes to **`paywall-teardown`**, a sequence to **`onboarding-teardown`**, a flow that is both
-to both. Hand it the render *and* the config (one shows what is visible, the other what is there),
-then **apply** what it ranks *Fix first* or *High* and re-render. Findings on something you designed
-are defects, not suggestions — handing it over with a list of the patterns you skipped is
-unfinished — and this is the cheapest moment, a screenshot instead of a `config update`.
-Skip it only on a literal edit: a typo fix, a locale add.
-
-**A sequence is graded on the sequence, so give it every screen.** Render each one and pass the set
-— `references/montage.py` joins them into a strip, which is what makes "screen 4 promises what
-screen 5 doesn't deliver" visible at all. One screen out of six cannot show a seam.
+**If you chose the design, grade what you built with the teardown before you hand it over**, every screen of a sequence at once: [preview.md → Grading what you designed](references/preview.md#grading-what-you-designed-the-teardown-pass).
 
 **Show how the screens connect when the strip cannot.** A strip is in `screens[]` order, so it
 hides every branch, skip and loop. Draw the map and open it in the user's browser:
@@ -706,16 +713,7 @@ hides every branch, skip and loop. Draw the map and open it in the user's browse
 python3 references/canvas.py draft.json --open     # canvas.html beside the config, renders as thumbnails
 ```
 
-| When | Do |
-| :--- | :--- |
-| You built or rewired a flow of 10+ screens, or added or changed a branch | Open the map, one line: what it shows and what to check |
-| The user asks how screens connect, where a button leads, or what a branch does | Open the map, answer in one line |
-| No browser on this machine (a remote or headless session) | Paste `canvas.py draft.json --text` into the reply in a code block |
-
-It reads the config only, so it runs before any write and on a fetched flow you did not change.
-Render the screens with `shoot.sh` first and they show as thumbnails; without renders they draw as
-cards listing their buttons. **Read its flags before you hand it over** — *nothing leads here* and
-*no way out* are wiring defects to fix or name, not decoration.
+When to open it and what to check on it: [preview.md → The flow map](references/preview.md#the-flow-map-when-to-open-it).
 
 **Iterate here.** Anything off, go back and fix it, then re-run phases 3 and 4. Nothing has
 been saved yet, so an iteration costs a screenshot rather than a write.
@@ -730,9 +728,9 @@ There is nothing to lose and nothing to overwrite, and stopping to ask would be 
 empty document. Report what you wrote afterwards.
 
 **It does** — anything you fetched in phase 2. **Stop and get an explicit yes before the write.**
-`config update` replaces the entire config: no partial write, no undo, no version history here, so
-the document you are replacing exists in exactly one other place — the phase-2 backup. Put all of
-this in front of the user in one message and wait:
+`config update` replaces the entire config: no partial write and no undo. A draft you replace
+exists in exactly one other place — the phase-2 backup; a published version stays in the history.
+Put all of this in front of the user in one message and wait:
 
 **First, compute what the write destroys — never describe it from memory.** Run this on the bytes
 you are about to write, after the last edit:
@@ -741,14 +739,22 @@ you are about to write, after the last edit:
 python3 references/diff-config.py flow.backup.json draft.json      # REMOVES = what you destroy
 ```
 
+After a restore, use `flow.backup.after-restore.json` in place of `flow.backup.json`.
+
 The **backup** is the baseline, not your working file: it is the one copy nothing in the run has
 touched, so it is the only honest answer to "what was there before me". (An edit that landed after
 you fetched is the lock's job, not this one's.)
 
-Every `REMOVES` line goes in the ask below, traced to the request that asked for it, and **one you
-cannot trace is someone else's work**: name it and ask, never write past it. Exit 1 says the list
-is non-empty, not that anything is wrong — deleting a screen is a supported transform, doing it
-silently is not ([merge.md](references/merge.md)).
+**Every `REMOVES` line goes in the ask below**; `diff-config.py` says what to do with one you cannot
+trace ([merge.md](references/merge.md)).
+
+**Then weigh it: the user's phones download every byte of it.** On the same bytes:
+
+```bash
+python3 references/weigh-config.py draft.json      # exit 1 = something heavy to tell them
+```
+
+Exit 1 fills the weight slot of the ask below; exit 0 drops it. What it weighs, what the slot says and each fix on their yes: [media.md → Weighing a config](references/media.md#weighing-a-config-before-a-write-or-a-publish).
 
 **Then show them the change — an approval on a description is not an approval on the screen.**
 Split it in two, because the two halves need different things from the reader.
@@ -770,7 +776,7 @@ four screenshots will otherwise assume the pictures were the whole change:
 
 > - Daily goal: the Continue button now opens the paywall instead of closing the flow.
 > - The two new plan cards are registered with their products, so the flow can publish.
-> - 38 texts translated into German. The 4 images stay the same in every language. The preview only draws English, so check German on a device.
+> - 38 texts translated into German, checked for overflow in a German render. Two plan titles were shortened to fit their cards. The 4 images stay the same in every language.
 
 **Open exactly one of them live, and mark which row it is.** You are on their machine, so open it
 rather than handing over a command to paste:
@@ -798,27 +804,55 @@ show. **Identical screenshots do not mean an identical config**
 > Removes: <each `REMOVES` line in plain words, traced to the request that asked for it — or "nothing">.
 > I kept a copy of the current version, so I can put it back if you need it.
 >
-> Save it?
+> `<only if the save adds a custom element:>` After the save, I can add `<what each view shows>`
+> to your app — `<Type>`/`<ID>`, … — which is what users see in place of the fallback.
+>
+> `<only if the weigh exited 1:>` Load time: <the three sentences the weigh printed under "Say
+> this", as they are: what is heavy, what it does to the person opening the flow, what I can do>.
+>
+> `<the last line, one question:>` Save it? `<or, with the weight slot, in its place:>` Fix
+> the weight first, or save as is?
+
+An example of the weight slot's shape, not words to copy:
+
+> Load time: the image on Welcome is a 2.3 MB JPEG, 4× wider than any phone screen shows, and it
+> also has a separate file in 4 languages. On a slow mobile connection people see a blurred
+> placeholder there for about 13 s, while they decide whether to go on. I can convert it to WebP
+> (usually 70-90% smaller, it looks the same), or use one image for every language or split the
+> flow by language: tell me which, or keep it as it is.
+>
+> Fix the weight first, or save as is?
 
 Do not paraphrase this into "shall I save?" — the flow name, the status, what it removes and the
 way back are the content, and an approval given without them is not informed. Wait for a yes; a
 screenshot the user liked is not one.
 
 **If the flow is `published`, disclose what the save changes — then edit in place on their yes.**
-A `published` flow you save becomes `dirty`: the status is visible to their whole team and cannot
-be reverted from the CLI, while end users keep seeing the published version until the next
-publish. Put that sentence in the approval ask and proceed — editing a live flow is the normal
-case, and the preview pair, the backup and the lock exist precisely so it is safe. Suggest a
-fresh `flows create` only when the work is exploratory — a redesign the user wants next to the
-original — never as the default answer to an edit.
+A `published` flow you save becomes `dirty`: the status is visible to their whole team, while end
+users keep seeing the published version until the next publish, and that version stays in the
+history. A restore of the live version (`flows versions restore`) brings its content back to the
+draft, but the status stays `dirty` until the next publish. Put that in the approval ask and
+proceed — editing a live flow is the normal case, and the preview pair, the backup and the lock
+exist precisely so it is safe. Suggest a copy only when the work is exploratory — a redesign the
+user wants next to the original — never as the default answer to an edit. Make it with
+`flows duplicate`, with the content the user picks when the flow is `dirty` (the draft or the live
+version), and edit the copy
+([history.md → Duplicate a version to a new flow](references/history.md#duplicate-a-version-to-a-new-flow));
+never with `flows create` and a write of this config (the one exception is an archived flow the
+user will not restore, [phase 2](#2-new-flow-or-existing-flow)).
 
-**Restoring from the backup — verified end to end.** Re-read `updated_at` first, because your own
-write has just invalidated the one you were holding:
+A published version comes back from the history
+([history.md → Restore a version](references/history.md#restore-a-version)); the backup brings back
+only the draft from before your first write. **Restoring from the backup — verified end to end.**
+Lock it on the version your last write left in `flow.working.json`, so a restore cannot erase an
+edit someone made after yours:
 
 ```bash
-UA="$($ADAPTY flows config get --app $APP $FLOW --json | jq -r .updated_at)"
 jq '.config' flow.backup.json > restore.json
-$ADAPTY flows config update $FLOW --app $APP --config-file restore.json --expected-updated-at "$UA"
+$ADAPTY flows config update $FLOW --app $APP --config-file restore.json \
+  --expected-updated-at "$(jq -r .updated_at flow.working.json)" \
+  --remote-configs "$(jq -c '.remote_configs // []' flow.backup.json)" --json > write.json \
+  && mv write.json flow.working.json
 ```
 
 Verified byte-identical on a real flow — so the recovery is real, but only if phase 2 actually
@@ -827,47 +861,71 @@ took the backup, which is why that step is not optional.
 Only then:
 
 ```bash
-# one call: re-read the lock and write under it, because your own last write invalidated it
-UA="$($ADAPTY flows config get $FLOW --app $APP --json | jq -r .updated_at)" \
-  && $ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
-       --expected-updated-at "$UA" --json > flow.working.json
+# the lock is the version draft.json was patched from; the mv stores the next one on success
+$ADAPTY flows config update $FLOW --app $APP --config-file draft.json \
+  --expected-updated-at "$(jq -r .updated_at flow.working.json)" \
+  --remote-configs "$(jq -c '.remote_configs // []' flow.working.json)" --json > write.json \
+  && mv write.json flow.working.json
 ```
+
+**Send the remote configs back on every write, restore included:** a write without
+`--remote-configs` is refused (exit 2). `[]` deletes them all, so it is for a flow that has none.
+An older CLI gets a 400 on `remote_configs` instead (`is required: a write replaces the stored list`, or
+`Field required`):
+**never answer it with `[]`** — update the CLI, re-resolve `$ADAPTY`, run `flows config get`, and
+send its `remote_configs`.
+Each entry is `{locale, data}`, and `data` is a JSON **string**, not an object; an object is
+refused with `400 Input should be a valid string`, so encode a new one with jq's `tojson`.
 
 Validate and preview both run on a local file, which is why the write comes last: one write when
 the thing is right, instead of one per iteration. If you have already written and then found a
-problem, that is fine — re-read `updated_at` from `config get` before the next write, because
-yours is now stale.
+problem, that is fine: the `mv` already put your write's `updated_at` in `flow.working.json`,
+so the next write locks on it with no extra read.
 
 **That `--json` redirect *is* the read-back — no extra call.** The write returns the **same
 envelope as `get`**, so your working file is already in sync for the next round, and you can diff
 it against what you sent. A faithful round trip is the norm, so any difference is a real finding —
-a top-level key that vanished, a `status` you should not have emitted.
+a top-level key that vanished, a `status` you should not have emitted. The one expected
+difference: the server echoes the legacy top-level `locales` and `defaultLocale` back, which
+`localization.py catalog` drops from what you send. Those two keys alone are not a finding.
 
-A write that changes nothing does not bump `updated_at` (measured once), so re-running the same
-content is not a fresh lock token. **On a 409** someone edited the flow since you fetched it and
-nothing was written: re-`get`, re-apply your change **to their config**, write again. Never force
+A write that changes nothing does not bump `updated_at`, so re-running the same
+content is not a fresh lock token. **On a 409** (*"already updated by <name>. Reload before
+saving…"*, exit 1) someone saved or published the flow since you fetched it and nothing was written: re-`get`
+into `flow.working.json`, re-apply your change **to their config**, tell the user someone else
+saved in between, and write again. The builder can auto-save a cleanup of `states` that bumps
+the version and that `diff-config.py` does not show: diff the raw JSON when the summary is empty.
+Never force
 past it and never re-send your local copy — that is the content that would erase their work. If
 their version differs in ways you did not author, ask rather than restore.
+
+**On `Flow is deleted`** someone deleted the flow in the dashboard after you read it: nothing was
+written, and no write to that id can succeed. Say so; your draft is intact in `draft.json`, and a
+new flow made anyway takes its content, with the remote configs of `flow.working.json` and no
+`--expected-updated-at`. Go on as for an `archived` flow in
+[phase 2](#2-new-flow-or-existing-flow), with no fetch; after the restore, fetch it again and
+re-apply your change as on a 409.
 
 **If you rebuilt the config from a script rather than patching the fetched one, you have the wrong
 document** — a rebuild replaces the live flow, taking `_meta.screens` and the `screens[].products`
 registry it derives from ([products.md](references/products.md)) and every manual edit with it. Patch the fetched config;
-[merge.md](references/merge.md) names the only two cases where a rebuild is right.
+[merge.md](references/merge.md) names the only two cases where a rebuild is right. `verify-config.py`
+refuses a patched-in screen whose ids repeat the live ones (it names the fix).
 
 #### The file deliverable
 
-When the user asked for a file rather than a write, there is no approval gate — the contract lives
-in phase 2, **at the moment the file is written**, and your closing report repeats which
-`status`/`id` shape you chose. A file handed over without that sentence is undelivered.
-
-**Tell them to back up before importing it.** A shape-invalid config can open **empty** in the
-builder, and the next save writes that emptiness over the real flow — no error to act on, no
-unlucky timing needed. Their untouched config is the only copy that survives it
-([merge.md](references/merge.md)).
+When the user asked for a file rather than a write: no approval gate, and what the closing report and the import must carry: [transforms.md → The file deliverable](references/transforms.md#the-file-deliverable).
 
 **Never end with the work in a local file.** `config update` is the only save this surface has, and
 saving is where you stop by default. Publishing is a separate, explicitly confirmed step the user
 asks for — never something you fold into a write.
+
+**When your host's permission layer blocks the write** (a refusal from your tool runner, not an
+answer from the CLI), keep the validated `draft.json` and `flow.working.json` where the user can
+see them, give the exact `config update` command above with absolute paths for them to run, and
+stop. Do not retry the write another way.
+
+**When a placement shows this flow, read who it reaches before the callout:** [publish.md → Before a publish](references/publish.md#before-a-publish-read-who-the-flow-reaches).
 
 **Then end with this callout, every time.** A save is not a release, and it takes their word to
 finish it. Fill the slots and keep all three steps plus the closing line — that line is the
@@ -875,10 +933,7 @@ point. **If the user asked you to publish and you did,** the heading becomes "Pu
 on `<placement>`" (or "Published — not on a placement yet"), step 3 and the closing line go, and
 the rest stays.
 
-**Never publish with Terms or Privacy as inert text.** That is the right draft default
-([transforms.md](references/transforms.md) decision 10), but on a published paywall `flow-audit`
-calls it a blocker and both stores reject it. Before a publish you were asked to make, get the
-two URLs; without them, save, don't publish, and say why.
+**Asked to publish?** Read [publish.md](references/publish.md) first: the Terms and Privacy URLs, the weigh, the call and its poll.
 
 > **Saved as a draft — your users can't see this yet.**
 >
@@ -890,119 +945,53 @@ two URLs; without them, save, don't publish, and say why.
 >    Want a QR code to scan with the Adapty mobile app? Just say so and I'll make one.
 > 3. Publish: say the word and I'll do it, or use Publish at the top right of the editor. After
 >    that I can attach it to a placement, which is what makes your app show it.
+>    `<only if a placement shows this flow:>` About `<n>` people a week start it on
+>    `<placement>`, and a publish changes it for all of them. `<only for a change buyers see:>`
+>    To measure the change first, I can set up an A/B test of a copy against the live version.
 >    `<only if a product card has no product chosen:>` Publishing is blocked until you choose
 >    the products for `<the cards, by label>` — tell me which, or pick them in the builder.
 >
 > `<one line, only if the phase-2 missing-assets list still has open items:>`
 > `<n>` assets are still placeholders — see the list above.
 >
+> `<only if the flow has custom tags:>`
+> It shows `<n>` values only your app knows — `<name>`, `<name>` — and everyone sees the fallback
+> text until your app passes them. Want me to update your app code to pass them now?
+>
+> `<only if the flow has custom elements:>`
+> `<n>` boxes are drawn by your app — `<Type>`/`<ID>`, … — and everyone sees their fallback until
+> an app release draws them. Want me to add those views to your app now?
+>
 > `<the closing line, by the flow's status:>`
 > `dirty` — Until you publish, everyone continues to see the previous version.
 > `draft` — Nothing is live yet: nobody sees this flow until it is published and attached to a
 > placement.
 
-**Offer the QR in slot 2; do not paste the preview link.** Make the QR only when the user says
-yes. [`mobile-preview.mjs`](references/mobile-preview.mjs) builds it from the app id, the flow id
-and the config's locales, with no network call and no auth:
-
-```bash
-(mkdir -p ~/.cache/adapty-flow-qr && cd ~/.cache/adapty-flow-qr && node <abs-path>/references/mobile-preview.mjs \
-  --app <APP_UUID> --flow <FLOW_ID> --config <abs-path>/flow.working.json --qr --md-base <your working directory>)
-```
-
-**Run it after the write, never before.** The app fetches the *saved* draft, so a QR built over an
-unsaved file previews the previous version and reads as "your edit did nothing". One QR survives
-later writes, so make it once rather than per change. It writes a throwaway PNG into the working
-tree and opens it; paste the `![...](...)` line it prints into your answer. Never commit the image.
-
-| What they said | What you do |
-| :--- | :--- |
-| yes to the QR, or asked to scan or test on a device | `--qr`, and keep doing it for the session |
-| asked for the link | give the link the script prints, bare on its own line, never in backticks |
-| declined | drop the line, and **do not offer again** |
-| nothing yet | the one-line offer in slot 2 |
-
-Why the QR and the link work this way, the `--md-base` rule, and why there is no character-art QR:
-[preview.md](references/preview.md#the-mobile-app-link-and-why-it-is-not-the-render-url).
+**Offer the QR in slot 2, never the preview link, and make it only on a yes, after the write:** [preview.md → Offering the device-preview QR](references/preview.md#offering-the-device-preview-qr).
 
 **Fill that slot with the actual list, never with "check it works".** You know which of your
-choices the render could not reach — a branch that fires on tap, a toggle, a non-default locale, a
+choices the render could not reach — a branch that fires on tap, a toggle, a locale you did not render, a
 progress bar that advances, a screen that advances itself, glyph metrics that differ on iOS. A
-generic instruction gets skipped; three named things get tapped, and every defect this skill has
-shipped to a user came through a gap this slot exists to hand over
+generic instruction gets skipped; three named things get tapped, and the defects that reach users come through the gaps
+this slot exists to hand over
 ([preview.md](references/preview.md)).
+
+**A custom tag is not done until the app passes it:** on a yes to the callout's offer, write that code as [custom-tags-code.md](references/custom-tags-code.md#writing-the-code-that-passes-a-custom-tag) says.
+
+**A custom element is not done until the app draws it, so offer the view, and on a yes write
+it** — the callout line above, then the steps in
+[custom-elements.md](references/custom-elements.md#on-a-yes-the-apps-view).
 
 ### 6. Attach it to a placement, then hand the ID over
 
-**A published flow reaches nobody until a placement points at it.** The placement's **developer
-ID** is the string the app fetches with, so publishing is the middle of the chain and not the end:
-config → publish → placement → the app's call site. Offer this whenever a flow reaches
-`published`. Never run it unasked — a placement cannot be undone.
-
-**Three ways in.** You published it and polled to `published`; the user says they published it, in
-the builder most likely; or this is where the conversation *starts* — then phase 1 has already sent
-you here and phases 2-5 have no work to do.
-
-**Verify the status yourself, whoever published it.** `flows get <FLOW_ID> --app <APP_UUID>` must
-read `published`; `publishing` means poll, and anything else means it is not attachable yet.
-
-**Then read the placements before proposing one** — one call answers both questions, whether this
-location already has a placement and whether the ID you would propose is free:
-
-```bash
-$ADAPTY placements list --app "$APP" --page-size 100 --json    # the default page size is 20
-```
-
-| What `list` shows | What you do |
-| :--- | :--- |
-| nothing for this location | `placements create` with a new developer ID |
-| a **flow** placement that should now point at this flow | `placements update` — it rewrites **every** audience, so pass back the ones you are keeping. **First ask whether the placement runs an A/B test**: the CLI cannot see one, and the write stops it with no winner. A test or no answer → the change goes in the dashboard |
-| a **paywall** placement, even an unused one | **Nothing.** The type is fixed at creation and the write is refused. Propose a different ID and say why |
-| a placement where only **some** users should get this flow — a country, a version, a segment | The **`audiences`** skill. It adds a segment audience beside the existing ones without changing what anyone else sees |
-
-**The ID needs an explicit yes, and this is the fourth fixed block.** It is irreversible in a way
-the phase-5 write is not: unique across every placement in the app whatever its type, no rename, no
-delete from the CLI.
-
-> Ready to point a placement at **`<flow name>`** (`<flow-id>`, `published`).
->
-> - Developer ID: **`<id>`** — the string your app will fetch with.
-> - Placement: `<new, titled "…">` / `<existing "…", now pointing at <what>>`
-> - **Permanent.** IDs are unique across every placement in the app whatever its type, cannot be
->   renamed, and there is no delete from the CLI — a wrong one is spent.
->
-> Create it?
-
-On their yes, one call:
-
-```bash
-$ADAPTY placements create --app "$APP" --title "<Title>" --developer-id "<id>" \
-  --audiences '[{"content_type":"flow","flow_id":"'"$FLOW"'","segment_ids":[],"priority":0}]'
-```
-
-The flow form of `--audiences` is the normal path — accepted against production. Every refusal,
-which of them is yours to fix, the `update` variant and the dashboard fallback:
-[placements.md](references/placements.md).
-
-**Then hand the ID over and stop.** This skill does not touch app code:
-
-> **Live at `<developer-id>`.** https://app.adapty.io/placements/flows/`<PLACEMENT_UUID>`
->
-> Nothing in your app changes yet — it still has to fetch this placement and render what comes
-> back. The **`adapty-integration`** skill owns that end: give it this developer ID and it wires
-> the fetch and the rendering into your call sites.
-
-**That link takes the placement's UUID, not its developer ID** — the two are different fields and
-only the UUID routes. `placements create` prints it as `id`. The middle segment is the placement's
-*type*, so a flow placement is `/placements/flows/…` and a paywall one would be
-`/placements/paywalls/…` ([placements.md](references/placements.md)).
+**When a flow reaches `published`, the user says it has, or the request starts here (phase 1):** offer to point a placement at it, never unasked. The steps, the placement ask (the fourth fixed block) and the handoff: [placements.md → Attaching a flow](references/placements.md#attaching-a-flow-to-a-placement-the-procedure).
 
 ## Safety
 
-**Pass `--expected-updated-at` on every write except the first.** A stale value fails instead of
-clobbering, so this is a real guarantee rather than a warning. Read it from `config get`
-immediately before you write — never from `flows get`, whose `updated_at` is a different field. Omitting it is last-write-wins and will silently overwrite an edit
-someone else made in between.
+**Pass `--expected-updated-at` on every write except the first**, taken from `flow.working.json`
+as [the CLI surface](#the-cli-surface) says. A stale value fails instead of clobbering, so this is
+a real guarantee rather than a warning; omitting it is last-write-wins and will silently overwrite
+an edit someone else made in between.
 
 **The lock is not a merge.** It guards the *timing* of a write and says nothing about its
 *content*: a document that was never based on the live config — regenerated, or patched from a
@@ -1012,8 +1001,12 @@ diff before you write ([merge.md](references/merge.md)).
 **Never write to a flow the user did not name.** `flows list` is for finding the right one and
 confirming it back to them, not for picking one yourself.
 
-**`config update` replaces the whole config.** There is no partial write, no undo and no version
-history. Prefer a fresh `flows create` for new work.
+**`config update` replaces the whole config.** There is no partial write and no undo; the history
+keeps the published versions, not the draft saves ([history.md](references/history.md)). Prefer a
+new flow for new work: `flows duplicate` of the flow it starts from (a write of a fetched config
+loses what [history.md → Look at one version](references/history.md#look-at-one-version) names),
+`flows create` only for a flow with no source. Make it once: a retry writes to the flow you
+already made.
 
 **Overwriting an existing config needs an explicit yes.** Phase 5 owns the form. The gate is keyed
 to whether the flow already has a config, not to how confident you feel about the edit — a clean
@@ -1058,8 +1051,5 @@ blockers, and clearing one often activates whatever it was masking
 `variables[]` or `theme`; an inert `conditional` whose branches all resolve to `nothing`. Real
 configs contain all of these.
 
-**One warning splits by authorship: a catalog value under a locale id `localization.locales` does
-not declare.** If **you** wrote it this run it is your defect — declare the locale and translate
-what adding a locale implies. If it came **with the config you fetched**, it is report-never-fix like the others:
-it is usually half a locale run someone started, and finishing or deleting their work is not your
-call. Name the two exits and ask.
+**One warning splits by authorship: a catalog value under an undeclared locale id.**
+`verify-config.py` says which way each goes.

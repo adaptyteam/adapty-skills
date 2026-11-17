@@ -1,5 +1,7 @@
 """Audience normalization, both directions.
 
+Also: A/B test entries are read and skipped, never carried over (last section).
+
 Prod (before the audience change) returns audiences WITHOUT content_type; the pod returns them
 WITH it; and the CLI REQUIRES it on write (exit 2, no request). So a read must
 be normalized before it can be written back, and the normalizer has to be a
@@ -617,6 +619,176 @@ check('exposure.status_readable is FALSE on today\'s API, which is what routes '
       'phase 6 to the verbatim acknowledgment instead of a fabricated count',
       rget(exp3, 'status_readable') is False and rget(exp3, 'unknown') == rget(exp3, 'placements'),
       str(exp3))
+
+# ---------- A/B test entries: read, skipped, never carried over ----------
+#
+# `placements get` (CLI 0.11.0 and later) returns an audience that runs an A/B test as
+# `{content_type: ab_test | flow_ab_test, ab_test_id, ab_test_title, segment_ids,
+# priority}`, and a test shared with other placements as `cross_ab_test |
+# flow_cross_ab_test`. A paywall test cannot become a flow, and a test id on a NEW
+# placement would start that test there, so `plan` skips every test entry and names
+# it. Before this change `normalize_audience` raised on these kinds, so one test
+# anywhere in the account made `inventory` and `plan` exit 2.
+
+import copy
+import json as _json
+
+
+def test_entry(kind, tid, title, segments, priority):
+    entry = {'content_type': kind, 'ab_test_id': tid, 'segment_ids': segments,
+             'priority': priority}
+    if title is not None:
+        entry['ab_test_title'] = title
+    return entry
+
+
+def paywall_entry(pw, segments, priority):
+    return {'content_type': 'paywall', 'paywall_id': pw, 'segment_ids': segments,
+            'priority': priority}
+
+
+def argv_audiences(row):
+    """The `--audiences` JSON the generated create argv carries, parsed."""
+    return _json.loads(flag_value(row.get('command'), '--audiences') or 'null')
+
+
+def flag_value(cmd, name):
+    cmd = cmd or []
+    return cmd[cmd.index(name) + 1] if name in cmd and cmd.index(name) + 1 < len(cmd) else None
+
+
+SEG_TEST = test_entry('ab_test', 't-1', 'Price test', ['s1'], 0)
+CROSS = test_entry('cross_ab_test', 't-9', 'Shared test', [], 0)
+WITH_TEST = {'id': 'pl-t', 'developer_id': 'main', 'title': 'Main', 'audiences': [
+    SEG_TEST, paywall_entry('pw-1', ['s2'], 1), paywall_entry('pw-2', [], 2)]}
+DEFAULT_TEST = {'id': 'pl-d', 'developer_id': 'gate', 'title': 'Gate', 'audiences': [
+    paywall_entry('pw-3', ['s1'], 0), test_entry('ab_test', 't-2', 'Default test', [], 1)]}
+FLOW_TEST = {'id': 'pl-f', 'developer_id': 'done', 'title': 'Done', 'audiences': [
+    test_entry('flow_ab_test', 't-3', 'Flow test', [], 0)]}
+LEDGER = {'pw-1': 'f-1', 'pw-2': 'f-2', 'pw-3': 'f-3'}
+
+for kind in m.TEST_KINDS:
+    entry = test_entry(kind, 't', 'T', [], 0)
+    try:
+        read_back = m.normalize_audience(entry)
+    except ValueError:                       # a raise must be a red check, not an abort
+        read_back = None
+    check(f'normalize_audience reads a `{kind}` entry and returns it unchanged '
+          '(before this change it raised, and one test aborted the whole plan)',
+          read_back == entry)
+check('an entry kind this tool does not know is STILL refused, so the new kinds '
+      'are an allow-list and not "anything goes"',
+      raises(ValueError, m.normalize_audience,
+             {'content_type': 'onboarding_ab_test', 'ab_test_id': 't'}))
+check('a paywall test counts in the paywall family and a flow test in the flow '
+      'family, as the backend counts them',
+      (m.content_types([SEG_TEST]), m.content_types([FLOW_TEST['audiences'][0]]))
+      == ({'paywall'}, {'flow'}))
+
+before = copy.deepcopy([WITH_TEST, DEFAULT_TEST, FLOW_TEST])
+plan_t = m.build_plan([WITH_TEST, DEFAULT_TEST, FLOW_TEST], flows=LEDGER, app_id='app-1')
+rows_t = {r['source_developer_id']: r for r in plan_t['placements']}
+
+check('a placement with a test on a segment still gets its create argv',
+      isinstance(rows_t.get('main', {}).get('command'), list), str(rows_t))
+check('THE NEW PLACEMENT CARRIES NO TEST: the argv holds only the two paywalls, as '
+      'flows, and the test id appears nowhere in it',
+      [(a['content_type'], a['flow_id']) for a in argv_audiences(rows_t.get('main', {}))]
+      == [('flow', 'f-1'), ('flow', 'f-2')]
+      and 't-1' not in ' '.join(rows_t.get('main', {}).get('command') or []),
+      str(rows_t.get('main')))
+check('the skipped test is listed on the row with the report wording',
+      [i['reason'] for i in rows_t.get('main', {}).get('skipped', [])]
+      == ['skipped: A/B test Price test'], str(rows_t.get('main')))
+check('priorities of the new placement are renumbered with NO GAP: the test held 0, '
+      'so the two paywalls become 0 and 1 and the default stays last',
+      [(a['segment_ids'], a['priority']) for a in argv_audiences(rows_t.get('main', {}))]
+      == [(['s2'], 0), ([], 1)], str(argv_audiences(rows_t.get('main', {}))))
+check('a placement whose DEFAULT audience runs a test is skipped whole: no row, no '
+      'proposed id, no command',
+      'gate' not in rows_t
+      and [r['source_developer_id'] for r in plan_t['skipped_placements']] == ['gate'],
+      str(plan_t['skipped_placements']))
+check('and its reason says why, in words the report can use',
+      (plan_t['skipped_placements'] or [{}])[0].get('reason')
+      == 'the default audience runs A/B test Default test, so the new placement '
+         'would have no default audience', str(plan_t['skipped_placements']))
+check('a placement skipped whole builds no flow: its paywall is not in flows_needed',
+      [r['paywall_id'] for r in plan_t['flows_needed']] == ['pw-1', 'pw-2'],
+      str(plan_t['flows_needed']))
+check('a flow placement that holds only a flow test is ALREADY FLOW, not skipped',
+      plan_t['summary']['already_flow'] == 1
+      and 'done' not in {r['source_developer_id'] for r in plan_t['skipped_placements']},
+      str(plan_t['summary']))
+check('the summary counts the skipped tests and placements, and nothing else changes',
+      plan_t['summary']['ab_tests'] == {'skipped_entries': 2, 'skipped_placements': 1},
+      str(plan_t['summary']))
+check('THE SOURCE PLACEMENTS ARE NEVER CHANGED: the inventory is byte for byte what it '
+      'was, and no argv is an update',
+      [WITH_TEST, DEFAULT_TEST, FLOW_TEST] == before
+      and all(r['command'][:2] == ['placements', 'create']
+              for r in plan_t['placements'] if 'command' in r))
+check('the report lines name each test with the exact wording',
+      m.describe_skipped(plan_t)
+      == ["skipped: A/B test Price test -- placement 'main' is created without it",
+          "skipped: A/B test Default test -- placement 'gate' is skipped whole: "
+          "the default audience runs A/B test Default test, so the new placement "
+          "would have no default audience"], str(m.describe_skipped(plan_t)))
+
+CROSS_ROW = {'id': 'pl-x', 'developer_id': 'shared', 'title': 'Shared', 'audiences': [
+    paywall_entry('pw-1', ['s1'], 0), paywall_entry('pw-2', [], 2), CROSS]}
+cross_plan = m.build_plan([CROSS_ROW], flows=LEDGER, app_id='app-1')
+cross_row = (cross_plan['placements'] or [{}])[0]
+check('a cross-placement entry is skipped and named as such',
+      [i['reason'] for i in cross_row.get('skipped', [])]
+      == ['skipped: A/B test Shared test (cross-placement)'], str(cross_row))
+check('SILENT: a cross-placement entry does NOT renumber the regular audiences -- the '
+      'backend counts its priorities apart, so 0 and 2 stay 0 and 2',
+      [a['priority'] for a in argv_audiences(cross_row)] == [0, 2],
+      str(argv_audiences(cross_row)))
+check('SILENT: a cross-placement entry on its own default does not skip the placement',
+      cross_plan['skipped_placements'] == [], str(cross_plan['skipped_placements']))
+
+only_default_test = {'id': 'pl-o', 'developer_id': 'only', 'audiences': [
+    test_entry('ab_test', 't-4', 'Only', [], 0)]}
+check('a placement that is ONLY a test is skipped whole, and appears in the report '
+      'instead of vanishing',
+      [r['source_developer_id'] for r in m.build_plan([only_default_test])
+       ['skipped_placements']] == ['only'])
+check('an untitled test is named by its id',
+      m.skip_label(m.normalize_audience(test_entry('ab_test', 't-77', None, [], 0)))
+      == 'skipped: A/B test t-77')
+
+check('to_flow_audience REFUSES a test entry -- a test id on a new placement would '
+      'start that test there',
+      raises(ValueError, m.to_flow_audience, SEG_TEST, 'f-1'))
+check('build_create_command REFUSES a test entry too, for a caller that skips the plan',
+      raises(ValueError, m.build_create_command, 'app-1', 'T', 'd',
+             [{'content_type': 'flow_ab_test', 'ab_test_id': 't', 'segment_ids': []}]))
+check('_audience_problem accepts a test entry with no title or flow id: nothing here '
+      'subscripts them',
+      m._audience_problem(test_entry('ab_test', 't', None, [], 0)) is None)
+check('_audience_problem still rejects a test entry whose segment_ids is a string: '
+      'an empty list is what marks the default audience',
+      m._audience_problem({'content_type': 'ab_test', 'ab_test_id': 't',
+                           'segment_ids': 'ab'}) is not None)
+check('renumbering refuses a priority that is not a whole number, by name',
+      raises(ValueError, m.build_plan,
+             [{'id': 'p', 'developer_id': 'd', 'audiences': [
+                 SEG_TEST, paywall_entry('pw-1', [], 'high')]}]))
+
+# SILENT: an account with no test reads exactly as before.
+plain = m.build_plan(PLACEMENTS)
+check('SILENT: with no test entry the summary has no `ab_tests` block and the plan '
+      'skips nothing',
+      'ab_tests' not in plain['summary'] and plain['skipped_placements'] == []
+      and all('skipped' not in r for r in plain['placements']), str(plain['summary']))
+check('SILENT: priorities are carried verbatim when no test of the placement was skipped',
+      [a['priority'] for a in argv_audiences(
+          m.build_plan([{'id': 'p', 'developer_id': 'd', 'audiences': [
+              paywall_entry('pw-1', ['s1'], 0), paywall_entry('pw-2', [], 5)]}],
+              flows={'pw-1': 'f-1', 'pw-2': 'f-2'}, app_id='a')['placements'][0])]
+      == [0, 5])
 
 print()
 print(f'{len(failures)} failure(s)' if failures else 'all checks passed')

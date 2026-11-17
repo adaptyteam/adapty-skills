@@ -50,6 +50,7 @@ Grep these dependency manifests (whichever exist): `package.json`, `pubspec.yaml
 | `cordova-plugin-purchase` | `store-plugin` | Capacitor / Cordova |
 | `com.unity.purchasing` in `Packages/manifest.json` | `store-plugin` | Unity IAP |
 | `com.android.billingclient` | `native-store` | Google Play Billing |
+| `SwiftyStoreKit` or `TPInAppReceipt` in a `Podfile`, `Package.swift` or `.pbxproj` | `native-store` | iOS wrapper libraries over StoreKit; remove them with the rest of the source |
 | `StoreKit.framework` in a `.pbxproj`, or `import StoreKit` in source | `native-store` | |
 
 Two rules about reading that table:
@@ -69,7 +70,7 @@ Vocabulary differs per source: what Adapty calls an **access level** the source 
 
 - **Access levels** — one per *active* entitlement in the source, ID = the source's own entitlement identifier, so existing code that gates on that string keeps working. Skip archived or unused entitlements. Sources with no entitlement concept at all (store plugins, hand-rolled native code — they gate on a product ID or a stored boolean) → use the default `premium` access level and record that choice, and the line of code it replaced, in `ADAPTY_SETUP.md`.
 
-- **Products — store product IDs are IMMUTABLE once an Adapty product exists.** They can never be edited; the only fix is deleting the product and recreating it, which loses its paywall attachments. So **never create a product with a guessed, normalized, or placeholder store ID.** Use the exact identifier as written in the code or config, byte for byte. No real ID available → create no product; put the ready-to-run `products create` command in `ADAPTY_SETUP.md` with a `<REAL_PRODUCT_ID>` slot instead. A product's access level = the entitlement it unlocked in the source; attached to several → assign the one the code actually gates on and flag the choice; attached to none → the default access level, flagged.
+- **Products — a store product ID cannot be fixed from the CLI once the Adapty product exists.** `products update` changes only the title, the access level and a first USD price, and there is no `products delete`; the dashboard can edit a store ID, but Adapty's docs advise against it. So **never create a product with a guessed, normalized, or placeholder store ID.** Use the exact identifier as written in the code or config, byte for byte. No real ID available → create no product; put the ready-to-run `products create` command in `ADAPTY_SETUP.md` with a `<REAL_PRODUCT_ID>` slot instead. A product's access level = the entitlement it unlocked in the source; attached to several → assign the one the code actually gates on and flag the choice; attached to none → the default access level, flagged.
 
 - **One store identifier present in both stores → ONE Adapty product carrying both store IDs**, never two products. Equally, do not assume a product exists in every store the app ships to — create it with only the store IDs it demonstrably has.
 
@@ -83,7 +84,16 @@ Vocabulary differs per source: what Adapty calls an **access level** the source 
   - **`paywallApproach` is `flow_builder`: create NOTHING for it yet — its ID becomes a *flow* placement.** Paywall placements and flow placements share one ID namespace in Adapty and a placement's type is fixed at creation, so a paywall placement created now permanently blocks the flow placement with that ID. List each reserved ID, with its product list, under a **"Rebuild as flows"** heading in `ADAPTY_SETUP.md`; `references/migration-flow-rebuild.md` rebuilds each paywall as a flow from screenshots the user sends and creates the flow placement on that ID once the flow is published.
   - **Any other approach that uses placements (`custom`): nothing is reserved.** No flow will claim the ID, so map the offering like any other — a paywall placement on the offering's identifier, per the placements rule above. The source's design does not transfer: the user's own screen replaces it, so say so in `ADAPTY_SETUP.md`.
 
-- **Offering/campaign metadata maps to paywall remote config**, which the CLI cannot set. Put the metadata JSON in `ADAPTY_SETUP.md` next to the paywall it belongs to.
+- **Offering/campaign metadata maps to paywall remote config.** The CLI sets it with the paywall's `remote_configs`, a list of `{"locale", "data"}` items where `data` is the metadata as a JSON string (a non-empty list needs an `en` item; a write replaces the whole list). Read the paywall, edit `remote_configs` in the file, send the file back:
+
+  ```bash
+  P="${TMPDIR:-/tmp}/paywall.json"      # a temp path, not the user's project
+  $ADAPTY paywalls get <PAYWALL_ID> --app <APP_ID> --json > "$P"
+  jq --arg d '<metadata JSON>' '.remote_configs = [{"locale":"en","data":$d}]' "$P" > "$P.new" && mv "$P.new" "$P"
+  $ADAPTY paywalls update <PAYWALL_ID> --app <APP_ID> --file "$P"
+  ```
+
+  Metadata you only know from the source's dashboard is not yours to write: put its JSON in `ADAPTY_SETUP.md` next to the paywall it belongs to, with these commands ready to run.
 
 - **Never create or imitate:**
   - **Webhooks** — Adapty's payload format differs from the source's; the user's backend needs work. Checklist item, not a thing you recreate.
@@ -140,6 +150,7 @@ Then:
 
 1. **Verify against your `<source>` dashboard** — open the Migration section with this when you worked without access to the source's account, which is the default. The code was your only source and the account almost certainly holds entities you could not see. Concrete checkboxes:
    - Products you did NOT create because their store IDs were not in the code — include the ready-to-run `products create` commands with `<REAL_PRODUCT_ID>` slots.
+   - Store offers whose offer IDs were not in the code (promotional, win-back, and every Google Play offer, trials included) — include the ready-to-run `product-offers create` commands with `<STORE_OFFER_ID>` slots.
    - Entitlements beyond the ones referenced in code.
    - Offerings and paywalls that exist only in the dashboard. Each needs a decision: recreate as placement + paywall, or rebuild as a flow if it used a visual paywall builder.
    - Offering metadata that should become paywall remote config.

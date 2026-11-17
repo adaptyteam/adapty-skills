@@ -22,8 +22,10 @@ The set is closed and that was checked, not assumed: it comes from the public
 and the corpus's 15 distinct variableIds use only `prod_price`, `prod_price_per_month` and
 `prod_price_per_year` -- nothing product-shaped the set lacks.
 
-    FIRES   -- a field outside the set, in either family; a bad head on an `offer_*` variable
-    SILENT  -- every documented field, the non-product variable shapes, and all 12 real configs
+    FIRES   -- a field outside the set, in either family; a bad head on an `offer_*` variable;
+               a store offer code as `offerId`; a card offer its declaration lacks
+    SILENT  -- every documented field, the non-product variable shapes, a declared Adapty
+               offer id, and all 12 real configs
 
 Usage: python3 tests/test-product-fields.py     # 0 all pass, 1 a case regressed
 """
@@ -38,11 +40,17 @@ SEED = os.path.join(CORPUS, 'onboarding-quiz-paywall.json')
 FIELD = 'is not a product variable field'
 HEAD = 'price variable references a product bound nowhere'
 GROUP = 'group-relative price variable on unknown product group'
+# The offer checks share the harness: an offerId that is a store code, not the Adapty offer id
+# (validate passes it), and a card bound with an offer its declaration does not carry.
+OFFER = 'is not an Adapty offer id'
+PAIR = 'declares that product only with'
 
 DOCUMENTED = ['prod_title', 'prod_price', 'prod_price_per_day', 'prod_price_per_week',
               'prod_price_per_month', 'prod_price_per_year', 'offer_price',
               'offer_billing_period', 'offer_full_duration', 'is_free_trial',
-              'is_pay_up_front', 'is_pay_as_you_go']
+              'is_pay_up_front', 'is_pay_as_you_go', 'prod_billing_price',
+              'prod_billing_period', 'is_monthly_plan', 'offer_price_per_day',
+              'offer_price_per_week', 'offer_price_per_month', 'offer_price_per_year']
 
 fails = []
 
@@ -55,7 +63,7 @@ def run(doc):
     if 'Traceback' in r.stderr:
         raise AssertionError(f'verify-config.py crashed:\n{r.stderr}')
     return [l.strip() for l in r.stdout.splitlines()
-            if FIELD in l or HEAD in l or GROUP in l]
+            if FIELD in l or HEAD in l or GROUP in l or OFFER in l or PAIR in l]
 
 
 def fires(name, doc, fragment):
@@ -113,10 +121,93 @@ print('\nSILENT on every documented field (the set must not be under-inclusive):
 for f in DOCUMENTED:
     silent(f'{REAL_UUID[:8]}….{f}', swapped(f'{REAL_UUID}.{f}'))
 
+print('\nSILENT on a monthly binding, named `<id>@monthly` as the builder writes it:')
+for f in ('prod_billing_price', 'prod_billing_period', 'prod_price'):
+    silent(f'{REAL_UUID[:8]}…@monthly.{f}', swapped(f'{REAL_UUID}@monthly.{f}'))
+fires('a bogus product uuid behind @monthly',
+      swapped('00000000-dead-beef-0000-000000000000@monthly.prod_billing_price'), HEAD)
+
 print('\nSILENT on the other variable shapes — these are not product variables:')
 for other in ('email.value', 'first_name.value', 'plans.selectedProduct',
               'quiz.selectedOptionId', 'products.selectedProduct'):
     silent(other, swapped(other))
+
+def with_offer(offer_id, declare=True):
+    """The seed's first product card bound with `offer_id`; declared as that exact pair (card,
+    screen registry and `_meta`) unless `declare` is False, which is what a hand patch of the
+    card alone leaves behind."""
+    d = copy.deepcopy(SEED_DOC)
+    for s in d['screens']:
+        cards = [e for e in s['elements']['map'].values() if e.get('type') == 'product']
+        if not cards:
+            continue
+        prod = cards[0]['props']['product']
+        prod['offerId'] = offer_id
+        if declare:
+            pair = {'id': prod['id'], 'offerId': offer_id}
+            s.setdefault('products', []).append(dict(pair))
+            d['_meta']['screens'][s['id']]['products'].append(
+                {**pair, 'flowProductId': '00000000-0000-5000-8000-000000000000'})
+        return d
+
+
+ADAPTY_OFFER = '0d7e4b19-8c2a-4e6f-a5b3-71c9d0e2f4a6'
+print('\nOffers: the Adapty offer id, declared as the exact pair:')
+fires('a store offer code bound as offerId', with_offer('free-trial-7d'), OFFER)
+fires('a card given an offer its declaration lacks', with_offer(ADAPTY_OFFER, declare=False), PAIR)
+silent('an Adapty offer id, declared with the card', with_offer(ADAPTY_OFFER))
+
+
+def bound_twice(second_offer, second_fpid='00000000-0000-5000-8000-000000000001'):
+    """The seed's paywall with its second card re-bound to the first card's product, declared as
+    two entries: the first card with ADAPTY_OFFER, the second with `second_offer`. The transform
+    service keys a declaration on (id, offerId, billingPlanId) and on flowProductId, so the same
+    product with two different offers is two entries; only a repeated tuple or flowProductId is
+    `duplicate_flow_product_meta`."""
+    d = copy.deepcopy(SEED_DOC)
+    for s in d['screens']:
+        cards = [e for e in s['elements']['map'].values() if e.get('type') == 'product']
+        if len(cards) < 2:
+            continue
+        pid = cards[0]['props']['product']['id']
+        old = cards[1]['props']['product']['id']
+        raw = json.dumps(s).replace(old, pid)
+        s.clear(); s.update(json.loads(raw))
+        cards = [e for e in s['elements']['map'].values() if e.get('type') == 'product']
+        offers = [ADAPTY_OFFER, second_offer]
+        for c, o in zip(cards[:2], offers):
+            c['props']['product'].pop('offerId', None)
+            if o:
+                c['props']['product']['offerId'] = o
+        entries = [{'id': pid, **({'offerId': o} if o else {})} for o in offers]
+        s['products'] = [dict(x) for x in entries]
+        fpids = ['00000000-0000-5000-8000-000000000000', second_fpid]
+        d['_meta']['screens'][s['id']]['products'] = [
+            {**x, 'flowProductId': f} for x, f in zip(entries, fpids)]
+        return d
+
+
+TWICE = 'products declares'
+OTHER_OFFER = '1e8f5c2a-9d3b-4f7a-b6c4-82d0e1f3a5b7'
+print('\nOne product bound twice on a screen: two entries unless the whole binding repeats:')
+def twice_hits(doc):
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, 'c.json')
+        json.dump(doc, open(path, 'w'))
+        out = subprocess.run([sys.executable, VERIFY, path], capture_output=True, text=True).stdout
+    return [l.strip() for l in out.splitlines() if TWICE in l]
+for name, doc, want in (
+        ('the same product with two different offers', bound_twice(OTHER_OFFER), False),
+        ('the same product with an offer and without one', bound_twice(None), False),
+        ('the same product with the same offer twice', bound_twice(ADAPTY_OFFER), True),
+        ('two bindings sharing one flowProductId',
+         bound_twice(OTHER_OFFER, '00000000-0000-5000-8000-000000000000'), True)):
+    hits = twice_hits(doc)
+    if bool(hits) != want:
+        fails.append(f'{name}: expected {"a" if want else "no"} duplicate finding, got {hits!r}')
+        print(f'  FAIL  {name}')
+    else:
+        print(f'  ok    {name}')
 
 _paths = sorted(glob.glob(os.path.join(CORPUS, '*.json'))) + \
          sorted(glob.glob(os.path.join(RAW, '*.json')))

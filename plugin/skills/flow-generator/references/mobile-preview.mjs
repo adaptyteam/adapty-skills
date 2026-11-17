@@ -45,6 +45,7 @@
 import {spawnSync} from 'node:child_process'
 import {readFileSync} from 'node:fs'
 import {createRequire} from 'node:module'
+import {homedir} from 'node:os'
 import {delimiter, dirname, isAbsolute, join, relative, resolve} from 'node:path'
 import {parseArgs} from 'node:util'
 
@@ -69,10 +70,11 @@ function fail(message) {
   process.exit(2)
 }
 
-/** qrcode is a run-time dependency of the caller: this script, npx, or the current project. */
+/** qrcode is a run-time dependency of the caller: its cache dir, npx, or the current project. */
 function loadQrcode() {
   const roots = [
     process.cwd(),
+    join(homedir(), '.cache', 'adapty-flow-qr'),
     ...(process.env.PATH ?? '')
       .split(delimiter)
       .filter((dir) => dir.endsWith(join('node_modules', '.bin')))
@@ -89,7 +91,7 @@ function loadQrcode() {
 
   console.error(
     'Could not resolve qrcode. Install it ONCE (`npm i --prefix ~/.cache/adapty-flow-qr qrcode`) '
-    + 'and run from that directory. Drop --qr to skip the image and just print the link.',
+    + '(any cwd works after that). Drop --qr to skip the image and just print the link.',
   )
   process.exit(1)
 }
@@ -116,6 +118,25 @@ function readLocales(config) {
     .map((entry) => ({code: entry.code, id: typeof entry.id === 'string' ? entry.id : entry.code}))
 }
 
+/**
+ * The builder stores `es-mx` and `zh-hans`; the publish writes the config the app reads with
+ * `es-MX` and `zh-Hans`, and the app matches the link's locales against those exactly, so a code
+ * in the builder's casing opens the flow on its default locale. This is the transformer's
+ * `tryCanonicalizeLocaleCode`: language lower case, a 4-letter script title case, a region upper
+ * case, `_` read as `-`. Not `Intl.getCanonicalLocales`, which rewrites `sh` and `tl`. A code
+ * outside the shape passes through; the publish refuses that flow anyway.
+ */
+const LOCALE_CODE_RE = /^[a-z]{2,4}(?:[-_][a-z]{4})?(?:[-_](?:[a-z]{2,3}|[0-9]{3}))?$/i
+
+function sdkLocaleCode(code) {
+  if (!LOCALE_CODE_RE.test(code)) return code
+  const [language, ...subtags] = code.replaceAll('_', '-').split('-')
+  return [
+    language.toLowerCase(),
+    ...subtags.map((s) => (s.length === 4 ? s[0].toUpperCase() + s.slice(1).toLowerCase() : s.toUpperCase())),
+  ].join('-')
+}
+
 function resolveLocales(locales, defaultLocaleId, requested) {
   if (locales.length === 0) {
     console.error(
@@ -128,12 +149,13 @@ function resolveLocales(locales, defaultLocaleId, requested) {
   let current
   if (requested) {
     current = locales.find((locale) => locale.id === requested || locale.code === requested)
+      ?? locales.find((locale) => sdkLocaleCode(locale.code) === sdkLocaleCode(requested))
     if (!current) fail(`Flow has no locale "${requested}". Available: ${locales.map((l) => l.code).join(', ')}.`)
   } else {
     current = locales.find((locale) => locale.id === defaultLocaleId) ?? locales[0]
   }
 
-  return {codes: locales.map((locale) => locale.code), current: current.code}
+  return {codes: locales.map((locale) => sdkLocaleCode(locale.code)), current: sdkLocaleCode(current.code)}
 }
 
 /**
@@ -211,6 +233,9 @@ if (values.locales) {
   locales = readLocales(flow)
   const dflt = localizationOf(flow).defaultLocale
   defaultLocaleId = typeof dflt === 'string' ? dflt : null
+  // A single-language flow can carry `locales: []` with only `defaultLocale` set; that one
+  // value is then the whole list, and here the id and the code are the same string.
+  if (locales.length === 0 && defaultLocaleId) locales = [{code: defaultLocaleId, id: defaultLocaleId}]
   configDir = dirname(resolve(values.config))
 }
 
@@ -273,9 +298,9 @@ if (values.qr || values.out) {
 
   // Then OPEN it, rather than printing something for the reader to act on.
   //
-  // A file:// URL was the first attempt and is not clickable in a terminal (reported from a real
-  // one) — a path with seven useless characters in front of it. Printing `open <path>` instead was
-  // the second, and it still makes the reader copy-paste before they can scan anything. So do the
+  // A file:// URL is not clickable in a terminal — it is a path with seven useless characters in
+  // front of it. Printing `open <path>` instead still makes the reader copy-paste before they can
+  // scan anything. So do the
   // step for them: `flows config preview` already opens a browser on a TTY rather than handing over
   // a URL, and this is the same move.
   //

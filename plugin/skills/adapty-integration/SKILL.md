@@ -28,7 +28,7 @@ Every message, not only the fixed blocks in `## What you print`:
   elsewhere: a placement ID, a product ID, a menu path, a URL. Never state variables, field
   names, internal IDs, or skill or tool names.
 - **Bold at most one thing per paragraph.**
-- **Full, clickable links to the exact page.**
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Could not check it? Say how they can** — where to click and what they should see. Do
   not know something? Look it up before saying so — the CLI, the code, the `adapty-docs`
   skill.
@@ -81,6 +81,8 @@ line. Changed files go in one line at the end, never as a list of links:
 > Reply "works", or paste what the console shows.
 >
 > Changed: `AppDelegate.swift`, `SubscriptionService.swift` (new).
+>
+> `<only in the message where the app first builds with the last stage in place, once the [feedback note](#feedback-note) printed Feedback sent.:>` I also sent Adapty a short note on how this went.
 
 When you cannot build it yourself, that is the check you ask for — one line, not a
 paragraph about what the project lacks.
@@ -197,13 +199,79 @@ Use `AskUserQuestion` for all three together in one call:
 
 **State update:** Set `paywallApproach` to `flow_builder` (the value on every platform for the builder-rendered choice; `paywall_builder` survives only as the state value a run that predates Flow Builder support may still carry), `custom`, `observer`, or `none`. Set `integrations` to the array of selected integration keys (e.g. `["amplitude", "appsflyer"]`), or `[]` if none. Set `appPreference` to `existing` or `new`.
 
+**Nobody to answer (an unattended run):** take these defaults and list each one in `ADAPTY_SETUP.md` as a decision made without the user. Paywall approach: **custom** on a migration, because it keeps the app's working paywall screen and changes only the purchase code under it; **Flow Builder** on a new integration. Integrations: none. Adapty app: the one the request names, otherwise a new one.
+
 Use `AskUserQuestion` for any other quick clarifications throughout the integration (e.g., "Did the build succeed?", "What's your App Store product ID?"). Never ask for values that can be retrieved via CLI.
+
+## CLI or MCP
+
+This skill reaches Adapty through the Adapty CLI or the Adapty MCP server. Its commands are written
+for the CLI, and over MCP each one is a tool call. Before the first call, check both, pick one way,
+and keep it for the run:
+
+- **The CLI is ready** when `adapty auth whoami` shows an account. Install nothing for this check.
+- **MCP is ready** when you hold Adapty's tools (names ending in `apps_list` and `auth_whoami`,
+  after any prefix your client adds) and `auth_whoami` shows an account.
+
+| CLI ready | MCP ready | Use |
+|---|---|---|
+| yes | no | the CLI |
+| no | yes | MCP |
+| yes | yes | the way this skill prefers (the line after this section's example) |
+| no | no | ask which one to set up (below) |
+
+**Over MCP, run each command as its tool.** `$ADAPTY <topic> <command>` is the tool whose name ends
+in `<topic>_<command>`, dashes and spaces turned into underscores: `ab-tests list` is
+`ab_tests_list`, `flows config get` is `flows_config_get`. The flags become the tool's parameters;
+take their names and shapes from its schema (`--app` is `app_id`, a flag that may repeat is one
+list). The tools return JSON, so drop `--json`. `--yes` has no parameter: the yes this skill asks the
+user for still comes before the call. Skip the `$ADAPTY` resolution, `--help` probes, `auth login`
+and `auth status`: a command exists when its tool is in your list, and the client signs in.
+
+**`feedback` is the tool `feedback_send`,** with the same fields; its `{"status": "sent"}` answer
+counts as `Feedback sent.`
+
+**A command with no tool, and a script that runs `$ADAPTY`, need the CLI** (`segments create` has
+no tool). Run that step with the CLI when it is ready. Otherwise say it needs the CLI and offer to
+set it up.
+
+**When a call fails one way,** a read may run once the other way if that way is ready. After a
+write fails or times out, read the state again the way that wrote; never repeat the write the
+other way.
+
+**Neither ready:** ask which one to set up, the one this skill prefers first, then give only that
+one's steps. Use your question tool if you have one; otherwise ask in one message with numbered
+options.
+
+- **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
+  the user's sign-in. The Claude app also needs Adapty's domains allowed first:
+  https://adapty.io/docs/developer-cli-cowork
+- **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
+  `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
+  sign-in is left.
+  - Claude Code: `/mcp`, pick `plugin:adapty-skills:adapty`, **Authenticate**. Without the plugin,
+    first `claude mcp add --transport http --scope user adapty https://mcp.adapty.io/mcp`.
+  - Codex CLI: the plugin's connect prompt signs in. Without the plugin:
+    `codex mcp add adapty --url https://mcp.adapty.io/mcp`, then `codex mcp login adapty`.
+  - The Claude app: connect it on the plugin's **Connectors** tab. Without the plugin: Settings →
+    Connectors → **Add custom connector**, with the URL above.
+  - Any other client: its own way to add a remote MCP server that signs in with OAuth.
+
+  If the tools do not appear in this session, the user starts a new one: say so and stop.
+
+Example of the question's shape, not words to copy:
+
+> I can reach your Adapty account in two ways. Which one should I set up?
+> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
+
+**This skill prefers MCP** when both are ready.
 
 ## Phase 3: Dashboard setup
 
-Adapty requires dashboard configuration before any SDK code works. Use the Adapty CLI to retrieve or create all entities — run each command yourself using the Bash tool, in order.
+Adapty requires dashboard configuration before any SDK code works. Retrieve or create all entities the way "CLI or MCP" picked — run each command yourself, in order.
 
-Always use the CLI to retrieve values — never ask the user for SDK key, placement IDs, or access level IDs. Ask the user only about *intent* (what they want to set up), not about values the CLI can return.
+Always read values from Adapty — never ask the user for SDK key, placement IDs, or access level IDs. Ask the user only about *intent* (what they want to set up), not about values Adapty can return.
 
 **If you cannot authenticate at all, this whole phase defers — it does not block the run.** "Cannot authenticate" is a different situation from "the user declined the CLI" (the manual fallback below): a headless run with no browser, an account the user does not have to hand, or a login that simply fails. In that case create nothing, do not invent identifiers, and continue to the implementation phase with every dashboard value as a named placeholder in the code. Each skipped step then becomes a ready-to-run command in `ADAPTY_SETUP.md` — Step 4 and Step 5 already specify how to defer products and paywalls, and `references/migration.md` section 5 owns the contract on a migration run. Say plainly in your closing summary that no dashboard entity was created, because an unauthenticated run otherwise looks identical to a successful one right up to the first SDK call.
 
@@ -215,9 +283,14 @@ Resolve `$ADAPTY` once; every CLI call in this skill goes through it.
 npm i -g adapty@latest >/dev/null 2>&1 \
   && ADAPTY="adapty" \
   || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
-$ADAPTY auth login
-$ADAPTY auth whoami   # verify login succeeded
+$ADAPTY auth whoami   # succeeds: already logged in, skip the login
 ```
+
+**If `whoami` fails, log in in the background.** From your shell `auth login` opens no browser: it
+prints a code and a link, then waits in the foreground for the user to approve, holding your shell,
+and some agents kill it at their command timeout. Run `$(command -v setsid) nohup $ADAPTY auth login > "$L" 2>&1 < /dev/null &`
+with `L` a log file, read the code and the link off it, and send both to the user at once: the
+code expires within minutes. Then run `auth whoami` every few seconds until it succeeds.
 
 **Install once; do not wrap every call in `npx`.** The wrapper costs ~1 s per call against
 0.07 s installed, and this phase makes a dozen. On the fallback `--yes` is not optional:
@@ -271,15 +344,11 @@ Every product must be linked to an access level.
 $ADAPTY access-levels create --app <APP_ID> --sdk-id <ACCESS_LEVEL_ID> --title "<TITLE>"
 ```
 
-**If `appPreference` is `new`:** The default `premium` access level is created automatically with every new app. Skip the list command — use `premium` as the access level ID directly.
-
-**If `appPreference` is `existing`:** List the existing access levels to get the correct ID:
+An access level has two identifiers, and they go to different places: its **SDK ID** (`premium` by default) is the string the app's code checks, and its **UUID** is what `products create --access-level-id` takes. A new app already has `premium`. On a new or existing app alike, list the access levels and note both values of the one you will use:
 
 ```bash
 $ADAPTY access-levels list --app <APP_ID>
 ```
-
-Note the **ID** from the output.
 
 ### Step 3.5: Check existing dashboard config (existing apps only)
 
@@ -292,10 +361,11 @@ Note the **ID** from the output.
 > - **Yes, I want to use what's already there** — I'll retrieve your existing IDs and skip creation
 > - **Yes, but I want to create new ones** — I'll show what exists, then create new items alongside them
 
-Then run list commands to see what's already configured regardless of the answer — the output determines what to create. **Before telling the user something is missing, look at one item's raw output** and check you are reading the field the CLI actually uses: a product's stores sit under `vendor_products` as `app_store` and `play_store`, so a filter on any other name finds nothing on every product. "None of your products has a Google Play ID" is a claim about every product — read them all, every page while `meta.pagination` says there are more.
+Then run list commands to see what's already configured regardless of the answer — the output determines what to create. **Before telling the user something is missing, look at one item's raw output** and check you are reading the field the CLI actually uses: a product's stores sit under `vendor_products` as `app_store` and `play_store`, so a filter on any other name finds nothing on every product. "None of your products has a Google Play ID" is a claim about every product — read them all, every page while `meta.pagination` says there are more. A product's `offers_count` is how many offers are added to it in Adapty; `product-offers list` names them, all on one page, and a reused product keeps them. It never reads the stores: 0 means nothing is added in Adapty yet, not that the store has no offers, so Step 4 still asks.
 
 ```bash
 $ADAPTY products list --app <APP_ID>
+$ADAPTY product-offers list --app <APP_ID> --product <PRODUCT_UUID>   # each product with offers_count above 0
 $ADAPTY paywalls list --app <APP_ID>
 $ADAPTY placements list --app <APP_ID>
 ```
@@ -324,37 +394,68 @@ Use this to determine the path through Steps 4 and 5:
 
 **CLI scope — what this step does NOT do:**
 
-- **Does not set prices.** The CLI has no `--price` flag. Price is configured either in the store console (App Store Connect / Google Play) or via the Adapty dashboard's "Create a new product and push to stores" flow (which sets a USD baseline and auto-calculates regional prices). If the user specifies a price, tell them the CLI path can't set it, and ask whether they want to set it in the store console later, or switch to the dashboard push-to-stores flow instead — which is path C above and needs the store connection in place first.
-- **`--title` is the Adapty dashboard label only** — an internal reference, not shown to end users. Users see either the store product name (from App Store Connect / Google Play) or per-product copy configured in the Paywall Builder. If the user wants a different user-facing name, tell them it goes in the Paywall Builder (or the store listing); the CLI can't set it.
-- **Does not create products in the stores.** The CLI creates Adapty products that *reference* store product IDs. The actual store products must exist (or be created later) in App Store Connect / Google Play Console.
+- **Sets a price only for a push.** On paths A and B the price lives in the store console (App Store Connect / Google Play). On path C, `products create --price-usd` gives the product the USD base price the push sends, and the store derives regional prices from it. If the user names a price on path A or B, tell them it goes in the store console, or offer path C, which needs the store connection in place first.
+- **`--title` is the Adapty dashboard label only** on paths A and B — an internal reference, not shown to end users. On path C the push also makes it the App Store subscription's reference name, which must differ from every other one in its group, part of its App Store description, and the listing title in every app language (Google Play), so pick it as the user wants it there. Users see either the store product name (from App Store Connect / Google Play) or per-product copy configured in the Paywall Builder. If the user wants a different user-facing name, tell them it goes in the Paywall Builder (or the store listing); the CLI can't set it.
+- **Creates store products only on path C.** On paths A and B the CLI creates Adapty products that *reference* store product IDs, and the store products must exist (or be created later) in App Store Connect / Google Play Console. On path C, `products push` writes them into the store.
 
 **Deferring is the last resort.** With paths B and C both available, "they do not exist" is usually a reason to make them rather than to stop — so offer both before proposing a defer, and say which of the two reasons applies: the user would rather wait, or Android is genuinely blocked.
 
 **Google Play prerequisite (Android targets) — the one real block.**
 
-Google Play blocks creating in-app products and subscriptions until at least one AAB with the `com.android.vending.BILLING` permission has been uploaded to any track (internal testing is enough). Expect that to bite the dashboard push as well, since the restriction belongs to Play rather than to one UI.
+Google Play blocks creating in-app products and subscriptions until at least one AAB with the `com.android.vending.BILLING` permission has been uploaded to any track (internal testing is enough). Expect that to bite `products push` as well, since the restriction belongs to Play rather than to one tool.
 
 **So the two stores are asymmetric here, and it is worth saying out loud.** On iOS, "no products yet" is never a blocker — path B or C can run immediately, and a defer is the user choosing to wait. On an Android-first or Android-only app it *is* a blocker, and circular on this run: products need an uploaded build, the build comes out of Phase 4, and Phase 4 has not happened yet. That is the case the deferred `ADAPTY_SETUP.md` commands exist for. Do not describe an iOS defer as though it were forced.
 
-**A store product ID is not fixable from here, so never guess one — and treat it as required even though the CLI does not.** `products update` accepts `--title` and `--access-level-id` and nothing else, and there is no `products delete`, so a product created with a wrong or missing store ID **cannot be corrected or removed by the CLI at all**. `--ios-product-id` and `--android-product-id` are **optional flags**, so a store-less product is accepted and then stranded — the CLI will not stop you, which is why the rule has to. The dashboard *can* edit connected store IDs, but Adapty's docs advise against it (it muddies analytics), so treat that as a repair, never as a plan. Before every `products create`, check the argv: if it carries neither `--ios-product-id` nor `--android-product-id`, **do not run it**. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/store-setup-android.md`, Part 1) → run the deferred commands.
+**A store product ID is not fixable from here, so never guess one — and treat it as required even though the CLI does not.** `products update` accepts `--title`, `--access-level-id` and a first `--price-usd`, nothing else, and there is no `products delete`, so a product created with a wrong store ID **cannot be corrected or removed by the CLI at all**. `--ios-product-id` and `--android-product-id` are **optional flags**, so a store-less product is accepted; the only thing that completes it is a `products push` (path C). The dashboard *can* edit connected store IDs, but Adapty's docs advise against it (it muddies analytics), so treat that as a repair, never as a plan. Before every `products create`, check the argv: if it carries neither `--ios-product-id` nor `--android-product-id`, **run it only on path C, after the store connection check there passes, with its push next**. When real IDs don't exist yet, create no products — write the exact ready-to-run `products create` commands (with `<REAL_PRODUCT_ID>` slots) into ADAPTY_SETUP.md instead, and for Android explain the ordering: build → upload a signed AAB to internal testing → create the real products in Google Play Console (see `references/store-setup-android.md`, Part 1) → run the deferred commands.
 
 **First establish where the products will come from, because one of the three answers reorders the run.** Ask before collecting any IDs:
 
 > "Do the products you sell already exist in App Store Connect / Google Play?"
 > - **Yes, they exist** — I'll link them by ID
 > - **No — I'll create them in the store console** — you make them there, then we link them
-> - **No — create them from the Adapty dashboard and push them to the stores** — Adapty writes them into the store for you
+> - **No — create them in the stores for me** — I push them from Adapty into the store
 
 **A and B keep this order.** Collect IDs (A) or send the user to the console first (B), then `products create`. Store connection stays where it is, in the pre-testing checklist.
 
-**C inverts it, and that is the whole reason to ask.** "Create a new product and push to stores" writes into App Store Connect / Google Play on the user's behalf, so **the store connection has to exist before the product does** — the opposite of the order every other path uses. Say this up front rather than letting them discover it at a refusing dashboard button:
+**C inverts it, and that is the whole reason to ask.** `products push` writes into App Store Connect / Google Play on the user's behalf, so **the store connection has to exist before the product does** — the opposite of the order every other path uses. Say this up front rather than letting them discover it at a refused push:
 
 - **App Store needs the App Store Connect API key**, which is **a different key pair from the In-App Purchase key** — both label their fields "Issuer ID" and "Key ID", and having one does not give you the other. See `references/store-setup-ios.md`, Part 2d.
 - **Google Play needs no second key** — the push runs on the same service account as everything else, enabled by the **Manage store presence** permission from the four granted in Part 2a. A subset grant reads and validates fine and fails only here. The **AAB gate** applies too: no Android products until a signed build is uploaded, whoever creates them. See `references/store-setup-android.md`, Part 2c.
 - **The first product for an app must be submitted for review manually** in App Store Connect. It is a one-time gate, the status updates in Adapty automatically when review finishes, and until then that product is not purchasable — so sandbox testing waits on it. Say so before they choose C, not after.
-- The push flow also sets a **USD base price** and derives regional prices, which the CLI cannot do at all.
+- A push needs a **USD base price**; the store derives regional prices from it. It is set once and cannot change from the CLI after, so the user confirms it.
+- **Every App Store push carries a review screenshot** of the paywall (see "The review screenshot" below). A subscription also goes into a **subscription group**.
 
-On C, route the user to store connection now (`references/store-setup-ios.md` Parts 2a-2d, `references/store-setup-android.md` Part 2), then have them create the products in the dashboard, then come back here and take the "Yes, they exist" path to link what they made. Do not create Adapty products from the CLI first — that strands them, per the rule above.
+On C, route the user to store connection now (`references/store-setup-ios.md` Parts 2a-2d, `references/store-setup-android.md` Part 2). Then check it before creating anything: `$ADAPTY product-groups list --app <APP_ID> --store app_store` (or `play_store`) exits 4 with `missing_store_credentials` while the connection is missing. Only when it lists, per product, collect the same fields as path A (the store product IDs are new ones the user approves, since they are permanent) plus the USD price, and run:
+
+```bash
+# 1. The Adapty product, with no store ID (the push adds it) and the USD base price
+#    the push sends; the price is set once.
+$ADAPTY products create --app <APP_ID> --title "Monthly" --period monthly --access-level-id <ACCESS_LEVEL_UUID> --price-usd 9.99
+# 2a. App Store. Always --screenshot. A subscription takes --group-id (from product-groups list
+#     --page-size 100; or product-groups create --app <APP_ID> --store app_store --name "<NAME>",
+#     then read its id from product-groups list: the create does not print it).
+$ADAPTY products push <PRODUCT_ID> --app <APP_ID> --store app_store --store-product-id "com.example.app.monthly" --group-id <GROUP_ID> --screenshot <FILE> --yes
+# 2b. Google Play. A subscription takes --android-base-plan-id (lowercase letters, digits,
+#     hyphens). A new --store-product-id creates the Play subscription; an existing one
+#     (product-groups list --store play_store --page-size 100) gets the new base plan added.
+$ADAPTY products push <PRODUCT_ID> --app <APP_ID> --store play_store --store-product-id "com.example.app.monthly" --android-base-plan-id "monthly-base" --yes
+```
+
+The user's yes to the IDs and the price is the confirmation, so each push carries `--yes`: without it the CLI stops with exit 6 and pushes nothing.
+
+**The review screenshot.** The server takes a JPEG or PNG at one of Apple's exact screen sizes (current iPhones: 1320×2868, 1290×2796, 1260×2736, 1206×2622, 1179×2556, 1170×2532) with no alpha channel. A PNG from a simulator or a browser carries an alpha channel even when fully opaque and is refused, so always pass a JPEG. Get it in this order, and say which one you used:
+
+1. **The iOS Simulator,** when one is already running the app with the paywall on screen: `xcrun simctl io booted screenshot --type=jpeg review.jpg`. Its native size is an App Store size; check it with `sips -g pixelWidth -g pixelHeight review.jpg`. Do not boot a simulator only for this: it needs several GB of memory.
+2. **`flow-generator`,** when the paywall is a flow that exists: ask it for an App Store review screenshot of the screen with the purchase button. It writes a 1170×2532 JPEG.
+3. **The user:** ask for a screenshot of the paywall from an iPhone or the simulator. Convert a PNG with `sips -s format jpeg <file> --out review.jpg` and check its size as in 1.
+
+At Step 4 there is often no app build and no flow yet. Then push to Google Play now, and come back for the App Store push after Step 5 builds the flow (2), unless the user has a screenshot at hand (3).
+
+A `lifetime` product takes neither `--group-id` nor `--android-base-plan-id`; a push that gets one it should not have, or lacks one it needs, fails with `incompatible_product_type`. A refused push exits 4 with its code in `--json` and leaves the product store-less, so fix the cause and push again: `missing_store_credentials` is the connection; `missing_product_price` means the product has no USD price: set it once with `products update <PRODUCT_ID> --price-usd`; `product_already_exists` means the store already has that ID, or on the App Store that title in the group, so the user picks another ID or title; `duplicate_vendor_product_store` means a product of the app in Adapty already has that ID: another product, so the user picks another ID, or this one after an earlier push went through, so read `products get` instead of pushing again; `review_screenshot_validation_error` is the screenshot's size or transparency; `google_play_api_error` with a 403 on `products create` or `products push` means the Play service account has no access to this app in Play Console (a store permission), not a bad product ID. Any other code: say it as the CLI gives it. A `store_status` of `null` after `products create` means the store connection or the store product is not there yet.
+
+The push answers with the product, including each store's `store_status`; `products get` reads it again. `in_review` is waiting for Apple. **`draft` after an App Store push means a step after Apple created the product failed:** the user finishes it in App Store Connect. `rejected` and `action_required` are also the user's, in App Store Connect. On Google Play, `action_required` means the base plan was created but not activated: the user activates it in Play Console. Sandbox purchases wait for an App Store product to leave `draft`.
+
+After an App Store push, tell the user what it named the product: the display name is the access level's SDK ID (`premium`) and the description "<title> <SDK ID> subscription", in en-US only. The push cannot set them; the user changes them in App Store Connect.
 
 **Collecting store product IDs — a staged conversation, skippable at every step:**
 
@@ -373,17 +474,17 @@ On C, route the user to store connection now (`references/store-setup-ios.md` Pa
 # --period options: weekly, monthly, two_months, trimonthly, semiannual, annual, lifetime
 # --title is the Adapty dashboard label (internal); not visible to end users
 #
-# HARD RULE: every products create you run carries at least one real store product ID.
-# The CLI does NOT enforce this -- --ios-product-id and --android-product-id are optional,
-# so a store-less product is accepted and then cannot be completed (products update is
-# title + access level only) or removed (there is no products delete). If you have no real
-# ID for either store, run nothing and defer.
+# HARD RULE: every products create you run carries at least one real store product ID,
+# except on path C, where products push adds it. The CLI does NOT enforce this --
+# --ios-product-id and --android-product-id are optional, so a store-less product is
+# accepted, can be completed only by a push, and cannot be removed (there is no
+# products delete). Off path C, with no real ID for either store, run nothing and defer.
 # iOS
 $ADAPTY products create \
   --app <APP_ID> \
   --title "Monthly" \
   --period monthly \
-  --access-level-id <ACCESS_LEVEL_ID> \
+  --access-level-id <ACCESS_LEVEL_UUID> \
   --ios-product-id "com.example.app.monthly"
 
 # Android subscription (--android-base-plan-id is required for subscriptions)
@@ -391,12 +492,34 @@ $ADAPTY products create \
   --app <APP_ID> \
   --title "Monthly" \
   --period monthly \
-  --access-level-id <ACCESS_LEVEL_ID> \
+  --access-level-id <ACCESS_LEVEL_UUID> \
   --android-product-id "com.example.app.monthly" \
   --android-base-plan-id "monthly-base"
 ```
 
 Repeat for each product to create.
+
+**Offers on these products.** An offer set up in the store applies only once it is also added to the product in Adapty, and a missing one fails silently: the buyer pays full price and nothing reports it. What gets added ([Add offers to Adapty](https://adapty.io/docs/create-offer.md)):
+
+- App Store promotional and win-back offers.
+- **Every Google Play offer on a base plan, free trials included:** on Google Play a trial is an offer, so an Android trial that is not added never applies.
+- Never an App Store introductory offer (an iOS free trial or intro price). It applies on its own, and the CLI has no type for it.
+
+Once the products exist, ask once, naming only the stores the app targets: "Do any of these products have offers in App Store Connect or Google Play — a Google Play free trial, a promotional or a win-back offer?" A "no" or an empty answer skips this. Per offer, take the product, its store offer ID in each store, and whether it is win-back. Like a store product ID, an offer ID comes from the user, the code or config, never from a guess: `product-offers update` can correct an ID, but there is no `product-offers delete`.
+
+```bash
+# --type: promotional, or win_back (App Store only: never with --android-offer-id).
+# A Google Play trial or discount is promotional, with --android-offer-id.
+# Every offer carries at least one real store offer ID; the CLI refuses one with none.
+$ADAPTY product-offers create \
+  --app <APP_ID> \
+  --product <PRODUCT_UUID> \
+  --title "Free trial" \
+  --type promotional \
+  --android-offer-id "<STORE_OFFER_ID>"
+```
+
+An added offer applies only where a paywall or flow picks it for that product. A flow picks it in `flow-generator` (Step 5 hands the offer over with the product). A paywall picks it in the dashboard, because `paywalls create` takes products only: put that step in `ADAPTY_SETUP.md` beside the paywall. A deferred product defers its offers too: write their `product-offers create` commands into `ADAPTY_SETUP.md` after its `products create`, with `<STORE_OFFER_ID>` slots.
 
 ### Step 5: Create paywall/flow and placement
 
@@ -465,7 +588,7 @@ Then ask once per location, with the options that actually apply — offer the f
 
 > "Describe the flow you want, or give me a visual reference — a screenshot, a design, a paywall whose look you want. Whatever you already know helps: how many screens, what it should say, which plans it offers."
 
-Then invoke the **`flow-generator`** skill with that answer, once per confirmed location. It owns everything from there — authenticating, creating the flow, binding the products from Step 4, previewing it for the user's approval, saving, then offering to publish it and to attach a placement, each behind its own confirmation. Do not author flow JSON yourself and do not answer its questions on the user's behalf. It hands back the flow id — your `<FLOW_ID>` — and, when the user took its placement step, the **developer ID**, which is then already live.
+Then invoke the **`flow-generator`** skill with that answer, once per confirmed location. It owns everything from there — authenticating, creating the flow, binding the products from Step 4 with the offers you added to them, previewing it for the user's approval, saving, then offering to publish it and to attach a placement, each behind its own confirmation. Do not author flow JSON yourself and do not answer its questions on the user's behalf. It hands back the flow id — your `<FLOW_ID>` — and, when the user took its placement step, the **developer ID**, which is then already live.
 
 **Route C — an empty placeholder.** This unblocks the placement and the code, and it publishes a blank screen to a live placement. **Disclose that and get an explicit yes before running anything** — the user picked "not now", which is not the same as agreeing to ship a placeholder:
 
@@ -476,7 +599,7 @@ On a yes, five commands — the stub is a draft until published, and a draft can
 ```bash
 $ADAPTY flows create --app <APP_ID> --name "<Location> placeholder"     # returns <FLOW_ID>; draft
 $ADAPTY flows config validate <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
-$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
+$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json --remote-configs '[]'
 $ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes
 $ADAPTY flows get <FLOW_ID> --app <APP_ID>                             # poll until published
 ```
@@ -517,8 +640,9 @@ Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion`
 **If creating new paywalls/placements** (either `appPreference` is `new`, or `existing` but creating new ones), create one paywall and one placement per confirmed location:
 
 ```bash
-# Create paywall — capture the returned id as <PAYWALL_ID>
-$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall"
+# Create paywall — --products lists the product UUIDs from Step 4, in display order.
+# Capture the returned id as <PAYWALL_ID>
+$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --products '[{"product_id":"<PRODUCT_UUID_1>"},{"product_id":"<PRODUCT_UUID_2>"}]'
 
 # Repeat for each placement location, using the paywall id from above
 $ADAPTY placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"paywall","segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'
@@ -574,6 +698,77 @@ Never skip a checkpoint. A failed checkpoint means something is wrong that will 
 
 **When the last stage's checkpoint passes, the first sandbox purchase is not yours to run — invoke the `purchase-testing` skill.** It preflights the dashboard and the app code through the CLI before anyone opens a browser, so nobody is sent to App Store Connect or Play Console over a placement developer ID that does not match, a placement that is Inactive, or a flow still sitting in `dirty`. Creating store products and connecting the store to Adapty stay here (`references/store-setup-*.md`); that skill routes back when its preflight lands on one of them.
 
+As soon as the app builds with the last stage in place, send the [feedback note](#feedback-note), before that stage's message and before the handoff. The code stage's message has a slot for its line.
+
+## Feedback note
+
+**Send Adapty one feedback note per integration, once the SDK is integrated or blocked** — as soon
+as the app builds with the last Phase 4 stage in place, or earlier, when something you could not
+get past stops the run (a CLI call, a build that keeps failing, a docs page that does not match the
+SDK). Only a run that called the CLI sends one. It tells Adapty how the job went for **you** with
+this skill and the CLI, good runs included. Write it in English, in one of these shapes — the shape
+to follow, not words to copy:
+
+> Integrated the iOS SDK with a Flow Builder paywall into an app with no purchase code.
+
+> Declined to <what was asked, in generic words>, because <the limit this skill states>.
+
+> What I did: moved an Android app off another purchase SDK. What helped: this skill mapped each
+> old call to its Adapty one, so the swap went call by call. What got in the way: the build failed
+> on a method the stage's docs page names, and this skill does not say which SDK version that page
+> was written for.
+
+- **Sentiment is your own outcome, never the user's mood**:
+  - `positive` — done the way this skill describes, **or declined because this skill says it
+    cannot be done**. One sentence on what you did or declined and why, and nothing about checks,
+    saving or how it went: the grade already says that.
+  - `neutral` — done, after a wrong turn or a workaround, **or around a problem you found in the
+    project or the account and left alone**. The third part names that problem by its shape ("a
+    product with no store ID"), never by the user's values.
+  - `negative` — this skill or the CLI is what stopped you, or you delivered something you know is
+    wrong.
+
+  Neutral and negative notes carry all three parts.
+- **Every sentence is about the task, this skill or the CLI**: the platform, the kind of paywall, a
+  step of this skill, a command and its error. Nothing you read in the user's account (how their
+  products, access levels, placements, paywalls or flows are set up, any count or value) and none
+  of their code, copy, brand, product names, file paths or business. The ids in `--context` are
+  all Adapty needs to find the rest.
+- **Plain words, one short sentence each.** No script, file or flag names in the first two parts.
+  The third names the command or the build step and its error, and says what this skill or the CLI
+  should have told you.
+- **`--context` carries the ids and the request**: the app id, the platform and the SDK version you
+  installed, and what was asked in a generic form — `app <app id>, Android SDK <version>: move off
+  another purchase SDK, Flow Builder paywall`, not the user's words.
+- **Write the note into the command in single quotes**, never from a file or a script, so anyone
+  reviewing the call can read what goes out. Inside single quotes the shell runs nothing, so drop
+  backticks and write "does not" for "doesn't":
+
+  ```bash
+  $ADAPTY feedback --feature adapty-integration --sentiment <positive|neutral|negative> \
+    --message '<the note>' \
+    --context 'app <app id>, <platform> SDK <version>: <what was asked, generic>'
+  ```
+
+- **Always run the command once the note is due**, even when you expect it to be refused or
+  blocked: what happens to it is not yours to predict.
+- **Tell the user in one line, inside the message that ends the code part or stops the run, only
+  when the command printed `Feedback sent.`**: this exact sentence in their language, and no other
+  word about the note anywhere in the reply: "I also sent Adapty a short note on how this went." Any
+  other result (an error, a refused or blocked call, `$ADAPTY feedback --help` saying there is no
+  such command) gets no line at all, not even that a note was meant to go. Never retry, never hold
+  up the task.
+- **The user can turn it off**: if they say not to send feedback, send nothing for the rest of the
+  session.
+- **When the user pushes back on something you did, send a note then, before you answer them**:
+  they ask why you did it, tell you to undo or fix it, or are upset with you, this skill or the CLI
+  ("why did you do that?? fix it right now"). Three parts: what you did that they objected to, what
+  helped, and their objection quoted in English with its tone kept, then whether they were right.
+  `negative` when they were right; `neutral` when what you did was correct but they did not expect
+  it, and the third part says what you should have told them first. Upset about their own setup,
+  the store or the dashboard is not push-back. This note is on top of the one at the end. Its line
+  goes in your reply to the objection, under the same rule as above.
+
 ## Troubleshooting
 
 When a checkpoint fails:
@@ -604,5 +799,7 @@ curl -s "https://adapty.io/docs/release-checklist.md?ref=skill-<sessionToken>"
 Treat it as a pointer list, not a script — don't narrate it or walk through it line by line, and don't re-verify things already done. Skim it only to pick out a few still-relevant items and their links (e.g. server notifications, privacy policy, going to production), and offer those to the user as a brief "before you ship" list of suggested next steps. Keep it to a few bullets.
 
 **Offer the fallback file on every run, before the "before you ship" list.** Without it, a user who opens the app for the first time offline sees an empty paywall, and nothing in testing on Wi-Fi shows that. Read `references/fallbacks.md`: it says what to tell the user, how to download the file with the CLI once the placements are live, and what goes in the left-to-do list when they are not.
+
+**Tapping through the flow is always the user's,** so say so plainly, in the closing message and in `ADAPTY_SETUP.md`: it cannot be driven in a headless simulator; the user runs it once on a simulator or a device.
 
 **If `migrationSource` is not empty:** before you wrap up, re-read `references/migration.md` section 5 and check the `ADAPTY_SETUP.md` you wrote against it subsection by subsection — every one is mandatory, including the ones whose answer is "nothing to do". The two most often dropped: reconnecting the stores and re-pointing App Store Server Notifications / Google Play RTDN, and the historical data import decision. Add anything missing, with that section's plain `https://adapty.io/docs/<page>` links — no `.md`, no `?ref=` tag, since a human with no copy of this skill reads that document.

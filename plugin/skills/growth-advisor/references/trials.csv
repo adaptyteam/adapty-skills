@@ -1,0 +1,137 @@
+category,region,plan,trial_to_direct
+All categories,APAC,annual,1.27
+All categories,APAC,monthly,1.16
+All categories,APAC,weekly,2.10
+All categories,All regions,annual,1.18
+All categories,All regions,monthly,1.19
+All categories,All regions,weekly,2.02
+All categories,Europe,annual,1.17
+All categories,Europe,monthly,1.12
+All categories,Europe,weekly,2.07
+All categories,LATAM,annual,1.09
+All categories,LATAM,monthly,1.07
+All categories,LATAM,weekly,2.04
+All categories,MEA,annual,1.24
+All categories,MEA,monthly,1.25
+All categories,MEA,weekly,1.76
+All categories,North America,annual,1.11
+All categories,North America,monthly,1.28
+All categories,North America,weekly,2.08
+Education,APAC,annual,1.79
+Education,APAC,monthly,0.88
+Education,All regions,annual,1.50
+Education,All regions,monthly,0.91
+Education,All regions,weekly,1.14
+Education,Europe,annual,2.20
+Education,Europe,monthly,0.78
+Education,MEA,monthly,0.55
+Education,North America,annual,1.31
+Education,North America,monthly,1.07
+Education,North America,weekly,1.19
+Entertainment,APAC,weekly,1.33
+Entertainment,All regions,annual,0.95
+Entertainment,All regions,monthly,1.35
+Entertainment,All regions,weekly,1.37
+Entertainment,Europe,monthly,1.12
+Entertainment,Europe,weekly,1.34
+Entertainment,LATAM,annual,1.25
+Entertainment,LATAM,weekly,1.47
+Entertainment,MEA,weekly,1.21
+Entertainment,North America,annual,0.94
+Entertainment,North America,monthly,1.40
+Entertainment,North America,weekly,1.66
+Graphics & Design,APAC,annual,0.94
+Graphics & Design,APAC,monthly,1.24
+Graphics & Design,APAC,weekly,1.55
+Graphics & Design,All regions,annual,0.96
+Graphics & Design,All regions,monthly,1.20
+Graphics & Design,All regions,weekly,1.49
+Graphics & Design,Europe,annual,0.95
+Graphics & Design,Europe,monthly,0.99
+Graphics & Design,Europe,weekly,1.53
+Graphics & Design,LATAM,annual,0.74
+Graphics & Design,LATAM,monthly,1.26
+Graphics & Design,LATAM,weekly,1.51
+Graphics & Design,MEA,annual,1.10
+Graphics & Design,North America,annual,0.97
+Graphics & Design,North America,monthly,1.68
+Graphics & Design,North America,weekly,1.60
+Health & Fitness,APAC,annual,1.87
+Health & Fitness,APAC,monthly,0.85
+Health & Fitness,All regions,annual,1.64
+Health & Fitness,All regions,monthly,1.07
+Health & Fitness,All regions,weekly,1.61
+Health & Fitness,Europe,annual,1.86
+Health & Fitness,Europe,monthly,1.26
+Health & Fitness,LATAM,annual,1.36
+Health & Fitness,LATAM,monthly,0.48
+Health & Fitness,MEA,annual,2.03
+Health & Fitness,MEA,monthly,0.37
+Health & Fitness,North America,annual,1.38
+Health & Fitness,North America,monthly,1.14
+Health & Fitness,North America,weekly,1.54
+Lifestyle,APAC,annual,0.67
+Lifestyle,APAC,weekly,2.36
+Lifestyle,All regions,annual,0.79
+Lifestyle,All regions,monthly,1.13
+Lifestyle,All regions,weekly,2.07
+Lifestyle,Europe,annual,0.77
+Lifestyle,Europe,monthly,1.10
+Lifestyle,Europe,weekly,2.06
+Lifestyle,LATAM,annual,0.57
+Lifestyle,LATAM,weekly,2.49
+Lifestyle,MEA,annual,0.70
+Lifestyle,MEA,weekly,1.95
+Lifestyle,North America,annual,1.03
+Lifestyle,North America,monthly,1.26
+Lifestyle,North America,weekly,1.69
+Photo & Video,APAC,annual,1.27
+Photo & Video,APAC,monthly,1.26
+Photo & Video,APAC,weekly,1.72
+Photo & Video,All regions,annual,1.18
+Photo & Video,All regions,monthly,1.04
+Photo & Video,All regions,weekly,1.66
+Photo & Video,Europe,annual,1.14
+Photo & Video,Europe,monthly,1.06
+Photo & Video,Europe,weekly,1.56
+Photo & Video,LATAM,annual,1.17
+Photo & Video,LATAM,weekly,1.76
+Photo & Video,MEA,annual,1.34
+Photo & Video,MEA,weekly,1.46
+Photo & Video,North America,annual,1.09
+Photo & Video,North America,monthly,1.12
+Photo & Video,North America,weekly,1.80
+Productivity,APAC,annual,0.74
+Productivity,APAC,monthly,0.81
+Productivity,APAC,weekly,1.42
+Productivity,All regions,annual,0.86
+Productivity,All regions,monthly,0.95
+Productivity,All regions,weekly,1.37
+Productivity,Europe,annual,0.87
+Productivity,Europe,monthly,0.80
+Productivity,Europe,weekly,1.48
+Productivity,LATAM,annual,0.75
+Productivity,LATAM,weekly,1.35
+Productivity,MEA,annual,0.72
+Productivity,MEA,weekly,1.25
+Productivity,North America,annual,1.00
+Productivity,North America,monthly,1.09
+Productivity,North America,weekly,1.38
+Utilities,APAC,annual,2.20
+Utilities,APAC,monthly,1.06
+Utilities,APAC,weekly,2.06
+Utilities,All regions,annual,1.85
+Utilities,All regions,monthly,1.26
+Utilities,All regions,weekly,2.06
+Utilities,Europe,annual,1.88
+Utilities,Europe,monthly,1.27
+Utilities,Europe,weekly,1.96
+Utilities,LATAM,annual,2.42
+Utilities,LATAM,monthly,1.16
+Utilities,LATAM,weekly,1.88
+Utilities,MEA,annual,2.58
+Utilities,MEA,monthly,1.33
+Utilities,MEA,weekly,1.37
+Utilities,North America,annual,1.19
+Utilities,North America,monthly,1.48
+Utilities,North America,weekly,2.88

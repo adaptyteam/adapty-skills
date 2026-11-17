@@ -1,0 +1,634 @@
+region,category,plan,price_level,install_to_paid,install_to_trial,install_to_direct,ltv_380d_per_payer,renewal1,renewal2,renewal3
+Global,All,weekly,1 low,0.0109,0.0541,0.0063,6.99,0.4821,0.7361,0.8115
+Global,All,weekly,2 lower-mid,0.0162,0.0676,0.0067,8.75,0.4589,0.7268,0.8018
+Global,All,weekly,3 upper-mid,0.0275,0.0980,0.0059,15.98,0.4721,0.7254,0.8006
+Global,All,weekly,4 high,0.0273,0.0992,0.0117,17.48,0.5417,0.7405,0.8077
+Global,All,monthly,1 low,0.0046,0.0060,0.0037,6.99,0.4849,0.6803,0.7369
+Global,All,monthly,2 lower-mid,0.0036,0.0062,0.0028,10.11,0.4432,0.6600,0.7343
+Global,All,monthly,3 upper-mid,0.0017,0.0034,0.0021,14.99,0.3917,0.6249,0.6972
+Global,All,monthly,4 high,0.0018,0.0050,0.0023,19.99,0.3848,0.5991,0.6851
+Global,All,annual,1 low,0.0063,0.0265,0.0034,19.99,0.2176,0.4090,
+Global,All,annual,2 lower-mid,0.0059,0.0224,0.0039,32.57,0.1933,0.3648,
+Global,All,annual,3 upper-mid,0.0040,0.0183,0.0037,39.99,0.1839,0.3405,
+Global,All,annual,4 high,0.0037,0.0340,0.0022,59.99,0.1910,0.3158,
+Global,Education,weekly,1 low,0.0053,0.0231,0.0015,13.98,0.5891,0.7526,0.8278
+Global,Education,weekly,2 lower-mid,0.0111,0.0609,0.0004,,0.5749,0.7661,0.8124
+Global,Education,weekly,3 upper-mid,0.0159,0.0589,0.0019,15.98,0.5682,0.7487,0.7995
+Global,Education,weekly,4 high,0.0193,0.0673,0.0055,19.98,0.5914,0.7213,0.8022
+Global,Education,monthly,1 low,0.0096,0.0165,0.0041,8.97,0.5509,0.6679,0.7076
+Global,Education,monthly,2 lower-mid,0.0066,0.0229,0.0029,18.79,0.5152,0.6727,0.7344
+Global,Education,monthly,3 upper-mid,0.0084,0.0172,0.0080,21.93,0.4972,0.6452,0.6990
+Global,Education,monthly,4 high,0.0075,0.0217,,28.05,0.5061,0.6277,0.7086
+Global,Education,annual,1 low,0.0096,0.0374,0.0021,29.99,0.2074,0.4758,
+Global,Education,annual,2 lower-mid,0.0080,0.0282,0.0046,39.08,0.2159,0.3943,
+Global,Education,annual,3 upper-mid,0.0154,0.0497,0.0065,49.76,0.1920,0.3650,
+Global,Education,annual,4 high,0.0106,0.0323,,79.99,,,
+Global,Entertainment,weekly,1 low,0.0128,0.0364,0.0132,5.89,0.4357,0.7149,0.7956
+Global,Entertainment,weekly,2 lower-mid,0.0175,0.0785,0.0129,6.99,0.3653,0.6885,0.7798
+Global,Entertainment,weekly,3 upper-mid,0.0148,0.0760,0.0108,8.63,0.3689,0.6884,0.7851
+Global,Entertainment,weekly,4 high,0.0182,0.0698,0.0145,15.98,0.4523,0.6851,0.7756
+Global,Entertainment,monthly,1 low,0.0023,0.0034,0.0024,5.13,0.4225,0.6558,0.7407
+Global,Entertainment,monthly,2 lower-mid,0.0051,0.0106,0.0051,10.45,0.4136,0.6573,0.7438
+Global,Entertainment,monthly,3 upper-mid,0.0016,0.0058,0.0030,19.79,0.2889,0.5458,0.6385
+Global,Entertainment,monthly,4 high,0.0048,0.0571,0.0056,,0.2096,0.4931,0.6021
+Global,Entertainment,annual,1 low,0.0027,0.0055,0.0030,19.42,0.1849,0.2499,
+Global,Entertainment,annual,2 lower-mid,0.0016,0.0079,0.0023,38.18,0.1534,0.3669,
+Global,Entertainment,annual,3 upper-mid,0.0027,0.0211,0.0026,46.05,0.1516,0.4953,
+Global,Entertainment,annual,4 high,0.0025,0.0067,0.0033,63.94,0.1822,0.2309,
+Global,Graphics & Design,weekly,1 low,0.0139,0.0274,0.0129,6.37,0.4215,0.7119,0.8001
+Global,Graphics & Design,weekly,2 lower-mid,0.0142,0.0279,0.0100,7.54,0.4023,0.6851,0.7980
+Global,Graphics & Design,weekly,3 upper-mid,0.0298,0.0478,0.0231,8.58,0.3856,0.7214,0.7769
+Global,Graphics & Design,weekly,4 high,0.0286,0.0903,0.0284,10.66,0.3803,0.6944,0.7848
+Global,Graphics & Design,monthly,1 low,0.0048,,0.0048,5.16,0.4206,0.6596,0.7638
+Global,Graphics & Design,monthly,2 lower-mid,0.0045,,0.0034,9.99,0.3986,0.6365,0.7547
+Global,Graphics & Design,monthly,3 upper-mid,0.0023,,0.0005,,0.3735,0.6317,0.6806
+Global,Graphics & Design,monthly,4 high,0.0005,,0.0005,,0.2819,0.5422,0.6101
+Global,Graphics & Design,annual,1 low,0.0064,0.0355,0.0029,23.97,0.2347,0.4082,
+Global,Graphics & Design,annual,2 lower-mid,0.0091,0.0342,0.0071,39.99,0.1788,0.3704,
+Global,Graphics & Design,annual,3 upper-mid,0.0099,0.0552,0.0035,44.75,0.1606,0.3445,
+Global,Graphics & Design,annual,4 high,0.0039,0.0794,0.0013,52.23,0.1288,0.2838,
+Global,Health & Fitness,weekly,1 low,0.0022,0.0016,0.0012,10.39,0.5583,0.7402,0.8136
+Global,Health & Fitness,weekly,2 lower-mid,0.0017,0.0073,0.0001,,0.5641,0.7415,0.8066
+Global,Health & Fitness,weekly,3 upper-mid,0.0112,0.0659,0.0029,,0.5834,0.7574,0.8174
+Global,Health & Fitness,weekly,4 high,0.0108,0.0443,,,0.5584,0.7610,0.8192
+Global,Health & Fitness,monthly,1 low,0.0083,0.0054,0.0045,7.40,0.5579,0.6655,0.7159
+Global,Health & Fitness,monthly,2 lower-mid,0.0114,0.0158,0.0072,10.84,0.5258,0.6596,0.7271
+Global,Health & Fitness,monthly,3 upper-mid,0.0101,0.0058,0.0101,19.99,0.4479,0.6386,0.6819
+Global,Health & Fitness,monthly,4 high,0.0099,0.0200,0.0063,28.99,0.4806,0.6255,0.7003
+Global,Health & Fitness,annual,1 low,0.0209,0.0320,0.0096,17.00,0.2067,0.3915,
+Global,Health & Fitness,annual,2 lower-mid,0.0179,0.0478,0.0056,30.71,0.2270,0.3728,
+Global,Health & Fitness,annual,3 upper-mid,0.0100,0.0418,0.0032,44.36,0.1650,0.3204,
+Global,Health & Fitness,annual,4 high,0.0135,0.0495,0.0009,69.99,0.1775,0.2640,
+Global,Lifestyle,weekly,1 low,0.0056,0.0062,0.0133,5.08,0.4071,0.6950,0.8012
+Global,Lifestyle,weekly,2 lower-mid,0.0167,0.0718,0.0117,6.76,0.3753,0.7030,0.8037
+Global,Lifestyle,weekly,3 upper-mid,0.0147,0.0718,0.0063,9.48,0.4145,0.6824,0.7797
+Global,Lifestyle,weekly,4 high,0.0132,0.0650,0.0067,12.78,0.4129,0.6733,0.7616
+Global,Lifestyle,monthly,1 low,0.0105,0.0033,0.0089,7.98,0.4761,0.6587,0.7229
+Global,Lifestyle,monthly,2 lower-mid,0.0040,0.0038,0.0027,9.99,0.3706,0.6088,0.7162
+Global,Lifestyle,monthly,3 upper-mid,0.0018,0.0014,0.0014,19.99,0.3611,0.6072,0.6634
+Global,Lifestyle,monthly,4 high,0.0035,,0.0036,29.99,0.3009,0.5747,0.6513
+Global,Lifestyle,annual,1 low,0.0123,0.0400,0.0077,22.30,0.2036,0.3961,
+Global,Lifestyle,annual,2 lower-mid,0.0099,0.0171,0.0089,31.98,0.1729,0.3891,
+Global,Lifestyle,annual,3 upper-mid,0.0069,0.0150,0.0057,38.23,0.1269,0.3079,
+Global,Lifestyle,annual,4 high,0.0013,0.0248,0.0011,49.99,0.1780,0.2832,
+Global,Photo & Video,weekly,1 low,0.0110,0.0132,0.0085,5.59,0.4524,0.7413,0.8222
+Global,Photo & Video,weekly,2 lower-mid,0.0144,0.0431,0.0118,8.74,0.4363,0.7361,0.8139
+Global,Photo & Video,weekly,3 upper-mid,0.0201,0.0511,0.0191,8.92,0.3989,0.7020,0.7866
+Global,Photo & Video,weekly,4 high,0.0227,0.0863,0.0171,11.07,0.3720,0.6703,0.7763
+Global,Photo & Video,monthly,1 low,0.0049,0.0012,0.0040,5.76,0.4562,0.7004,0.7586
+Global,Photo & Video,monthly,2 lower-mid,0.0036,0.0065,0.0036,8.89,0.4812,0.7106,0.7766
+Global,Photo & Video,monthly,3 upper-mid,0.0028,0.0088,0.0024,9.99,0.4296,0.6358,0.6946
+Global,Photo & Video,monthly,4 high,0.0008,0.0010,0.0010,15.40,0.3631,0.5818,0.6951
+Global,Photo & Video,annual,1 low,0.0082,0.0570,0.0037,19.49,0.2191,0.3946,
+Global,Photo & Video,annual,2 lower-mid,0.0080,0.0410,0.0029,33.02,0.1782,0.3353,
+Global,Photo & Video,annual,3 upper-mid,0.0054,0.0323,0.0047,39.99,0.1742,0.3470,
+Global,Photo & Video,annual,4 high,0.0084,0.0690,0.0049,52.01,0.1555,0.3576,
+Global,Productivity,weekly,1 low,0.0121,0.0244,0.0054,9.98,0.4793,0.7580,0.8272
+Global,Productivity,weekly,2 lower-mid,0.0206,0.0566,0.0051,13.21,0.5193,0.7658,0.8271
+Global,Productivity,weekly,3 upper-mid,0.0191,0.0685,0.0033,16.35,0.5349,0.7560,0.8176
+Global,Productivity,weekly,4 high,0.0250,0.0848,0.0107,14.99,0.5206,0.7462,0.8063
+Global,Productivity,monthly,1 low,0.0041,0.0067,0.0029,9.59,0.5279,0.7147,0.7482
+Global,Productivity,monthly,2 lower-mid,0.0044,0.0018,0.0013,12.99,0.4780,0.6764,0.7524
+Global,Productivity,monthly,3 upper-mid,0.0008,0.0007,0.0004,19.99,0.4257,0.6608,0.7598
+Global,Productivity,monthly,4 high,0.0012,0.0043,0.0006,24.66,0.3800,0.5807,0.7058
+Global,Productivity,annual,1 low,0.0071,0.0259,0.0032,27.49,0.2916,0.4557,
+Global,Productivity,annual,2 lower-mid,0.0052,0.0224,0.0037,39.99,0.1892,0.4139,
+Global,Productivity,annual,3 upper-mid,0.0053,0.0328,0.0052,49.84,0.2057,0.3182,
+Global,Productivity,annual,4 high,0.0062,0.0374,0.0044,69.99,0.2517,0.3773,
+Global,Utilities,weekly,1 low,0.0118,0.1018,0.0030,8.84,0.5001,0.7412,0.8124
+Global,Utilities,weekly,2 lower-mid,0.0190,0.0894,0.0024,14.25,0.4795,0.7261,0.7939
+Global,Utilities,weekly,3 upper-mid,0.0443,0.1429,0.0022,29.97,0.5221,0.7413,0.8149
+Global,Utilities,weekly,4 high,0.0423,0.1469,0.0008,32.18,0.6644,0.7927,0.8372
+Global,Utilities,monthly,1 low,0.0018,0.0031,0.0016,7.48,0.4517,0.6865,0.7396
+Global,Utilities,monthly,2 lower-mid,0.0006,0.0015,0.0005,10.29,0.3815,0.6689,0.7293
+Global,Utilities,monthly,3 upper-mid,0.0009,0.0014,0.0045,14.99,0.3498,0.6344,0.7056
+Global,Utilities,monthly,4 high,0.0006,0.0013,0.0027,19.99,0.3786,0.6432,0.7271
+Global,Utilities,annual,1 low,0.0034,0.0067,0.0024,16.99,0.2166,0.3962,
+Global,Utilities,annual,2 lower-mid,0.0021,0.0025,0.0033,25.30,0.2039,0.3289,
+Global,Utilities,annual,3 upper-mid,0.0012,0.0010,0.0019,39.48,0.2259,0.3659,
+Global,Utilities,annual,4 high,0.0012,0.0046,0.0012,51.69,0.1882,0.3537,
+APAC,All,weekly,1 low,0.0069,0.0315,0.0042,6.21,0.4742,0.7267,0.8110
+APAC,All,weekly,2 lower-mid,0.0143,0.0812,0.0069,8.27,0.4614,0.7145,0.8014
+APAC,All,weekly,3 upper-mid,0.0193,0.0802,0.0057,10.76,0.4659,0.7073,0.7863
+APAC,All,weekly,4 high,0.0302,0.1209,0.0087,17.88,0.5564,0.7420,0.8181
+APAC,All,monthly,1 low,0.0040,0.0055,0.0033,5.91,0.4673,0.6693,0.7250
+APAC,All,monthly,2 lower-mid,0.0033,0.0060,0.0025,9.97,0.4432,0.6475,0.7172
+APAC,All,monthly,3 upper-mid,0.0014,0.0032,0.0009,11.83,0.3854,0.6331,0.7189
+APAC,All,monthly,4 high,0.0015,0.0081,0.0019,18.52,0.3632,0.5976,0.6727
+APAC,All,annual,1 low,0.0045,0.0251,0.0027,17.46,0.2109,0.4111,
+APAC,All,annual,2 lower-mid,0.0043,0.0224,0.0027,27.42,0.1969,0.3840,
+APAC,All,annual,3 upper-mid,0.0033,0.0174,0.0030,38.95,0.1690,0.2964,
+APAC,All,annual,4 high,0.0033,0.0302,0.0020,52.59,0.1908,0.2866,
+APAC,Education,weekly,1 low,0.0104,0.0193,,,,,
+APAC,Education,weekly,2 lower-mid,,0.0490,,,,,
+APAC,Education,weekly,3 upper-mid,0.0118,0.0559,,,0.5544,0.7368,0.7701
+APAC,Education,weekly,4 high,0.0206,0.0933,,,,,
+APAC,Education,monthly,1 low,0.0098,,0.0098,,,,
+APAC,Education,monthly,2 lower-mid,0.0085,0.0227,,,,,
+APAC,Education,monthly,3 upper-mid,0.0080,,,,0.5096,0.6839,0.7057
+APAC,Education,monthly,4 high,,0.0199,,,,,
+APAC,Education,annual,1 low,0.0096,0.0457,,,,,
+APAC,Education,annual,2 lower-mid,0.0058,,,,,,
+APAC,Education,annual,3 upper-mid,0.0153,0.0880,,,,,
+APAC,Education,annual,4 high,0.0073,0.0340,,,,,
+APAC,Entertainment,weekly,1 low,0.0128,0.0366,0.0104,6.05,0.4506,0.7070,0.8064
+APAC,Entertainment,weekly,2 lower-mid,0.0152,0.0560,0.0098,6.87,0.3756,0.6557,0.7623
+APAC,Entertainment,weekly,3 upper-mid,0.0144,0.0714,0.0108,7.74,0.3856,0.6678,0.7695
+APAC,Entertainment,weekly,4 high,0.0179,0.0698,0.0145,16.97,0.4368,0.6776,0.8053
+APAC,Entertainment,monthly,1 low,0.0018,0.0042,0.0018,,0.4252,0.6477,0.6662
+APAC,Entertainment,monthly,2 lower-mid,0.0062,0.0156,0.0051,,0.4504,0.6218,0.7322
+APAC,Entertainment,monthly,3 upper-mid,0.0008,,0.0031,,,,
+APAC,Entertainment,monthly,4 high,0.0086,0.0790,0.0026,,,,
+APAC,Entertainment,annual,1 low,0.0012,0.0054,0.0017,,,,
+APAC,Entertainment,annual,2 lower-mid,0.0030,,0.0042,,0.1510,0.4292,
+APAC,Entertainment,annual,3 upper-mid,0.0018,0.0098,0.0020,,,,
+APAC,Entertainment,annual,4 high,0.0019,0.0067,0.0041,,,,
+APAC,Graphics & Design,weekly,1 low,0.0104,0.0128,0.0104,,0.3879,0.6995,0.8099
+APAC,Graphics & Design,weekly,2 lower-mid,0.0104,0.0286,0.0086,,0.4158,0.6721,0.8189
+APAC,Graphics & Design,weekly,3 upper-mid,0.0233,0.0410,0.0155,,0.4281,0.7182,0.7738
+APAC,Graphics & Design,weekly,4 high,0.0284,0.0971,0.0270,,0.3499,0.7066,0.7816
+APAC,Graphics & Design,monthly,1 low,0.0043,,,,,,
+APAC,Graphics & Design,monthly,3 upper-mid,0.0026,,,,,,
+APAC,Graphics & Design,annual,1 low,0.0042,0.0355,0.0014,,,,
+APAC,Graphics & Design,annual,2 lower-mid,0.0033,0.0202,0.0027,,,,
+APAC,Graphics & Design,annual,3 upper-mid,0.0099,0.0596,0.0064,,0.1529,0.3620,
+APAC,Graphics & Design,annual,4 high,0.0025,0.0744,0.0006,,,,
+APAC,Health & Fitness,weekly,1 low,0.0025,0.0014,,,,,
+APAC,Health & Fitness,weekly,2 lower-mid,0.0018,,0.0001,,,,
+APAC,Health & Fitness,weekly,3 upper-mid,0.0111,0.0684,,,,,
+APAC,Health & Fitness,weekly,4 high,0.0132,0.0420,,,0.5320,0.7504,0.8252
+APAC,Health & Fitness,monthly,1 low,0.0062,0.0036,0.0032,,0.5435,0.6684,0.7229
+APAC,Health & Fitness,monthly,2 lower-mid,0.0121,0.0188,0.0065,,0.5417,0.6446,0.7093
+APAC,Health & Fitness,monthly,3 upper-mid,0.0071,0.0151,0.0099,,0.4372,0.6352,0.6942
+APAC,Health & Fitness,monthly,4 high,0.0081,0.0207,0.0047,,0.4555,0.6108,0.7044
+APAC,Health & Fitness,annual,1 low,0.0176,0.0265,0.0063,,0.1331,0.2262,
+APAC,Health & Fitness,annual,2 lower-mid,0.0129,0.0470,0.0042,,0.2564,0.3975,
+APAC,Health & Fitness,annual,3 upper-mid,0.0054,0.0340,0.0029,,0.1244,0.2216,
+APAC,Health & Fitness,annual,4 high,0.0135,0.0577,0.0017,,,,
+APAC,Lifestyle,weekly,1 low,0.0034,0.0040,0.0032,,0.4382,0.6637,0.8074
+APAC,Lifestyle,weekly,2 lower-mid,0.0185,0.0667,0.0183,,0.3745,0.6595,0.7871
+APAC,Lifestyle,weekly,3 upper-mid,0.0128,0.0918,0.0119,,0.3810,0.6705,0.7408
+APAC,Lifestyle,weekly,4 high,0.0132,0.0685,0.0068,,0.4430,0.6836,0.8019
+APAC,Lifestyle,monthly,1 low,0.0169,0.0136,0.0089,,0.4701,0.6726,0.7402
+APAC,Lifestyle,monthly,2 lower-mid,0.0025,,0.0038,,,,
+APAC,Lifestyle,monthly,3 upper-mid,0.0015,,0.0013,,,,
+APAC,Lifestyle,monthly,4 high,0.0036,,0.0042,,0.2938,0.6065,0.6815
+APAC,Lifestyle,annual,1 low,0.0115,0.0594,0.0056,,,,
+APAC,Lifestyle,annual,2 lower-mid,0.0108,0.0159,0.0098,,0.1897,0.3254,
+APAC,Lifestyle,annual,3 upper-mid,0.0050,0.0113,0.0076,,,,
+APAC,Lifestyle,annual,4 high,0.0015,0.0117,0.0007,,,,
+APAC,Photo & Video,weekly,1 low,0.0082,0.0148,0.0059,5.07,0.4731,0.7204,0.8027
+APAC,Photo & Video,weekly,2 lower-mid,0.0117,0.0604,0.0099,7.01,0.4272,0.7133,0.7992
+APAC,Photo & Video,weekly,3 upper-mid,0.0167,0.0403,0.0230,7.96,0.4231,0.6805,0.7662
+APAC,Photo & Video,weekly,4 high,0.0164,0.0964,0.0138,11.51,0.3505,0.6388,0.7234
+APAC,Photo & Video,monthly,1 low,0.0049,,0.0042,,0.4527,0.7062,0.7677
+APAC,Photo & Video,monthly,2 lower-mid,0.0033,,0.0031,,0.5105,0.7223,0.7622
+APAC,Photo & Video,monthly,3 upper-mid,0.0010,,0.0004,,,,
+APAC,Photo & Video,monthly,4 high,0.0006,,0.0006,,0.3785,0.5552,0.6762
+APAC,Photo & Video,annual,1 low,0.0045,0.0466,0.0037,16.58,0.2052,0.3920,
+APAC,Photo & Video,annual,2 lower-mid,0.0061,0.0341,0.0021,,0.1954,0.3308,
+APAC,Photo & Video,annual,3 upper-mid,0.0035,0.0133,0.0031,,0.1367,0.2583,
+APAC,Photo & Video,annual,4 high,0.0077,0.0565,0.0046,,0.2029,0.3817,
+APAC,Productivity,weekly,1 low,0.0056,0.0093,0.0036,8.34,0.4687,0.7508,0.8435
+APAC,Productivity,weekly,2 lower-mid,0.0201,0.0779,0.0063,15.66,0.4815,0.7463,0.8324
+APAC,Productivity,weekly,3 upper-mid,0.0175,0.0562,0.0020,15.03,0.5402,0.7518,0.8021
+APAC,Productivity,weekly,4 high,0.0241,0.0834,0.0087,10.79,0.5197,0.7354,0.8007
+APAC,Productivity,monthly,1 low,0.0045,0.0035,0.0031,,0.4942,0.6748,0.7507
+APAC,Productivity,monthly,2 lower-mid,0.0044,0.0004,0.0035,,0.5054,0.6794,0.7308
+APAC,Productivity,monthly,3 upper-mid,0.0003,0.0015,0.0003,,0.3862,0.6476,0.7530
+APAC,Productivity,monthly,4 high,0.0008,0.0057,0.0005,,0.3390,0.6134,0.7688
+APAC,Productivity,annual,1 low,0.0072,0.0299,0.0029,25.77,0.2432,0.5233,
+APAC,Productivity,annual,2 lower-mid,0.0031,0.0224,0.0028,39.77,0.1687,0.3383,
+APAC,Productivity,annual,3 upper-mid,0.0059,0.0511,0.0052,,0.1743,0.2743,
+APAC,Productivity,annual,4 high,0.0029,0.0125,0.0034,64.35,0.2631,0.3965,
+APAC,Utilities,weekly,1 low,0.0071,0.0887,0.0021,7.33,0.4976,0.7388,0.8180
+APAC,Utilities,weekly,2 lower-mid,0.0136,0.1257,0.0059,13.24,0.5277,0.7450,0.8126
+APAC,Utilities,weekly,3 upper-mid,0.0384,0.1164,0.0020,28.10,0.4807,0.7082,0.7934
+APAC,Utilities,weekly,4 high,0.0725,0.2073,,44.85,0.6964,0.8014,0.8515
+APAC,Utilities,monthly,1 low,0.0014,0.0043,0.0014,,0.4319,0.6818,0.7373
+APAC,Utilities,monthly,2 lower-mid,0.0004,0.0014,0.0003,,0.3748,0.6508,0.7111
+APAC,Utilities,monthly,3 upper-mid,0.0010,0.0023,0.0028,,0.2951,0.5693,0.7364
+APAC,Utilities,monthly,4 high,0.0011,0.0020,,,,,
+APAC,Utilities,annual,1 low,0.0020,0.0093,0.0013,12.19,0.2229,0.3989,
+APAC,Utilities,annual,2 lower-mid,0.0016,0.0035,0.0028,21.43,0.1948,0.4302,
+APAC,Utilities,annual,3 upper-mid,0.0009,0.0027,0.0025,38.14,0.2023,0.3058,
+APAC,Utilities,annual,4 high,0.0017,0.0040,0.0007,59.99,,,
+Europe,All,weekly,1 low,0.0086,0.0409,0.0060,7.37,0.4575,0.7228,0.8073
+Europe,All,weekly,2 lower-mid,0.0135,0.0675,0.0068,8.86,0.4217,0.7065,0.7851
+Europe,All,weekly,3 upper-mid,0.0204,0.0863,0.0048,11.10,0.4214,0.6965,0.7900
+Europe,All,weekly,4 high,0.0305,0.1143,0.0100,19.15,0.5088,0.7244,0.7978
+Europe,All,monthly,1 low,0.0043,0.0056,0.0041,7.40,0.5019,0.6771,0.7348
+Europe,All,monthly,2 lower-mid,0.0036,0.0071,0.0032,12.04,0.4543,0.6663,0.7315
+Europe,All,monthly,3 upper-mid,0.0016,0.0016,0.0013,15.05,0.4004,0.6127,0.6761
+Europe,All,monthly,4 high,0.0013,0.0046,0.0025,23.04,0.3596,0.5847,0.6633
+Europe,All,annual,1 low,0.0051,0.0234,0.0029,20.77,0.2297,0.4189,
+Europe,All,annual,2 lower-mid,0.0045,0.0209,0.0043,33.13,0.1945,0.3219,
+Europe,All,annual,3 upper-mid,0.0038,0.0138,0.0035,46.73,0.1730,0.3408,
+Europe,All,annual,4 high,0.0027,0.0302,0.0020,64.63,0.1860,0.3380,
+Europe,Education,weekly,1 low,0.0074,,,,0.5762,0.7361,0.8364
+Europe,Education,weekly,2 lower-mid,0.0109,0.0325,,,,,
+Europe,Education,weekly,3 upper-mid,,0.0541,,,0.4508,0.6976,0.7527
+Europe,Education,weekly,4 high,0.0133,0.0378,,,0.5470,0.7189,0.8018
+Europe,Education,monthly,1 low,0.0128,0.0165,,,0.5779,0.6556,0.6954
+Europe,Education,monthly,2 lower-mid,0.0066,0.0320,,,0.5731,0.7063,0.7385
+Europe,Education,monthly,3 upper-mid,0.0072,,,,0.5165,0.6440,0.7045
+Europe,Education,monthly,4 high,0.0051,0.0205,,,,,
+Europe,Education,annual,1 low,0.0054,0.0434,0.0015,,,,
+Europe,Education,annual,2 lower-mid,0.0048,,0.0100,,0.2273,0.2880,
+Europe,Education,annual,3 upper-mid,0.0098,0.0497,,,,,
+Europe,Education,annual,4 high,0.0106,0.0496,,,,,
+Europe,Entertainment,weekly,1 low,0.0080,0.0326,0.0068,6.09,0.3596,0.6726,0.7644
+Europe,Entertainment,weekly,2 lower-mid,0.0175,0.0577,0.0184,7.62,0.3523,0.6822,0.7755
+Europe,Entertainment,weekly,3 upper-mid,0.0111,0.0696,0.0069,8.79,0.3087,0.6639,0.7975
+Europe,Entertainment,weekly,4 high,0.0259,0.1117,0.0111,17.02,0.4143,0.6670,0.7602
+Europe,Entertainment,monthly,1 low,0.0039,0.0035,0.0024,,0.4363,0.6875,0.7436
+Europe,Entertainment,monthly,2 lower-mid,0.0053,,0.0053,,0.3754,0.6607,0.7351
+Europe,Entertainment,monthly,3 upper-mid,0.0008,,0.0021,,0.3155,0.5223,0.5435
+Europe,Entertainment,monthly,4 high,0.0055,,0.0091,,0.2283,0.5029,0.5967
+Europe,Entertainment,annual,1 low,0.0028,0.0198,0.0028,,,,
+Europe,Entertainment,annual,2 lower-mid,0.0011,0.0044,0.0020,,,,
+Europe,Entertainment,annual,3 upper-mid,0.0024,0.0301,0.0024,,0.1589,0.3998,
+Europe,Entertainment,annual,4 high,0.0011,0.0040,0.0020,,,,
+Europe,Graphics & Design,weekly,1 low,0.0161,0.0374,0.0154,6.20,0.3783,0.7059,0.7765
+Europe,Graphics & Design,weekly,2 lower-mid,0.0135,0.0255,0.0100,7.54,0.3753,0.6661,0.7765
+Europe,Graphics & Design,weekly,3 upper-mid,0.0280,0.0469,0.0203,9.18,0.3338,0.6927,0.7675
+Europe,Graphics & Design,weekly,4 high,0.0560,0.1142,0.0560,10.57,0.3469,0.6547,0.7731
+Europe,Graphics & Design,monthly,1 low,0.0066,,0.0063,,0.3949,0.6323,0.7494
+Europe,Graphics & Design,monthly,3 upper-mid,0.0053,,,,,,
+Europe,Graphics & Design,annual,1 low,0.0064,0.0349,0.0037,,,,
+Europe,Graphics & Design,annual,2 lower-mid,0.0067,0.0616,0.0066,,,,
+Europe,Graphics & Design,annual,3 upper-mid,0.0111,0.0777,0.0111,,0.1270,0.3718,
+Europe,Graphics & Design,annual,4 high,0.0020,0.0794,0.0009,,,,
+Europe,Health & Fitness,weekly,1 low,0.0029,0.0017,,,,,
+Europe,Health & Fitness,weekly,2 lower-mid,0.0002,0.0012,0.0001,,,,
+Europe,Health & Fitness,weekly,3 upper-mid,0.0046,0.0256,,,,,
+Europe,Health & Fitness,weekly,4 high,0.0099,0.0623,,,0.5447,0.7403,0.8132
+Europe,Health & Fitness,monthly,1 low,0.0093,0.0074,0.0052,7.53,0.5475,0.6441,0.7162
+Europe,Health & Fitness,monthly,2 lower-mid,0.0150,0.0215,0.0072,13.10,0.5373,0.6683,0.7356
+Europe,Health & Fitness,monthly,3 upper-mid,0.0149,0.0053,0.0144,20.75,0.4587,0.6199,0.6913
+Europe,Health & Fitness,monthly,4 high,0.0090,0.0141,0.0126,33.27,0.4944,0.6262,0.6804
+Europe,Health & Fitness,annual,1 low,0.0179,0.0308,0.0102,20.24,0.2020,0.4345,
+Europe,Health & Fitness,annual,2 lower-mid,0.0273,0.0558,0.0056,31.84,0.2241,0.3756,
+Europe,Health & Fitness,annual,3 upper-mid,0.0134,0.0468,0.0067,46.90,0.1542,0.3933,
+Europe,Health & Fitness,annual,4 high,0.0090,0.0460,0.0004,80.62,0.1940,0.2820,
+Europe,Lifestyle,weekly,1 low,0.0018,0.0129,0.0110,5.98,0.3690,0.6540,0.8203
+Europe,Lifestyle,weekly,2 lower-mid,0.0151,0.0808,0.0149,,0.3307,0.6745,0.7946
+Europe,Lifestyle,weekly,3 upper-mid,0.0148,0.0715,0.0030,,0.3918,0.6476,0.7762
+Europe,Lifestyle,weekly,4 high,0.0162,0.0670,0.0074,16.00,0.3862,0.6525,0.7314
+Europe,Lifestyle,monthly,1 low,0.0105,0.0048,0.0089,,0.4762,0.6674,0.6880
+Europe,Lifestyle,monthly,2 lower-mid,0.0024,,0.0022,,0.3652,0.6368,0.7327
+Europe,Lifestyle,monthly,3 upper-mid,0.0015,,0.0008,,0.3795,0.5861,0.6567
+Europe,Lifestyle,monthly,4 high,0.0047,,0.0047,,0.2795,0.5593,0.6554
+Europe,Lifestyle,annual,1 low,0.0120,0.0385,0.0119,,0.2404,0.4149,
+Europe,Lifestyle,annual,2 lower-mid,0.0063,0.0150,0.0066,,0.1572,0.2249,
+Europe,Lifestyle,annual,3 upper-mid,0.0057,0.0162,0.0053,,0.1406,0.2737,
+Europe,Lifestyle,annual,4 high,0.0005,0.0141,0.0004,,,,
+Europe,Photo & Video,weekly,1 low,0.0121,0.0134,0.0084,8.18,0.4487,0.7387,0.8297
+Europe,Photo & Video,weekly,2 lower-mid,0.0209,0.0470,0.0168,9.36,0.3488,0.7038,0.7844
+Europe,Photo & Video,weekly,3 upper-mid,0.0201,0.0546,0.0218,8.92,0.3651,0.6642,0.7718
+Europe,Photo & Video,weekly,4 high,0.0228,0.0981,0.0140,11.23,0.3402,0.6485,0.7655
+Europe,Photo & Video,monthly,1 low,0.0059,,0.0030,,0.4395,0.7010,0.7883
+Europe,Photo & Video,monthly,2 lower-mid,0.0041,0.0065,0.0041,,0.4592,0.7078,0.7699
+Europe,Photo & Video,monthly,3 upper-mid,0.0040,,0.0009,,0.4130,0.6240,0.6666
+Europe,Photo & Video,monthly,4 high,0.0006,0.0011,0.0012,,,,
+Europe,Photo & Video,annual,1 low,0.0043,0.0603,0.0026,19.54,0.2322,0.3449,
+Europe,Photo & Video,annual,2 lower-mid,0.0078,0.0597,0.0047,38.01,0.1779,0.2664,
+Europe,Photo & Video,annual,3 upper-mid,0.0054,0.0454,0.0050,46.39,0.1662,0.3087,
+Europe,Photo & Video,annual,4 high,0.0085,0.0840,0.0063,62.71,0.1644,0.4667,
+Europe,Productivity,weekly,1 low,0.0055,0.0138,0.0046,10.40,0.4572,0.7760,0.8383
+Europe,Productivity,weekly,2 lower-mid,0.0143,0.0508,0.0052,11.19,0.4828,0.7604,0.8220
+Europe,Productivity,weekly,3 upper-mid,0.0184,0.0863,0.0027,17.79,0.4897,0.7372,0.8009
+Europe,Productivity,weekly,4 high,0.0246,0.0862,0.0174,18.56,0.5060,0.7264,0.7934
+Europe,Productivity,monthly,1 low,0.0033,0.0056,0.0029,,0.5410,0.6966,0.7277
+Europe,Productivity,monthly,2 lower-mid,0.0028,0.0057,0.0010,,0.4412,0.6426,0.7427
+Europe,Productivity,monthly,3 upper-mid,0.0011,0.0004,,,0.4205,0.6392,0.7447
+Europe,Productivity,monthly,4 high,0.0008,0.0017,0.0003,,0.3624,0.5358,0.6242
+Europe,Productivity,annual,1 low,0.0033,0.0184,0.0013,26.48,0.3451,0.3643,
+Europe,Productivity,annual,2 lower-mid,0.0051,0.0251,0.0037,46.75,0.1856,0.4691,
+Europe,Productivity,annual,3 upper-mid,0.0045,0.0239,0.0051,49.87,0.1791,0.3305,
+Europe,Productivity,annual,4 high,0.0050,0.0327,0.0057,77.33,0.2371,0.2598,
+Europe,Utilities,weekly,1 low,0.0076,0.0872,0.0038,9.45,0.4783,0.7297,0.8118
+Europe,Utilities,weekly,2 lower-mid,0.0141,0.0902,0.0024,9.61,0.4474,0.7097,0.7752
+Europe,Utilities,weekly,3 upper-mid,0.0330,0.1229,0.0033,22.20,0.4578,0.7126,0.8024
+Europe,Utilities,weekly,4 high,0.0489,0.1605,,36.42,0.6365,0.7850,0.8386
+Europe,Utilities,monthly,1 low,0.0015,0.0026,0.0014,,0.5049,0.7014,0.7425
+Europe,Utilities,monthly,2 lower-mid,0.0007,0.0028,0.0020,,0.3886,0.6496,0.6871
+Europe,Utilities,monthly,3 upper-mid,0.0005,0.0007,0.0034,,0.2447,0.5614,0.6490
+Europe,Utilities,monthly,4 high,0.0004,0.0007,,,,,
+Europe,Utilities,annual,1 low,0.0029,0.0057,0.0027,13.24,0.2286,0.4451,
+Europe,Utilities,annual,2 lower-mid,0.0015,0.0019,0.0033,25.22,0.2148,0.2650,
+Europe,Utilities,annual,3 upper-mid,0.0007,0.0003,0.0014,37.82,0.2081,0.3846,
+Europe,Utilities,annual,4 high,0.0011,0.0030,0.0018,56.02,0.1834,0.4147,
+LATAM,All,weekly,1 low,0.0076,0.0385,0.0043,6.59,0.4571,0.7366,0.8079
+LATAM,All,weekly,2 lower-mid,0.0136,0.0631,0.0050,9.52,0.4618,0.7306,0.8099
+LATAM,All,weekly,3 upper-mid,0.0195,0.0827,0.0045,12.03,0.5010,0.7450,0.8122
+LATAM,All,weekly,4 high,0.0262,0.0968,0.0108,18.02,0.5266,0.7314,0.7948
+LATAM,All,monthly,1 low,0.0057,0.0084,0.0037,5.49,0.4741,0.6647,0.7285
+LATAM,All,monthly,2 lower-mid,0.0026,0.0048,0.0020,9.70,0.3905,0.6613,0.7372
+LATAM,All,monthly,3 upper-mid,0.0021,0.0076,0.0017,14.10,0.3859,0.6406,0.6961
+LATAM,All,monthly,4 high,0.0013,0.0072,0.0018,17.53,0.3786,0.6040,0.6919
+LATAM,All,annual,1 low,0.0054,0.0262,0.0026,16.36,0.2196,0.4048,
+LATAM,All,annual,2 lower-mid,0.0042,0.0242,0.0029,27.25,0.1761,0.3591,
+LATAM,All,annual,3 upper-mid,0.0033,0.0197,0.0028,34.59,0.1890,0.3637,
+LATAM,All,annual,4 high,0.0026,0.0298,0.0019,46.13,0.1750,0.3364,
+LATAM,Education,weekly,1 low,0.0072,,,,,,
+LATAM,Education,weekly,2 lower-mid,,0.0674,,,,,
+LATAM,Education,weekly,3 upper-mid,,0.0592,,,,,
+LATAM,Education,weekly,4 high,,0.0533,,,,,
+LATAM,Education,monthly,1 low,0.0083,,,,,,
+LATAM,Education,monthly,2 lower-mid,0.0036,,,,,,
+LATAM,Education,monthly,4 high,0.0072,,,,,,
+LATAM,Education,annual,1 low,0.0147,0.0337,,,,,
+LATAM,Education,annual,2 lower-mid,0.0080,,,,,,
+LATAM,Education,annual,4 high,,0.0283,,,,,
+LATAM,Entertainment,weekly,1 low,0.0104,0.0254,0.0121,,0.3970,0.7092,0.7768
+LATAM,Entertainment,weekly,2 lower-mid,0.0142,0.0588,0.0143,,0.3640,0.6821,0.7617
+LATAM,Entertainment,weekly,3 upper-mid,0.0103,0.0800,0.0063,,0.3902,0.6981,0.7962
+LATAM,Entertainment,weekly,4 high,0.0162,0.0713,0.0093,,0.4709,0.6765,0.7804
+LATAM,Entertainment,monthly,1 low,0.0026,,0.0026,,0.4186,0.6477,0.7504
+LATAM,Entertainment,monthly,2 lower-mid,0.0036,,0.0028,,,,
+LATAM,Entertainment,monthly,3 upper-mid,0.0010,,,,,,
+LATAM,Entertainment,monthly,4 high,0.0020,,0.0020,,,,
+LATAM,Entertainment,annual,1 low,0.0017,0.0052,0.0032,,,,
+LATAM,Entertainment,annual,2 lower-mid,0.0014,0.0074,0.0012,,,,
+LATAM,Entertainment,annual,3 upper-mid,0.0020,0.0172,0.0023,,,,
+LATAM,Entertainment,annual,4 high,0.0033,,0.0029,,,,
+LATAM,Graphics & Design,weekly,1 low,0.0082,0.0359,0.0070,,0.4276,0.7019,0.8084
+LATAM,Graphics & Design,weekly,2 lower-mid,0.0113,0.0100,0.0049,,0.3967,0.6920,0.8110
+LATAM,Graphics & Design,weekly,3 upper-mid,0.0207,,,,0.3837,0.7448,0.7499
+LATAM,Graphics & Design,weekly,4 high,0.0191,0.0806,0.0164,,0.3668,0.6702,0.7838
+LATAM,Graphics & Design,monthly,1 low,0.0077,,0.0059,,,,
+LATAM,Graphics & Design,annual,1 low,0.0027,0.0212,0.0005,,,,
+LATAM,Graphics & Design,annual,2 lower-mid,0.0076,,0.0059,,,,
+LATAM,Graphics & Design,annual,3 upper-mid,0.0084,0.0401,0.0048,,,,
+LATAM,Graphics & Design,annual,4 high,0.0041,0.0810,0.0014,,,,
+LATAM,Health & Fitness,weekly,1 low,0.0021,0.0012,,,,,
+LATAM,Health & Fitness,weekly,2 lower-mid,0.0006,,,,,,
+LATAM,Health & Fitness,weekly,3 upper-mid,,0.0790,,,,,
+LATAM,Health & Fitness,weekly,4 high,,0.0445,,,,,
+LATAM,Health & Fitness,monthly,1 low,0.0096,0.0060,0.0042,,0.6360,0.6756,0.7215
+LATAM,Health & Fitness,monthly,2 lower-mid,0.0120,,,,0.5098,0.6599,0.7086
+LATAM,Health & Fitness,monthly,3 upper-mid,0.0040,0.0087,0.0036,,,,
+LATAM,Health & Fitness,monthly,4 high,0.0099,0.0261,0.0069,,,,
+LATAM,Health & Fitness,annual,1 low,0.0267,0.0316,0.0096,,0.2031,0.4013,
+LATAM,Health & Fitness,annual,2 lower-mid,0.0183,0.0633,0.0031,,0.2429,0.3875,
+LATAM,Health & Fitness,annual,3 upper-mid,0.0086,0.0242,0.0028,,,,
+LATAM,Health & Fitness,annual,4 high,0.0198,0.0476,,,,,
+LATAM,Lifestyle,weekly,1 low,0.0061,0.0179,0.0133,,0.3697,0.6997,0.8415
+LATAM,Lifestyle,weekly,2 lower-mid,0.0106,0.0734,0.0074,,,,
+LATAM,Lifestyle,weekly,3 upper-mid,0.0121,0.0704,0.0108,,0.4229,0.7061,0.8074
+LATAM,Lifestyle,weekly,4 high,0.0108,0.0441,0.0058,,0.4106,0.6299,0.7178
+LATAM,Lifestyle,monthly,1 low,0.0088,,0.0088,,,,
+LATAM,Lifestyle,monthly,2 lower-mid,0.0035,,0.0027,,,,
+LATAM,Lifestyle,monthly,3 upper-mid,0.0006,,0.0002,,,,
+LATAM,Lifestyle,monthly,4 high,0.0033,,0.0029,,,,
+LATAM,Lifestyle,annual,1 low,0.0106,0.0400,0.0124,,,,
+LATAM,Lifestyle,annual,2 lower-mid,0.0078,0.0257,0.0051,,,,
+LATAM,Lifestyle,annual,3 upper-mid,0.0054,,0.0054,,,,
+LATAM,Lifestyle,annual,4 high,0.0021,0.0574,0.0019,,,,
+LATAM,Photo & Video,weekly,1 low,0.0074,0.0058,0.0059,,0.4097,0.7211,0.8125
+LATAM,Photo & Video,weekly,2 lower-mid,0.0126,0.0235,0.0088,,0.4451,0.7530,0.8189
+LATAM,Photo & Video,weekly,3 upper-mid,0.0136,0.0593,0.0123,,0.4170,0.7250,0.8085
+LATAM,Photo & Video,weekly,4 high,0.0220,0.0688,0.0210,,0.3706,0.6933,0.7985
+LATAM,Photo & Video,monthly,1 low,0.0078,,0.0025,,0.4016,0.6651,0.7173
+LATAM,Photo & Video,monthly,2 lower-mid,0.0026,,0.0023,,,,
+LATAM,Photo & Video,monthly,3 upper-mid,0.0031,,0.0006,,0.4556,0.6393,0.6854
+LATAM,Photo & Video,monthly,4 high,0.0008,,0.0008,,,,
+LATAM,Photo & Video,annual,1 low,0.0068,0.0605,0.0012,,,,
+LATAM,Photo & Video,annual,2 lower-mid,0.0073,0.0462,0.0025,,0.1327,0.3787,
+LATAM,Photo & Video,annual,3 upper-mid,0.0047,0.0460,0.0045,,0.1771,0.3612,
+LATAM,Photo & Video,annual,4 high,0.0055,0.0568,0.0048,,,,
+LATAM,Productivity,weekly,1 low,0.0077,0.0306,0.0031,,0.4373,0.7365,0.8221
+LATAM,Productivity,weekly,2 lower-mid,0.0141,0.0563,0.0046,,0.5686,0.7730,0.8258
+LATAM,Productivity,weekly,3 upper-mid,0.0170,0.0701,0.0035,,0.5177,0.7711,0.8264
+LATAM,Productivity,weekly,4 high,0.0233,0.0894,0.0107,,0.4967,0.7643,0.8043
+LATAM,Productivity,monthly,1 low,0.0053,,0.0006,,,,
+LATAM,Productivity,monthly,2 lower-mid,0.0043,,0.0005,,,,
+LATAM,Productivity,monthly,3 upper-mid,0.0024,0.0105,0.0007,,,,
+LATAM,Productivity,monthly,4 high,0.0012,0.0056,0.0006,,,,
+LATAM,Productivity,annual,1 low,0.0084,0.0339,0.0024,,,,
+LATAM,Productivity,annual,2 lower-mid,0.0046,0.0242,0.0041,39.99,0.1787,0.3662,
+LATAM,Productivity,annual,3 upper-mid,0.0040,0.0422,0.0052,,0.1989,0.2257,
+LATAM,Productivity,annual,4 high,0.0039,0.0431,0.0022,,,,
+LATAM,Utilities,weekly,1 low,0.0086,0.0792,0.0034,10.41,0.5109,0.7727,0.8103
+LATAM,Utilities,weekly,2 lower-mid,0.0191,0.0767,0.0014,13.98,0.4718,0.7334,0.8055
+LATAM,Utilities,weekly,3 upper-mid,0.0301,0.1019,0.0014,21.10,0.5856,0.7590,0.8245
+LATAM,Utilities,weekly,4 high,0.0367,0.1294,,29.86,0.6222,0.7675,0.8084
+LATAM,Utilities,monthly,1 low,0.0032,0.0062,0.0019,,0.4555,0.6879,0.7395
+LATAM,Utilities,monthly,2 lower-mid,0.0006,0.0015,0.0005,,0.3623,0.6741,0.7272
+LATAM,Utilities,monthly,3 upper-mid,0.0014,0.0042,0.0042,,0.3078,0.6493,0.6986
+LATAM,Utilities,monthly,4 high,0.0002,0.0022,,,,,
+LATAM,Utilities,annual,1 low,0.0035,0.0066,0.0026,18.29,0.2280,0.3169,
+LATAM,Utilities,annual,2 lower-mid,0.0015,0.0033,0.0021,,0.1735,0.2613,
+LATAM,Utilities,annual,3 upper-mid,0.0013,0.0045,0.0007,,0.2035,0.4806,
+LATAM,Utilities,annual,4 high,0.0007,0.0010,0.0007,50.42,0.1753,0.3993,
+MEA,All,weekly,1 low,0.0070,0.0309,0.0047,6.55,0.5037,0.7438,0.8213
+MEA,All,weekly,2 lower-mid,0.0125,0.0466,0.0065,10.77,0.4894,0.7447,0.8131
+MEA,All,weekly,3 upper-mid,0.0189,0.0762,0.0058,12.20,0.5185,0.7484,0.8102
+MEA,All,weekly,4 high,0.0203,0.0826,0.0114,15.98,0.5283,0.7470,0.8037
+MEA,All,monthly,1 low,0.0040,0.0048,0.0039,5.53,0.5021,0.6882,0.7385
+MEA,All,monthly,2 lower-mid,0.0034,0.0058,0.0027,8.23,0.4461,0.6664,0.7415
+MEA,All,monthly,3 upper-mid,0.0024,0.0040,0.0016,10.89,0.4160,0.6378,0.7141
+MEA,All,monthly,4 high,0.0019,0.0043,0.0018,15.63,0.3800,0.5996,0.7131
+MEA,All,annual,1 low,0.0047,0.0264,0.0018,15.64,0.2133,0.4141,
+MEA,All,annual,2 lower-mid,0.0038,0.0179,0.0026,25.07,0.2068,0.3821,
+MEA,All,annual,3 upper-mid,0.0033,0.0200,0.0026,36.61,0.1801,0.3302,
+MEA,All,annual,4 high,0.0031,0.0303,0.0019,49.00,0.1680,0.2602,
+MEA,Education,weekly,1 low,0.0018,,,,,,
+MEA,Education,weekly,2 lower-mid,0.0102,0.0333,,,,,
+MEA,Education,weekly,3 upper-mid,0.0134,0.0562,,,,,
+MEA,Education,weekly,4 high,0.0175,0.0787,,,0.5792,0.7453,0.7955
+MEA,Education,monthly,1 low,0.0054,0.0194,,,,,
+MEA,Education,monthly,2 lower-mid,0.0077,,,,,,
+MEA,Education,monthly,3 upper-mid,0.0146,,0.0140,,,,
+MEA,Education,annual,1 low,0.0140,0.0440,0.0051,,,,
+MEA,Education,annual,2 lower-mid,0.0055,,,,,,
+MEA,Education,annual,3 upper-mid,0.0142,,,,,,
+MEA,Education,annual,4 high,0.0061,0.0214,,,,,
+MEA,Entertainment,weekly,1 low,0.0098,0.0286,0.0122,,0.5003,0.7544,0.8032
+MEA,Entertainment,weekly,2 lower-mid,0.0126,0.0422,0.0115,,0.4221,0.7209,0.7902
+MEA,Entertainment,weekly,3 upper-mid,0.0173,0.0694,0.0125,,0.4468,0.7450,0.8031
+MEA,Entertainment,weekly,4 high,0.0139,0.0442,0.0139,,0.4785,0.7196,0.7695
+MEA,Entertainment,monthly,1 low,0.0012,,0.0018,,,,
+MEA,Entertainment,monthly,2 lower-mid,0.0028,,0.0040,,0.3919,0.6354,0.7931
+MEA,Entertainment,monthly,3 upper-mid,0.0019,0.0035,0.0018,,,,
+MEA,Entertainment,monthly,4 high,0.0038,,0.0040,,,,
+MEA,Entertainment,annual,1 low,0.0016,0.0041,0.0023,,,,
+MEA,Entertainment,annual,2 lower-mid,0.0012,0.0146,0.0008,,,,
+MEA,Entertainment,annual,3 upper-mid,0.0032,0.0246,0.0020,,,,
+MEA,Entertainment,annual,4 high,0.0012,,0.0022,,,,
+MEA,Graphics & Design,weekly,1 low,0.0107,0.0247,0.0099,,0.4716,0.7225,0.8286
+MEA,Graphics & Design,weekly,2 lower-mid,0.0098,0.0222,0.0082,,0.4532,0.7218,0.7930
+MEA,Graphics & Design,weekly,3 upper-mid,0.0150,0.0354,0.0067,,0.4399,0.7639,0.7968
+MEA,Graphics & Design,weekly,4 high,0.0281,0.0727,0.0282,,0.4344,0.7128,0.8075
+MEA,Graphics & Design,monthly,1 low,0.0048,,0.0040,,,,
+MEA,Graphics & Design,monthly,2 lower-mid,0.0034,,,,,,
+MEA,Graphics & Design,annual,1 low,0.0046,0.0551,0.0020,,,,
+MEA,Graphics & Design,annual,2 lower-mid,0.0044,,0.0044,,,,
+MEA,Graphics & Design,annual,3 upper-mid,0.0081,0.0552,0.0035,,,,
+MEA,Graphics & Design,annual,4 high,0.0052,0.0767,0.0021,,,,
+MEA,Health & Fitness,weekly,1 low,0.0012,0.0015,,,,,
+MEA,Health & Fitness,weekly,2 lower-mid,0.0033,,0.0007,,,,
+MEA,Health & Fitness,weekly,3 upper-mid,,0.0469,,,,,
+MEA,Health & Fitness,weekly,4 high,0.0121,0.0443,,,,,
+MEA,Health & Fitness,monthly,1 low,0.0132,0.0058,0.0070,,0.5628,0.6682,0.7238
+MEA,Health & Fitness,monthly,2 lower-mid,0.0091,0.0092,0.0069,,0.4922,0.6589,0.7113
+MEA,Health & Fitness,monthly,3 upper-mid,0.0101,0.0116,0.0101,,,,
+MEA,Health & Fitness,monthly,4 high,0.0099,0.0196,0.0028,,,,
+MEA,Health & Fitness,annual,1 low,0.0207,0.0323,0.0080,,0.2499,0.3935,
+MEA,Health & Fitness,annual,2 lower-mid,0.0149,0.0370,0.0066,,0.2105,0.3331,
+MEA,Health & Fitness,annual,3 upper-mid,0.0094,0.0394,0.0032,,,,
+MEA,Health & Fitness,annual,4 high,0.0096,0.0410,,,,,
+MEA,Lifestyle,weekly,1 low,0.0052,0.0147,0.0155,,0.4244,0.7010,0.7716
+MEA,Lifestyle,weekly,2 lower-mid,0.0151,0.0552,0.0139,,,,
+MEA,Lifestyle,weekly,3 upper-mid,0.0090,0.0414,0.0068,,0.3800,0.6683,0.7867
+MEA,Lifestyle,weekly,4 high,0.0116,0.0544,0.0108,,0.3877,0.6786,0.7778
+MEA,Lifestyle,monthly,1 low,0.0134,,0.0134,,0.4935,0.6939,0.7491
+MEA,Lifestyle,monthly,2 lower-mid,0.0053,,,,0.4099,0.5888,0.7267
+MEA,Lifestyle,monthly,3 upper-mid,0.0028,,0.0027,,,,
+MEA,Lifestyle,monthly,4 high,0.0018,,0.0018,,,,
+MEA,Lifestyle,annual,1 low,0.0135,0.0424,0.0061,,0.2221,0.3793,
+MEA,Lifestyle,annual,2 lower-mid,0.0084,0.0099,0.0099,,,,
+MEA,Lifestyle,annual,3 upper-mid,0.0029,0.0183,0.0026,,,,
+MEA,Lifestyle,annual,4 high,0.0017,,0.0016,,,,
+MEA,Photo & Video,weekly,1 low,0.0113,0.0052,0.0076,5.53,0.4610,0.7438,0.8335
+MEA,Photo & Video,weekly,2 lower-mid,0.0101,0.0376,0.0091,,0.5333,0.7659,0.8576
+MEA,Photo & Video,weekly,3 upper-mid,0.0191,0.0214,0.0173,,0.4636,0.7339,0.8118
+MEA,Photo & Video,weekly,4 high,0.0184,0.0532,0.0160,11.42,0.4124,0.7030,0.7972
+MEA,Photo & Video,monthly,1 low,0.0038,,0.0038,,,,
+MEA,Photo & Video,monthly,2 lower-mid,0.0020,,0.0020,,0.4527,0.7023,0.7583
+MEA,Photo & Video,monthly,3 upper-mid,0.0037,,0.0036,,0.4757,0.6756,0.7601
+MEA,Photo & Video,monthly,4 high,0.0008,,0.0007,,,,
+MEA,Photo & Video,annual,1 low,0.0057,0.0405,0.0007,,,,
+MEA,Photo & Video,annual,2 lower-mid,0.0049,0.0284,0.0025,,0.1911,0.3426,
+MEA,Photo & Video,annual,3 upper-mid,0.0050,0.0312,0.0037,,0.2037,0.3896,
+MEA,Photo & Video,annual,4 high,0.0068,0.0632,0.0047,,0.1083,0.1947,
+MEA,Productivity,weekly,1 low,0.0060,0.0217,0.0043,,0.4596,0.6919,0.7885
+MEA,Productivity,weekly,2 lower-mid,0.0125,0.0382,0.0042,,0.5662,0.7771,0.8296
+MEA,Productivity,weekly,3 upper-mid,0.0164,0.0723,0.0035,,0.5595,0.7538,0.8183
+MEA,Productivity,weekly,4 high,0.0129,0.0543,0.0076,,0.5024,0.7473,0.8123
+MEA,Productivity,monthly,1 low,0.0036,0.0071,0.0049,,,,
+MEA,Productivity,monthly,2 lower-mid,0.0043,0.0142,,,,,
+MEA,Productivity,monthly,3 upper-mid,0.0004,0.0010,0.0003,,0.3522,0.6023,0.7632
+MEA,Productivity,monthly,4 high,0.0017,0.0136,0.0011,,0.3344,0.5059,0.7810
+MEA,Productivity,annual,1 low,0.0033,0.0163,0.0021,,,,
+MEA,Productivity,annual,2 lower-mid,0.0027,0.0223,0.0023,,,,
+MEA,Productivity,annual,3 upper-mid,0.0050,0.0362,0.0050,,0.2174,0.2995,
+MEA,Productivity,annual,4 high,0.0046,0.0268,0.0044,,,,
+MEA,Utilities,weekly,1 low,0.0064,0.0508,0.0019,10.39,0.5445,0.7649,0.8454
+MEA,Utilities,weekly,2 lower-mid,0.0180,0.0680,0.0004,15.98,0.5414,0.7496,0.8200
+MEA,Utilities,weekly,3 upper-mid,0.0277,0.1082,0.0057,25.55,0.5946,0.7824,0.8346
+MEA,Utilities,weekly,4 high,0.0313,0.1225,,23.45,0.6640,0.7952,0.8279
+MEA,Utilities,monthly,1 low,0.0016,0.0023,0.0012,,0.4353,0.6862,0.7179
+MEA,Utilities,monthly,2 lower-mid,0.0008,0.0021,0.0005,,0.4153,0.7114,0.7623
+MEA,Utilities,monthly,3 upper-mid,0.0009,0.0036,0.0045,,0.4218,0.6501,0.7186
+MEA,Utilities,monthly,4 high,0.0015,0.0024,0.0040,,,,
+MEA,Utilities,annual,1 low,0.0016,0.0031,0.0013,14.48,0.1964,0.3348,
+MEA,Utilities,annual,2 lower-mid,0.0016,0.0050,0.0026,,0.2354,0.2421,
+MEA,Utilities,annual,3 upper-mid,0.0014,0.0006,0.0015,,0.1853,0.4386,
+MEA,Utilities,annual,4 high,0.0011,0.0092,0.0010,,0.1768,0.2375,
+North America,All,weekly,1 low,0.0183,0.1126,0.0109,7.98,0.4931,0.7415,0.8109
+North America,All,weekly,2 lower-mid,0.0265,0.0879,0.0083,7.21,0.4903,0.7539,0.8136
+North America,All,weekly,3 upper-mid,0.0815,0.2323,0.0088,23.97,0.4820,0.7391,0.8071
+North America,All,weekly,4 high,0.0326,0.0997,0.0160,15.98,0.5727,0.7543,0.8167
+North America,All,monthly,1 low,0.0048,0.0055,0.0032,7.99,0.4766,0.6913,0.7475
+North America,All,monthly,2 lower-mid,0.0044,0.0041,0.0041,9.99,0.4475,0.6589,0.7424
+North America,All,monthly,3 upper-mid,0.0015,0.0030,0.0049,19.98,0.3735,0.6169,0.6945
+North America,All,monthly,4 high,0.0020,0.0036,0.0034,29.97,0.4141,0.6081,0.6960
+North America,All,annual,1 low,0.0086,0.0281,0.0065,24.49,0.2130,0.3985,
+North America,All,annual,2 lower-mid,0.0094,0.0152,0.0081,39.99,0.1923,0.3802,
+North America,All,annual,3 upper-mid,0.0051,0.0136,0.0087,39.99,0.2002,0.3616,
+North America,All,annual,4 high,0.0065,0.0458,0.0030,69.99,0.2045,0.3264,
+North America,Education,weekly,1 low,0.0050,0.0266,0.0003,13.98,0.6322,0.7785,0.8414
+North America,Education,weekly,2 lower-mid,,0.0879,,,0.5655,0.7678,0.8061
+North America,Education,weekly,3 upper-mid,,0.0921,,15.98,0.6254,0.7822,0.8343
+North America,Education,weekly,4 high,0.0305,,,19.98,0.6215,0.7004,0.7938
+North America,Education,monthly,1 low,0.0082,0.0176,0.0030,,0.5122,0.7111,0.7343
+North America,Education,monthly,2 lower-mid,,,,,0.4865,0.6532,0.7362
+North America,Education,monthly,3 upper-mid,0.0100,0.0154,,,0.4869,0.6293,0.7072
+North America,Education,monthly,4 high,0.0493,0.0513,,,0.5276,0.6164,0.7011
+North America,Education,annual,1 low,0.0132,0.0160,,29.99,,,
+North America,Education,annual,2 lower-mid,0.0151,0.0366,,39.99,0.2103,0.4142,
+North America,Education,annual,3 upper-mid,0.0252,0.0424,,,,,
+North America,Education,annual,4 high,0.0206,0.0569,,,,,
+North America,Entertainment,weekly,1 low,0.0257,0.0424,0.0217,6.99,0.4661,0.7328,0.8099
+North America,Entertainment,weekly,2 lower-mid,0.0317,0.1138,0.0163,6.99,0.3289,0.7082,0.8035
+North America,Entertainment,weekly,3 upper-mid,0.0463,0.1095,,,0.3704,0.6915,0.7757
+North America,Entertainment,weekly,4 high,0.0203,0.0739,0.0270,15.98,0.4712,0.6912,0.7699
+North America,Entertainment,monthly,1 low,0.0019,0.0030,0.0019,5.13,0.4015,0.6240,0.7591
+North America,Entertainment,monthly,2 lower-mid,0.0093,0.0259,0.0093,9.99,0.4504,0.6717,0.7301
+North America,Entertainment,monthly,3 upper-mid,0.0042,0.0380,0.0041,19.99,0.2693,0.5331,0.6498
+North America,Entertainment,monthly,4 high,0.0018,,0.0068,,0.2210,0.5332,0.6924
+North America,Entertainment,annual,1 low,0.0072,0.0204,0.0072,24.74,,,
+North America,Entertainment,annual,2 lower-mid,0.0042,0.0045,0.0050,39.99,0.1419,0.3596,
+North America,Entertainment,annual,3 upper-mid,0.0044,0.0249,,,0.1500,0.4060,
+North America,Entertainment,annual,4 high,0.0048,,0.0041,69.99,0.2456,0.3359,
+North America,Graphics & Design,weekly,1 low,0.0279,0.0274,0.0220,6.99,0.4389,0.7194,0.7978
+North America,Graphics & Design,weekly,3 upper-mid,0.0511,0.0713,0.0458,7.99,0.3908,0.7219,0.7879
+North America,Graphics & Design,weekly,4 high,0.0738,,,,0.4141,0.7195,0.7862
+North America,Graphics & Design,monthly,1 low,0.0049,,0.0048,,0.4570,0.6789,0.7731
+North America,Graphics & Design,monthly,2 lower-mid,0.0105,,,,0.3832,0.6274,0.7420
+North America,Graphics & Design,monthly,3 upper-mid,0.0057,,,,,,
+North America,Graphics & Design,annual,1 low,0.0083,0.0440,0.0029,,,,
+North America,Graphics & Design,annual,2 lower-mid,0.0229,0.0669,0.0148,39.99,,,
+North America,Graphics & Design,annual,3 upper-mid,,,,,0.1782,0.4033,
+North America,Graphics & Design,annual,4 high,0.0092,,0.0043,,0.1443,0.3048,
+North America,Health & Fitness,weekly,1 low,0.0018,0.0014,,,,,
+North America,Health & Fitness,weekly,2 lower-mid,0.0040,0.0233,0.0006,,,,
+North America,Health & Fitness,weekly,3 upper-mid,,,,,0.5869,0.7705,0.8156
+North America,Health & Fitness,weekly,4 high,,0.0466,,,0.5743,0.7683,0.8214
+North America,Health & Fitness,monthly,1 low,0.0064,0.0056,0.0045,12.09,0.5387,0.6897,0.7020
+North America,Health & Fitness,monthly,2 lower-mid,0.0133,0.0138,0.0080,19.98,0.5271,0.6609,0.7390
+North America,Health & Fitness,monthly,3 upper-mid,0.0128,0.0021,,21.98,,,
+North America,Health & Fitness,monthly,4 high,0.0128,0.0244,0.0036,,0.4627,0.6275,0.7031
+North America,Health & Fitness,annual,1 low,0.0261,0.0362,0.0117,23.99,0.2168,0.3990,
+North America,Health & Fitness,annual,2 lower-mid,0.0196,0.0445,0.0090,39.99,0.2187,0.3691,
+North America,Health & Fitness,annual,3 upper-mid,0.0171,0.0647,0.0090,59.99,0.1886,0.2825,
+North America,Health & Fitness,annual,4 high,0.0171,0.0741,,74.99,0.1691,0.2596,
+North America,Lifestyle,weekly,1 low,0.0129,0.0051,0.0233,5.08,0.4164,0.7318,0.7813
+North America,Lifestyle,weekly,2 lower-mid,0.0246,0.1128,0.0076,10.98,0.4795,0.7626,0.8174
+North America,Lifestyle,weekly,3 upper-mid,0.0447,0.0937,0.0389,9.99,0.4422,0.6993,0.7843
+North America,Lifestyle,weekly,4 high,0.0160,0.1002,0.0069,14.99,0.4415,0.7060,0.7776
+North America,Lifestyle,monthly,1 low,0.0051,0.0007,0.0039,7.49,0.4859,0.6454,0.7439
+North America,Lifestyle,monthly,2 lower-mid,0.0086,0.0053,0.0038,,0.3871,0.6227,0.7065
+North America,Lifestyle,monthly,3 upper-mid,0.0042,,0.0040,19.99,0.3476,0.6254,0.6712
+North America,Lifestyle,monthly,4 high,0.0043,,0.0061,,0.3162,0.5647,0.6392
+North America,Lifestyle,annual,1 low,0.0180,0.0393,0.0056,29.99,0.1849,0.3440,
+North America,Lifestyle,annual,2 lower-mid,0.0216,0.0353,0.0254,,0.1599,0.4586,
+North America,Lifestyle,annual,3 upper-mid,0.0097,0.0339,0.0097,,0.1290,0.3780,
+North America,Lifestyle,annual,4 high,0.0007,0.0147,0.0007,59.99,,,
+North America,Photo & Video,weekly,1 low,0.0164,0.0237,0.0133,5.09,0.4546,0.7570,0.8238
+North America,Photo & Video,weekly,2 lower-mid,0.0347,0.0519,0.0379,7.99,0.4618,0.7554,0.8186
+North America,Photo & Video,weekly,3 upper-mid,0.0281,0.1309,0.0495,,0.3738,0.7263,0.7908
+North America,Photo & Video,weekly,4 high,0.0446,0.1727,0.0262,9.99,0.3863,0.6792,0.7950
+North America,Photo & Video,monthly,1 low,0.0082,,0.0068,5.49,0.4730,0.7165,0.7638
+North America,Photo & Video,monthly,2 lower-mid,0.0120,,,,,,
+North America,Photo & Video,monthly,3 upper-mid,0.0092,,0.0044,9.99,0.3870,0.6079,0.6880
+North America,Photo & Video,monthly,4 high,0.0014,0.0014,0.0012,,0.3835,0.5785,0.6934
+North America,Photo & Video,annual,1 low,0.0118,0.0621,0.0068,19.99,0.2319,0.3387,
+North America,Photo & Video,annual,2 lower-mid,,,,,0.1792,0.3584,
+North America,Photo & Video,annual,3 upper-mid,0.0194,0.0611,0.0151,39.99,0.1762,0.3838,
+North America,Photo & Video,annual,4 high,0.0165,0.0809,0.0124,49.99,0.1446,0.3662,
+North America,Productivity,weekly,1 low,0.0189,0.0158,0.0111,9.98,0.5272,0.7913,0.8271
+North America,Productivity,weekly,2 lower-mid,0.0342,0.0849,0.0088,13.98,0.5181,0.7724,0.8277
+North America,Productivity,weekly,3 upper-mid,0.0565,0.0859,0.0070,15.98,0.5502,0.7614,0.8291
+North America,Productivity,weekly,4 high,0.0403,0.1390,0.0139,17.98,0.5748,0.7717,0.8269
+North America,Productivity,monthly,1 low,0.0041,0.0067,0.0020,9.99,0.5596,0.7812,0.7889
+North America,Productivity,monthly,2 lower-mid,0.0044,0.0003,0.0010,,0.4639,0.6719,0.7588
+North America,Productivity,monthly,3 upper-mid,0.0029,0.0020,0.0008,20.48,0.4776,0.7132,0.7655
+North America,Productivity,monthly,4 high,0.0009,0.0036,0.0007,,0.4149,0.5925,0.7030
+North America,Productivity,annual,1 low,0.0094,0.0313,0.0064,29.99,0.2349,0.4579,
+North America,Productivity,annual,2 lower-mid,,,,39.99,0.2013,0.4351,
+North America,Productivity,annual,3 upper-mid,0.0085,0.0051,0.0087,54.17,0.2614,0.4111,
+North America,Productivity,annual,4 high,0.0132,0.0806,0.0085,73.49,0.2567,0.4111,
+North America,Utilities,weekly,1 low,0.0220,0.1591,0.0067,7.99,0.4977,0.7368,0.8076
+North America,Utilities,weekly,3 upper-mid,0.0996,0.2703,0.0040,39.96,0.5638,0.7768,0.8335
+North America,Utilities,weekly,4 high,,0.2495,,,0.6850,0.8051,0.8443
+North America,Utilities,monthly,1 low,0.0017,0.0031,0.0017,9.97,0.4381,0.6812,0.7452
+North America,Utilities,monthly,2 lower-mid,0.0006,0.0019,0.0030,9.99,0.3669,0.6817,0.7918
+North America,Utilities,monthly,3 upper-mid,0.0009,0.0014,,14.99,0.3771,0.6756,0.7052
+North America,Utilities,monthly,4 high,0.0004,0.0008,,19.99,0.4908,0.7004,0.7607
+North America,Utilities,annual,1 low,0.0067,0.0084,0.0044,19.99,0.2106,0.4097,
+North America,Utilities,annual,2 lower-mid,0.0057,0.0019,0.0078,29.99,0.1989,0.3696,
+North America,Utilities,annual,3 upper-mid,0.0012,0.0011,0.0066,39.99,0.2712,0.2915,
+North America,Utilities,annual,4 high,0.0025,0.0074,0.0021,50.32,0.2255,0.3917,

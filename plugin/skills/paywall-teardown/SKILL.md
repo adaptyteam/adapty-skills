@@ -36,7 +36,7 @@ Every line the user reads, the fixed blocks included:
 - **Bold at most one thing per paragraph.** Table rows need no bold.
 - **Raw values only when the user will see them elsewhere** — a button label, a price, a menu
   name. Never element ids or tool names.
-- **Full, clickable links.**
+- **Full, clickable links.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Reply in the user's language — the disclaimer and the builder pitch too.** Labels quoted from
   their screen stay exactly as the screen shows them.
 
@@ -61,6 +61,31 @@ because it is on screen.
 
 If an image is too cropped or low-res to read prices, plans, or the CTA, say what you can't see
 and give your read of the rest rather than guessing details.
+
+**Prices on a screenshot may not be real.** A builder preview and a design in progress show
+sample prices. Until the user confirms the prices on the screen are the ones people pay, no row
+quotes a price, a saving percentage or a billed amount from it; the asks list carries the
+question.
+
+## A screen with a question about the numbers
+
+A screen can be asked about in two ways, and the user may phrase both the same: what is wrong
+with the design, or why the app's numbers moved. Only `growth-advisor` reads the numbers. When
+the message names a change in the app's own numbers ("since summer people buy half as often",
+"conversion dropped on this paywall"):
+
+- **It asks only why the numbers moved:** invoke `growth-advisor` with the screen. It reads the
+  data first and calls this skill back for the design part.
+- **It also asks what to change on the screen, or you cannot tell which it wants:** ask one
+  question before reading the screen. Use `AskUserQuestion` if your harness has it; otherwise ask
+  in one message with the options numbered, and wait. The shape, not words to copy:
+
+  > Do you want me to review the screen's design and suggest changes, or look at your numbers to
+  > find what changed since summer and suggest an A/B test?
+
+  Design: this skill, in Audit. Numbers, or both: `growth-advisor` first.
+
+When `growth-advisor` or `flow-generator` invoked this skill, never ask: answer the design part.
 
 ## Reference
 
@@ -100,7 +125,19 @@ Four passes, and none of them is optional:
 4. **Back, over your own render.** The moment the screen draws, run the full process above
    against it, and check the render against your look line and the design system: a value outside the system, a
    screen that drifts from another of its type, or a look nobody chose (`references/look.md`) is
-   a *High* row. **A finding on your own draft is a defect, not a
+   a *High* row. **Then answer the four layout questions about the screenshot, not about the
+   concept** (`references/look.md` → Inventing the paywall's layout): what fills the top half,
+   where the plans are, where the value is. If the render has the obvious structure — a heading
+   on top, a block of value under it, the plans under that — or is the stores' commonest
+   paywall in new colours (`references/look.md`, rule 3 of the layout), the build did not carry out the
+   concept, whatever the concept was called: a *Fix first* row, fixed by rebuilding the screen
+   to the concept's answers, never by describing the render differently. A render that breaks
+   any rule in `references/look.md` → "Different is not enough" (no focal element, boxes inside
+   boxes, a clip-art character, a crowd of colours, items scattered off the grid, value pushed
+   below the fold by decoration) is a *High* row. **Anything the pinned bar slices — a row, a
+   line of text, an image cut at its edge — and any leftover band on the first screen is a *Fix
+   first* row**, fixed by shortening or moving the content, never by calling it something the
+   user scrolls to. **A finding on your own draft is a defect, not a
    recommendation** — fix every *Fix first* and *High* row and re-render. Never hand over a screen accompanied by a table of
    the patterns you chose to skip; that is unfinished work wearing a report. What survives into
    the write-up is only what you *cannot* fix: rows blocked on a real number, a real price or an
@@ -127,7 +164,7 @@ observable, and they usually leave one or two candidates standing.
 | Archetype | Centerpiece | Pick it when | Rules it out |
 | :-- | :-- | :-- | :-- |
 | **Comparison-led** | Free-vs-paid table above the plans | The app has a real free tier **and you know its actual limits**; analytical categories (productivity, finance, AI tools) | No free tier, or you would have to guess the limits |
-| **Hero / visual-led** | A large image or looping video of **the real result** | You have a readable path to that asset, and the app's value is visible output (beauty, photo/video, fitness) | Nobody has the file. A file you *were* given is no longer a blocker — `flows media upload` places it (SVG and video excepted) — but **a graphic you drew yourself does not satisfy this prerequisite**: the archetype sells the app's actual output, and an illustration standing in for it is a fabricated result, the same class as a fabricated rating |
+| **Hero / visual-led** | A large image or looping video of **the real result** | You have a readable path to that asset, and the app's value is visible output (beauty, photo/video, fitness) | Nobody has the file. A file you *were* given is no longer a blocker — `flow-generator` uploads it, video included (SVG excepted) — but **a graphic you drew yourself does not satisfy this prerequisite**: the archetype sells the app's actual output, and an illustration standing in for it is a fabricated result, the same class as a fabricated rating. A scene of the app's own character or core loop is not this archetype: it shows the app's world, not a result, so it needs no file ([look.md → Inventing the paywall's layout](references/look.md#inventing-the-paywalls-layout)) |
 | **Trial-timeline** | Day 0 → reminder → charge, as a connected timeline | The product **really carries an intro offer or trial** you can name | No verified offer on the product. A timeline for a trial that may not exist is a fabricated offer |
 | **Segmented tabs** | Period switcher (Yearly / Monthly) over the price — built as the **tabs** element, one plan per panel, never plan cards styled as segments | Plans differ **only by period** within one tier | Tiers differ by feature set — a switcher hides the difference that matters |
 | **Editorial benefit list** | Outcome-led benefit rows with titles and descriptions | Value is explanatory rather than comparative; no free tier to compare against; emotion-driven categories | The decision really is free-vs-paid |
@@ -145,6 +182,12 @@ one. Otherwise the archetype says what the screen sells with, never what it look
 concept you invent in `references/look.md` decides the layout and the style, may combine archetypes
 whose prerequisites hold, and must not default to the first one that passes. Taking the first
 that passes is how every paywall became a trial timeline over two cards.
+
+**Decide whether the screen sells the trial or the product, before the archetype.** With a
+verified trial, the screen leads with the trial and puts reassurance next to the button: when the
+first charge happens, and that the user can cancel before it. With no trial, nothing free lowers
+the risk, so the screen has to show the value instead: the result, the features, the saving. Say
+which one you chose in the archetype line.
 
 **Two rules that come from getting this wrong:**
 
@@ -226,6 +269,14 @@ does not buy must be able to leave. Never move it out of the table as a
 strategy question. That is the whole reason: do not add
 that store review may reject it, which nothing here has checked.
 
+**A trial paywall that never promises a reminder is a row too.** When the screen sells a free
+trial and nothing on it says the user will hear from you before the first charge, add one under
+Trust signals near CTA, with that pattern's range: a line by the button ("We'll remind you 2 days
+before your trial ends"), or a reminder step in a trial timeline. Forgetting to cancel is the main
+reason people hold back from a trial, and "Cancel anytime" does not answer it. Only a reminder the
+app really sends can be promised, so the asks carry "Do you send a reminder before the trial
+charges?"; when the answer is no, the row is to start sending one, then say so.
+
 ## Output — design
 
 For the forward pass. Same library, same numbers, different columns — there is nothing to compare against
@@ -279,7 +330,8 @@ the patterns that depend on them must name that in **Needs from you**:
 | Social proof, **several testimonials on one screen** | Yes — the `carousel` element, which swipes and draws its own indicator dots | The quotes. Never a static card with hand-built dots: it ships one frozen slide and dots that do nothing, and it screenshots identically to the real thing |
 | Results/proof with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, which is a copy-tier change |
 | Countdown timer | Yes | A real discount to count down to; no offer means no timer |
-| Hero image / video, background image | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
+| Trial or intro-offer wording anywhere — a plan card, a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
+| Hero image / video, background image | **Yes, given the file** — `flow-generator` uploads it, a video too (not SVG) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | Goal-personalized headline | Yes, if a variable producer exists earlier in the flow | The onboarding step that captures the goal, if there isn't one |
 
 Mechanics for all of these — the `old-price` element, `_meta.icons`, empty asset maps, variable

@@ -15,7 +15,7 @@ stay clean when store-review findings are the only ones that fired.
 
 Usage: python3 tests/test-store-review.py     # 0 all pass, 1 a case regressed
 """
-import copy, glob, json, os, re, subprocess, sys, tempfile
+import copy, glob, json, os, re, shutil, subprocess, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from v13 import localization  # noqa: E402
 
@@ -29,7 +29,7 @@ MULTI = os.path.join(FIX, 'onboarding-multilocale.json')
 fails = []
 
 
-def run(config, catalog=CATALOG, stores=None, report=False):
+def run(config, catalog=CATALOG, stores=None, report=False, custom=None):
     """(rc, findings|stdout). `config` is a path or a dict."""
     with tempfile.TemporaryDirectory() as tmp:
         path = config
@@ -41,6 +41,8 @@ def run(config, catalog=CATALOG, stores=None, report=False):
             cmd += ['--catalog', catalog]
         if stores:
             cmd += ['--stores', stores]
+        if custom is not None:
+            cmd += ['--custom-actions', custom]
         r = subprocess.run(cmd, capture_output=True, text=True)
     if 'Traceback' in r.stderr:
         raise AssertionError(f'audit-flow.py crashed:\n{r.stderr}')
@@ -591,6 +593,87 @@ check('...and the fixture no longer raises hardcoded-price blockers as a side ef
       not of(findings, 'hardcoded-price'),
       str([f['element'] for f in of(findings, 'hardcoded-price')]))
 
+# Conditional text. A price line written as a `switch` on the trial flag ("7 days free,
+# then $4.99/week" when the trial applies, "$4.99/week" otherwise) states the terms, and
+# `flat_text` renders a switch as '' -- so `trial-terms-incomplete` fired on it, reported
+# from a real audit. The disclosure blob now reads `branch_text`. Both value shapes are
+# built: the inline one (the per-locale value is the switch) and the catalog one after
+# `localization.resolve` (the property is the switch and each branch holds `{values}`).
+def _blocks(text):
+    return [{'type': 'paragraph', 'content': [{'type': 'text', 'text': text}]}]
+
+
+TRIAL_FLAG = {'type': '==', 'left': {'type': 'var', 'variableId': 'products.selectedProduct.hasTrial'},
+              'right': {'type': 'const', 'value': True}}
+
+
+def _inline_switch(on, off):
+    return {'values': {'en': {'type': 'switch',
+                              'cases': [[TRIAL_FLAG, {'type': 'const', 'value': _blocks(on)}]],
+                              'default': {'type': 'const', 'value': _blocks(off)}}}}
+
+
+def _catalog_switch(on, off):
+    return {'type': 'switch',
+            'cases': [[TRIAL_FLAG, {'type': 'const', 'value': {'values': {'en': _blocks(on)}}}]],
+            'default': {'type': 'const', 'value': {'values': {'en': _blocks(off)}}}}
+
+
+def _with_second_text(doc, content, first=None):
+    """Copy of `doc` whose scr_paywall second text element carries `content` (and the
+    first, when given, says `first` instead of the trial promise)."""
+    d = copy.deepcopy(doc)
+    for s in d['screens']:
+        if s['id'] != 'scr_paywall':
+            continue
+        texts = [e for e in ((s.get('elements') or {}).get('map') or {}).values()
+                 if e.get('type') == 'text']
+        if first is not None:
+            texts[0]['props']['content'] = {'values': {'en': _blocks(first)}}
+        texts[1]['props']['content'] = content
+    return d
+
+
+switch_terms = _with_second_text(bare, _inline_switch('7 days free, then $4.99/week', '$4.99/week'))
+rc, findings = run(switch_terms)
+check('silent when the trial terms are written inside a conditional-text switch (inline shape)',
+      not of(findings, 'trial-terms-incomplete'), str(of(findings, 'trial-terms-incomplete')))
+check('...and the period inside the switch satisfies no-period-disclosed',
+      not of(findings, 'no-period-disclosed'), str(of(findings, 'no-period-disclosed')))
+
+rc, findings = run(_with_second_text(bare, _catalog_switch('7 days free, then $4.99/week', '$4.99/week')))
+check('silent when the trial terms are inside a switch in the catalog shape (branches hold {values})',
+      not of(findings, 'trial-terms-incomplete'), str(of(findings, 'trial-terms-incomplete')))
+
+# FIRES: the trial is promised ONLY inside a switch branch and nothing states what follows.
+# Before `branch_text` the promise itself was invisible, so this screen was silent: a miss,
+# now a finding.
+rc, findings = run(_with_second_text(
+    bare, _inline_switch('Start your 7-day free trial', 'Everything you need'),
+    first='Everything you need'))
+check('fires when the only trial promise sits inside a switch and no terms follow it',
+      len(of(findings, 'trial-terms-incomplete')) == 1, str(of(findings, 'trial-terms-incomplete')))
+
+# Negative test of the mechanism: the same switch-terms screen against a copy of the
+# script whose disclosure blob reads `flat_text` again must fire, or the silence above
+# is caused by something other than `branch_text`.
+with tempfile.TemporaryDirectory() as tmp:
+    src = open(AUDIT).read()
+    marker = "branch_text((e.get('props') or {}).get('content'), dl)"
+    check('the disclosure blob is built with branch_text (the negative test can find it)',
+          src.count(marker) == 1, str(src.count(marker)))
+    # The whole references dir, since the script imports its siblings (`localization.py`).
+    refs = os.path.join(tmp, 'references')
+    shutil.copytree(os.path.dirname(AUDIT), refs)
+    old = os.path.join(refs, 'audit-flow.py')
+    open(old, 'w').write(src.replace(marker, "flat_text((e.get('props') or {}).get('content'), dl)"))
+    cpath = os.path.join(tmp, 'c.json')
+    json.dump(switch_terms, open(cpath, 'w'))
+    r = subprocess.run([sys.executable, old, cpath, '--json', '--catalog', CATALOG],
+                       capture_output=True, text=True)
+    check('...and with flat_text instead, the switch-terms screen fires trial-terms-incomplete',
+          len(of(json.loads(r.stdout)['findings'], 'trial-terms-incomplete')) == 1, r.stderr[-300:])
+
 # A screen with neither period nor trial terms produces BOTH findings -- the two
 # `check_disclosure` halves read the same per-screen blob independently. Uses the
 # `bare` run's result (`findings` was reassigned by the `withterms` run above).
@@ -976,7 +1059,11 @@ check('the Play 12-testers/14-days account bullet is GONE (cut, not gated)',
       '12 testers' not in bys and '14 consecutive' not in bys, bys)
 
 # Gated reminders: a flow that sells nothing is not told to get products approved.
-rc, nosell = run(os.path.join(FIX, 'vpn-timer-draft.json'), catalog=None, report=True)
+# The list prints only once nothing blocks, and the fixture's real font names block, so
+# this reads a copy without fonts.
+_vpn = json.load(open(os.path.join(FIX, 'vpn-timer-draft.json')))
+_vpn['_meta']['fonts'] = []
+rc, nosell = run(_vpn, catalog=None, report=True)
 nosell_bys = nosell.split('**Check these yourself', 1)[1] if '**Check these yourself' in nosell else ''
 check('a flow that binds no products gets no App Store Connect products reminder',
       'Ready to Submit' not in nosell_bys, nosell)
@@ -993,6 +1080,267 @@ check('the App Store listing reminder prints for an iOS app',
 check('...and is skipped for an app that does not ship on iOS',
       'App Store listing' not in and_bys, and_out[-600:])
 check('...and still prints when the stores are UNKNOWN', 'App Store listing' in bys, bys)
+
+print('\npermission screens')
+PRIMER = os.path.join(FIX, 'onboarding-permission-primer.json')
+PRIMER_ANSWERS = ('add_pregnancy=other,set_move_goal_lightly=other,set_move_goal_moderately=other,'
+                  'set_move_goal_highly=other,request_notifications=permission')
+PERMISSION_CHECKS = ('primer-skip', 'primer-grant-wording', 'permission-incentive',
+                     'att-fake-alert')
+
+
+def _para(text_value):
+    return [{'type': 'paragraph', 'content': [{'type': 'text', 'text': text_value}]}]
+
+
+def _set_text(screen, eid, text_value):
+    content = screen['elements']['map'][eid]['props']['content']
+    for loc in content['values']:
+        content['values'][loc] = _para(text_value)
+
+
+def _primer(skip=None, button=None, body=None):
+    """The real single-button notifications primer, optionally with a second button
+    labelled `skip` that closes the flow, the main button relabelled, or the body copy
+    replaced."""
+    c = load(PRIMER)
+    s = next(x for x in c['screens'] if x['id'] == 'scr_notifications')
+    m = s['elements']['map']
+    if button:
+        _set_text(s, 'el_098T', button)
+    if body:
+        _set_text(s, 'el_096T', body)
+    if skip:
+        m['el_skip'] = copy.deepcopy(m['el_099S'])
+        m['el_skip']['interactions'] = [{'id': 'int_skip', 'trigger': 'tap', 'actions': [
+            {'id': 'act_skip', 'type': 'closeFlow'}]}]
+        m['el_skipT'] = copy.deepcopy(m['el_098T'])
+        footer = next(n for n in s['elements']['hierarchy']['children'] if n['id'] == 'el_100S')
+        footer['children'].append({'id': 'el_skip', 'children': [{'id': 'el_skipT'}]})
+        _set_text(s, 'el_skipT', skip)
+    return c
+
+
+_f = run(PRIMER, custom=PRIMER_ANSWERS)[1]
+check('the real single-button "Continue" primer is SILENT on every permission check',
+      not [f for f in _f if f['check'] in PERMISSION_CHECKS], _f)
+_f = run(_primer(skip='Not now'), custom=PRIMER_ANSWERS)[1]
+check('a "Not now" beside the permission button is one primer-skip risk',
+      [f['severity'] for f in of(_f, 'primer-skip')] == ['risk'], _f)
+_f = run(_primer(skip='Not now'), custom=PRIMER_ANSWERS.replace('=permission', '=other'))[1]
+check('...silent once the user says the action is not a permission', not of(_f, 'primer-skip'))
+_f = run(_primer(skip='Not now'), custom=PRIMER_ANSWERS, stores='android')[1]
+check('...silent for an app that ships on Android only', not of(_f, 'primer-skip'))
+_f = run(_primer(skip='Not now'))[1]
+check('...and fires from the guess when the action is not answered yet',
+      len(of(_f, 'primer-skip')) == 1, _f)
+check('...worded as a condition: If "<id>" shows a system permission prompt, the …',
+      of(_f, 'primer-skip')[0]['message'].startswith(
+          'If "request_notifications" shows a system permission prompt, "Not now" on the "'), _f)
+_f = run(_primer(skip='Not now'), custom=PRIMER_ANSWERS)[1]
+check('...and once answered it is a plain sentence starting with a capital',
+      of(_f, 'primer-skip')[0]['message'].startswith('"Not now" on the "'), _f)
+check('...naming the way round by its own words, in the message and the fix',
+      '"Not now"' in of(_f, 'primer-skip')[0]['message']
+      and '"Not now"' in of(_f, 'primer-skip')[0]['fix'], of(_f, 'primer-skip'))
+_f = run(_primer(button='Allow notifications'), custom=PRIMER_ANSWERS)[1]
+check('"Allow notifications" on the permission button is primer-grant-wording',
+      [f['severity'] for f in of(_f, 'primer-grant-wording')] == ['risk'], _f)
+_f = run(_primer(body='Turn on notifications and get 1 week free.'), custom=PRIMER_ANSWERS)[1]
+check('a reward on the permission screen is permission-incentive',
+      [f['severity'] for f in of(_f, 'permission-incentive')] == ['risk'], _f)
+_f = run(_primer(body='On the next screen, tap Allow so we can remind you.'),
+         custom=PRIMER_ANSWERS)[1]
+check('pointing at the system alert ("tap Allow") is att-fake-alert',
+      [f['severity'] for f in of(_f, 'att-fake-alert')] == ['risk'], _f)
+_f = run(_primer(body='Ask App Not to Track'), custom=PRIMER_ANSWERS)[1]
+check('copying the system alert\'s own words is att-fake-alert', len(of(_f, 'att-fake-alert')) == 1)
+_f = run(_primer(body='We use tracking to show you fewer, more relevant ads.'),
+         custom=PRIMER_ANSWERS)[1]
+check('a plain tracking explainer is SILENT', not of(_f, 'att-fake-alert'), _f)
+for _p in corpus():
+    _f = run(_p)[1]
+    check(f'{os.path.basename(_p)}: no permission-screen finding',
+          not [f for f in _f if f['check'] in PERMISSION_CHECKS],
+          [(f['check'], f['screen']) for f in _f if f['check'] in PERMISSION_CHECKS])
+_rc, _rep = run(_primer(skip='Not now'), custom=PRIMER_ANSWERS, report=True)
+check('a permission-screen risk sits in the advisory section and leaves the verdict alone',
+      _rep.splitlines()[0].startswith('**Ready to publish')
+      and 'Store review (advisory' in _rep, _rep[:400])
+
+for _body in ('Feel free to change this later in Settings.', 'Stay ad-free and focused.',
+              'Get reminders about deals and discounts.',
+              'Unlock daily reminders that keep you on track.'):
+    _f = run(_primer(body=_body), custom=PRIMER_ANSWERS)[1]
+    check(f'ordinary primer copy is not an incentive: {_body!r}',
+          not of(_f, 'permission-incentive'), of(_f, 'permission-incentive'))
+for _body in ('Turn on notifications and get 1 week free.', 'Enable alerts for 20% off.',
+              'Allow notifications and get a free month.'):
+    _f = run(_primer(body=_body), custom=PRIMER_ANSWERS)[1]
+    check(f'an offer for the permission IS an incentive: {_body!r}',
+          len(of(_f, 'permission-incentive')) == 1, _f)
+check('the primer fixture carries none of the source app\'s own wording',
+      not re.search(r'Move Goal|Pregnancy|in Health|CALORIES', open(PRIMER).read()))
+
+print('\nrating asks and sign-up walls')
+LANG = os.path.join(FIX, 'onboarding-custom-actions.json')
+
+
+def _custom(cid):
+    return {'id': f'act_{cid}', 'type': 'custom', 'payload': {'id': cid}}
+
+
+_f = run(LANG)[1]
+check('the real language onboarding\'s "Rate us!" step is one rating-in-onboarding risk',
+      [(f['severity'], f['screen']) for f in of(_f, 'rating-in-onboarding')]
+      == [('risk', 'scr_rate')], of(_f, 'rating-in-onboarding'))
+_f = run(LANG, custom='request_review=other')[1]
+check('...silent once the user says the action is not the rating sheet',
+      not of(_f, 'rating-in-onboarding'))
+_m = load(MULTI)
+_btn = next(s for s in _m['screens'] if s['id'] == 'scr_profile')['elements']['map']['el_022S']
+_btn['interactions'][0]['actions'].insert(0, {
+    'id': 'act_wr', 'type': 'openUrl',
+    'payload': {'url': 'https://apps.apple.com/app/id0000000000?action=write-review'}})
+check('an "Open URL" to the write-review page mid-onboarding is rating-in-onboarding',
+      len(of(run(_m)[1], 'rating-in-onboarding')) == 1)
+_t = load(os.path.join(FIX, 'tabs-paywall.json'))
+_e = next(e for s in _t['screens'] for e in s['elements']['map'].values()
+          if e.get('interactions'))
+_e['interactions'][0]['actions'].insert(0, _custom('request_review'))
+check('a rating action on a one-screen flow is not an onboarding ask',
+      not of(run(_t)[1], 'rating-in-onboarding'))
+
+
+def _signup(keep_close):
+    c = load(MULTI)
+    s = next(x for x in c['screens'] if x['id'] == 'scr_signup')
+    s['elements']['map']['el_020S']['interactions'][0]['actions'] = [_custom('sign_up')]
+    if not keep_close:
+        s['elements']['map']['el_012S'].pop('interactions')
+    return c
+
+
+_f = run(_signup(False))[1]
+check('a sign-up screen whose only button signs people in is one signup-wall question',
+      [(f['severity'], f['screen']) for f in of(_f, 'signup-wall')]
+      == [('question', 'scr_signup')], of(_f, 'signup-wall'))
+check('...silent when the screen also has a way past it',
+      not of(run(_signup(True))[1], 'signup-wall'))
+_two = _signup(False)
+next(x for x in _two['screens'] if x['id'] == 'scr_signup')['elements']['map']['el_012S'][
+    'interactions'] = [{'id': 'int_a', 'trigger': 'tap', 'actions': [_custom('sign_in_apple')]}]
+check('...and two sign-in buttons on one screen are still ONE signup-wall',
+      len(of(run(_two)[1], 'signup-wall')) == 1, of(run(_two)[1], 'signup-wall'))
+check('...silent for an app that ships on Android only',
+      not of(run(_signup(False), stores='android')[1], 'signup-wall'))
+_guest = _signup(False)
+next(x for x in _guest['screens'] if x['id'] == 'scr_signup')['elements']['map']['el_012S'][
+    'interactions'] = [{'id': 'int_g', 'trigger': 'tap',
+                        'actions': [_custom('continue_as_guest')]}]
+check('a guest button that is itself a custom action is a way past: silent',
+      not of(run(_guest, custom='sign_up=sign-in,continue_as_guest=other')[1], 'signup-wall'),
+      of(run(_guest, custom='sign_up=sign-in,continue_as_guest=other')[1], 'signup-wall'))
+print('\nexit offers and look-alike purchase buttons')
+QUIZ = os.path.join(FIX, 'onboarding-quiz-paywall.json')
+PAYWALL = 'scr_QXcVa3FZ'
+
+
+def _texts_under(screen, eid):
+    def find(n):
+        if n.get('id') == eid:
+            return n
+        for ch in n.get('children') or []:
+            got = find(ch)
+            if got:
+                return got
+    def ids(n):
+        return [n['id']] + [i for ch in n.get('children') or [] for i in ids(ch)]
+    m = screen['elements']['map']
+    return [i for i in ids(find(screen['elements']['hierarchy'])) if m.get(i, {}).get('type') == 'text']
+
+
+def _second_offer():
+    """The quiz with its paywall's close icon re-wired to a second paywall."""
+    c = load(QUIZ)
+    pw = next(s for s in c['screens'] if s['id'] == PAYWALL)
+    offer = copy.deepcopy(pw)
+    offer['id'], offer['caption'] = 'scr_offer', 'Special offer'
+    c['screens'].append(offer)
+    pw['elements']['map']['el_WaTCB9iWLJ']['interactions'][0]['actions'] = [
+        {'id': 'act_o', 'type': 'navigate', 'payload': {'type': 'screen', 'screen': 'scr_offer'}}]
+    return c
+
+
+_f = run(_second_offer())[1]
+check('closing the paywall opens a second paywall: one exit-offer-on-dismiss risk',
+      [(f['severity'], f['screen']) for f in of(_f, 'exit-offer-on-dismiss')]
+      == [('risk', PAYWALL)], of(_f, 'exit-offer-on-dismiss'))
+check('...silent for an app that ships on Android only',
+      not of(run(_second_offer(), stores='android')[1], 'exit-offer-on-dismiss'))
+check('...and the close that really closes is silent', not of(run(QUIZ)[1], 'exit-offer-on-dismiss'))
+
+
+def _sheet_offer(sell=True, opener='el_WaTCB9iWLJ'):
+    """The quiz with a hidden bottom sheet on its paywall, opened by `opener`; the sheet
+    holds a purchase button when `sell`, an info line otherwise."""
+    c = load(QUIZ)
+    pw = next(s for s in c['screens'] if s['id'] == PAYWALL)
+    m = pw['elements']['map']
+    m['el_sheet'] = {'id': 'el_sheet', 'type': 'bottom-sheet', 'caption': 'Trial sheet',
+                     'props': {'visibility': {'type': 'hidden'}}, 'states': []}
+    m['el_sheetBtn'] = {'id': 'el_sheetBtn', 'type': 'button', 'caption': 'Sheet button',
+                        'props': {}, 'states': [], 'interactions': [{'actions': [
+                            {'id': 'act_p', 'type': 'purchase', 'payload': {}} if sell else
+                            {'id': 'act_h', 'type': 'hideElement',
+                             'payload': {'elements': ['el_sheet']}}]}]}
+    pw['elements']['hierarchy'].setdefault('children', []).append(
+        {'id': 'el_sheet', 'children': [{'id': 'el_sheetBtn', 'children': []}]})
+    m[opener]['interactions'][0]['actions'] = [
+        {'id': 'act_s', 'type': 'showElement', 'payload': {'elements': ['el_sheet']}}]
+    return c
+
+
+_f = run(_sheet_offer())[1]
+check('closing the paywall opens a sheet with a purchase: one exit-offer-on-dismiss risk',
+      [(f['severity'], f['screen']) for f in of(_f, 'exit-offer-on-dismiss')]
+      == [('risk', PAYWALL)], of(_f, 'exit-offer-on-dismiss'))
+check('...silent when the sheet sells nothing',
+      not of(run(_sheet_offer(sell=False))[1], 'exit-offer-on-dismiss'))
+check('...and silent when the purchase button itself opens the sheet (plans in a sheet)',
+      not of(run(_sheet_offer(opener='el_DnQrboHhqE'))[1], 'exit-offer-on-dismiss'))
+
+
+def _relabel_purchase(text_value):
+    c = load(QUIZ)
+    pw = next(s for s in c['screens'] if s['id'] == PAYWALL)
+    for t in _texts_under(pw, 'el_DnQrboHhqE'):
+        _set_text(pw, t, text_value)
+    return c
+
+
+_f = run(_relabel_purchase('Next'))[1]
+check('a purchase button labelled like the "Next" buttons before it is a look-alike',
+      [f['severity'] for f in of(_f, 'purchase-looks-like-continue')] == ['risk'], _f)
+check('...silent for an app that ships on iOS only',
+      not of(run(_relabel_purchase('Next'), stores='ios')[1], 'purchase-looks-like-continue'))
+check('...and "Start free trial" is silent',
+      not of(run(_relabel_purchase('Start free trial'))[1], 'purchase-looks-like-continue'))
+
+for _p in corpus():
+    _f = run(_p)[1]
+    check(f'{os.path.basename(_p)}: no exit-offer-on-dismiss, no purchase-looks-like-continue',
+          not of(_f, 'exit-offer-on-dismiss') and not of(_f, 'purchase-looks-like-continue'),
+          [(f['check'], f['screen']) for f in _f if f['check'] in
+           ('exit-offer-on-dismiss', 'purchase-looks-like-continue')])
+
+for _p in corpus():
+    _f = run(_p)[1]
+    _want = 1 if os.path.basename(_p) == 'onboarding-custom-actions.json' else 0
+    check(f'{os.path.basename(_p)}: {_want} rating-in-onboarding, no signup-wall',
+          len(of(_f, 'rating-in-onboarding')) == _want and not of(_f, 'signup-wall'),
+          [(f['check'], f['screen']) for f in _f
+           if f['check'] in ('rating-in-onboarding', 'signup-wall')])
 
 if fails:
     print(f'\n{len(fails)} FAILED')

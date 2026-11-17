@@ -44,7 +44,7 @@ Every line the user reads, the fixed blocks included:
   read-back need no bold; quotes mark a screen name.
 - **Raw values only when the user will see them elsewhere** — a screen name or button label from
   their builder, a price. Never element ids or tool names.
-- **Full, clickable links.**
+- **Full, clickable links.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Reply in the user's language — the disclaimer and the builder pitch too.** Labels quoted from
   their flow stay exactly as the flow shows them.
 
@@ -153,7 +153,7 @@ paywall?**
 > Follow up if not already answered: what's immediately before it — a loader, a plan summary, a
 > permission prompt?
 
-**Q6. When do you ask for permissions (notifications, health, camera)?**
+**Q6. When do you ask for permissions (tracking, notifications, health, camera)?**
 - Early in onboarding
 - At the end, before the paywall
 - After the paywall
@@ -199,6 +199,28 @@ sequence produces confidently wrong findings.
 **Omit this offer entirely when you were given a config or renders.** You already have every
 screen; asking for three of them reads as a bot that didn't open the file.
 
+## A flow with a question about the numbers
+
+A flow can be asked about in two ways, and the user may phrase both the same: what is wrong with
+the sequence, or what the app's own numbers show ("where do users drop off", "why don't users
+finish my onboarding", "which branch works better"). Only `growth-advisor` reads the numbers; this
+skill reads none. When the message asks about the app's own numbers:
+
+- **It asks only about the numbers** (where or why users drop off, which branch works better,
+  whether the paywall is the problem): invoke `growth-advisor` with the flow, before any
+  teardown. It reads the funnel first and calls this skill back for the design part. If
+  `growth-advisor` is not installed, say you cannot read the numbers and go on with the sequence.
+- **It also asks what to change in the flow, or you cannot tell which it wants:** ask one
+  question before reading the flow. Use `AskUserQuestion` if your harness has it; otherwise ask
+  in one message with the options numbered, and wait. The shape, not words to copy:
+
+  > Do you want me to review the sequence and suggest changes, or look at your numbers to find
+  > the screen where users leave and suggest an A/B test?
+
+  The sequence: this skill, in Audit. Numbers, or both: `growth-advisor` first.
+
+When `growth-advisor` or `flow-generator` invoked this skill, never ask: answer the design part.
+
 ## Reference
 
 Read [references/patterns.md](references/patterns.md) before writing the teardown. It holds the
@@ -238,7 +260,11 @@ reference. Three passes, none optional:
    `references/look.md` before the first screen; they cover every screen, the paywall included.
 3. **Back, over your own flow.** The moment it renders, run the full process above against it —
    the config for the sequence, the renders for the execution. A flow shorter than its category's
-   range, or one that breaks the rhythm, is a *High* row. **A finding on your own draft is a
+   range, or one that breaks the rhythm, is a *High* row. When `paywall-teardown` is installed,
+   check every render against its `references/look.md` → "Different is not enough": a screen
+   with no focal element, boxes inside boxes or a clip-art character is a *High* row, and
+   anything a pinned bar slices, or a leftover band on a screen's first view, is a *Fix first*
+   row, fixed by shortening or moving the content. **A finding on your own draft is a
    defect, not a recommendation** — fix every *Fix first* and *High* row and re-render. Never hand
    over a flow accompanied by a table of the patterns you chose to skip; that is unfinished work
    wearing a report. What survives into the write-up is only what you *cannot* fix: rows blocked on
@@ -289,13 +315,65 @@ What is not defensible is arriving at a sequence by inertia.
 - **The same skeleton twice in a row is a smell.** If your last flow used this shape, check that
   you are choosing it rather than carrying a previous build's script forward.
 
+## After a trial starts, the reminder is the reason
+
+**When notifications are asked after a paywall that starts a free trial, whether they are already
+there or rule 3 moves them, the ask goes right after the trial starts, and its first reason is the
+trial reminder:** "We'll remind you 2 days before
+your trial ends. Turn on notifications?" The user wants that one more than anything the app sends
+later, so it carries the opt-in. Keep the app's own reason on the same screen, after it (a bedtime
+reminder that uses their answer). Only a reminder the app really sends can be promised, so the
+asks carry "Do you send a reminder before the trial charges?"; when the answer is no, the row is
+to start sending one, then ask. With no trial, the app's own reason leads. A flow that asks for no
+notifications at all gets this only as a test idea (see the next section), never as a fault.
+
+## Question screens: ideas to test
+
+These are not faults; either wording can win. Write the findings first, with the priorities they
+earn on their own; these ideas never change how many findings there are or how high they rank.
+Then, only when the flow has question screens and there are fewer than 6 findings, add **at most
+two ideas in all**, the post-trial notification idea above included, as `Low` rows written as a
+test against what the screen does now, at the copy tier. With 6 or more findings, add none.
+
+- **Say why you ask:** one line under the question with what the answer changes ("We'll pick
+  tonight's sounds from this").
+- **Show the personalization:** when options change with an earlier answer, say so ("Based on
+  your goal").
+- **A Skip that names the cost:** "Skip personalization" instead of "Skip", where a later screen
+  reads the answer.
+- **Goals as the state they want:** "Fall asleep easily" against "I can't fall asleep".
+- **Fewer choices:** a long single-choice list cut to the five or six most picked, or grouped; a
+  multi-select grid can stay, with a "pick up to 3" hint.
+
+## The tracking prompt stays early
+
+**The App Tracking Transparency (ATT) prompt is not covered by rule 3 or by the permissions-timing
+order in `patterns.md`.** A permission is ATT when its screen or button mentions tracking, ads
+personalization or Apple's tracking prompt, or the app's action for it is named for ATT or IDFA.
+ATT exists for attribution, not for a feature: the ad networks and the attribution provider get
+the user's answer only once it is asked, so every user who leaves before a late ask is an install
+with no attribution. Rule 3's range measures purchases, not opt-in, and says nothing about ATT.
+
+- **Never recommend moving ATT past the paywall or later in the flow.** It belongs in the first
+  screens; where it is already there, leave it.
+- **When ATT shares a screen with other prompts, the other prompts move:** notifications past the
+  paywall (rule 3), a feature's permission to the moment the feature needs it. ATT stays where it
+  is, asked first.
+- **A soft prompt before ATT is fine and usually helps;** it says what tracking is used for and
+  offers nothing in return for allowing it, and its button says Continue, not Allow. The rest of
+  Apple's review rules for it are `flow-audit`'s store-review checks.
+- **The app sends the answer to Adapty right after the prompt,** so the integrations get it in
+  time — [Deal with App Tracking Transparency](https://adapty.io/docs/ios-deal-with-att) on iOS;
+  other platforms through `adapty-docs`. ATT is iOS only.
+
 ## Process (internal — do NOT show these steps in the output)
 
 1. **Reconstruct the flow** as an ordered sequence from whatever you were given.
 2. **Inventory** what's present: opening type, goal capture, personalization payoff, loader, social
    proof, progress indication, permissions timing, paywall position, trial presence.
 3. **Run the contradiction rules** in `patterns.md`. These fire on *combinations*, not single
-   answers, and they are where the real findings are.
+   answers, and they are where the real findings are. Rule 3 never moves the tracking prompt
+   ([The tracking prompt stays early](#the-tracking-prompt-stays-early)).
 4. **Cross-check** every candidate recommendation: never suggest adding something the flow already
    has. Improve it instead.
 5. **Apply the category playbook** — tone, media, proof type, and especially whether trials help or
@@ -334,9 +412,12 @@ three-screen ask. A note that fits nowhere else belongs in the table or nowhere.
 
 **7. The end.** One line with [the next step](#the-next-step), then the
 [disclaimer](#the-disclaimer). Nothing after the disclaimer. The example shows the shape of 6 and
-7, not words to copy:
+7, not words to copy. Line 1 below is only for a teardown that `growth-advisor` did not call:
+when it called this skill, it already holds the numbers, so line 1 names the screen to check
+instead.
 
-> 1. Where people drop: if you have per-screen numbers, look at screens 4 and 6 first.
+> 1. Where people drop: I read the sequence, not your numbers. For the screens where users
+>    leave, `growth-advisor` reads your flow's funnel.
 > 2. Does the app really use the goal and the level? If not, row 3 stays an echo of their answers, never a plan.
 > 3. Want me to go deeper? Send three screens: your first, the one right before the paywall, and the paywall. More or fewer is fine.
 >
@@ -399,9 +480,10 @@ config cleanly, some need something only the user has, and **two cannot be built
 | **Permission request** | **Not in the builder yet — there is no permission action.** The 15 action types are alert, closeFlow, conditional, custom, hideElement, navigate, navigateBack, navigateNext, nothing, openUrl, purchase, restorePurchases, selectProduct, setVariable, showElement | The **app** makes the system call. The flow can render the pre-permission soft prompt and fire a `custom` action the app handles — so permission-timing findings are a handoff to whoever owns the app code, not a build item |
 | Social proof — rating, review count, testimonials | Element yes | The real numbers and the real quotes, verbatim. Several testimonials on one screen is the `carousel` element, never a static card with hand-built dots |
 | Before/after, results with real data | Element yes | The real outcome data — otherwise drop to outcome *framing*, a copy-tier change |
-| Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it (not SVG, not video) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
+| Illustration, photography, video preview, hero asset | **Yes, given the file** — `flow-generator` uploads it, a video too (not SVG) | The file itself. An image nobody has a file for is an image with no asset bound, never a made-up URL |
 | The paywall at the end | Yes | **The products are theirs to pick**, not yours — catalog first, store ids second, create last (`flow-generator` phase 2). And a trial timeline needs a trial that exists |
-| Second-chance offer after the paywall | Yes, as a screen with its own products | A real discount to offer |
+| Second-chance offer after the paywall | Yes, as its own flow on a placement the app shows later; the paywall's close button closes, since Apple rejects a close that opens another offer (App Store 5.6) | A real discount to offer |
+| Trial or intro-offer wording on any screen — "start your free week", a badge, the button | Yes | The offer on the product. When the catalog does not show one — a README or brief that plans it, or nothing either way — ask whether it exists, and suggest one where the category gains from a trial; until the product carries it, no element mentions it. On a run nobody can answer, leave it out and put the question and the suggestion in the reply |
 
 Mechanics for all of these — the `timer` shape, `_meta.icons`, empty asset maps, variable
 producers, product binding — belong to the `flow-generator` skill (`references/patterns.md`,
@@ -461,13 +543,16 @@ Drop "also" when the pitch stands alone. Keep the link exactly as written.
 
 ## Scope
 
-This skill owns the **sequence** and the **seam**. Three neighbours, and the boundary is one owner
+This skill owns the **sequence** and the **seam**. Five neighbours, and the boundary is one owner
 per fact:
 
 - **`paywall-teardown`** owns the paywall screen's own execution — plan cards, price display,
   savings framing, CTA, proof placement, trust signals. When you have both, run both and don't
   duplicate rows: whether the paywall *reflects the goal* is yours; whether its annual card is
   legible is theirs.
+- **`growth-advisor`** owns the app's own numbers: where users leave the flow, which branch,
+  whether the paywall is reached. This skill turns the screen it names into a design change; it
+  reads no data.
 - **`flow-generator`** owns the JSON — editing the flow, previewing it, writing it back. This skill
   decides *what* should change and what it is worth; it writes nothing anywhere.
 - **`flow-audit`** owns whether the flow is safe to ship (triggers, products, locales, store

@@ -172,7 +172,8 @@ missed:
 - **Button actions arrive as events.** Close, restore, Terms, Privacy, and any custom button in the
   flow emit actions your code handles — they are no longer your own tap handlers. Every behavior you
   recorded under **Controls** needs a handler here: `https://adapty.io/docs/handle-paywall-actions.md`
-  (iOS), `https://adapty.io/docs/android-handle-paywall-actions.md`,
+  (iOS; from SDK 4.4 a custom action is `.custom(id, _)`, see the iOS reference's Stage 2),
+  `https://adapty.io/docs/android-handle-paywall-actions.md`,
   `https://adapty.io/docs/flutter-handle-paywall-actions.md`,
   `https://adapty.io/docs/react-native-handle-paywall-actions.md`,
   `https://adapty.io/docs/kmp-handle-paywall-actions.md`.

@@ -21,7 +21,7 @@ Every line the user reads, the fixed blocks included:
 - **Ask only what changes the plan.** If every answer to a question gives the same result, say so
   in one line instead of asking it.
 - **Say each thing once.** What the approval gate said, the final report does not repeat.
-- **Full, clickable links.** Reply in the user's language, the fixed blocks too.
+- **Full, clickable links.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`. Reply in the user's language, the fixed blocks too.
 
 ## What this does, and what it cannot do
 
@@ -61,6 +61,73 @@ to find the flow it produced and put a placement on it. It does not implement th
 sites — that is `adapty-integration`. It does not delete or modify any existing placement, paywall
 or flow.
 
+## CLI or MCP
+
+This skill reaches Adapty through the Adapty CLI or the Adapty MCP server. Its commands are written
+for the CLI, and over MCP each one is a tool call. Before the first call, check both, pick one way,
+and keep it for the run:
+
+- **The CLI is ready** when `adapty auth whoami` shows an account. Install nothing for this check.
+- **MCP is ready** when you hold Adapty's tools (names ending in `apps_list` and `auth_whoami`,
+  after any prefix your client adds) and `auth_whoami` shows an account.
+
+| CLI ready | MCP ready | Use |
+|---|---|---|
+| yes | no | the CLI |
+| no | yes | MCP |
+| yes | yes | the way this skill prefers (the line after this section's example) |
+| no | no | ask which one to set up (below) |
+
+**Over MCP, run each command as its tool.** `$ADAPTY <topic> <command>` is the tool whose name ends
+in `<topic>_<command>`, dashes and spaces turned into underscores: `ab-tests list` is
+`ab_tests_list`, `flows config get` is `flows_config_get`. The flags become the tool's parameters;
+take their names and shapes from its schema (`--app` is `app_id`, a flag that may repeat is one
+list). The tools return JSON, so drop `--json`. `--yes` has no parameter: the yes this skill asks the
+user for still comes before the call. Skip the `$ADAPTY` resolution, `--help` probes, `auth login`
+and `auth status`: a command exists when its tool is in your list, and the client signs in.
+
+**`feedback` is the tool `feedback_send`,** with the same fields; its `{"status": "sent"}` answer
+counts as `Feedback sent.`
+
+**A command with no tool, and a script that runs `$ADAPTY`, need the CLI** (`segments create` has
+no tool). Run that step with the CLI when it is ready. Otherwise say it needs the CLI and offer to
+set it up.
+
+**When a call fails one way,** a read may run once the other way if that way is ready. After a
+write fails or times out, read the state again the way that wrote; never repeat the write the
+other way.
+
+**Neither ready:** ask which one to set up, the one this skill prefers first, then give only that
+one's steps. Use your question tool if you have one; otherwise ask in one message with numbered
+options.
+
+- **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
+  the user's sign-in. The Claude app also needs Adapty's domains allowed first:
+  https://adapty.io/docs/developer-cli-cowork
+- **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
+  `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
+  sign-in is left.
+  - Claude Code: `/mcp`, pick `plugin:adapty-skills:adapty`, **Authenticate**. Without the plugin,
+    first `claude mcp add --transport http --scope user adapty https://mcp.adapty.io/mcp`.
+  - Codex CLI: the plugin's connect prompt signs in. Without the plugin:
+    `codex mcp add adapty --url https://mcp.adapty.io/mcp`, then `codex mcp login adapty`.
+  - The Claude app: connect it on the plugin's **Connectors** tab. Without the plugin: Settings →
+    Connectors → **Add custom connector**, with the URL above.
+  - Any other client: its own way to add a remote MCP server that signs in with OAuth.
+
+  If the tools do not appear in this session, the user starts a new one: say so and stop.
+
+Example of the question's shape, not words to copy:
+
+> I can reach your Adapty account in two ways. Which one should I set up?
+> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
+
+**This skill needs the CLI:** `migrate.py` reads the inventory, holds the guards and builds
+every create. When both are ready, use the CLI. With MCP only, offer the CLI in one line; on a
+no, stop and give the dashboard route ([Migrate to
+flows](https://adapty.io/docs/migrate-to-flows.md)).
+
 ## Phase 1 — Resolve and probe
 
 This migration needs `flows publish`. Resolve `$ADAPTY` once, the way the sibling skills do —
@@ -89,8 +156,11 @@ load-bearing: without it npx stops to ask permission to install, and a headless 
 answer. In `zsh` (the macOS default) a multi-word `$ADAPTY` is not word-split, so run
 `setopt shwordsplit` once in the same shell; `command not found: npx --yes adapty@latest` is that
 shell problem, never a missing CLI. If
-`auth whoami` fails, `$ADAPTY auth login` opens a browser — that is the user's to complete. Then
-`$ADAPTY apps list --json` for the app UUID.
+`auth whoami` fails, log in in the background: from your shell `auth login` opens no browser, it
+prints a code and a link and waits for the user, so run
+`$(command -v setsid) nohup $ADAPTY auth login > "$L" 2>&1 < /dev/null &`, send the user the code
+and link from `$L` at once (the code expires within minutes), and poll `auth whoami` until it
+succeeds. Then `$ADAPTY apps list --json` for the app UUID.
 
 **Then probe the capability, before spending 152 reads on an inventory you cannot act on.** The
 read-only discriminator is `content_type`: an environment with the audience union deployed returns it
@@ -148,9 +218,10 @@ read it and check your input; **3** means an invariant inside the script broke a
 almost certainly fine, so stop and report it rather than editing files. A vague message on a 2 is
 the script declining to guess, not a bug.
 
-`placements list` returns `{developer_id, id, title}` with **no audiences** — only `placements get`
-returns them, so classifying N placements costs N GETs and there is no bulk read
-([api-surface.md](references/api-surface.md#summary-vs-detail)).
+`placements list` returns `{developer_id, id, title, type}` with **no audiences** — only
+`placements get` returns them, and there is no bulk read. The command reads no flow or onboarding
+placement, so classifying costs one GET per paywall placement, or per placement when the list has no
+`type` ([api-surface.md](references/api-surface.md#summary-vs-detail)).
 
 **The same command also reads `flows list` and `paywalls list`** — the flows the account already
 has, and the paywall **titles** to match them against, since an audience carries `paywall_id` and
@@ -218,13 +289,16 @@ of placements. "All of them" is then an informed choice rather than an accidenta
 python3 <skill>/references/migrate.py plan --inventory inventory.json
 ```
 
-Per audience: `paywall_id` → migratable; `flow_id` → already done; neither → skip. Migratable
+Per audience: `paywall_id` → migratable; `flow_id` → already done; an A/B test entry → skipped
+(below); neither → skip. Migratable
 audiences group by `paywall_id`, and that grouping **is** the flow plan: **one reusable flow per
 distinct paywall**, shared by every placement and audience that uses it, so the user later refines
 one flow instead of many.
 
 **Report the counts and the grouping, never one row per placement** — migratable placements,
-migratable audiences, distinct paywalls, already-flow, no-audience. A 150-row dump is not a report.
+migratable audiences, distinct paywalls, already-flow, no-audience, skipped A/B tests, and
+onboarding placements (`summary.onboarding`, not this skill's: name the count). A 150-row dump is
+not a report.
 Name the distinct paywall count as the number of flows the next phase creates.
 
 **When `summary.unwritable_multi_segment` is not zero, report it here and treat those placements as
@@ -235,13 +309,12 @@ survive a round-trip ([api-surface.md](references/api-surface.md#what-the-write-
 segment**: that changes who sees what, which is the user's decision. Say it must be resolved in the
 dashboard first, and that the rest of the migration can proceed without it.
 
-**And disclose what the counts are counts OF, once:** `placements get` returns only paywall and
-flow audiences and **silently omits any other kind** — an A/B-test audience, for instance — so a
-placement may hold more audiences than the read shows. **This is not detectable from the API**:
-nothing in the response says an entry was skipped, so there is no check to run and none is
-attempted. It matters because the new flow placement will not carry an audience the read never
-revealed. Say the counts are of what the API returned, and that a placement known to run an A/B
-test should be checked in the dashboard.
+**A/B tests are skipped and `plan` names each one** (`skipped: A/B test <title>`, stderr). A test on
+the default audience skips the **whole** placement (`skipped_placements`: no ID, no `command`, no
+flow built). The source placement is never changed. Report each skip, once
+([api-surface.md](references/api-surface.md#blind-spots-in-the-reads-themselves)). A deployment that
+predates the A/B-test read still omits a test silently: say the counts are of what the API
+returned, and check a placement known to run a test in the dashboard.
 
 **And report `summary.scope` in the same line, when it is there** — how many placements the
 inventory withheld and why. The counts above describe what you read; that block is the only thing
@@ -323,8 +396,9 @@ some do not. Four routes, in the order to offer them:
   is served from.
 
 **Whether Convert is even available is not readable from the CLI.** `paywalls list`/`get` return
-`{id, title, product_ids}` and nothing about which builder made the paywall, and **Move to new
-builder** appears only on legacy Paywall Builder paywalls. So do not tell a user the button is
+`{id, title, products}` and
+nothing about whether a paywall is a legacy Paywall Builder paywall (`get` adds only
+`use_paywall_builder_v4`), and **Move to new builder** appears only on those. So do not tell a user the button is
 there — say what it does and where to look for it, and let them report back.
 
 Never pick for them. The four differ in what users will see, which is not the agent's call. **What
@@ -348,9 +422,9 @@ this entirely rather than guessing which placements are quiet.
 > **The premise is that `is_active: false` means nobody is being served, and the field means
 > exactly one thing:** the [activation state the API source documents](references/api-surface.md#is_active--the-scope-filter)
 > — Live versus Inactive, the dashboard's own toggle, nothing finer. What that does *not* tell you
-> is whether a shipped app still calls the placement. An inactive placement serves no paywall, so a
-> stub on it shows nobody a placeholder; but if the user says a placement is live traffic,
-> **believe them over the flag** and treat it as active.
+> is whether a shipped app still calls the placement; that is the viewers read of phase 8. An
+> inactive placement serves no paywall, so a stub on it shows nobody a placeholder; but if the user
+> says a placement is live traffic, **believe them over the flag** and treat it as active.
 
 ## Phase 5 — Realize the flows
 
@@ -372,7 +446,7 @@ $ADAPTY flows create --app "$APP" --name "<paywall title> (flow)" --json      # 
 $ADAPTY flows config validate <FLOW> --app "$APP" \
   --config-file <skill>/references/stub-flow.json --json                      # expect valid: true
 $ADAPTY flows config update <FLOW> --app "$APP" \
-  --config-file <skill>/references/stub-flow.json --json                      # or flow-generator's config
+  --config-file <skill>/references/stub-flow.json --remote-configs '[]' --json  # or flow-generator's config
 $ADAPTY flows publish --app "$APP" <FLOW> --yes
 $ADAPTY flows get <FLOW> --app "$APP" --json                                  # poll until published
 ```
@@ -449,6 +523,8 @@ not happened rather than claiming nothing has.
 > |---|---|---|
 > | `<developer_id>` | `<proposed developer_id>` | <flow name> |
 >
+> <test line, only if `plan` skipped a test>
+>
 > Permanent: a placement cannot be deleted. If one of these IDs is wrong,
 > it stays in the app forever — read the middle column before saying yes.
 >
@@ -459,6 +535,9 @@ not happened rather than claiming nothing has.
 >
 > This does not reach users yet. Your app must call
 > `getFlow("<new developer_id>")` where it currently calls the old placement.
+
+**The test line is a shape, not words to copy** (name a whole-placement skip in it too):
+"Left out: A/B test `<title>` (on `<developer_id>`); it keeps running on the old placement."
 
 **Those two slots turn on one fact: did *this run* create the flows?** Stub and build did;
 **existing** did not — the user handed over flows that were already published, so this run created
@@ -608,7 +687,7 @@ the flows from phase 5 exist, are published, and cannot be deleted from the CLI.
 
 ## Phase 8 — Report and handoff
 
-Created, skipped and failed with reasons, then the two things the user acts on:
+Created, skipped (A/B tests included) and failed with reasons, then the two things the user acts on:
 
 > | Old paywall placement | New flow placement |
 > |---|---|
@@ -625,6 +704,22 @@ do not write app code here.
 placement ID compiled in and cannot reach the flow until they update, so retiring the paywall
 placement early takes the paywall away from everyone who has not updated. Both placements run side
 by side, each measured on its own metrics, until v4 adoption is high enough.
+
+**Tell them how to see the release reach the new placements.** Once the app ships the call change,
+one read shows how many users started each new flow placement; a placement with none is not fetched
+by any build users run yet:
+
+```bash
+$ADAPTY placements metrics list --app "$APP" --type flow --ids <new placement id>,<new placement id> --json
+```
+
+`unique_profiles_views` is that count; it updates every few minutes. Run it when the user comes back
+after the release, or give them the command; when `placements metrics --help` says there is no such
+command, point them at each placement's page in the dashboard instead.
+
+**An old placement's lifetime row has no views,** so "are users still on it" is `placements metrics
+get <old placement id> --type paywall --based-on audience` over the last seven days, with
+`--date-type purchase_date`: `unique_profiles_views` at the top of the answer.
 
 **No rollback file is needed, and say why:** nothing existing was modified, so **the untouched
 paywall placements are the rollback.** Until the app ships the call change, users are on the old

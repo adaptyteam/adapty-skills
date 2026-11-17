@@ -24,9 +24,11 @@
  *   - `description` non-empty, <= 1024 chars once parsed
  *
  * Also, when run with no arguments: `.claude-plugin/plugin.json` and
- * `.codex-plugin/plugin.json` agree on `name`, `version` and `description`.
- * The two directories read different files, and a release that bumps one
- * leaves the other listing stale.
+ * `.codex-plugin/plugin.json` agree on `name` and `description`. The two
+ * directories read different files, and a release that changes one leaves the
+ * other listing stale. The Claude manifest carries no `version`: with one,
+ * Claude Code ships nothing until the string changes, and without it every
+ * commit is an update.
  *
  * Usage:  node scripts/lint-frontmatter.mjs [path/to/SKILL.md ...]
  *         (no arguments = every plugin/skills/<name>/SKILL.md)
@@ -164,11 +166,15 @@ async function main() {
     }
     const [a, b] = Object.values(manifests)
     if (a && b) {
-      for (const key of ['name', 'version', 'description']) {
+      for (const key of ['name', 'description']) {
         if (a[key] !== b[key]) {
           console.log(`plugin/.codex-plugin/plugin.json: \`${key}\` differs from plugin/.claude-plugin/plugin.json`)
           findings++
         }
+      }
+      if ('version' in a) {
+        console.log('plugin/.claude-plugin/plugin.json: remove `version`; with it, installs update only when the string changes')
+        findings++
       }
     }
   }
