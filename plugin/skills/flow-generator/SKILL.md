@@ -385,9 +385,8 @@ token works. Prefer it to `auth status`, which only reports what is stored local
 verify it — it prints the stored name and token prefix even when the token no longer works.
 
 If it fails with `Could not reach …` (`network_error`), the network is the problem, not the token,
-so do not log in. With `HTTPS_PROXY` or `https_proxy` set, Node is ignoring the proxy:
-`ADAPTY="env NODE_USE_ENV_PROXY=1 $ADAPTY"` carries the fix into every call, the scripts' included
-(Node 22.21 or later, or 24; `adapty --version` names the Node it runs on).
+so do not log in. Tell the user the CLI could not reach Adapty; on a network with an allowlist or
+proxy, an administrator has to allow both `adapty.io` and `*.adapty.io`.
 
 Any other failure: log in. **`auth login` opens a browser only at a terminal: from your shell it
 prints a code and a link, then waits in the foreground** for the user to approve, holding your
