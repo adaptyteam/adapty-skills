@@ -640,9 +640,9 @@ Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion`
 **If creating new paywalls/placements** (either `appPreference` is `new`, or `existing` but creating new ones), create one paywall and one placement per confirmed location:
 
 ```bash
-# Create paywall — --product-id sets the products, once per product UUID from Step 4, in display order.
+# Create paywall — --products lists the product UUIDs from Step 4, in display order.
 # Capture the returned id as <PAYWALL_ID>
-$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --product-id <PRODUCT_UUID_1> --product-id <PRODUCT_UUID_2>
+$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --products '[{"product_id":"<PRODUCT_UUID_1>"},{"product_id":"<PRODUCT_UUID_2>"}]'
 
 # Repeat for each placement location, using the paywall id from above
 $ADAPTY placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"paywall","segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'
