@@ -168,7 +168,7 @@ Tell the user to do this in Xcode — or, when nobody is at Xcode (an unattended
 
 If the project is already on a 3.x package, this is a v4 upgrade rather than a fresh install: read [Migrate to v4.0](https://adapty.io/docs/migration-to-ios-sdk-v4.md) for the paywall-to-flow API rename, then [Migrate to v4.1](https://adapty.io/docs/migration-to-ios-sdk-41.md) for the attribution changes below.
 
-**A project already on 4.0–4.3 is an upgrade too:** the up-to-next-major rule moves it to the latest 4.x, and 4.3 and 4.4 break code that builds today. From 4.3, `localizedPrice` and `currencyCode` are never `nil` (an `if let` on them stops compiling) and a `switch` over every error code needs `billingPlanUnavailable` or a `default`. From 4.4, flows need iOS 16 (see Prerequisites), a custom action is `case let .custom(id, _)` (Stage 2), custom assets are `AdaptyUIAsset` with new color and font parameters, and **the fallback file must be downloaded again** — an old one fails silently, with no build error. Apply the [4.3.0](https://github.com/adaptyteam/AdaptySDK-iOS/releases/tag/4.3.0) and [4.4.0](https://github.com/adaptyteam/AdaptySDK-iOS/releases/tag/4.4.0) release notes, build, and tell the user about the fallback file.
+**A project already on 4.0–4.3 is an upgrade too:** the up-to-next-major rule moves it to the latest 4.x, and 4.3 and 4.4 break code that builds today. From 4.3, `localizedPrice` and `currencyCode` are never `nil` (an `if let` on them stops compiling) and a `switch` over every error code needs `billingPlanUnavailable` or a `default`. From 4.4, flows need iOS 16 (see Prerequisites), a custom action is `case let .custom(id, _)` (Stage 2), custom assets are `AdaptyUIAsset` with new color and font parameters, and **the fallback file must be downloaded again** with the new `--sdk-version` (`references/fallbacks.md`) — an old one fails silently, with no build error. Apply the [4.3.0](https://github.com/adaptyteam/AdaptySDK-iOS/releases/tag/4.3.0) and [4.4.0](https://github.com/adaptyteam/AdaptySDK-iOS/releases/tag/4.4.0) release notes, build, and download the fallback file again.
 
 Use `AskUserQuestion` to confirm the package was added successfully before proceeding.
 
@@ -506,19 +506,17 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 
 > "Your integration is complete! Here are some things you might want to set up next. Which ones interest you? (or say 'done' to wrap up)"
 >
-> 1. **Fallback paywalls** — show a cached paywall if the user is offline or Adapty is unreachable
-> 2. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
-> 3. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
-> 4. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
-> 5. **Kids mode** — COPPA-compliant mode that disables IDFA and ad data collection
-> 6. **A/B testing** — test two paywalls or flows against each other, with no app update
-> 7. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
+> 1. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
+> 2. **Promotional offers** — set up subscription discounts and win-back offers for lapsed subscribers
+> 3. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
+> 4. **Kids mode** — COPPA-compliant mode that disables IDFA and ad data collection
+> 5. **A/B testing** — test two paywalls or flows against each other, with no app update
+> 6. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
 
 For each item the user picks, fetch the relevant doc and implement it:
 
 | Feature | Doc slug(s) |
 |---|---|
-| Fallback paywalls | `ios-use-fallback-paywalls` |
 | Custom user attributes | `setting-user-attributes` |
 | Promotional offers | `app-store-offers`, `create-offer` |
 | Onboardings | `get-onboardings`, `ios-present-onboardings`, `ios-handling-onboarding-events` |
