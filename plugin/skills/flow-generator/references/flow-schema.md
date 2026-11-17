@@ -550,7 +550,7 @@ missing:
 | `children` on a childless hierarchy node | present-but-empty (`children: []`) on 7 nodes — 6 in `timer`'s screens, 1 in its component — and omitted on the other 130. Stripping the empty array is the same edit as stripping an empty `padding: {}` |
 | `interactions` | omitted on most elements, `[]` on many, populated on a few — all three states in every export |
 | `padding` / `margin` | sometimes `{}`; `timer` has 2 empty `padding` and 3 empty `margin` |
-| `statusBarTheme` vs `statusBar` | two distinct screen keys. `statusBarTheme` is `"system"` or `"light"` and is on every screen; `statusBar` is a boolean and appears on 1 screen of `timer` and 1 of `comparison` |
+| `statusBarTheme` vs `statusBar` | two distinct screen keys. `statusBarTheme` is `"system"` or `"light"` and is on every screen; `statusBar` is a boolean and appears on 1 screen of `timer` and 1 of `comparison`. Neither reaches a device: publish drops both, so the app styles the status bar |
 | `progressBar` | screen prop, present on 1 of 5 screens in `quiz`, all 3 in `timer`, absent from `comparison` |
 | `caption` | on every screen; on only some elements (22 of 120 in `quiz`) |
 | `propsByState` | absent from `timer` entirely |
@@ -610,8 +610,7 @@ be in the app bundle or users see the system fallback. `_meta.fonts[].url` recor
 uploaded file; its presence in the export is not what makes the font available on device.
 
 **And a font cannot be added from here at all — uploading one is a manual Flow Builder action.**
-There is no CLI command for it (`flows media upload` is media-only and not live in production
-anyway), and hand-authoring a `_meta.fonts` entry fabricates an asset `id`/`url` pair, which is
+There is no CLI command for it (`flows media upload` takes images only), and hand-authoring a `_meta.fonts` entry fabricates an asset `id`/`url` pair, which is
 trap 5 with a typeface. So when a design needs a font the account does not have, the ask is
 two-step and both halves are the user's: upload the font in the builder, then tell the agent —
 who can then point `theme.typography` presets or element `font.family` at the real id the
@@ -1379,22 +1378,16 @@ the transformer compiles predicates into JavaScript and an unresolvable name yie
 |---|---|---|
 | `product` | `<groupId>.selectedProduct` | **valid** |
 | `single_choice` | `<groupId>.selectedOptionId` | **valid** |
-| `multi_choice` | `<groupId>.selectedOptionId` | **fails** |
-| `toggle` | `.selectedOptionId`, `.selected`, `.value` — all three tried | **fails** |
-
-So **a `toggle` group exposes nothing a condition can read.** A workaround that drives plan
-selection from a switch therefore cannot be keyed on the toggle's value.
+| `multi_choice` | `<groupId>.selectedOptionIds` (a list) | **valid** |
+| `toggle` | `<groupId>.isActive` (a boolean) | **valid** |
 
 A `single_choice` answer stays readable after its screen: a later screen's condition can branch
 on `<groupId>.selectedOptionId` from an earlier one, as an input's `<customId>.value` can
 ([trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
 
-**`selectProduct`'s payload takes `{element: <element id>}`, not a product id.** A
-conditional containing only `nothing` actions fails too, so the gate objects to the
-predicate rather than to `selectProduct`; but with the toggle variable unreadable,
-**a toggle cannot move a product group's selection**. Drive the visible difference with
-`propsByState` on the toggle's own element, and put the conditional where it reads a product
-group.
+**`selectProduct`'s payload takes `{element: <element id>}`, not a product id.** A switch moves
+a product group's selection with a conditional on `<groupId>.isActive` whose branches each run
+`selectProduct`.
 
 **Conditional rich text validates, and the `switch` sits on the property**, with each branch a
 `const` holding a ref to that branch's own catalog entry:
@@ -1516,8 +1509,9 @@ convert a ratio, multiply it by `size` and round: `16 × 1.25 → 20`. `flowkit.
 `verify-config.py` refuse a number below three quarters of its `size`. `letterSpacing` is in
 points too (`-1` on a 30 pt headline).
 
-The schema also takes `{"type": "percent", "value": 110}` for either field, and the preview draws it
-the same as the matching points. No real export uses it, so it is unproven on a device: write points.
+The schema also takes `{"type": "percent", "value": 110}`, but publish sends a `letterSpacing`
+object's number as points (110 pt), so write `letterSpacing` as a plain number and keep whatever
+form a fetched flow already has.
 
 Worth stating because believing `lineHeight` does not exist **leaves a reachable fidelity gap** —
 52 pt headline leading shipped against a reference's 41 pt and filed as unreachable. Line spacing is one of
@@ -1534,8 +1528,9 @@ with a reference to that colour — trap 26.
 `props.autoShrink: true` on a `text` is the builder's **Auto shrink** switch: the whole text
 shrinks evenly until it fits its box, in every locale, down to 10% of its size; text that still
 does not fit ends in "…". Omitted or `false`, a text past its box is cut off with "…" at full size.
-`font.size` and the box stay as written, and the builder's preview draws the same fit as the
-device, so a render of each locale shows the size a user gets.
+`font.size` and the box stay as written. A render does not show the device size: iOS shrinks to
+the height it is offered and Android never grows back a size it once shrank to, so check a
+shrinking text on a device.
 
 **It works only inside a bounded box:** `maxLines` above 0, or a fixed `height` with a value
 above 0 that `layout: "auto-height"` does not override. `flowkit.text()` writes `auto-height`, so
@@ -1550,7 +1545,7 @@ settable.
 
 **The schema tells you what is permitted; a real export tells you what is produced; only the
 second predicts the device.** Defects ship from that gap — an id reused across the two
-`theme` lists, a predicate on a `toggle` group — while the disproof is already on disk and costs
+`theme` lists — while the disproof is already on disk and costs
 seconds to find.
 
 So when you are about to author a construct you have not seen in a real document, **count it
@@ -1789,14 +1784,14 @@ do not author it. This section exists because the *schema* is what sends you her
 
 ## Making a field mandatory: show the button conditionally
 
-**You cannot disable a button.** There is no disable mechanism to drive: no input has a `required`
-prop or an error-message prop, and an element's `disabled` *state* takes no condition — the builder
-emits `states: [{"id": "disabled", "type": "system"}]` with no `condition` key, and the runtime
-drives it. **Never author a conditional `disabled` state with a greyed `propsByState`**: four such
-conditions produced a 422 from the transform service, and no builder-emitted config contains one.
+No input has a `required` prop or an error-message prop. Two mechanisms gate a button: a
+`condition` on its `disabled` system state (`{"id": "disabled", "type": "system", "condition":
+…}`, greyed with `propsByState.disabled`; the button takes no taps while it holds), and
+**conditional visibility on the button** — show it once the field has content. A condition may
+also read another element's state: `{"type": "elementState", "elementId": "<id>"}` compared with
+`==`/`!=` to a `const` state id (`"default"` is its Default state).
 
-What actually exists is **conditional visibility on the button** — show it once the field has
-content. Verified from a Flow Builder export of a working screen:
+Conditional visibility, verified from a Flow Builder export of a working screen:
 
 ```json
 "props": {
@@ -1933,7 +1928,7 @@ search the entire config for the identifier in the message — not the screen yo
 A single broken screen anywhere blocks preview and publish for every screen.
 
 **The builder's duplicate-screen action copies a broken condition faithfully** — a duplicated
-screen carries a conditional `disabled` state, the mechanism that does not work, into a flow whose
+screen carries a broken condition into a flow whose
 visible screens are all correct, and deleting the copy fixes the flow. When a 422
 names an identifier you thought you had removed, look for a duplicate screen before you doubt the
 error, and do **not** write it off as a stale cache: nothing here is cached, and the diagnostic is

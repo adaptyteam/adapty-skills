@@ -409,7 +409,7 @@ def visible():
 # types a condition as an unconstrained value, so this list is the only check on it.
 EXPR_TYPES = ('const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
               'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
-              'productRef')
+              'productRef', 'elementState')
 
 # ...and the one member the condition walker has NO case for, so it falls through to
 # `default: return `${path}.type`` and the flow is refused. `assign` is schema-legal and is
@@ -468,6 +468,9 @@ def _bad_expr_path(v, path):
     if t == 'var':
         vid = v.get('variableId')
         return None if isinstance(vid, str) and vid else f'{path}.variableId'
+    if t == 'elementState':
+        eid = v.get('elementId')
+        return None if isinstance(eid, str) and eid else f'{path}.elementId'
     if t == 'productRef':
         # Normally this module writes these itself, after a condition has been validated --
         # see `_apply_product_refs`. The case is here for a hand-built one, and it is
@@ -621,12 +624,18 @@ def when(condition):
     with a publish gate behind it. Hiding COLLAPSES the space rather than reserving it
     (trap 14), exactly as `hidden()` does.
 
-    This is also the only way to make a field mandatory: there is no `disabled` mechanism to
-    drive, so gate the button's visibility on the input instead —
-    `when(not_empty(ref('email.value')))`.
+    A single predicate is wrapped in an `&&` group, the shape the builder writes and edits.
     """
     _check_expr(condition, 'when() condition')
-    return {'type': 'conditional', 'condition': condition}
+    return {'type': 'conditional', 'condition': _group(condition)}
+
+
+def _group(condition):
+    """The builder's own condition shape: a top-level `&&`/`||` group. A bare comparison is
+    accepted by the service, but every condition in a real export is a group."""
+    if condition.get('type') in ('&&', '||'):
+        return condition
+    return {'type': '&&', 'predicates': [condition]}
 
 
 def _condition_var_ids(o, out):
@@ -2586,7 +2595,7 @@ def conditional_action(cases, *, default=(), action_id='act_cond'):
                             f'tuples by shape')
         predicate, actions = case
         _check_expr(predicate, f'conditional_action() case {i} predicate')
-        payload_cases.append([predicate, _branch(actions, f'case {i}')])
+        payload_cases.append([_group(predicate), _branch(actions, f'case {i}')])
     return {'id': action_id, 'type': 'conditional',
             'payload': {'type': 'switch', 'cases': payload_cases,
                         'default': _branch(default, 'default')}}

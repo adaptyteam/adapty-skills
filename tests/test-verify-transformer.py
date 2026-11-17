@@ -185,6 +185,18 @@ def with_state_condition(condition):
 fires('state condition: same walker, custom state',
       with_state_condition({'type': 'bogus'}), 'invalid condition expression')
 
+# `elementState` reads another element's state; the service compiles it (and a `disabled`
+# state's condition, into the element's enabled binding), so neither is reported.
+_es = {'type': '==', 'left': {'type': 'elementState', 'elementId': 'el_next'},
+       'right': {'type': 'const', 'value': 'default'}}
+d = load()
+_s, _eid, _e = first_element(d, lambda e: e.get('type') == 'text')
+_e['states'] = [{'id': 'disabled', 'type': 'system', 'condition': _es}]
+silent('state condition: a disabled state reading another element\'s state', d)
+fires('condition: an elementState with no elementId',
+      with_visibility({'type': '==', 'left': {'type': 'elementState'},
+                       'right': {'type': 'const', 'value': 'default'}}), '.elementId')
+
 # A `selected` system state's condition is overwritten by the service before use, so a
 # malformed one there must NOT be reported -- that would be a false positive.
 d = load()

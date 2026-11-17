@@ -16,7 +16,7 @@ drops; the one exception is an archived flow the user will not restore,
 [SKILL.md phase 2](../SKILL.md#2-new-flow-or-existing-flow)). Then go on
 as an existing flow on the copy's `id` (phase 2: fetch, back up, patch); in **Rebuild** mode
 (below) the reference's style replaces the copy's theme. The copy is named "<source name>_copy";
-the user renames it in the builder (`flows update --name` is refused in production).
+rename it with `flows update --name` (on `Method "PUT" not allowed`, the user renames it in the builder).
 
 **New flow with no source** — `flows create`, then author `draft.json` from scratch. Its first
 `config update` is `--config-file draft.json --remote-configs '[]'`, with no

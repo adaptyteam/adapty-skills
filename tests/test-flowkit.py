@@ -911,11 +911,22 @@ def main():
 
     # --- conditions, actions and tabs: the three transformer refusals flowkit could not
     # express before 2026-08-28. Each raise below is a hard 422 made unrepresentable.
-    check('when() builds the third visibility form',
+    check('when() builds the third visibility form, a single predicate in an && group '
+          '(the shape every real export carries and the builder edits)',
           fk.when(fk.not_empty(fk.ref('email.value')))
           == {'type': 'conditional',
-              'condition': {'type': 'notEmpty',
-                            'left': {'type': 'var', 'variableId': 'email.value'}}})
+              'condition': {'type': '&&', 'predicates': [
+                  {'type': 'notEmpty', 'left': {'type': 'var', 'variableId': 'email.value'}}]}})
+    _any = fk.any_(fk.eq(fk.ref('a'), 1), fk.eq(fk.ref('b'), 2))
+    check('when() keeps a group as it is', fk.when(_any)['condition'] == _any)
+    _ca = fk.conditional_action([(fk.eq(fk.ref('a'), 1), [])])
+    check('conditional_action() groups a bare case predicate',
+          _ca['payload']['cases'][0][0]['type'] == '&&')
+    _es = fk.eq({'type': 'elementState', 'elementId': 'el_next'}, 'st_locked')
+    check('an elementState operand is accepted (the service compiles it)',
+          fk.when(_es)['condition']['predicates'][0] == _es)
+    check('an elementState with no elementId is refused',
+          raises(lambda: fk.when(fk.eq({'type': 'elementState'}, 'default'))))
     check('a comparison auto-wraps a bare value as a const, which is what the walker wants',
           fk.eq(fk.ref('g.selectedOptionId'), 'gold')['right']
           == {'type': 'const', 'value': 'gold'})

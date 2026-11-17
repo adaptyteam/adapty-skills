@@ -285,7 +285,7 @@ silent defect — no gate catches it (see below).
 {"id": "el_PSJTQ6QeQt", "type": "image", "props": {
   "image": {"_lid": "lc_9"},
   "width": {"type": "fixed", "value": 242}, "height": {"type": "hug"},
-  "objectFit": "cover", "borderRadius": {"tl": 20, "tr": 20, "bl": 20, "br": 20}}}
+  "objectFit": "fit", "borderRadius": {"tl": 20, "tr": 20, "bl": 20, "br": 20}}}
 ```
 ```json
 "lc_9": {"kind": "image", "values": {"en": {
@@ -435,7 +435,10 @@ boxes for one 600×400 (1.5:1) asset in a 242-wide slot:
 | `fixed: 300` | `fit` | 242×161, centred | the box wins, the asset letterboxes inside it, leaving **139 px of dead band** |
 | *empty `values`* | — | **242×256** | the placeholder checkerboard, near-square whatever the real asset's aspect is |
 
-Two consequences an author acts on:
+Three consequences an author acts on:
+
+**`cover` needs a box that no `hug` sizes, its own or a parent's.** Under a `hug` width or inside a
+`hug` parent, iOS draws it a few points tall: give it a `fixed` height, or use `fit`.
 
 **A placeholder does not occupy the space the real asset will.** The empty map draws **95 px taller**
 than the same element with the real 3:2 image — on a 932 px screen, a tenth of the height, and
