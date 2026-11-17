@@ -2642,8 +2642,46 @@ def timer_digits(units=('hours', 'minutes', 'seconds'), *, sep=':', preset='h2',
                 node_id=node_id, **kw)
 
 
+#: `endDate.timeZone` for "User's local time": each device ends at the set date and time on its
+#: own clock. Any other value is an IANA zone name or `UTC`.
+TIMER_LOCAL_TIME_ZONE = 'local'
+
+
+def timer_end_date(date, time='23:59', *, time_zone):
+    """The `endDate` of an `until_date` timer, checked the way publish checks it.
+
+    `date` is `YYYY-MM-DD` and must exist on the calendar; `time` is `HH:mm` (seconds are always
+    00); `time_zone` is an IANA name (`Europe/Berlin`), `UTC`, or `TIMER_LOCAL_TIME_ZONE`. There is
+    no default zone: a named zone ends at one moment for every user, `local` at the set clock time
+    on each device, and only the user knows which one the campaign means. A past date is valid:
+    the timer shows zero from the start.
+    """
+    import datetime
+    if not isinstance(date, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date):
+        raise ValueError(f"timer end date is YYYY-MM-DD with a four-digit year, not {date!r}")
+    try:
+        datetime.date.fromisoformat(date)
+    except ValueError:
+        raise ValueError(f'timer end date {date!r} does not exist on the calendar; '
+                         'publish refuses it') from None
+    if not isinstance(time, str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', time):
+        raise ValueError(f"timer end time is HH:mm from 00:00 to 23:59, not {time!r}")
+    if time_zone not in (TIMER_LOCAL_TIME_ZONE, 'UTC'):
+        try:
+            import zoneinfo
+            zoneinfo.ZoneInfo(time_zone)
+        except ImportError:
+            pass  # Python < 3.9: publish still refuses an unknown zone
+        except Exception:
+            raise ValueError(
+                f"timer time zone {time_zone!r} is not an IANA zone name; use one such as "
+                f"'Europe/Berlin', 'UTC', or {TIMER_LOCAL_TIME_ZONE!r} for the user's local "
+                'time') from None
+    return {'date': date, 'time': time, 'timeZone': time_zone}
+
+
 def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds=0,
-          behavior='start_at_every_appear', width=None, height='hug', fixed_w=None,
+          behavior='start_at_every_appear', end_date=None, width=None, height='hug', fixed_w=None,
           fixed_h=None, fill_=None, padding=None, corner=None, align_h='center',
           align_v='center', visibility=None, position=None, actions=None, node_id=None,
           **kw):
@@ -2673,9 +2711,29 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     to 999), and `hours=72` is the same countdown as `days=3`. `behavior='start_at_every_appear'`
     restarts the countdown each time the screen appears.
 
+    **A countdown to a date** — a sale that ends at a set moment — passes
+    `end_date=timer_end_date('2026-11-28', '23:59', time_zone='Europe/Berlin')` and no duration.
+    That sets `behavior='until_date'`: the timer shows the time left until that moment, the same
+    for every user whenever they open the screen, and zero after it. `duration` stays in the
+    config and is ignored. A date countdown usually runs for days, so show `timer_days` (or
+    `timer_total_hours`) in its digits.
+
     **A countdown of 24 hours or more shows `timer_days` or `timer_total_hours`.** `timer_hours`
     is the hour of the day, so `HH:MM:SS` built from it starts a 72-hour countdown at `00:00:00`.
     """
+    if end_date is not None:
+        if behavior not in ('start_at_every_appear', 'until_date'):
+            raise ValueError(f"end_date makes the timer count down to a date (behavior "
+                             f"'until_date'); it cannot be combined with behavior {behavior!r}")
+        if days or hours or minutes or seconds:
+            raise ValueError('a timer counts down either from a duration or to end_date, not '
+                             'both: drop days/hours/minutes/seconds')
+        behavior = 'until_date'
+        end_date = timer_end_date(end_date.get('date'), end_date.get('time', '23:59'),
+                                  time_zone=end_date.get('timeZone'))
+    elif behavior == 'until_date':
+        raise ValueError("behavior 'until_date' needs end_date=timer_end_date(...): publish "
+                         'refuses an until_date timer with no end date')
     if hours > 999:
         raise ValueError(f'timer hours go up to 999 in the Flow Builder, not {hours}; '
                          'put the rest in days')
@@ -2698,6 +2756,7 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     props = {
         'customId': custom_id, 'behavior': behavior,
         'duration': {'days': days, 'hours': hours, 'minutes': minutes, 'seconds': seconds},
+        **({'endDate': end_date} if end_date is not None else {}),
         'width': _width(width, fixed_w, position, default='hug'),
         'height': size('fixed', fixed_h) if fixed_h is not None else size(height),
         'layout': layout('horizontal', 0, align_h, align_v),

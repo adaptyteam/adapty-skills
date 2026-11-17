@@ -2452,6 +2452,49 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'Put a timer_digits() text inside it; to keep the delay invisible, colour the '
                     f'digits like the background. Neither validate nor preview can see this')
 
+    # An `until_date` timer counts down to `endDate` ({date, time, timeZone}). The schema keeps
+    # `date` optional so a builder draft can save without one, but publish refuses the flow when
+    # the date is missing, or the date, time or zone is not valid -- so the agent's own config
+    # must carry a full end. A past date is valid (the timer shows zero). The zone is an IANA name,
+    # `UTC`, or `local` (each device's own clock).
+    def _end_date_problem(end):
+        import datetime
+        if not isinstance(end, dict) or not end.get('date'):
+            return 'has no end date (endDate.date)'
+        date_, time_, zone_ = end.get('date'), end.get('time'), end.get('timeZone')
+        try:
+            if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(date_)):
+                raise ValueError
+            datetime.date.fromisoformat(date_)
+        except ValueError:
+            return f'has an end date {date_!r} that is not a real YYYY-MM-DD date'
+        if not isinstance(time_, str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', time_):
+            return f'has an end time {time_!r} that is not HH:mm (00:00-23:59)'
+        if not zone_:
+            return 'has no time zone (endDate.timeZone)'
+        if zone_ not in ('local', 'UTC'):
+            try:
+                import zoneinfo
+                zoneinfo.ZoneInfo(zone_)
+            except ImportError:
+                pass
+            except Exception:
+                return f"has a time zone {zone_!r} that is not an IANA zone name, 'UTC' or 'local'"
+        return None
+    _containers = [(f'screen {s.get("id")}', s.get('elements', {}).get('map') or {})
+                   for s in d.get('screens') or []]
+    _containers += [(f'component {cid}', (c or {}).get('map') or {})
+                    for cid, c in (d.get('components') or {}).items() if isinstance(c, dict)]
+    for where, m_ in _containers:
+        for eid_, e in m_.items():
+            if e.get('type') != 'timer' or (e.get('props') or {}).get('behavior') != 'until_date':
+                continue
+            problem = _end_date_problem((e.get('props') or {}).get('endDate'))
+            if problem:
+                bad.append(f'{where}: timer {eid_} counts down to a date (until_date) but '
+                           f'{problem}, so publish refuses the flow. Set it with '
+                           f'flowkit.timer_end_date(date, time, time_zone=...)')
+
     # `footer` is the pinned bottom bar, and all three of these come from rendering one screen
     # eight ways. The element is lifted out of the flow and pinned to the
     # viewport bottom; the same props under `type: "stack"` land below the fold.
