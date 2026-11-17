@@ -461,6 +461,36 @@ pw['elements']['map'][eid]['interactions'] = [
 check('a real /terms-of-service url still clears no-terms-link after tokenizing',
       len(of(run(c)[1], 'no-terms-link')) == 0)
 
+# The button that opens a url says what it is. A url whose path names neither link
+# (`/tc`) clears the check when the button carrying it reads "Terms of Use"; a run-together
+# `/privacypolicy` path clears the privacy check on its own. A label never makes a link
+# absent (the "Legal" case above), and an unrelated label still leaves the question.
+def _one_link(url_, label_):
+    c = load()
+    pw = [s for s in c['screens'] if s['id'] == 'scr_paywall'][0]
+    eid = next(iter(pw['elements']['map']))
+    el = pw['elements']['map'][eid]
+    el.setdefault('props', {})['content'] = {
+        'values': {l: label_ for l in ('en', 'sr', 'sr-Latn')}}
+    el['interactions'] = [
+        {'id': 'int_lbl', 'trigger': 'tap',
+         'actions': [{'id': 'act_lbl', 'type': 'openUrl', 'payload': {'url': url_}}]}]
+    return run(c)[1]
+
+
+_lf = _one_link('https://example.com/tc', 'Terms of Use')
+check('a /tc url on a button reading "Terms of Use" clears no-terms-link',
+      len(of(_lf, 'no-terms-link')) == 0, f'got {of(_lf, "no-terms-link")}')
+_lf = _one_link('https://example.com/privacypolicy', 'Read more')
+check('a run-together /privacypolicy url clears no-privacy-link',
+      len(of(_lf, 'no-privacy-link')) == 0, f'got {of(_lf, "no-privacy-link")}')
+check('...and leaves the terms question for an unrelated label',
+      len(of(_lf, 'no-terms-link')) == 1
+      and of(_lf, 'no-terms-link')[0]['severity'] == 'question')
+_lf = _one_link('https://x.co/a1', 'Privacy Policy')
+check('an opaque url on a button reading "Privacy Policy" clears no-privacy-link',
+      len(of(_lf, 'no-privacy-link')) == 0, f'got {of(_lf, "no-privacy-link")}')
+
 print('\nproducts / catalog')
 
 # catalog-not-fetched: no catalog was supplied at all, on a flow that binds products.
@@ -1093,6 +1123,47 @@ unt = of(findings, 'untranslated')
 check('untranslated FIRES once, grouped, for the brand name', len(unt) == 1, f'got {len(unt)}')
 check('untranslated is a risk, never a blocker', bool(unt) and unt[0]['severity'] == 'risk')
 check('untranslated names its examples', bool(unt) and 'Nimbus' in unt[0]['message'])
+
+# A language whose every text repeats the default language's is NOT translated, and its
+# repeats are not brand names: the finding and the table note say the language is not
+# translated, and the note never calls a value "the same in every language" when another
+# language translates it.
+def _copy_default(o, code):
+    if isinstance(o, dict):
+        v = o.get('values')
+        if isinstance(v, dict) and 'en' in v and code in v:
+            v[code] = copy.deepcopy(v['en'])
+        for x in o.values():
+            _copy_default(x, code)
+    elif isinstance(o, list):
+        for x in o:
+            _copy_default(x, code)
+
+
+_c = load()
+_copy_default(_c, 'sr')
+_unt = of(run(_c)[1], 'untranslated')
+_names = audit_mod.locale_names(_c)
+_sr, _srl = _names.get('sr', 'sr'), _names.get('sr-Latn', 'sr-Latn')
+check('a language copied from the default is named as not translated',
+      len(_unt) == 1 and f'{_sr} is not translated' in _unt[0]['message'],
+      _unt[0]['message'] if _unt else '<no finding>')
+check('...and the finding no longer calls the repeats brand names',
+      bool(_unt) and 'brand' not in _unt[0]['message'])
+with tempfile.TemporaryDirectory() as _tmp:
+    _p = os.path.join(_tmp, 'c.json')
+    json.dump(_c, open(_p, 'w'))
+    _txt = subprocess.run([sys.executable, AUDIT, _p, '--report'],
+                          capture_output=True, text=True).stdout
+check('the language note names the untranslated language',
+      bool(re.search(rf"\b{re.escape(_sr)} (is not|isn't) translated", _txt)), _txt[-600:])
+check('the language note does not name the translated one',
+      not re.search(rf"{re.escape(_srl)} (is not|isn't) translated", _txt))
+_rtxt = subprocess.run([sys.executable, AUDIT, FLOW, '--report'],
+                       capture_output=True, text=True).stdout
+check('the untouched fixture still reads its repeats as a brand name',
+      'right for a brand or product name' in _rtxt
+      and not re.search(r"(is not|isn't) translated", _rtxt))
 
 # An EMPTIED translation -- a paragraph holding only an empty `text` node, which is what an
 # emptied editor emits -- is the catalog's "missing": it falls back to the default locale's
