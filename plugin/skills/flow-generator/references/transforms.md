@@ -245,8 +245,9 @@ remains**, which is the one check that catches a letter missing from the table.
 ### 8. Which code a language gets
 
 The code is `language[-Script][-REGION]`: `pt` or `pt-BR`, `zh-Hans`, `es-419`. Casing does not
-matter, since the publish writes every code out in one casing; a code outside that shape is refused
-at publish. `pt` and `pt-BR` are different locales. Renaming one later means the entry in
+matter, since the publish writes every code out in one casing (`pt-BR`, `zh-Hans`); a code outside
+that shape is refused at publish. The app must ask for that published form exactly: both SDKs match
+it case-sensitively with no fallback to the language, so `pt-br`, `pt_BR` or `pt` opens the default. `pt` and `pt-BR` are different locales. Renaming one later means the entry in
 `localization.locales`, the key in every catalog `values` map, and `remote_configs`:
 `python3 references/localization.py rename IN.json <old> <new>`, once the user says yes.
 

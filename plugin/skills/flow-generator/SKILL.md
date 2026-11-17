@@ -284,8 +284,8 @@ $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
     [--expected-updated-at <int>]   # --remote-configs is required: a write replaces the stored list
 $ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, < ~2.5 MB; no SVG, GIF or HEIC
 $ADAPTY flows media upload-video <VIDEO_FILE> --app <APP_UUID> --json  # mp4/webm, ≤ 30 s, ≥ 640 px each side
-$ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; 405 in prod, rename in the builder
-$ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; 404 in prod, see below
+$ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; a `Method "PUT" not allowed`: rename in the builder
+$ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; an `http_404`: see below
 ```
 
 **Resolve `$ADAPTY` once, here, and use it for every command.** A global `adapty` is frequently old

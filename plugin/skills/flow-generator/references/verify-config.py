@@ -164,7 +164,7 @@ MIN_OPAQUE_ALPHA = 0.8
 # Both are frequent transformer refusals.
 EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
               'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
-              'productRef'}
+              'productRef', 'elementState'}
 # `assign` is in the schema's ExpressionType enum and has NO case in the condition walker, so
 # it falls through to `default` and the flow is refused. Legal in a `setVariable` payload,
 # illegal as a condition — hence scoped here and not to expressions generally.
@@ -207,6 +207,11 @@ def bad_expr_path(v, path):
     if t == 'var':
         vid = v.get('variableId')
         return None if isinstance(vid, str) and vid else f'{path}.variableId'
+    if t == 'elementState':
+        # Another element's current state, compared with `==`/`!=` against a `const` state id
+        # (`'default'` is its Default state). The service checks only the id's shape here.
+        eid = v.get('elementId')
+        return None if isinstance(eid, str) and eid else f'{path}.elementId'
     if t == 'productRef':
         # The structured form of a product reference. The service validates the target itself
         # and its messages name the part, so mirror its two shapes exactly rather than waving
@@ -3113,6 +3118,30 @@ def check(path, baseline_text=None, baseline_images=None):
         bad.append(f'custom tag name {n!r} is also used by another variable '
                    f'(custom_tag_duplicate_name): both publish as the same SDK tag, so the app '
                    f'value overrides the other one wherever it is used')
+    # A text that shows a variable which is not external, has no value and nothing assigns:
+    # it publishes as a script variable and is blank for every user. Almost always a custom
+    # tag missing `external: true`; the service publishes it without a word.
+    text_var_ids, assigned = set(), set()
+
+    def _walk_vars(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'variable' and isinstance(o.get('attrs'), dict):
+                text_var_ids.add(o['attrs'].get('variableId'))
+            if o.get('type') == 'setVariable':
+                assigned.update(all_var_ids(o.get('payload')))
+            for x in o.values():
+                _walk_vars(x)
+        elif isinstance(o, list):
+            for x in o:
+                _walk_vars(x)
+    _walk_vars(d)
+    for v in d.get('variables') or []:
+        if (isinstance(v, dict) and v.get('external') is not True
+                and v.get('value') in ('', None) and v.get('id') in text_var_ids
+                and v.get('id') not in assigned):
+            warn.append(f'variable {v.get("name") or v.get("id")!r} is shown in text, has no value and '
+                        f'nothing sets it, so it is blank on a device. If the app supplies it, mark '
+                        f'it external: true (a custom tag)')
     locs = [l.get('code') if isinstance(l, dict) else l for l in (d.get('locales') or [])]
     if len(locs) > 1:
         for v in tag_vars:

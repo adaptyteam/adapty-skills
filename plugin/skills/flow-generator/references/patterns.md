@@ -883,6 +883,10 @@ It is the only component in that catalog carrying an `insertion_policy` (`screen
 props are the plain container set — `position: relative`, `width: fill`, `height: hug`, padding,
 and **an opaque `fill`**. `flowkit.footer([...])` emits it.
 
+**On a screen with a footer, keep the screen's `layout.alignV` at `start`.** `center` or `end`
+pins the content against an estimated footer height; on iOS a taller real footer then covers the
+content, and a button under it takes no taps.
+
 **One screen rendered eight ways**, changing a single thing at a time
 (content 14x80pt against a 900px viewport, so an in-flow bar sits below the fold):
 
