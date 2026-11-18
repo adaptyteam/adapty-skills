@@ -258,6 +258,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **A finished test's OUTCOME comes from `reads.py`, never from the agent's reading:** the leader is the `ab-tests` skill's, from `ab-tests metrics list` (a flow placement's lifetime tree without it); the audience before and right after comes from the placement's audience tree, matched by test id and time. Only the user's word is "won"; a conclusion about a kind of change needs two agreeing results; a lead under 95% P2BB, a too-short or too-few test rules nothing out. The words for each OUTCOME live in `diagnosis.md`, "Past tests".
 - **Filter values come from `analytics values`, never from a group's `key`;** read funnel and retention groups from the grouped answer. New segments go through `audiences`.
 - **The Retention Messaging feature step reads before it speaks:** the setup status and the production message list (over MCP each after its yes), then hands off to `retention-messaging`; a missing command or a no keeps the old "You:" check. "The CLI cannot see whether any of these is on" is only for the two other features.
+- **Its hand-off "Me:" item names `retention-messaging`:** the one exception to "Name a skill only when the user must act on it themselves".
 
 ### `migrate-placements`
 

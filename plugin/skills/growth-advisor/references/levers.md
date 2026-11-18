@@ -428,9 +428,8 @@ $ADAPTY retention-messaging messages list --app <APP_ID> --mode production --jso
 The step names what the reads show and offers to go on through `retention-messaging`, invoked on
 the user's yes: not set up (no keys, no Apple approval, or production not pointing at Adapty: name
 which), no message in production (`meta.exists` false), or the messages' numbers (the save rate and
-saved revenue of the live ones, said the way the dashboard does). It is the "Me:" item that
-`SKILL.md` ("How you write a reply") requires: it names `retention-messaging` and what it does
-next (set up, create, edit, activate or deactivate). Example of the shape, not words to copy:
+saved revenue of the live ones, said the way the dashboard does). The item follows `SKILL.md`,
+"How you write a reply". Example of the shape, not words to copy:
 
 > Me: set up a message on Apple's cancel screen with the `retention-messaging` skill, on your yes:
 > voluntary cancellations lead your endings, and Apple does not send cancel-screen requests to
