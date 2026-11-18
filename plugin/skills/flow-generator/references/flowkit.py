@@ -388,7 +388,7 @@ def docked(*, bottom, left=None, right=None, top=None, z=None):
 
 
 def hidden():
-    """Hiding COLLAPSES the space rather than reserving it (trap 14). If two state-varying
+    """Hiding COLLAPSES the space, gap included, rather than reserving it (trap 14). If two state-varying
     siblings must stay the same size, wrap this in a fixed-height parent."""
     return {'type': 'hidden'}
 
@@ -448,12 +448,31 @@ def _check_expr(e, what='condition'):
     inventing a stricter rule here would refuse documents the service accepts.
     """
     bad = _bad_expr_path(e, what)
+    if bad and bad.endswith(_EMPTY_SIDE):
+        raise ValueError(
+            f'{bad[:-len(_EMPTY_SIDE)]} is empty. The service accepts an empty side (it is the '
+            f"builder's unfinished condition) but compares it as nothing, so the condition never "
+            f'depends on the user. Pass a value: lit(...) or ref(...).')
     if bad:
         raise ValueError(
             f'invalid condition expression at {bad} — the transform service refuses this with '
             f'invalid_visibility_condition / invalid_state_condition (a hard 422). Legal types '
             f'are {", ".join(t for t in EXPR_TYPES if t not in COND_ILLEGAL_TYPES)}; build the '
             f'tree with ref/lit/eq/neq/all_/any_/not_empty rather than by hand.')
+
+
+_EMPTY_SIDE = ' (empty)'
+
+
+_MISSING = object()
+
+
+def _bad_side(v, path):
+    """An operand slot: `null` is legal to the service, and refused here as an empty side. A
+    missing key is refused by the service itself."""
+    if v is _MISSING:
+        return path
+    return f'{path}{_EMPTY_SIDE}' if v is None else _bad_expr_path(v, path)
 
 
 def _bad_expr_path(v, path):
@@ -480,10 +499,10 @@ def _bad_expr_path(v, path):
         return None if isinstance(target, dict) and target.get('kind') in (
             'product', 'selected') else f'{path}.target'
     if t in _BINARY:
-        return (_bad_expr_path(v.get('left'), f'{path}.left')
-                or _bad_expr_path(v.get('right'), f'{path}.right'))
+        return (_bad_side(v.get('left', _MISSING), f'{path}.left')
+                or _bad_side(v.get('right', _MISSING), f'{path}.right'))
     if t in _UNARY:
-        return _bad_expr_path(v.get('left'), f'{path}.left')
+        return _bad_side(v.get('left', _MISSING), f'{path}.left')
     if t in ('&&', '||'):
         if 'predicates' not in v:
             return None
