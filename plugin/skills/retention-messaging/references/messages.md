@@ -94,7 +94,9 @@ same change removes, `texts` on a saved bullet point, a new bullet point without
 `text`, a field given both as a flag and in the file. Refused after the read, before the write:
 removing a language, bullet point or product the message does not have, a `bullet_id` it does not
 have, a language missing a bullet point's text (the refusal names it), or a read that misses a
-field of the full write or has one of the wrong type (CLI and MCP alike). Over MCP, a new image or
+field of the full write, also a non-null association without `type` and `store_id` (CLI and
+MCP); the CLI also refuses a field of the wrong type, such as an `image` that is not null or an
+object. Over MCP, a new image or
 a new bullet point is refused with the CLI command to name.
 
 ## The numbers
