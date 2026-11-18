@@ -214,6 +214,17 @@ case('where: proposes a path under the repo root when neither the repo root '
 case('where: an absent folder is reported as proposed, not existing',
      _where_lines[1], 'proposed — ask before writing')
 
+# A project in a git worktree or a submodule has a `.git` FILE, not a folder. Its root is still
+# the repo root: the proposal goes there, not to $HOME.
+_worktree = os.path.realpath(tempfile.mkdtemp(prefix='snippet-worktree-'))
+with open(os.path.join(_worktree, '.git'), 'w') as _fh:
+    _fh.write('gitdir: /elsewhere/.git/worktrees/x\n')
+os.makedirs(os.path.join(_worktree, 'src'))
+rc_w, out_w, _ew = run_where(tempfile.mkdtemp(prefix='snippet-home-worktree-'),
+                             cwd=os.path.join(_worktree, 'src'))
+case('where: a `.git` file (a worktree or a submodule) marks the repo root',
+     out_w.splitlines()[0], os.path.join(_worktree, 'adapty-flow-snippets'))
+
 # The precedence case the real failure exposed and nothing covered: an EXISTING
 # $HOME/adapty-flow-snippets/ wins over a repo root that has none -- the
 # documented rule ("An existing folder wins: repo root, then $HOME").
