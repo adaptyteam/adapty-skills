@@ -40,7 +40,8 @@ that by running `flows publish --help`, not from a version number — the comman
 once already, so a numeric floor is not a reliable test. Its own flags are `--app` plus `--yes`/`-y`, and the CLI's global `--json` on top of
 them. Five facts shape how you call it: publication is **asynchronous**, so the response reads
 `status: publishing` and never `published` — report it that way rather than claiming the flow is
-live; the confirmation prompt goes to **stderr**, so `--json` stdout stays parseable; `--json` or a
+live, and its `published_flow_version_id` is still the version that was live before, the rollback
+point, not the one you are publishing; the confirmation prompt goes to **stderr**, so `--json` stdout stays parseable; `--json` or a
 non-TTY **without** `--yes` refuses with **exit 2** (`Re-run with --yes`) instead of hanging, so a
 headless run passes `--yes` only once the user has said yes in the conversation; a declined prompt
 exits **1** (`Cancelled, nothing was sent.`); and a flow with no config exits **1**

@@ -892,8 +892,9 @@ difference: the server echoes the legacy top-level `locales` and `defaultLocale`
 A write that changes nothing does not bump `updated_at`, so re-running the same
 content is not a fresh lock token. **On a 409** (*"already updated by <name>. Reload before
 saving…"*, exit 1) someone saved or published the flow since you fetched it and nothing was written: re-`get`
-into `flow.working.json`, re-apply your change **to their config**, tell the user someone else
-saved in between, and write again. The builder can auto-save a cleanup of `states` that bumps
+into `flow.working.json`, re-apply your change **to their config**, tell the user the flow was
+saved in between by the person the message names (often the user themselves, in the builder),
+and write again. The builder can auto-save a cleanup of `states` that bumps
 the version and that `diff-config.py` does not show: diff the raw JSON when the summary is empty.
 Never force
 past it and never re-send your local copy — that is the content that would erase their work. If
