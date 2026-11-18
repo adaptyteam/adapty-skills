@@ -131,27 +131,30 @@ def corpus():
 # ------------------------------------------------------------------ the bundle vs the builder
 print('The vendored pack against real builder output:')
 
-export_raw = {}
-for path, doc in corpus():
-    for entry in (doc.get('_meta') or {}).get('icons') or []:
-        export_raw.setdefault((entry.get('name'), entry.get('weight')),
-                              (entry.get('raw'), os.path.basename(path)))
-
 # timeline-anchored.json is the corpus's one HYBRID (real screen, borrowed theme, hand-authored
 # icon markup) and is excluded from census counts everywhere else for the same reason: its
 # `raw` carries width 24 where every genuine export carries 20, so it would be measuring our own
 # authoring rather than the builder's.
 # onboarding-custom-actions.json and onboarding-permission-primer.json are hand-built flows (readable
 # ids, a hand-typed Star path, a `custom` spinner1 with its own raw): not builder output either.
+# They are skipped before the collection, so that their entry never stands in for a real export.
 HAND_BUILT = {'timeline-anchored.json', 'onboarding-custom-actions.json',
               'onboarding-permission-primer.json'}
-export_raw = {k: v for k, v in export_raw.items() if v[1] not in HAND_BUILT}
+
+export_raw = {}
+for path, doc in corpus():
+    if os.path.basename(path) in HAND_BUILT:
+        continue
+    for entry in (doc.get('_meta') or {}).get('icons') or []:
+        export_raw.setdefault((entry.get('name'), entry.get('weight')), []).append(
+            (entry.get('raw'), os.path.basename(path)))
 
 missing = sorted(k for k in export_raw if not icons.has_phosphor(*k))
 check('every icon in the corpus resolves in the bundle', not missing, f'missing: {missing}')
 
 mismatched = [f'{name}::{weight} (from {src})'
-              for (name, weight), (raw, src) in sorted(export_raw.items())
+              for (name, weight), found in sorted(export_raw.items())
+              for raw, src in found
               if icons.icon_raw(name, weight) != raw]
 check(f'pack markup matches the real export byte for byte ({len(export_raw)} icons)',
       not mismatched, f'differs for: {mismatched}')
