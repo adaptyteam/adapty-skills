@@ -6,7 +6,11 @@ its **expected-impact** range, and its **grounding** (stated at category level �
 never name a company).
 
 Impact ranges are Adapty's expected-effect priors plus observed A/B results
-across subscription apps — not measured lift for any one app. Use the LOW end for
+across subscription apps — not measured lift for any one app. The shares of top
+apps and the drop-off figures come from Adapty's
+[State of Onboarding 2026](https://adapty.io/state-of-onboarding/report/): they
+say how common a screen is and where users leave, never what a change adds, so
+they ground a finding and never replace its impact range. Use the LOW end for
 incremental improvements, the HIGH end for fundamental fixes (going from zero
 personalization payoff to a real one).
 
@@ -36,7 +40,9 @@ shown before the paywall (or a loader runs with nothing personalized after it).
 unusually pointed here: a loader with a personalized-plan screen **lost ~50%
 ARPU** in one test, while **removing** a loader **won (+22% CR, +30% ARPU)** in
 another. The difference is whether the payoff is real. A loader that doesn't
-deliver is pure delay.
+deliver is pure delay. It is common even among the top apps: a third of the
+top-grossing apps with a quiz show no plan screen and no screen that plays an
+answer back.
 **The finding is not** "add a loader" — it's "either deliver the payoff or stop
 asking." **Impact:** CR +10–20%.
 
@@ -70,8 +76,10 @@ it won **CR +8%, ARPU +17%** in testing. **Impact:** CR +5–10%, ARPU +10–17%
 ### 6. The forgotten goal
 **Fires when:** goals are captured AND the paywall doesn't reflect them.
 **Why:** you already have the data; showing the user's goal on the paywall is a
-documented win and costs nothing. Usually surfaces from an uploaded paywall
-screen. **Impact:** CR +15–20%.
+documented win and costs nothing. Rare, so a real edge: 9% of top-grossing
+paywalls show the user's name, goal or date, and 1 in 5 apps even saves the
+answers where the paywall could use them. Usually surfaces from an uploaded
+paywall screen. **Impact:** CR +15–20%.
 
 ### 7. Trial mismatch by category — *the most counterintuitive finding available*
 **Fires when:** the category's trial economics contradict the flow's setup.
@@ -115,6 +123,10 @@ not, it's drop-off with no return.
 recommend making existing steps pay off. Never recommend cutting a long flow just
 for being long; cut only what's genuinely inert (repeated preference questions,
 consecutive screens making the same point, setup that could happen in-app).
+Where a flow loses users moves with its length: a short flow loses them on
+screen 1, a flow of 21+ screens mid-flow (about 19% of users), and almost
+nobody leaves on the second-to-last screen. So a long flow's audit looks at
+the middle questions first.
 *Watch for:* long stretches without a progress cue, momentum loss from many
 similar questions in a row, and any stretch that asks for input the flow never
 references again. *Impact:* CR +10–15%.
@@ -128,6 +140,11 @@ CR +5–15%.
 **Opening screen.** Goals-first (early commitment, higher completion) vs.
 benefits-first (explains why onboarding matters) vs. welcome screen (sets
 expectations). Sign-up-first is the red flag — see contradiction rule 5.
+The first screen loses more users than any other: about 10% of sessions end
+there, five times any later screen. It is where the ad hands over, so it
+repeats what the ad or the store page promised; users from Meta ads finish
+11 points more often than organic users of the same app when the flow keeps
+that promise. With several campaigns, a first screen per campaign is the test.
 
 ## The personalization loop — *the highest-value pattern in onboarding*
 
@@ -235,7 +252,11 @@ location). *Impact:* CR +10–15% when moved past the paywall.
 ## Paywall placement & the seam
 
 Onboarding paywalls convert best of any placement — and onboarding paywalls
-**with a trial** are the strongest configuration. ~90% of trial starts and ~44%
+**with a trial** are the strongest configuration. Top apps put it last: 14 of
+20 checked show the first paywall at the end of the onboarding, and only 4–12%
+of top apps in each category show a second paywall in the flow. Almost every
+user who finishes sees the paywall within a day; almost none who leave early
+do. ~90% of trial starts and ~44%
 of all purchases happen on Day 0, so the onboarding flow *is* the monetization
 moment for most apps.
 **A second-chance offer** (24-hour welcome discount) shown right after the
@@ -258,17 +279,20 @@ one.
 
 **Health & Fitness.** Trials HELP LTV. Emotional tone, photography, peer proof
 plus expert authority. Before/after and progress projections land hard.
-Personalization payoff is expected, not optional. Annual plans are gaining share
-here (unusual). Converts best of any category on trial-to-paid — but retains
+Personalization payoff is expected, not optional: 86% of top apps run a quiz,
+70% a "building your plan" screen, 62% testimonials. The one category where
+more apps sell mostly annual plans (35%) than mostly weekly (29%). Converts best of any category on trial-to-paid — but retains
 worst, so the flow should set realistic expectations, not just hype.
 
 **Education.** Trials HELP LTV. Explain the method and the pace ("B1 to B2 in 3
 months"). Rational + outcome framing. Highest use of discounts of any category.
+Explains the trial most: half of top apps show a trial timeline.
 Notably long consideration windows — a meaningful share of trial starts come well
 after Day 0, so post-onboarding nurture matters more here.
 
 **Photo & Video / Graphics & Design.** Product UI preview beats illustration —
-show the actual output. Photo & Video: trials help. Graphics & Design: trials
+show the actual output. Top Photo & Video apps sell the result: before/after
+screens in 54% and a discount offer in 74%. Photo & Video: trials help. Graphics & Design: trials
 HURT LTV. Use-case-led framing (creator vs. business) outperforms generic
 feature lists.
 
@@ -278,6 +302,7 @@ recommend adding a trial reflexively here.
 
 **Lifestyle.** Trials HURT LTV (trial users ~21% less valuable than direct
 buyers). Highest revenue concentration of any category — hardest to break into.
+Shows the price per week or day more than any category (65% of top apps).
 Emotional framing works; the monetization model deserves more scrutiny than the
 screens.
 
@@ -286,10 +311,10 @@ paywalls perform well — a paywall shown when a user hits a limit is a strong,
 both-platform win. Keep onboarding short and functional; UI preview over
 narrative.
 
-**Entertainment.** Trials HURT LTV. Lowest trial-to-paid of the major categories
-— set expectations accordingly and don't over-promise conversion gains. Fastest
-Day-0 decisions of any category, so the onboarding moment is nearly the only
-moment.
+**Entertainment.** Trials HURT LTV. Earns the most per onboarding open of any
+category and turns as many opens into subscribers as Health & Fitness, from
+short flows with no quiz. Fastest Day-0 decisions of any category, so the
+onboarding moment is nearly the only moment: show the content, not a method.
 
 **AI apps (cross-category).** Install-to-trial runs about half the average, but
 direct purchases run higher — a different shape entirely. Annual + trial produces
