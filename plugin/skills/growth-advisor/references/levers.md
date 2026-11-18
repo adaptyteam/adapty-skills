@@ -428,11 +428,14 @@ $ADAPTY retention-messaging messages list --app <APP_ID> --mode production --jso
 The step names what the reads show and offers to go on through `retention-messaging`, invoked on
 the user's yes: not set up (no keys, no Apple approval, or production not pointing at Adapty: name
 which), no message in production (`meta.exists` false), or the messages' numbers (the save rate and
-saved revenue of the live ones, said the way the dashboard does). Example of the shape, not words
-to copy:
+saved revenue of the live ones, said the way the dashboard does). **The step always names
+`retention-messaging` and what it does next** (set up, create, edit, activate or deactivate),
+also when the user asked about Retention Messaging directly; this skill only reads and never
+drafts or changes a message itself. Example of the shape, not words to copy:
 
-> Me: set up a message on Apple's cancel screen with you: voluntary cancellations lead your
-> endings, and Apple does not send cancel-screen requests to Adapty yet in production.
+> Me: set up a message on Apple's cancel screen with the `retention-messaging` skill, on your yes:
+> voluntary cancellations lead your endings, and Apple does not send cancel-screen requests to
+> Adapty yet in production.
 
 The 12-month commitment plan is a hypothesis, not a step: the Commitment plan row of the Known
 types. It is a candidate when the App Store's main market is outside the US, a shorter plan leads

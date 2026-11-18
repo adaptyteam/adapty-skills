@@ -154,7 +154,7 @@ the first two weeks of real users.
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | Creating, starting, stopping or replacing an A/B test | `ab-tests`, on the user's yes, once "From hypothesis to A/B test" checks pass |
-| Messages on Apple's cancel screen (Retention Messaging): setup, messages, their numbers | `retention-messaging`, on the user's yes |
+| Messages on Apple's cancel screen (Retention Messaging): setup, messages, their numbers | This skill reads the status and the production list (`references/levers.md`, "Adapty features"); every write and draft: `retention-messaging`, named in the Next step, on the user's yes |
 | How a dashboard feature works | `adapty-docs` |
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
