@@ -368,6 +368,9 @@ and the reason.
   the next reply. You will not remember this conversation, so a check
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
   back and ask, never a "Me:" item, unless it is a recurring check ("Recurring checks").
+- **Retention Messaging (Apple's cancel screen), also when asked directly: this skill only reads**
+  (status, lists, numbers). Next steps always hold a "Me:" item that names the `retention-messaging`
+  skill and its next action; never offer to draft, create, edit, activate or deactivate a message.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
   it), one "You:" item asks when it ends. Say how far each arm is from about 200 purchases
   (`references/diagnosis.md`, "Placement metrics"), never which one leads.
