@@ -27,7 +27,7 @@ turned down at least one language; offer a changed version.
 - `locale` 2–35 characters, no repeat, never `en-US`.
 - Header image (default messages only): PNG, 3840 px wide, 160–2160 px tall, no transparency, up
   to 10 MB. Bullet icon: PNG, 1024 × 1024 px, no transparency, up to 10 MB. The CLI checks each
-  file before it asks or sends anything; a bad file is exit 2 naming the file and the rule.
+  file before it asks or sends anything; a bad file, damaged PNG data too, is exit 2 naming the file and the rule.
 - A default message takes no offer; a promo message links one offer or plan switch to each
   product and takes no image and no bullet points. `header_position` and `type` never change.
 
@@ -93,7 +93,8 @@ changed and removed, a new image with `--remove-image`, a text for a language or
 same change removes, `texts` on a saved bullet point, a new bullet point without `image_path` or
 `text`, a field given both as a flag and in the file. Refused after the read, before the write:
 removing a language, bullet point or product the message does not have, a `bullet_id` it does not
-have, or a language missing a bullet point's text (the refusal names it). Over MCP, a new image or
+have, a language missing a bullet point's text (the refusal names it), or a read that misses a
+field of the full write or has one of the wrong type (CLI and MCP alike). Over MCP, a new image or
 a new bullet point is refused with the CLI command to name.
 
 ## The numbers
