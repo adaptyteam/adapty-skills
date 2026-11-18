@@ -421,7 +421,7 @@ One constraint it will tell you about rather than quietly working around: **a fl
 
 ## Where it works
 
-The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Eleven of the fifteen need a shell and the Adapty CLI signed in to your account. `retention-messaging` also works with the Adapty MCP server alone, so it runs in Claude and ChatGPT on the web or a phone once you add the server as a connector. `adapty-mail` needs the Adapty Mail MCP server connected in your agent instead, so it also works in Claude and ChatGPT once you add the server as a connector.
+The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Eleven of the fifteen reach your Adapty account through the Adapty CLI, which needs a shell, or through the Adapty MCP server, as described above. In Claude and ChatGPT on the web or a phone, `retention-messaging` and `growth-advisor` work with the Adapty MCP server alone once you add it as a connector, and they say what they could not do there. `adapty-mail` needs the Adapty Mail MCP server connected in your agent instead, so it also works in Claude and ChatGPT once you add the server as a connector.
 
 `paywall-teardown`, `onboarding-teardown` and `adapty-docs` need neither, so they also work in Claude chat and Cowork, where the other skills cannot reach your Adapty account.
 

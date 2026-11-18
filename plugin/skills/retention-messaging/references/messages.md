@@ -105,7 +105,7 @@ aside). An Adapty test message is never in the list.
 
 | Field | Dashboard column | What it is |
 |---|---|---|
-| `shown` | Shown | cancel-screen views, one per subscriber per day: retained, churned and still pending |
+| `shown` | Shown | cancel-screen views, one per subscription per UTC day: retained, churned and still pending |
 | `retained` | Retained users | views followed by a payment for the next period (or the offered switch) before a cancel or expiry |
 | `saved_users` | Saved users | views with no cancel within 24 hours |
 | `retention_rate` | Retention rate | retained ÷ (retained + churned) × 100; pending views are left out |

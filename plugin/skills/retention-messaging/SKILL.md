@@ -167,7 +167,9 @@ about the plan. "No", silence or a change of plan: send nothing.
   and can start showing an approved message to subscribers, and wait for a yes; it covers later
   list and message reads, not the status. Over the CLI these reads need no yes.
 - **Give Apple the URL.** Card: Apple sends this environment's cancel-screen requests to Adapty;
-  in sandbox Adapty also adds a hidden test message; over MCP the tool reads the status first.
+  in sandbox Adapty also adds a hidden test message; the command and the tool first read the
+  status, and that read can save the result of Apple's test, also when the replacement below is
+  then refused.
   When the status shows `configured_to_other_url` for that environment, a second card: **the URL
   now set in Apple is replaced**, and that server stops getting Apple's requests. Only after a yes
   to it pass `--replace-other-url` (MCP `replace_other_url: true`); `--yes` alone does not
@@ -189,7 +191,8 @@ Example of a card's shape, not words to copy:
 >
 > Create it?
 
-Then run the command with `--yes` (over MCP, call the tool) and read the result back.
+Then run the command, with `--yes` on a command that takes it (`performance-test start` takes
+none and asks nothing), or call the tool, and read the result back.
 **An unattended run never writes** (a scheduled run, a script, no user to answer): it reads, then
 stops and reports the card and the command for the user to run, written with a literal `adapty`
 and **without** `--yes`.
