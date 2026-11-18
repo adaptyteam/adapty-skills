@@ -3064,9 +3064,11 @@ def check(path, baseline_text=None, baseline_images=None):
     # A `product` ELEMENT WITH NOTHING IN IT. The single-plan shape where the plan's name and price
     # are loose text beside an empty (often hidden) `product` "attach point". The builder draws the
     # empty element as a 1x1 box the user has to find and delete by hand, while `config preview`
-    # collapses it. On a device it takes no space: the transformer emits an empty box sized 0 on
-    # every hug axis. It can be deliberate: a product element is what declares a product on the
-    # screen, so an empty one may exist only so another element's price can name that product.
+    # collapses it. On a device it has no size (the transformer emits an empty box sized 0 on
+    # every hug axis) but it still takes its stack gap, so in a stack with a gap the content
+    # around it sits one gap further apart. It can be deliberate: a product element is what
+    # declares a product on the screen, so an empty one may exist only so another element's
+    # price can name that product.
     # Zero real exports and zero catalog templates contain one, so it is never builder output.
     for s in d.get('screens', []):
         m = s['elements']['map']
@@ -3076,8 +3078,9 @@ def check(path, baseline_text=None, baseline_images=None):
                     and not n.get('children')):
                 warn.append(
                     f'screen {s["id"]}: {n["id"]} is a `product` element with no children. On a '
-                    f'device it takes no space; the builder shows it as a 1x1 box and the preview '
-                    f'hides it. If you are building the screen, move the text that names and '
+                    f'device it has no size but still takes its stack gap, so the content around '
+                    f'it sits one gap further apart; the builder shows it as a 1x1 box and the '
+                    f'preview hides it. If you are building the screen, move the text that names and '
                     f'prices the plan INSIDE this element and delete the empty one — on a '
                     f'single-plan screen that text block is the product. If it came with the '
                     f'flow, it may be there only so another price can name this product: ask '
