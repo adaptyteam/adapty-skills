@@ -35,7 +35,8 @@ plan and the rest: [products.md](references/products.md).
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
-It also covers conditions (`when`/`ref`/`all_`/`not_empty`), all fourteen action types, the
+It also covers conditions (`when`/`ref`/`all_`/`not_empty`, and `platform_is` for one flow
+across iOS and Android), all fourteen action types, the
 eight inputs and the tabs composite — each raising on the shape the transform service refuses,
 `interactions=` included (the error says what to pass).
 

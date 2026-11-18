@@ -543,6 +543,22 @@ def ref(variable_id):
     return {'type': 'var', 'variableId': variable_id}
 
 
+# System variables: read-only device context a condition reads by a reserved `var` id. The
+# transform service compiles `system.platform` to the SDK's own platform value (iOS and Android
+# SDK 4.0.0+), so the app passes nothing and nothing in the document produces it. Conditions only:
+# not text, not a `setVariable` target, and only the listed values.
+SYSTEM_VARIABLES = {'system.platform': ('ios', 'android')}
+
+
+def platform_is(platform):
+    """`system.platform == platform` — true on that platform only. Huawei devices report
+    `'android'`. For "everywhere but", use `neq(ref('system.platform'), lit(...))`."""
+    if platform not in SYSTEM_VARIABLES['system.platform']:
+        raise ValueError(f'platform_is() takes one of {SYSTEM_VARIABLES["system.platform"]}, '
+                         f'got {platform!r}: the SDK reports no other value')
+    return eq(ref('system.platform'), lit(platform))
+
+
 def lit(value):
     """A constant operand: `{"type": "const", "value": …}`."""
     return {'type': 'const', 'value': value}
@@ -3776,10 +3792,35 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             for tree in trees:
                 for vid in _condition_var_ids(tree, set()):
                     head = vid.split('.')[0]
+                    if vid in SYSTEM_VARIABLES and vid not in custom_vars:
+                        continue
                     if (vid in custom_vars or head in produced or head in group_ids
                             or head in product_ids):
                         continue
                     unresolved.add(vid)
+    # A system variable compared with a value the SDK never reports fails the service's type
+    # check (`invalid_system_variable_value`); one in text or written by `setVariable` is refused
+    # too. Walk every screen, conditional actions included.
+    for o in _walk_dicts(screens):
+        t = o.get('type')
+        if t in ('==', '!='):
+            for var, other in ((o.get('left'), o.get('right')), (o.get('right'), o.get('left'))):
+                vid = var.get('variableId') if isinstance(var, dict) else None
+                if (vid in SYSTEM_VARIABLES and vid not in custom_vars
+                        and isinstance(other, dict) and other.get('type') == 'const'
+                        and other.get('value') not in SYSTEM_VARIABLES[vid]):
+                    raise ValueError(f'{vid} is compared with {other.get("value")!r}, which the '
+                                     f'SDK never reports; use one of {SYSTEM_VARIABLES[vid]}.')
+        if (t == 'variable' and isinstance(o.get('attrs'), dict)
+                and o['attrs'].get('variableId') in SYSTEM_VARIABLES):
+            raise ValueError(f'{o["attrs"]["variableId"]} is in text; a system variable works '
+                             f'only in conditions.')
+        if t == 'setVariable' and isinstance(o.get('payload'), list):
+            for asg in o['payload']:
+                left = asg.get('left') if isinstance(asg, dict) else None
+                if isinstance(left, dict) and left.get('variableId') in SYSTEM_VARIABLES:
+                    raise ValueError(f'setVariable writes {left["variableId"]}, which is '
+                                     f'read-only.')
     if unresolved:
         raise ValueError(
             f'condition variable(s) {sorted(unresolved)} resolve to nothing in this document. '
