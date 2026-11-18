@@ -166,6 +166,8 @@ about the plan. "No", silence or a change of plan: send nothing.
   none. Before the first `messages_list` or `messages_get`, say a read asks Apple about the review
   and can start showing an approved message to subscribers, and wait for a yes; it covers later
   list and message reads, not the status. Over the CLI these reads need no yes.
+- **A read limit the user sets wins.** When the user names what you may read, read only that; any
+  other read, also one that needs no yes, is a Next step that waits for their yes.
 - **Give Apple the URL.** Card: Apple sends this environment's cancel-screen requests to Adapty;
   in sandbox Adapty also adds a hidden test message; the command and the tool first read the
   status, and that read can save the result of Apple's test, also when the replacement below is
