@@ -54,8 +54,8 @@ file's folder), never `image_index`:
 A promo product carries its link: `{"store_id": "<product>", "association": {"type": "promo_offer", "store_id": "<offer>"}}`
 (or `plan_switch` with the other plan's store id), from the suggest commands.
 
-Over MCP, `messages_create` takes the same fields as parameters, with no image and no bullet
-points; add those afterwards with the CLI or the dashboard.
+Over MCP, `messages_create` takes the same fields as parameters (`message_type` for `type`), with
+no image and no bullet points; add those afterwards with the CLI or the dashboard.
 
 ## Edit: changes only
 
@@ -67,30 +67,34 @@ products).
   `--alt-text`).
 - `localizations[]` by `locale` (adds a new one or changes that one), with `bullet_texts` by
   `bullet_id`.
-- `bullet_points[]` by `bullet_id`; `products[]` by `store_id`.
+- `bullet_points[]` by `bullet_id` (`text`, `alt_text`); `products[]` by `store_id` (a new one is
+  added; leave out `association` to keep it, `null` removes it).
 - Removes, only explicit: `remove_localizations`, `remove_bullet_points`, `remove_products`,
   `remove_image` (CLI also `--remove-image`). Removing a bullet point removes its text in every
   language.
-- CLI only: a new header image (`--image <png>`), and a new bullet point with `image_path`,
-  `text` and `texts` holding its text for every language of the message.
+- CLI only: a new header image (`--image <png>`), a new icon (`image_path` on a saved bullet
+  point), and a new bullet point: no `bullet_id`, with `image_path`, `text` and `texts` holding its
+  text for every language of the message.
 
-A CLI change file that changes the German body and removes French:
+A CLI change file (`--file`) that changes the German body and a bullet text, adds a bullet
+point and removes French; the file also takes the simple fields and `remove_image`, and refuses a
+key it does not know:
 
 ```json
 {
-  "localizations": [{"locale": "de-DE", "body": "Dein Plan und dein Fortschritt bleiben."}],
+  "localizations": [{"locale": "de-DE", "body": "Dein Plan und dein Fortschritt bleiben.", "bullet_texts": {"<bullet_id>": "Dein Fortschritt bleibt"}}],
+  "bullet_points": [{"image_path": "icons/sync.png", "text": "Sync everywhere", "texts": {"de-DE": "Überall synchron"}}],
   "remove_localizations": ["fr-FR"]
 }
 ```
 
-Take the exact shape of `bullet_texts` and of a new bullet point's `texts` from `messages update
---help` (over MCP, the tool's schema); never guess it.
-
-Refused before anything is sent: one object both changed and removed, a new image with
-`--remove-image`, a text for a language the same change removes, a field given both as a flag and
-in the file. Refused after the read, before the write: removing a language, bullet point or
-product the message does not have, or a new bullet point missing a language's text (the refusal
-names it). Over MCP, a new image or a new bullet point is refused with the CLI command to name.
+Refused before anything is sent (exit 2): nothing to change, one object named twice or both
+changed and removed, a new image with `--remove-image`, a text for a language or a bullet point the
+same change removes, `texts` on a saved bullet point, a new bullet point without `image_path` or
+`text`, a field given both as a flag and in the file. Refused after the read, before the write:
+removing a language, bullet point or product the message does not have, a `bullet_id` it does not
+have, or a language missing a bullet point's text (the refusal names it). Over MCP, a new image or
+a new bullet point is refused with the CLI command to name.
 
 ## The numbers
 

@@ -283,7 +283,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Every write runs only after the user's yes to its card:** create and status change in both Apple environments, the edit card says each edit goes back to Apple's review, and replacing another URL in Apple is its own yes and `--replace-other-url`. Over MCP the setup-status read and the message reads each take one yes per conversation.
 - **Only the CLI uploads images and adds bullet points;** with MCP only the skill names the CLI command or the dashboard and does not run it.
 - **Never repeat a create whose answer was lost;** find the candidates by name and read each by id.
-- **Commands, flags and fields come from `src/cli/commands/retention-messaging/*` in `adapty-cli`;** the skill names only the flags it needs and sends the rest to `--help`.
+- **Commands and flags come from `src/cli/commands/retention-messaging/**` in `adapty-cli`, the change-file keys from `src/sdk/adapty/retention-messaging/change.ts`, the MCP parameters from the `retention_messaging_*` tools (`message_type` for `--type`);** the skill names only the flags it needs and sends the rest to `--help`.
 
 ### `purchase-testing`
 

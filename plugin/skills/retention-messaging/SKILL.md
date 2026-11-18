@@ -133,7 +133,7 @@ else the dashboard. Do not compare version numbers. `--yes` on `npx` is required
 multi-word `$ADAPTY`. Write a literal `adapty` in a command you show the user.
 
 Every command takes `--app <id>`, the Adapty app UUID from `$ADAPTY apps list`. Read with
-`--json`; take the other flags from the command's `--help`.
+`--json`; take the other flags from the command's `--help`. Over MCP, `--type` is `message_type`.
 
 | CLI `retention-messaging …` | MCP tool `retention_messaging_…` | Does | Yes |
 |---|---|---|---|
@@ -230,7 +230,8 @@ and **without** `--yes`.
 
 The CLI and the tools never repeat a create or an edit. **After a create whose answer was lost
 (no answer, or a 5xx), never create again:** the result is unknown. Search the environment's list
-by the name (`filter[search]`, every page up to `meta.pagination.pages`; say so when you read
+by the name (`messages list --mode <m> --search <name>`, MCP `search`; every page up to
+`meta.pagination.pages`; say so when you read
 fewer), read each candidate whole by id, and show them. A name match, no match and a
 `retention_product_claimed` refusal prove nothing. A new create is the user's new decision with
 its own card. After a lost edit, read the message by id and check it.
