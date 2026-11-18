@@ -3313,6 +3313,16 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     # condition loosely and `config preview` renders the element in whichever state it draws.
     cond_var_ids = set()
     for sid, eid, where, tree in iter_conditions(d):
+        if where.startswith('states['):
+            # A state condition with an empty side in any row is dropped whole before the
+            # compile, under `&&` and `||` alike, so none of its rows is refused or read.
+            blank = blank_operand_path(tree, f'{eid}.{where}')
+            if blank:
+                warn.append(f'screen {sid}: {blank} is empty — an unfinished state condition. '
+                            f'The service drops the whole condition, so this state never '
+                            f'becomes active. Finish it or delete it; if it came with the flow, '
+                            f'ask the user which they meant')
+                continue
         expr_var_ids(tree, cond_var_ids)
         offending = bad_expr_path(tree, f'{eid}.{where}')
         if offending:
