@@ -84,8 +84,21 @@ def no_error(name, doc, fragment):
 
 # ---------------------------------------------------------------- SILENT: the real corpus
 print('SILENT on every real export (the false-positive half):')
+# The one known true positive of the corpus, the same one test-timer-digits.py pins: the
+# hand-built 3 s delay of onboarding-custom-actions.json has no digits child, so it does not fire
+# on a device. That file must give exactly this error and no other.
+KNOWN = {'onboarding-custom-actions.json': 'timer el_delay has a timer-end action but no text inside it'}
 for path in sorted(glob.glob(os.path.join(CORPUS, '*.json'))):
-    silent(f'tracked {os.path.basename(path)}', load(path))
+    name = os.path.basename(path)
+    if name not in KNOWN:
+        silent(f'tracked {name}', load(path))
+        continue
+    errs = errors(load(path))
+    if len(errs) == 1 and KNOWN[name] in errs[0]:
+        print(f'  ok    tracked {name}: only its known delay-timer error')
+    else:
+        fails.append(f'tracked {name}: expected only {KNOWN[name]!r}, got {errs!r}')
+        print(f'  FAIL  tracked {name}')
 for path in sorted(glob.glob(os.path.join(RAW, '*.json'))):
     d = json.load(open(path))
     silent(f'raw {os.path.basename(path)}', d)
