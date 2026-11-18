@@ -444,7 +444,8 @@ started, and it never shows up as a change.
    the app itself (its own code or remote config) or set to use the legacy Paywall Builder: the
    `kind` of its row in `paywalls list --json` says which (`custom` or `legacy_builder`), so take it
    from there and ask the user nothing about how it was made. Rows with no `kind` key come from an
-   older API; for that run, with no version check or upgrade: when the app's code is in
+   older API, which also ignores `--kind` and returns every row; for that run, with no version check
+   or upgrade, never from the paywall's name or title (see below): when the app's code is in
    front of you, look at how it buys: a screen of its own that calls `makePurchase` is a custom
    paywall. Otherwise ask for a screenshot. Ask whether it was made in the Paywall Builder only
    when the user picks a hypothesis that changes it and you offer to build the copy. A hypothesis about what the screen
@@ -455,7 +456,9 @@ started, and it never shows up as a change.
    screen built around the trial. A paywall's name never tells you its design. Until then it is not
    suggested; a "You:" Next step asks for the screenshot and names what it would let you check (in an
    audit, through the **Send me screenshots** section: "What a hypothesis needs"). A `legacy_builder` paywall may be moved to the new builder and then
-   copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
+   copied (`references/levers.md`, Paywall design): name **Move to new builder** as a button the
+   user looks for on the paywall's dashboard page, shown only when a layout is saved, which `kind`
+   does not say; never a step you do or one that surely exists. A custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it (`references/diagnosis.md`, "What the app already tried"): the
    A/B tests `reads.py` lists (each paywall and flow test with its placement, audience, dates and

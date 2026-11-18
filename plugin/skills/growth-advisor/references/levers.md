@@ -446,7 +446,7 @@ the offer is real.
 - **A paywall from the old Paywall Builder** (`kind` `legacy_builder` in `paywalls list`; a row
   with no `kind` key: the user confirms it) cannot be copied this way. Offer the dashboard's
   **Move to new builder** first as a button to look for on the paywall's page, never as a step
-  that surely exists: it shows only when a layout is saved, which `kind` does not say
+  you do or one that surely exists: it shows only when a layout is saved, which `kind` does not say
   ([convert a paywall to a flow](https://adapty.io/docs/convert-paywall-to-flow.md)), then the copy.
 - **Say what it rests on:** the teardown's reading of the screen and the evidence library, plus
   this paywall's view → paid rate and its purchases per screen (reads 8 and 9 in `diagnosis.md`).
