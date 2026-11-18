@@ -154,6 +154,7 @@ the first two weeks of real users.
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | Creating, starting, stopping or replacing an A/B test | `ab-tests`, on the user's yes, once "From hypothesis to A/B test" checks pass |
+| Messages on Apple's cancel screen (Retention Messaging): setup, messages, their numbers | `retention-messaging`, on the user's yes |
 | How a dashboard feature works | `adapty-docs` |
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
@@ -166,6 +167,17 @@ CLI. `references/market.md` holds the market medians from Adapty's State of Payw
 cover a lot of this at the level of region and category. A benchmark matched to the app's own
 category is not available; if the user
 pastes one, use it and say where it came from.
+
+## Web or phone: MCP only
+
+Decide this before any CLI check; it holds for the whole run. **In a web client or a phone app**
+(claude.ai or ChatGPT in a browser, a phone app; your instructions or the user's first message
+name the client), use only the Adapty MCP tools, also when you have a shell there: never run,
+check or install the CLI (no `adapty auth whoami`, `$ADAPTY`, `npm` or `npx`), and never offer
+it. Make the audit's reads with the tools and say which of them did not run. With no Adapty MCP
+tools, tell the user to connect Adapty MCP (the MCP steps under "Neither ready" below) and read
+nothing from their account; the work without an account still runs. On a computer, pick the way
+with the section below.
 
 ## CLI or MCP
 
