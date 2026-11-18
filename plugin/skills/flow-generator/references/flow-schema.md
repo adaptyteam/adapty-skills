@@ -1941,6 +1941,33 @@ error, and do **not** write it off as a stale cache: nothing here is cached, and
 accurate about a screen that really is still in the config.
 
 
+## One flow for iOS and Android: `system.platform`
+
+A condition can read the device platform through a reserved variable, so one flow serves both
+platforms instead of one flow each:
+
+```json
+{"type": "==", "left": {"type": "var", "variableId": "system.platform"},
+ "right": {"type": "const", "value": "ios"}}
+```
+
+- **Nothing produces it.** The SDK supplies the value on every version that renders flows (iOS
+  and Android SDK 4.0.0+), so it needs no `variables[]` entry and no app code. Huawei devices
+  report `"android"`. In the builder it is the **System** tab of the condition picker.
+- **Values and operators:** `"ios"` or `"android"`, with `==` / `!=`. Any other value is refused
+  as `invalid_system_variable_value`.
+- **Conditions only.** In text it is `unsupported_system_variable_use`; as a `setVariable` target,
+  `invalid_action_payload`. A `variables[]` entry with the same id shadows it and is an ordinary
+  custom variable — never declare one.
+- **An element** on one platform: conditional visibility, `flowkit.when(flowkit.platform_is('ios'))`.
+- **A screen** on one platform: a screen has no condition of its own. Branch on the screen
+  before it, with a conditional action on its forward button:
+  `conditional_action([(platform_is('ios'), [navigate('scr_att')])], default=[navigate('scr_next')])`.
+  The other platform never visits the screen, so **Navigate back** skips it too. The entry
+  screen cannot be skipped this way: never put a platform-only screen first.
+- **Screen size and device model are not readable** in a condition. Design one layout that fits
+  the smallest device.
+
 ## Conditions cannot compare numbers — enumerate equality instead
 
 **`ExpressionType` lists `<` and `>`. They do not work.** A gate written as

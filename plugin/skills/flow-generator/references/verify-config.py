@@ -169,6 +169,13 @@ EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty
 # it falls through to `default` and the flow is refused. Legal in a `setVariable` payload,
 # illegal as a condition — hence scoped here and not to expressions generally.
 COND_ILLEGAL_TYPES = {'assign'}
+# System variables: read-only device context a condition reads by a reserved `var` id, with no
+# app code. The transform service compiles `system.platform` to the SDK's own platform value
+# (iOS and Android SDK 4.0.0+), so nothing produces it in the document. It is a condition operand
+# only: compared with a value outside its list it is `invalid_system_variable_value`, in text
+# `unsupported_system_variable_use`, as a `setVariable` target `invalid_action_payload`. A
+# `variables[]` entry with the same id shadows it and is an ordinary custom variable.
+SYSTEM_VARIABLES = {'system.platform': ('ios', 'android')}
 # A colour hex the schema allows: `#RRGGBB`. The transform service also reads `#RGB`,
 # `#RRGGBBAA` and an unprefixed hex, in a theme colour as in an element; a theme colour whose hex
 # it cannot read at all (empty, 7 digits) is refused or its solid dropped, depending on the
@@ -3215,15 +3222,51 @@ def check(path, baseline_text=None, baseline_images=None):
                    if isinstance(v, dict) and v.get('id')}
     all_custom_ids = {(e.get('props') or {}).get('customId')
                       for _, e in els() if (e.get('props') or {}).get('customId')}
+    system_ids = set(SYSTEM_VARIABLES) - custom_vars
     for v in sorted(cond_var_ids):
         head = v.split('.')[0]
-        if (v in custom_vars or head in all_custom_ids or head in group_ids
+        if (v in system_ids or v in custom_vars or head in all_custom_ids or head in group_ids
                 or head in allprod or head in bound_products or head in product_groups):
             continue
         bad.append(f'condition variable {v!r} resolves to nothing: no input customId, '
                    f'selectableGroup, bound product or variables[] entry produces it. The '
                    f'generated script emits it as a bare identifier and fails to compile '
                    f'(script_type_violation, TS2304)')
+
+    # System variables: a comparison the SDK can never satisfy, a use in text, a write. The
+    # walk covers conditional actions too, which `iter_conditions` does not reach.
+    def _system_uses(o):
+        t = o.get('type')
+        if t in ('==', '!=', 'in', 'notIn'):
+            pairs = [(o.get('left'), o.get('right'))]
+            if t in ('==', '!='):
+                pairs.append((o.get('right'), o.get('left')))
+            for var, other in pairs:
+                if not (isinstance(var, dict) and var.get('type') == 'var'
+                        and var.get('variableId') in system_ids):
+                    continue
+                vid = var['variableId']
+                if not (isinstance(other, dict) and other.get('type') == 'const'):
+                    continue
+                vals = other.get('value') if t in ('in', 'notIn') else [other.get('value')]
+                for val in vals if isinstance(vals, list) else []:
+                    if val is not None and val not in SYSTEM_VARIABLES[vid]:
+                        bad.append(f'{vid} is compared with {val!r}, which the SDK never reports '
+                                   f'(invalid_system_variable_value); use one of '
+                                   f'{list(SYSTEM_VARIABLES[vid])}')
+        if t == 'variable' and isinstance(o.get('attrs'), dict) \
+                and o['attrs'].get('variableId') in system_ids:
+            bad.append(f'{o["attrs"]["variableId"]} is in text (unsupported_system_variable_use): '
+                       f'a system variable works only in conditions')
+        if t == 'setVariable' and isinstance(o.get('payload'), list):
+            for asg in o['payload']:
+                left = asg.get('left') if isinstance(asg, dict) else None
+                if isinstance(left, dict) and left.get('variableId') in system_ids:
+                    bad.append(f'setVariable action {o.get("id")!r} writes '
+                               f'{left["variableId"]}, which is read-only '
+                               f'(invalid_action_payload)')
+    walk(d.get('screens') or [], _system_uses)
+    walk(d.get('components') or {}, _system_uses)
 
     # ---- custom tags: `variables[]` entries with `external: true`, whose value the app supplies.
     # The name is the contract with the app's code and publishes as an SDK tag, so the two
