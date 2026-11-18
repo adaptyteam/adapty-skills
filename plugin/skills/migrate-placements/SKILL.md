@@ -396,9 +396,9 @@ some do not. Four routes, in the order to offer them:
   is served from.
 
 **Whether Convert is even available is not readable from the CLI.** `paywalls list`/`get` return
-`{id, title, products}` and
-nothing about whether a paywall is a legacy Paywall Builder paywall (`get` adds only
-`use_paywall_builder_v4`), and **Move to new builder** appears only on those. So do not tell a user the button is
+`{id, title, products, kind}`: `kind` `legacy_builder` says the paywall is set to use a legacy
+Paywall Builder, not that a layout is saved, and **Move to new builder** appears only when one is
+(an older CLI or backend gives no `kind`). So do not tell a user the button is
 there — say what it does and where to look for it, and let them report back.
 
 Never pick for them. The four differ in what users will see, which is not the agent's call. **What
