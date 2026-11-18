@@ -61,8 +61,8 @@ Tell the user, in plain words; on a yes, this is what you write ([custom-element
   and the code: list them for the user.
 - Draws nothing when the file is missing, so users see the fallback instead of an empty box.
 
-Docs: https://adapty.io/docs/custom-element-lottie-animation.md (the recipe fills a streak ring;
-the setup is the same for any Lottie file).
+Docs: the Lottie recipe in [Docs per platform](../custom-elements.md#docs-per-platform) (it fills
+a streak ring; the setup is the same for any Lottie file).
 
 ## On the device
 

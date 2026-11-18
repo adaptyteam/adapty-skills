@@ -51,7 +51,7 @@ users who see the fallback too.
 - Answers a drag or a tap by marking the point and showing its value.
 - Draws nothing when the series is missing, so the fallback shows.
 
-Docs: https://adapty.io/docs/custom-element-interactive-chart.md
+Docs: the chart recipe in [Docs per platform](../custom-elements.md#docs-per-platform).
 
 ## On the device
 

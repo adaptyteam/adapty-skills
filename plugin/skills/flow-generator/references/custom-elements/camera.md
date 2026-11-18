@@ -40,7 +40,7 @@ camera prompt appears when the view opens.
   shows. When the user denies it on the screen, the view stays and says how to allow it in
   Settings.
 
-Docs: https://adapty.io/docs/flow-custom-elements.md
+Docs: no recipe yet; the setup page in [Docs per platform](../custom-elements.md#docs-per-platform).
 
 ## On the device
 

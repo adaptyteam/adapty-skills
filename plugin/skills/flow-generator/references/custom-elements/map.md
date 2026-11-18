@@ -40,7 +40,7 @@ map would move both.
   fallback rather than an empty map. When the user denies it on the screen, the view stays and
   says how to allow it in Settings: drawing nothing then would swap in the fallback mid-screen.
 
-Docs: https://adapty.io/docs/custom-element-map.md
+Docs: the map recipe in [Docs per platform](../custom-elements.md#docs-per-platform).
 
 ## On the device
 

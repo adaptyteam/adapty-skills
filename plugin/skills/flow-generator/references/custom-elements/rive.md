@@ -45,9 +45,9 @@ drags inside the animation.
   user.
 - Draws nothing when the file is missing.
 
-Docs: https://adapty.io/docs/flow-custom-elements.md (no Rive recipe yet; the Lottie recipe
-https://adapty.io/docs/custom-element-lottie-animation.md shows the same setup with a different
-player). Rive's own data binding: https://rive.app/docs/runtimes/data-binding, and its demos with
+Docs: no Rive recipe yet; the platform's Lottie recipe in
+[Docs per platform](../custom-elements.md#docs-per-platform) shows the same setup with a different
+player. Rive's own data binding: https://rive.app/docs/runtimes/data-binding, and its demos with
 sample files: https://rive.app/docs/runtimes/demos.
 
 ## On the device

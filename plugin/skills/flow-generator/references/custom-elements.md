@@ -8,8 +8,8 @@ the **fallback**.
 
 Users rarely say "custom element". They ask for a thing the builder has no element for. This
 file owns when that thing becomes a custom element, how to build one, and what to tell the user.
-The per-use-case templates are in [custom-elements/](custom-elements/); what each platform adds
-is in its own file there, opened only when you write the app's view.
+The per-use-case templates are in [custom-elements/](custom-elements/). Everything particular to
+a platform comes from its docs pages, listed once in [Docs per platform](#docs-per-platform).
 
 ## When the request becomes a custom element
 
@@ -126,7 +126,7 @@ in this shape. The shape to follow, not words to copy:
 >   `streak_plant`. Until your app draws it, users see a still picture of the plant there.
 > - **In your app:** a view for that Type and ID that plays the Lottie file up to the streak.
 >   It needs Adapty iOS SDK 4.4 or later and ships with your next app release; older versions keep
->   the picture. How it is set up: https://adapty.io/docs/custom-element-lottie-animation.md
+>   the picture. How it is set up: https://adapty.io/docs/custom-element-lottie-animation
 >
 > I can add that view to your app. Want me to?
 
@@ -135,8 +135,9 @@ in this shape. The shape to follow, not words to copy:
   release**.
 - Name the app's own SDK (iOS or Android) in the "In your app" line. When the app is neither,
   say that its platform shows the fallback for now.
-- Link the template's docs page; the general page is
-  https://adapty.io/docs/flow-custom-elements.md.
+- Link the recipe for the app's platform from [Docs per platform](#docs-per-platform), or its
+  setup page when the template has no recipe, without `.md`. With no app yet, link the general
+  page https://adapty.io/docs/flow-custom-elements.
 - **Offer the app code, and on a yes write it** (below). Never a snippet in the reply in place of
   the change.
 - List the custom element in the phase 5 summary like any other element, and never call it
@@ -155,11 +156,14 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
 
 1. **Find the app's code.** Usually the workspace you are in; if no app project is reachable,
    ask for its path rather than guess one.
-2. **Check the platform, and open its file:** a native iOS app,
-   [custom-elements/ios.md](custom-elements/ios.md); a native Android app,
-   [custom-elements/android.md](custom-elements/android.md). Open only that one. It says which SDK
-   version serves the view and what updating to it takes. Any other app gets no code: say its
-   users see the fallback until its SDK supports custom elements, and stop.
+2. **Check the platform, and fetch its pages** from [Docs per platform](#docs-per-platform): the
+   setup page, and the template's recipe when it has one. Fetch only that platform's column. The
+   pages own every platform detail: the SDK version, the resolver and its registration, the
+   library, where the file goes, the permission declaration, the device test. This file owns the
+   rules they serve. A platform with no column gets no code: say its users see the fallback until
+   its SDK supports custom elements, and stop. An app below the SDK version the setup page names
+   needs the update first: say so, ask before touching the dependency, and on a yes apply the
+   SDK update page.
 3. **Find where the app shows flows.** None: the app does not render flows yet, which is SDK
    integration, so offer `adapty-integration` instead. Then pick where the view is registered:
    - **App-wide, once at launch: the default.** Every flow and A/B test that uses the Type then
@@ -171,8 +175,9 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
      registration replaces the app-wide one in that flow, so it hands every other Type on to the
      app-wide one.
 4. **Write the view** the template's "What the app's view does" describes, in its own file, with
-   the library the platform file names for that use case added the way the project adds packages.
-5. **Register it for the Type**, as the platform file says. Match the Type and ID letter for
+   the library the recipe names added the way the project adds packages; a template with no
+   recipe uses the platform's usual library for it.
+5. **Register it for the Type**, as the setup page says. Match the Type and ID letter for
    letter, return no view for any other pair and whenever the view's file or data is missing, so users see the fallback. A permission
    returns no view only when it was denied before the screen opened; when it is not answered
    yet, the view asks for it, and when the user denies it on the screen, the view stays and says
@@ -181,10 +186,34 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
    value each time it opens; a value copied in at registration stays as it was. Ask when you
    cannot find the data, never pass a sample value.
 6. **Build if the project lets you,** and show the diff in one line per file. Add any
-   permission declaration the platform file names.
+   permission declaration the pages name.
 
 Keep the change to the view, its registration and what they need. The app's models and its
 other screens are not this skill's to edit.
+
+## Docs per platform
+
+Agents fetch these `.md` URLs; the user gets the same URL without `.md`. A recipe's Type, ID and
+fallback conditions are the template's; its code is the platform's.
+
+| Page | iOS | Android |
+| :--- | :--- | :--- |
+| Setup: the view, the resolver, app-wide or per-flow registration, the device test | https://adapty.io/docs/ios-flow-custom-elements.md | https://adapty.io/docs/android-flow-custom-elements.md |
+| Recipe: [Lottie](custom-elements/lottie.md) | https://adapty.io/docs/custom-element-lottie-animation.md | https://adapty.io/docs/android-custom-element-lottie-animation.md |
+| Recipe: [chart](custom-elements/chart.md) | https://adapty.io/docs/custom-element-interactive-chart.md | https://adapty.io/docs/android-custom-element-interactive-chart.md |
+| Recipe: [map](custom-elements/map.md) | https://adapty.io/docs/custom-element-map.md | https://adapty.io/docs/android-custom-element-map.md |
+| SDK update to 4.4 | https://adapty.io/docs/migration-to-ios-sdk-44.md | https://adapty.io/docs/migration-to-android-sdk-44.md |
+
+A new platform or recipe is a new column or row here, never a new file. Where a page does not
+show a call, read the SDK source at the release tag the app depends on
+([iOS](https://github.com/adaptyteam/AdaptySDK-iOS), [Android](https://github.com/adaptyteam/AdaptySDK-Android),
+search it for "custom element") rather than guess a signature. What the pages do not say yet:
+
+- **iOS:** flows need iOS 16, so an app that targets iOS 15 wraps its flow code in an
+  availability check when it updates to 4.4.
+- **Android camera:** CameraX returns the camera provider as a Guava future, and the Adapty UI
+  module brings Guava at runtime only: add `com.google.guava:guava` (the `-android` version the
+  Adapty UI module resolves to) as the app's own dependency, or the app does not compile.
 
 ## Checking it
 
