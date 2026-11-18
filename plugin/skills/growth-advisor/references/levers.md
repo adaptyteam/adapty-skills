@@ -409,7 +409,7 @@ the first item); when two fire, the higher row in the table below.
 | Refund Saver | the scorecard grades refunds weak (`market.md`, Refunds) | | [Refund Saver](https://adapty.io/docs/refund-saver) |
 
 **Retention Messaging is read before its step,** when its row wins the slot. Read the setup status
-and the production messages with their numbers:
+and the production messages with their numbers, and nothing else (no `realtime-url get`):
 
 ```bash
 $ADAPTY retention-messaging setup-status --app <APP_ID> --json

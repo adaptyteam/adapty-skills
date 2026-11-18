@@ -235,9 +235,11 @@ The CLI and the tools never repeat a create or an edit. **After a create whose a
 (no answer, or a 5xx), never create again:** the result is unknown. Search the environment's list
 by the name (`messages list --mode <m> --search <name>`, MCP `search`; the CLI error gives the
 exact name as `Message name:`, `message_name` in `--json`; every page up to
-`meta.pagination.pages`; say so when you read fewer), read each candidate whole by id, and show them. A name match, no match and a
-`retention_product_claimed` refusal prove nothing. A new create is the user's new decision with
-its own card. After a lost edit, read the message by id and check it.
+`meta.pagination.pages`; say so when you read fewer), and read each candidate whole by id.
+**Show each candidate (name, state, texts, products) and ask which one, if any, is the user's;
+never pick one yourself.** A name match, no match and a `retention_product_claimed` refusal prove
+nothing. A new create is the user's new decision with its own card. After a lost edit, read the
+message by id and check it.
 
 ## Never
 
