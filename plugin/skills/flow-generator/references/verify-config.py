@@ -2803,6 +2803,10 @@ def check(path, baseline_text=None, baseline_images=None):
                 json.dumps(((m.get(k) or {}).get('props') or {}).get('fill'), sort_keys=True))
                for k in kids]
         odd = [i for i, x in enumerate(sig) if sig.count(x) == 1]
+        if len(odd) == 2 and len(kids) == 2:
+            # Two markers that differ are both unique: take the one with the smaller
+            # signature, the same marker on every screen, so its index moves with the step.
+            odd = [sig.index(min(sig))]
         return len(kids), (odd[0] if len(odd) == 1 else None)
 
     _rows = {}
