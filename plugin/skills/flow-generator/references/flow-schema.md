@@ -1185,6 +1185,8 @@ Shape rules, all enforced by that walker:
 **`null` is the builder's unfinished condition** (`{"type": "==", "left": null, "right": null}`):
 accepted, and compiled as is, so an empty side compares as nothing and the condition never
 depends on the user. In conditional text that case always shows and nothing after it does.
+A state condition (custom or `disabled`) with an empty side in any row, the default row with
+`"variableId": ""` too, is dropped whole: that state never becomes active.
 `verify-config.py` warns on it; finish it or delete it, and ask the user when it came with the
 flow.
 
