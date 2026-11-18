@@ -58,8 +58,10 @@ Boundaries. This skill does not design or build flow content — that is `flow-g
 `flows config update`, the preview loop and publish. It does not convert a paywall into a flow —
 that is the dashboard button above, the user's click, with no CLI equivalent; this skill's job is
 to find the flow it produced and put a placement on it. It does not implement the app-side call
-sites — that is `adapty-integration`. It does not delete or modify any existing placement, paywall
-or flow.
+sites — that is `adapty-integration`. It does not judge whether a migration worked ("did the
+migration to flows work?", "how do the flows do against the old paywalls?") — that is
+`growth-advisor`, which compares the old paywalls with the flows. It does not delete or modify any
+existing placement, paywall or flow.
 
 ## CLI or MCP
 
@@ -398,7 +400,7 @@ some do not. Four routes, in the order to offer them:
 **Whether Convert is even available is not readable from the CLI.** `paywalls list`/`get` return
 `{id, title, products, kind}`: `kind` `legacy_builder` says the paywall is set to use a legacy
 Paywall Builder, not that a layout is saved, and **Move to new builder** appears only when one is
-(an older CLI or backend gives no `kind`). So do not tell a user the button is
+(an older API gives no `kind`). So do not tell a user the button is
 there — say what it does and where to look for it, and let them report back.
 
 Never pick for them. The four differ in what users will see, which is not the agent's call. **What

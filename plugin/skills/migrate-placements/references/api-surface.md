@@ -139,7 +139,7 @@ a false candidate is worse than none, because the user is being asked to confirm
 paying customers get served.
 
 **Whether a paywall CAN be converted is not readable.** `paywalls list` rows and `paywalls get`
-carry `kind` (table above; an older CLI or backend gives none): `legacy_builder` says the paywall
+carry `kind` (table above; an older API gives none): `legacy_builder` says the paywall
 is set to use a legacy Paywall Builder, not that a layout is saved, and **Move to new builder**
 appears only on a paywall with a saved layout. So the skill describes the button and where to
 find it, and never asserts it is there.

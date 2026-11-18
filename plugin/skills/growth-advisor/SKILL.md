@@ -444,7 +444,7 @@ started, and it never shows up as a change.
    the app itself (its own code or remote config) or set to use the legacy Paywall Builder: the
    `kind` of its row in `paywalls list --json` says which (`custom` or `legacy_builder`), so take it
    from there and ask the user nothing about how it was made. Rows with no `kind` key come from an
-   older CLI or backend; for that run, with no version check or upgrade: when the app's code is in
+   older API; for that run, with no version check or upgrade: when the app's code is in
    front of you, look at how it buys: a screen of its own that calls `makePurchase` is a custom
    paywall. Otherwise ask for a screenshot. Ask whether it was made in the Paywall Builder only
    when the user picks a hypothesis that changes it and you offer to build the copy. A hypothesis about what the screen
