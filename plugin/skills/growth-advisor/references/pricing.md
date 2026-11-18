@@ -169,9 +169,9 @@ Shape of the table and Who line (the form, not words to copy):
 
 | Country | Plan | Now | New | Why |
 |---|---|---|---|---|
-| Germany | Annual | €45.99 | €52.99 | 31% under the market's German price |
-| France | Annual | €45.99 | €52.99 | 18% under the market's French price |
-| Italy | Annual | €45.99 | €52.99 | 18% under the market's Italian price |
+| Germany | Annual | €45.99 | €49.99 | 31% under the market's German price |
+| France | Annual | €45.99 | €49.99 | 18% under the market's French price |
+| Italy | Annual | €45.99 | €49.99 | 18% under the market's Italian price |
 | Brazil | Annual | R$ 249,90 | R$ 219,90 | converts at 1.0% against 2.0% app-wide |
 
 > Who: I make one copy of Annual with these prices: one A/B test for Germany, one for Brazil,
@@ -195,9 +195,17 @@ what the store charges now, in its own currency.
    move), in its currency. USD is only for comparing, never for producing the price. Only a
    country where the product has no price yet starts from the main market's price converted at
    the app's own rate.
-3. **Land on a price the store's buyers see,** the nearest one within the cap ending in .99, .49,
-   .95, .90, .50 or .00 ("€38.99", "R$ 179,90"). On Google Play these currencies take a whole
-   number: BIF, CLP, DJF, GNF, JPY, KMF, KRW, PYG, RWF, UGX, VND, VUV, XAF, XOF, XPF. The preview
+3. **Land on a price ending in .99, on the plan's grid:**
+   - Weekly, monthly and any plan shorter than a year: whole units, X.99 ("€22.99", never "€22.49").
+   - Annual under 50: steps of 5, X4.99 or X9.99 ("€34.99", "€39.99").
+   - Annual at 50 or more: steps of 10, X9.99 ("€59.99", "€69.99").
+
+   A raise rounds up to the next grid point (22.49 → 22.99), or down to the one below when up
+   passes the cap. A cut takes the grid point nearest its target below the current price. When
+   neither moves the price, there is no hypothesis. A country whose prices end otherwise keeps
+   its ending on the same grid: ,90 in Brazil ("R$ 219,90"), the current price's last digits in
+   currencies priced in the hundreds or more ("₹3,499" → "₹3,999"), and a whole number on Google
+   Play in BIF, CLP, DJF, GNF, JPY, KMF, KRW, PYG, RWF, UGX, VND, VUV, XAF, XOF, XPF. The preview
    then snaps App Store prices to Apple's price points; quote the previewed price.
 4. **Keep the plan ladder:** after the change a shorter plan still costs less than any longer one,
    annual is at least 4× weekly and at least 3× monthly. A move that breaks this is made smaller
