@@ -77,6 +77,10 @@ for path in corpus:
         # A pre-v12 export (the custom-actions one is v10) is refused by design; that refusal
         # is pinned in the next section, so it is not an idempotence case.
         continue
+    if os.path.basename(path) == 'onboarding-permission-primer.json':
+        # Hand-built, not converted by the builder's migration chain: it keeps the pre-v13
+        # top-level `locales: []` and `defaultLocale` beside `localization`, which catalog() drops.
+        continue
     out, w = L.catalog(doc)
     check(f'{os.path.basename(path)} comes back unchanged', out == doc and not w)
 
