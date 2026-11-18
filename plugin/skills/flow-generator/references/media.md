@@ -72,22 +72,23 @@ On a `heavy_image` warning:
 
 1. Tell the user which image is heavy, its weight as the warning's `title` says it, and that it
    slows the first load of its screen. Offer **one** reduction step, named by width and quality,
-   and ask.
+   and ask. The width is the weigh's: 3× the box the image fills, 1290 px for full width
+   ([below](#weighing-a-config-before-a-write-or-a-publish)); it stays, only the quality drops.
 2. Only on their yes: reduce the file they gave you, upload it, and put it in place of the old one
    (`swap` on a config that already binds it; else bind the new record):
    ```bash
-   python3 references/weigh-config.py webp media/hero-src.png media/hero-2.webp --max-width 1080 --quality 72
+   python3 references/weigh-config.py webp media/hero-src.png media/hero-2.webp --max-width 1290 --quality 72
    $ADAPTY flows media upload --app "$APP" media/hero-2.webp --json > media/hero-2.json
    python3 references/weigh-config.py swap draft.json "<old url>" media/hero-2.json
    ```
 3. The new answer still warns: say the new weight (its new `title`) and offer the next step, a
-   lower quality (72, 62, 52) or a smaller width (1080, 900 px) than the last one. Each step needs
-   its own yes. On a no, the current image stays.
+   lower quality (72, 62, 52) at the same width. Each step needs its own yes. On a no, the
+   current image stays.
 
 The weight never blocks a save or a publish. An example of the ask's shape, not words to copy:
 
 > The photo on Welcome is heavy (Large image — 3 MB), so that screen loads slower the first time.
-> I can make it 1080 px wide at quality 72 and use it instead. Do it?
+> I can keep it 1290 px wide at quality 72 and use it instead. Do it?
 
 ## Getting the file: the upload needs a PATH, not a picture
 
