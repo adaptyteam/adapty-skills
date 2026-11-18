@@ -950,7 +950,8 @@ shape to follow, not words to copy:
 | `references/diagnosis.md` | Running any analytics command, and for each common question |
 | `references/levers.md` | Building or ranking a hypothesis, and after a test |
 | `references/evidence.md` | Stating any expected impact or grading an idea |
-| `references/onboarding-evidence.md` | Stating the expected impact of an onboarding or flow hypothesis, next to `evidence.md` |
+| `references/onboarding-evidence.md` | Stating the expected impact of an onboarding or flow hypothesis, next to `evidence.md`; reading a flow's funnel against the benchmarks |
+| `references/onboarding-grid.csv` | A flow's reach, purchases or step drop-off against the onboarding medians for one region, category or length |
 | `references/market.md` | Comparing the app with the market: conversion, plan mix, trials, discounts, timing |
 | `references/market-grid.csv` | A conversion's median and percentiles for one plan, region and category |
 | `references/renewals.csv` | The annual first-renewal rate for one category, region and start |
