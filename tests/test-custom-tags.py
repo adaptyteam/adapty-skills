@@ -148,6 +148,18 @@ def main():
 
     # --- verify-config: SILENT ----------------------------------------------------------------
     silent('a tag in plain text', good)
+    # A variable shown in text, not external, with no value and nothing setting it, is blank
+    # on a device: almost always a custom tag missing `external: true`.
+    plain = {'id': 'var_nick', 'name': 'nick', 'valueType': 'string', 'value': ''}
+    fires('a text variable with no value and no external flag warns',
+          build(['Hi, ', fk.Var(plain)], [plain]), 'mark it external: true')
+    valued = dict(plain, value='friend')
+    silent('a text variable with a value of its own', build(['Hi, ', fk.Var(valued)], [valued]))
+    assigned = build(['Hi, ', fk.Var(plain)], [plain], [fk.stack([], actions=[
+        {'id': 'act_set', 'type': 'setVariable', 'payload': [
+            {'type': 'assign', 'left': {'type': 'var', 'variableId': 'var_nick'},
+             'right': {'type': 'const', 'value': 'x'}}]}])])
+    silent('a text variable an action sets', assigned)
     reg = copy.deepcopy(good)
     reg['variables'] += [{'id': 'var_a', 'name': 'dup', 'valueType': 'string', 'value': ''},
                          {'id': 'var_b', 'name': 'dup', 'valueType': 'string', 'value': ''}]

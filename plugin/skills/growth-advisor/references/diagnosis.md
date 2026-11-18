@@ -671,6 +671,25 @@ order:
 4. **The leaks before the paywall,** ranked by users lost (`drop_off`), one segment at a time.
    The step before the first paywall with the most users lost is the first suspect. Name the
    screen by its title, its users lost and its share of `entered`.
+5. **Against the benchmarks,** only when a screen of `screen_type` `onboarding` comes before the
+   first paywall step; a flow that opens on its paywall is a paywall, whatever it is called, and
+   gets no onboarding benchmark. Set the flow beside `onboarding-grid.csv` for its category and
+   main region (`onboarding-evidence.md`, "The onboarding benchmarks", owns which column matches
+   which row): paywall reach, trials and purchases per entered user, and each step's
+   `drop_off_rate` against `screen-drop` for its position. Give each as the number, the median and
+   where it places. A step whose rate is above the p75 for its position is out of line even when
+   it loses fewer users than another: say so beside the ranking from read 4. The category comes
+   from the user or the app's code; without it, use the region row and say the answer shifts by
+   category.
+
+   | What the benchmarks show | The hypothesis |
+   |---|---|
+   | Screen 1 above its p75 | **Onboarding change** on the first screen: it repeats what the ad or the store page promised; with paid traffic, a first screen per campaign through `audiences` |
+   | A later step above its p75 | **Onboarding change** on that screen, from `onboarding-teardown`: a question the flow uses later is reworded or moved; one it never uses goes |
+   | Reach typical or better, purchases per entered user below the median | The flow delivers users; the paywall or the offer is the next suspect. Ask for the paywall's screenshot: its hypothesis comes from `paywall-teardown` once the screen is seen, never before. A weekly trial can be tested against a longer one without it |
+   | A quiz whose answers no later screen or paywall uses | Save the answers as custom attributes and show a paywall per answer (`levers.md`, Segments); Expected from `evidence.md`, Onboarding |
+   | A flow far shorter than its category's `screens` median, with no questions, in a category that sells a plan | A longer flow with a short quiz against the current one, judged on purchases per entered user; Expected untested |
+   | Reach below the median, purchases per entered user at or above it | Typical for a market or category that finishes less and pays more: not a weak part; no hypothesis from it |
 
 The six conclusions this supports, each in its existing hypothesis format (`levers.md`):
 
@@ -689,7 +708,8 @@ The six conclusions this supports, each in its existing hypothesis format (`leve
   the evidence library (`evidence.md`, Onboarding); the screen may be doing work. Propose the
   change the teardown designs for that screen instead.
 - Anything against a view-based rate or a market median (`market.md`): the funnel counts unique
-  users, those count views. No completion benchmark exists, so none is cited.
+  users, those count views. Its benchmarks are the per-user rows of `onboarding-grid.csv` (read 5).
+- A weak flow from its completion alone: the categories and markets that finish least pay most.
 - Anything about "all versions", a placement, a test arm or a compared period: the funnel is one
   flow version, with none of those.
 - A `null` as 0.
@@ -706,7 +726,8 @@ its uncertainty, about ±2·√(p(1−p)/n): ±5.7 points at 20% and 200 users. 
 25 users"), not only the rate, and set no fixed cutoff.
 
 **One read cannot rate a paywall.** No benchmark exists for the conversion of the users who
-reached it (`market.md`'s view → paid counts views). Say what the question needs: the reach
+reached it (`market.md`'s view → paid counts views; `onboarding-grid.csv` rates the whole flow,
+per entered user, not the paywall). Say what the question needs: the reach
 (`reached` of `entered`) and the buy as two counts apart ("3 of 15 bought, 0 of 15 started a
 trial"); that closing a paywall counts as a drop-off, so a high drop on that step is normal; that
 one read cannot rate it, and with few purchases they are too few either way; and the next read:

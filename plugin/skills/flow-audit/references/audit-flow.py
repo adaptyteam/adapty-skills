@@ -317,15 +317,21 @@ def check_triggers(config):
 
 ESCAPE_ACTIONS = ('closeFlow', 'navigateBack')
 
-# Legal-link detection lives on the openUrl action's URL PAYLOAD, never on the
-# button's label. A label is a design choice -- measured: 7 of 9 real escape
-# affordances (`escape_labels` above) are icon-only with no text at all, which is
-# exactly why escape detection lives on action type rather than copy. A button
-# labeled "Legal" that opens https://example.com/terms is a real terms link; matching
-# on the label instead would have called it absent. Two small, separate vocabularies
-# of URL tokens, matched case-insensitively against the url itself:
+# Legal-link detection starts from the openUrl action's URL PAYLOAD. A label is a
+# design choice -- measured: 7 of 9 real escape affordances (`escape_labels` above) are
+# icon-only with no text at all. A button labeled "Legal" that opens
+# https://example.com/terms is a real terms link, so a label never makes a link ABSENT.
+# It can make one PRESENT: a button reading "Privacy Policy" that opens a url is that
+# link, whatever the url's path says (`/tc`, a shortlink). Two small, separate
+# vocabularies of URL tokens, matched case-insensitively against the url itself, and
+# two of label words, matched against the text of the element carrying the action:
 TERMS_URL_WORDS = ('terms', 'tos', 'eula', 'legal', 'conditions')
 PRIVACY_URL_WORDS = ('privacy', 'policy')
+TERMS_LABEL_WORDS = ('terms', 'eula', 'conditions', 'tos')
+PRIVACY_LABEL_WORDS = ('privacy',)
+# No ordinary word contains this one, so it also matches inside a run-together path
+# segment (`/privacypolicy`); the short words stay exact tokens -- see `_url_tokens`.
+URL_STEMS = ('privacy',)
 
 
 def _url_tokens(url):
@@ -344,7 +350,8 @@ def _url_tokens(url):
     turns a would-be silent pass into a QUESTION asking the human to confirm the url.
     A question is honest; false silence on an App Store 3.1.2 requirement is not.
     """
-    return set(re.split(r'[^a-z0-9]+', url.lower()))
+    toks = set(re.split(r'[^a-z0-9]+', url.lower()))
+    return toks | {stem for stem in URL_STEMS for t in toks if stem in t}
 
 
 def selling_screens(config):
@@ -425,16 +432,25 @@ def openurl_urls(config):
     `openurl-no-url` already flags that as its own defect, so this list is never the
     reason `no-terms-link`/`no-privacy-link` mistakes an unset url for a real one.
     """
+    return [url for url, _ in openurl_links(config)]
+
+
+def openurl_links(config):
+    """(url, label) for every openUrl action with a url: `label` is the default-locale
+    text of the element that carries the action and of everything inside it."""
     dl = default_locale(config)
     out = []
-    for _, eid, e in elements(config):
+    for s, eid, e in elements(config):
         for _, a in actions_of(e):
             if a.get('type') != 'openUrl':
                 continue
             url = (a.get('payload') or {}).get('url')
             text = url if isinstance(url, str) else flat_text(url, dl)
             if text:
-                out.append(text)
+                label = ' '.join(filter(None, (
+                    flat_text((e.get('props') or {}).get('content'), dl),
+                    card_text(config, s, eid, dl))))
+                out.append((text, label))
     return out
 
 
@@ -493,10 +509,13 @@ def check_compliance(config):
     # NOT a blocker, because the audit cannot know what an arbitrary url points to --
     # a shortlink or a `/legal` page may well serve the document -- so it is a
     # question that names the urls actually found and asks the human to confirm.
-    urls = openurl_urls(config)
+    links = openurl_links(config)
+    urls = [u for u, _ in links]
     url_token_sets = [_url_tokens(u) for u in urls]
-    for words, name, label in ((TERMS_URL_WORDS, 'no-terms-link', 'Terms of Use'),
-                              (PRIVACY_URL_WORDS, 'no-privacy-link', 'Privacy Policy')):
+    label_token_sets = [set(re.split(r'[^a-z0-9]+', lb.lower())) for _, lb in links]
+    for words, label_words, name, label in (
+            (TERMS_URL_WORDS, TERMS_LABEL_WORDS, 'no-terms-link', 'Terms of Use'),
+            (PRIVACY_URL_WORDS, PRIVACY_LABEL_WORDS, 'no-privacy-link', 'Privacy Policy')):
         if not urls:
             out.append(finding(
                 'blocker', 'compliance', name,
@@ -508,6 +527,8 @@ def check_compliance(config):
         # Exact token match, never substring containment -- see `_url_tokens`.
         if any(w in toks for toks in url_token_sets for w in words):
             continue  # a url matches -- the link is real, regardless of the label
+        if any(w in toks for toks in label_token_sets for w in label_words):
+            continue  # the button that opens a url says what it is
         shown = ', '.join(sorted(set(urls)))
         out.append(finding(
             'question', 'compliance', name,
@@ -1774,6 +1795,26 @@ def locale_coverage(config):
     return stat, examples
 
 
+def _text_field_total(config, locales):
+    """The text fields a language is expected to translate: no media, no link address, no
+    letterless text (see `locale_coverage`)."""
+    base = default_locale(config)
+    links = _link_values(config)
+    return sum(1 for vals in _localizable_values(config, locales)
+               if not _is_media_field(vals, base) and not _is_link_field(vals, base, links)
+               and not _is_neutral_field(vals, base))
+
+
+def untranslated_locales(config, locales, stat):
+    """Languages with no translated text at all: every text field either repeats the
+    default language's text or has none. A user there sees the default language, so the
+    repeats are not names, and no note may call them that."""
+    base = default_locale(config)
+    total = _text_field_total(config, locales)
+    return [c for c in locales if c != base and total and stat[c]['same']
+            and stat[c]['same'] + stat[c]['missing'] >= total]
+
+
 def check_localization(config):
     """`empty-translation` and `locale-entirely-empty` are blockers -- a user in that
     locale sees a blank field, or a whole language that was declared and never filled.
@@ -1797,10 +1838,7 @@ def check_localization(config):
     name = locale_names(config)
     nm = lambda c: name.get(c) or c
     stat, examples = locale_coverage(config)
-    links = _link_values(config)
-    total = sum(1 for vals in _localizable_values(config, locales)
-                if not _is_media_field(vals, base) and not _is_link_field(vals, base, links)
-                and not _is_neutral_field(vals, base))
+    total = _text_field_total(config, locales)
 
     for code in locales:
         s = stat[code]
@@ -1831,6 +1869,7 @@ def check_localization(config):
     # Grouped, once for the whole flow -- see the docstring above for why.
     hit_locales = [code for code in locales if code != base and stat[code]['same']]
     if hit_locales:
+        whole = untranslated_locales(config, locales, stat)
         seen = []
         for code in hit_locales:
             for ex in examples[code]:
@@ -1838,12 +1877,18 @@ def check_localization(config):
                     seen.append(ex)
         counts = ', '.join(f'{nm(code)}: {stat[code]["same"]}' for code in hit_locales)
         shown = ', '.join(f'"{x}"' for x in seen[:4])
-        out.append(finding(
-            'risk', 'localization', 'untranslated',
-            f'Some text is the same as in {nm(base)} ({counts}), for example {shown}. '
-            f'That is expected for brand and product names; the rest may be a missed '
-            f'translation.',
-            'Translate anything in that list that is not a name.'))
+        if whole:
+            names = _join_and(nm(c) for c in whole)
+            message = (f'{names} {"is" if len(whole) == 1 else "are"} not translated: every '
+                       f'text is the same as in {nm(base)} ({counts}), for example {shown}.')
+            fix = (f'Translate the flow into {names}, or remove '
+                   f'{"it" if len(whole) == 1 else "them"} from the languages.')
+        else:
+            message = (f'Some text is the same as in {nm(base)} ({counts}), for example '
+                       f'{shown}. That is expected for brand and product names; the rest '
+                       f'may be a missed translation.')
+            fix = 'Translate anything in that list that is not a name.'
+        out.append(finding('risk', 'localization', 'untranslated', message, fix))
     return out
 
 
@@ -2012,6 +2057,10 @@ def _row_marker(node, m):
             json.dumps(((m.get(k) or {}).get('props') or {}).get('fill'), sort_keys=True))
            for k in kids]
     odd = [i for i, x in enumerate(sig) if sig.count(x) == 1]
+    if len(odd) == 2 and len(kids) == 2:
+        # Two markers that differ are both unique: take the one with the smaller signature,
+        # the same marker on every screen, so its index moves when the active dot moves.
+        odd = [sig.index(min(sig))]
     return (len(kids), odd[0] if len(odd) == 1 else None)
 
 
@@ -3912,16 +3961,32 @@ def render(findings, config, meta=None, stores=None, answers=None):
         gap_total = sum(st['missing'] + st['empty'] for st in stat.values())
         if same_total or gap_total:
             parts = []
-            if same_total:
+            whole = untranslated_locales(config, locales, stat)
+            if whole:
+                names = _join_and(lname.get(c, c) for c in whole)
+                parts.append(f'{names} {"is" if len(whole) == 1 else "are"} not translated: '
+                             f'every text is the same as in {lname.get(base, base)}.')
+            rest = [c for c in locales if c != base and c not in whole]
+            if same_total and rest:
                 uniq = []
-                for code in locales:
+                for code in rest:
                     for ex in examples[code]:
                         if ex not in uniq:
                             uniq.append(ex)
-                quoted = _join_and(f'"{x}"' for x in uniq)
-                verb = 'is' if len(uniq) == 1 else 'are'
-                parts.append(f'{quoted} {verb} the same in every language, which is '
-                             f'right for a brand or product name.')
+                # A name is the same in EVERY other language; a value only some repeat
+                # is more likely a missed translation, and is never called a name.
+                everywhere = [x for x in uniq if all(x in examples[c] for c in rest)]
+                partial = [x for x in uniq if x not in everywhere]
+                if everywhere:
+                    verb = 'is' if len(everywhere) == 1 else 'are'
+                    parts.append(f'{_join_and(chr(34) + x + chr(34) for x in everywhere)} '
+                                 f'{verb} the same in every language, which is right for a '
+                                 f'brand or product name.')
+                if partial:
+                    verb = 'is' if len(partial) == 1 else 'are'
+                    parts.append(f'{_join_and(chr(34) + x + chr(34) for x in partial)} '
+                                 f'{verb} the same as {lname.get(base, base)} in some '
+                                 f'languages only: translate it unless it is a name.')
             parts.append('Nothing is missing.' if not gap_total
                          else f'{gap_total} field(s) are missing or empty above.')
             lines.append('  ' + ' '.join(parts))

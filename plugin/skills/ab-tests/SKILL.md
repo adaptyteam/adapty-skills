@@ -151,7 +151,7 @@ Every command takes `--app <id>`, the **Adapty** app UUID from `$ADAPTY apps lis
 | `ab-tests replace <id>` | `--title`, `--goal`, `--placement` (required), exactly one of `--paywalls` / `--flows` with the same number of arms as the live test, `--yes`; no audience flag |
 | `ab-tests archive <id>` | `--yes` (an archived test cannot be archived again) |
 | `flows get <id>` | `status`: `draft`, `dirty`, `publishing`, `published` or `publication_failed` (`flows list` may leave it out) |
-| `paywalls create` | `--title`, `--product-id <id>` once per product; a paywall with no design of its own |
+| `paywalls create` | `--title`, `--products '[{"product_id":"<id>"}, …]'` in display order; a paywall with no design of its own |
 | `placements create` | `--title`, `--developer-id`, `--audiences '<json>'` ("A new placement") |
 
 Arms are a JSON array: `[{"paywall_id":"<id>","weight":50,"title":"A"}, …]`, or the same with
@@ -295,8 +295,8 @@ placement has no users until that release is out.
      not usable; the flow goes back to `flow-generator`.
    - **A paywall arm that does not exist yet,** when it differs only in its products: take the
      product ids from `products list --page-size 100 --json`, only products the user named, then on
-     their yes run `paywalls create --app <app> --title "<title>" --product-id <id> [--product-id
-     <id> …] --json`. No user sees it until the test starts. A new product is made in the store
+     their yes run `paywalls create --app <app> --title "<title>" --products
+     '[{"product_id":"<id>"}, …]' --json`. No user sees it until the test starts. A new product is made in the store
      first, then added to Adapty: say so and wait. A paywall with a new design is the user's to
      make in the dashboard or the app's code: say which and wait. A custom paywall arm (no Paywall
      Builder design) also needs the app to log each view, or the test has no view counts: route that

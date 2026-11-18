@@ -550,7 +550,7 @@ missing:
 | `children` on a childless hierarchy node | present-but-empty (`children: []`) on 7 nodes — 6 in `timer`'s screens, 1 in its component — and omitted on the other 130. Stripping the empty array is the same edit as stripping an empty `padding: {}` |
 | `interactions` | omitted on most elements, `[]` on many, populated on a few — all three states in every export |
 | `padding` / `margin` | sometimes `{}`; `timer` has 2 empty `padding` and 3 empty `margin` |
-| `statusBarTheme` vs `statusBar` | two distinct screen keys. `statusBarTheme` is `"system"` or `"light"` and is on every screen; `statusBar` is a boolean and appears on 1 screen of `timer` and 1 of `comparison` |
+| `statusBarTheme` vs `statusBar` | two distinct screen keys. `statusBarTheme` is `"system"` or `"light"` and is on every screen; `statusBar` is a boolean and appears on 1 screen of `timer` and 1 of `comparison`. Neither reaches a device: publish drops both, so the app styles the status bar |
 | `progressBar` | screen prop, present on 1 of 5 screens in `quiz`, all 3 in `timer`, absent from `comparison` |
 | `caption` | on every screen; on only some elements (22 of 120 in `quiz`) |
 | `propsByState` | absent from `timer` entirely |
@@ -610,8 +610,7 @@ be in the app bundle or users see the system fallback. `_meta.fonts[].url` recor
 uploaded file; its presence in the export is not what makes the font available on device.
 
 **And a font cannot be added from here at all — uploading one is a manual Flow Builder action.**
-There is no CLI command for it (`flows media upload` is media-only and not live in production
-anyway), and hand-authoring a `_meta.fonts` entry fabricates an asset `id`/`url` pair, which is
+There is no CLI command for it (`flows media upload` takes images only), and hand-authoring a `_meta.fonts` entry fabricates an asset `id`/`url` pair, which is
 trap 5 with a typeface. So when a design needs a font the account does not have, the ask is
 two-step and both halves are the user's: upload the font in the builder, then tell the agent —
 who can then point `theme.typography` presets or element `font.family` at the real id the
@@ -886,8 +885,8 @@ stretches but stops 2px short.
 "visibility": {"type": "conditional", "condition": { … }}
 ```
 
-Hiding an element removes it from layout entirely rather than leaving a hole where it was.
-Measured: two plan cards identical but for a tick badge shown only on the selected one came out
+Hiding an element removes it from layout entirely rather than leaving a hole where it was, and
+its stack gap goes with it. Measured: two plan cards identical but for a tick badge shown only on the selected one came out
 **25pt different in height**, because the hidden card's badge contributed nothing. If two
 state-varying siblings have to stay the same size, put the toggled element inside a wrapper with
 a **fixed** height and hide the element rather than the wrapper.
@@ -1175,12 +1174,18 @@ Shape rules, all enforced by that walker:
 | type | what must be there |
 |---|---|
 | `var` | a non-empty string `variableId` |
-| `==` `!=` `>` `<` `has` `notHas` `in` `notIn` | **both** `left` and `right`, each itself an expression |
-| `empty` `notEmpty` `size` | `left` |
+| `==` `!=` `>` `<` `has` `notHas` `in` `notIn` | **both** `left` and `right`, each an expression or `null` |
+| `empty` `notEmpty` `size` | `left`, an expression or `null` |
 | `&&` `\|\|` | `predicates` **an array** if present |
 | `concat` | `operands` **an array** if present |
 | `switch` | `cases` an array of `[predicate, value]` **pairs**; `default` recursed if the key is present |
 | `const` | anything |
+
+**`null` is the builder's unfinished condition** (`{"type": "==", "left": null, "right": null}`):
+accepted, and compiled as is, so an empty side compares as nothing and the condition never
+depends on the user. In conditional text that case always shows and nothing after it does.
+`verify-config.py` warns on it; finish it or delete it, and ask the user when it came with the
+flow.
 
 The three "if present" rows are load-bearing in the other direction: an **absent** `predicates`,
 `operands` or `cases` is accepted, so a checker stricter than this refuses documents the service
@@ -1379,22 +1384,16 @@ the transformer compiles predicates into JavaScript and an unresolvable name yie
 |---|---|---|
 | `product` | `<groupId>.selectedProduct` | **valid** |
 | `single_choice` | `<groupId>.selectedOptionId` | **valid** |
-| `multi_choice` | `<groupId>.selectedOptionId` | **fails** |
-| `toggle` | `.selectedOptionId`, `.selected`, `.value` — all three tried | **fails** |
-
-So **a `toggle` group exposes nothing a condition can read.** A workaround that drives plan
-selection from a switch therefore cannot be keyed on the toggle's value.
+| `multi_choice` | `<groupId>.selectedOptionIds` (a list) | **valid** |
+| `toggle` | `<groupId>.isActive` (a boolean) | **valid** |
 
 A `single_choice` answer stays readable after its screen: a later screen's condition can branch
 on `<groupId>.selectedOptionId` from an earlier one, as an input's `<customId>.value` can
 ([trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
 
-**`selectProduct`'s payload takes `{element: <element id>}`, not a product id.** A
-conditional containing only `nothing` actions fails too, so the gate objects to the
-predicate rather than to `selectProduct`; but with the toggle variable unreadable,
-**a toggle cannot move a product group's selection**. Drive the visible difference with
-`propsByState` on the toggle's own element, and put the conditional where it reads a product
-group.
+**`selectProduct`'s payload takes `{element: <element id>}`, not a product id.** A switch moves
+a product group's selection with a conditional on `<groupId>.isActive` whose branches each run
+`selectProduct`.
 
 **Conditional rich text validates, and the `switch` sits on the property**, with each branch a
 `const` holding a ref to that branch's own catalog entry:
@@ -1516,8 +1515,9 @@ convert a ratio, multiply it by `size` and round: `16 × 1.25 → 20`. `flowkit.
 `verify-config.py` refuse a number below three quarters of its `size`. `letterSpacing` is in
 points too (`-1` on a 30 pt headline).
 
-The schema also takes `{"type": "percent", "value": 110}` for either field, and the preview draws it
-the same as the matching points. No real export uses it, so it is unproven on a device: write points.
+The schema also takes `{"type": "percent", "value": 110}`, but publish sends a `letterSpacing`
+object's number as points (110 pt), so write `letterSpacing` as a plain number and keep whatever
+form a fetched flow already has.
 
 Worth stating because believing `lineHeight` does not exist **leaves a reachable fidelity gap** —
 52 pt headline leading shipped against a reference's 41 pt and filed as unreachable. Line spacing is one of
@@ -1534,8 +1534,9 @@ with a reference to that colour — trap 26.
 `props.autoShrink: true` on a `text` is the builder's **Auto shrink** switch: the whole text
 shrinks evenly until it fits its box, in every locale, down to 10% of its size; text that still
 does not fit ends in "…". Omitted or `false`, a text past its box is cut off with "…" at full size.
-`font.size` and the box stay as written, and the builder's preview draws the same fit as the
-device, so a render of each locale shows the size a user gets.
+`font.size` and the box stay as written. A render does not show the device size: iOS shrinks to
+the height it is offered and Android never grows back a size it once shrank to, so check a
+shrinking text on a device.
 
 **It works only inside a bounded box:** `maxLines` above 0, or a fixed `height` with a value
 above 0 that `layout: "auto-height"` does not override. `flowkit.text()` writes `auto-height`, so
@@ -1550,7 +1551,7 @@ settable.
 
 **The schema tells you what is permitted; a real export tells you what is produced; only the
 second predicts the device.** Defects ship from that gap — an id reused across the two
-`theme` lists, a predicate on a `toggle` group — while the disproof is already on disk and costs
+`theme` lists — while the disproof is already on disk and costs
 seconds to find.
 
 So when you are about to author a construct you have not seen in a real document, **count it
@@ -1789,14 +1790,14 @@ do not author it. This section exists because the *schema* is what sends you her
 
 ## Making a field mandatory: show the button conditionally
 
-**You cannot disable a button.** There is no disable mechanism to drive: no input has a `required`
-prop or an error-message prop, and an element's `disabled` *state* takes no condition — the builder
-emits `states: [{"id": "disabled", "type": "system"}]` with no `condition` key, and the runtime
-drives it. **Never author a conditional `disabled` state with a greyed `propsByState`**: four such
-conditions produced a 422 from the transform service, and no builder-emitted config contains one.
+No input has a `required` prop or an error-message prop. Two mechanisms gate a button: a
+`condition` on its `disabled` system state (`{"id": "disabled", "type": "system", "condition":
+…}`, greyed with `propsByState.disabled`; the button takes no taps while it holds), and
+**conditional visibility on the button** — show it once the field has content. A condition may
+also read another element's state: `{"type": "elementState", "elementId": "<id>"}` compared with
+`==`/`!=` to a `const` state id (`"default"` is its Default state).
 
-What actually exists is **conditional visibility on the button** — show it once the field has
-content. Verified from a Flow Builder export of a working screen:
+Conditional visibility, verified from a Flow Builder export of a working screen:
 
 ```json
 "props": {
@@ -1933,7 +1934,7 @@ search the entire config for the identifier in the message — not the screen yo
 A single broken screen anywhere blocks preview and publish for every screen.
 
 **The builder's duplicate-screen action copies a broken condition faithfully** — a duplicated
-screen carries a conditional `disabled` state, the mechanism that does not work, into a flow whose
+screen carries a broken condition into a flow whose
 visible screens are all correct, and deleting the copy fixes the flow. When a 422
 names an identifier you thought you had removed, look for a duplicate screen before you doubt the
 error, and do **not** write it off as a stale cache: nothing here is cached, and the diagnostic is
@@ -2021,7 +2022,7 @@ never treat its absence here as evidence the file is invalid.
 | `icon.weight` | `regular`, `fill` | `regular` in all; `fill` in `quiz` + `comparison` |
 | typography `weight` | `regular`, `medium`, `semibold`, `bold` | `medium` in `comparison` only |
 | `text.props.layout` | `auto-height` | the only value observed |
-| `timer.props.behavior` | `start_at_every_appear` | `timer` only |
+| `timer.props.behavior` | `start_at_every_appear` | `timer` only. The schema also has `start_at_first_appear`, `start_at_first_appear_persisted` and `until_date` (counts down to `props.endDate` `{date, time, timeZone}` and ignores `duration`: [patterns.md](patterns.md#a-countdown)) |
 | locale `id` | `en` | the only locale in all three; `localization.locales[].id`, and the key of every catalog `values` map. For how locales are added in the builder, see [Add locale](https://adapty.io/docs/add-paywall-locale-in-adapty-paywall-builder.md) |
 
 ### From what the user asks for to what the JSON calls it
@@ -2042,6 +2043,7 @@ style error: you will search for an element type that does not exist, or invent 
 | radio buttons, a selected state | Not an element. `states: [{"id": "selected", "type": "system"}]` plus a `propsByState.selected` block. Style the same element twice; do not add a second one to hide. |
 | tabs, a segmented control, a segment bar of plans or periods (`Monthly \| Yearly`) | **Always this composite, even when every segment is a plan** — never `product` elements styled as segments, which works on a device and so is never flagged. Each plan goes inside its own panel: [`patterns.md`](patterns.md), "Tabs that switch plans". A **five-element composite**: `tabs` → `tab-bar` → `tab-item`(s), and `tabs` → `tab-content-wrapper` → `tab-content`(s). Each `tab-item` carries `groupId` + `default`, and the group is `type` **`single_choice`** — there is no `tabs` group type, and authoring one yields a config the builder cannot open (trap 10). |
 | a countdown | A `timer` element with `duration`/`behavior`, plus rich-text `token` nodes (`timer_minutes`, `timer_seconds`) in a child `text`. A countdown of a day or more as `72:00:00`: `timer_total_hours` in place of `timer_days` + `timer_hours`. |
+| a countdown to a date — a sale that ends on a set day, "ends Sunday at midnight" | The same `timer` with `behavior: "until_date"` and `endDate: {date: "YYYY-MM-DD", time: "HH:mm", timeZone}`; `timeZone` is an IANA name, `UTC`, or `"local"` for each device's own clock. Build it with `flowkit.timer(end_date=flowkit.timer_end_date(...))`: [patterns.md](patterns.md#a-countdown). |
 | a loading screen, a spinner | Fill the **`loader-spinner-label` catalog component** — it is the canonical source and its wiring is already correct. The primitives are `spinner` (a rotating icon; `props.icon.type` must be `"custom"`, or the publish gate 422s), `loader` (a determinate bar), and the screen's On Appear `navigate` with a transition `delay` that moves the flow on ([patterns.md](patterns.md#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later)). The `spinner` is **preview-blind in some layouts** — never hand-roll it from a static `icon` to satisfy a screenshot; keep the real element and verify on device ([`patterns.md`](patterns.md)). |
 | a timeline, a trial timeline, a list of steps | The catalog's `list-timeline` template (`flowkit.from_catalog()`): one icon + title + description row per step, all in flow. Connect the steps with a 2pt absolute line between icons, never a wide track — see [patterns.md](patterns.md#a-connected-timeline-where-a-rail-must-reach-the-next-chip). |
 | a progress bar, step dots | A `components` entry (`progress-bar` → `progress-bar-segment` → `progress-bar-loader`), referenced from a screen's `hierarchy` as `{"id": "pb_…", "type": "global"}`, and switched on per screen via `props.progressBar: {enabled, segment}`. **Never** fake it with a static `stack` bar or a row of decorative step/segment `stack`s — a lookalike neither advances nor tracks the flow (trap 5), the same mistake as the fake carousel/footer. |

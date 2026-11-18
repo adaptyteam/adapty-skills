@@ -24,26 +24,33 @@ of them for you; a hypothesis outside the table fills them itself.
 
 ## Known hypothesis types
 
-| Type | Title template | Judged on | After a win, rule out | After a loss, rule out |
-|---|---|---|---|---|
-| Add a plan length | Add a [weekly/monthly/annual] plan next to [products] on [placement] | Purchase conversion and revenue per user | Removing that length | Adding that length |
-| Remove a plan length | Remove [product] from [paywall] on [placement] | Revenue per user | Adding that length back | Removing that length |
-| Swap a plan length | Replace [product] with a [length] plan on [placement] | Purchase conversion and revenue per user | The reverse swap | This swap |
-| Add a trial | Add a [N]-day trial to [product] on [placement] | Trial conversion and trial-to-paid together | Adding it again | Adding it on that product |
-| Move a trial | Move the [N]-day trial from [product] to [product] on [placement] | Trial conversion and trial-to-paid together | Every trial test on that paywall | This move |
-| Change trial length | Change the trial on [product] from [N] to [M] days on [placement] | Trial conversion and trial-to-paid together | This change | This change |
-| Follow-up offer | Show [offer] at [later moment], on its own placement, to users who closed [paywall] without buying | Revenue per user across the placement | This offer on that placement | This offer on that placement |
-| Audience split | Show [paywall or change] instead of [current] on [placement], for [segment] | The change's own metric, in that segment | That change for that segment | That change for that segment |
-| Win-back offer | Replace [current paywall] with a [offer] paywall on [placement], for [former subscribers / lapsed trials] | Revenue per user in that segment | This offer for that segment | This offer for that segment |
-| Seasonal paywall | Show a [event] paywall instead of [current] on [placement] from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event |
-| New placement | Show [paywall] at [moment], on a new placement | Purchases from that placement, and total revenue | — | That moment |
-| Localization | Translate [paywall] into [language] on [placement], for [countries] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall |
-| Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion; on a flow paywall, two rates that are never added: purchases per user who reached it, and trials per user who reached it | That change on that paywall | That change on that paywall |
-| Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Purchases (or trials) per user who entered the flow | That change on that flow | That change on that flow |
-| Core price | Raise/Lower [plan] in [country] from [price] to [price] | Revenue per user | Moving it back | This move in this country |
-| Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there |
-| Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder |
-| Commitment plan | Add a 12-month commitment option to [annual product] on [placement], for App Store users outside the US | Revenue per user | Removing it | Adding it there |
+| Type | Title template | Judged on | After a win, rule out | After a loss, rule out | Saved as |
+|---|---|---|---|---|---|
+| Add a plan length | Add a [weekly/monthly/annual] plan next to [products] on [placement] | Purchase conversion and revenue per user | Removing that length | Adding that length | `adapty:new_duration`, paywall screen |
+| Remove a plan length | Remove [product] from [paywall] on [placement] | Revenue per user | Adding that length back | Removing that length | `adapty:remove_duration`, paywall screen |
+| Swap a plan length | Replace [product] with a [length] plan on [placement] | Purchase conversion and revenue per user | The reverse swap | This swap | `adapty:duration_swap`, paywall screen |
+| Add a trial | Add a [N]-day trial to [product] on [placement] | Trial conversion and trial-to-paid together | Adding it again | Adding it on that product | `adapty:trial`, paywall screen |
+| Move a trial | Move the [N]-day trial from [product] to [product] on [placement] | Trial conversion and trial-to-paid together | Every trial test on that paywall | This move | `adapty:trial_restructure`, paywall screen |
+| Change trial length | Change the trial on [product] from [N] to [M] days on [placement] | Trial conversion and trial-to-paid together | This change | This change | `adapty:trial_length_change`, paywall screen |
+| Follow-up offer | Show [offer] at [later moment], on its own placement, to users who closed [paywall] without buying | Revenue per user across the placement | This offer on that placement | This offer on that placement | `growth_advisor:follow_up_offer`, flow |
+| Audience split | Show [paywall or change] instead of [current] on [placement], for [segment] | The change's own metric, in that segment | That change for that segment | That change for that segment | `adapty:audience_split`, audience |
+| Win-back offer | Replace [current paywall] with a [offer] paywall on [placement], for [former subscribers / lapsed trials] | Revenue per user in that segment | This offer for that segment | This offer for that segment | `adapty:audience_split`, audience |
+| Seasonal paywall | Show a [event] paywall instead of [current] on [placement] from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event | `growth_advisor:seasonal`, flow |
+| New placement | Show [paywall] at [moment], on a new placement | Purchases from that placement, and total revenue | — | That moment | `growth_advisor:new_placement`, flow |
+| Localization | Translate [paywall] into [language] on [placement], for [countries] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall | `adapty:flow_design`, flow |
+| Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion; on a flow paywall, two rates that are never added: purchases per user who reached it, and trials per user who reached it | That change on that paywall | That change on that paywall | `adapty:flow_design`, paywall screen |
+| Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Purchases (or trials) per user who entered the flow | That change on that flow | That change on that flow | `adapty:flow_design`, flow or its screen |
+| Core price | Raise/Lower [plan] in [country] from [price] to [price] | Revenue per user | Moving it back | This move in this country | `adapty:price_change`, paywall screen |
+| Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there | `adapty:price_change`, paywall screen |
+| Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder | `adapty:price_change`, paywall screen |
+| Commitment plan | Add a 12-month commitment option to [annual product] on [placement], for App Store users outside the US | Revenue per user | Removing it | Adding it there | `growth_advisor:commitment`, flow |
+
+**Saved as** is the type and subject a hypothesis is saved with in the backlog ("The backlog" in SKILL.md). A
+change to a legacy or custom paywall is not saved: Adapty keeps paywall hypotheses read only, so it stays in
+the reply.
+Judged on is saved as the expected metric: revenue per user `arpu`, purchase conversion `cr_to_purchase`, trial
+conversion and trial-to-paid `cr_to_trial` with `cr_to_paid` in `metrics_impact`; a metric with no match goes
+in the rationale.
 
 When each price type applies, and how it is tested on a copy: `pricing.md`. Before an Add a trial
 row, the first-use gate in "Trials" below.

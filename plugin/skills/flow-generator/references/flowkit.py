@@ -388,7 +388,7 @@ def docked(*, bottom, left=None, right=None, top=None, z=None):
 
 
 def hidden():
-    """Hiding COLLAPSES the space rather than reserving it (trap 14). If two state-varying
+    """Hiding COLLAPSES the space, gap included, rather than reserving it (trap 14). If two state-varying
     siblings must stay the same size, wrap this in a fixed-height parent."""
     return {'type': 'hidden'}
 
@@ -409,7 +409,7 @@ def visible():
 # types a condition as an unconstrained value, so this list is the only check on it.
 EXPR_TYPES = ('const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
               'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
-              'productRef')
+              'productRef', 'elementState')
 
 # ...and the one member the condition walker has NO case for, so it falls through to
 # `default: return `${path}.type`` and the flow is refused. `assign` is schema-legal and is
@@ -448,12 +448,31 @@ def _check_expr(e, what='condition'):
     inventing a stricter rule here would refuse documents the service accepts.
     """
     bad = _bad_expr_path(e, what)
+    if bad and bad.endswith(_EMPTY_SIDE):
+        raise ValueError(
+            f'{bad[:-len(_EMPTY_SIDE)]} is empty. The service accepts an empty side (it is the '
+            f"builder's unfinished condition) but compares it as nothing, so the condition never "
+            f'depends on the user. Pass a value: lit(...) or ref(...).')
     if bad:
         raise ValueError(
             f'invalid condition expression at {bad} — the transform service refuses this with '
             f'invalid_visibility_condition / invalid_state_condition (a hard 422). Legal types '
             f'are {", ".join(t for t in EXPR_TYPES if t not in COND_ILLEGAL_TYPES)}; build the '
             f'tree with ref/lit/eq/neq/all_/any_/not_empty rather than by hand.')
+
+
+_EMPTY_SIDE = ' (empty)'
+
+
+_MISSING = object()
+
+
+def _bad_side(v, path):
+    """An operand slot: `null` is legal to the service, and refused here as an empty side. A
+    missing key is refused by the service itself."""
+    if v is _MISSING:
+        return path
+    return f'{path}{_EMPTY_SIDE}' if v is None else _bad_expr_path(v, path)
 
 
 def _bad_expr_path(v, path):
@@ -468,6 +487,9 @@ def _bad_expr_path(v, path):
     if t == 'var':
         vid = v.get('variableId')
         return None if isinstance(vid, str) and vid else f'{path}.variableId'
+    if t == 'elementState':
+        eid = v.get('elementId')
+        return None if isinstance(eid, str) and eid else f'{path}.elementId'
     if t == 'productRef':
         # Normally this module writes these itself, after a condition has been validated --
         # see `_apply_product_refs`. The case is here for a hand-built one, and it is
@@ -477,10 +499,10 @@ def _bad_expr_path(v, path):
         return None if isinstance(target, dict) and target.get('kind') in (
             'product', 'selected') else f'{path}.target'
     if t in _BINARY:
-        return (_bad_expr_path(v.get('left'), f'{path}.left')
-                or _bad_expr_path(v.get('right'), f'{path}.right'))
+        return (_bad_side(v.get('left', _MISSING), f'{path}.left')
+                or _bad_side(v.get('right', _MISSING), f'{path}.right'))
     if t in _UNARY:
-        return _bad_expr_path(v.get('left'), f'{path}.left')
+        return _bad_side(v.get('left', _MISSING), f'{path}.left')
     if t in ('&&', '||'):
         if 'predicates' not in v:
             return None
@@ -621,12 +643,18 @@ def when(condition):
     with a publish gate behind it. Hiding COLLAPSES the space rather than reserving it
     (trap 14), exactly as `hidden()` does.
 
-    This is also the only way to make a field mandatory: there is no `disabled` mechanism to
-    drive, so gate the button's visibility on the input instead —
-    `when(not_empty(ref('email.value')))`.
+    A single predicate is wrapped in an `&&` group, the shape the builder writes and edits.
     """
     _check_expr(condition, 'when() condition')
-    return {'type': 'conditional', 'condition': condition}
+    return {'type': 'conditional', 'condition': _group(condition)}
+
+
+def _group(condition):
+    """The builder's own condition shape: a top-level `&&`/`||` group. A bare comparison is
+    accepted by the service, but every condition in a real export is a group."""
+    if condition.get('type') in ('&&', '||'):
+        return condition
+    return {'type': '&&', 'predicates': [condition]}
 
 
 def _condition_var_ids(o, out):
@@ -2586,7 +2614,7 @@ def conditional_action(cases, *, default=(), action_id='act_cond'):
                             f'tuples by shape')
         predicate, actions = case
         _check_expr(predicate, f'conditional_action() case {i} predicate')
-        payload_cases.append([predicate, _branch(actions, f'case {i}')])
+        payload_cases.append([_group(predicate), _branch(actions, f'case {i}')])
     return {'id': action_id, 'type': 'conditional',
             'payload': {'type': 'switch', 'cases': payload_cases,
                         'default': _branch(default, 'default')}}
@@ -2633,8 +2661,46 @@ def timer_digits(units=('hours', 'minutes', 'seconds'), *, sep=':', preset='h2',
                 node_id=node_id, **kw)
 
 
+#: `endDate.timeZone` for "User's local time": each device ends at the set date and time on its
+#: own clock. Any other value is an IANA zone name or `UTC`.
+TIMER_LOCAL_TIME_ZONE = 'local'
+
+
+def timer_end_date(date, time='23:59', *, time_zone):
+    """The `endDate` of an `until_date` timer, checked the way publish checks it.
+
+    `date` is `YYYY-MM-DD` and must exist on the calendar; `time` is `HH:mm` (seconds are always
+    00); `time_zone` is an IANA name (`Europe/Berlin`), `UTC`, or `TIMER_LOCAL_TIME_ZONE`. There is
+    no default zone: a named zone ends at one moment for every user, `local` at the set clock time
+    on each device, and only the user knows which one the campaign means. A past date is valid:
+    the timer shows zero from the start.
+    """
+    import datetime
+    if not isinstance(date, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date):
+        raise ValueError(f"timer end date is YYYY-MM-DD with a four-digit year, not {date!r}")
+    try:
+        datetime.date.fromisoformat(date)
+    except ValueError:
+        raise ValueError(f'timer end date {date!r} does not exist on the calendar; '
+                         'publish refuses it') from None
+    if not isinstance(time, str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', time):
+        raise ValueError(f"timer end time is HH:mm from 00:00 to 23:59, not {time!r}")
+    if time_zone not in (TIMER_LOCAL_TIME_ZONE, 'UTC'):
+        try:
+            import zoneinfo
+            zoneinfo.ZoneInfo(time_zone)
+        except ImportError:
+            pass  # Python < 3.9: publish still refuses an unknown zone
+        except Exception:
+            raise ValueError(
+                f"timer time zone {time_zone!r} is not an IANA zone name; use one such as "
+                f"'Europe/Berlin', 'UTC', or {TIMER_LOCAL_TIME_ZONE!r} for the user's local "
+                'time') from None
+    return {'date': date, 'time': time, 'timeZone': time_zone}
+
+
 def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds=0,
-          behavior='start_at_every_appear', width=None, height='hug', fixed_w=None,
+          behavior='start_at_every_appear', end_date=None, width=None, height='hug', fixed_w=None,
           fixed_h=None, fill_=None, padding=None, corner=None, align_h='center',
           align_v='center', visibility=None, position=None, actions=None, node_id=None,
           **kw):
@@ -2664,9 +2730,29 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     to 999), and `hours=72` is the same countdown as `days=3`. `behavior='start_at_every_appear'`
     restarts the countdown each time the screen appears.
 
+    **A countdown to a date** — a sale that ends at a set moment — passes
+    `end_date=timer_end_date('2026-11-28', '23:59', time_zone='Europe/Berlin')` and no duration.
+    That sets `behavior='until_date'`: the timer shows the time left until that moment, the same
+    for every user whenever they open the screen, and zero after it. `duration` stays in the
+    config and is ignored. A date countdown usually runs for days, so show `timer_days` (or
+    `timer_total_hours`) in its digits.
+
     **A countdown of 24 hours or more shows `timer_days` or `timer_total_hours`.** `timer_hours`
     is the hour of the day, so `HH:MM:SS` built from it starts a 72-hour countdown at `00:00:00`.
     """
+    if end_date is not None:
+        if behavior not in ('start_at_every_appear', 'until_date'):
+            raise ValueError(f"end_date makes the timer count down to a date (behavior "
+                             f"'until_date'); it cannot be combined with behavior {behavior!r}")
+        if days or hours or minutes or seconds:
+            raise ValueError('a timer counts down either from a duration or to end_date, not '
+                             'both: drop days/hours/minutes/seconds')
+        behavior = 'until_date'
+        end_date = timer_end_date(end_date.get('date'), end_date.get('time', '23:59'),
+                                  time_zone=end_date.get('timeZone'))
+    elif behavior == 'until_date':
+        raise ValueError("behavior 'until_date' needs end_date=timer_end_date(...): publish "
+                         'refuses an until_date timer with no end date')
     if hours > 999:
         raise ValueError(f'timer hours go up to 999 in the Flow Builder, not {hours}; '
                          'put the rest in days')
@@ -2689,6 +2775,7 @@ def timer(children=(), *, custom_id='offer', days=0, hours=0, minutes=0, seconds
     props = {
         'customId': custom_id, 'behavior': behavior,
         'duration': {'days': days, 'hours': hours, 'minutes': minutes, 'seconds': seconds},
+        **({'endDate': end_date} if end_date is not None else {}),
         'width': _width(width, fixed_w, position, default='hug'),
         'height': size('fixed', fixed_h) if fixed_h is not None else size(height),
         'layout': layout('horizontal', 0, align_h, align_v),

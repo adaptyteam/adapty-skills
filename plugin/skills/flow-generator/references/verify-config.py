@@ -164,7 +164,7 @@ MIN_OPAQUE_ALPHA = 0.8
 # Both are frequent transformer refusals.
 EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
               'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
-              'productRef'}
+              'productRef', 'elementState'}
 # `assign` is in the schema's ExpressionType enum and has NO case in the condition walker, so
 # it falls through to `default` and the flow is refused. Legal in a `setVariable` payload,
 # illegal as a condition — hence scoped here and not to expressions generally.
@@ -207,6 +207,11 @@ def bad_expr_path(v, path):
     if t == 'var':
         vid = v.get('variableId')
         return None if isinstance(vid, str) and vid else f'{path}.variableId'
+    if t == 'elementState':
+        # Another element's current state, compared with `==`/`!=` against a `const` state id
+        # (`'default'` is its Default state). The service checks only the id's shape here.
+        eid = v.get('elementId')
+        return None if isinstance(eid, str) and eid else f'{path}.elementId'
     if t == 'productRef':
         # The structured form of a product reference. The service validates the target itself
         # and its messages name the part, so mirror its two shapes exactly rather than waving
@@ -238,10 +243,10 @@ def bad_expr_path(v, path):
             return f'{path}.field ({field!r} is not a product variable)'
         return None
     if t in _BINARY:
-        return (bad_expr_path(v.get('left'), f'{path}.left')
-                or bad_expr_path(v.get('right'), f'{path}.right'))
+        return (_bad_operand(v.get('left', _MISSING), f'{path}.left')
+                or _bad_operand(v.get('right', _MISSING), f'{path}.right'))
     if t in _UNARY:
-        return bad_expr_path(v.get('left'), f'{path}.left')
+        return _bad_operand(v.get('left', _MISSING), f'{path}.left')
     for key, kind in (('predicates', ('&&', '||')), ('operands', ('concat',))):
         if t in kind:
             if key not in v:
@@ -271,6 +276,40 @@ def bad_expr_path(v, path):
             return bad_expr_path(v['default'], f'{path}.default')
         return None
     return f'{path}.type'
+
+
+_MISSING = object()
+
+
+def _bad_operand(v, path):
+    """An operand slot (binary `left`/`right`, unary `left`) also takes `null`: the builder stores
+    an unset operand that way and the service accepts it. Collections never take `null`."""
+    return None if v is None else bad_expr_path(v, path)
+
+
+def blank_operand_path(v, path):
+    """Path of the first `null` operand, walking `&&`/`||` groups, or None. Port of the service's
+    `findBlankOperandPath`: the builder's unfinished condition (`== null null`). It is valid and
+    compiles as is, so `==` between two empties is always true and the condition never depends
+    on the user."""
+    if not (isinstance(v, dict) and isinstance(v.get('type'), str)):
+        return None
+    t = v['type']
+    if t in ('&&', '||'):
+        for i, p in enumerate(v.get('predicates') or []):
+            r = blank_operand_path(p, f'{path}.predicates[{i}]')
+            if r:
+                return r
+        return None
+    if t in _BINARY:
+        if v.get('left', 0) is None:
+            return f'{path}.left'
+        if v.get('right', 0) is None:
+            return f'{path}.right'
+        return None
+    if t in _UNARY and v.get('left', 0) is None:
+        return f'{path}.left'
+    return None
 
 
 def iter_conditions(d):
@@ -2447,6 +2486,49 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'Put a timer_digits() text inside it; to keep the delay invisible, colour the '
                     f'digits like the background. Neither validate nor preview can see this')
 
+    # An `until_date` timer counts down to `endDate` ({date, time, timeZone}). The schema keeps
+    # `date` optional so a builder draft can save without one, but publish refuses the flow when
+    # the date is missing, or the date, time or zone is not valid -- so the agent's own config
+    # must carry a full end. A past date is valid (the timer shows zero). The zone is an IANA name,
+    # `UTC`, or `local` (each device's own clock).
+    def _end_date_problem(end):
+        import datetime
+        if not isinstance(end, dict) or not end.get('date'):
+            return 'has no end date (endDate.date)'
+        date_, time_, zone_ = end.get('date'), end.get('time'), end.get('timeZone')
+        try:
+            if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(date_)):
+                raise ValueError
+            datetime.date.fromisoformat(date_)
+        except ValueError:
+            return f'has an end date {date_!r} that is not a real YYYY-MM-DD date'
+        if not isinstance(time_, str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', time_):
+            return f'has an end time {time_!r} that is not HH:mm (00:00-23:59)'
+        if not zone_:
+            return 'has no time zone (endDate.timeZone)'
+        if zone_ not in ('local', 'UTC'):
+            try:
+                import zoneinfo
+                zoneinfo.ZoneInfo(zone_)
+            except ImportError:
+                pass
+            except Exception:
+                return f"has a time zone {zone_!r} that is not an IANA zone name, 'UTC' or 'local'"
+        return None
+    _containers = [(f'screen {s.get("id")}', s.get('elements', {}).get('map') or {})
+                   for s in d.get('screens') or []]
+    _containers += [(f'component {cid}', (c or {}).get('map') or {})
+                    for cid, c in (d.get('components') or {}).items() if isinstance(c, dict)]
+    for where, m_ in _containers:
+        for eid_, e in m_.items():
+            if e.get('type') != 'timer' or (e.get('props') or {}).get('behavior') != 'until_date':
+                continue
+            problem = _end_date_problem((e.get('props') or {}).get('endDate'))
+            if problem:
+                bad.append(f'{where}: timer {eid_} counts down to a date (until_date) but '
+                           f'{problem}, so publish refuses the flow. Set it with '
+                           f'flowkit.timer_end_date(date, time, time_zone=...)')
+
     # `footer` is the pinned bottom bar, and all three of these come from rendering one screen
     # eight ways. The element is lifted out of the flow and pinned to the
     # viewport bottom; the same props under `type: "stack"` land below the fold.
@@ -2755,6 +2837,10 @@ def check(path, baseline_text=None, baseline_images=None):
                 json.dumps(((m.get(k) or {}).get('props') or {}).get('fill'), sort_keys=True))
                for k in kids]
         odd = [i for i, x in enumerate(sig) if sig.count(x) == 1]
+        if len(odd) == 2 and len(kids) == 2:
+            # Two markers that differ are both unique: take the one with the smaller
+            # signature, the same marker on every screen, so its index moves with the step.
+            odd = [sig.index(min(sig))]
         return len(kids), (odd[0] if len(odd) == 1 else None)
 
     _rows = {}
@@ -2977,10 +3063,13 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'override. See flow-schema.md, trap 17')
     # A `product` ELEMENT WITH NOTHING IN IT. The single-plan shape where the plan's name and price
     # are loose text beside an empty (often hidden) `product` "attach point". The builder draws the
-    # empty element as a 1x1 box the user has to find and delete by hand, and it breaks the layout
-    # around it — while `config preview` collapses it and draws the screen clean. The text that
-    # describes the plan IS the product: wrap it in the `product` element. Zero real exports and
-    # zero catalog templates contain a childless `product`, so this is never builder output.
+    # empty element as a 1x1 box the user has to find and delete by hand, while `config preview`
+    # collapses it. On a device it has no size (the transformer emits an empty box sized 0 on
+    # every hug axis) but it still takes its stack gap, so in a stack with a gap the content
+    # around it sits one gap further apart. It can be deliberate: a product element is what
+    # declares a product on the screen, so an empty one may exist only so another element's
+    # price can name that product.
+    # Zero real exports and zero catalog templates contain one, so it is never builder output.
     for s in d.get('screens', []):
         m = s['elements']['map']
 
@@ -2988,11 +3077,14 @@ def check(path, baseline_text=None, baseline_images=None):
             if (m.get(n.get('id'), {}).get('type') == 'product'
                     and not n.get('children')):
                 warn.append(
-                    f'screen {s["id"]}: {n["id"]} is a `product` element with no children. The '
-                    f'builder shows it as a 1x1 box that breaks the layout, and the preview hides '
-                    f'it. Move the text that names and prices the plan INSIDE this element and '
-                    f'delete the empty one — on a single-plan screen that text block is the '
-                    f'product. See patterns.md, "A single-plan screen"')
+                    f'screen {s["id"]}: {n["id"]} is a `product` element with no children. On a '
+                    f'device it has no size but still takes its stack gap, so the content around '
+                    f'it sits one gap further apart; the builder shows it as a 1x1 box and the '
+                    f'preview hides it. If you are building the screen, move the text that names and '
+                    f'prices the plan INSIDE this element and delete the empty one — on a '
+                    f'single-plan screen that text block is the product. If it came with the '
+                    f'flow, it may be there only so another price can name this product: ask '
+                    f'before changing it. See patterns.md, "A single-plan screen"')
             for c in n.get('children') or []:
                 _empty_products(c)
         _empty_products(s['elements']['hierarchy'])
@@ -3069,6 +3161,51 @@ def check(path, baseline_text=None, baseline_images=None):
             bad.append(f'screen {sid}: invalid condition expression at {offending} — refused as '
                        f'invalid_visibility_condition / invalid_state_condition. Legal types are '
                        f'{sorted(EXPR_TYPES - COND_ILLEGAL_TYPES)}')
+        blank = None if offending else blank_operand_path(tree, f'{eid}.{where}')
+        if blank:
+            warn.append(f'screen {sid}: {blank} is empty — an unfinished condition. It passes '
+                        f'`validate` and ships as is: an empty side compares as nothing, so the '
+                        f'condition never depends on the user. Finish it or delete it; if it '
+                        f'came with the flow, ask the user which they meant')
+
+    # ---- conditional TEXT: a `switch` in an element's props. Each case predicate is checked by
+    # the same walker (a bad one is refused as invalid_conditional_text_predicate), and a case
+    # with an empty side is compiled as is: `==` between two empties is true, so that case always
+    # shows and every case after it and the default never do. Nothing else reports it.
+    for s in d.get('screens', []):
+        for eid, e in (s.get('elements', {}).get('map') or {}).items():
+            seen = set()
+
+            def _switches(o, path):
+                if isinstance(o, dict):
+                    if o.get('type') == 'switch' and isinstance(o.get('cases'), list):
+                        for i, c in enumerate(o['cases']):
+                            if not (isinstance(c, list) and len(c) == 2) or i in seen:
+                                continue
+                            where = f'{eid}.{path}.cases[{i}][0]'
+                            off = bad_expr_path(c[0], where)
+                            if off:
+                                seen.add(i)
+                                bad.append(f'screen {s["id"]}: invalid conditional text predicate '
+                                           f'at {off} — refused as '
+                                           f'invalid_conditional_text_predicate')
+                                continue
+                            blank = blank_operand_path(c[0], where)
+                            if blank:
+                                seen.add(i)
+                                warn.append(
+                                    f'screen {s["id"]}: {eid} conditional text case {i + 1} has an '
+                                    f'empty side ({blank}) — an unfinished condition. It ships '
+                                    f'as is and an empty side compares as nothing, so with `==` '
+                                    f'this case always shows and no case after it, nor the '
+                                    f'default, ever does. Finish it or delete it; if it came '
+                                    f'with the flow, ask the user which they meant')
+                    for k, v in o.items():
+                        _switches(v, f'{path}.{k}')
+                elif isinstance(o, list):
+                    for i, v in enumerate(o):
+                        _switches(v, f'{path}[{i}]')
+            _switches(e.get('props'), 'props')
 
     # An unresolved id is NOT dropped: codegen emits it as a bare identifier into the generated
     # TypeScript, which fails to compile (`script_type_violation`, TS2304 "Cannot find name").
@@ -3113,6 +3250,30 @@ def check(path, baseline_text=None, baseline_images=None):
         bad.append(f'custom tag name {n!r} is also used by another variable '
                    f'(custom_tag_duplicate_name): both publish as the same SDK tag, so the app '
                    f'value overrides the other one wherever it is used')
+    # A text that shows a variable which is not external, has no value and nothing assigns:
+    # it publishes as a script variable and is blank for every user. Almost always a custom
+    # tag missing `external: true`; the service publishes it without a word.
+    text_var_ids, assigned = set(), set()
+
+    def _walk_vars(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'variable' and isinstance(o.get('attrs'), dict):
+                text_var_ids.add(o['attrs'].get('variableId'))
+            if o.get('type') == 'setVariable':
+                assigned.update(all_var_ids(o.get('payload')))
+            for x in o.values():
+                _walk_vars(x)
+        elif isinstance(o, list):
+            for x in o:
+                _walk_vars(x)
+    _walk_vars(d)
+    for v in d.get('variables') or []:
+        if (isinstance(v, dict) and v.get('external') is not True
+                and v.get('value') in ('', None) and v.get('id') in text_var_ids
+                and v.get('id') not in assigned):
+            warn.append(f'variable {v.get("name") or v.get("id")!r} is shown in text, has no value and '
+                        f'nothing sets it, so it is blank on a device. If the app supplies it, mark '
+                        f'it external: true (a custom tag)')
     locs = [l.get('code') if isinstance(l, dict) else l for l in (d.get('locales') or [])]
     if len(locs) > 1:
         for v in tag_vars:

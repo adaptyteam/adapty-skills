@@ -5,7 +5,7 @@ description: >-
   should I test next", "I don't know what to test", "should I add a monthly plan or a trial",
   "why did revenue or renewals drop", "my A/B test ended, what now", "do I need more placements
   or a discount offer", "which of my ideas should I test first", "we don't have much traffic",
-  "we did it, what's next", "only use our own data", "we launch soon, no data yet", "how do we
+  "we did it, what's next", "what's in my backlog", "check my app every week", "only use our own data", "we launch soon, no data yet", "how do we
   win back users who cancelled".
   Also use when a user asks for a growth plan, a monetization audit, hypotheses or test ideas without naming
   one screen, or asks any question about their app's own subscription numbers.
@@ -25,7 +25,8 @@ the flow with the new design or product set, through `flow-generator`, a segment
 store through the CLI (`references/pricing.md`), and the A/B test itself, through `ab-tests`.
 Trials and offers are made in the store, so for those you give the user the steps. Before you
 offer to set up an A/B test, you check that everything it needs exists ("From hypothesis to A/B
-test").
+test"). The hypotheses the user keeps are saved to the app's backlog, and every A/B test you set
+up is linked to its hypothesis ("The backlog").
 
 **Prices** follow `references/pricing.md`. Before you say anything about a price, read the
 prices of each product it concerns (`product-prices list`) and name the price as the store charges it, in its local
@@ -47,14 +48,12 @@ These are the only two words for what you suggest, and the user sees them exactl
   do. Everything you propose is a hypothesis, never a "test" or an "idea".
 - **A hypothesis the user picks becomes an A/B test,** the thing the user runs and you help
   build. Say "A/B test" only from then on.
-- **Ask what they want to start with, never for a verdict on each.** "Which one do you want to
-  start with?" is the question; "accept or decline these" is not. When they are unsure, say which
-  one you would start with and why in one sentence, and offer to walk them through it.
-- **One they turn down leaves the list,** unless they give a reason ("we tried it"): then its
-  next rung takes its place (`references/levers.md`, "Next rung"). It is not a lost test and rules
-  nothing out; do not suggest it again in this conversation unless the user asks or their numbers
-  change.
-- **The reply is the record.** There is no backlog to save hypotheses to yet; never offer one.
+- **Ask which to add to their backlog and which to skip, and why they skip one** ("The backlog").
+  Once some are added, ask which one to start with; when they are unsure, say which you would
+  start with and why in one sentence.
+- **One they skip leaves the list.** Its reason decides what comes next: "we tried it" puts its
+  next rung in its place (`references/levers.md`, "Next rung"). A skip is not a lost test and rules
+  nothing out.
 
 ## Questions about the numbers
 
@@ -114,6 +113,14 @@ Shape (the form, not words to copy):
 > **Next steps**
 > 1. You: did anything ship on Google Play around March 3?
 > 2. Me: find why Google Play revenue fell. Want me to?
+
+## Recurring checks
+
+A health check, a test the user is waiting on, and "check my app every week" can run on a
+schedule, as a task the user's agent runs, with its report shown there or posted through a
+connector (Slack, email and the like). Offer one after a health check and after you link a live
+A/B test to its hypothesis; set it up and write its prompt from `references/recurring-checks.md`,
+which also governs a run that starts from one of its prompts and the user's answer to its report.
 
 ## Without an Adapty account
 
@@ -251,7 +258,8 @@ and a price change's files: a product's price list, the file it saves, and the r
 (`references/pricing.md`). Read every other response from the command's output; never save one
 to a file.
 
-Everything this skill runs is a read, with six writes, each on the user's yes: building a flow
+Everything this skill runs is a read, with seven writes, each on the user's yes: the backlog's
+`hypotheses` commands ("The backlog"), building a flow
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
 `placements create` or `placements update` (see "Changing a live placement"), adding an offer
 the user made in the store to an existing product with `product-offers create`
@@ -321,12 +329,14 @@ and the reason.
   needs". Every one you suggest is in that list; none is only mentioned in the prose.
 - **End with Next steps:** a numbered list of at most three items, each starting with who acts,
   "You:" or "Me:". Questions to the user go there as "You:" items. After hypotheses, the first
-  item asks which one they want to start with, and names the one you would pick. The last item
+  item asks which to add to the backlog and which to skip ("The backlog"); once they are saved,
+  it asks which one to start with, and names the one you would pick. The last item
   is what you can do now if they say yes. The one slot between goes to a breakage fix, else an
   Adapty feature step (`references/levers.md`, "Adapty features"), else the one question; a
-  question that loses the slot joins the first item. You will not remember this conversation, so a check
+  question that loses the slot joins the first item, except after hypotheses, when it waits for
+  the next reply. You will not remember this conversation, so a check
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
-  back and ask, never a "Me:" item.
+  back and ask, never a "Me:" item, unless it is a recurring check ("Recurring checks").
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
   it), one "You:" item asks when it ends. Say how far each arm is from about 200 purchases
   (`references/diagnosis.md`, "Placement metrics"), never which one leads.
@@ -709,7 +719,8 @@ Then, in the Next steps:
   it starts I show you exactly who sees what." On a yes, invoke `ab-tests` with the brief: paywall
   test or flow test, the arms (A as the placement shows it now, B the new content) at 50/50, the
   placement, the audience, and as the goal the hypothesis title and its Judged on metric. `ab-tests`
-  owns the draft, the start card and the stop.
+  owns the draft, the start card and the stop; you link the draft to its hypothesis
+  (`references/backlog.md`, "Starting one").
 - **Something is missing:** one Next step for each missing thing, in the order it has to be made,
   each starting with who acts. The A/B test is the step after them: "Me: once the copy is
   published, I set up the A/B test." When the user comes back to say it is done, read again
@@ -719,6 +730,69 @@ Then, in the Next steps:
 
 Never create a draft with a placeholder arm, an arm the user still has to make, or an id you did not
 read.
+
+## The backlog
+
+The app's hypotheses live in its backlog in Adapty: the team sees it in the dashboard, and the
+next session starts from it. Every hypothesis you suggest goes through it.
+
+**Before you suggest,** write each hypothesis as a create body in `drafts.json`
+(`references/backlog.md`, "The create body") and run it with every placement a draft runs on:
+
+```bash
+python3 <skill>/references/reads.py backlog --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID> --drafts drafts.json
+```
+
+Fix every `CHECK` line, then act on what it says for each draft:
+
+- **tested** or **live:** drop it; a tested one's next rung can take its place.
+- **testing** or **in the backlog:** not suggested again. Remind the user of it, under the
+  hypotheses as **Already in your backlog**, one line with its title, only when its Why still
+  holds in this month's numbers and it still passes "What a hypothesis needs". One that no longer
+  holds gets one line saying why, and an offer to dismiss it.
+- **dismissed:** drop it, unless its saved reason says it may come back ("not now") or the numbers
+  it rested on have changed since. Never ask why it was dismissed.
+
+What it prints as **due** comes first in the reply, before anything new
+(`references/backlog.md`, "Coming back").
+
+**The question** is the first Next step, and it holds exactly two parts: which hypotheses to add
+and which to skip, with why for a skip; and, while the backlog is empty, one sentence on what it
+gives them. A hypothesis on a placement that does not exist yet is in the list like the others; what
+saving it takes goes in the reply after the user adds it, because until then they have not chosen it. Shape (not words to copy):
+
+> 1. You: tell me which of these you'd like to add to your backlog and which you'd skip. If you
+>    skip one, tell me why, so I can make better suggestions later. Your backlog shows in the
+>    Adapty dashboard, and next time I start from it instead of from scratch.
+
+**The answer.** The ones added are saved with `$ADAPTY hypotheses create --app <APP_ID> --file
+<file>`, one call per placement (the server takes one placement and at most 50 per call), each file
+holding only that placement's added drafts. "Add all" adds every one; one the user did not mention
+is not saved. The ones skipped
+are saved the same way, then each gets `$ADAPTY hypotheses dismiss <ID> --app <APP_ID> --reason
+"<their reason, in their words>"`, so the next session does not suggest them again and knows why; a
+skip with no reason is dismissed without one, and a skip with "not now" stays saved and is not
+dismissed.
+No answer saves nothing. A hypothesis is dismissed only on the user's word: an answer that does
+not clearly name one (a number the list does not have) is asked back, never guessed, and a
+hypothesis already in the backlog is never dismissed through this question.
+
+**An added hypothesis whose placement does not exist yet** (a new placement, a follow-up offer)
+cannot be saved yet: a hypothesis needs its placement, and a placement is created only with a
+published flow on it. In the reply to their pick, say it joins the backlog once its flow is
+published, and list what comes first, each with who does it. Shape (not words to copy):
+
+> "Show 'Settings paywall' when a free user taps a locked note" joins your backlog once its flow is
+> ready:
+> 1. Me: build a copy of 'Settings paywall' for that moment; you publish it.
+> 2. Me: create its placement with that flow (I'd call it `locked_note`; the name can't be changed
+>    later) and save the hypothesis.
+
+Then it is started like any other. A skipped one with no placement is not saved, so say once that it
+may be suggested again.
+
+Starting one, linking its A/B test, putting one live without a test, and results:
+`references/backlog.md`.
 
 ## Changing a live placement
 
@@ -774,6 +848,8 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | I don't know what to test | Run the audit |
 | I have ideas, which first? | `levers.md`, "Ideas the user brings" |
 | We did it, what's next? | Read what ran and what came out (`diagnosis.md`, "Past tests"), ask only what that leaves open, then `levers.md`, "After a test" |
+| What's in my backlog? How is my test going? | `reads.py backlog` for the app's placements, then `references/backlog.md`, "Coming back" |
+| Check my app every week; tell me when my test is done | `recurring-checks.md` |
 | Any question about the numbers | "Questions about the numbers" |
 
 ## Dashboard steps
@@ -828,7 +904,8 @@ shape to follow, not words to copy:
 > out value per buyer.
 
 - **Type** is one word: `numbers` (a question about the app's data), `ideas` (what to test or
-  change, or a problem brought for help), `decision` ("should I do X"), or `other` (setup, how
+  change, or a problem brought for help), `decision` ("should I do X"), `check` (setting up a recurring check, or acting on what
+  one reported), or `other` (setup, how
   something works, out of scope).
 - **Asked and Answered are a few generic words each.** What the user tried to find out or do, and
   what the reply did: explained a change, gave a split, suggested hypotheses and how many, said
@@ -873,7 +950,8 @@ shape to follow, not words to copy:
 | `references/diagnosis.md` | Running any analytics command, and for each common question |
 | `references/levers.md` | Building or ranking a hypothesis, and after a test |
 | `references/evidence.md` | Stating any expected impact or grading an idea |
-| `references/onboarding-evidence.md` | Stating the expected impact of an onboarding or flow hypothesis, next to `evidence.md` |
+| `references/onboarding-evidence.md` | Stating the expected impact of an onboarding or flow hypothesis, next to `evidence.md`; reading a flow's funnel against the benchmarks |
+| `references/onboarding-grid.csv` | A flow's reach, purchases or step drop-off against the onboarding medians for one region, category or length |
 | `references/market.md` | Comparing the app with the market: conversion, plan mix, trials, discounts, timing |
 | `references/market-grid.csv` | A conversion's median and percentiles for one plan, region and category |
 | `references/renewals.csv` | The annual first-renewal rate for one category, region and start |
@@ -881,4 +959,6 @@ shape to follow, not words to copy:
 | `references/trials.csv` | Trial starters against direct buyers, first-year value, for one category, region and plan length |
 | `references/pricing.md` | Any price: reading, placing, a price hypothesis, its test, a live price change |
 | `references/price-index.csv`, `references/price-response.csv` | Searched from `pricing.md`; never read whole |
+| `references/backlog.md` | Saving hypotheses, starting one, linking its A/B test, putting one live, results |
+| `references/recurring-checks.md` | Offering, setting up or running a check that repeats on a schedule |
 | `references/without-account.md` | A store link, screenshots or code, and no account to read |

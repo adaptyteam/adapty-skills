@@ -119,6 +119,63 @@ fires('condition: a switch case that is not a [predicate, value] pair',
 fires('condition: a bare string where an expression belongs',
       with_visibility('email.value'), 'invalid condition expression')
 
+# --- an EMPTY side (`null`) is the builder's unfinished condition. The service accepts it in an
+# operand slot (`findInvalidOperandPath`) and compiles it as is, so it must not be an error; it is
+# a warning, because the condition then never depends on the user. A MISSING side stays an error.
+def warnings(doc):
+    with tempfile.TemporaryDirectory() as tmp:
+        p = os.path.join(tmp, 'c.json')
+        json.dump(doc, open(p, 'w'))
+        r = subprocess.run([sys.executable, VERIFY, p], capture_output=True, text=True)
+    return [l.split('warning:', 1)[1].strip() for l in r.stdout.splitlines() if 'warning:' in l]
+
+
+def warns(name, doc, fragment, expect=True):
+    hit = any(fragment in w for w in warnings(doc))
+    if hit is not expect:
+        fails.append(f'{name}: expected warning {fragment!r} fired={expect}, got {hit}')
+        print(f'  FAIL  {name}')
+    else:
+        print(f'  ok    {name}')
+
+
+BLANK = {'type': '==', 'left': None, 'right': None}
+no_error('condition: both sides empty is accepted, as the service does',
+         with_visibility(BLANK), 'invalid condition expression')
+warns('...and is reported as unfinished', with_visibility(BLANK), 'unfinished condition')
+warns('...inside an && group too',
+      with_visibility({'type': '&&', 'predicates': [
+          {'type': 'notEmpty', 'left': {'type': 'var', 'variableId': 'a.value'}}, BLANK]}),
+      'unfinished condition')
+warns('a finished condition is not reported as unfinished',
+      with_visibility({'type': '==', 'left': {'type': 'var', 'variableId': 'a.value'},
+                       'right': {'type': 'const', 'value': 'x'}}),
+      'unfinished condition', expect=False)
+
+
+def with_conditional_text(predicate):
+    d = load()
+    s, eid, e = first_element(d, lambda e: e.get('type') == 'text')
+    e['props']['content'] = {'_localizable': True, 'values': {'en': {
+        'type': 'switch',
+        'cases': [[predicate, {'type': 'const', 'value': [
+            {'type': 'paragraph', 'content': [{'type': 'text', 'text': 'A'}]}]}]],
+        'default': {'type': 'const', 'value': [
+            {'type': 'paragraph', 'content': [{'type': 'text', 'text': 'B'}]}]}}}}
+    return d
+
+
+warns('conditional text: a case with both sides empty always shows',
+      with_conditional_text(BLANK), 'this case always shows')
+no_error('...and is not an error', with_conditional_text(BLANK),
+         'invalid conditional text predicate')
+fires('conditional text: a predicate the service cannot read is an error',
+      with_conditional_text({'type': 'bogus'}), 'invalid_conditional_text_predicate')
+warns('conditional text: a finished case is silent',
+      with_conditional_text({'type': '==', 'left': {'type': 'var', 'variableId': 'a.value'},
+                             'right': {'type': 'const', 'value': 'x'}}),
+      'this case always shows', expect=False)
+
 # --- productRef, the structured product reference. The service validates the target itself
 # and names the part it rejected, so the port mirrors its two shapes rather than waving the
 # node through. Both directions: a valid ref must NOT be reported (it is what flowkit now
@@ -184,6 +241,18 @@ def with_state_condition(condition):
 
 fires('state condition: same walker, custom state',
       with_state_condition({'type': 'bogus'}), 'invalid condition expression')
+
+# `elementState` reads another element's state; the service compiles it (and a `disabled`
+# state's condition, into the element's enabled binding), so neither is reported.
+_es = {'type': '==', 'left': {'type': 'elementState', 'elementId': 'el_next'},
+       'right': {'type': 'const', 'value': 'default'}}
+d = load()
+_s, _eid, _e = first_element(d, lambda e: e.get('type') == 'text')
+_e['states'] = [{'id': 'disabled', 'type': 'system', 'condition': _es}]
+silent('state condition: a disabled state reading another element\'s state', d)
+fires('condition: an elementState with no elementId',
+      with_visibility({'type': '==', 'left': {'type': 'elementState'},
+                       'right': {'type': 'const', 'value': 'default'}}), '.elementId')
 
 # A `selected` system state's condition is overwritten by the service before use, so a
 # malformed one there must NOT be reported -- that would be a false positive.

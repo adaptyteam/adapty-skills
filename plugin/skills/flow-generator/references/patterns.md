@@ -435,6 +435,22 @@ as in [A timer that fires an action](#a-timer-that-fires-an-action). A Spinner h
 trigger, so it never moves the flow on. When a loader must be pinned, the `fixed` position goes on
 a **container**, not on the Loader element itself.
 
+**A countdown to a date is the same `timer` with `behavior: "until_date"`** — a sale that ends at
+a set moment, "ends Sunday at midnight", Black Friday. Build it with
+`fk.timer(children, end_date=fk.timer_end_date('2026-11-28', '23:59', time_zone='Europe/Berlin'))`
+and no duration: the config carries `endDate: {"date": "2026-11-28", "time": "23:59", "timeZone":
+"Europe/Berlin"}`. Every user sees the same time left whenever they open the screen, a reopen or an
+app restart does not reset it, and after the end it shows zero and its `timer-end` actions run
+once per screen open. `timeZone: "local"` ends at that clock time on each device instead, so users
+in different zones reach zero at different moments. **Ask the user for the date with its year and
+for the time zone** (or whether the end is each user's local time) when the request does not name
+them: "Black Friday" or "in 3 days" is not a date the config can hold, and there is no default
+zone. Publish refuses an `until_date` timer with no date, a date that is not on the calendar, a
+time outside `00:00`–`23:59` or an unknown zone; `verify-config.py` errors on the same. A past
+date is valid and shows zero. A date countdown usually runs for days, so its digits show
+`timer_days` (or `timer_total_hours`). To remove the countdown or an offer badge after the end,
+give the timer a `timer-end` action that hides them — the timer itself stays on screen.
+
 **A `spinner`'s `duration` is its ROTATION PERIOD, not a completion time.** It loops forever and
 fires nothing, on every surface. The field reads exactly like a delay — a user looking at
 `duration: 1000` reasonably asked why the screen never advanced after a second — so when a
@@ -882,6 +898,10 @@ jq '.components[]|select(.id=="footer")|.template' references/component-catalog.
 It is the only component in that catalog carrying an `insertion_policy` (`screen_footer`), and its
 props are the plain container set — `position: relative`, `width: fill`, `height: hug`, padding,
 and **an opaque `fill`**. `flowkit.footer([...])` emits it.
+
+**On a screen with a footer, keep the screen's `layout.alignV` at `start`.** `center` or `end`
+pins the content against an estimated footer height; on iOS a taller real footer then covers the
+content, and a button under it takes no taps.
 
 **One screen rendered eight ways**, changing a single thing at a time
 (content 14x80pt against a 900px viewport, so an in-flow bar sits below the fold):
