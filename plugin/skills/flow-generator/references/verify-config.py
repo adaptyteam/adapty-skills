@@ -301,17 +301,22 @@ def _bad_operand(v, path):
     return None if v is None else bad_expr_path(v, path)
 
 
-def blank_operand_path(v, path):
+# The unary types whose `null` operand the service's `findBlankOperandPath` sees as blank.
+_BLANK_UNARY_SERVICE = ('empty', 'notEmpty')
+
+
+def blank_operand_path(v, path, unary=_UNARY):
     """Path of the first `null` operand, walking `&&`/`||` groups, or None. Port of the service's
-    `findBlankOperandPath`: the builder's unfinished condition (`== null null`). It is valid and
-    compiles as is, so `==` between two empties is always true and the condition never depends
-    on the user."""
+    `findBlankOperandPath`: the builder's unfinished condition (`== null null`). A visibility
+    condition or a text case with one compiles as is, so `==` between two empties is always true
+    and the condition never depends on the user; a state condition with one is dropped whole.
+    `unary` names the unary types checked: pass `_BLANK_UNARY_SERVICE` for the service's own set."""
     if not (isinstance(v, dict) and isinstance(v.get('type'), str)):
         return None
     t = v['type']
     if t in ('&&', '||'):
         for i, p in enumerate(v.get('predicates') or []):
-            r = blank_operand_path(p, f'{path}.predicates[{i}]')
+            r = blank_operand_path(p, f'{path}.predicates[{i}]', unary)
             if r:
                 return r
         return None
@@ -321,7 +326,7 @@ def blank_operand_path(v, path):
         if v.get('right', 0) is None:
             return f'{path}.right'
         return None
-    if t in _UNARY and v.get('left', 0) is None:
+    if t in unary and v.get('left', 0) is None:
         return f'{path}.left'
     return None
 
@@ -3316,7 +3321,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
         if where.startswith('states['):
             # A state condition with an empty side in any row is dropped whole before the
             # compile, under `&&` and `||` alike, so none of its rows is refused or read.
-            blank = blank_operand_path(tree, f'{eid}.{where}')
+            blank = blank_operand_path(tree, f'{eid}.{where}', _BLANK_UNARY_SERVICE)
             if blank:
                 warn.append(f'screen {sid}: {blank} is empty — an unfinished state condition. '
                             f'The service drops the whole condition, so this state never '

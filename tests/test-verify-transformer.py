@@ -273,7 +273,7 @@ FINISHED = {'type': '==', 'left': {'type': 'var', 'variableId': 'a.value'},
             'right': {'type': 'const', 'value': 'x'}}
 S2 = {'type': '==', 'left': NO_VAR, 'right': None}
 NEVER = 'this state never becomes active'
-for _id, _doc, _error, _warn in (
+for _id, _doc, _error, _warn, *_also in (
         ('S1 both sides empty, custom', with_state_condition(BLANK), None, True),
         ('S2 the default row, custom', with_state_condition(S2), None, True),
         ('S2 the default row, disabled', with_disabled_condition(S2), None, True),
@@ -291,7 +291,9 @@ for _id, _doc, _error, _warn in (
                                   'right': {'type': 'const', 'value': 'x'}}),
          '.variableId', False),
         ('visibility: the default row is still refused', with_visibility(S2), '.variableId',
-         False)):
+         False),
+        ('size with an empty side is compiled, custom',
+         with_state_condition({'type': 'size', 'left': None}), None, False, 'ships as is')):
     _errs, _warns = errors(_doc), warnings(_doc)
     _got_warn = any(NEVER in w for w in _warns)
     _problems = []
@@ -301,6 +303,8 @@ for _id, _doc, _error, _warn in (
         _problems.append(f'expected an error containing {_error!r}, got {_errs!r}')
     if _got_warn is not _warn:
         _problems.append(f'expected the never-active warning fired={_warn}, got {_warns!r}')
+    if _also and not any(_also[0] in w for w in _warns):
+        _problems.append(f'expected a warning containing {_also[0]!r}, got {_warns!r}')
     if _problems:
         fails.append(f'state condition blank, {_id}: ' + '; '.join(_problems))
         print(f'  FAIL  state condition blank, {_id}')
