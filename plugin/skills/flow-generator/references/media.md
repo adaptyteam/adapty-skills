@@ -83,7 +83,12 @@ On a `heavy_image` warning:
    ```
 3. The new answer still warns: say the new weight (its new `title`) and offer the next step, a
    lower quality (72, 62, 52) at the same width. Each step needs its own yes. On a no, the
-   current image stays.
+   current image stays. After a step, say what changed (the same width, a lower quality), not
+   that the image or the screen looks the same: a local render does not show the user's device.
+
+The weight of this offer is always the warning's `title` (the file sent). The weigh's Load time
+line before a save measures the stored file and can give another number: keep the two apart, and
+ask the reduction step here, right after the upload, not inside the save question.
 
 The weight never blocks a save or a publish. An example of the ask's shape, not words to copy:
 
