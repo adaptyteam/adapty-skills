@@ -12,10 +12,14 @@ The user wants a piece of one flow to show up in another — a plan card, a whol
 `pb_*` component, or a design system with no elements at all (colours, typography, fonts,
 icons). That is what this file covers.
 
+**A copy inside one flow is in scope too:** a header onto other screens, a second copy of a
+screen. `graft` gives every copied element a fresh id and a copied screen a fresh screen id
+(`scr_x` becomes `scr_x_2`), which a hand copy gets wrong. Extract to a scratch file under
+`$TMPDIR`, not the snippets folder: the user asked for a copy, not a saved snippet.
+
 Out of scope: anything the four existing transforms already do. Adding a locale, rewriting
 copy, adding/removing/reordering screens within one flow, and branching are `flow-generator`'s
-own phase spine — reach for those directly rather than routing a same-flow edit through a
-snippet.
+own phase spine — reach for those directly rather than routing those edits through a snippet.
 
 ## Where snippets live
 

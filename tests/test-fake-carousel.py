@@ -293,13 +293,22 @@ for _p in sorted(glob.glob(os.path.join(CORPUS, '*.json'))):
     audits(f'silent on {os.path.basename(_p)}', json.load(open(_p)), expect=False)
 
 print('\na step indicator is not a fake slider:')
-def stepper(positions):
-    """One screen per entry in `positions`, each with the same three-marker row and the
-    wide active marker at that index -- Lingua Pro's "Progress dots", screen by screen."""
+def colour_dot(i, active):
+    """A round dot whose active state is its colour alone, not its width."""
+    d = dot(i)
+    d['props']['fill'][0]['color']['colorId'] = 'accent' if active else 'muted'
+    return d
+
+
+def stepper(positions, n=3, by_colour=False):
+    """One screen per entry in `positions`, each with the same `n`-marker row and the
+    active marker at that index -- Lingua Pro's "Progress dots", screen by screen. The
+    active marker is a wide pill, or with `by_colour` a dot in another colour."""
     base = fake([dot(0), dot(1), dot(2)])
     screens = []
     for k, pos in enumerate(positions):
-        row = [dot(i, w=26 if i == pos else 8, h=4, r=999) for i in range(3)]
+        row = ([colour_dot(i, i == pos) for i in range(n)] if by_colour else
+               [dot(i, w=26 if i == pos else 8, h=4, r=999) for i in range(n)])
         doc = fake(row)
         blob = json.dumps(doc['screens'][0]).replace('"el_', f'"el_s{k}')
         scr = json.loads(blob)
@@ -317,6 +326,13 @@ fires('the same row copied unchanged onto two screens still fires (a copied fake
 audits('...and flow-audit agrees', stepper([0, 0]))
 fires('one screen with an active pill still fires (nothing to compare it with)',
       stepper([1]), FAKE)
+# Two markers: each differs from the other, so neither is the odd one out by count.
+silent('two dots whose active colour moves across two screens (a step indicator)',
+       stepper([0, 1], n=2, by_colour=True))
+audits('...and flow-audit agrees', stepper([0, 1], n=2, by_colour=True), expect=False)
+fires('the same two dots copied unchanged onto two screens still fire',
+      stepper([1, 1], n=2, by_colour=True), FAKE)
+audits('...and flow-audit agrees', stepper([1, 1], n=2, by_colour=True))
 
 print()
 if fails:

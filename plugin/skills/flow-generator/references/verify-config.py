@@ -243,10 +243,10 @@ def bad_expr_path(v, path):
             return f'{path}.field ({field!r} is not a product variable)'
         return None
     if t in _BINARY:
-        return (bad_expr_path(v.get('left'), f'{path}.left')
-                or bad_expr_path(v.get('right'), f'{path}.right'))
+        return (_bad_operand(v.get('left', _MISSING), f'{path}.left')
+                or _bad_operand(v.get('right', _MISSING), f'{path}.right'))
     if t in _UNARY:
-        return bad_expr_path(v.get('left'), f'{path}.left')
+        return _bad_operand(v.get('left', _MISSING), f'{path}.left')
     for key, kind in (('predicates', ('&&', '||')), ('operands', ('concat',))):
         if t in kind:
             if key not in v:
@@ -276,6 +276,40 @@ def bad_expr_path(v, path):
             return bad_expr_path(v['default'], f'{path}.default')
         return None
     return f'{path}.type'
+
+
+_MISSING = object()
+
+
+def _bad_operand(v, path):
+    """An operand slot (binary `left`/`right`, unary `left`) also takes `null`: the builder stores
+    an unset operand that way and the service accepts it. Collections never take `null`."""
+    return None if v is None else bad_expr_path(v, path)
+
+
+def blank_operand_path(v, path):
+    """Path of the first `null` operand, walking `&&`/`||` groups, or None. Port of the service's
+    `findBlankOperandPath`: the builder's unfinished condition (`== null null`). It is valid and
+    compiles as is, so `==` between two empties is always true and the condition never depends
+    on the user."""
+    if not (isinstance(v, dict) and isinstance(v.get('type'), str)):
+        return None
+    t = v['type']
+    if t in ('&&', '||'):
+        for i, p in enumerate(v.get('predicates') or []):
+            r = blank_operand_path(p, f'{path}.predicates[{i}]')
+            if r:
+                return r
+        return None
+    if t in _BINARY:
+        if v.get('left', 0) is None:
+            return f'{path}.left'
+        if v.get('right', 0) is None:
+            return f'{path}.right'
+        return None
+    if t in _UNARY and v.get('left', 0) is None:
+        return f'{path}.left'
+    return None
 
 
 def iter_conditions(d):
@@ -2803,6 +2837,10 @@ def check(path, baseline_text=None, baseline_images=None):
                 json.dumps(((m.get(k) or {}).get('props') or {}).get('fill'), sort_keys=True))
                for k in kids]
         odd = [i for i, x in enumerate(sig) if sig.count(x) == 1]
+        if len(odd) == 2 and len(kids) == 2:
+            # Two markers that differ are both unique: take the one with the smaller
+            # signature, the same marker on every screen, so its index moves with the step.
+            odd = [sig.index(min(sig))]
         return len(kids), (odd[0] if len(odd) == 1 else None)
 
     _rows = {}
@@ -3025,10 +3063,13 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'override. See flow-schema.md, trap 17')
     # A `product` ELEMENT WITH NOTHING IN IT. The single-plan shape where the plan's name and price
     # are loose text beside an empty (often hidden) `product` "attach point". The builder draws the
-    # empty element as a 1x1 box the user has to find and delete by hand, and it breaks the layout
-    # around it — while `config preview` collapses it and draws the screen clean. The text that
-    # describes the plan IS the product: wrap it in the `product` element. Zero real exports and
-    # zero catalog templates contain a childless `product`, so this is never builder output.
+    # empty element as a 1x1 box the user has to find and delete by hand, while `config preview`
+    # collapses it. On a device it has no size (the transformer emits an empty box sized 0 on
+    # every hug axis) but it still takes its stack gap, so in a stack with a gap the content
+    # around it sits one gap further apart. It can be deliberate: a product element is what
+    # declares a product on the screen, so an empty one may exist only so another element's
+    # price can name that product.
+    # Zero real exports and zero catalog templates contain one, so it is never builder output.
     for s in d.get('screens', []):
         m = s['elements']['map']
 
@@ -3036,11 +3077,14 @@ def check(path, baseline_text=None, baseline_images=None):
             if (m.get(n.get('id'), {}).get('type') == 'product'
                     and not n.get('children')):
                 warn.append(
-                    f'screen {s["id"]}: {n["id"]} is a `product` element with no children. The '
-                    f'builder shows it as a 1x1 box that breaks the layout, and the preview hides '
-                    f'it. Move the text that names and prices the plan INSIDE this element and '
-                    f'delete the empty one — on a single-plan screen that text block is the '
-                    f'product. See patterns.md, "A single-plan screen"')
+                    f'screen {s["id"]}: {n["id"]} is a `product` element with no children. On a '
+                    f'device it has no size but still takes its stack gap, so the content around '
+                    f'it sits one gap further apart; the builder shows it as a 1x1 box and the '
+                    f'preview hides it. If you are building the screen, move the text that names and '
+                    f'prices the plan INSIDE this element and delete the empty one — on a '
+                    f'single-plan screen that text block is the product. If it came with the '
+                    f'flow, it may be there only so another price can name this product: ask '
+                    f'before changing it. See patterns.md, "A single-plan screen"')
             for c in n.get('children') or []:
                 _empty_products(c)
         _empty_products(s['elements']['hierarchy'])
@@ -3117,6 +3161,51 @@ def check(path, baseline_text=None, baseline_images=None):
             bad.append(f'screen {sid}: invalid condition expression at {offending} — refused as '
                        f'invalid_visibility_condition / invalid_state_condition. Legal types are '
                        f'{sorted(EXPR_TYPES - COND_ILLEGAL_TYPES)}')
+        blank = None if offending else blank_operand_path(tree, f'{eid}.{where}')
+        if blank:
+            warn.append(f'screen {sid}: {blank} is empty — an unfinished condition. It passes '
+                        f'`validate` and ships as is: an empty side compares as nothing, so the '
+                        f'condition never depends on the user. Finish it or delete it; if it '
+                        f'came with the flow, ask the user which they meant')
+
+    # ---- conditional TEXT: a `switch` in an element's props. Each case predicate is checked by
+    # the same walker (a bad one is refused as invalid_conditional_text_predicate), and a case
+    # with an empty side is compiled as is: `==` between two empties is true, so that case always
+    # shows and every case after it and the default never do. Nothing else reports it.
+    for s in d.get('screens', []):
+        for eid, e in (s.get('elements', {}).get('map') or {}).items():
+            seen = set()
+
+            def _switches(o, path):
+                if isinstance(o, dict):
+                    if o.get('type') == 'switch' and isinstance(o.get('cases'), list):
+                        for i, c in enumerate(o['cases']):
+                            if not (isinstance(c, list) and len(c) == 2) or i in seen:
+                                continue
+                            where = f'{eid}.{path}.cases[{i}][0]'
+                            off = bad_expr_path(c[0], where)
+                            if off:
+                                seen.add(i)
+                                bad.append(f'screen {s["id"]}: invalid conditional text predicate '
+                                           f'at {off} — refused as '
+                                           f'invalid_conditional_text_predicate')
+                                continue
+                            blank = blank_operand_path(c[0], where)
+                            if blank:
+                                seen.add(i)
+                                warn.append(
+                                    f'screen {s["id"]}: {eid} conditional text case {i + 1} has an '
+                                    f'empty side ({blank}) — an unfinished condition. It ships '
+                                    f'as is and an empty side compares as nothing, so with `==` '
+                                    f'this case always shows and no case after it, nor the '
+                                    f'default, ever does. Finish it or delete it; if it came '
+                                    f'with the flow, ask the user which they meant')
+                    for k, v in o.items():
+                        _switches(v, f'{path}.{k}')
+                elif isinstance(o, list):
+                    for i, v in enumerate(o):
+                        _switches(v, f'{path}[{i}]')
+            _switches(e.get('props'), 'props')
 
     # An unresolved id is NOT dropped: codegen emits it as a bare identifier into the generated
     # TypeScript, which fails to compile (`script_type_violation`, TS2304 "Cannot find name").

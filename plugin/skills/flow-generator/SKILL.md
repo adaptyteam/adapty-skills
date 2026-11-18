@@ -510,9 +510,10 @@ locales, products, the navigation graph. Before proposing anything; it grounds t
 catches a wrong flow immediately.
 
 **Confirm the transform.** In scope: add a locale, rewrite copy, add/remove/reorder screens,
-branching and conditions, renaming screen ids, and reusing a piece of another flow — its
-dependency resolution has a hard-422 class (`flow-schema.md` invariant 8), so it runs
-through `references/snippet.py`, never by hand ([snippets.md](references/snippets.md)). A request
+branching and conditions, renaming screen ids, and copying a piece of a flow, into another flow
+or the same one (a header onto other screens, a second copy of a screen) — its dependency
+resolution has a hard-422 class (`flow-schema.md` invariant 8), so it runs through
+`references/snippet.py`, never by hand ([snippets.md](references/snippets.md)). A request
 outside those is named as out of scope, not improvised.
 
 If the request is *"save this for reuse"* or *"add the thing I saved"*, run
@@ -892,8 +893,9 @@ difference: the server echoes the legacy top-level `locales` and `defaultLocale`
 A write that changes nothing does not bump `updated_at`, so re-running the same
 content is not a fresh lock token. **On a 409** (*"already updated by <name>. Reload before
 saving…"*, exit 1) someone saved or published the flow since you fetched it and nothing was written: re-`get`
-into `flow.working.json`, re-apply your change **to their config**, tell the user someone else
-saved in between, and write again. The builder can auto-save a cleanup of `states` that bumps
+into `flow.working.json`, re-apply your change **to their config**, tell the user the flow was
+saved in between by the person the message names (often the user themselves, in the builder),
+and write again. The builder can auto-save a cleanup of `states` that bumps
 the version and that `diff-config.py` does not show: diff the raw JSON when the summary is empty.
 Never force
 past it and never re-send your local copy — that is the content that would erase their work. If

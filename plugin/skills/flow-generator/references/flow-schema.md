@@ -885,8 +885,8 @@ stretches but stops 2px short.
 "visibility": {"type": "conditional", "condition": { … }}
 ```
 
-Hiding an element removes it from layout entirely rather than leaving a hole where it was.
-Measured: two plan cards identical but for a tick badge shown only on the selected one came out
+Hiding an element removes it from layout entirely rather than leaving a hole where it was, and
+its stack gap goes with it. Measured: two plan cards identical but for a tick badge shown only on the selected one came out
 **25pt different in height**, because the hidden card's badge contributed nothing. If two
 state-varying siblings have to stay the same size, put the toggled element inside a wrapper with
 a **fixed** height and hide the element rather than the wrapper.
@@ -1174,12 +1174,18 @@ Shape rules, all enforced by that walker:
 | type | what must be there |
 |---|---|
 | `var` | a non-empty string `variableId` |
-| `==` `!=` `>` `<` `has` `notHas` `in` `notIn` | **both** `left` and `right`, each itself an expression |
-| `empty` `notEmpty` `size` | `left` |
+| `==` `!=` `>` `<` `has` `notHas` `in` `notIn` | **both** `left` and `right`, each an expression or `null` |
+| `empty` `notEmpty` `size` | `left`, an expression or `null` |
 | `&&` `\|\|` | `predicates` **an array** if present |
 | `concat` | `operands` **an array** if present |
 | `switch` | `cases` an array of `[predicate, value]` **pairs**; `default` recursed if the key is present |
 | `const` | anything |
+
+**`null` is the builder's unfinished condition** (`{"type": "==", "left": null, "right": null}`):
+accepted, and compiled as is, so an empty side compares as nothing and the condition never
+depends on the user. In conditional text that case always shows and nothing after it does.
+`verify-config.py` warns on it; finish it or delete it, and ask the user when it came with the
+flow.
 
 The three "if present" rows are load-bearing in the other direction: an **absent** `predicates`,
 `operands` or `cases` is accepted, so a checker stricter than this refuses documents the service
