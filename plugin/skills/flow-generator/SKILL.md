@@ -510,9 +510,10 @@ locales, products, the navigation graph. Before proposing anything; it grounds t
 catches a wrong flow immediately.
 
 **Confirm the transform.** In scope: add a locale, rewrite copy, add/remove/reorder screens,
-branching and conditions, renaming screen ids, and reusing a piece of another flow — its
-dependency resolution has a hard-422 class (`flow-schema.md` invariant 8), so it runs
-through `references/snippet.py`, never by hand ([snippets.md](references/snippets.md)). A request
+branching and conditions, renaming screen ids, and copying a piece of a flow, into another flow
+or the same one (a header onto other screens, a second copy of a screen) — its dependency
+resolution has a hard-422 class (`flow-schema.md` invariant 8), so it runs through
+`references/snippet.py`, never by hand ([snippets.md](references/snippets.md)). A request
 outside those is named as out of scope, not improvised.
 
 If the request is *"save this for reuse"* or *"add the thing I saved"*, run
