@@ -609,12 +609,11 @@ Per [Save & publish](https://adapty.io/docs/builder-save-publish.md), a custom f
 be in the app bundle or users see the system fallback. `_meta.fonts[].url` records the
 uploaded file; its presence in the export is not what makes the font available on device.
 
-**And a font cannot be added from here at all — uploading one is a manual Flow Builder action.**
-There is no CLI command for it (`flows media upload` takes images only), and hand-authoring a `_meta.fonts` entry fabricates an asset `id`/`url` pair, which is
-trap 5 with a typeface. So when a design needs a font the account does not have, the ask is
-two-step and both halves are the user's: upload the font in the builder, then tell the agent —
-who can then point `theme.typography` presets or element `font.family` at the real id the
-upload minted.
+**A font is added through the `fonts` commands, never by writing `_meta.fonts`.** Hand-authoring
+an entry fabricates an asset `id`/`url` pair, which is trap 5 with a typeface. Given the font
+files, upload them ([media.md → Uploading a font](media.md#uploading-a-font)) and point
+`theme.typography` presets or element `font.family` at the family id the upload returned; with no
+file, the font is a named ask to the user.
 
 Introducing a custom-font reference is therefore a **runtime** footgun, not a publish error:
 the flow publishes, and the text renders in the wrong typeface on devices whose bundle lacks
@@ -632,27 +631,30 @@ design needs a weight the family lacks, say which face will draw instead.
 for each text, rich-text span, state override and typography preset, in every locale. Without a
 name the transform service refuses the flow with `font_face_missing_ios_name`, and its message
 names the font and the face; an unnamed face nothing draws with publishes.
-`flows config validate` reports it; `verify-config.py` does not. It is
-the user's to fix, not yours: they set the name on that face in the builder's font settings, then
-you validate again. Never type a name into `_meta.fonts` — it would not match their bundle.
+`flows config validate` reports it; `verify-config.py` does not. Fix it on the face, then
+validate again: `fonts faces update <FACE_ID> --ios-name` with the PostScript name the file
+carries (on the user's yes when other flows use that family), or the user sets it in the builder's
+font settings. Never type a name into `_meta.fonts` — it would not match their bundle.
 
 **Publishing reads the app's fonts, not the copy in `_meta.fonts`.** The custom font lives once
 per app. Each flow carries a snapshot of it, refreshed when someone saves that flow in the
-builder, so a name corrected through `config update` comes back on read and changes nothing at
-publish. The fix is always the user's, in the font's settings in the builder
+builder and by `flows publish`, which saves the current fonts into the snapshot before it
+publishes; a name corrected through `config update` changes nothing at publish. The fix goes to
+the font: `fonts faces update`, or the font's settings in the builder
 ([Manage a custom font](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)).
-`flows config validate` sees it at once, and a flow picks it up the next time its config changes
-and it is published. A flow left as it was keeps the names it was last published with, so name
-those flows in the handoff. The names have one shape each
+`flows config validate` sees it at once, and a flow gets it at its next publish. A flow left as
+it was keeps the names it was last published with: a font command that changes a family lists
+those flows (`flows_to_publish`), so name them in the handoff. The names have one shape each
 ([Add the font files to your app's bundle](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)):
 
 | Field | Must be |
 |---|---|
 | `iosName` | the PostScript name stored in the font file, unique across the app's custom fonts. A variable font file often declares none for an instance; iOS then registers it as `<the file's own PostScript name>_<the instance's style name, spaces as dashes>`, such as `RobotoFlex-Regular_Bold-Italic`, which the builder offers as a hint |
-| `androidName` | the file name in `res/font/` without the extension: lowercase letters, digits and `_` only. The builder never fills it in |
+| `androidName` | the file name in `res/font/` without the extension: lowercase letters, digits and `_` only. Neither the builder nor the upload fills it in |
 
 When a face a text draws with has no `androidName`, or a flow you touch carries a name of the
-wrong shape, report it with that rule and the settings link above. Neither `validate` nor
+wrong shape, report it with that rule and the settings link above; once the user names the file
+in their app, `fonts faces update <FACE_ID> --android-name` sets it. Neither `validate` nor
 `verify-config.py` flags either; the flow publishes, and that device draws the system font instead.
 
 A reference can enter by any of invariant 9's paths, and the preset is the quiet one:

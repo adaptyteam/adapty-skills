@@ -195,7 +195,8 @@ a path that ends in a refusal:
 > | 1 | `<what it is, in their words>` | `<where on the screen>` | `<w>`×`<h>` |
 >
 > Tell me which, per asset or for all of them:
-> - Send me a path — I'll upload and bind it. Images and videos (mp4 or webm, up to 30 seconds).
+> - Send me a path — I'll upload and bind it. Images, videos (mp4 or webm, up to 30 seconds) and
+>   fonts (`.ttf` or `.otf`).
 > - Upload it yourself at https://app.adapty.io/flows/`<FLOW_ID>`/builder — the placeholder is
 >   already styled, so it lands finished.
 > - Design around it — I'll replace that region with something the format can build, and say
@@ -215,8 +216,8 @@ a path that ends in a refusal:
 > about the screen changes.
 >
 > `<only if a face is missing:>` `<what>` is set in a `<description>` this account lacks; I'm
-> using `<substitute>`, which `<how it differs>`. Fonts are **builder-only** — I can't upload one:
-> https://adapty.io/docs/using-custom-fonts-in-flow-builder — upload it, set the iOS and
-> Android font name on every face (the flow will not publish while a face it uses lacks the iOS one), save the flow in
-> the builder, then tell me the family name and I'll point the theme at it. The uploaded file is for
-> the editor preview only: **your app must bundle the font file too**, as that page shows.
+> using `<substitute>`, which `<how it differs>`. Send me the `.ttf` or `.otf` files, one per
+> weight and style, and I'll upload them, check each face's iOS and Android name and point the
+> theme at the font. The uploaded files are for the builder and the preview only: **your app must
+> bundle the same font files too**, as https://adapty.io/docs/using-custom-fonts-in-flow-builder
+> shows.
