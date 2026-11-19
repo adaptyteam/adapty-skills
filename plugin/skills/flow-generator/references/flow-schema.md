@@ -651,8 +651,9 @@ those flows in the handoff. The names have one shape each
 | `iosName` | the PostScript name stored in the font file, unique across the app's custom fonts. A variable font file often declares none for an instance; iOS then registers it as `<the file's own PostScript name>_<the instance's style name, spaces as dashes>`, such as `RobotoFlex-Regular_Bold-Italic`, which the builder offers as a hint |
 | `androidName` | the file name in `res/font/` without the extension: lowercase letters, digits and `_` only. The builder never fills it in |
 
-When a flow you touch carries a name of the wrong shape, report it with that rule and the
-settings link above. The flow publishes with it; the device draws the system font instead.
+When a face a text draws with has no `androidName`, or a flow you touch carries a name of the
+wrong shape, report it with that rule and the settings link above. Neither `validate` nor
+`verify-config.py` flags either; the flow publishes, and that device draws the system font instead.
 
 A reference can enter by any of invariant 9's paths, and the preset is the quiet one:
 an element's `props.font.family`, or a **typography preset** whose
@@ -744,7 +745,7 @@ to open the flow. Both causes below are invisible to every referential check:
 | Elements with no `states` key | A screen assembled the way `components` elements are written, where `states` legitimately never appears (see the seven-key element note above) | **Every element under a screen's `elements.map` carries `states`; `[]` is correct.** The absence is only legal inside `components`. |
 | A tab group declared `{"type": "tabs"}` | `tabs` is a real string in the builder transformer's source — a *source-level* constant, not a group type | Group `type` is one of the four in the vocabulary table. A tab group is `single_choice`. |
 
-Neither is caught by `flows config validate` — against `adapty/0.8.0` in production
+Neither is caught by `flows config validate` — against production
 that endpoint answers *publishable* for both. And neither is caught by `flows config preview`: injected
 into a config known to render, both defects still render, losing only a selected-tab
 highlight. **The two well-formedness rows in `SKILL.md`'s Verify list are what catch these**, and
@@ -1901,7 +1902,7 @@ reference resolves, and anything about the filled state.
 payload, is typed as an unconstrained value, so a well-formed expression and a broken one both
 pass. Never reshape a condition to satisfy the schema; it has no opinion here.
 
-`flows config validate` reaches the transform service from `adapty/0.8.0` and does check the
+`flows config validate` reaches the transform service and does check the
 *references* inside a condition — a `const` compared against an undeclared product, or a `groupId`
 naming no group, comes back as an `Unsupported flow input` error ([validate.md](validate.md)). It
 still says nothing about whether the condition expresses what you meant. So the gates on a
@@ -1940,6 +1941,33 @@ names an identifier you thought you had removed, look for a duplicate screen bef
 error, and do **not** write it off as a stale cache: nothing here is cached, and the diagnostic is
 accurate about a screen that really is still in the config.
 
+
+## One flow for iOS and Android: `system.platform`
+
+A condition can read the device platform through a reserved variable, so one flow serves both
+platforms instead of one flow each:
+
+```json
+{"type": "==", "left": {"type": "var", "variableId": "system.platform"},
+ "right": {"type": "const", "value": "ios"}}
+```
+
+- **Nothing produces it.** The SDK supplies the value on every version that renders flows (iOS
+  and Android SDK 4.0.0+), so it needs no `variables[]` entry and no app code. Huawei devices
+  report `"android"`. In the builder it is the **System** tab of the condition picker.
+- **Values and operators:** `"ios"` or `"android"`, with `==` / `!=`. Any other value is refused
+  as `invalid_system_variable_value`.
+- **Conditions only.** In text it is `unsupported_system_variable_use`; as a `setVariable` target,
+  `invalid_action_payload`. A `variables[]` entry with the same id shadows it and is an ordinary
+  custom variable — never declare one.
+- **An element** on one platform: conditional visibility, `flowkit.when(flowkit.platform_is('ios'))`.
+- **A screen** on one platform: a screen has no condition of its own. Branch on the screen
+  before it, with a conditional action on its forward button:
+  `conditional_action([(platform_is('ios'), [navigate('scr_att')])], default=[navigate('scr_next')])`.
+  The other platform never visits the screen, so **Navigate back** skips it too. The entry
+  screen cannot be skipped this way: never put a platform-only screen first.
+- **Screen size and device model are not readable** in a condition. Design one layout that fits
+  the smallest device.
 
 ## Conditions cannot compare numbers — enumerate equality instead
 

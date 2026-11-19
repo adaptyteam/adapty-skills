@@ -28,6 +28,7 @@ Gemini CLI), all shipped in one plugin, `adapty-skills`:
 | `onboarding-teardown` | Growth hypotheses for an onboarding sequence; touches nothing |
 | `paywall-teardown` | Conversion hypotheses for a paywall screen; touches nothing |
 | `purchase-testing` | The first sandbox purchase and every failed one |
+| `retention-messaging` | Runs Apple Retention Messaging through the CLI's `retention-messaging` topic or its MCP tools: setup status, URL and performance test, messages, their status and numbers |
 
 Three distribution channels: the Claude Code plugin (marketplace `.claude-plugin/marketplace.json`,
 plugin in `plugin/` with `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`), the
@@ -136,9 +137,10 @@ template, not the rule. A condition the agent cannot observe is not followed; ma
   site; the one bare call is the readiness check, `adapty auth whoami`, which installs nothing.
   `flow-audit` alone resolves straight to the npx form. Keep `--yes` and the `zsh`
   word-splitting note beside the block. A command is missing only after `--help` says so and one
-  `npx --yes adapty@beta` attempt; never gate on a version number. Over MCP the command is the
-  tool `<topic>_<command>`: `## CLI or MCP` is one text in every skill that calls Adapty, so change
-  every copy together and keep each skill's preference line after it.
+  `npx --yes adapty@beta` attempt; never gate on a version number. A check that only updates the
+  CLI and never blocks is allowed; a minimum version or a refusal by version number is not. Over
+  MCP the command is the tool `<topic>_<command>`: `## CLI or MCP` is one text in every skill that
+  calls Adapty, so change every copy together and keep each skill's preference line after it.
 - **Verify CLI facts against each command's own source** (`static flags`, description) in
   `adaptyteam/adapty-cli`, not prose, `--help` or flag-set composition; enumerate `dist/commands/`.
   Print `--version` with anything you test.
@@ -181,7 +183,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Never update a placement.** Only `ab-tests` commands start, stop and replace tests; a placement write that carries a test entry belongs to `audiences`, which keeps entries as read. The one placement write is `placements create` for a placement that does not exist, after a yes to its permanent developer ID; say the app needs the fetch call (`adapty-integration`).
 - **Make missing pieces, check the rest:** a flow arm needs `status` `published` in `flows get` (`draft` and `dirty` are published first); a paywall arm that differs only in products is `paywalls create` on a yes; a new design, a new store product and the app code are the user's. A segment comes from `audiences`, segment only. A start puts a segment without a row at the top; a lower position is an `audiences` row first, then the start on it.
 - **`update` sends the whole test again:** a flag left out is cleared. On a started test it changes only title and goal, with the arms, placement and audience as read; a completed or archived test cannot change. `create` needs a placement of the test's kind; `replace` keeps the number of arms.
-- **Results are read with `ab-tests metrics`, probed with `ab-tests metrics --help`** (an installed CLI is upgraded once, then one beta try; never a version). Before a stop the skill reads `metrics total`, shows each arm and asks for the winner. The leader comes only from the lifetime P2BB of `total` or `list`, in the order of the skill's "Results and the leader"; number texts live in `references/results.md`.
+- **Results are read with `ab-tests metrics`, probed with `ab-tests metrics --help`** (the version step updates the CLI first, then one beta try; never a version). Before a stop the skill reads `metrics total`, shows each arm and asks for the winner. The leader comes only from the lifetime P2BB of `total` or `list`, in the order of the skill's "Results and the leader"; number texts live in `references/results.md`.
 - **`list` shows flow tests unless `--type paywall` is given;** look at both types. `--placement` and `--segment` may repeat.
 
 ### `adapty-attribution`
@@ -255,6 +257,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **A picked hypothesis becomes an A/B test through `ab-tests`, offered unasked, and only after a read shows each thing it needs exists** (published flow copy, product with store IDs, segment, placement with traffic). A missing one is a Next step with who makes it, never a placeholder arm; of the `ab-tests` commands this skill runs only the reads: `list` and `get` for the app's test history, `metrics` for a test's results (leader rules and number texts are the `ab-tests` skill's, invoked, not copied).
 - **A finished test's OUTCOME comes from `reads.py`, never from the agent's reading:** the leader is the `ab-tests` skill's, from `ab-tests metrics list` (a flow placement's lifetime tree without it); the audience before and right after comes from the placement's audience tree, matched by test id and time. Only the user's word is "won"; a conclusion about a kind of change needs two agreeing results; a lead under 95% P2BB, a too-short or too-few test rules nothing out. The words for each OUTCOME live in `diagnosis.md`, "Past tests".
 - **Filter values come from `analytics values`, never from a group's `key`;** read funnel and retention groups from the grouped answer. New segments go through `audiences`.
+- **Retention Messaging is read before its step** (setup status and production list), then handed to `retention-messaging` on a yes; growth-advisor writes no message.
 
 ### `migrate-placements`
 
@@ -273,6 +276,13 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Choose skeletons and archetypes by observable prerequisites,** disclose the choice, and never fake a missing prerequisite (an offer, an asset, a personalized result). A flow cannot request a permission.
 - **Design mode is entered only when no design reference was given;** a given reference outranks the library; findings on your own draft are fixed, not reported.
 - **Looks follow `look.md`:** the app's design first; with a brand invent only the layout; with none, invent from a random starting point and roll by command. Never put a test fixture's own nouns in shipped examples.
+
+### `retention-messaging`
+
+- **Every write runs only after the user's yes to its card:** create and status change in both Apple environments, the edit card says each edit goes back to Apple's review, and replacing another URL in Apple is its own yes and `--replace-other-url`. Reads take no yes on either path: the CLI and MCP reads have the same side effects as opening the dashboard page.
+- **Only the CLI uploads images and adds bullet points;** with MCP only the skill names the CLI command or the dashboard and does not run it.
+- **Never repeat a create whose answer was lost;** find the candidates by name and read each by id.
+- **Commands and flags come from `src/cli/commands/retention-messaging/**` in `adapty-cli`, the change-file keys from `src/sdk/adapty/retention-messaging/change.ts`, the MCP parameters from the `retention_messaging_*` tools (`message_type` for `--type`);** the skill names only the flags it needs and sends the rest to `--help`.
 
 ### `purchase-testing`
 

@@ -72,6 +72,22 @@ testing, name that change in the offer instead: for a leaking screen of a flow, 
 change hypothesis, and that its design comes from `onboarding-teardown`; for the paywall of a
 flow, the untested Paywall design hypothesis, and that its design comes from `paywall-teardown`.
 
+## "Did the Flow Builder migration work?"
+
+The flows went on new placements next to the old paywall ones, so the old paywalls can still be in
+their placements; only their traffic stopped. Compare by id, not by placement:
+
+1. The switch date is the user's, or the first day the flow has viewers (`$ADAPTY flows metrics
+   get <FLOW_ID> --app <APP_ID> --based-on placement --granularity day --date-from … --date-to …
+   --date-type purchase_date`).
+2. `$ADAPTY paywalls list --app <APP_ID> --json` names each paywall's `kind` (`--kind` lists one);
+   the old ones are those with viewers in the period before the switch (`$ADAPTY paywalls metrics
+   get <PAYWALL_ID>`, same flags).
+3. Read the flows the same way over a period after the switch, and compare by
+   `references/diagnosis.md`, "Before you state a conclusion" (its "Before and after inside one store").
+
+Over MCP each step is its tool: `flows_metrics_get`, `paywalls_list` with `kind`, `paywalls_metrics_get`.
+
 ## A health check
 
 "How is my app doing", "how was this week", "anything wrong?", "check on my app" ask how the last
@@ -154,6 +170,7 @@ the first two weeks of real users.
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | Creating, starting, stopping or replacing an A/B test | `ab-tests`, on the user's yes, once "From hypothesis to A/B test" checks pass |
+| Messages on Apple's cancel screen (Retention Messaging): setup, messages, their numbers | This skill reads the status and the production list (`references/levers.md`, "Adapty features"); every write and draft: `retention-messaging`, invoked on the user's yes to the Next step |
 | How a dashboard feature works | `adapty-docs` |
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
@@ -238,14 +255,33 @@ not run.
 Resolve `$ADAPTY` once and use it for every call:
 
 ```bash
-adapty analytics catalog --help >/dev/null 2>&1 && adapty ab-tests metrics --help >/dev/null 2>&1 \
-  && ADAPTY="adapty" || {
-  npm i -g adapty@latest >/dev/null 2>&1
-  adapty analytics catalog --help >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
+if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
+  _a() { if [ -n "${HTTPS_PROXY-}${https_proxy-}" ]; then NODE_USE_ENV_PROXY=1 $ADAPTY "$@"; else $ADAPTY "$@"; fi; }
+  _v() { _a --version 2>/dev/null | sed -n 's|^adapty/\([^ ]*\).*|\1|p'; }
+  command -v adapty >/dev/null 2>&1 || { npm i -g adapty@latest >/dev/null 2>&1 \
+    && command -v adapty >/dev/null 2>&1; } || { echo npx; exit; }
+  J=$(_a version --json 2>/dev/null) && printf '%s' "$J" | node -e 'let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => { try { const j = JSON.parse(s);
+      if (j && typeof j.installed == "string" && (j.latest === null || typeof j.latest == "string")
+        && typeof j.update_available == "boolean") process.exit(j.update_available ? 1 : 0);
+    } catch (e) {} process.exit(1); });' && exit
+  old=$(_v); npm i -g adapty@latest >/dev/null 2>&1 || { echo npx; exit; }
+  new=$(_v); [ -n "$new" ] || { echo npx; exit; }
+  [ "$new" != "$old" ] && echo "CLI updated from $old to $new." || echo "Could not update the CLI: still $new."
+); [ "$VMSG" = npx ] && ADAPTY="npx --yes adapty@latest" \
+  && VMSG="Could not install or update the CLI globally, so I run it through npx."
+if [ -n "$VMSG" ]; then echo "$VMSG"; fi; fi
 ```
 
-If `$ADAPTY analytics catalog --help` still reports no such command, try `npx --yes adapty@beta
-analytics catalog --help` once before telling the user analytics is unavailable. `--yes` is
+**Run this block as its own command, right after the readiness check `adapty auth whoami` and
+before any other CLI command.** Copy it as it is: it runs `$ADAPTY version --json` and updates a
+CLI that is behind or too old to have that command. If it prints a line, your reply to the user
+starts with that line, in their language, with nothing added. Say nothing else about the CLI
+version: no "up to date", no version number. A new shell does not keep `$ADAPTY`: set it again, to
+`npx --yes adapty@latest` after the npx line, else to `adapty`.
+
+Then probe `$ADAPTY analytics catalog --help`. If it reports no such command, try
+`npx --yes adapty@beta analytics catalog --help` once before telling the user analytics is unavailable. `--yes` is
 required: without it npx waits for a confirmation nobody will give. In `zsh`, run `setopt shwordsplit` before using a
 multi-word `$ADAPTY`. Pass the command and every flag as separate words: `"placements list"`
 in quotes is one word, and the CLI answers that no such command exists. `$ADAPTY` is the only
@@ -337,6 +373,13 @@ and the reason.
   the next reply. You will not remember this conversation, so a check
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
   back and ask, never a "Me:" item, unless it is a recurring check ("Recurring checks").
+- **Retention Messaging (Apple's cancel screen), also when asked directly: this skill only reads**
+  (the two reads of `references/levers.md`, "Adapty features") and drafts or writes no message
+  itself. The setup status is the one status read: never add Adapty's URL (`realtime-url get`) or
+  a message read to it. **When the user allows only some reads, run only those;** any other read
+  is a Next step that waits for their yes. Once both are read, Next steps hold a "Me:" item that
+  offers the next step as an outcome and invokes `retention-messaging` on the user's yes; a missing
+  command or tool keeps the "You:" dashboard check.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
   it), one "You:" item asks when it ends. Say how far each arm is from about 200 purchases
   (`references/diagnosis.md`, "Placement metrics"), never which one leads.
@@ -425,19 +468,24 @@ started, and it never shows up as a change.
    last full month, with the month anything switched: `references/diagnosis.md`, "Before you
    state a conclusion"), and whether each placement shows a flow or a paywall, read from `placements get`.
    A flow is always built in Adapty's builder: read and render it. A paywall is either drawn by
-   the app itself (its own code or remote config) or made in the legacy Paywall Builder, and the
-   CLI cannot tell which. When the app's code is in front of you, look at how it buys: a screen of
-   its own that calls `makePurchase` is a custom paywall. Otherwise ask for a
-   screenshot. Ask whether it was made in the Paywall Builder only when the user picks a
-   hypothesis that changes it and you offer to build the copy. A hypothesis about what the screen
+   the app itself (its own code or remote config) or set to use the legacy Paywall Builder: the
+   `kind` of its row in `paywalls list --json` says which (`custom` or `legacy_builder`), so take it
+   from there and ask the user nothing about how it was made. Rows with no `kind` key come from an
+   older API, which also ignores `--kind` and returns every row; for that run, with no version check
+   or upgrade, never from the paywall's name or title (see below): when the app's code is in
+   front of you, look at how it buys: a screen of its own that calls `makePurchase` is a custom
+   paywall. Otherwise ask for a screenshot. Ask whether it was made in the Paywall Builder only
+   when the user picks a hypothesis that changes it and you offer to build the copy. A hypothesis about what the screen
    shows (its copy, a trial explanation, a badge, the layout, which plan is selected by default)
    needs that screen seen: a rendered flow, a screenshot or the app's code. So does adding or
    removing a trial, plan or offer on a paywall, and seeing the screen is where that check starts,
    not where it ends: removing a trial follows `references/levers.md`, Trials, which drops it on a
    screen built around the trial. A paywall's name never tells you its design. Until then it is not
    suggested; a "You:" Next step asks for the screenshot and names what it would let you check (in an
-   audit, through the **Send me screenshots** section: "What a hypothesis needs"). A legacy Builder paywall can be moved to the new builder and then
-   copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
+   audit, through the **Send me screenshots** section: "What a hypothesis needs"). A `legacy_builder` paywall may be moved to the new builder and then
+   copied (`references/levers.md`, Paywall design): name **Move to new builder** as a button the
+   user looks for on the paywall's dashboard page, shown only when a layout is saved, which `kind`
+   does not say; never a step you do or one that surely exists. A custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it (`references/diagnosis.md`, "What the app already tried"): the
    A/B tests `reads.py` lists (each paywall and flow test with its placement, audience, dates and
@@ -708,7 +756,7 @@ test needs with a read. Never assume a thing exists because the user said they w
 | A new plan length | `products get` shows its store product in each store the app sells in, with `store_status` `approved`, and a flow that sells it exists | Me: the product and its push, on your yes to its store product IDs and USD price (`references/pricing.md`, "Adding a plan length"), and the flow that sells it |
 | A trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"); a second product it needs I make as a new plan length. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
 | A price test's copy of a product | `products get` shows the copy's store product with `store_status` `approved`, and a flow that sells it exists | Me: the copy, its push and its prices (`references/pricing.md`, "Setting up a price A/B test"), and the flow that sells it |
-| A paywall arm (legacy Paywall Builder or custom paywall) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
+| A paywall arm (`kind` `legacy_builder` or `custom`) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
 | A segment | `segments list` shows one with the filter the hypothesis targets | Me: `audiences`, on a yes (segment steps only) |
 | A placement with traffic | `placements list` shows it, `placements get` shows the content type of its audiences (paywall or flow), and the Time line found purchases on it | Me: `ab-tests` creates a new one, on a yes to its developer ID. You: the one call in the app that fetches it (`adapty-integration`), and a release. No purchases: no test |
 | No other A/B test on that audience | `placements get` shows no test entry on the audience | A start ends a running test. The "You:" item asks how it is going first |

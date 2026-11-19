@@ -35,7 +35,8 @@ plan and the rest: [products.md](references/products.md).
 When you do author, [`references/flowkit.py`](references/flowkit.py) owns the mechanical parts —
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
-It also covers conditions (`when`/`ref`/`all_`/`not_empty`), all fourteen action types, the
+It also covers conditions (`when`/`ref`/`all_`/`not_empty`, and `platform_is` for one flow
+across iOS and Android), all fourteen action types, the
 eight inputs and the tabs composite — each raising on the shape the transform service refuses,
 `interactions=` included (the error says what to pass).
 
@@ -267,11 +268,60 @@ diff before any retry.
 failed to reach the tool. Above that, offer the CLI once; never seed a stub and push the rest
 through the edit tool in compressed pieces.
 
+## Resolve the CLI
+
+**Resolve `$ADAPTY` once, here, and use it for every command below.** A global `adapty` is frequently old
+— `0.3.0` has no `flows` topic — and an old install reads as "validate and preview do not exist";
+that is never a reason to skip phases 3 and 4:
+
+```bash
+if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
+  _a() { if [ -n "${HTTPS_PROXY-}${https_proxy-}" ]; then NODE_USE_ENV_PROXY=1 $ADAPTY "$@"; else $ADAPTY "$@"; fi; }
+  _v() { _a --version 2>/dev/null | sed -n 's|^adapty/\([^ ]*\).*|\1|p'; }
+  command -v adapty >/dev/null 2>&1 || { npm i -g adapty@latest >/dev/null 2>&1 \
+    && command -v adapty >/dev/null 2>&1; } || { echo npx; exit; }
+  J=$(_a version --json 2>/dev/null) && printf '%s' "$J" | node -e 'let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => { try { const j = JSON.parse(s);
+      if (j && typeof j.installed == "string" && (j.latest === null || typeof j.latest == "string")
+        && typeof j.update_available == "boolean") process.exit(j.update_available ? 1 : 0);
+    } catch (e) {} process.exit(1); });' && exit
+  old=$(_v); npm i -g adapty@latest >/dev/null 2>&1 || { echo npx; exit; }
+  new=$(_v); [ -n "$new" ] || { echo npx; exit; }
+  [ "$new" != "$old" ] && echo "CLI updated from $old to $new." || echo "Could not update the CLI: still $new."
+); [ "$VMSG" = npx ] && ADAPTY="npx --yes adapty@latest" \
+  && VMSG="Could not install or update the CLI globally, so I run it through npx."
+if [ -n "$VMSG" ]; then echo "$VMSG"; fi; fi
+```
+
+**Run this block as its own command, right after the readiness check `adapty auth whoami` and
+before any other CLI command (phase 1, step 2).** Copy it as it is: it runs
+`$ADAPTY version --json` and updates a CLI that is behind or too old to have that command. If it
+prints a line, your reply to the user starts with that line, in their language, with nothing added.
+Say nothing else about the CLI version: no "up to date", no version number. A new shell does not
+keep `$ADAPTY`: set it again, to `npx --yes adapty@latest` after the npx line, else to `adapty`.
+
+**In `zsh` — the macOS default — a multi-word `$ADAPTY` is not split into words**, so every command
+below fails with `command not found: npx --yes adapty@latest`. Run `setopt shwordsplit` once in the
+same shell (verified), or call `npx --yes adapty@latest` in full. That error is a shell problem,
+never evidence the command or the CLI is missing. A letter after `$VAR:` is a zsh modifier too
+(`$FLOW:l` lowercases the value), so a colon that follows a variable gets braces: `${FLOW}:`.
+`gates.sh` and `shoot.sh` run in `bash` and split it themselves, so hand them the command as a
+prefix: `ADAPTY='npx --yes adapty@latest' references/gates.sh …`.
+
+**Install once; do not wrap every call in `npx`.** The wrapper costs ~1 s *per call* against
+0.07 s installed, and a run makes dozens. Where the global prefix is not writable the `npx` form
+still works, and there `--yes` is not optional: without it npx stops to ask permission to install.
+
+**On Windows, run the `.sh` scripts from Git Bash, and where this skill writes `python3`, call
+`python -X utf8` (or `py -3 -X utf8`).** `python3` there is usually the Microsoft Store stub, and
+"Python was not found" means the wrong interpreter, never a broken script; `-X utf8` keeps non-Latin
+copy from passing through the console code page. `gates.sh` and `shoot.sh` find a working Python,
+and Chrome or Edge, themselves; set `PYTHON=` or `CHROME=` only when they say they cannot.
+
 ## The CLI surface
 
 ```
 $ADAPTY auth login                                             # code + link, waits; run it as phase 1 says
-$ADAPTY auth whoami                                            # verifies the token server-side
 $ADAPTY apps list --json                                       # to get <APP_UUID>
 
 $ADAPTY flows list   --app <APP_UUID> [--page N] [--page-size N]    # page-size max 100
@@ -290,36 +340,8 @@ $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name req
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; an `http_404`: see below
 ```
 
-**Resolve `$ADAPTY` once, here, and use it for every command.** A global `adapty` is frequently old
-— `0.3.0` has no `flows` topic — and an old install reads as "validate and preview do not exist";
-that is never a reason to skip phases 3 and 4:
-
-```bash
-npm i -g adapty@latest >/dev/null 2>&1 \
-  && ADAPTY="adapty" \
-  || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
-```
-
-**In `zsh` — the macOS default — a multi-word `$ADAPTY` is not split into words**, so every command
-below fails with `command not found: npx --yes adapty@latest`. Run `setopt shwordsplit` once in the
-same shell (verified), or call `npx --yes adapty@latest` in full. That error is a shell problem,
-never evidence the command or the CLI is missing. A letter after `$VAR:` is a zsh modifier too
-(`$FLOW:l` lowercases the value), so a colon that follows a variable gets braces: `${FLOW}:`.
-`gates.sh` and `shoot.sh` run in `bash` and split it themselves, so hand them the command as a
-prefix: `ADAPTY='npx --yes adapty@latest' references/gates.sh …`.
-
-**Install once; do not wrap every call in `npx`.** The wrapper costs ~1 s *per call* against
-0.07 s installed, and a run makes dozens. Where the global prefix is not writable the `npx` form
-still works, and there `--yes` is not optional: without it npx stops to ask permission to install.
-
 Declare a command unavailable only after its `--help` says so *and* one `npx --yes adapty@beta`
 attempt lacks it too — never from a version number you read somewhere.
-
-**On Windows, run the `.sh` scripts from Git Bash, and where this skill writes `python3`, call
-`python -X utf8` (or `py -3 -X utf8`).** `python3` there is usually the Microsoft Store stub, and
-"Python was not found" means the wrong interpreter, never a broken script; `-X utf8` keeps non-Latin
-copy from passing through the console code page. `gates.sh` and `shoot.sh` find a working Python,
-and Chrome or Edge, themselves; set `PYTHON=` or `CHROME=` only when they say they cannot.
 
 **`flows media upload` works in production**, so an image the user *handed you a file for* is
 yours to place, not a user ask. Its limits, the `--json` record file to keep, the three values it
@@ -378,17 +400,19 @@ Four facts about the config commands that are not guessable:
 
 ### 1. Resolve the invocation, then authenticate
 
-**First** set `$ADAPTY` as [the CLI surface](#the-cli-surface) describes — **install once globally** rather than paying the npx wrapper's
-~1 s on every later call (`npx` only as the fallback). Do it before the first command, not after one fails,
-and print the version you resolved in the same command you run next so the two cannot disagree.
+Three separate commands, in this order; never join them in one line:
 
-Then `$ADAPTY auth whoami`. It hits the server and prints the name and companies, so it proves the
-token works. Prefer it to `auth status`, which only reports what is stored locally and does not
-verify it — it prints the stored name and token prefix even when the token no longer works.
+1. `adapty auth whoami`, the readiness check. It hits the server and prints the name and
+   companies, so it proves the token works; `auth status` only reports what is stored locally.
+2. The block of [Resolve the CLI](#resolve-the-cli), copied as it is. Not `$ADAPTY version --json`
+   or `--version` alone and not a script of your own: only the block judges the answer and updates
+   the CLI.
+3. `$ADAPTY apps list --json` for the `<APP_UUID>` every later command needs.
 
-If it fails with `Could not reach …` (`network_error`), the network is the problem, not the token,
-so do not log in. Tell the user the CLI could not reach Adapty; on a network with an allowlist or
-proxy, an administrator has to allow both `adapty.io` and `*.adapty.io`.
+When step 1 fails, still run step 2, then: with `Could not reach …` (`network_error`), the
+network is the problem, not the token, so do not log in. Tell the user the CLI could not reach
+Adapty; on a network with an allowlist or proxy, an administrator has to allow both `adapty.io` and
+`*.adapty.io`.
 
 Any other failure: log in. **`auth login` opens a browser only at a terminal: from your shell it
 prints a code and a link, then waits in the foreground** for the user to approve, holding your
@@ -408,7 +432,7 @@ shells have it. Never start a second login while the first waits: its code voids
 user is opening. When the log says `The code expired before authorization`, start one more and
 say why there is a new link.
 
-Then `$ADAPTY apps list --json` for the `<APP_UUID>` every later command needs.
+Then go on with step 3.
 
 **Then check where the request actually starts, because not every run is an edit.** *"I published
 my flow"*, *"how do I get this into my app"*, *"nothing shows up in the app"* is a **phase 6**

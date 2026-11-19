@@ -169,6 +169,13 @@ EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty
 # it falls through to `default` and the flow is refused. Legal in a `setVariable` payload,
 # illegal as a condition — hence scoped here and not to expressions generally.
 COND_ILLEGAL_TYPES = {'assign'}
+# System variables: read-only device context a condition reads by a reserved `var` id, with no
+# app code. The transform service compiles `system.platform` to the SDK's own platform value
+# (iOS and Android SDK 4.0.0+), so nothing produces it in the document. It is a condition operand
+# only: compared with a value outside its list it is `invalid_system_variable_value`, in text
+# `unsupported_system_variable_use`, as a `setVariable` target `invalid_action_payload`. A
+# `variables[]` entry with the same id shadows it and is an ordinary custom variable.
+SYSTEM_VARIABLES = {'system.platform': ('ios', 'android')}
 # A colour hex the schema allows: `#RRGGBB`. The transform service also reads `#RGB`,
 # `#RRGGBBAA` and an unprefixed hex, in a theme colour as in an element; a theme colour whose hex
 # it cannot read at all (empty, 7 digits) is refused or its solid dropped, depending on the
@@ -1218,7 +1225,32 @@ def _var_ids(v):
     return out
 
 
-def check(path, baseline_text=None, baseline_images=None):
+def screen_ids(path):
+    """The real screen ids of a document, or none if it cannot be read (its check reports that)."""
+    try:
+        doc = unwrap(json.load(open(path, encoding='utf-8')))
+        return {s['id'] for s in doc.get('screens') or [] if isinstance(s, dict)
+                and isinstance(s.get('id'), str)}
+    except Exception:                             # noqa: BLE001 - the check itself reports it
+        return set()
+
+
+def unnamed_labels(screens, reserved=frozenset()):
+    """Position -> message label of each screen with no `id`: `with no id (position N)`, with `*`
+    added until it equals no real id of these screens and none in `reserved`."""
+    screens = screens if isinstance(screens, list) else []
+    real = {s['id'] for s in screens if isinstance(s, dict) and 'id' in s}
+    out = {}
+    for i, s in enumerate(screens):
+        if isinstance(s, dict) and 'id' not in s:
+            label = f'with no id (position {i + 1})'
+            while label in real or label in reserved or label in out.values():
+                label += '*'
+            out[i] = label
+    return out
+
+
+def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     raw = unwrap(json.load(open(path, encoding='utf-8')))
     bad, warn = catalog_findings(raw)
     # Every check below reads THIS: the same document with each `{_lid}` ref inlined, so a check
@@ -1226,6 +1258,38 @@ def check(path, baseline_text=None, baseline_images=None):
     d = _loc.resolve(raw)
     els = lambda: ((s, e) for s in d.get('screens', [])
                    for e in s.get('elements', {}).get('map', {}).values())
+
+    # Screen well-formedness. The screen is `{id, props, caption, elements: {map, hierarchy},
+    # selectableGroups, products}` and the Flow Builder's screen schema requires `id`, `props` and
+    # `elements` (`"props": {}` is valid). A fetched flow can arrive with a screen that has only
+    # `id` and `elements`. Report each missing key here, then give the read view an empty
+    # stand-in, so every check below reads the screen instead of crashing on it. A screen with no
+    # `id` keeps its position (screens[0] is the entry, `navigateNext` goes to the next one) and
+    # gets its message label as its id, made unlike every real id so that its findings never print
+    # as another screen's. A navigate target resolves only to a real id: one that equals a label
+    # stays dangling. `--baseline` lists a fetched flow's own as ALREADY IN, as for the element
+    # keys below; for that, `reserved` holds the real ids of the baseline and of every document
+    # checked against it, so each run gives a screen the same label and no label equals a real id
+    # of another run. Position is no identity across two documents, so the main part never lists a
+    # finding in an unnamed screen as ALREADY IN, apart from the screen's own missing-key error.
+    real_sids = {s['id'] for s in d.get('screens') or [] if isinstance(s, dict) and 'id' in s}
+    labels = unnamed_labels(d.get('screens'), reserved)
+    unnamed = set(labels.values())
+    for i, s in enumerate(d.get('screens') or []):
+        if not isinstance(s, dict):
+            continue
+        miss = [k for k in ('id', 'props', 'elements') if k not in s]
+        if isinstance(s.get('elements'), dict):
+            miss += [f'elements.{k}' for k in ('map', 'hierarchy') if k not in s['elements']]
+        if 'id' not in s:
+            s['id'] = labels[i]
+        if miss:
+            bad.append(f'screen {s["id"]} missing required key(s) {miss} — the Flow Builder\'s '
+                       f'screen schema requires each; `"props": {{}}` is valid')
+        s.setdefault('props', {})
+        if isinstance(s.setdefault('elements', {}), dict):
+            s['elements'].setdefault('map', {})
+            s['elements'].setdefault('hierarchy', {'id': 'root', 'children': []})
 
     for s in d.get('screens', []):
         for k, e in s['elements']['map'].items():
@@ -1286,7 +1350,7 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'BASELINE=<the backup>): the flow\'s own are then listed apart and do not '
                     f'block your edit. Give `"states": []` only to elements you wrote')
 
-    sids = {s['id'] for s in d.get('screens', [])}
+    sids = real_sids
     tg = []
     walk(d, lambda o: tg.append(o['screen'])
          if o.get('type') == 'screen' and isinstance(o.get('screen'), str) else None)
@@ -2179,7 +2243,7 @@ def check(path, baseline_text=None, baseline_images=None):
                 if isinstance(o, dict):
                     if o.get('type') == 'navigate':
                         t = (o.get('payload') or {}).get('screen')
-                        if t: outs.append(t)
+                        if t and t not in unnamed: outs.append(t)
                     for v in o.values(): collect(v)
                 elif isinstance(o, list):
                     for v in o: collect(v)
@@ -3215,15 +3279,51 @@ def check(path, baseline_text=None, baseline_images=None):
                    if isinstance(v, dict) and v.get('id')}
     all_custom_ids = {(e.get('props') or {}).get('customId')
                       for _, e in els() if (e.get('props') or {}).get('customId')}
+    system_ids = set(SYSTEM_VARIABLES) - custom_vars
     for v in sorted(cond_var_ids):
         head = v.split('.')[0]
-        if (v in custom_vars or head in all_custom_ids or head in group_ids
+        if (v in system_ids or v in custom_vars or head in all_custom_ids or head in group_ids
                 or head in allprod or head in bound_products or head in product_groups):
             continue
         bad.append(f'condition variable {v!r} resolves to nothing: no input customId, '
                    f'selectableGroup, bound product or variables[] entry produces it. The '
                    f'generated script emits it as a bare identifier and fails to compile '
                    f'(script_type_violation, TS2304)')
+
+    # System variables: a comparison the SDK can never satisfy, a use in text, a write. The
+    # walk covers conditional actions too, which `iter_conditions` does not reach.
+    def _system_uses(o):
+        t = o.get('type')
+        if t in ('==', '!=', 'in', 'notIn'):
+            pairs = [(o.get('left'), o.get('right'))]
+            if t in ('==', '!='):
+                pairs.append((o.get('right'), o.get('left')))
+            for var, other in pairs:
+                if not (isinstance(var, dict) and var.get('type') == 'var'
+                        and var.get('variableId') in system_ids):
+                    continue
+                vid = var['variableId']
+                if not (isinstance(other, dict) and other.get('type') == 'const'):
+                    continue
+                vals = other.get('value') if t in ('in', 'notIn') else [other.get('value')]
+                for val in vals if isinstance(vals, list) else []:
+                    if val is not None and val not in SYSTEM_VARIABLES[vid]:
+                        bad.append(f'{vid} is compared with {val!r}, which the SDK never reports '
+                                   f'(invalid_system_variable_value); use one of '
+                                   f'{list(SYSTEM_VARIABLES[vid])}')
+        if t == 'variable' and isinstance(o.get('attrs'), dict) \
+                and o['attrs'].get('variableId') in system_ids:
+            bad.append(f'{o["attrs"]["variableId"]} is in text (unsupported_system_variable_use): '
+                       f'a system variable works only in conditions')
+        if t == 'setVariable' and isinstance(o.get('payload'), list):
+            for asg in o['payload']:
+                left = asg.get('left') if isinstance(asg, dict) else None
+                if isinstance(left, dict) and left.get('variableId') in system_ids:
+                    bad.append(f'setVariable action {o.get("id")!r} writes '
+                               f'{left["variableId"]}, which is read-only '
+                               f'(invalid_action_payload)')
+    walk(d.get('screens') or [], _system_uses)
+    walk(d.get('components') or {}, _system_uses)
 
     # ---- custom tags: `variables[]` entries with `external: true`, whose value the app supplies.
     # The name is the contract with the app's code and publishes as an SDK tag, so the two
@@ -4477,14 +4577,16 @@ args = sys.argv[1:]
 # fail the run. Without this, three runs editing one fetched flow read its own missing `states`
 # as their defect. A finding whose words changed (a count grew, an id moved) counts as new.
 baseline_text = baseline_images = base_found = None
+reserved = frozenset()
 base_name = ''
 if '--baseline' in args:
     i = args.index('--baseline')
     if i + 1 >= len(args):
         sys.exit('verify-config.py: --baseline needs a config path')
     base_name = os.path.basename(args[i + 1])
+    reserved = frozenset().union(*(screen_ids(a) for a in args if a != '--baseline'))
     try:
-        _b_bad, _b_warn = check(args[i + 1])
+        _b_bad, _b_warn = check(args[i + 1], reserved=reserved)
         base_found = set(_b_bad), set(_b_warn)
     except Exception:                             # noqa: BLE001 - a broken baseline only loses the split
         base_found = None
@@ -4519,7 +4621,7 @@ for path in args:
         print(f'   {exc}')
         sys.exit(2)
     try:
-        bad, warn = check(path, baseline_text, baseline_images)
+        bad, warn = check(path, baseline_text, baseline_images, reserved)
     except Exception as exc:                                  # noqa: BLE001 - the point is breadth
         import traceback
         print(f'{os.path.basename(path):34} CHECKER ERROR')
@@ -4531,10 +4633,20 @@ for path in args:
         sys.exit(2)
     old = []
     if base_found is not None:
-        old = ([('error', b) for b in bad if b in base_found[0]]
-               + [('warning', w) for w in warn if w in base_found[1]])
-        bad = [b for b in bad if b not in base_found[0]]
-        warn = [w for w in warn if w not in base_found[1]]
+        # A finding in a screen with no id is always this edit's: a position names no screen across
+        # two documents. Only that screen's own missing-key error can be ALREADY IN.
+        _labels = unnamed_labels(unwrap(json.load(open(path, encoding='utf-8'))).get('screens'),
+                                 reserved).values()
+        def known(msg, found):
+            if msg not in found:
+                return False
+            if any(msg.startswith(f'screen {lb} missing required key(s)') for lb in _labels):
+                return True
+            return not any(lb in msg for lb in _labels)
+        old = ([('error', b) for b in bad if known(b, base_found[0])]
+               + [('warning', w) for w in warn if known(w, base_found[1])])
+        bad = [b for b in bad if not known(b, base_found[0])]
+        warn = [w for w in warn if not known(w, base_found[1])]
     print(f'{os.path.basename(path):34} {"OK" if not bad else "VIOLATIONS"}')
     for b in bad:
         print(f'   ERROR:   {b}')

@@ -58,8 +58,10 @@ Boundaries. This skill does not design or build flow content — that is `flow-g
 `flows config update`, the preview loop and publish. It does not convert a paywall into a flow —
 that is the dashboard button above, the user's click, with no CLI equivalent; this skill's job is
 to find the flow it produced and put a placement on it. It does not implement the app-side call
-sites — that is `adapty-integration`. It does not delete or modify any existing placement, paywall
-or flow.
+sites — that is `adapty-integration`. It does not judge whether a migration worked ("did the
+migration to flows work?", "how do the flows do against the old paywalls?") — that is
+`growth-advisor`, which compares the old paywalls with the flows. It does not delete or modify any
+existing placement, paywall or flow.
 
 ## CLI or MCP
 
@@ -131,22 +133,42 @@ flows](https://adapty.io/docs/migrate-to-flows.md)).
 ## Phase 1 — Resolve and probe
 
 This migration needs `flows publish`. Resolve `$ADAPTY` once, the way the sibling skills do —
-**install `latest` once and keep using it**, falling back to `npx` only when the global prefix is
-not writable — then check that the command is there:
+**keep one installed CLI, updated when it is behind**, falling back to `npx` only when the global
+prefix is not writable — then check that the command is there:
 
 ```bash
-npm i -g adapty@latest >/dev/null 2>&1 \
-  && ADAPTY="adapty" \
-  || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
-$ADAPTY --version
-$ADAPTY auth whoami
+if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
+  _a() { if [ -n "${HTTPS_PROXY-}${https_proxy-}" ]; then NODE_USE_ENV_PROXY=1 $ADAPTY "$@"; else $ADAPTY "$@"; fi; }
+  _v() { _a --version 2>/dev/null | sed -n 's|^adapty/\([^ ]*\).*|\1|p'; }
+  command -v adapty >/dev/null 2>&1 || { npm i -g adapty@latest >/dev/null 2>&1 \
+    && command -v adapty >/dev/null 2>&1; } || { echo npx; exit; }
+  J=$(_a version --json 2>/dev/null) && printf '%s' "$J" | node -e 'let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => { try { const j = JSON.parse(s);
+      if (j && typeof j.installed == "string" && (j.latest === null || typeof j.latest == "string")
+        && typeof j.update_available == "boolean") process.exit(j.update_available ? 1 : 0);
+    } catch (e) {} process.exit(1); });' && exit
+  old=$(_v); npm i -g adapty@latest >/dev/null 2>&1 || { echo npx; exit; }
+  new=$(_v); [ -n "$new" ] || { echo npx; exit; }
+  [ "$new" != "$old" ] && echo "CLI updated from $old to $new." || echo "Could not update the CLI: still $new."
+); [ "$VMSG" = npx ] && ADAPTY="npx --yes adapty@latest" \
+  && VMSG="Could not install or update the CLI globally, so I run it through npx."
+if [ -n "$VMSG" ]; then echo "$VMSG"; fi; fi
 ```
+
+**Run this block as its own command, right after the readiness check `adapty auth whoami` and
+before any other CLI command.** Copy it as it is: it runs `$ADAPTY version --json` and updates a
+CLI that is behind or too old to have that command. If it prints a line, your reply to the user
+starts with that line, in their language, with nothing added. Say nothing else about the CLI
+version: no "up to date", no version number. A new shell does not keep `$ADAPTY`: set it again, to
+`npx --yes adapty@latest` after the npx line, else to `adapty`.
+
+Then `$ADAPTY auth whoami`.
 
 **Do not gate this on a version number you read somewhere — check the command.** `$ADAPTY flows
 publish --help` either describes a command or it does not, and that is the only test that cannot go
 stale; a numeric floor has already been wrong here once, because `flows publish` shipped in
 `0.8.3-beta.0` and `0.8.3-beta.1`, was **absent from `0.8.3`**, and came back after it. If the
-command is missing after installing `latest`, try `npx --yes adapty@beta` once, and if it is missing
+command is missing after the block above, try `npx --yes adapty@beta` once, and if it is missing
 there too the route is not released yet: say so and hand the user the dashboard steps
 ([Migrate to flows](https://adapty.io/docs/migrate-to-flows.md)) rather than a version to chase.
 
@@ -396,9 +418,9 @@ some do not. Four routes, in the order to offer them:
   is served from.
 
 **Whether Convert is even available is not readable from the CLI.** `paywalls list`/`get` return
-`{id, title, products}` and
-nothing about whether a paywall is a legacy Paywall Builder paywall (`get` adds only
-`use_paywall_builder_v4`), and **Move to new builder** appears only on those. So do not tell a user the button is
+`{id, title, products, kind}`: `kind` `legacy_builder` says the paywall is set to use a legacy
+Paywall Builder, not that a layout is saved, and **Move to new builder** appears only when a layout
+is saved (an older API gives no `kind`). So do not tell a user the button is
 there — say what it does and where to look for it, and let them report back.
 
 Never pick for them. The four differ in what users will see, which is not the agent's call. **What

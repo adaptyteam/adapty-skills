@@ -70,7 +70,7 @@ keep polling, and never publish again over it. If `flows publish` itself answers
 `flows get`: `publishing` means it was taken; the status from before means it was not, so run it
 once more.
 
-**Two things gate this, and neither of them is the account.** One is the **CLI version** ([SKILL.md → The CLI surface](../SKILL.md#the-cli-surface)). The
+**Two things gate this, and neither of them is the account.** One is the **CLI version** ([SKILL.md → Resolve the CLI](../SKILL.md#resolve-the-cli)). The
 other is the **API deployment**: `flows publish` has been observed answering `http_404` and
 `flows update --name` answering `Method "PUT" not allowed`. Neither error means you wrote the
 command wrong and neither is fixable by switching accounts — they are per deployment, every account
