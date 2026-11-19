@@ -443,10 +443,11 @@ the offer is real.
   copies the live version (`flows duplicate --version` with the `live` row of
   `flows versions list`, never the draft) and edits it. Never edit the live flow in place: every
   user gets the change, and nothing measures it.
-- **A paywall from the old Paywall Builder** (the user confirms it; the CLI cannot tell it from a
-  custom one) cannot be copied this way. Offer the dashboard's
-  **Move to new builder** first ([convert a paywall to a flow](https://adapty.io/docs/convert-paywall-to-flow.md)),
-  then the copy.
+- **A paywall from the old Paywall Builder** (`kind` `legacy_builder` in `paywalls list`; a row
+  with no `kind` key: the user confirms it) cannot be copied this way. Offer the dashboard's
+  **Move to new builder** first as a button to look for on the paywall's page, never as a step
+  you do or one that surely exists: it shows only when a layout is saved, which `kind` does not say
+  ([convert a paywall to a flow](https://adapty.io/docs/convert-paywall-to-flow.md)), then the copy.
 - **Say what it rests on:** the teardown's reading of the screen and the evidence library, plus
   this paywall's view → paid rate and its purchases per screen (reads 8 and 9 in `diagnosis.md`).
   For a paywall in a flow, add what its funnel shows: the paywall screen's `reached`, `trials`,

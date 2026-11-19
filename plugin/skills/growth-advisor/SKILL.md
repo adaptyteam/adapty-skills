@@ -72,6 +72,22 @@ testing, name that change in the offer instead: for a leaking screen of a flow, 
 change hypothesis, and that its design comes from `onboarding-teardown`; for the paywall of a
 flow, the untested Paywall design hypothesis, and that its design comes from `paywall-teardown`.
 
+## "Did the Flow Builder migration work?"
+
+The flows went on new placements next to the old paywall ones, so the old paywalls can still be in
+their placements; only their traffic stopped. Compare by id, not by placement:
+
+1. The switch date is the user's, or the first day the flow has viewers (`$ADAPTY flows metrics
+   get <FLOW_ID> --app <APP_ID> --based-on placement --granularity day --date-from … --date-to …
+   --date-type purchase_date`).
+2. `$ADAPTY paywalls list --app <APP_ID> --json` names each paywall's `kind` (`--kind` lists one);
+   the old ones are those with viewers in the period before the switch (`$ADAPTY paywalls metrics
+   get <PAYWALL_ID>`, same flags).
+3. Read the flows the same way over a period after the switch, and compare by
+   `references/diagnosis.md`, "Before you state a conclusion" (its "Before and after inside one store").
+
+Over MCP each step is its tool: `flows_metrics_get`, `paywalls_list` with `kind`, `paywalls_metrics_get`.
+
 ## A health check
 
 "How is my app doing", "how was this week", "anything wrong?", "check on my app" ask how the last
@@ -444,19 +460,24 @@ started, and it never shows up as a change.
    last full month, with the month anything switched: `references/diagnosis.md`, "Before you
    state a conclusion"), and whether each placement shows a flow or a paywall, read from `placements get`.
    A flow is always built in Adapty's builder: read and render it. A paywall is either drawn by
-   the app itself (its own code or remote config) or made in the legacy Paywall Builder, and the
-   CLI cannot tell which. When the app's code is in front of you, look at how it buys: a screen of
-   its own that calls `makePurchase` is a custom paywall. Otherwise ask for a
-   screenshot. Ask whether it was made in the Paywall Builder only when the user picks a
-   hypothesis that changes it and you offer to build the copy. A hypothesis about what the screen
+   the app itself (its own code or remote config) or set to use the legacy Paywall Builder: the
+   `kind` of its row in `paywalls list --json` says which (`custom` or `legacy_builder`), so take it
+   from there and ask the user nothing about how it was made. Rows with no `kind` key come from an
+   older API, which also ignores `--kind` and returns every row; for that run, with no version check
+   or upgrade, never from the paywall's name or title (see below): when the app's code is in
+   front of you, look at how it buys: a screen of its own that calls `makePurchase` is a custom
+   paywall. Otherwise ask for a screenshot. Ask whether it was made in the Paywall Builder only
+   when the user picks a hypothesis that changes it and you offer to build the copy. A hypothesis about what the screen
    shows (its copy, a trial explanation, a badge, the layout, which plan is selected by default)
    needs that screen seen: a rendered flow, a screenshot or the app's code. So does adding or
    removing a trial, plan or offer on a paywall, and seeing the screen is where that check starts,
    not where it ends: removing a trial follows `references/levers.md`, Trials, which drops it on a
    screen built around the trial. A paywall's name never tells you its design. Until then it is not
    suggested; a "You:" Next step asks for the screenshot and names what it would let you check (in an
-   audit, through the **Send me screenshots** section: "What a hypothesis needs"). A legacy Builder paywall can be moved to the new builder and then
-   copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
+   audit, through the **Send me screenshots** section: "What a hypothesis needs"). A `legacy_builder` paywall may be moved to the new builder and then
+   copied (`references/levers.md`, Paywall design): name **Move to new builder** as a button the
+   user looks for on the paywall's dashboard page, shown only when a layout is saved, which `kind`
+   does not say; never a step you do or one that surely exists. A custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it (`references/diagnosis.md`, "What the app already tried"): the
    A/B tests `reads.py` lists (each paywall and flow test with its placement, audience, dates and
@@ -727,7 +748,7 @@ test needs with a read. Never assume a thing exists because the user said they w
 | A new plan length | `products get` shows its store product in each store the app sells in, with `store_status` `approved`, and a flow that sells it exists | Me: the product and its push, on your yes to its store product IDs and USD price (`references/pricing.md`, "Adding a plan length"), and the flow that sells it |
 | A trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"); a second product it needs I make as a new plan length. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
 | A price test's copy of a product | `products get` shows the copy's store product with `store_status` `approved`, and a flow that sells it exists | Me: the copy, its push and its prices (`references/pricing.md`, "Setting up a price A/B test"), and the flow that sells it |
-| A paywall arm (legacy Paywall Builder or custom paywall) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
+| A paywall arm (`kind` `legacy_builder` or `custom`) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
 | A segment | `segments list` shows one with the filter the hypothesis targets | Me: `audiences`, on a yes (segment steps only) |
 | A placement with traffic | `placements list` shows it, `placements get` shows the content type of its audiences (paywall or flow), and the Time line found purchases on it | Me: `ab-tests` creates a new one, on a yes to its developer ID. You: the one call in the app that fetches it (`adapty-integration`), and a release. No purchases: no test |
 | No other A/B test on that audience | `placements get` shows no test entry on the audience | A start ends a running test. The "You:" item asks how it is going first |
