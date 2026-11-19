@@ -395,9 +395,10 @@ Adapty](https://adapty.io/docs/create-offer.md).
 ## Adapty features
 
 Some weak parts are moved by an Adapty feature, not an A/B test. A feature is named only when its
-trigger holds in the reads; with no trigger it is not mentioned, not even as "also consider". The
-CLI cannot see whether any of these is on, so each is a "You:" Next step that asks the user to check
-and names the number that fired it ("paid trials pay at 12% against 27% organic"). At most one per
+trigger holds in the reads; with no trigger it is not mentioned, not even as "also consider". For
+the "Trial still active" event and Refund Saver, the CLI cannot see whether any of these is on, so
+each is a "You:" Next step that asks the user to check and names the number that fired it ("paid
+trials pay at 12% against 27% organic"). Retention Messaging is read first (below). At most one per
 reply, in the free Next step, after a breakage fix and before the one question (which then joins
 the first item); when two fire, the higher row in the table below.
 
@@ -406,6 +407,29 @@ the first item); when two fire, the higher row in the table below.
 | The "Trial still active" event sent through the attribution integration (AppsFlyer, Adjust, Branch, Singular, Firebase), so ad networks optimise for users who keep the trial; with Meta or TikTok through Adapty Attribution, Qualified trial instead, never both for one network | `reads.py audit` prints `FEATURE GATE: trial still active` | the app has no attribution integration (the user says so) | [events](https://adapty.io/docs/events), [Qualified trial](https://adapty.io/docs/ua-facebook) |
 | Retention Messaging: a message on Apple's cancel screen | the App Store is the store that earns, voluntary cancellation leads the endings (read 6), and the scorecard grades renewals weak | the money comes from Google Play | [Retention Messaging](https://adapty.io/docs/retention-messaging) |
 | Refund Saver | the scorecard grades refunds weak (`market.md`, Refunds) | | [Refund Saver](https://adapty.io/docs/refund-saver) |
+
+**Retention Messaging is read before its step,** when its row wins the slot. Read the setup status
+and the production messages with their numbers, and nothing else (no `realtime-url get`):
+
+```bash
+$ADAPTY retention-messaging setup-status --app <APP_ID> --json
+$ADAPTY retention-messaging messages list --app <APP_ID> --mode production --json
+```
+
+- **With the CLI,** first probe both with `--help`; if either reports no such command after one
+  `npx --yes adapty@beta … --help` try, write the "You:" step to check it in the dashboard, as for
+  the other two features.
+- **Over MCP** (`retention_messaging_setup_status`, `retention_messaging_messages_list`): a tool
+  missing from your list, the "You:" step. Neither read needs a yes on either path.
+
+The step names what the reads show and offers the next step as an outcome, then invokes
+`retention-messaging` on the user's yes: not set up (no keys, no Apple approval, or production not pointing at Adapty: name
+which), no message in production (`meta.exists` false), or the messages' numbers (the save rate and
+saved revenue of the live ones, said the way the dashboard does). The item follows `SKILL.md`,
+"How you write a reply". Example of the shape, not words to copy:
+
+> Me: on your yes, I set up a message on Apple's cancel screen: voluntary cancellations lead your
+> endings, and Apple does not send cancel-screen requests to Adapty yet in production.
 
 The 12-month commitment plan is a hypothesis, not a step: the Commitment plan row of the Known
 types. It is a candidate when the App Store's main market is outside the US, a shorter plan leads

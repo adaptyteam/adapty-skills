@@ -170,6 +170,7 @@ the first two weeks of real users.
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | Creating, starting, stopping or replacing an A/B test | `ab-tests`, on the user's yes, once "From hypothesis to A/B test" checks pass |
+| Messages on Apple's cancel screen (Retention Messaging): setup, messages, their numbers | This skill reads the status and the production list (`references/levers.md`, "Adapty features"); every write and draft: `retention-messaging`, invoked on the user's yes to the Next step |
 | How a dashboard feature works | `adapty-docs` |
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
@@ -372,6 +373,13 @@ and the reason.
   the next reply. You will not remember this conversation, so a check
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
   back and ask, never a "Me:" item, unless it is a recurring check ("Recurring checks").
+- **Retention Messaging (Apple's cancel screen), also when asked directly: this skill only reads**
+  (the two reads of `references/levers.md`, "Adapty features") and drafts or writes no message
+  itself. The setup status is the one status read: never add Adapty's URL (`realtime-url get`) or
+  a message read to it. **When the user allows only some reads, run only those;** any other read
+  is a Next step that waits for their yes. Once both are read, Next steps hold a "Me:" item that
+  offers the next step as an outcome and invokes `retention-messaging` on the user's yes; a missing
+  command or tool keeps the "You:" dashboard check.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
   it), one "You:" item asks when it ends. Say how far each arm is from about 200 purchases
   (`references/diagnosis.md`, "Placement metrics"), never which one leads.
