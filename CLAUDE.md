@@ -257,8 +257,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **A picked hypothesis becomes an A/B test through `ab-tests`, offered unasked, and only after a read shows each thing it needs exists** (published flow copy, product with store IDs, segment, placement with traffic). A missing one is a Next step with who makes it, never a placeholder arm; of the `ab-tests` commands this skill runs only the reads: `list` and `get` for the app's test history, `metrics` for a test's results (leader rules and number texts are the `ab-tests` skill's, invoked, not copied).
 - **A finished test's OUTCOME comes from `reads.py`, never from the agent's reading:** the leader is the `ab-tests` skill's, from `ab-tests metrics list` (a flow placement's lifetime tree without it); the audience before and right after comes from the placement's audience tree, matched by test id and time. Only the user's word is "won"; a conclusion about a kind of change needs two agreeing results; a lead under 95% P2BB, a too-short or too-few test rules nothing out. The words for each OUTCOME live in `diagnosis.md`, "Past tests".
 - **Filter values come from `analytics values`, never from a group's `key`;** read funnel and retention groups from the grouped answer. New segments go through `audiences`.
-- **The Retention Messaging feature step reads before it speaks:** the setup status and the production message list (over MCP each after its yes), then hands off to `retention-messaging`; a missing command or a no keeps the old "You:" check. "The CLI cannot see whether any of these is on" is only for the two other features.
-- **Its hand-off "Me:" item names `retention-messaging`:** the one exception to "Name a skill only when the user must act on it themselves".
+- **Retention Messaging is read before its step** (setup status and production list), then handed to `retention-messaging` on a yes; growth-advisor writes no message.
 
 ### `migrate-placements`
 
@@ -280,8 +279,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 ### `retention-messaging`
 
-- **Choose the channel before any CLI check:** in a web client or a phone app only MCP, with no `adapty auth whoami`, `$ADAPTY`, `npm` or `npx`, and no MCP means "connect Adapty MCP", never the CLI. The same line stands before `## CLI or MCP` in `growth-advisor`; change both together.
-- **Every write runs only after the user's yes to its card:** create and status change in both Apple environments, the edit card says each edit goes back to Apple's review, and replacing another URL in Apple is its own yes and `--replace-other-url`. Over MCP the setup-status read and the message reads each take one yes per conversation.
+- **Every write runs only after the user's yes to its card:** create and status change in both Apple environments, the edit card says each edit goes back to Apple's review, and replacing another URL in Apple is its own yes and `--replace-other-url`. Reads take no yes on either path: the CLI and MCP reads have the same side effects as opening the dashboard page.
 - **Only the CLI uploads images and adds bullet points;** with MCP only the skill names the CLI command or the dashboard and does not run it.
 - **Never repeat a create whose answer was lost;** find the candidates by name and read each by id.
 - **Commands and flags come from `src/cli/commands/retention-messaging/**` in `adapty-cli`, the change-file keys from `src/sdk/adapty/retention-messaging/change.ts`, the MCP parameters from the `retention_messaging_*` tools (`message_type` for `--type`);** the skill names only the flags it needs and sends the rest to `--help`.

@@ -154,7 +154,7 @@ the first two weeks of real users.
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | Creating, starting, stopping or replacing an A/B test | `ab-tests`, on the user's yes, once "From hypothesis to A/B test" checks pass |
-| Messages on Apple's cancel screen (Retention Messaging): setup, messages, their numbers | This skill reads the status and the production list (`references/levers.md`, "Adapty features"); every write and draft: `retention-messaging`, named in the Next step, on the user's yes |
+| Messages on Apple's cancel screen (Retention Messaging): setup, messages, their numbers | This skill reads the status and the production list (`references/levers.md`, "Adapty features"); every write and draft: `retention-messaging`, invoked on the user's yes to the Next step |
 | How a dashboard feature works | `adapty-docs` |
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
@@ -167,17 +167,6 @@ CLI. `references/market.md` holds the market medians from Adapty's State of Payw
 cover a lot of this at the level of region and category. A benchmark matched to the app's own
 category is not available; if the user
 pastes one, use it and say where it came from.
-
-## Web or phone: MCP only
-
-Decide this before any CLI check; it holds for the whole run. **In a web client or a phone app**
-(claude.ai or ChatGPT in a browser, a phone app; your instructions or the user's first message
-name the client), use only the Adapty MCP tools, also when you have a shell there: never run,
-check or install the CLI (no `adapty auth whoami`, `$ADAPTY`, `npm` or `npx`), and never offer
-it. Make the audit's reads with the tools and say which of them did not run. With no Adapty MCP
-tools, tell the user to connect Adapty MCP (the MCP steps under "Neither ready" below) and read
-nothing from their account; the work without an account still runs. On a computer, pick the way
-with the section below.
 
 ## CLI or MCP
 
@@ -369,14 +358,12 @@ and the reason.
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
   back and ask, never a "Me:" item, unless it is a recurring check ("Recurring checks").
 - **Retention Messaging (Apple's cancel screen), also when asked directly: this skill only reads**
-  (the two reads of `references/levers.md`, "Adapty features"); never offer to draft, create,
-  edit, activate or deactivate a message. The setup status is the one status read: never add
-  Adapty's URL (`realtime-url get`) or a message read to it. **When the user allows only some
-  reads, run only those;** any other read, also one with no yes of its own, is a Next step that
-  waits for their yes.
-  Once the status and the list are read, Next steps hold a "Me:" item that names the
-  `retention-messaging` skill and its next action; a no to a read or a missing command or tool
-  keeps the "You:" dashboard check.
+  (the two reads of `references/levers.md`, "Adapty features") and drafts or writes no message
+  itself. The setup status is the one status read: never add Adapty's URL (`realtime-url get`) or
+  a message read to it. **When the user allows only some reads, run only those;** any other read
+  is a Next step that waits for their yes. Once both are read, Next steps hold a "Me:" item that
+  offers the next step as an outcome and invokes `retention-messaging` on the user's yes; a missing
+  command or tool keeps the "You:" dashboard check.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
   it), one "You:" item asks when it ends. Say how far each arm is from about 200 purchases
   (`references/diagnosis.md`, "Placement metrics"), never which one leads.

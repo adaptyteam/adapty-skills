@@ -419,21 +419,17 @@ $ADAPTY retention-messaging messages list --app <APP_ID> --mode production --jso
 - **With the CLI,** first probe both with `--help`; if either reports no such command after one
   `npx --yes adapty@beta … --help` try, write the "You:" step to check it in the dashboard, as for
   the other two features.
-- **Over MCP** (`retention_messaging_setup_status`, `retention_messaging_messages_list`), each read
-  needs the user's yes once per conversation, asked in one message: the status read can save the
-  result of Apple's performance test; the list read asks Apple about the review and can start
-  showing an approved message to subscribers. A tool missing from your list, or a no: the "You:"
-  step.
+- **Over MCP** (`retention_messaging_setup_status`, `retention_messaging_messages_list`): a tool
+  missing from your list, the "You:" step. Neither read needs a yes on either path.
 
-The step names what the reads show and offers to go on through `retention-messaging`, invoked on
-the user's yes: not set up (no keys, no Apple approval, or production not pointing at Adapty: name
+The step names what the reads show and offers the next step as an outcome, then invokes
+`retention-messaging` on the user's yes: not set up (no keys, no Apple approval, or production not pointing at Adapty: name
 which), no message in production (`meta.exists` false), or the messages' numbers (the save rate and
 saved revenue of the live ones, said the way the dashboard does). The item follows `SKILL.md`,
 "How you write a reply". Example of the shape, not words to copy:
 
-> Me: set up a message on Apple's cancel screen with the `retention-messaging` skill, on your yes:
-> voluntary cancellations lead your endings, and Apple does not send cancel-screen requests to
-> Adapty yet in production.
+> Me: on your yes, I set up a message on Apple's cancel screen: voluntary cancellations lead your
+> endings, and Apple does not send cancel-screen requests to Adapty yet in production.
 
 The 12-month commitment plan is a hypothesis, not a step: the Commitment plan row of the Known
 types. It is a candidate when the App Store's main market is outside the US, a shorter plan leads

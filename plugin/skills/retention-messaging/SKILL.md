@@ -38,16 +38,6 @@ It does not own:
 - Full, clickable links. A docs page is read as its `.md` URL; the user gets the same URL without
   `.md`. Reply in the user's language; the dashboard's own words stay ("Sandbox mode").
 
-## Web or phone: MCP only
-
-Decide this before any CLI check. **In a web client or a phone app** (claude.ai or ChatGPT in a
-browser, a phone app; your instructions or the user's first message name the client), use only
-the Adapty MCP tools, also when you have a shell there: never run, check or install the CLI (no
-`adapty auth whoami`, `$ADAPTY`, `npm` or `npx`), and never offer it. With no Adapty MCP tools,
-tell the user to connect Adapty MCP (the MCP steps under "Neither ready" below) and stop. A step
-that needs the CLI is named for the user, never run. On a computer, pick the way with the
-section below.
-
 ## CLI or MCP
 
 This skill reaches Adapty through the Adapty CLI or the Adapty MCP server. Its commands are written
@@ -111,13 +101,13 @@ Example of the question's shape, not words to copy:
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill prefers the CLI** when both are ready: only the CLI uploads a header image and
-bullet icons. With MCP only, do everything else with the tools; for an image or a new bullet
-point, name the CLI command (`adapty retention-messaging messages update <message_id> --app
-<app_id> --image <file>`, or a change file with an icon) or the dashboard, and do not run it.
+bullet icons. With MCP only, do everything else with the tools; an image or a new bullet point
+needs the CLI (`adapty retention-messaging messages update <message_id> --app <app_id> --image
+<file>`, or a change file with an icon): offer to set it up, or name the dashboard step.
 
 ## The CLI
 
-Only on a computer. Resolve `$ADAPTY` once and use it for every call:
+Resolve `$ADAPTY` once and use it for every call:
 
 ```bash
 if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
@@ -159,12 +149,12 @@ Every command takes `--app <id>`, the Adapty app UUID from `$ADAPTY apps list`. 
 
 | CLI `retention-messaging …` | MCP tool `retention_messaging_…` | Does | Yes |
 |---|---|---|---|
-| `setup-status` | `setup_status` | keys, Apple access, each environment's URL, the test | MCP: once per conversation |
+| `setup-status` | `setup_status` | keys, Apple access, each environment's URL, the test | no |
 | `realtime-url get` | `realtime_url_get` | Adapty's URL for Apple, one for both environments | no |
 | `realtime-url configure --mode <m>` | `realtime_url_configure` | gives Apple Adapty's URL for that environment | yes card |
 | `performance-test start` | `performance_test_start` | Apple's test, sandbox only | no |
-| `messages list --mode <m>` | `messages_list` | the messages of one environment with their numbers | MCP: once per conversation |
-| `messages get <id>` | `messages_get` | one message whole | MCP: the same yes as the list |
+| `messages list --mode <m>` | `messages_list` | the messages of one environment with their numbers | no |
+| `messages get <id>` | `messages_get` | one message whole | no |
 | `messages create --mode <m> --file <json> [--image <png>]` | `messages_create` | a new message, sent to Apple's review | yes card, both environments |
 | `messages update <id> [--file <json>] [flags]` | `messages_update` | changes only what is named | yes card |
 | `messages set-status <id> --action activate\|deactivate` | `messages_set_status` | starts or stops a message | yes card, both environments |
@@ -183,17 +173,13 @@ refusal with its own text, 5 no answer from the server.
 Over the CLI and over MCP alike. Only an answer to the card counts, not an earlier "go ahead"
 about the plan. "No", silence or a change of plan: send nothing.
 
-- **Reads over MCP.** Before the first `setup_status` call in a conversation, say the read can
-  save the result of Apple's test, and wait for a yes; later status reads in the conversation need
-  none. Before the first `messages_list` or `messages_get`, say a read asks Apple about the review
-  and can start showing an approved message to subscribers, and wait for a yes; it covers later
-  list and message reads, not the status. Over the CLI these reads need no yes.
+- **Reads need no yes,** over the CLI and over MCP. A status read saves the result of Apple's
+  test, and a list or message read saves Apple's review results, as the dashboard does when it
+  opens the page; that can start showing a message the user and Apple already approved.
 - **A read limit the user sets wins.** When the user names what you may read, read only that; any
-  other read, also one that needs no yes, is a Next step that waits for their yes.
+  other read is a Next step that waits for their yes.
 - **Give Apple the URL.** Card: Apple sends this environment's cancel-screen requests to Adapty;
-  in sandbox Adapty also adds a hidden test message; the command and the tool first read the
-  status, and that read can save the result of Apple's test, also when the replacement below is
-  then refused.
+  in sandbox Adapty also adds a hidden test message.
   When the status shows `configured_to_other_url` for that environment, a second card: **the URL
   now set in Apple is replaced**, and that server stops getting Apple's requests. Only after a yes
   to it pass `--replace-other-url` (MCP `replace_other_url: true`); `--yes` alone does not
@@ -224,8 +210,12 @@ and **without** `--yes`.
 ## Workflow
 
 1. **Read the setup status** first (`setup-status`) and lead with what it means:
-   - `credentials` `missing`: the App Store keys are set in the dashboard first (the In-App
-     Purchase key in App settings → iOS SDK): https://adapty.io/docs/retention-messaging-setup.
+   - `credentials` `missing`: the App Store setup is done in the dashboard first, in App settings
+     → iOS SDK, and nothing in the CLI or MCP sets it. Name every field the feature uses, since
+     the status shows only the first: the Bundle ID and the In-App Purchase key (connection and
+     upload), the Apple App ID (Adapty's answer to Apple), the key under App Store promotional
+     offers (signs a promo message's offer) and the App Store Connect API key (lists the plans for
+     a plan switch): https://adapty.io/docs/retention-messaging-setup#before-you-begin
    - `registration_status` `not_registered`: Apple has not approved the app. Give the user
      Adapty's URL (`realtime-url get`) for Apple's request form, same page; Apple takes up to a
      month.
@@ -234,7 +224,7 @@ and **without** `--yes`.
    - Sandbox URL `configured_to_adapty`, test `not_started` or `failed`: offer to start Apple's
      test. The user first buys their longest plan with a sandbox account or TestFlight and keeps it
      active; the test takes up to an hour.
-   - Test `running`: wait, then read the status again. **Never start it again** while it runs.
+   - Test `running`: wait, then read the status again.
    - Test `passed`: offer to create the default message, also under a read limit or a no to
      writes; a read it needs first (`products suggest`, the list) is part of that offer, not a
      next step of its own. Production needs its own URL first
@@ -242,13 +232,20 @@ and **without** `--yes`.
      `configured_to_adapty`.
 2. **Pick products:** `products suggest` for the environment and type (with the message id when
    editing). A product with `disabled_reason` cannot be taken: `used` (another message of this type
-   has it), `no_default_message` (a promo needs a default message on that product first).
+   has it), `no_default_message` (a promo needs a default message on that product first). No
+   product at all: the app's products come first (`adapty-integration` creates them).
 3. **Create the default message first, then promo ones.** A promo message links a promotional
    offer or a plan switch to each product (`promo-offers suggest`, `plan-switches suggest`); it has
-   no image and no bullet points. Write the English texts and each language yourself, within the
+   no image and no bullet points. An empty offer list: the promotional offer is made in App Store
+   Connect and added to the product in Adapty
+   (https://adapty.io/docs/app-store-offers#promotional-offers). An empty plan list: the other
+   products of the subscription group are added to Adapty, each with an App Store status, and the
+   App Store Connect API key is set
+   (https://adapty.io/docs/troubleshoot-app-store-integration#products-dont-appear-or-show-no-app-store-status). Write the English texts and each language yourself, within the
    limits. Choose the title position now: it cannot change later.
 4. **Read the numbers:** `messages list --mode production` (the dashboard's table: every number
-   covers the message's whole life). Say what each number means once, from the reference.
+   covers the message's whole life). Say what each number means once, from `references/messages.md`,
+   "The numbers".
 5. **Edit:** name only what changes; everything else stays. Deleting a language, a bullet point,
    a product or the image is only an explicit remove field. A new bullet point needs its text in
    every language of the message.
@@ -269,9 +266,51 @@ message by id and check it.
 
 ## Never
 
-- **Never run a write without the user's yes to its card,** and never pass `--yes` on a command
-  the user will run themselves.
-- **Never replace another URL in Apple** without the second card's yes.
+- **Never pass `--yes` on a command the user will run themselves.**
 - **Never start Apple's test while one runs,** and never retry a refused write with changed values
-  to get it through: say the server's reason in plain words and ask.
+  to get it through: say the server's reason in plain words (`references/messages.md`, "Refusals
+  the server sends") and ask.
 - **Never guess an id or a field:** take each from a read, a suggest command or `--help`.
+
+## Feedback note
+
+**Send Adapty one feedback note per message, right after its first `create` or `set-status` in
+this session,** and one when the user asked for a message and the run stops before its create. A
+run that only reads, edits or gives Apple the URL, with no message asked for, sends none. Write it in English, in this shape: the
+shape to follow, not words to copy:
+
+> Message: a default message with three bullet points, two languages. Source: growth-advisor. Did:
+> created it in sandbox.
+
+> Message: a promo message with a plan switch. Source: not given. Did: activated it in
+> production. Got in the way: retention-messaging messages set-status failed with http_500
+> (request id req_7f3a9c), and this skill does not say whether a retry is safe.
+
+- **Message is its kind in a few generic words:** default or promo, offer or plan switch, how many
+  bullet points and languages. **Source** is `growth-advisor`, `own data`, `other` with a few
+  generic words, or `not given`; never ask for it. **Did** names the write and the environment.
+- **No value and no name from the account or the user's business:** no message text, product,
+  price, rate or revenue, none of the user's words. The ids in `--context` are all Adapty needs.
+- **Sentiment is your own outcome, never the user's mood:** `positive`, done the way this skill
+  describes, or declined because this skill says it cannot be done; `neutral`, done after a wrong
+  turn or a workaround; `negative`, this skill or the CLI stopped you. Neutral and negative notes
+  add "Got in the way:" with the command and its error, never a value.
+- **Write the note into the command in single quotes,** never from a file or a script. Inside
+  single quotes the shell runs nothing, so drop backticks and write "does not" for "doesn't":
+
+  ```bash
+  $ADAPTY feedback --feature retention-messaging --sentiment <positive|neutral|negative> \
+    --message '<the note>' \
+    --context 'app <app id>, message <message id>: <create|activate|deactivate> in <sandbox|production>'
+  ```
+
+- **Tell the user in one line, in the same reply, only when the command printed `Feedback sent.`**:
+  in their language, "I also sent Adapty a short note on how this went." Any other
+  result gets no line at all. Never retry, never hold up the reply.
+- **The user can turn it off:** if they say not to send feedback, send nothing for the rest of the
+  session.
+
+## Anything not covered here
+
+`$ADAPTY retention-messaging <command> --help` for the flags on the installed version; the
+`adapty-docs` skill for any dashboard behaviour. Do not guess a flag, a field name or a URL.
