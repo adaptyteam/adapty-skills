@@ -624,22 +624,25 @@ in the builder, with the link above.
    $ADAPTY fonts upload ./Brand-Regular.otf ./Brand-Bold.otf --app "$APP" --json > media/fonts.json
    ```
 
+   Every path is read before the first file is sent: a path that cannot be read stops the whole
+   package with exit 2 and nothing sent. Correct the path, then run the whole package again.
    The server reads the family name inside each file: the file joins the family of that name
    (any case) or creates it. `files[]` has one entry per file, with its `result`: `created`,
-   `added`, `partly_added`, `replaced` and `kept` stored or skipped it; `refused` carries
-   `error_code`, `message` and `next_step`; `failed` and `not_sent` mean an auth (exit 3) or
-   network (exit 5) failure stopped the package. Exit 4 means a file was refused, after the
-   report of every file. Send again only the files that were refused, failed or not sent, never a
-   stored one.
-   - **A collision** (`refused` with `conflict` and `choices`): a stored face already has that
-     weight and italic, or that iOS name. That face can draw in the app's other flows, so the
-     choice is the user's: `--choice replace` puts the file on that face (each flow that uses it
-     gets the new file at its next publish), `--choice keep` skips the file. Ask, then run that
-     file alone again with the choice.
-   - **Any other refusal:** its `message` names the next step; relay it (a WOFF or WOFF2 file:
-     ask for the `.ttf` or `.otf`). A variable file whose faces are all in the family
-     (`font_faces_already_exist`) has no choice; its `next_step` names `fonts faces replace`,
-     which overwrites a stored face's file: only on the user's yes.
+   `added`, `partly_added` (`kept_faces` are the pairs the family already had), `replaced` and
+   `kept` stored or skipped it; `refused` carries `error_code` and `message`, and `next_step`
+   when the CLI has one; `failed` and `not_sent` mean an auth (exit 3) or network (exit 5)
+   failure stopped the package. Exit 4 means a file was refused, after the report of every file.
+   Send again only the files that were refused, failed or not sent, never a stored one.
+   - **A collision** (`refused` with `conflict` and `choices`): a face of the family the file
+     joins already has that weight and italic, or a face anywhere in the app already has that iOS
+     name. That face can draw in the app's other flows, so the choice is the user's:
+     `--choice replace` puts the file on that face (each flow that uses it gets the new file at
+     its next publish), `--choice keep` skips the file. Ask, then run that file alone again with
+     the choice. Offer the choices only when the refusal carries them.
+   - **Any other refusal:** read its `message`, and use `next_step` when it is there; relay it (a
+     WOFF or WOFF2 file: ask for the `.ttf` or `.otf`). A variable file whose faces are all in the
+     family (`font_faces_already_exist`) has no choice; its `next_step` names
+     `fonts faces replace`, which overwrites a stored face's file: only on the user's yes.
 3. **Check the faces and their names** in the `family` of each entry (or `fonts list` again).
    For each face the design draws with:
    - **Weight and italic.** `metadata_status` `needs_review` or `legacy_unconfirmed` means the
@@ -647,22 +650,28 @@ in the builder, with the link above.
      then `$ADAPTY fonts faces update <FACE_ID> --app "$APP" --weight 700 --italic false`.
    - **The iOS name** (`font_alias_ios`) is the PostScript name read from the file. None (the
      upload's `warnings` names the face): publishing refuses a face a text draws with that has
-     none. Set it with `--ios-name` only to the PostScript name the file carries.
+     none. A static file's name is the one it carries. A variable file's instance often declares
+     none, and iOS then registers it under the name [flow-schema.md](flow-schema.md) trap 8 gives
+     (`<file PostScript name>_<instance style name>`, the hint the builder offers): ask the user
+     to confirm the name their app registers, set it with `--ios-name`, then validate again.
    - **The Android name** (`font_alias_android`) is never read from the file: it is the file name
-     in the app's `res/font/` folder, without the extension, lowercase letters, digits and `_`
-     only. Ask the user for the name their app uses, or propose one (`brand_bold`) and say the
-     file in the app must have that name; set it with `--android-name` (it applies to every face
-     of the same file).
+     in the app's `res/font/` folder, without the extension: a lowercase letter first, then
+     lowercase letters, digits and `_` only (the CLI refuses any other). Ask the user for the
+     name their app uses, or propose one (`brand_bold`) and say the file in the app must have
+     that name; set it with `--android-name` (it applies to every face of the same file).
 
    A change to a family that flows use answers with `flows_to_publish` (`null`: it could not
-   read them, and a warning says so). Before a change to such a face, `fonts usage <FAMILY_ID>`
-   names those flows: ask first, and name them in the handoff, because each needs a
-   `flows publish` to get the change.
-4. **Name the family in the config, never a face:** `"font": {"family": {"type": "user", "id":
-   "<family id>"}, "weight": "bold"}` on an element or a `theme.typography` preset (italic only
-   on a rich-text span). Publishing draws the exact weight and style, else the nearest weight
-   ([flow-schema.md](flow-schema.md) trap 8). Never write `_meta.fonts` by hand. Then
-   `flows config validate`: it resolves the family against the app's fonts.
+   read them, and a warning says so). Before a change to such a face,
+   `$ADAPTY fonts usage <FAMILY_ID> --app "$APP" --json` names those flows: ask first, and name
+   them in the handoff, because each needs a `flows publish` to get the change.
+4. **Name the family in the config, never a face.** On an element:
+   `"props": {"font": {"family": {"type": "user", "id": "<family id>"}, "weight": "bold"}}`. On a
+   `theme.typography` preset the same two keys sit in `settings`, not in a `font` object:
+   `"settings": {"family": {"type": "user", "id": "<family id>"}, "weight": "bold", "size": 30}`.
+   Italic only on a rich-text span. Publishing draws the exact weight and style, else the nearest
+   weight in the same style, then in any style, the lighter on a tie ([flow-schema.md](flow-schema.md) trap 8).
+   Never write `_meta.fonts` by hand. Then `flows config validate`: it resolves the family
+   against the app's fonts.
 5. **Publish and wait** as [publish.md](publish.md#running-flows-publish) says. `flows publish`
    reads the app's fonts first and, when the copy in `_meta.fonts` is out of date, saves the
    config with the current fonts (the line `Fonts refreshed: …`), then publishes. Poll

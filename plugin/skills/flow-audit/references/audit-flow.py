@@ -2891,7 +2891,7 @@ def check_sibling_locales(config, siblings):
 #
 # Every fix points at the font itself (the Builder's font settings or `adapty fonts faces
 # update`), never at a flow edit: `_meta.fonts` is a copy of the app's font record, and the next
-# Builder save or `adapty flows publish` overwrites it. An empty iOS name
+# Builder save (or a publish through the CLI) overwrites it. A fix never asks for a publish. An empty iOS name
 # is not checked here -- the transform service refuses it as `font_face_missing_ios_name`
 # and `flows config validate` reports it.
 ANDROID_FONT_NAME_RE = re.compile(r'^[a-z0-9_]+$')
@@ -2994,10 +2994,11 @@ FONT_SETTINGS = ('In the Flow Builder, open the font settings (Edit custom font 
                  'dropdown) and click the row of each face named above, or use '
                  'adapty fonts faces update with the face\'s id')
 # The names come from the copy of the font settings saved with the flow; publishing reads the
-# app's own settings, and a Builder save of the flow or `adapty flows publish` refreshes the copy.
-FONT_COPY = (' If you already changed it, save this flow in the Flow Builder or publish it again '
-             'with adapty flows publish, which copies the current names into it, and run the '
-             'audit again: I read the font names saved with the flow.')
+# app's own settings, and a Builder save of the flow refreshes the copy. Never send the user to a
+# publish to refresh it: a publish releases every pending draft edit before the audit is answered.
+FONT_COPY = (' If you already changed it, save this flow in the Flow Builder and run the audit '
+             'again: I read the font names saved with the flow. The current names are also in '
+             'adapty fonts list --app <app id>, which changes nothing.')
 
 
 def _font_references(config):
@@ -3038,8 +3039,9 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'{"a custom font" if len(uncopied) == 1 else f"{len(uncopied)} custom fonts"} '
             f'whose settings the flow does not carry, so I could not check '
             f'{"its" if len(uncopied) == 1 else "their"} iOS and Android font names.',
-            'Open this flow in the Flow Builder and save it, or publish it with adapty flows '
-            'publish: both copy the font settings into the flow. Then run the audit again.'))
+            'Open this flow in the Flow Builder and save it, which copies the font settings '
+            'into the flow, then run the audit again. Or read the current names with '
+            'adapty fonts list --app <app id>, which changes nothing.'))
     faces = list(_font_faces(config))
     if not faces:
         return out
@@ -3118,7 +3120,7 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'against the file.',
             f'Open each font file in Font Book on a Mac and compare its PostScript name with '
             f'the iOS font name in the Flow Builder font settings (Edit custom font in any '
-            f'font dropdown) or in adapty fonts list.'))
+            f'font dropdown) or in adapty fonts list --app <app id>.'))
     return out
 
 

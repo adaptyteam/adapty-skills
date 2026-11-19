@@ -650,7 +650,7 @@ those flows (`flows_to_publish`), so name them in the handoff. The names have on
 | Field | Must be |
 |---|---|
 | `iosName` | the PostScript name stored in the font file, unique across the app's custom fonts. A variable font file often declares none for an instance; iOS then registers it as `<the file's own PostScript name>_<the instance's style name, spaces as dashes>`, such as `RobotoFlex-Regular_Bold-Italic`, which the builder offers as a hint |
-| `androidName` | the file name in `res/font/` without the extension: lowercase letters, digits and `_` only. Neither the builder nor the upload fills it in |
+| `androidName` | the file name in `res/font/` without the extension: a lowercase letter first, then lowercase letters, digits and `_` only. Neither the builder nor the upload fills it in |
 
 When a face a text draws with has no `androidName`, or a flow you touch carries a name of the
 wrong shape, report it with that rule and the settings link above; once the user names the file

@@ -208,7 +208,9 @@ them all on one settings screen.
 never to a flow edit:** `_meta.fonts` is a copy of the app's font record that publishing does not
 read; publishing uses the app's own settings, and the next Builder save or `flows publish` refreshes
 the copy. So the checks read a copy that can be older than the settings, and each name finding
-says to save the flow in the Builder or publish it again, and audit again after a fix there. All six route to "yours to do in the Adapty dashboard".
+says to save the flow in the Builder and audit again after a fix there, or to read the current
+names with `fonts list` (read-only). A finding never suggests a publish to refresh the copy: a
+publish releases every pending draft edit before the audit is answered. All six route to "yours to do in the Adapty dashboard".
 
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
