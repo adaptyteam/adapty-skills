@@ -120,16 +120,36 @@ point, name the CLI command (`adapty retention-messaging messages update <messag
 Only on a computer. Resolve `$ADAPTY` once and use it for every call:
 
 ```bash
-adapty retention-messaging setup-status --help >/dev/null 2>&1 && ADAPTY="adapty" || {
-  npm i -g adapty@latest >/dev/null 2>&1
-  adapty retention-messaging setup-status --help >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
+if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
+  _a() { if [ -n "${HTTPS_PROXY-}${https_proxy-}" ]; then NODE_USE_ENV_PROXY=1 $ADAPTY "$@"; else $ADAPTY "$@"; fi; }
+  _v() { _a --version 2>/dev/null | sed -n 's|^adapty/\([^ ]*\).*|\1|p'; }
+  command -v adapty >/dev/null 2>&1 || { npm i -g adapty@latest >/dev/null 2>&1 \
+    && command -v adapty >/dev/null 2>&1; } || { echo npx; exit; }
+  J=$(_a version --json 2>/dev/null) && printf '%s' "$J" | node -e 'let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => { try { const j = JSON.parse(s);
+      if (j && typeof j.installed == "string" && (j.latest === null || typeof j.latest == "string")
+        && typeof j.update_available == "boolean") process.exit(j.update_available ? 1 : 0);
+    } catch (e) {} process.exit(1); });' && exit
+  old=$(_v); npm i -g adapty@latest >/dev/null 2>&1 || { echo npx; exit; }
+  new=$(_v); [ -n "$new" ] || { echo npx; exit; }
+  [ "$new" != "$old" ] && echo "CLI updated from $old to $new." || echo "Could not update the CLI: still $new."
+); [ "$VMSG" = npx ] && ADAPTY="npx --yes adapty@latest" \
+  && VMSG="Could not install or update the CLI globally, so I run it through npx."
+if [ -n "$VMSG" ]; then echo "$VMSG"; fi; fi
 ```
 
-If `$ADAPTY retention-messaging setup-status --help` still reports no such topic, try `npx --yes
-adapty@beta retention-messaging setup-status --help` once (use that form if it works). If that
-fails too, say the CLI does not support Retention Messaging yet and offer MCP when it is ready,
-else the dashboard. Do not compare version numbers. `--yes` on `npx` is required: without it
-`npx` waits for a confirmation nobody gives. In `zsh`, run `setopt shwordsplit` before using a
+**Run this block as its own command, right after the readiness check `adapty auth whoami` and
+before any other CLI command.** Copy it as it is: it runs `$ADAPTY version --json` and updates a
+CLI that is behind or too old to have that command. If it prints a line, your reply to the user
+starts with that line, in their language, with nothing added. Say nothing else about the CLI
+version: no "up to date", no version number. A new shell does not keep `$ADAPTY`: set it again, to
+`npx --yes adapty@latest` after the npx line, else to `adapty`.
+
+Then probe `$ADAPTY retention-messaging setup-status --help`. If it reports no such topic, try
+`npx --yes adapty@beta retention-messaging setup-status --help` once (use that form if it works).
+If that fails too, say the CLI does not support Retention Messaging yet and offer MCP when it is
+ready, else the dashboard. Do not compare version numbers. `--yes` on `npx` is required: without
+it `npx` waits for a confirmation nobody gives. In `zsh`, run `setopt shwordsplit` before using a
 multi-word `$ADAPTY`. Write a literal `adapty` in a command you show the user.
 
 Every command takes `--app <id>`, the Adapty app UUID from `$ADAPTY apps list`. Read with
