@@ -238,14 +238,33 @@ not run.
 Resolve `$ADAPTY` once and use it for every call:
 
 ```bash
-adapty analytics catalog --help >/dev/null 2>&1 && adapty ab-tests metrics --help >/dev/null 2>&1 \
-  && ADAPTY="adapty" || {
-  npm i -g adapty@latest >/dev/null 2>&1
-  adapty analytics catalog --help >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
+if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
+  _a() { if [ -n "${HTTPS_PROXY-}${https_proxy-}" ]; then NODE_USE_ENV_PROXY=1 $ADAPTY "$@"; else $ADAPTY "$@"; fi; }
+  _v() { _a --version 2>/dev/null | sed -n 's|^adapty/\([^ ]*\).*|\1|p'; }
+  command -v adapty >/dev/null 2>&1 || { npm i -g adapty@latest >/dev/null 2>&1 \
+    && command -v adapty >/dev/null 2>&1; } || { echo npx; exit; }
+  J=$(_a version --json 2>/dev/null) && printf '%s' "$J" | node -e 'let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => { try { const j = JSON.parse(s);
+      if (j && typeof j.installed == "string" && (j.latest === null || typeof j.latest == "string")
+        && typeof j.update_available == "boolean") process.exit(j.update_available ? 1 : 0);
+    } catch (e) {} process.exit(1); });' && exit
+  old=$(_v); npm i -g adapty@latest >/dev/null 2>&1 || { echo npx; exit; }
+  new=$(_v); [ -n "$new" ] || { echo npx; exit; }
+  [ "$new" != "$old" ] && echo "CLI updated from $old to $new." || echo "Could not update the CLI: still $new."
+); [ "$VMSG" = npx ] && ADAPTY="npx --yes adapty@latest" \
+  && VMSG="Could not install or update the CLI globally, so I run it through npx."
+if [ -n "$VMSG" ]; then echo "$VMSG"; fi; fi
 ```
 
-If `$ADAPTY analytics catalog --help` still reports no such command, try `npx --yes adapty@beta
-analytics catalog --help` once before telling the user analytics is unavailable. `--yes` is
+**Run this block as its own command, right after the readiness check `adapty auth whoami` and
+before any other CLI command.** Copy it as it is: it runs `$ADAPTY version --json` and updates a
+CLI that is behind or too old to have that command. If it prints a line, your reply to the user
+starts with that line, in their language, with nothing added. Say nothing else about the CLI
+version: no "up to date", no version number. A new shell does not keep `$ADAPTY`: set it again, to
+`npx --yes adapty@latest` after the npx line, else to `adapty`.
+
+Then probe `$ADAPTY analytics catalog --help`. If it reports no such command, try
+`npx --yes adapty@beta analytics catalog --help` once before telling the user analytics is unavailable. `--yes` is
 required: without it npx waits for a confirmation nobody will give. In `zsh`, run `setopt shwordsplit` before using a
 multi-word `$ADAPTY`. Pass the command and every flag as separate words: `"placements list"`
 in quotes is one word, and the CLI answers that no such command exists. `$ADAPTY` is the only

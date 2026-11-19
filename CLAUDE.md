@@ -136,9 +136,10 @@ template, not the rule. A condition the agent cannot observe is not followed; ma
   site; the one bare call is the readiness check, `adapty auth whoami`, which installs nothing.
   `flow-audit` alone resolves straight to the npx form. Keep `--yes` and the `zsh`
   word-splitting note beside the block. A command is missing only after `--help` says so and one
-  `npx --yes adapty@beta` attempt; never gate on a version number. Over MCP the command is the
-  tool `<topic>_<command>`: `## CLI or MCP` is one text in every skill that calls Adapty, so change
-  every copy together and keep each skill's preference line after it.
+  `npx --yes adapty@beta` attempt; never gate on a version number. A check that only updates the
+  CLI and never blocks is allowed; a minimum version or a refusal by version number is not. Over
+  MCP the command is the tool `<topic>_<command>`: `## CLI or MCP` is one text in every skill that
+  calls Adapty, so change every copy together and keep each skill's preference line after it.
 - **Verify CLI facts against each command's own source** (`static flags`, description) in
   `adaptyteam/adapty-cli`, not prose, `--help` or flag-set composition; enumerate `dist/commands/`.
   Print `--version` with anything you test.
@@ -181,7 +182,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Never update a placement.** Only `ab-tests` commands start, stop and replace tests; a placement write that carries a test entry belongs to `audiences`, which keeps entries as read. The one placement write is `placements create` for a placement that does not exist, after a yes to its permanent developer ID; say the app needs the fetch call (`adapty-integration`).
 - **Make missing pieces, check the rest:** a flow arm needs `status` `published` in `flows get` (`draft` and `dirty` are published first); a paywall arm that differs only in products is `paywalls create` on a yes; a new design, a new store product and the app code are the user's. A segment comes from `audiences`, segment only. A start puts a segment without a row at the top; a lower position is an `audiences` row first, then the start on it.
 - **`update` sends the whole test again:** a flag left out is cleared. On a started test it changes only title and goal, with the arms, placement and audience as read; a completed or archived test cannot change. `create` needs a placement of the test's kind; `replace` keeps the number of arms.
-- **Results are read with `ab-tests metrics`, probed with `ab-tests metrics --help`** (an installed CLI is upgraded once, then one beta try; never a version). Before a stop the skill reads `metrics total`, shows each arm and asks for the winner. The leader comes only from the lifetime P2BB of `total` or `list`, in the order of the skill's "Results and the leader"; number texts live in `references/results.md`.
+- **Results are read with `ab-tests metrics`, probed with `ab-tests metrics --help`** (the version step updates the CLI first, then one beta try; never a version). Before a stop the skill reads `metrics total`, shows each arm and asks for the winner. The leader comes only from the lifetime P2BB of `total` or `list`, in the order of the skill's "Results and the leader"; number texts live in `references/results.md`.
 - **`list` shows flow tests unless `--type paywall` is given;** look at both types. `--placement` and `--segment` may repeat.
 
 ### `adapty-attribution`
