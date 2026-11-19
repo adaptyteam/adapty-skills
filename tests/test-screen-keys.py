@@ -9,6 +9,8 @@ which reads as "the checker is broken" and hides the real fault of the flow.
     FIRES   -- a screen with no `props` (on the footer screen, the second read of `props`)
     FIRES   -- a screen with no `elements`
     FIRES   -- a screen with no `id`
+    FIRES   -- a screen whose `elements` has no `map`, or no `hierarchy`
+    FIRES   -- a navigate target equal to the position label of a screen with no `id` is dangling
     ALREADY -- under --baseline, the fault of the fetched flow is listed as ALREADY IN
     SILENT  -- every real export in tests/fixtures*
 """
@@ -53,11 +55,14 @@ def without(key):
     doc = copy.deepcopy(BASE)
     scr = footer_screen(doc)
     sid = scr.get('id')
-    scr.pop(key)
+    if key.startswith('elements.'):
+        scr['elements'].pop(key.split('.', 1)[1])
+    else:
+        scr.pop(key)
     return doc, sid
 
 
-for key in ('props', 'elements', 'id'):
+for key in ('props', 'elements', 'id', 'elements.map', 'elements.hierarchy'):
     doc, sid = without(key)
     code, out = run(doc)
     line = next((ln for ln in out.splitlines() if MSG in ln), '')
@@ -70,6 +75,18 @@ for key in ('props', 'elements', 'id'):
     code, out = run(doc, baseline=doc)
     check(f'ALREADY IN: --baseline lists the fetched flow\'s screen with no `{key}` apart',
           code == 0 and 'already (error):' in out and MSG in out and 'CHECKER ERROR' not in out, out)
+
+# The position label of a screen with no `id` is for messages only: a navigate target with the
+# same text names no screen of the input, so it stays dangling.
+for target in ('#1', '#unused'):
+    doc = copy.deepcopy(BASE)
+    cfg = doc.get('config', doc)
+    cfg['screens'][0].pop('id')
+    old = next(s['id'] for s in cfg['screens'][1:])
+    text = json.dumps(doc).replace(f'"screen": "{old}"', f'"screen": "{target}"')
+    code, out = run(json.loads(text))
+    check(f'FIRES: a navigate target {target!r} with the first screen unnamed is dangling',
+          code == 1 and 'dangling navigate targets' in out and repr(target) in out, out)
 
 for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
     code, out = run(json.load(open(f)))

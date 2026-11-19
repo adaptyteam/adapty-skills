@@ -1225,6 +1225,18 @@ def _var_ids(v):
     return out
 
 
+class _Unnamed(str):
+    """The position label (`#2`) of a screen with no `id`. It prints as the label, but it equals
+    only itself: a navigate target `"#2"` stays dangling, and two unnamed screens stay apart."""
+    def __eq__(self, other):
+        return self is other
+
+    def __ne__(self, other):
+        return self is not other
+
+    __hash__ = object.__hash__
+
+
 def check(path, baseline_text=None, baseline_images=None):
     raw = unwrap(json.load(open(path, encoding='utf-8')))
     bad, warn = catalog_findings(raw)
@@ -1238,7 +1250,8 @@ def check(path, baseline_text=None, baseline_images=None):
     # selectableGroups, products}` and the Flow Builder's screen schema requires `id`, `props` and
     # `elements` (`"props": {}` is valid). A fetched flow can arrive with a screen that has only
     # `id` and `elements`. Report each missing key here, then give the read view an empty
-    # stand-in, so every check below reads the screen instead of crashing on it. `--baseline`
+    # stand-in, so every check below reads the screen instead of crashing on it (a missing `id`
+    # gets a position label that no navigate target can match). `--baseline`
     # lists a fetched flow's own as ALREADY IN, as for the element keys below.
     for i, s in enumerate(d.get('screens') or []):
         if not isinstance(s, dict):
@@ -1249,7 +1262,8 @@ def check(path, baseline_text=None, baseline_images=None):
         if miss:
             bad.append(f'screen {s.get("id", f"#{i + 1}")} missing required key(s) {miss} — the '
                        f'Flow Builder\'s screen schema requires each; `"props": {{}}` is valid')
-        s.setdefault('id', f'#{i + 1}')
+        if 'id' not in s:
+            s['id'] = _Unnamed(f'#{i + 1}')
         s.setdefault('props', {})
         if isinstance(s.setdefault('elements', {}), dict):
             s['elements'].setdefault('map', {})
@@ -2154,7 +2168,7 @@ def check(path, baseline_text=None, baseline_images=None):
                 warn.append(f'{eid}: element opacity is {op} on a 0-100 scale; the builder shows '
                             f'it ~{op}% opaque — did you mean {int(op * 100)}?')
             thin_opacity(e.get('propsByState'), f'{eid}.propsByState')
-        thin_opacity(s.get('props'), f'screen {s["id"]}')
+        thin_opacity(s['props'], f'screen {s["id"]}')
 
         # A price variable resolves only against the screen's DECLARED products, and only
         # the builder can declare one — by attaching it to a `product` element. A screen with
@@ -2568,7 +2582,7 @@ def check(path, baseline_text=None, baseline_images=None):
         # navigation. Invisible to every local gate (preview draws it in both modes, and both
         # the schema check and `flows config validate` pass it), which is exactly why it is
         # mechanical here. Error, not warning: the bar is simply gone on a device.
-        if feet and (s.get('props') or {}).get('scrollable') is False:
+        if feet and s['props'].get('scrollable') is False:
             bad.append(f'screen {s["id"]}: footer {feet[0]} on a NON-SCROLLABLE screen — '
                        f'device-confirmed to not render at all, taking any CTA inside it with '
                        f'it. Set scrollable true, or drop the footer and use the root\'s '
