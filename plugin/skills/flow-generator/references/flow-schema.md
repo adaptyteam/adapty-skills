@@ -1754,9 +1754,8 @@ element, it does not qualify as evidence — a device does.
 ### Element and screen ids become identifiers
 
 An element id is emitted as an **identifier in the generated runtime script**. So a character
-outside `[A-Za-z0-9_]` (a hyphen, a dot, a
-space) in an element id produces a syntactically broken script and the flow renders a **black
-screen on device**. An id
+outside `[A-Za-z0-9_]` (a hyphen, a dot, a space) in an element id produces a syntactically
+broken script and the flow renders a **black screen on device**. An id
 reused on a second screen collides in the same script, because there is one script per flow.
 
 **Every gate reachable from here is blind to it.** `flows config validate` passes a hyphenated id

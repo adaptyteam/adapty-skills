@@ -1071,7 +1071,7 @@ def main():
         return fk.config(screens=[fk.screen('scr_a', kids)])
 
     check('config() accepts a condition variable an input produces', _cfg('email.value')['screens'])
-    check('config() refuses a condition variable nothing produces (unknown_variable_ref before this)',
+    check('config() refuses a condition variable nothing produces (the publish refuses it with unknown_variable_ref)',
           raises(lambda: _cfg('emial.value')))
 
     # --- the input family. `custom_id` is the producer for `<id>.value`, which is what every
