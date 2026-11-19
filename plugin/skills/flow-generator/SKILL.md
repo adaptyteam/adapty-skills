@@ -12,10 +12,13 @@ grounded in a document that already works.
 **Authoring a new flow is also in scope**, and two things — and only these two — genuinely
 cannot be synthesized:
 
-- **An image you have no readable FILE for.** Given a path you can now upload it —
-  `flows media upload` ([media.md](references/media.md)). An image you can only *see* — pasted or
-  attached into the conversation — is not one you have: ask for a path. With no file there is
-  nothing to upload, so its catalog entry stays empty, never a made-up URL (trap 5). **SVG uploads
+- **An image you have no readable FILE for.** Given a file you can upload it — `flows media
+  upload`, or over MCP the upload link ([media.md](references/media.md)). An image the user
+  attached in a chat with a code sandbox is a file there (in claude.ai under
+  `/mnt/user-data/uploads/`): find it and send it, ask for no path
+  ([media.md → Getting the file](references/media.md#getting-the-file-the-upload-needs-a-file-not-a-picture)).
+  An image you can only *see*, with no sandbox, is not one you have: ask for a path. With no file
+  there is nothing to upload, so its catalog entry stays empty, never a made-up URL (trap 5). **SVG uploads
   fail**, so a monochrome glyph is authored inline in `_meta.icons`; a graphic no element can
   express, you draw and rasterize ([media.md](references/media.md)). An icon is **not** in this
   list: `python3 references/icons.py --search <word>` resolves any phosphor glyph, and an
@@ -255,7 +258,7 @@ Example of the question's shape, not words to copy:
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill prefers the CLI:** `gates.sh`, `shoot.sh` and the preview script run it, and over
-MCP a whole config or image passes through the conversation as a tool argument. With MCP only,
+MCP a whole config, or an image sent as base64, passes through the conversation as a tool argument. With MCP only,
 offer the CLI in one line; on a no, go on over MCP, run the local checks yourself, and name each
 check that did not run.
 
@@ -343,7 +346,9 @@ attempt lacks it too — never from a version number you read somewhere.
 
 **`flows media upload` works in production**, so an image the user *handed you a file for* is
 yours to place, not a user ask. Its limits, the `--json` record file to keep, the three values it
-binds and the geometry: [media.md](references/media.md). A clip file is yours too, through
+binds and the geometry: [media.md](references/media.md). Over MCP, the upload link of
+`uploads_create` and `curl`, or base64 for a very small image:
+[media.md → Over MCP](references/media.md#over-mcp-the-upload-link-or-base64). A clip file is yours too, through
 `flows media upload-video`; when the CLI lacks that command, the fallback is the placeholder:
 [media.md → Uploading a video](references/media.md#uploading-a-video).
 
@@ -1060,7 +1065,7 @@ The full statements — what each invariant is, what breaks it, what a violation
 | Check | Why no tool catches it |
 | :--- | :--- |
 | `fill` keeps the form the input used — object or array, **never converted**, and **one layer** | the form is only wrong relative to the input you fetched |
-| an image URL is one **`flows media upload` printed in this session** | a plausible `public-media.adapty.io` path is indistinguishable from a real one |
+| an image URL is one **`flows media upload` or an upload over MCP answered in this session** | a plausible `public-media.adapty.io` path is indistinguishable from a real one |
 | `_meta.icons[].raw` is **real** SVG — resolved through `icons.py`, not written by you | presence is checkable, authenticity is not |
 | **every price variable's field agrees with its product's period** | needs the catalog, not the config |
 
