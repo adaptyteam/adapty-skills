@@ -469,7 +469,7 @@ rendered and worked with **no `product` element on the screen and no
 action names the product directly, and no element has to stand behind it.
 
 **But it is not self-sufficient for publishing.**
-Measured against `adapty/0.8.0` in production: `flows config validate` refuses that
+Measured against production: `flows config validate` refuses that
 exact fixture with `flow._meta.screens["scr_RvSel001"].products is missing flowProductId for
 product "<uuid>" (…elements.map[…].purchase.product)`. The transform service looks up every
 product a screen names, a `const` purchase included, in `_meta.screens[<sid>].products[]` — and the
