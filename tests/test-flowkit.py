@@ -1071,7 +1071,7 @@ def main():
         return fk.config(screens=[fk.screen('scr_a', kids)])
 
     check('config() accepts a condition variable an input produces', _cfg('email.value')['screens'])
-    check('config() refuses a condition variable nothing produces (TS2304 before this)',
+    check('config() refuses a condition variable nothing produces (the publish refuses it with unknown_variable_ref)',
           raises(lambda: _cfg('emial.value')))
 
     # --- the input family. `custom_id` is the producer for `<id>.value`, which is what every
@@ -1238,10 +1238,10 @@ def main():
     check('switch_rich checks the condition against the service walker',
           raises(lambda: fk.switch_rich([({'type': 'assign'}, 'x')], default='y')))
 
-    # An unresolved variable in a conditional-text switch is COMPILED, so it is fatal —
-    # measured against the live service: valid:false, "Generated scripts failed validation",
-    # code and path both null. A `variable` SPAN in the same prop is not: it renders its
-    # literal token and publishes. Both directions, because the span must NOT be flagged.
+    # An unresolved variable in a conditional-text switch is refused by the publish
+    # (unknown_variable_ref), so config() refuses it first. A `variable` SPAN in the same prop is
+    # refused by the publish too, but config() does not check spans. Both directions, so the
+    # check stays on the switch only.
     def _doc(content_prop):
         t = fk.text(fk.rich('x'), preset='body', color_id='ink')
         t['props']['content'] = content_prop
@@ -1257,7 +1257,7 @@ def main():
     check('config() refuses a conditional-text switch naming nothing (hard 422 otherwise)',
           raises(_doc(fk.switch_rich(
               [(fk.eq(fk.ref('nosuch.selectedOptionId'), 'a'), 'A')], default='B'))))
-    check('...and still leaves a plain variable SPAN alone — it renders, it does not compile',
+    check('...and still leaves a plain variable SPAN alone — this check reads only the switch',
           _doc(fk.rich('Hi ', fk.Var('nosuch.value')))() is not None)
 
     # --- a timer that fires must have a child. Device-measured 2026-09-01 over three trips:

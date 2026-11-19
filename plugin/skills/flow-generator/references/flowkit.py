@@ -552,9 +552,8 @@ def ref(variable_id):
     and whose meanings did not.
 
     The id is the same vocabulary the rest of the document uses: `<inputCustomId>.value`,
-    `<groupId>.selectedOptionId`, `<groupId>.selectedProduct`, a `variables[]` id. An id
-    naming nothing is emitted into the generated script as a bare identifier and fails type
-    checking there (`script_type_violation`, TS2304), so `config()` resolves every condition
+    `<groupId>.selectedOptionId`, `<groupId>.selectedProduct`, a `variables[]` id. The publish
+    refuses an id naming nothing (`unknown_variable_ref`), so `config()` resolves every condition
     variable against the document it is building.
     """
     if not (isinstance(variable_id, str) and variable_id):
@@ -693,7 +692,7 @@ def _condition_var_ids(o, out):
 # still published. So the span kinds are named types here, and a bare tuple is rejected.
 
 class Var:
-    """A variable span: renders the variable's value, or its literal token if unresolved.
+    """A variable span: renders the variable's value; the publish refuses an undeclared id.
 
     Takes a variable id, or the entry `app_value()` returned — so a custom tag is bound by the
     object you declared rather than by an id you retyped.
@@ -1652,9 +1651,8 @@ def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, al
 #
 # The stakes are not cosmetic. An input's `customId` is the PRODUCER for `<customId>.value`,
 # which is what every conditional-visibility gate reads. Get it wrong or leave it out and the
-# condition compiles to a bare identifier and the flow is refused (`script_type_violation`,
-# TS2304) — so `custom_id` is positional and required here, and `config()` resolves every
-# condition variable against the inputs this module emits.
+# flow is refused (`unknown_variable_ref`) — so `custom_id` is positional and required here,
+# and `config()` resolves every condition variable against the inputs this module emits.
 
 INPUT_TYPES = ('text-input', 'email-input', 'password-input', 'number-input', 'phone-input',
                'date-picker', 'time-picker', 'date-time-picker')
@@ -1685,8 +1683,8 @@ def _input(kind, custom_id, *, placeholder=None, locale='en', width=None, height
         raise ValueError(
             f'{kind} needs a non-empty custom_id, got {custom_id!r}. It is the producer for '
             f'"{custom_id}.value" — the handle a conditional-visibility gate reads. Without it '
-            f'any condition naming this field compiles to a bare identifier and the flow is '
-            f'refused with script_type_violation.')
+            f'the flow is refused with unknown_variable_ref for any condition naming this '
+            f'field.')
     if not (isinstance(preset, str) and preset):
         raise ValueError(f'{kind} needs a typography preset id, got {preset!r} -- it sets the '
                          f'typed text\'s font, and the id must be declared in typography=(...)')
@@ -3741,16 +3739,13 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             raise ValueError(f'variable id {vid!r} has a character outside [A-Za-z0-9_]; it is '
                              f'emitted as an identifier in the generated script.')
 
-    # Every condition variable must resolve to something this document produces. An id that
-    # resolves to nothing is not dropped: the code generator emits it as a BARE IDENTIFIER into
-    # the generated TypeScript, which then fails to compile — `script_type_violation`,
-    # `TS2304: Cannot find name 'email'`, one of the transformer's most common refusals. It is
-    # checked here rather than in `when()` because
-    # only the whole document knows what produces what.
+    # Every condition variable must resolve to something this document produces. The publish
+    # refuses an id that resolves to nothing (`unknown_variable_ref`, with the path of the
+    # node). It is checked here rather than in `when()` because only the whole document knows
+    # what produces what.
     #
-    # The same id in RICH TEXT is a different severity and is deliberately left alone: an
-    # unresolved variable there renders as its literal token, which is wrong but publishes.
-    # In a condition it is compiled, so it is fatal.
+    # A `variable` span in RICH TEXT is refused the same way, but this check does not cover
+    # spans.
     INPUT_TYPES = ('text-input', 'email-input', 'password-input', 'number-input',
                    'phone-input', 'date-picker', 'time-picker', 'date-time-picker')
     produced, group_ids, product_ids = set(), set(), set()
@@ -3796,12 +3791,9 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                 if isinstance(st, dict) and st.get('condition'):
                     trees.append(st['condition'])
             # A conditional-text `switch` (switch_rich) is COMPILED, not rendered, so an
-            # unresolved id there is fatal exactly like a visibility condition -- the live
-            # service answers `valid: false`, "Generated scripts failed
-            # validation", with `code` and `path` both null, so the refusal names neither the
-            # element nor the variable. This is the opposite severity from a `variable` SPAN in
-            # rich text, which renders its literal token and publishes; the two shapes sit in
-            # the same `props.content` and only this one compiles.
+            # unresolved id there is refused exactly like a visibility condition
+            # (`unknown_variable_ref` at the path of the predicate). A `variable` SPAN in the
+            # same `props.content` is refused too, but this check reads only the switch.
             for prop in (e.get('props') or {}).values():
                 if not (isinstance(prop, dict) and prop.get('_localizable')):
                     continue
@@ -3843,8 +3835,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
     if unresolved:
         raise ValueError(
             f'condition variable(s) {sorted(unresolved)} resolve to nothing in this document. '
-            f'The generated script emits an unresolved id as a bare identifier and fails to '
-            f'compile (script_type_violation, TS2304 "Cannot find name"). Produce it — an input '
+            f'The publish refuses it (unknown_variable_ref, "Variable ... is not declared in '
+            f'the flow"). Produce it — an input '
             f'element with that customId, a selectableGroup with that id, a bound product — or '
             f'declare it in variables=(...).')
 

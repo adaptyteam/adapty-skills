@@ -258,7 +258,7 @@ defects injected — `verify-config.py` named 19 in one local pass; `validate` r
 | conditional-branch parity, variable-node parity, stray locale values | `verify-config.py` |
 | unresolved/un-prefixed timer token name | `verify-config.py` (timer-token prefix check) — Variables' `variable-no-consumer` deliberately does not restate this |
 | condition expression shape, incl. `assign`-as-a-condition | `verify-config.py` (a port of the transform service's own walker, shared by `invalid_visibility_condition` and `invalid_state_condition`) |
-| condition variable resolving to no producer | `verify-config.py` (`script_type_violation` / TS2304 — an ERROR there, where the same id in rich text is only a warning) |
+| condition variable resolving to no producer | `verify-config.py` (`unknown_variable_ref` — the publish refuses an undeclared id in a condition and in rich text alike) |
 | action payload required fields | `verify-config.py` (`invalid_action_payload`, all eight action families) |
 | carousel with no slides; tab-items disagreeing on a group; a tab group that is not `single_choice` | `verify-config.py` (`empty_carousel`, `mixed_tab_group_ids`, `wrong_tab_selectable_group_type`) |
 | a localizable `content`/`placeholder` value that is not a string, block array or switch | `verify-config.py` (`invalid_localized_rich_text`) |
