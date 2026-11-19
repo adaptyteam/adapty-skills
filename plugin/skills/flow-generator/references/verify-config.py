@@ -1225,7 +1225,17 @@ def _var_ids(v):
     return out
 
 
-def check(path, baseline_text=None, baseline_images=None):
+def screen_ids(path):
+    """The real screen ids of a document, or none if it cannot be read (its check reports that)."""
+    try:
+        doc = unwrap(json.load(open(path, encoding='utf-8')))
+        return {s['id'] for s in doc.get('screens') or [] if isinstance(s, dict)
+                and isinstance(s.get('id'), str)}
+    except Exception:                             # noqa: BLE001 - the check itself reports it
+        return set()
+
+
+def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     raw = unwrap(json.load(open(path, encoding='utf-8')))
     bad, warn = catalog_findings(raw)
     # Every check below reads THIS: the same document with each `{_lid}` ref inlined, so a check
@@ -1243,7 +1253,9 @@ def check(path, baseline_text=None, baseline_images=None):
     # gets its message label as its id, made unlike every real id so that its findings never print
     # as another screen's. A navigate target resolves only to a real id: one that equals a label
     # stays dangling. `--baseline` lists a fetched flow's own as ALREADY IN, as for the element
-    # keys below.
+    # keys below; for that, `reserved` holds the real ids of the baseline and of every document
+    # checked against it, so each run gives a screen the same label and no label equals a real id
+    # of another run.
     real_sids = {s['id'] for s in d.get('screens') or [] if isinstance(s, dict) and 'id' in s}
     unnamed = set()
     for i, s in enumerate(d.get('screens') or []):
@@ -1254,7 +1266,7 @@ def check(path, baseline_text=None, baseline_images=None):
             miss += [f'elements.{k}' for k in ('map', 'hierarchy') if k not in s['elements']]
         if 'id' not in s:
             label = f'with no id (position {i + 1})'
-            while label in real_sids or label in unnamed:
+            while label in real_sids or label in reserved or label in unnamed:
                 label += '*'
             unnamed.add(label)
             s['id'] = label
@@ -4552,14 +4564,16 @@ args = sys.argv[1:]
 # fail the run. Without this, three runs editing one fetched flow read its own missing `states`
 # as their defect. A finding whose words changed (a count grew, an id moved) counts as new.
 baseline_text = baseline_images = base_found = None
+reserved = frozenset()
 base_name = ''
 if '--baseline' in args:
     i = args.index('--baseline')
     if i + 1 >= len(args):
         sys.exit('verify-config.py: --baseline needs a config path')
     base_name = os.path.basename(args[i + 1])
+    reserved = frozenset().union(*(screen_ids(a) for a in args if a != '--baseline'))
     try:
-        _b_bad, _b_warn = check(args[i + 1])
+        _b_bad, _b_warn = check(args[i + 1], reserved=reserved)
         base_found = set(_b_bad), set(_b_warn)
     except Exception:                             # noqa: BLE001 - a broken baseline only loses the split
         base_found = None
@@ -4594,7 +4608,7 @@ for path in args:
         print(f'   {exc}')
         sys.exit(2)
     try:
-        bad, warn = check(path, baseline_text, baseline_images)
+        bad, warn = check(path, baseline_text, baseline_images, reserved)
     except Exception as exc:                                  # noqa: BLE001 - the point is breadth
         import traceback
         print(f'{os.path.basename(path):34} CHECKER ERROR')
