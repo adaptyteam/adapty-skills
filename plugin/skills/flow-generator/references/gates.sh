@@ -221,21 +221,28 @@ else
     [ "$waited" -gt 0 ] && echo "   validating now (waited ${waited}s)"
   fi
 
-  run_validate() {  # $1 = config file -> the CLI's raw JSON answer, one 502 retried
+  # stdout is the JSON and nothing else; stderr goes to its own file. The CLI writes warnings
+  # there (`Warning: Using non-default API URL`), and merged into stdout they made every verdict
+  # unparseable.
+  VERR="$(mktemp "${TMPDIR:-/tmp}/adapty-validate-err.XXXXXX")"
+  run_validate() {  # $1 = config file -> the CLI's JSON answer, one 502 retried
     local raw
-    raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>&1)"
-    case "$raw" in *http_502*|*http_504*)
+    raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>"$VERR")"
+    case "$raw $(cat "$VERR")" in *http_502*|*http_504*)
       echo "   validate answered a gateway error (the server, not your config); retrying once in 5 s" >&2
       sleep 5
-      raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>&1)" ;;
+      raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>"$VERR")" ;;
     esac
     printf '%s\n' "$raw"
   }
   verdict_of() {  # $1 = config file -> the verdict, one line
     run_validate "$1" | $PY -c '
 import json,sys
-try: d=json.load(sys.stdin)
-except Exception: print("UNPARSEABLE"); raise SystemExit
+raw=sys.stdin.read()
+try: d=json.loads(raw)
+except Exception:
+    err=" ".join(open(sys.argv[1], encoding="utf-8", errors="replace").read().split())
+    print("UNPARSEABLE — the CLI printed no JSON: " + (raw.strip() or err)[:200]); raise SystemExit
 v=d.get("valid")
 if v is True:  print("valid: true")
 elif v is False:
@@ -243,7 +250,7 @@ elif v is False:
     print("valid: false — " + "; ".join(str(i.get("message")) for i in iss[:3] or ["(no issues listed)"]))
 else:
     print("API ERROR (not a verdict — retry this run alone, not beside another): " + json.dumps(d)[:160])
-' 2>/dev/null
+' "$VERR" 2>/dev/null
   }
   verdict="$(verdict_of "$CFG")"
   echo "   $verdict"
@@ -265,6 +272,7 @@ json.dump(d.get("config", d) if isinstance(d, dict) else d, open(sys.argv[2], "w
     fi
     rm -f "$bare" ;;
   esac
+  rm -f "$VERR"
 fi
 
 echo

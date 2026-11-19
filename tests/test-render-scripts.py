@@ -11,6 +11,7 @@ Chromium-based browser are installed (skipped otherwise).
                 back to the old default's (the empty-image report); unknown code and a
                 non-catalog config fail with exit 2 and say why; --no-previews strips them;
                 --save-config keeps the input's shape (envelope or bare)
+    shoot.sh    an output folder whose path has spaces still gets its strip
     shoot.sh    a browser that exits without a file is reported with what it said, at once and
                 without the 60 s retry; every screen prints progress; TIME_LIMIT stops the run and
                 names what was not rendered; a stopped run keeps and names what it finished;
@@ -207,6 +208,15 @@ try:
     check('three screens: progress for each, rendered, one strip',
           p.returncode == 0 and all(f'[{i}/3]' in text for i in (1, 2, 3)) and text.count('   rendered ') == 3
           and 'strip-' in text, text)
+
+    spaced = os.path.join(tmp, 'My Flows', 'out dir')
+    os.makedirs(spaced)
+    _, p = shoot(ok_browser, ['scr_a', 'scr_b'], {'OUT': spaced})
+    text = p.communicate(timeout=120)[0]
+    strips = [f for f in os.listdir(spaced) if f.startswith('strip-')]
+    check('a folder path with spaces: both renders listed whole, and the strip is made',
+          p.returncode == 0 and len(strips) == 1 and 'No such file' not in text
+          and text.count(f'-> {spaced}/shot-') == 2, text)
 
     t0 = time.time()
     out, p = shoot(dead_browser, ['scr_a', 'scr_b'])

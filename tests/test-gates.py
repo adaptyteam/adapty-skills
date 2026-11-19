@@ -14,6 +14,7 @@ its `validate` call across every gates.sh run on the machine, and retries a gate
     LOCK    -- three parallel runs never overlap inside `validate`, and the waiters say so
     STALE   -- a lock left by a dead process is taken over at once
     RETRY   -- a 502 then a verdict reads as the verdict
+    STDERR  -- a warning the CLI prints on stderr (a non-default API URL) leaves the verdict intact
     IDS     -- a product the app lacks, or an offer not of its product, stops the gate
 
 Usage: python3 tests/test-gates.py     # 0 all pass, 1 a case regressed
@@ -33,6 +34,7 @@ FAKE = r'''#!/bin/bash
 S="$FAKE_STATE"
 n=$(( $(cat "$S/calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$S/calls"
 mkdir "$S/active" 2>/dev/null || echo overlap >> "$S/overlaps"
+[ -n "${FAKE_WARN:-}" ] && echo "Warning: Using non-default API URL: https://example.test/api" >&2
 sleep 1
 rmdir "$S/active"
 if [ "$n" -le "${FAKE_502:-0}" ]; then
@@ -111,6 +113,17 @@ with tempfile.TemporaryDirectory() as tmp:
     out = gates(env_for(tmp, FAKE_502='2'), APP, FLOW).communicate(timeout=120)[0]
     check('RETRY: two 502s are a failed call, not a verdict, and say to run alone',
           'API ERROR (not a verdict' in out and 'NOT CLEAR' in out, out)
+
+# The CLI writes its non-default API URL warning to stderr, ahead of the JSON on stdout. Merged
+# into the parsed stream it turned every verdict into UNPARSEABLE.
+with tempfile.TemporaryDirectory() as tmp:
+    out = gates(env_for(tmp, FAKE_WARN='1'), APP, FLOW).communicate(timeout=120)[0]
+    check('STDERR: a warning on stderr leaves the verdict readable',
+          'valid: true' in out and 'UNPARSEABLE' not in out and 'ALL GATES PASS' in out, out)
+with tempfile.TemporaryDirectory() as tmp:
+    out = gates(env_for(tmp, FAKE_WARN='1', FAKE_502='1'), APP, FLOW).communicate(timeout=120)[0]
+    check('STDERR: with a warning on stderr, a 502 is still retried',
+          'retrying once' in out and 'ALL GATES PASS' in out, out)
 
 # The ids step. `validate` passes an unknown product, a store code as offerId and an offer of
 # another product, so the script reads them: one `products list`, one `product-offers list` per
