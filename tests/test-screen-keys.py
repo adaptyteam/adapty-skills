@@ -76,17 +76,34 @@ for key in ('props', 'elements', 'id', 'elements.map', 'elements.hierarchy'):
     check(f'ALREADY IN: --baseline lists the fetched flow\'s screen with no `{key}` apart',
           code == 0 and 'already (error):' in out and MSG in out and 'CHECKER ERROR' not in out, out)
 
-# The position label of a screen with no `id` is for messages only: a navigate target with the
-# same text names no screen of the input, so it stays dangling.
-for target in ('#1', '#unused'):
-    doc = copy.deepcopy(BASE)
-    cfg = doc.get('config', doc)
-    cfg['screens'][0].pop('id')
-    old = next(s['id'] for s in cfg['screens'][1:])
-    text = json.dumps(doc).replace(f'"screen": "{old}"', f'"screen": "{target}"')
-    code, out = run(json.loads(text))
-    check(f'FIRES: a navigate target {target!r} with the first screen unnamed is dangling',
-          code == 1 and 'dangling navigate targets' in out and repr(target) in out, out)
+# A screen with no `id` gets no stand-in id: a navigate target `"#1"` names no screen of the input,
+# so it stays dangling.
+doc = copy.deepcopy(BASE)
+cfg = doc.get('config', doc)
+cfg['screens'][0].pop('id')
+old = cfg['screens'][1]['id']
+target = cfg['screens'][2]['id']  # navigated to from a named screen; the unnamed one is not read
+code, out = run(json.loads(json.dumps(doc).replace(f'"screen": "{target}"', '"screen": "#1"')))
+line = next((ln for ln in out.splitlines() if 'dangling navigate targets' in ln), '')
+check('FIRES: a navigate target "#1" with the first screen unnamed is dangling',
+      code == 1 and "'#1'" in line, out)
+
+# ...and no finding of the unnamed screen prints as a real screen's: screen B has the real id "#1",
+# the fetched flow has a hierarchy-ref fault on the unnamed screen A, and the edit adds the same
+# fault to B. The draft's fault is new.
+def hier_fault(cfg, i):
+    cfg['screens'][i]['elements']['hierarchy'].setdefault('children', []).append({'id': 'absent'})
+
+fetched = json.loads(json.dumps(BASE).replace(f'"{old}"', '"#1"'))
+cfg = fetched.get('config', fetched)
+cfg['screens'][0].pop('id')
+hier_fault(cfg, 0)
+draft = copy.deepcopy(fetched)
+hier_fault(draft.get('config', draft), 1)
+code, out = run(draft, baseline=fetched)
+check('FIRES: a fault added to the screen "#1" is new against a baseline whose unnamed screen '
+      'is first', code == 1 and any('ERROR:' in ln and 'absent' in ln for ln in out.splitlines()),
+      out)
 
 for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
     code, out = run(json.load(open(f)))

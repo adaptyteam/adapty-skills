@@ -1225,18 +1225,6 @@ def _var_ids(v):
     return out
 
 
-class _Unnamed(str):
-    """The position label (`#2`) of a screen with no `id`. It prints as the label, but it equals
-    only itself: a navigate target `"#2"` stays dangling, and two unnamed screens stay apart."""
-    def __eq__(self, other):
-        return self is other
-
-    def __ne__(self, other):
-        return self is not other
-
-    __hash__ = object.__hash__
-
-
 def check(path, baseline_text=None, baseline_images=None):
     raw = unwrap(json.load(open(path, encoding='utf-8')))
     bad, warn = catalog_findings(raw)
@@ -1250,9 +1238,10 @@ def check(path, baseline_text=None, baseline_images=None):
     # selectableGroups, products}` and the Flow Builder's screen schema requires `id`, `props` and
     # `elements` (`"props": {}` is valid). A fetched flow can arrive with a screen that has only
     # `id` and `elements`. Report each missing key here, then give the read view an empty
-    # stand-in, so every check below reads the screen instead of crashing on it (a missing `id`
-    # gets a position label that no navigate target can match). `--baseline`
-    # lists a fetched flow's own as ALREADY IN, as for the element keys below.
+    # stand-in, so every check below reads the screen instead of crashing on it. A screen with no
+    # `id` leaves the read view: any stand-in id could equal a real id or a navigate target, and
+    # its findings would print as another screen's. `--baseline` lists a fetched flow's own as
+    # ALREADY IN, as for the element keys below.
     for i, s in enumerate(d.get('screens') or []):
         if not isinstance(s, dict):
             continue
@@ -1260,14 +1249,15 @@ def check(path, baseline_text=None, baseline_images=None):
         if isinstance(s.get('elements'), dict):
             miss += [f'elements.{k}' for k in ('map', 'hierarchy') if k not in s['elements']]
         if miss:
-            bad.append(f'screen {s.get("id", f"#{i + 1}")} missing required key(s) {miss} — the '
-                       f'Flow Builder\'s screen schema requires each; `"props": {{}}` is valid')
-        if 'id' not in s:
-            s['id'] = _Unnamed(f'#{i + 1}')
+            where = f'screen {s["id"]}' if 'id' in s else f'screen with no id (position {i + 1})'
+            bad.append(f'{where} missing required key(s) {miss} — the Flow Builder\'s screen '
+                       f'schema requires each; `"props": {{}}` is valid')
         s.setdefault('props', {})
         if isinstance(s.setdefault('elements', {}), dict):
             s['elements'].setdefault('map', {})
             s['elements'].setdefault('hierarchy', {'id': 'root', 'children': []})
+    if isinstance(d.get('screens'), list):
+        d['screens'] = [s for s in d['screens'] if not isinstance(s, dict) or 'id' in s]
 
     for s in d.get('screens', []):
         for k, e in s['elements']['map'].items():
