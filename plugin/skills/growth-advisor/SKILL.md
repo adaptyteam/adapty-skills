@@ -370,7 +370,10 @@ and the reason.
   back and ask, never a "Me:" item, unless it is a recurring check ("Recurring checks").
 - **Retention Messaging (Apple's cancel screen), also when asked directly: this skill only reads**
   (the two reads of `references/levers.md`, "Adapty features"); never offer to draft, create,
-  edit, activate or deactivate a message.
+  edit, activate or deactivate a message. The setup status is the one status read: never add
+  Adapty's URL (`realtime-url get`) or a message read to it. **When the user allows only some
+  reads, run only those;** any other read, also one with no yes of its own, is a Next step that
+  waits for their yes.
   Once the status and the list are read, Next steps hold a "Me:" item that names the
   `retention-messaging` skill and its next action; a no to a read or a missing command or tool
   keeps the "You:" dashboard check.
