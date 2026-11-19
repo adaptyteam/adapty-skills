@@ -11,6 +11,8 @@ which reads as "the checker is broken" and hides the real fault of the flow.
     FIRES   -- a screen with no `id`
     FIRES   -- a screen whose `elements` has no `map`, or no `hierarchy`
     FIRES   -- a navigate target equal to the position label of a screen with no `id` is dangling
+    FIRES   -- an unnamed entry screen with no navigation leaves the named screens unreachable
+    FIRES   -- under --baseline, a new fault inside the fetched flow's unnamed screen is new
     ALREADY -- under --baseline, the fault of the fetched flow is listed as ALREADY IN
     SILENT  -- every real export in tests/fixtures*
 """
@@ -88,22 +90,44 @@ line = next((ln for ln in out.splitlines() if 'dangling navigate targets' in ln)
 check('FIRES: a navigate target "#1" with the first screen unnamed is dangling',
       code == 1 and "'#1'" in line, out)
 
-# ...and no finding of the unnamed screen prints as a real screen's: screen B has the real id "#1",
-# the fetched flow has a hierarchy-ref fault on the unnamed screen A, and the edit adds the same
-# fault to B. The draft's fault is new.
+# ...and no finding of the unnamed screen prints as a real screen's: screen B has a real id ("#1",
+# or the very label the unnamed screen would get), the fetched flow has a hierarchy-ref fault on
+# the unnamed screen A, and the edit adds the same fault to B. The draft's fault is new.
 def hier_fault(cfg, i):
     cfg['screens'][i]['elements']['hierarchy'].setdefault('children', []).append({'id': 'absent'})
 
-fetched = json.loads(json.dumps(BASE).replace(f'"{old}"', '"#1"'))
-cfg = fetched.get('config', fetched)
-cfg['screens'][0].pop('id')
-hier_fault(cfg, 0)
+for real in ('#1', 'with no id (position 1)'):
+    fetched = json.loads(json.dumps(BASE).replace(f'"{old}"', json.dumps(real)))
+    cfg = fetched.get('config', fetched)
+    cfg['screens'][0].pop('id')
+    hier_fault(cfg, 0)
+    draft = copy.deepcopy(fetched)
+    hier_fault(draft.get('config', draft), 1)
+    code, out = run(draft, baseline=fetched)
+    check(f'FIRES: a fault added to the screen {real!r} is new against a baseline whose unnamed '
+          f'screen is first',
+          code == 1 and any('ERROR:' in ln and 'absent' in ln for ln in out.splitlines()), out)
+
+# The unnamed screen keeps its place: as screens[0] it is the entry, and with no navigation of its
+# own every named screen after it is unreachable.
+doc = copy.deepcopy(BASE)
+cfg = doc.get('config', doc)
+cfg['screens'][0] = {'props': {}, 'elements': {'map': {}, 'hierarchy': {'id': 'root', 'children': []}}}
+named = [s['id'] for s in cfg['screens'][1:]]
+code, out = run(doc)
+line = next((ln for ln in out.splitlines() if 'unreachable from screens[0]' in ln), '')
+check('FIRES: an unnamed entry screen with no navigation leaves every named screen unreachable',
+      all(repr(x) in line for x in named), out)
+
+# The unnamed screen is still read: under --baseline its missing id is ALREADY IN, and a fault the
+# edit adds inside it is new.
+fetched = copy.deepcopy(BASE)
+fetched.get('config', fetched)['screens'][0].pop('id')
 draft = copy.deepcopy(fetched)
-hier_fault(draft.get('config', draft), 1)
+hier_fault(draft.get('config', draft), 0)
 code, out = run(draft, baseline=fetched)
-check('FIRES: a fault added to the screen "#1" is new against a baseline whose unnamed screen '
-      'is first', code == 1 and any('ERROR:' in ln and 'absent' in ln for ln in out.splitlines()),
-      out)
+check('FIRES: a fault added inside the fetched flow\'s unnamed screen is new under --baseline',
+      code == 1 and any('ERROR:' in ln and 'absent' in ln for ln in out.splitlines()), out)
 
 for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
     code, out = run(json.load(open(f)))

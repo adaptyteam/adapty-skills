@@ -1239,25 +1239,32 @@ def check(path, baseline_text=None, baseline_images=None):
     # `elements` (`"props": {}` is valid). A fetched flow can arrive with a screen that has only
     # `id` and `elements`. Report each missing key here, then give the read view an empty
     # stand-in, so every check below reads the screen instead of crashing on it. A screen with no
-    # `id` leaves the read view: any stand-in id could equal a real id or a navigate target, and
-    # its findings would print as another screen's. `--baseline` lists a fetched flow's own as
-    # ALREADY IN, as for the element keys below.
+    # `id` keeps its position (screens[0] is the entry, `navigateNext` goes to the next one) and
+    # gets its message label as its id, made unlike every real id so that its findings never print
+    # as another screen's. A navigate target resolves only to a real id: one that equals a label
+    # stays dangling. `--baseline` lists a fetched flow's own as ALREADY IN, as for the element
+    # keys below.
+    real_sids = {s['id'] for s in d.get('screens') or [] if isinstance(s, dict) and 'id' in s}
+    unnamed = set()
     for i, s in enumerate(d.get('screens') or []):
         if not isinstance(s, dict):
             continue
         miss = [k for k in ('id', 'props', 'elements') if k not in s]
         if isinstance(s.get('elements'), dict):
             miss += [f'elements.{k}' for k in ('map', 'hierarchy') if k not in s['elements']]
+        if 'id' not in s:
+            label = f'with no id (position {i + 1})'
+            while label in real_sids or label in unnamed:
+                label += '*'
+            unnamed.add(label)
+            s['id'] = label
         if miss:
-            where = f'screen {s["id"]}' if 'id' in s else f'screen with no id (position {i + 1})'
-            bad.append(f'{where} missing required key(s) {miss} — the Flow Builder\'s screen '
-                       f'schema requires each; `"props": {{}}` is valid')
+            bad.append(f'screen {s["id"]} missing required key(s) {miss} — the Flow Builder\'s '
+                       f'screen schema requires each; `"props": {{}}` is valid')
         s.setdefault('props', {})
         if isinstance(s.setdefault('elements', {}), dict):
             s['elements'].setdefault('map', {})
             s['elements'].setdefault('hierarchy', {'id': 'root', 'children': []})
-    if isinstance(d.get('screens'), list):
-        d['screens'] = [s for s in d['screens'] if not isinstance(s, dict) or 'id' in s]
 
     for s in d.get('screens', []):
         for k, e in s['elements']['map'].items():
@@ -1318,7 +1325,7 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'BASELINE=<the backup>): the flow\'s own are then listed apart and do not '
                     f'block your edit. Give `"states": []` only to elements you wrote')
 
-    sids = {s['id'] for s in d.get('screens', [])}
+    sids = real_sids
     tg = []
     walk(d, lambda o: tg.append(o['screen'])
          if o.get('type') == 'screen' and isinstance(o.get('screen'), str) else None)
@@ -2211,7 +2218,7 @@ def check(path, baseline_text=None, baseline_images=None):
                 if isinstance(o, dict):
                     if o.get('type') == 'navigate':
                         t = (o.get('payload') or {}).get('screen')
-                        if t: outs.append(t)
+                        if t and t not in unnamed: outs.append(t)
                     for v in o.values(): collect(v)
                 elif isinstance(o, list):
                     for v in o: collect(v)
