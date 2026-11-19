@@ -515,7 +515,8 @@ def snippet_dir(start=None):
     here = os.path.abspath(start or os.getcwd())
     root = here
     while True:
-        if os.path.isdir(os.path.join(root, '.git')):
+        # `.git` is a folder in a clone and a file in a git worktree or a submodule.
+        if os.path.exists(os.path.join(root, '.git')):
             break
         parent = os.path.dirname(root)
         if parent == root:

@@ -1,8 +1,7 @@
 # `flows config validate` — what it is, what it catches, what it lets through
 
-`flows config validate` is in stable `adapty` from **0.8.0**, and its endpoint is **live in
-production**. Everything below holds against production with `adapty@0.8.0`
-on real flows.
+`flows config validate` is in stable `adapty`, and its endpoint is **live in production**.
+Everything below holds against production on real flows.
 
 Read this file when `validate` says no and you need to know what the message means, or when you are
 about to claim something is publishable.
