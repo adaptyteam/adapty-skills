@@ -1234,6 +1234,27 @@ def check(path, baseline_text=None, baseline_images=None):
     els = lambda: ((s, e) for s in d.get('screens', [])
                    for e in s.get('elements', {}).get('map', {}).values())
 
+    # Screen well-formedness. The screen is `{id, props, caption, elements: {map, hierarchy},
+    # selectableGroups, products}` and the Flow Builder's screen schema requires `id`, `props` and
+    # `elements` (`"props": {}` is valid). A fetched flow can arrive with a screen that has only
+    # `id` and `elements`. Report each missing key here, then give the read view an empty
+    # stand-in, so every check below reads the screen instead of crashing on it. `--baseline`
+    # lists a fetched flow's own as ALREADY IN, as for the element keys below.
+    for i, s in enumerate(d.get('screens') or []):
+        if not isinstance(s, dict):
+            continue
+        miss = [k for k in ('id', 'props', 'elements') if k not in s]
+        if isinstance(s.get('elements'), dict):
+            miss += [f'elements.{k}' for k in ('map', 'hierarchy') if k not in s['elements']]
+        if miss:
+            bad.append(f'screen {s.get("id", f"#{i + 1}")} missing required key(s) {miss} — the '
+                       f'Flow Builder\'s screen schema requires each; `"props": {{}}` is valid')
+        s.setdefault('id', f'#{i + 1}')
+        s.setdefault('props', {})
+        if isinstance(s.setdefault('elements', {}), dict):
+            s['elements'].setdefault('map', {})
+            s['elements'].setdefault('hierarchy', {'id': 'root', 'children': []})
+
     for s in d.get('screens', []):
         for k, e in s['elements']['map'].items():
             if k != e.get('id'):
@@ -2133,7 +2154,7 @@ def check(path, baseline_text=None, baseline_images=None):
                 warn.append(f'{eid}: element opacity is {op} on a 0-100 scale; the builder shows '
                             f'it ~{op}% opaque — did you mean {int(op * 100)}?')
             thin_opacity(e.get('propsByState'), f'{eid}.propsByState')
-        thin_opacity(s['props'], f'screen {s["id"]}')
+        thin_opacity(s.get('props'), f'screen {s["id"]}')
 
         # A price variable resolves only against the screen's DECLARED products, and only
         # the builder can declare one — by attaching it to a `product` element. A screen with
@@ -2547,7 +2568,7 @@ def check(path, baseline_text=None, baseline_images=None):
         # navigation. Invisible to every local gate (preview draws it in both modes, and both
         # the schema check and `flows config validate` pass it), which is exactly why it is
         # mechanical here. Error, not warning: the bar is simply gone on a device.
-        if feet and s['props'].get('scrollable') is False:
+        if feet and (s.get('props') or {}).get('scrollable') is False:
             bad.append(f'screen {s["id"]}: footer {feet[0]} on a NON-SCROLLABLE screen — '
                        f'device-confirmed to not render at all, taking any CTA inside it with '
                        f'it. Set scrollable true, or drop the footer and use the root\'s '
