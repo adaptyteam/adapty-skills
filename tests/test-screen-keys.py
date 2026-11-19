@@ -13,6 +13,8 @@ which reads as "the checker is broken" and hides the real fault of the flow.
     FIRES   -- a navigate target equal to the position label of a screen with no `id` is dangling
     FIRES   -- an unnamed entry screen with no navigation leaves the named screens unreachable
     FIRES   -- under --baseline, a new fault inside the fetched flow's unnamed screen is new
+    FIRES   -- under --baseline, a fault in an unnamed screen is new even when an unnamed screen
+               at the same position had it (a position names no screen across two documents)
     ALREADY -- under --baseline, the fault of the fetched flow is listed as ALREADY IN
     SILENT  -- every real export in tests/fixtures*
 """
@@ -150,6 +152,25 @@ hier_fault(draft.get('config', draft), 0)
 code, out = run(draft, baseline=fetched)
 check('FIRES: a fault added inside the fetched flow\'s unnamed screen is new under --baseline',
       code == 1 and any('ERROR:' in ln and 'absent' in ln for ln in out.splitlines()), out)
+
+# Two unnamed screens, Welcome and Personalize. The fetched flow has the fault on Welcome; the edit
+# moves it to Personalize and puts Personalize first. Same label, same text, but another screen:
+# the fault is new. The two missing-id errors stay ALREADY IN.
+fetched = copy.deepcopy(BASE)
+cfg = fetched.get('config', fetched)
+for s in cfg['screens'][:2]:
+    s.pop('id')
+draft = copy.deepcopy(fetched)
+hier_fault(cfg, 0)
+dcfg = draft.get('config', draft)
+hier_fault(dcfg, 1)
+dcfg['screens'][0], dcfg['screens'][1] = dcfg['screens'][1], dcfg['screens'][0]
+code, out = run(draft, baseline=fetched)
+lines = out.splitlines()
+check('FIRES: a fault moved to another unnamed screen at the same position is new under --baseline',
+      code == 1 and any('ERROR:' in ln and 'absent' in ln for ln in lines), out)
+check('ALREADY IN: ...and the two missing-id errors stay ALREADY IN',
+      sum('already (error):' in ln and MSG in ln for ln in lines) == 2, out)
 
 for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
     code, out = run(json.load(open(f)))

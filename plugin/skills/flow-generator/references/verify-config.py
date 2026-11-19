@@ -1235,6 +1235,21 @@ def screen_ids(path):
         return set()
 
 
+def unnamed_labels(screens, reserved=frozenset()):
+    """Position -> message label of each screen with no `id`: `with no id (position N)`, with `*`
+    added until it equals no real id of these screens and none in `reserved`."""
+    screens = screens if isinstance(screens, list) else []
+    real = {s['id'] for s in screens if isinstance(s, dict) and 'id' in s}
+    out = {}
+    for i, s in enumerate(screens):
+        if isinstance(s, dict) and 'id' not in s:
+            label = f'with no id (position {i + 1})'
+            while label in real or label in reserved or label in out.values():
+                label += '*'
+            out[i] = label
+    return out
+
+
 def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     raw = unwrap(json.load(open(path, encoding='utf-8')))
     bad, warn = catalog_findings(raw)
@@ -1255,9 +1270,11 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     # stays dangling. `--baseline` lists a fetched flow's own as ALREADY IN, as for the element
     # keys below; for that, `reserved` holds the real ids of the baseline and of every document
     # checked against it, so each run gives a screen the same label and no label equals a real id
-    # of another run.
+    # of another run. Position is no identity across two documents, so the main part never lists a
+    # finding in an unnamed screen as ALREADY IN, apart from the screen's own missing-key error.
     real_sids = {s['id'] for s in d.get('screens') or [] if isinstance(s, dict) and 'id' in s}
-    unnamed = set()
+    labels = unnamed_labels(d.get('screens'), reserved)
+    unnamed = set(labels.values())
     for i, s in enumerate(d.get('screens') or []):
         if not isinstance(s, dict):
             continue
@@ -1265,11 +1282,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
         if isinstance(s.get('elements'), dict):
             miss += [f'elements.{k}' for k in ('map', 'hierarchy') if k not in s['elements']]
         if 'id' not in s:
-            label = f'with no id (position {i + 1})'
-            while label in real_sids or label in reserved or label in unnamed:
-                label += '*'
-            unnamed.add(label)
-            s['id'] = label
+            s['id'] = labels[i]
         if miss:
             bad.append(f'screen {s["id"]} missing required key(s) {miss} — the Flow Builder\'s '
                        f'screen schema requires each; `"props": {{}}` is valid')
@@ -4620,10 +4633,20 @@ for path in args:
         sys.exit(2)
     old = []
     if base_found is not None:
-        old = ([('error', b) for b in bad if b in base_found[0]]
-               + [('warning', w) for w in warn if w in base_found[1]])
-        bad = [b for b in bad if b not in base_found[0]]
-        warn = [w for w in warn if w not in base_found[1]]
+        # A finding in a screen with no id is always this edit's: a position names no screen across
+        # two documents. Only that screen's own missing-key error can be ALREADY IN.
+        _labels = unnamed_labels(unwrap(json.load(open(path, encoding='utf-8'))).get('screens'),
+                                 reserved).values()
+        def known(msg, found):
+            if msg not in found:
+                return False
+            if any(msg.startswith(f'screen {lb} missing required key(s)') for lb in _labels):
+                return True
+            return not any(lb in msg for lb in _labels)
+        old = ([('error', b) for b in bad if known(b, base_found[0])]
+               + [('warning', w) for w in warn if known(w, base_found[1])])
+        bad = [b for b in bad if not known(b, base_found[0])]
+        warn = [w for w in warn if not known(w, base_found[1])]
     print(f'{os.path.basename(path):34} {"OK" if not bad else "VIOLATIONS"}')
     for b in bad:
         print(f'   ERROR:   {b}')
