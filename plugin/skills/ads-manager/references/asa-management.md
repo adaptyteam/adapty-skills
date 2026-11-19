@@ -368,5 +368,7 @@ nothing was read. Retry a read; read a write's target back before you resend it.
 - Keyword and negative-keyword calls are batches: one bad id fails the whole batch before
   Apple is called; Apple may still reject individual items within an otherwise valid batch,
   each with its own reason.
-- Money flags take a bare amount (`--daily-budget 50`); `--currency` defaults to `USD`.
+- Money flags take a bare amount (`--daily-budget 50`). Pass `--currency` with the campaign
+  group's currency from `asa orgs list`: some CLI releases default it to `USD`, others look the
+  group's currency up, and the server rejects an amount in any other currency.
 - There is no delete command in the `asa` topic.
