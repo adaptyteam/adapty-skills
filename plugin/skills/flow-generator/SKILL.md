@@ -347,7 +347,7 @@ attempt lacks it too — never from a version number you read somewhere.
 **`flows media upload` works in production**, so an image the user *handed you a file for* is
 yours to place, not a user ask. Its limits, the `--json` record file to keep, the three values it
 binds and the geometry: [media.md](references/media.md). Over MCP, the upload link of
-`uploads_create` and `curl`, or base64 for a very small image:
+`uploads_create` (`kind` `flow_image`) and `curl`, or base64 for a very small image:
 [media.md → Over MCP](references/media.md#over-mcp-the-upload-link-or-base64). A clip file is yours too, through
 `flows media upload-video`; when the CLI lacks that command, the fallback is the placeholder:
 [media.md → Uploading a video](references/media.md#uploading-a-video).

@@ -66,8 +66,9 @@ never as a fact about the format.
 Two tools put an image in the media library. Each answers the same record as the CLI's `--json`
 (`id`, `url`, `name`, `preview_base64`), and each send makes a new asset. Pick from these facts:
 
-- **`uploads_create`** (the app and the file name) answers a 10-minute `upload_url`, its
-  `expires_at`, `max_bytes` and the `curl -T` command that sends the file. Run that
+- **`uploads_create`** (the app, the file name and `kind` `flow_image`) answers a 10-minute
+  `upload_url`, its `expires_at`, `max_bytes` and the `curl -T` command that sends the file. The
+  send stores the image and answers its record: the `id` and `url` the config binds. Run that
   command from your sandbox on the file, with the answer going to the record file, never to your
   context:
 

@@ -149,7 +149,8 @@ For every asset the screen needs, one of three states, decided before you write 
    animated WebP plays one frame, so motion is a `video` element from an mp4 or webm
    ([media.md → Uploading a video](media.md#uploading-a-video)).
    Upload it now as [media.md → The call](media.md#the-call) says (over MCP,
-   [the upload link or base64](media.md#over-mcp-the-upload-link-or-base64)) — the answer into a record file,
+   [the upload link](media.md#over-mcp-the-upload-link-or-base64) of `uploads_create` with `kind`
+   `flow_image`, or base64) — the answer into a record file,
    **three** values off it, `previewValue` included — and bind them in one of
    [the two shapes](media.md#binding-the-url-two-different-shapes). **An asset you uploaded
    earlier is rebound from its record file, or lifted out of a config that already binds it —
