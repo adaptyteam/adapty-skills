@@ -1194,12 +1194,12 @@ takes. Measured against the real service on a live v10 flow — `assign`, an unk
 comparison missing `right`, a non-array `predicates` and a non-pair case were each refused with
 `Visibility condition must be a valid JSON expression` and the path of the offending node.
 
-**A variable named in a condition must resolve to something the document produces.** An id that
-resolves to nothing is not dropped — the code generator emits it as a **bare identifier** into
-the generated TypeScript, which then fails to compile: `script_type_violation`, `TS2304: Cannot
-find name 'email'`, the 4th most common refusal. The same id in **rich text** is a different
-severity and renders as its literal token instead, which is wrong but publishes — so
-`verify-config.py` errors on the condition case and only warns on the rich-text one.
+**A variable named in a condition must resolve to something the document produces.** The publish
+refuses an id that resolves to nothing with `unknown_variable_ref`, at the path of the node's
+`variableId`, with the message `Variable "email.value" is not declared in the flow`. A
+`setVariable` target and a `variable` node in **rich text** are refused the same way (the rich-text
+path ends in `.attrs.variableId`, the message starts `Text variable`). `verify-config.py` errors on
+the condition case; on rich text it warns at most, and the publish still refuses it.
 
 `flowkit` builds these with `ref`/`lit`/`eq`/`neq`/`all_`/`any_`/`not_empty`/`when`, raises on
 every row above, and `config()` resolves each condition variable against the document, so the
@@ -1377,9 +1377,8 @@ fires on its own injected duplicate.
 ### 22. Which group types a conditional can read — and the one action that does not work
 
 Each row is `flows config validate` on a real flow, one predicate per run. A
-conditional whose predicate names an unreadable variable fails the publish gate with
-**`Generated scripts failed validation`** — location-free, exactly like a malformed hex, because
-the transformer compiles predicates into JavaScript and an unresolvable name yields invalid script.
+conditional whose predicate names a variable the group type does not expose fails the publish gate
+with **`unknown_variable_ref`**, at the path of that predicate's `variableId`.
 
 | group `type` | predicate variable | `validate` |
 |---|---|---|
@@ -1651,12 +1650,9 @@ From a real builder export. A `content` value is normally a single ref. It may i
 
 **Emit it with [`flowkit.switch_rich()`](flowkit.py)**, which builds the inline authoring form
 and checks each predicate against the service's own walker; `config()` catalogues it into this
-shape. Two facts that make hand-authoring it a bad trade, both true against the live
-service: the predicate is **compiled**, so an unresolved variable here is `valid: false` —
-*"Generated scripts failed validation"*, with `code` and `path` both `null`, naming neither the
-element nor the variable — while a `variable` **span** in an ordinary text value merely renders
-its literal token and publishes. Same property, opposite severity. `flowkit.config()` refuses the
-fatal half locally.
+shape. An unresolved variable in a predicate here is refused with `unknown_variable_ref` at the
+path of the predicate (`….cases[0][0].left.variableId`), and a `variable` **span** in a text
+value is refused the same way. `flowkit.config()` refuses the predicate case locally.
 
 Consequences:
 
@@ -1757,9 +1753,8 @@ element, it does not qualify as evidence — a device does.
 
 ### Element and screen ids become identifiers
 
-An element id is emitted as an **identifier in the generated runtime script** — the same code path
-that makes an unresolved condition variable a `script_type_violation`, where the head is written
-out bare and the script fails to compile. So a character outside `[A-Za-z0-9_]` (a hyphen, a dot, a
+An element id is emitted as an **identifier in the generated runtime script**. So a character
+outside `[A-Za-z0-9_]` (a hyphen, a dot, a
 space) in an element id produces a syntactically broken script and the flow renders a **black
 screen on device**. An id
 reused on a second screen collides in the same script, because there is one script per flow.
@@ -1796,7 +1791,9 @@ No input has a `required` prop or an error-message prop. Two mechanisms gate a b
 …}`, greyed with `propsByState.disabled`; the button takes no taps while it holds), and
 **conditional visibility on the button** — show it once the field has content. A condition may
 also read another element's state: `{"type": "elementState", "elementId": "<id>"}` compared with
-`==`/`!=` to a `const` state id (`"default"` is its Default state).
+`==`/`!=` to a `const` state id (`"default"` is its Default state). The publish refuses, with the
+error `unknown_element_state_ref`, a reference to an element that is not on that screen or in its
+components, to a state the element does not declare, or with no comparison to a state id.
 
 Conditional visibility, verified from a Flow Builder export of a working screen:
 
@@ -1903,36 +1900,36 @@ payload, is typed as an unconstrained value, so a well-formed expression and a b
 pass. Never reshape a condition to satisfy the schema; it has no opinion here.
 
 `flows config validate` reaches the transform service and does check the
-*references* inside a condition — a `const` compared against an undeclared product, or a `groupId`
-naming no group, comes back as an `Unsupported flow input` error ([validate.md](validate.md)). It
+*references* inside a condition — a `const` compared against an undeclared product, a `groupId`
+naming no group, or a variable the flow does not declare comes back as an `Unsupported flow input`
+error ([validate.md](validate.md)). It
 still says nothing about whether the condition expresses what you meant. So the gates on a
 condition's *logic* are: the preview render (visibility only, empty state only), device preview,
 and a human.
 
 ### The transform service compiles conditions to TypeScript
 
-Worth knowing because it shapes the error you get. A malformed reference comes back not as a schema
-complaint but as a compiler diagnostic:
+Worth knowing because it shapes the error you get. Before it compiles, the service checks every
+variable reference, so an undeclared one comes back with its own code and its place:
 
 ```
-{"error": "Generated scripts failed validation",
- "issues": [{"severity": "error", "code": "script_type_violation", "path": "scripts",
-             "message": "TS2304: Cannot find name 'email'. (line 22, col 21)"}, …]}
+{"severity": "error", "code": "unknown_variable_ref",
+ "path": "screens[\"scr_a\"].elements.map[\"hint\"].props.visibility.condition.left.variableId",
+ "message": "Variable \"email.value\" is not declared in the flow"}
 ```
 
-`code` is `script_type_violation`, `path` is the useless constant `"scripts"`, and the real
-information is a **TS error code plus a line/col into a generated file you cannot see**. Read the
-identifier out of the message and find it in your config; do not try to map the line number.
+The 422 message starts with `Unsupported flow input`. Each place is its own issue, and its path
+names the screen, the element and the node, so fix the id at that path. A broken `elementState`
+reference comes back the same way, as `unknown_element_state_ref`.
 
-**Count nothing from the number of issues.** Codegen emits *more than one* diagnostic per authored
-reference — **one** state condition referencing `email` produces **two** TS2304 errors, at
-different line/col pairs. So the issue count tells you nothing about how many places you have to fix.
+A compile error that no check before it catches still comes back as `script_type_violation`, with
+`path: "scripts"` and a `TS<code>: … (line N, col M)` message into a generated file you cannot see.
+Read the identifier out of the message and search the whole config for it; do not try to map the
+line number.
 
-**Codegen validates the whole flow, not the screen you are previewing.** Previewing
-`?screen=scr_probe` fails on an identifier that exists only on a *different, unlinked* screen in
-the same flow. Combined with `path: "scripts"` carrying no screen id, the only reliable move is to
-search the entire config for the identifier in the message — not the screen you were looking at.
-A single broken screen anywhere blocks preview and publish for every screen.
+**The service checks the whole flow, not the screen you are previewing.** Previewing
+`?screen=scr_probe` fails on a reference that exists only on a *different, unlinked* screen in the
+same flow. A single broken screen anywhere blocks preview and publish for every screen.
 
 **The builder's duplicate-screen action copies a broken condition faithfully** — a duplicated
 screen carries a broken condition into a flow whose

@@ -1535,9 +1535,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
 
     # --- id hygiene: the black-screen class ------------------------------------------------
     #
-    # An element id becomes an IDENTIFIER in the generated runtime script, the same code path
-    # `config()`'s condition-variable check already documents for variable ids (an unresolved
-    # head is emitted as a bare identifier and fails to compile). A character outside
+    # An element id becomes an IDENTIFIER in the generated runtime script. A character outside
     # `[A-Za-z0-9_]` therefore produces a syntactically broken script, and the flow draws a
     # BLACK SCREEN on device while every gate here is green: `flows config validate` passes a
     # hyphenated id, the schema types ids as bare strings, and `config preview` renders the
@@ -3271,10 +3269,9 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                         _switches(v, f'{path}[{i}]')
             _switches(e.get('props'), 'props')
 
-    # An unresolved id is NOT dropped: codegen emits it as a bare identifier into the generated
-    # TypeScript, which fails to compile (`script_type_violation`, TS2304 "Cannot find name").
-    # The same id in rich text renders as its literal token and publishes, which is why that
-    # stays the warning above and this is an error.
+    # The publish refuses an unresolved id (`unknown_variable_ref`, with the path of the node).
+    # The same id in rich text is refused too; this check reads only conditions, and the rich-text
+    # case stays the warning above.
     custom_vars = {v['id'] for v in (d.get('variables') or [])
                    if isinstance(v, dict) and v.get('id')}
     all_custom_ids = {(e.get('props') or {}).get('customId')
@@ -3287,8 +3284,8 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             continue
         bad.append(f'condition variable {v!r} resolves to nothing: no input customId, '
                    f'selectableGroup, bound product or variables[] entry produces it. The '
-                   f'generated script emits it as a bare identifier and fails to compile '
-                   f'(script_type_violation, TS2304)')
+                   f'publish refuses it (unknown_variable_ref, "Variable ... is not declared in '
+                   f'the flow")')
 
     # System variables: a comparison the SDK can never satisfy, a use in text, a write. The
     # walk covers conditional actions too, which `iter_conditions` does not reach.
@@ -3687,7 +3684,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
 
     # ---- `<groupId>.selectedOptionId` on a MULTI_CHOICE group. In the transform service the
     # same condition validates on a `single_choice` group and is refused
-    # on `multi_choice` with `Generated scripts failed validation` -- a multi-select exposes no
+    # on `multi_choice` with `unknown_variable_ref` -- a multi-select exposes no
     # single selected option for the generated code to read. It matters because
     # `component-catalog.json`'s `quiz-rating` template declares its group `multi_choice`, is
     # `agent_allowed`, and `patterns.md` tells an agent to prefer filling a template over
@@ -3706,7 +3703,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
         head = v.split('.')[0]
         if grp_types.get(head) == 'multi_choice':
             bad.append(f'{v} reads a group declared multi_choice — the transform service '
-                       f'refuses this ("Generated scripts failed validation"); a multi-select '
+                       f'refuses this (unknown_variable_ref); a multi-select '
                        f'has no single selected option. Declare the group single_choice')
 
     # ---- the id a `flow_user_input` event carries is `props.customId`, NEVER the element's
