@@ -70,10 +70,10 @@ options.
   **EU account:** first check that the CLI knows the region: `ADAPTY_REGION=xx $ADAPTY auth status`
   exits 2. On any other exit, set `ADAPTY="npx --yes adapty@latest"` and keep it for the login and
   every next call, also in a new shell, whatever the version block printed. Then log in with
-  `$ADAPTY auth login --region eu` (or `ADAPTY_REGION=eu`; shown to the user as
-  `adapty auth login --region eu`); the user opens the link in a browser signed in through
-  https://app.adapty.io/eu-login. After a damaged login file, log in again with the same region; if
-  you do not know it, ask the user.
+  `$ADAPTY auth login --region eu` (or `ADAPTY_REGION=eu`); where this skill has the user log in,
+  run no login yourself and tell them to run `adapty auth login --region eu`. The user opens the
+  link in a browser signed in through https://app.adapty.io/eu-login. After a damaged login file,
+  log in again with the same region; if you do not know it, ask the user.
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
