@@ -651,8 +651,9 @@ those flows in the handoff. The names have one shape each
 | `iosName` | the PostScript name stored in the font file, unique across the app's custom fonts. A variable font file often declares none for an instance; iOS then registers it as `<the file's own PostScript name>_<the instance's style name, spaces as dashes>`, such as `RobotoFlex-Regular_Bold-Italic`, which the builder offers as a hint |
 | `androidName` | the file name in `res/font/` without the extension: lowercase letters, digits and `_` only. The builder never fills it in |
 
-When a flow you touch carries a name of the wrong shape, report it with that rule and the
-settings link above. The flow publishes with it; the device draws the system font instead.
+When a face a text draws with has no `androidName`, or a flow you touch carries a name of the
+wrong shape, report it with that rule and the settings link above. Neither `validate` nor
+`verify-config.py` flags either; the flow publishes, and that device draws the system font instead.
 
 A reference can enter by any of invariant 9's paths, and the preset is the quiet one:
 an element's `props.font.family`, or a **typography preset** whose

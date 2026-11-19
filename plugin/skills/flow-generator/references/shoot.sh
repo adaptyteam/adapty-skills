@@ -99,19 +99,24 @@ png_for() {  # $1 = screen id or __default__
 
 [ -n "$SCREENS" ] || SCREENS="__default__"
 TOTAL=$(echo $SCREENS | wc -w | tr -d ' ')
+# `shots` is one path per line: a space-separated list split a folder path with spaces in it.
+NL='
+'
 shots=""; n=0; done_ids=""; CHILD=""
 
 # The strip, or the one image, and the line that says which. Called at the end and when stopped.
 finish() {  # $1 = exit code
+  local rc="${1:-0}" old_ifs="$IFS"
   if [ "$n" -eq 0 ]; then echo "shoot: nothing rendered" >&2; exit "${1:-1}"; fi
   if [ "$n" -eq 1 ]; then
-    echo; echo "LOOK AT:$shots"
+    echo; echo "LOOK AT: ${shots#"$NL"}"
   else
     strip="$OUT/strip-$CFGSIG$LOCTAG$DEVTAG$ORITAG.png"
-    $PY "$HERE/montage.py" "$strip" $shots >/dev/null
+    IFS="$NL"; set -f; set -- ${shots#"$NL"}; set +f; IFS="$old_ifs"
+    $PY "$HERE/montage.py" "$strip" "$@" >/dev/null
     echo; echo "LOOK AT: $strip  ($n screens, left to right in the order given)"
   fi
-  exit "${1:-0}"
+  exit "$rc"
 }
 
 not_done() {
@@ -146,8 +151,8 @@ collect_pw() {  # read the paths the script printed; a scroll view replaces its 
   while IFS= read -r line; do
     [ -s "$line" ] || continue
     case "$line" in
-      *-scroll.png) shots="${shots% $prev} $line"; prev="$line" ;;
-      *) shots="$shots $line"; prev="$line"; n=$((n+1)) ;;
+      *-scroll.png) shots="${shots%"$NL$prev"}$NL$line"; prev="$line" ;;
+      *) shots="$shots$NL$line"; prev="$line"; n=$((n+1)) ;;
     esac
   done < "$PWLIST"
   for s in $SCREENS; do
@@ -182,7 +187,7 @@ if [ "${PLAYWRIGHT:-1}" != 0 ] && command -v node >/dev/null 2>&1; then
     rm -f "$PWLIST"; PWLIST=""
     [ "$rc" = 2 ] && exit 2                       # a bad LOCALE or config; the script said why
     if [ "$n" -gt 0 ]; then
-      for s in $shots; do echo "   rendered -> $s"; done
+      printf '%s\n' "${shots#"$NL"}" | while IFS= read -r s; do echo "   rendered -> $s"; done
       [ "$rc" = 0 ] && finish 0
       echo "   not rendered: $(not_done) (the reason is above)" >&2
       finish 1
@@ -447,7 +452,7 @@ print((c.get("localization") or {}).get("defaultLocale") or "")' "$RCFG" 2>/dev/
     # made only of text -- the host probe above covers that one).
     if $PY "$HERE/render-measure.py" --sanity "$png" >/dev/null 2>&1; then
       echo "   rendered $s in $((SECONDS - t0))s -> $png"
-      shots="$shots $png"; n=$((n+1)); done_ids="$done_ids $s"
+      shots="$shots$NL$png"; n=$((n+1)); done_ids="$done_ids $s"
     elif [ "$host_ok" = 1 ]; then
       # The host ANSWERED, so this is not the offline error page. A sparse screen and a served
       # error page are not separable by pixels, so keep the file and say both things: renaming it
@@ -456,7 +461,7 @@ print((c.get("localization") or {}).get("defaultLocale") or "")' "$RCFG" 2>/dev/
       $PY "$HERE/render-measure.py" --sanity "$png" >&2
       echo "           The host answered, so this is NOT the offline error page. Either the" >&2
       echo "           screen really is this sparse, or the page served an error. LOOK AT IT." >&2
-      shots="$shots $png"; n=$((n+1)); done_ids="$done_ids $s"
+      shots="$shots$NL$png"; n=$((n+1)); done_ids="$done_ids $s"
     else
       bad="$OUT/NOT-A-RENDER-$(basename "$png")"
       mv "$png" "$bad"
