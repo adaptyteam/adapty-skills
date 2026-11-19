@@ -143,7 +143,7 @@ With nobody to ask, choose both and say so. Text only — branching on one is no
 For every asset the screen needs, one of three states, decided before you write the element:
 
 1. **You have a path that reads** — one they gave you, or a project file you found and *named*.
-   A PNG or JPEG over 500 KB is converted first, and you upload the WebP and say so:
+   A PNG or JPEG over 1 048 576 bytes (1 MiB) is converted first, and you upload the WebP and say so:
    `python3 references/weigh-config.py webp <file> media/<name>.webp`. A GIF does not upload and an
    animated WebP plays one frame, so motion is a `video` element from an mp4 or webm
    ([media.md → Uploading a video](media.md#uploading-a-video)).

@@ -90,9 +90,11 @@ builder yet", and build it from its template in
 [custom-elements/](references/custom-elements/). An animation that plays the same for everyone
 stays an image or a video.
 
-Images up to ~2.5 MB and mp4 or webm clips you can upload; **SVG, fonts and larger images are
-builder-only** ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
-line, not a repeat of the table.
+Images up to 20 MiB and mp4 or webm clips you can upload; **SVG and fonts are builder-only**
+([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
+line, not a repeat of the table. An upload answer with a `heavy_image` warning gets one named
+reduction step per yes and never blocks a save or a publish
+([media.md](references/media.md#when-the-upload-warns-that-an-image-is-heavy)).
 
 **Send Adapty one feedback note at the end of every run that called the CLI** — whether it wrote,
 handed over a file, or stopped on something you could not get past. It tells Adapty how the job
@@ -332,7 +334,7 @@ $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--o
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
     (--config-file <file|-> | --config <json-string>) --remote-configs <json> \
     [--expected-updated-at <int>]   # --remote-configs is required: a write replaces the stored list
-$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, < ~2.5 MB; no SVG, GIF or HEIC
+$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, ≤ 20 MiB; no SVG, GIF or HEIC
 $ADAPTY flows media upload-video <VIDEO_FILE> --app <APP_UUID> --json  # mp4/webm, ≤ 30 s, ≥ 640 px each side
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; a `Method "PUT" not allowed`: rename in the builder
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; an `http_404`: see below

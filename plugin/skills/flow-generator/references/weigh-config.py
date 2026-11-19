@@ -38,8 +38,8 @@ from concurrent.futures import ThreadPoolExecutor
 KB, MB = 1024, 1024 * 1024
 # Thresholds, in one place. A file above these is worth a sentence to the user; none of them is
 # a publish blocker, and the save goes ahead on the user's word either way.
-IMAGE_HEAVY = 500 * KB      # one image file
-VIDEO_HEAVY = 5 * MB        # one video file
+IMAGE_HEAVY = 1 * MB        # one image file, heavy when it is more than this
+VIDEO_HEAVY = 5 * MB        # one video file, heavy from this size on
 CONFIG_HEAVY = 1 * MB       # the config JSON the app downloads before the first screen
 MEDIA_HEAVY = 3 * MB        # every distinct file the flow shows, added up
 LOCALE_FILES = 3            # an image with its own file in this many locales or more
@@ -287,8 +287,8 @@ def weigh(path, offline):
                      'language, with its words moved into a text element, or split the flow '
                      'into one flow per language group, each shown to its own audience. Tell me '
                      'which, or keep it as it is.')
-    heavy = [(u, f) for u, f in files.items() if f.get('bytes') and f['bytes'] >= (
-        VIDEO_HEAVY if f['kind'] == 'video' else IMAGE_HEAVY)]
+    heavy = [(u, f) for u, f in files.items() if f.get('bytes') and (
+        f['bytes'] >= VIDEO_HEAVY if f['kind'] == 'video' else f['bytes'] > IMAGE_HEAVY)]
     heavy_top = max((f for _, f in heavy), key=lambda f: f['bytes'], default=None)
     rest = [f for _, f in heavy if f is not heavy_top]
     if len(rest) == 1:
@@ -422,9 +422,6 @@ def webp(src, dst, max_width, quality):
     after = os.path.getsize(dst)
     print(f'{src}: {size(before)} -> {dst}: {size(after)} ({100 - after * 100 // before}% '
           f'smaller, {done})')
-    if after > 2.5 * MB:
-        print('still over the ~2.5 MB upload cap: lower --quality or --max-width')
-        return 1
     return 0
 
 
