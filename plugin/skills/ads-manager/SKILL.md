@@ -247,8 +247,9 @@ from `whoami`; the default is **15 calls per minute**, at most 5 per 10 seconds
   countries × periods; **5000** by default); over it the call fails `422 cli_response_too_large`.
   Coarsen, narrow, or scope — never loop smaller pages. At day grain the refusal names the
   `page[size]` that fits: use that number, don't compute one.
-- **A `--by-days` window past `meta.max_valid_day` is not reached yet** and repeats the last real
-  figure. Never report it as a plateau, and compare only at a window every row has reached.
+- **A `--by-days` window past `meta.max_valid_day` is not reached yet:** it comes back `null` (a
+  blank cell), or as a repeat of the last real figure. Never report it as zero or a plateau, and
+  compare only at a window every row has reached.
 - **Money is in the campaign group's currency, not USD** — read it from `orgs list` before stating
   or comparing an amount.
 
