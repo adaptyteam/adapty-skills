@@ -1052,9 +1052,10 @@ none of them is an approval.
 removed one — including a throwaway you created yourself. Name the flow and tell the user where
 to delete it.
 
-**A font change that touches a stored face needs a yes** (`--choice replace`, a face update or
-replace on a family other flows use): the app's fonts are shared by all its flows. A new upload
-that collides with nothing adds faces and needs none.
+**A font change that touches a stored face needs a yes** (`--choice replace` on every listed
+face, a face update on a family other flows use, and always `fonts faces replace`, whose old file
+cannot be restored: show which face of which family gets which file, then `--yes`): the app's fonts
+are shared by all its flows. A new upload that collides with nothing adds faces and needs none.
 
 `validate` and `preview` change nothing and cost nothing. Use them freely.
 

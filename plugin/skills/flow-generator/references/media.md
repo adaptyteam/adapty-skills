@@ -633,16 +633,24 @@ in the builder, with the link above.
    when the CLI has one; `failed` and `not_sent` mean an auth (exit 3) or network (exit 5)
    failure stopped the package. Exit 4 means a file was refused, after the report of every file.
    Send again only the files that were refused, failed or not sent, never a stored one.
-   - **A collision** (`refused` with `conflict` and `choices`): a face of the family the file
-     joins already has that weight and italic, or a face anywhere in the app already has that iOS
-     name. That face can draw in the app's other flows, so the choice is the user's:
-     `--choice replace` puts the file on that face (each flow that uses it gets the new file at
-     its next publish), `--choice keep` skips the file. Ask, then run that file alone again with
-     the choice. Offer the choices only when the refusal carries them.
+   - **A collision** (`refused` with `conflicts` and `choices`): faces of the family the file
+     joins already have its weight and italic, or faces anywhere in the app already have its iOS
+     name. `conflicts` lists every one of them. Those faces can draw in the app's other flows, so
+     the choice is the user's: name each listed face and its family, then `--choice replace`
+     puts the file on all of them in one go (`replaced_faces`; each flow that uses them gets the
+     new file at its next publish), `--choice keep` skips the file. Ask, then run that file alone
+     again with the choice. When the collisions changed in between, the file is refused again
+     with the new `conflicts`: show the new list and ask again. Offer the choices only when the
+     refusal carries them.
    - **Any other refusal:** read its `message`, and use `next_step` when it is there; relay it (a
      WOFF or WOFF2 file: ask for the `.ttf` or `.otf`). A variable file whose faces are all in the
      family (`font_faces_already_exist`) has no choice; its `next_step` names
-     `fonts faces replace`, which overwrites a stored face's file: only on the user's yes.
+     `fonts faces replace`, one face at a time: see the next point.
+   - **`fonts faces replace <FACE_ID> <FILE>`** overwrites a stored face's file, and the old file
+     cannot be restored. Show the user which face of which family gets which file and say the old
+     file cannot be restored; run it with `--yes` only after their yes. Without a terminal and
+     without `--yes` it stops with exit 6 (`confirm_required`) and changes nothing: that is a
+     missing yes, never a failure to work around.
 3. **Check the faces and their names** in the `family` of each entry (or `fonts list` again).
    For each face the design draws with:
    - **Weight and italic.** `metadata_status` `needs_review` or `legacy_unconfirmed` means the
@@ -660,10 +668,13 @@ in the builder, with the link above.
      name their app uses, or propose one (`brand_bold`) and say the file in the app must have
      that name; set it with `--android-name` (it applies to every face of the same file).
 
-   A change to a family that flows use answers with `flows_to_publish` (`null`: it could not
-   read them, and a warning says so). Before a change to such a face,
-   `$ADAPTY fonts usage <FAMILY_ID> --app "$APP" --json` names those flows: ask first, and name
-   them in the handoff, because each needs a `flows publish` to get the change.
+   A change to a family that flows use answers with `flows_to_publish`. `null` means the CLI could
+   not read them, or the package stopped before its last file; `flows_to_publish_error` gives the
+   reason and the next step: `$ADAPTY fonts list --app "$APP" --json` for the changed families,
+   then `$ADAPTY fonts usage <FAMILY_ID> --app "$APP" --json` for each. Before a change to such a
+   face, `fonts usage` names those flows: ask first, and name them in the handoff, because each
+   needs a `flows publish` to get the change. `fonts usage` lists only flows that name the
+   family by its id; a flow that names it by its name is not listed, so name the family by id.
 4. **Name the family in the config, never a face.** On an element:
    `"props": {"font": {"family": {"type": "user", "id": "<family id>"}, "weight": "bold"}}`. On a
    `theme.typography` preset the same two keys sit in `settings`, not in a `font` object:
@@ -675,8 +686,11 @@ in the builder, with the link above.
 5. **Publish and wait** as [publish.md](publish.md#running-flows-publish) says. `flows publish`
    reads the app's fonts first and, when the copy in `_meta.fonts` is out of date, saves the
    config with the current fonts (the line `Fonts refreshed: …`), then publishes. Poll
-   `flows get` until `published` or `publication_failed`. A save that fails stops before the
-   publish: read the config again. A publication that fails after the save leaves the saved config.
+   `flows get` until `published` or `publication_failed`. It stops before any write when the font
+   read fails, when the config answer has no `updated_at`, or when a font name in the config
+   matches several families (exit 2: name the family by id, or ask the user to rename one). A
+   save that fails stops before the publish: read the config again. A publication that fails
+   after the save leaves the saved config.
 6. **Say the bundle line every time.** Adapty does not send the font file to the device: the app
    must bundle the same files, under the iOS and Android names above, or users see the system
    font ([Add the font files to your app's bundle](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)).
