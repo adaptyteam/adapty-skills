@@ -275,6 +275,15 @@ The leader is not a winner. Take it only from `total` or `list`, never from the 
 (`metrics get`): a period's P2BB is a running total for a paywall test, so say no trend and never
 "led on a day". Ask the user for the winner; stop only on their answer.
 
+When the arms sell different plan lengths (weekly against monthly or annual), P2BB ranks revenue so
+far, and the shorter plan collects its payments sooner: a weekly arm can lead after a month and earn
+less over a year. Before you name the leader, compare the arms' renewals and LTV for the test, with
+`--filter placement_audience_version_id=<value>` (the value from `analytics values --dimension
+placement_audience_version_id`): `analytics retention --group-by paywall_id` (`flow_id` for a flow
+test), and `analytics ltv` once per arm with `--filter paywall_id=<id>` (or `flow_id`). A test
+filter gives no prediction, so say how many renewal periods each arm has lived through. Then show
+the leader with that caveat beside it.
+
 ## A new placement
 
 When no placement fits, you create it, and the developer ID needs its own yes: it is unique across
