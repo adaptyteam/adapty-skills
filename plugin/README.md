@@ -36,6 +36,7 @@ Every skill below is part of the `adapty-skills` plugin. Install the plugin once
 | [`flow-generator`](#building-flows-and-paywalls) | Builds a paywall or onboarding flow, or changes one you have: translate it, rewrite the copy, add or reorder screens, add tabs and plan pickers, wire quiz branching | Adapty CLI |
 | [`audiences`](#targeting-who-sees-what) | Shows different paywalls or flows to different users at one placement — by country, app version, revenue, a custom attribute — creating or reusing the segment and adding it without changing what anyone else sees | Adapty CLI |
 | [`ab-tests`](#running-an-ab-test) | Runs a paywall or flow A/B test from the first draft to the stop: creates it, starts it, reads its results, stops it with a winner, replaces a running test with a changed one, archives old ones — and shows you exactly who sees what before every step that cannot be undone | Adapty CLI |
+| [`retention-messaging`](#keeping-subscribers-on-apples-cancel-screen) | Runs Apple Retention Messaging: checks the setup, gives Apple Adapty's URL, runs Apple's performance test, creates and edits the messages subscribers see when they cancel, starts and stops them, and reads how each one keeps subscribers | Adapty CLI or the Adapty MCP server, Apple's approval |
 | [`migrate-placements`](#migrating-placements-to-flows) | Moves an app from paywall placements to flows — creates the new flow placements alongside your existing ones and hands back the old→new mapping and the one call to change | Adapty CLI |
 | [`onboarding-teardown`](#tearing-down-an-onboarding-flow) | Reads an onboarding flow — described, screenshotted, or as a config — and ranks what to change and test, seam with the paywall included | nothing |
 | [`paywall-teardown`](#tearing-down-a-paywall) | Reads any paywall — yours, a competitor's, a work in progress — and ranks what to change and test | nothing |
@@ -48,7 +49,7 @@ An account on Adapty's EU servers signs in to the CLI with a region. Each skill 
 
 > **EU account:** first check that the CLI knows the region: `ADAPTY_REGION=xx $ADAPTY auth status` exits 2. On any other exit, set `ADAPTY="npx --yes adapty@latest"` and keep it for the login and every next call, also in a new shell, whatever the version block printed. Then log in with `$ADAPTY auth login --region eu` (or `ADAPTY_REGION=eu`); where this skill has the user log in, run no login yourself and tell them to run `adapty auth login --region eu`. The user opens the link in a browser signed in through https://app.adapty.io/eu-login. After a damaged login file, log in again with the same region; if you do not know it, ask the user.
 
-Every skill that needs the Adapty CLI also works through the Adapty MCP server, `https://mcp.adapty.io/mcp`, and the `adapty-skills` plugin adds that server for you. Sign in once: in Claude Code, open `/mcp`, pick `plugin:adapty-skills:adapty` and choose **Authenticate**; until then it shows as needing authentication. A skill checks which of the two your agent has and uses it. With both, `ab-tests`, `adapty-attribution`, `adapty-integration`, `ads-manager` and `purchase-testing` use the MCP server; `audiences`, `flow-audit`, `flow-generator`, `growth-advisor` and `migrate-placements` use the CLI, because their scripts or segment writes run through it. With neither, the skill asks which one to set up and gives you the steps.
+Every skill that needs the Adapty CLI also works through the Adapty MCP server, `https://mcp.adapty.io/mcp`, and the `adapty-skills` plugin adds that server for you. Sign in once: in Claude Code, open `/mcp`, pick `plugin:adapty-skills:adapty` and choose **Authenticate**; until then it shows as needing authentication. A skill checks which of the two your agent has and uses it. With both, `ab-tests`, `adapty-attribution`, `adapty-integration`, `ads-manager` and `purchase-testing` use the MCP server; `audiences`, `flow-audit`, `flow-generator`, `growth-advisor`, `migrate-placements` and `retention-messaging` use the CLI, because their scripts, segment writes or image uploads run through it. With neither, the skill asks which one to set up and gives you the steps.
 
 An account on Adapty's EU servers uses the EU instance, `https://mcp-eu.adapty.io/mcp`, instead. The plugin adds only the default server, so add the EU one in your agent by hand: [Adapty on EU servers](https://adapty.io/docs/eu-cluster).
 
@@ -71,6 +72,7 @@ Say what you want the way you'd brief a colleague. You don't need to name a skil
 - "Show users from my brand campaign a different paywall."
 - "Users in Germany should see the cheaper paywall on my main placement."
 - "Run a 50/50 test of these two paywalls for German users."
+- "Show subscribers who cancel a message that keeps them."
 
 ## Install
 
@@ -338,6 +340,18 @@ It creates the test as a draft, which no user sees. Then, before it starts the t
 
 Needs a CLI with the `ab-tests` commands (and `ab-tests metrics` for results), which the skill fetches itself; on a CLI without the results commands it says so and points to the dashboard.
 
+## Keeping subscribers on Apple's cancel screen
+
+Apple shows a message on the iOS Cancel Subscription screen, right before the subscriber confirms, and Adapty answers Apple with the message for that product and language: [Retention Messaging](https://adapty.io/docs/retention-messaging).
+
+```
+Show subscribers who cancel a message that keeps them
+```
+
+It reads the setup first and tells you the next step: the App Store keys, Apple's approval of your app (it gives you Adapty's URL for Apple's form), Adapty's URL in Apple for sandbox, Apple's performance test, then production. Then it creates the default message, then promo ones with an offer or a plan switch, picks only products a message can take, writes each language, and reads how each message does: shown, retained and saved users, the rates and saved revenue. An edit changes only what you name.
+
+**Every write waits for your yes,** in sandbox and in production alike: creating a message, an edit (each one goes back to Apple's review), starting or stopping a message, and giving Apple Adapty's URL. Replacing a URL another server set in Apple takes a yes of its own. Header images and bullet icons go up only through the CLI; with only the MCP server, it gives you the command or the dashboard step.
+
 ## Migrating placements to flows
 
 You have [placements](https://adapty.io/docs/placements) pointing at paywalls, and you want them pointing at [flows](https://adapty.io/docs/adapty-flow-builder) instead. `migrate-placements` reads every placement in the app, works out which ones are worth moving, and creates the flow placements for you.
@@ -406,11 +420,12 @@ One constraint it will tell you about rather than quietly working around: **a fl
 - **You see your account before anything is created.** `adapty-integration` reads what already exists in your Adapty dashboard and tells you what it will use and what it will add, then writes code only in your project.
 - **Growth plans change a live placement only on your yes.** `growth-advisor` reads your numbers, saves a placement before changing it, and names any A/B test running there, which the change keeps as it is.
 - **Email reaches real people only on your yes.** `adapty-mail` shows every flow change — what is added, moved or removed — and waits for your yes before saving, launching or ending an A/B test, or deleting anything.
+- **Retention messages change only on your yes.** `retention-messaging` shows what each create, edit, start or stop does on Apple's cancel screen and runs it only after your yes, in sandbox and production.
 - **Five skills only read.** `flow-audit`, `adapty-attribution`, `adapty-docs`, `paywall-teardown` and `onboarding-teardown` change nothing in your account.
 
 ## Where it works
 
-The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Ten of the fourteen need a shell and the Adapty CLI signed in to your account. `adapty-mail` needs the Adapty Mail MCP server connected in your agent instead, so it also works in Claude and ChatGPT once you add the server as a connector.
+The skills are built for agents that can run commands on your machine: Claude Code, Codex, Copilot CLI, Gemini CLI and similar. Eleven of the fifteen reach your Adapty account through the Adapty CLI, which needs a shell, or through the Adapty MCP server, as described above. `adapty-mail` needs the Adapty Mail MCP server connected in your agent instead, so it also works in Claude and ChatGPT once you add the server as a connector.
 
 `paywall-teardown`, `onboarding-teardown` and `adapty-docs` need neither, so they also work in Claude chat and Cowork, where the other skills cannot reach your Adapty account.
 
@@ -449,6 +464,7 @@ The skills are instructions and a few local helper scripts. They run nothing on 
 | **Flow previews** | When `flow-generator` renders a screen for you to look at | Your flow config is opened in Adapty's preview page (`app.adapty.io`) in a Chromium-based browser already on your machine (Chrome, Edge, Brave or Chromium), run headless. The preview link for a phone is `mobile-app.adapty.io` |
 | **Images you hand over** | Only when you give `flow-generator` an image for a flow | Uploaded to your Adapty account's media library through the CLI |
 | **Videos you hand over** | Only when you give `flow-generator` a video for a flow | Uploaded to your Adapty account through the CLI's `flows media upload-video`, which converts it for streaming to phones |
+| **Retention message images you hand over** | Only when you give `retention-messaging` a header image or bullet icons | Uploaded through the CLI to Adapty, which sends them to Apple with the message for Apple's review |
 | **App Store review screenshots** | Only when `growth-advisor` or `adapty-integration` pushes a product to the App Store | Sent through the CLI to Adapty, which uploads it to your App Store Connect account for Apple's review |
 | **Optional helper packages** (`ajv`, `playwright-core`, `qrcode`) | Only for the schema check, the preview and the QR code, each installed once into `~/.cache/`; `flow-generator` installs `playwright-core` the first time it renders, when npm is available | The npm registry |
 

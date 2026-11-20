@@ -28,6 +28,7 @@ Gemini CLI), all shipped in one plugin, `adapty-skills`:
 | `onboarding-teardown` | Growth hypotheses for an onboarding sequence; touches nothing |
 | `paywall-teardown` | Conversion hypotheses for a paywall screen; touches nothing |
 | `purchase-testing` | The first sandbox purchase and every failed one |
+| `retention-messaging` | Runs Apple Retention Messaging through the CLI's `retention-messaging` topic or its MCP tools: setup status, URL and performance test, messages, their status and numbers |
 
 Three distribution channels: the Claude Code plugin (marketplace `.claude-plugin/marketplace.json`,
 plugin in `plugin/` with `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`), the
@@ -256,6 +257,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **A picked hypothesis becomes an A/B test through `ab-tests`, offered unasked, and only after a read shows each thing it needs exists** (published flow copy, product with store IDs, segment, placement with traffic). A missing one is a Next step with who makes it, never a placeholder arm; of the `ab-tests` commands this skill runs only the reads: `list` and `get` for the app's test history, `metrics` for a test's results (leader rules and number texts are the `ab-tests` skill's, invoked, not copied).
 - **A finished test's OUTCOME comes from `reads.py`, never from the agent's reading:** the leader is the `ab-tests` skill's, from `ab-tests metrics list` (a flow placement's lifetime tree without it); the audience before and right after comes from the placement's audience tree, matched by test id and time. Only the user's word is "won"; a conclusion about a kind of change needs two agreeing results; a lead under 95% P2BB, a too-short or too-few test rules nothing out. The words for each OUTCOME live in `diagnosis.md`, "Past tests".
 - **Filter values come from `analytics values`, never from a group's `key`;** read funnel and retention groups from the grouped answer. New segments go through `audiences`.
+- **Retention Messaging is read before its step** (setup status and production list), then handed to `retention-messaging` on a yes; growth-advisor writes no message.
 
 ### `migrate-placements`
 
@@ -274,6 +276,13 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Choose skeletons and archetypes by observable prerequisites,** disclose the choice, and never fake a missing prerequisite (an offer, an asset, a personalized result). A flow cannot request a permission.
 - **Design mode is entered only when no design reference was given;** a given reference outranks the library; findings on your own draft are fixed, not reported.
 - **Looks follow `look.md`:** the app's design first; with a brand invent only the layout; with none, invent from a random starting point and roll by command. Never put a test fixture's own nouns in shipped examples.
+
+### `retention-messaging`
+
+- **Every write runs only after the user's yes to its card:** create and status change in both Apple environments, the edit card says each edit goes back to Apple's review, and replacing another URL in Apple is its own yes and `--replace-other-url`. Reads take no yes on either path: the CLI and MCP reads have the same side effects as opening the dashboard page.
+- **Only the CLI uploads images and adds bullet points;** with MCP only the skill names the CLI command or the dashboard and does not run it.
+- **Never repeat a create whose answer was lost;** find the candidates by name and read each by id.
+- **Commands and flags come from `src/cli/commands/retention-messaging/**` in `adapty-cli`, the change-file keys from `src/sdk/adapty/retention-messaging/change.ts`, the MCP parameters from the `retention_messaging_*` tools (`message_type` for `--type`);** the skill names only the flags it needs and sends the rest to `--help`.
 
 ### `purchase-testing`
 
