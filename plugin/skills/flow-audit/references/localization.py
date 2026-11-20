@@ -12,11 +12,11 @@ field stores only a reference to it:
     }
 
 The localizable fields, and nothing else (names, ids, fills and geometry are never catalogued):
-text `content`, every input and picker `placeholder`, image `image`, video `video`, alert
-`title` / `message`, and the Open URL action's `url` (a `rich-string` entry, so each locale can
-open its own page) -- including actions nested in conditional actions, and elements inside
-`components`. `LOCALIZABLE` and `LOCALIZABLE_ACTION_FIELDS` below are that list, read off the
-schema.
+text `content`, every input and picker `placeholder`, the wheel picker's `unit`, image `image`,
+video `video`, alert `title` / `message`, and the Open URL action's `url` (a `rich-string` entry,
+so each locale can open its own page) -- including actions nested in conditional actions, and
+elements inside `components`. `LOCALIZABLE` and `LOCALIZABLE_ACTION_FIELDS` below are that list,
+read off the schema.
 
 Four jobs:
 
@@ -90,6 +90,7 @@ LOCALIZABLE = {
     'image': {'image': 'image', 'imageDark': 'image'},
     'video': {'video': 'video', 'videoDark': 'video'},
     **{t: {'placeholder': 'rich-string'} for t in _PLACEHOLDER_TYPES},
+    'wheel-range-picker': {'unit': 'rich-string'},
 }
 
 #: action type -> {payload field: kind}. A `url` is stored as a `rich-string`: its value is a
