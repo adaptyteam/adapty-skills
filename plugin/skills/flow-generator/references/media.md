@@ -630,18 +630,30 @@ in the builder, with the link above.
    (any case) or creates it. `files[]` has one entry per file, with its `result`: `created`,
    `added`, `partly_added` (`kept_faces` are the pairs the family already had), `replaced` and
    `kept` stored or skipped it; `refused` carries `error_code` and `message`, and `next_step`
-   when the CLI has one; `failed` and `not_sent` mean an auth (exit 3) or network (exit 5)
-   failure stopped the package. Exit 4 means a file was refused, after the report of every file.
-   Send again only the files that were refused, failed or not sent, never a stored one.
+   when the CLI has one; `failed` and `not_sent` mean the package stopped at that file: an auth
+   failure (exit 3), a network failure (exit 5) or an answer the CLI could not read (exit 4).
+   Exit 4 also means a file was refused, after the report of every file. Send again only the
+   files that were refused or not sent, never a stored one.
+   - **A `failed` file is uncertain, the last or only file too:** a lost or unreadable answer can
+     follow a stored file. Never send it again blind. `flows_to_publish` is then `null`: run
+     `$ADAPTY fonts list --app "$APP" --json` and see whether its faces are there; send it again
+     only when they are not, then run `$ADAPTY fonts usage <FAMILY_ID> --app "$APP" --json` for
+     each family the package may have changed. When only the usage read failed (every file has
+     its result), run `fonts usage` for the families the report names.
    - **A collision** (`refused` with `conflicts` and `choices`): faces of the family the file
      joins already have its weight and italic, or faces anywhere in the app already have its iOS
      name. `conflicts` lists every one of them. Those faces can draw in the app's other flows, so
-     the choice is the user's: name each listed face and its family, then `--choice replace`
-     puts the file on all of them in one go (`replaced_faces`; each flow that uses them gets the
-     new file at its next publish), `--choice keep` skips the file. Ask, then run that file alone
-     again with the choice. When the collisions changed in between, the file is refused again
-     with the new `conflicts`: show the new list and ask again. Offer the choices only when the
-     refusal carries them.
+     the choice is the user's. Offer the choices only when the refusal carries them.
+     **`--choice replace` replaces every face that collides at the moment it runs,** which can be
+     more faces than the user saw: it checks the collisions again by itself and replaces all it
+     finds (and when nothing collides any more, it stores the file as a plain upload). So right
+     before you ask, run that file alone again without `--choice` and take the `conflicts` of that
+     fresh refusal. Show each listed face with its family, say that the file goes on all of them
+     (each flow that uses them gets the new file at its next publish) and that the old files
+     cannot be restored, and ask: replace all, or skip the file (`--choice keep`). On a yes, run
+     that file alone with `--choice replace` at once, then show the user its `replaced_faces`
+     from the report, and say plainly when they differ from the faces they agreed to. A user who
+     agrees to some faces only: `fonts faces replace` per face, as the next points say.
    - **Any other refusal:** read its `message`, and use `next_step` when it is there; relay it (a
      WOFF or WOFF2 file: ask for the `.ttf` or `.otf`). A variable file whose faces are all in the
      family (`font_faces_already_exist`) has no choice; its `next_step` names
@@ -687,10 +699,12 @@ in the builder, with the link above.
    reads the app's fonts first and, when the copy in `_meta.fonts` is out of date, saves the
    config with the current fonts (the line `Fonts refreshed: …`), then publishes. Poll
    `flows get` until `published` or `publication_failed`. It stops before any write when the font
-   read fails, when the config answer has no `updated_at`, or when a font name in the config
-   matches several families (exit 2: name the family by id, or ask the user to rename one). A
-   save that fails stops before the publish: read the config again. A publication that fails
-   after the save leaves the saved config.
+   read fails, or when a font name in the config matches several families (exit 2: name the
+   family by id, or ask the user to rename one). When the copy needs a save, the config answer
+   must also carry an integer `updated_at` and a `remote_configs` list; without them it stops
+   before any write (`malformed_response`). A current copy needs no save and publishes without
+   them. A save that fails stops before the publish: read the config again. A publication that
+   fails after the save leaves the saved config.
 6. **Say the bundle line every time.** Adapty does not send the font file to the device: the app
    must bundle the same files, under the iOS and Android names above, or users see the system
    font ([Add the font files to your app's bundle](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)).
