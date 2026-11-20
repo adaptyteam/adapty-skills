@@ -90,8 +90,8 @@ these, on a screen element or inside `components`:
 
 Actions count wherever they sit, including inside a `conditional` action. A per-locale URL is
 how a flow sends each language to its own Terms or Privacy page; the default locale's value is
-the one every other locale falls back to, so it must hold an address. Names, ids, fills,
-geometry and a background image inside a `fill` are never catalogued.
+the one every other locale falls back to, so it must hold an address. Names, ids, colours and
+geometry are never catalogued; a `fill` image is a ref or a flat value, as the table says.
 
 **Six rules, and every edit has to keep all of them.**
 

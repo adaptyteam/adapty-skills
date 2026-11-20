@@ -327,8 +327,8 @@ entry's `values` is keyed by locale id exactly like copy. A fill's image can be 
 `image` may be a `{_lid}` ref to an `image` catalog entry instead of the flat value, and that is
 how the Flow Builder stores one — it rewrites the inline image of a fill or a theme colour into a
 ref when the flow is opened, so a re-fetched config shows refs where you wrote URLs.
-`localization.py catalog` mints refs for elements only, so a background that must change per
-language is simplest as an element; a fill ref you write needs its catalog entry beside it.
+`localization.py catalog` leaves a flat fill value flat and gives an inline
+`{"_localizable": true, …}` one its own entry; a fill ref you write needs its catalog entry beside it.
 
 **Write the `id` as a string.** The command prints a number and `--json` returns a JSON integer
 (`"id": 516395`), while the schema's `Image` declares `id` as a required `string` and every real
