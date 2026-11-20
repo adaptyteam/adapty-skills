@@ -147,8 +147,9 @@ one it shows that is not there:
   **is** evaluated: a conditionally-shown button correctly appears or hides in the render, which
   makes the empty-field state of a form gate genuinely checkable here. A **`states[].condition`**
   is **not**: every element draws in its base props, so buttons carrying `disabled`-state
-  conditions all draw in their base fill. That asymmetry is
-  survivable only because a conditional `disabled` state is not a real mechanism anyway — see
+  conditions all draw in their base fill. The condition is real on the device (a `disabled`
+  state blocks taps, a custom state changes the style); the static preview draws base props
+  only, so judge a state condition on a device preview — see
   [flow-schema.md](flow-schema.md#making-a-field-mandatory-show-the-button-conditionally).
   What the render still cannot tell you about a `visibility` condition: **an unresolvable variable
   is silently treated as empty**, so `empty` over a typo'd id renders exactly like `empty` over a
