@@ -204,11 +204,13 @@ bundle" section of https://adapty.io/docs/using-custom-fonts-in-flow-builder.md.
 own face). Each check is one finding listing every face it applies to, since the user fixes
 them all on one settings screen.
 
-**Every fix goes to the font settings (Edit custom font), never to a flow edit:**
-`_meta.fonts` is a copy of the app's font record that publishing does not read; publishing uses
-the app's own settings, and the next Builder save refreshes the copy. So the checks read a copy
-that can be older than the settings, and each name finding says to save the flow in the Builder
-and audit again after a fix there. All six route to "yours to do in the Adapty dashboard".
+**Every fix goes to the font (its settings, Edit custom font, or `adapty fonts faces update`),
+never to a flow edit:** `_meta.fonts` is a copy of the app's font record that publishing does not
+read; publishing uses the app's own settings, and the next Builder save or `flows publish` refreshes
+the copy. So the checks read a copy that can be older than the settings, and each name finding
+says to save the flow in the Builder and audit again after a fix there, or to read the current
+names with `fonts list` (read-only). A finding never suggests a publish to refresh the copy: a
+publish releases every pending draft edit before the audit is answered. All six route to "yours to do in the Adapty dashboard".
 
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
@@ -228,7 +230,7 @@ not checked here: `flows config validate` reports it.
 | :--- | :--- |
 | Comparing a variable face's iOS name with the file's PostScript name | Name ID 6 is the default instance's name; a Bold face of the same file is correctly named after its own instance, so the plain comparison would block every variable font but its default face. A variable face fires only when its iOS name is Android-shaped (the Android name copied across, which no PostScript name looks like); everything else is the `variable-font` question. |
 | Treating a missing download as a clean font | A silent skip reads as "fonts checked". The unread faces become one question naming them, with the Font Book step. |
-| Sending the fix to a flow edit | `_meta.fonts` is overwritten by the app's font record on the next Builder save, so an edited name would revert. |
+| Sending the fix to a flow edit | `_meta.fonts` is overwritten by the app's font record on the next Builder save or `flows publish`, so an edited name would revert. |
 
 ## Store review
 

@@ -90,8 +90,9 @@ builder yet", and build it from its template in
 [custom-elements/](references/custom-elements/). An animation that plays the same for everyone
 stays an image or a video.
 
-Images up to ~2.5 MB and mp4 or webm clips you can upload; **SVG, fonts and larger images are
-builder-only** ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
+Images up to ~2.5 MB, mp4 or webm clips and `.ttf` or `.otf` font files you can upload; **SVG
+and larger images are builder-only** ([fidelity.md](references/fidelity.md)). A brand font the user
+gives you files for goes up through the CLI: [media.md → Uploading a font](references/media.md#uploading-a-font). Phase 5's callout carries the outstanding count as one
 line, not a repeat of the table.
 
 **Send Adapty one feedback note at the end of every run that called the CLI** — whether it wrote,
@@ -336,6 +337,10 @@ $ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/W
 $ADAPTY flows media upload-video <VIDEO_FILE> --app <APP_UUID> --json  # mp4/webm, ≤ 30 s, ≥ 640 px each side
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; a `Method "PUT" not allowed`: rename in the builder
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; an `http_404`: see below
+
+$ADAPTY fonts list    --app <APP_UUID> --json                       # the app's font families and their faces
+$ADAPTY fonts upload  <FONT_FILE>... --app <APP_UUID> [--choice replace|keep] --json  # .ttf/.otf, one report per file
+$ADAPTY fonts faces update <FACE_ID> --app <APP_UUID> [--weight N --italic true|false] [--ios-name N] [--android-name N]
 ```
 
 Declare a command unavailable only after its `--help` says so *and* one `npx --yes adapty@beta`
@@ -348,6 +353,10 @@ binds and the geometry: [media.md](references/media.md). A clip file is yours to
 [media.md → Uploading a video](references/media.md#uploading-a-video).
 
 **`flows publish`:** whether this build has it, its asynchronous status and the poll, which failure is real, and the deployment gate: [publish.md → Running `flows publish`](references/publish.md#running-flows-publish).
+
+**`fonts`:** the CLI only (no MCP tool yet); each command you call is probed with its `--help`
+first. The upload, the face and name checks, the config reference and the publish:
+[media.md → Uploading a font](references/media.md#uploading-a-font).
 
 **Never write a command name the CLI does not have** (there is no `flows delete`: [Safety](#safety)), and never invent a flag —
 `config validate` takes only `--app`, `--config`/`--config-file` and `--json`.
@@ -1042,6 +1051,13 @@ none of them is an approval.
 **Deleting a flow is a dashboard action.** There is no `flows delete`, so never claim to have
 removed one — including a throwaway you created yourself. Name the flow and tell the user where
 to delete it.
+
+**A font change that touches a stored face needs a yes:** the app's fonts are shared by all its
+flows. `--choice replace` replaces every face that collides when it runs, so ask on the list of a
+fresh refusal and show the report's `replaced_faces` after it. A face update on a family other
+flows use needs one too, and `fonts faces replace` always (its old file cannot be restored: show
+which face of which family gets which file, then `--yes`). A new upload that collides with nothing
+adds faces and needs none.
 
 `validate` and `preview` change nothing and cost nothing. Use them freely.
 

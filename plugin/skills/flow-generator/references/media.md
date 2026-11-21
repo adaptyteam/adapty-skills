@@ -1,9 +1,10 @@
-# Media assets: uploading an image or a video and binding it into a config
+# Media assets: uploading an image, a video or a font and binding it into a config
 
 `flows media upload` puts a local image file on Adapty's CDN and prints the URL to reference from
 a flow config; `flows media upload-video` does the same for a clip
 ([Uploading a video](#uploading-a-video)). Given a file, an image or a video in an authored flow
-is yours to place rather than a user ask.
+is yours to place rather than a user ask; so is a font file, through `fonts upload`
+([Uploading a font](#uploading-a-font)).
 
 The image claims below hold against **production**, except the refusal texts
 in the tables: those are the texts of the current CLI, and an older CLI refuses the same files
@@ -481,9 +482,8 @@ spacing bug rather than as an image, so prefer `cover` unless the whole asset mu
   `valid: true`), and the user binds the clip in the builder. **Never** substitute a `stack` with
   a Play icon — that ships a lookalike of a different element type (flow-schema.md trap 5).
   See [The video placeholder](#the-video-placeholder).
-- **Fonts.** Still a manual Flow Builder upload; a typeface the account lacks is a named ask, not a
-  silent substitution. No CLI command lists an app's fonts: a font uploaded in the builder reaches
-  the config only once the user saves the flow there, so `config get` again before you reference it.
+- **A font nobody has a file for.** A typeface name alone is a named ask, not a silent
+  substitution; with the files, the upload is yours: [Uploading a font](#uploading-a-font).
 - **Deleting or listing uploaded media.** `flows media` only uploads, so an upload cannot be
   undone from the CLI — one more reason not to re-upload per iteration.
 
@@ -599,6 +599,126 @@ Mac does have, is not a way to shrink one: its presets set the resolution, and a
 4.3 MB clip 11 MB. What to ask for: H.264, at least 640 px and about 720 px on the shorter side
 (the upload refuses less than 640), under 5 MB, and no audio track on a silent loop — the
 element has no mute setting, so a track is weight at best.
+
+## Uploading a font
+
+Given the brand's font files (a path each, `.ttf` or `.otf`, one file per weight and style or
+one variable file), the upload is yours, through the `fonts` commands of the CLI. Over MCP there
+is no font tool yet: run these with the CLI, else the user uploads the files in the builder
+([Custom fonts](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)). No file, only a
+typeface name: that is a named ask in the [missing-assets block](build.md#the-missing-assets-block),
+never a silent substitution.
+
+**Check each command before its first call:** `$ADAPTY fonts <command> --help` for `list`,
+`upload` and every other one you run. When it says there is no such command, try
+`npx --yes adapty@latest fonts <command> --help` once (and the beta, as `SKILL.md` says for any
+missing command). Still missing: say this CLI cannot manage fonts yet and the user uploads them
+in the builder, with the link above.
+
+1. **Look first.** `$ADAPTY fonts list --app "$APP" --json`. A family with the brand's name that
+   already has the faces the design needs is the one to use: upload nothing.
+2. **Upload all the files in one call, and keep the report:**
+
+   ```bash
+   mkdir -p media
+   $ADAPTY fonts upload ./Brand-Regular.otf ./Brand-Bold.otf --app "$APP" --json > media/fonts.json
+   ```
+
+   Every path is read before the first file is sent: a path that cannot be read stops the whole
+   package with exit 2 and nothing sent. Correct the path, then run the whole package again.
+   The server reads the family name inside each file: the file joins the family of that name
+   (any case) or creates it. `files[]` has one entry per file, with its `result`: `created`,
+   `added`, `partly_added` (`kept_faces` are the pairs the family already had), `replaced` and
+   `kept` stored or skipped it; `refused` carries `error_code` and `message`, and `next_step`
+   when the CLI has one; `failed` means the package stopped at that file (an auth failure, exit 3;
+   a network failure, exit 5; or an answer the CLI could not read, exit 4), and `not_sent` marks
+   the files after it, which were never sent.
+   Exit 4 also means a file was refused, after the report of every file. Send again only the
+   files that were refused or not sent, never a stored one.
+   - **A `failed` file is uncertain, the last or only file too:** a lost or unreadable answer can
+     follow a stored file. Never send it again blind, and check before anything else:
+     `$ADAPTY fonts list --app "$APP" --json`. A new face of that file proves it was stored. On a
+     `--choice replace` try, a face that is still there proves nothing, because it existed before:
+     compare its `file_id` with the one `fonts list` showed before the try. When that still does
+     not settle it, tell the user the result is not known and stop: no resend, and do not treat
+     the replace as done. Send the file again only when `fonts list` shows it was not stored.
+     `flows_to_publish` is then `null`: run `$ADAPTY fonts usage <FAMILY_ID> --app "$APP" --json`
+     for each family the package may have changed. When only the usage read failed (every file
+     has its result), run `fonts usage` for the families the report names.
+   - **A collision** (`refused` with `conflicts` and `choices`): faces of the family the file
+     joins already have its weight and italic, or faces anywhere in the app already have its iOS
+     name. `conflicts` lists every one of them. Those faces can draw in the app's other flows, so
+     the choice is the user's. Offer the choices only when the refusal carries them.
+     **`--choice replace` replaces every face that collides at the moment it runs,** which can be
+     more faces than the user saw: it checks the collisions again by itself and replaces all it
+     finds (and when nothing collides any more, it stores the file as a plain upload). So right
+     before you ask, note the `file_id` of the listed faces (`fonts list`) and run that file alone
+     again without `--choice`. **When that run stores the file** (`created`, `added` or
+     `partly_added`), the collision is gone and the file is in: stop there, report the stored
+     faces and go on with the face checks. Never follow it with `--choice replace`: that could
+     overwrite the face just added. When it fails, use the `failed` point above. Only when it is a
+     fresh refusal with choices, take its `conflicts`: show each listed face with its family,
+     say that the file goes on all of them (each flow that uses them gets the new file at its
+     next publish) and that the old files cannot be restored, and ask: replace all, or skip the
+     file (`--choice keep`). On a yes, run that file alone with `--choice replace` at once, then
+     show the user its `replaced_faces` from the report, and say plainly when they differ from the
+     faces they agreed to, or when the run stored the file as a plain upload instead. A user who
+     agrees to some faces only: `fonts faces replace` per face, as the next points say.
+   - **Any other refusal:** read its `message`, and use `next_step` when it is there; relay it (a
+     WOFF or WOFF2 file: ask for the `.ttf` or `.otf`). A variable file whose faces are all in the
+     family (`font_faces_already_exist`) has no choice; its `next_step` names
+     `fonts faces replace`, one face at a time: see the next point.
+   - **`fonts faces replace <FACE_ID> <FILE>`** overwrites a stored face's file, and the old file
+     cannot be restored. Show the user which face of which family gets which file and say the old
+     file cannot be restored; run it with `--yes` only after their yes. Without a terminal and
+     without `--yes` it stops with exit 6 (`confirm_required`) and changes nothing: that is a
+     missing yes, never a failure to work around.
+3. **Check the faces and their names** in the `family` of each entry (or `fonts list` again).
+   For each face the design draws with:
+   - **Weight and italic.** `metadata_status` `needs_review` or `legacy_unconfirmed` means the
+     server could not read the pair from the file. Take it from the file's style name or ask,
+     then `$ADAPTY fonts faces update <FACE_ID> --app "$APP" --weight 700 --italic false`.
+   - **The iOS name** (`font_alias_ios`) is the PostScript name read from the file. None (the
+     upload's `warnings` names the face): publishing refuses a face a text draws with that has
+     none. A static file's name is the one it carries. A variable file's instance often declares
+     none, and iOS then registers it under the name [flow-schema.md](flow-schema.md) trap 8 gives
+     (`<file PostScript name>_<instance style name>`, the hint the builder offers): ask the user
+     to confirm the name their app registers, set it with `--ios-name`, then validate again.
+   - **The Android name** (`font_alias_android`) is never read from the file: it is the file name
+     in the app's `res/font/` folder, without the extension: a lowercase letter first, then
+     lowercase letters, digits and `_` only (the CLI refuses any other). Ask the user for the
+     name their app uses, or propose one (`brand_bold`) and say the file in the app must have
+     that name; set it with `--android-name` (it applies to every face of the same file).
+
+   A change to a family that flows use answers with `flows_to_publish`. `null` means the package
+   stopped at a file, the last or only one included, or only the usage read failed;
+   `flows_to_publish_error` gives the reason and the next step, and the `failed` point of step 2
+   says what to do in each case. Before a change to such a
+   face, `fonts usage` names those flows: ask first, and name them in the handoff, because each
+   needs a `flows publish` to get the change. `fonts usage` lists only flows that name the
+   family by its id; a flow that names it by its name is not listed, so name the family by id.
+4. **Name the family in the config, never a face.** On an element:
+   `"props": {"font": {"family": {"type": "user", "id": "<family id>"}, "weight": "bold"}}`. On a
+   `theme.typography` preset the same two keys sit in `settings`, not in a `font` object:
+   `"settings": {"family": {"type": "user", "id": "<family id>"}, "weight": "bold", "size": 30}`.
+   Italic only on a rich-text span. Publishing draws the exact weight and style, else the nearest
+   weight in the same style, then in any style, the lighter on a tie ([flow-schema.md](flow-schema.md) trap 8).
+   Never write `_meta.fonts` by hand. Then `flows config validate`: it resolves the family
+   against the app's fonts.
+5. **Publish and wait** as [publish.md](publish.md#running-flows-publish) says. `flows publish`
+   reads the app's fonts first and, when the copy in `_meta.fonts` is out of date, saves the
+   config with the current fonts (the line `Fonts refreshed: …`), then publishes. Poll
+   `flows get` until `published` or `publication_failed`. It stops before any write when the font
+   read fails, or when a font name in the config matches several families (exit 2: name the
+   family by id, or ask the user to rename one). When the copy needs a save, the config answer
+   must also carry an integer `updated_at` and a `remote_configs` list; without them it stops
+   before any write (`malformed_response`). A current copy needs no save and publishes without
+   them. A save that fails stops before the publish: read the config again. A publication that
+   fails after the save leaves the saved config.
+6. **Say the bundle line every time.** Adapty does not send the font file to the device: the app
+   must bundle the same files, under the iOS and Android names above, or users see the system
+   font ([Add the font files to your app's bundle](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)).
+   The upload is for the builder and the preview.
 
 ## Weighing a config before a write or a publish
 

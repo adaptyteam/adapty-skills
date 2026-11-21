@@ -228,8 +228,9 @@ collide with the destination are re-minted and every internal reference is rewri
 `_meta.fonts` entry lifted from one app's flow still renders in that face in another app's flow
 preview, but **each app has its own font library** and publishing looks fonts up there, so the
 flow fails with `missing_flow_font_meta` while a text uses it. `graft` carries the entry, `faces`
-included, and with `--scope any-app` adds a `!` line to `NEEDS YOU` per carried font: upload it
-to this app, or pick one this app has, then repoint. A resolvable
+included, and with `--scope any-app` adds a `!` line to `NEEDS YOU` per carried font: upload its
+files to this app ([media.md → Uploading a font](media.md#uploading-a-font)), or pick one this app
+has, then repoint. A resolvable
 reference is also no device guarantee (`flow-schema.md` trap 8 — the app bundle supplies the
 font), so name it as unconfirmed-on-device either way. The
 `fill` object-versus-array question was only tested for a single-layer `color` fill in

@@ -2889,8 +2889,9 @@ def check_sibling_locales(config, siblings):
 # file (name ID 6), unique across the app; Android by the file name in `res/font/` without
 # the extension, lowercase letters, numbers and underscores only.
 #
-# Every fix points at the Builder's font settings, never at a flow edit: `_meta.fonts` is a
-# copy of the app's font record, and the next Builder save overwrites it. An empty iOS name
+# Every fix points at the font itself (the Builder's font settings or `adapty fonts faces
+# update`), never at a flow edit: `_meta.fonts` is a copy of the app's font record, and the next
+# Builder save (or a publish through the CLI) overwrites it. A fix never asks for a publish. An empty iOS name
 # is not checked here -- the transform service refuses it as `font_face_missing_ios_name`
 # and `flows config validate` reports it.
 ANDROID_FONT_NAME_RE = re.compile(r'^[a-z0-9_]+$')
@@ -2990,11 +2991,14 @@ def _font_list(items, cap=4, sep=None):
 
 
 FONT_SETTINGS = ('In the Flow Builder, open the font settings (Edit custom font in any font '
-                 'dropdown) and click the row of each face named above')
+                 'dropdown) and click the row of each face named above, or use '
+                 'adapty fonts faces update with the face\'s id')
 # The names come from the copy of the font settings saved with the flow; publishing reads the
-# app's own settings, and a Builder save of the flow refreshes the copy.
-FONT_COPY = (' If you already changed it there, save this flow in the Flow Builder and run the '
-             'audit again: I read the font names saved with the flow.')
+# app's own settings, and a Builder save of the flow refreshes the copy. Never send the user to a
+# publish to refresh it: a publish releases every pending draft edit before the audit is answered.
+FONT_COPY = (' If you already changed it, save this flow in the Flow Builder and run the audit '
+             'again: I read the font names saved with the flow. The current names are also in '
+             'adapty fonts list --app <app id>, which changes nothing.')
 
 
 def _font_references(config):
@@ -3036,7 +3040,8 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'whose settings the flow does not carry, so I could not check '
             f'{"its" if len(uncopied) == 1 else "their"} iOS and Android font names.',
             'Open this flow in the Flow Builder and save it, which copies the font settings '
-            'into the flow, then run the audit again.'))
+            'into the flow, then run the audit again. Or read the current names with '
+            'adapty fonts list --app <app id>, which changes nothing.'))
     faces = list(_font_faces(config))
     if not faces:
         return out
@@ -3115,7 +3120,7 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'against the file.',
             f'Open each font file in Font Book on a Mac and compare its PostScript name with '
             f'the iOS font name in the Flow Builder font settings (Edit custom font in any '
-            f'font dropdown).'))
+            f'font dropdown) or in adapty fonts list --app <app id>.'))
     return out
 
 
@@ -3711,8 +3716,8 @@ CHECK_TO_GROUP = {
     # The app's code is the only place an unhandled custom action can be fixed short of
     # rewiring the button, and neither the flow nor the dashboard reaches it.
     'custom-action-unhandled': GROUP_APP,
-    # `_meta.fonts` is a copy of the app's font record that the next Builder save
-    # overwrites, so a flow edit cannot fix a font name: only the font settings can.
+    # `_meta.fonts` is a copy of the app's font record that the next Builder save or
+    # `flows publish` overwrites, so a flow edit cannot fix a font name: only the font can.
     'android-font-name': GROUP_DASHBOARD,
     'ios-font-name': GROUP_DASHBOARD,
     'variable-font': GROUP_DASHBOARD,
