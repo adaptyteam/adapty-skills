@@ -630,16 +630,21 @@ in the builder, with the link above.
    (any case) or creates it. `files[]` has one entry per file, with its `result`: `created`,
    `added`, `partly_added` (`kept_faces` are the pairs the family already had), `replaced` and
    `kept` stored or skipped it; `refused` carries `error_code` and `message`, and `next_step`
-   when the CLI has one; `failed` and `not_sent` mean the package stopped at that file: an auth
-   failure (exit 3), a network failure (exit 5) or an answer the CLI could not read (exit 4).
+   when the CLI has one; `failed` means the package stopped at that file (an auth failure, exit 3;
+   a network failure, exit 5; or an answer the CLI could not read, exit 4), and `not_sent` marks
+   the files after it, which were never sent.
    Exit 4 also means a file was refused, after the report of every file. Send again only the
    files that were refused or not sent, never a stored one.
    - **A `failed` file is uncertain, the last or only file too:** a lost or unreadable answer can
-     follow a stored file. Never send it again blind. `flows_to_publish` is then `null`: run
-     `$ADAPTY fonts list --app "$APP" --json` and see whether its faces are there; send it again
-     only when they are not, then run `$ADAPTY fonts usage <FAMILY_ID> --app "$APP" --json` for
-     each family the package may have changed. When only the usage read failed (every file has
-     its result), run `fonts usage` for the families the report names.
+     follow a stored file. Never send it again blind, and check before anything else:
+     `$ADAPTY fonts list --app "$APP" --json`. A new face of that file proves it was stored. On a
+     `--choice replace` try, a face that is still there proves nothing, because it existed before:
+     compare its `file_id` with the one `fonts list` showed before the try. When that still does
+     not settle it, tell the user the result is not known and stop: no resend, and do not treat
+     the replace as done. Send the file again only when `fonts list` shows it was not stored.
+     `flows_to_publish` is then `null`: run `$ADAPTY fonts usage <FAMILY_ID> --app "$APP" --json`
+     for each family the package may have changed. When only the usage read failed (every file
+     has its result), run `fonts usage` for the families the report names.
    - **A collision** (`refused` with `conflicts` and `choices`): faces of the family the file
      joins already have its weight and italic, or faces anywhere in the app already have its iOS
      name. `conflicts` lists every one of them. Those faces can draw in the app's other flows, so
@@ -647,12 +652,17 @@ in the builder, with the link above.
      **`--choice replace` replaces every face that collides at the moment it runs,** which can be
      more faces than the user saw: it checks the collisions again by itself and replaces all it
      finds (and when nothing collides any more, it stores the file as a plain upload). So right
-     before you ask, run that file alone again without `--choice` and take the `conflicts` of that
-     fresh refusal. Show each listed face with its family, say that the file goes on all of them
-     (each flow that uses them gets the new file at its next publish) and that the old files
-     cannot be restored, and ask: replace all, or skip the file (`--choice keep`). On a yes, run
-     that file alone with `--choice replace` at once, then show the user its `replaced_faces`
-     from the report, and say plainly when they differ from the faces they agreed to. A user who
+     before you ask, note the `file_id` of the listed faces (`fonts list`) and run that file alone
+     again without `--choice`. **When that run stores the file** (`created`, `added` or
+     `partly_added`), the collision is gone and the file is in: stop there, report the stored
+     faces and go on with the face checks. Never follow it with `--choice replace`: that could
+     overwrite the face just added. When it fails, use the `failed` point above. Only when it is a
+     fresh refusal with choices, take its `conflicts`: show each listed face with its family,
+     say that the file goes on all of them (each flow that uses them gets the new file at its
+     next publish) and that the old files cannot be restored, and ask: replace all, or skip the
+     file (`--choice keep`). On a yes, run that file alone with `--choice replace` at once, then
+     show the user its `replaced_faces` from the report, and say plainly when they differ from the
+     faces they agreed to, or when the run stored the file as a plain upload instead. A user who
      agrees to some faces only: `fonts faces replace` per face, as the next points say.
    - **Any other refusal:** read its `message`, and use `next_step` when it is there; relay it (a
      WOFF or WOFF2 file: ask for the `.ttf` or `.otf`). A variable file whose faces are all in the
@@ -680,10 +690,10 @@ in the builder, with the link above.
      name their app uses, or propose one (`brand_bold`) and say the file in the app must have
      that name; set it with `--android-name` (it applies to every face of the same file).
 
-   A change to a family that flows use answers with `flows_to_publish`. `null` means the CLI could
-   not read them, or the package stopped before its last file; `flows_to_publish_error` gives the
-   reason and the next step: `$ADAPTY fonts list --app "$APP" --json` for the changed families,
-   then `$ADAPTY fonts usage <FAMILY_ID> --app "$APP" --json` for each. Before a change to such a
+   A change to a family that flows use answers with `flows_to_publish`. `null` means the package
+   stopped at a file, the last or only one included, or only the usage read failed;
+   `flows_to_publish_error` gives the reason and the next step, and the `failed` point of step 2
+   says what to do in each case. Before a change to such a
    face, `fonts usage` names those flows: ask first, and name them in the handoff, because each
    needs a `flows publish` to get the change. `fonts usage` lists only flows that name the
    family by its id; a flow that names it by its name is not listed, so name the family by id.
