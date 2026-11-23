@@ -255,6 +255,67 @@ def with_state_condition(condition):
 fires('state condition: same walker, custom state',
       with_state_condition({'type': 'bogus'}), 'invalid condition expression')
 
+
+# Admission: external -- the warning and error lines an agent reads and acts on.
+# A state condition (custom, or the `disabled` system state) with an empty side in ANY row is
+# dropped whole by the service before the compile: a warning that the state never becomes
+# active, and no error, even for the builder's default row. A row with no variable and no empty
+# side is still refused. Visibility keeps its order: the refusal first.
+def with_disabled_condition(condition):
+    d = load()
+    s, eid, e = first_element(d, lambda e: e.get('type') == 'text')
+    e['states'] = [{'id': 'disabled', 'type': 'system', 'condition': condition}]
+    return d
+
+
+NO_VAR = {'type': 'var', 'variableId': ''}
+FINISHED = {'type': '==', 'left': {'type': 'var', 'variableId': 'name.value'},
+            'right': {'type': 'const', 'value': 'x'}}
+S2 = {'type': '==', 'left': NO_VAR, 'right': None}
+NEVER = 'this state never becomes active'
+for _id, _doc, _error, _warn, *_also in (
+        ('S1 both sides empty, custom', with_state_condition(BLANK), None, True),
+        ('S2 the default row, custom', with_state_condition(S2), None, True),
+        ('S2 the default row, disabled', with_disabled_condition(S2), None, True),
+        ('S3 a variable with no value, disabled',
+         with_disabled_condition({'type': '==', 'left': {'type': 'var', 'variableId': 'name.value'},
+                                  'right': None}), None, True),
+        ('all: one finished row and the default row',
+         with_state_condition({'type': '&&', 'predicates': [FINISHED, S2]}), None, True),
+        ('any: one finished row and both sides empty',
+         with_disabled_condition({'type': '||', 'predicates': [FINISHED, BLANK]}), None, True),
+        ('all: an undeclared variable and the default row, custom',
+         with_state_condition({'type': '&&', 'predicates': [
+             {'type': '==', 'left': {'type': 'var', 'variableId': 'nosuchinput.value'},
+              'right': {'type': 'const', 'value': 'x'}}, S2]}),
+         'unknown_variable_ref', True),
+        ('S4 is empty with no variable, custom',
+         with_state_condition({'type': 'empty', 'left': NO_VAR}), '.variableId', False),
+        ('S5 a value with no variable, disabled',
+         with_disabled_condition({'type': '==', 'left': NO_VAR,
+                                  'right': {'type': 'const', 'value': 'x'}}),
+         '.variableId', False),
+        ('visibility: the default row is still refused', with_visibility(S2), '.variableId',
+         False),
+        ('size with an empty side is compiled, custom',
+         with_state_condition({'type': 'size', 'left': None}), None, False, 'ships as is')):
+    _errs, _warns = errors(_doc), warnings(_doc)
+    _got_warn = any(NEVER in w for w in _warns)
+    _problems = []
+    if _error is None and _errs:
+        _problems.append(f'expected no errors, got {_errs!r}')
+    if _error is not None and not any(_error in e for e in _errs):
+        _problems.append(f'expected an error containing {_error!r}, got {_errs!r}')
+    if _got_warn is not _warn:
+        _problems.append(f'expected the never-active warning fired={_warn}, got {_warns!r}')
+    if _also and not any(_also[0] in w for w in _warns):
+        _problems.append(f'expected a warning containing {_also[0]!r}, got {_warns!r}')
+    if _problems:
+        fails.append(f'state condition blank, {_id}: ' + '; '.join(_problems))
+        print(f'  FAIL  state condition blank, {_id}')
+    else:
+        print(f'  ok    state condition blank, {_id}')
+
 # `elementState` reads another element's state; the service compiles it (and a `disabled`
 # state's condition, into the element's enabled binding), so neither is reported.
 _es = {'type': '==', 'left': {'type': 'elementState', 'elementId': 'el_next'},
