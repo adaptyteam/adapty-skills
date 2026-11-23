@@ -20,6 +20,8 @@ numbers and a paywall that shows the chart; then:
 3. The **paywall** is a separate flow with the chart, and the app hands its view the series
    when it fetches the paywall's configuration, the one case for registering the view for one
    flow. The series is fixed from that fetch, so the app fetches after the onboarding closes.
+   A Flutter app has no per-flow registration: it hands the series to its native code before
+   showing the paywall ([Flutter](../custom-elements.md#flutter)).
 
 When the inputs are in the same flow as the chart, the app still has to read them from the flow's
 events before the chart's screen opens: say so, because the chart then shows the fallback for a
