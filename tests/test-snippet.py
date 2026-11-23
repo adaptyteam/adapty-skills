@@ -2042,6 +2042,37 @@ _sv = subprocess.run([sys.executable, VERIFY, _sout], capture_output=True, text=
 case('same flow: the copied screen adds no checker error',
      sorted(set(error_lines(_sv)) - set(error_lines(_ml_base))), [])
 
+# --- a screen whose background fill is a catalog ref ------------------------------
+# The builder stores a fill's image as a `{_lid}` ref. The destination holds an entry under the
+# same id with a different image, so a graft that carried the raw ref would show the wrong one.
+_fr = json.load(open(os.path.join(ROOT, 'tests', 'fixtures', 'comparison-paywall.json')))
+_fr = _fr.get('config', _fr)
+_fr_dl = _fr['localization']['defaultLocale']
+_fr_src, _fr_dst = json.loads(json.dumps(_fr)), json.loads(json.dumps(_fr))
+for _doc, _url in ((_fr_src, 'https://example.com/source-bg.png'),
+                   (_fr_dst, 'https://example.com/destination-bg.png')):
+    _doc['localization']['content']['lc_900'] = {
+        'kind': 'image', 'values': {_fr_dl: {'id': '1', 'url': _url}}}
+    _doc['screens'][0]['props']['fill'] = [{'type': 'image', 'image': {'_lid': 'lc_900'}}]
+with tempfile.TemporaryDirectory() as _frd:
+    _p = lambda n: os.path.join(_frd, n)  # noqa: E731
+    json.dump(_fr_src, open(_p('src.json'), 'w'))
+    json.dump(_fr_dst, open(_p('dst.json'), 'w'))
+    _sid = _fr['screens'][0]['id']
+    subprocess.run([sys.executable, SNIP, 'extract', '--config', _p('src.json'), '--screen', _sid,
+                    '--name', 'bg', '--out', _p('s.flow-snippet.json')], capture_output=True)
+    subprocess.run([sys.executable, SNIP, 'graft', '--config', _p('dst.json'), '--snippet',
+                    _p('s.flow-snippet.json'), '--out', _p('out.json')], capture_output=True)
+    _fr_out = json.load(open(_p('out.json')))
+_fr_view = localization.resolve(_fr_out)
+_fr_urls = [((s['props'].get('fill') or [{}])[0].get('image') or {}).get('values', {})
+            .get(_fr_dl, {}).get('url') for s in _fr_view['screens']]
+case('fill ref: the grafted screen keeps the source background, the original keeps its own',
+     sorted(u for u in _fr_urls if u), ['https://example.com/destination-bg.png',
+                                        'https://example.com/source-bg.png'])
+case('fill ref: the destination entry is unchanged',
+     _fr_out['localization']['content']['lc_900'], _fr_dst['localization']['content']['lc_900'])
+
 if fails:
     print(f'\n{len(fails)} FAILED')
     for f in fails:

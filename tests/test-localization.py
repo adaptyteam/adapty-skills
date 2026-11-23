@@ -387,6 +387,41 @@ with tempfile.TemporaryDirectory() as tmp:
                        text=True)
     check('rename without a target prints usage and exits 2', r.returncode == 2, r.stderr)
 
+print('\nfill media: a fill layer or a theme colour layer may hold a ref')
+_fx = json.load(open(os.path.join(ROOT, 'tests', 'fixtures', 'comparison-paywall.json')))
+_fx = _fx.get('config', _fx)
+_fill_doc = copy.deepcopy(_fx)
+_img = {'id': '1', 'url': 'https://example.com/bg.png'}
+_vid = {'previewUrl': 'https://example.com/p.png', 'videoUrl': 'https://example.com/v.mp4'}
+_fill_doc['localization']['content']['lc_900'] = {'kind': 'image', 'values': {
+    _fill_doc['localization']['defaultLocale']: _img}}
+_fill_doc['localization']['content']['lc_901'] = {'kind': 'video', 'values': {
+    _fill_doc['localization']['defaultLocale']: _vid}}
+_fill_doc['screens'][0]['props']['fill'] = [{'type': 'image', 'image': {'_lid': 'lc_900'}}]
+_fill_doc['theme'].setdefault('colors', []).append(
+    {'id': 'clr_bgvid', 'name': 'bg', 'light': [{'type': 'video', 'video': {'_lid': 'lc_901'}}]})
+_fv = L.resolve(_fill_doc)
+check('resolve() inlines a ref in a screen fill', _fv['screens'][0]['props']['fill'][0]['image']
+      == {'_localizable': True, 'values': {_fv['defaultLocale']: _img}, '_ref': 'lc_900'})
+check('resolve() inlines a ref in a theme colour layer',
+      next(c for c in _fv['theme']['colors'] if c['id'] == 'clr_bgvid')['light'][0]['video'].get(
+          '_ref') == 'lc_901')
+check('resolve() leaves no `_lid` anywhere', '"_lid"' not in json.dumps(_fv))
+_flat = copy.deepcopy(_fx)
+_flat['screens'][0]['props']['fill'] = [
+    {'type': 'image', 'image': {'_localizable': True,
+                                'values': {_flat['localization']['defaultLocale']: _img}}},
+    {'type': 'image', 'image': dict(_img)}]
+_fc, _fw = L.catalog(_flat)
+_layers = _fc['screens'][0]['props']['fill']
+_lid = (_layers[0]['image'] or {}).get('_lid')
+check('catalog() moves an inline fill image into a new entry of kind image',
+      _lid not in _fx['localization']['content']
+      and (_fc['localization']['content'].get(_lid) or {}).get('kind') == 'image', _layers)
+check('catalog() leaves a flat fill image flat', _layers[1]['image'] == _img)
+check('catalog() over a document with fill refs changes nothing',
+      L.catalog(_fill_doc)[0] == dict(_fill_doc, schemaVersion=L.SCHEMA_VERSION))
+
 print('\ncopies')
 a, b = open(GEN, 'rb').read(), open(AUD, 'rb').read()
 check('flow-generator and flow-audit ship byte-identical localization.py', a == b,

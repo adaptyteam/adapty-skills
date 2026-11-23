@@ -11,12 +11,12 @@ field stores only a reference to it:
       "content": {"lc_0": {"kind": "rich-text", "values": {"en": [...], "fr": [...]}}}
     }
 
-The localizable fields, and nothing else (names, ids, fills and geometry are never catalogued):
+The localizable fields, and nothing else (names, ids, colours and geometry are never catalogued):
 text `content`, every input and picker `placeholder`, image `image`, video `video`, alert
 `title` / `message`, and the Open URL action's `url` (a `rich-string` entry, so each locale can
 open its own page) -- including actions nested in conditional actions, and elements inside
 `components`. `LOCALIZABLE` and `LOCALIZABLE_ACTION_FIELDS` below are that list, read off the
-schema.
+schema. An `image` or `video` layer of a fill or a theme colour may hold a ref too (`media_layers`).
 
 Four jobs:
 
@@ -160,6 +160,28 @@ def is_empty(kind, value):
     if kind == 'video':
         return not _rec(value) or ('videoUrl' in value and value['videoUrl'] == '')
     return False
+
+
+def media_layers(flow):
+    """Yield `(layer, kind, path)` for every `image` or `video` layer of a fill or a theme
+    colour, in screens, components and the theme: a dict whose `type` is the kind and whose
+    value under that key is an object. The builder stores a ref there as readily as a flat
+    value, and the transform service reads a ref wherever it sits."""
+    def walk(o, path):
+        if isinstance(o, list):
+            for i, x in enumerate(o):
+                yield from walk(x, f'{path}[{i}]')
+        elif _rec(o):
+            kind = o.get('type')
+            if kind in ('image', 'video') and _rec(o.get(kind)):
+                yield o, kind, path
+            for k, v in o.items():
+                if not (k == kind and kind in ('image', 'video')):
+                    yield from walk(v, f'{path}.{k}')
+
+    for key in ('screens', 'components', 'theme'):
+        if key in flow:
+            yield from walk(flow[key], key)
 
 
 def is_catalog(flow):
@@ -487,6 +509,12 @@ def catalog(flow):
         for cid, comp in flow['components'].items():
             if _rec(comp):
                 _migrate_map(comp.get('map'), {'componentId': cid}, f'components.{cid}.map', cat)
+    # Past migration 013, which never meets one: an inline value in a fill or theme colour layer
+    # (a resolved fill carried by a graft) gets its own entry. A flat image there stays flat.
+    for layer, kind, path in media_layers(flow):
+        if _rec(layer[kind]) and layer[kind].get('_localizable') is True:
+            layer[kind] = _migrate_field(layer[kind], kind,
+                                         {'path': f'{path}.{kind}', 'property': kind}, cat)
 
     out = {k: v for k, v in flow.items() if k not in ('locales', 'defaultLocale', 'localization')}
     loc_out = dict(existing or {})
@@ -595,6 +623,9 @@ def resolve(flow):
     for comp in (view.get('components') or {}).values() if _rec(view.get('components')) else ():
         if _rec(comp):
             walk_map(comp.get('map'))
+    for layer, kind, _path in media_layers(view):
+        if is_ref(layer[kind]):
+            layer[kind] = inline(layer[kind])
     return view
 
 
