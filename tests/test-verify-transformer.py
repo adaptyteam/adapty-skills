@@ -274,11 +274,16 @@ _s, _eid, _e = first_element(d, lambda e: e.get('type') == 'text')
 _e['states'] = [{'id': 'selected', 'type': 'system', 'condition': {'type': 'bogus'}}]
 silent('state condition: `selected` is overwritten by the service, so not checked', d)
 
-# --- script_type_violation: an unresolved condition variable becomes a bare identifier.
-fires('condition variable resolving to nothing (TS2304)',
+# --- unknown_variable_ref: a condition variable that nothing declares.
+fires('condition variable resolving to nothing',
       with_visibility({'type': 'notEmpty',
                        'left': {'type': 'var', 'variableId': 'nosuchinput.value'}}),
       'resolves to nothing')
+# external: the error names the code the publish returns for it, so an agent can match the two.
+fires('condition variable resolving to nothing names unknown_variable_ref',
+      with_visibility({'type': 'notEmpty',
+                       'left': {'type': 'var', 'variableId': 'nosuchinput.value'}}),
+      'unknown_variable_ref')
 
 # --- invalid_action_payload, one code per required field.
 def with_action(action):
