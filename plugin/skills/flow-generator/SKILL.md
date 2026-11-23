@@ -180,7 +180,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [history.md](references/history.md) | The user asks about an earlier version: the list, a look at one, a restore into the draft, a rollback of a publish, a duplicate to a new flow |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
-| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, what the user sees after they buy, a screen that moves on by itself, an element that appears after a delay or animates in, plan cards |
+| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, a number or date the flow calculates (a formula), screen transitions, what the user sees after they buy, a screen that moves on by itself, an element that appears after a delay or animates in, plan cards |
 | [placements.md](references/placements.md) | **Phase 6** — the procedure and the placement ask, every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
 | the **`paywall-teardown`** skill | **Phase 2** when *you* choose the design of a **screen that sells**, **phase 4** to grade what you built. It owns whether the screen sells; this skill owns the JSON |
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
@@ -188,7 +188,8 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | the **`adapty-integration`** skill | **Phase 6**, once a placement points at the flow. It owns the app side — the fetch, the render and the call sites — and this skill hands it one thing: the placement developer ID |
 
 Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph lookup,
-any phase), `localization.py` (phase 2, the catalog), `verify-config.py` (phase 3),
+any phase), `localization.py` (phase 2, the catalog), `formulas.py` (the formula and date
+variable checks `flowkit` and `verify-config.py` run), `verify-config.py` (phase 3),
 `validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py`,
 `render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (phase 4, through `shoot.sh`),
 `mobile-preview.mjs` (phase 5, the device-preview QR), `weigh-config.py` (phase 2 before an
