@@ -335,8 +335,9 @@ report the second run's verdict, not the first.
 
 If a `custom-action-unconfirmed` question fires, **ask the user what each listed custom
 action does**, in one message, naming each by its screen and button as the finding does.
-A flow cannot ask for a permission, open the rating sheet or sign anyone in on its own: the
-button fires an action ID that the app's code carries out, and only the user knows which.
+Apart from push notifications (the Request permission action, which the checks read without
+asking), a flow cannot ask for a permission, open the rating sheet or sign anyone in on its own:
+the button fires an action ID that the app's code carries out, and only the user knows which.
 Map each plain-words answer to one kind and re-run with
 `--custom-actions id=kind[,id=kind…]`:
 

@@ -1143,6 +1143,39 @@ check('...and once answered it is a plain sentence starting with a capital',
 check('...naming the way round by its own words, in the message and the fix',
       '"Not now"' in of(_f, 'primer-skip')[0]['message']
       and '"Not now"' in of(_f, 'primer-skip')[0]['fix'], of(_f, 'primer-skip'))
+
+
+def _native(c):
+    """The primer with its custom notifications action swapped for Request permission."""
+    def walk(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'custom' and (o.get('payload') or {}).get('id') == \
+                    'request_notifications':
+                o.clear()
+                o.update({'id': 'act_ask', 'type': 'requestPermission', 'payload': {
+                    'permission': 'push', 'onResult': {'response': [
+                        {'id': 'act_ask_response', 'type': 'navigateNext'}]}}})
+                return
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(c)
+    return c
+
+
+_f = run(_native(load(PRIMER)))[1]
+check('the primer with a Request permission action is SILENT on every permission check',
+      not [f for f in _f if f['check'] in PERMISSION_CHECKS], _f)
+_f = run(_native(_primer(skip='Not now')))[1]
+check('a "Not now" beside a Request permission button is primer-skip with no question asked',
+      len(of(_f, 'primer-skip')) == 1
+      and of(_f, 'primer-skip')[0]['message'].startswith('"Not now" on the "'), _f)
+_f = run(_native(_primer(button='Allow notifications')))[1]
+check('"Allow notifications" on a Request permission button is primer-grant-wording',
+      len(of(_f, 'primer-grant-wording')) == 1, _f)
+
 _f = run(_primer(button='Allow notifications'), custom=PRIMER_ANSWERS)[1]
 check('"Allow notifications" on the permission button is primer-grant-wording',
       [f['severity'] for f in of(_f, 'primer-grant-wording')] == ['risk'], _f)

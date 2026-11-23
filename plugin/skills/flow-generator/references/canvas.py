@@ -45,10 +45,12 @@ COL_GAP = 170
 ROW_GAP = 70           # between screens stacked in one column
 PAD = 60
 TERMINAL = {'purchase': 'buys', 'restorePurchases': 'restores', 'closeFlow': 'closes flow',
-            'navigateBack': 'back', 'custom': 'custom action'}
+            'navigateBack': 'back', 'custom': 'custom action',
+            'requestPermission': 'asks for push'}
 OUTCOMES = {'purchase': {'success': 'when bought', 'fail': 'when the purchase fails',
                          'userCanceled': 'when cancelled', 'pending': 'when pending'},
-            'restorePurchases': {'success': 'when restored', 'fail': 'when the restore fails'}}
+            'restorePurchases': {'success': 'when restored', 'fail': 'when the restore fails'},
+            'requestPermission': {'response': 'after the answer'}}
 
 
 # ---------- reading the config ----------

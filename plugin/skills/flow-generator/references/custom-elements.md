@@ -24,7 +24,7 @@ first row that fits wins.
 | a chart of the user's data, a chart the user drags along or taps | a custom element: [chart.md](custom-elements/chart.md) |
 | the camera: a live preview, a scanner, a mirror | a custom element: [camera.md](custom-elements/camera.md) |
 | any other view the app already has or can build: a 3D model, a native wheel, a game, a widget preview | a custom element with the generic shape below; no template |
-| something a button **does**: sign in, create an account, ask for a permission on its own, open the app's own screen | a custom action, not a custom element. The element cannot run an action (below) |
+| something a button **does**: sign in, create an account, ask for a permission other than push notifications, open the app's own screen | a custom action, not a custom element (push notifications: a `requestPermission` action). The element cannot run an action (below) |
 | a value the app knows, shown as text: a name, a streak number, a balance | a custom tag (flow-schema.md trap 25), not a custom element |
 
 A custom element and the other routes combine: the streak number as a custom tag in the title,

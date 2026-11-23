@@ -178,6 +178,7 @@ A clean `validate` is a floor, not a proof. Every one of these passed with `vali
 | A malformed `transition` on a `navigate` (a wrong type, a missing `delay`, 5001 ms): the device plays the default push | `references/verify-config.py` (an error) and the schema check |
 | A `navigate` or `closeFlow` after a purchase or restore in the same list: the user leaves at the tap, paid or not ([trap 16](flow-schema.md#16-a-purchase-or-restore-leads-on-only-through-onresult--a-navigate-beside-it-leaves-at-the-tap)) | `references/verify-config.py` (a warning, as publish gives) |
 | A purchase or restore inside an outcome, outcomes on a web purchase, a result the action never reports: compiled and never run | `references/verify-config.py` (warnings); an `onResult` that is not a map of lists is an error |
+| A push request with no `response` actions: the user stays on the screen and is asked on every tap ([trap 28](flow-schema.md#28-a-push-request-leads-on-through-onresultresponse--and-only-the-app-can-answer-it)) | `references/verify-config.py` (a warning); a `permission` other than `push` is an error |
 | A product id that does not exist in this app | nothing; no price on device and the purchase fails |
 | Advisory warnings about silently dropped props (`verticalAlign` and friends) | nothing reachable from the CLI |
 

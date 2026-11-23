@@ -1003,10 +1003,12 @@ def _node(kind, props, *, children=None, caption=None, states=None,
         node['propsByState'] = props_by_state
     leaving = _leaves_before_result(actions or [])
     if leaving:
-        raise ValueError(f'{kind}(actions=...): {leaving} follows a purchase or restore in the '
-                         f'same list, so it runs on the tap, before the store answers '
-                         f'(navigation_before_store_result, trap 16). Pass it as an outcome '
-                         f'instead: purchase("plans", on_success=navigate("scr_thanks")).')
+        raise ValueError(f'{kind}(actions=...): {leaving} follows a purchase, a restore or a '
+                         f'permission request in the same list, so it runs on the tap, before '
+                         f'the answer (navigation_before_store_result, traps 16 and 28). Pass '
+                         f'it as an outcome instead: purchase("plans", '
+                         f'on_success=navigate("scr_thanks")) or '
+                         f'request_permission(on_response=navigate_next()).')
     if actions:
         node['interactions'] = [{'id': 'int' + node['id'][2:], 'trigger': 'tap',
                                  'actions': actions}]
@@ -2205,11 +2207,15 @@ def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
 
 PURCHASE_RESULTS = ('success', 'fail', 'userCanceled', 'pending')
 RESTORE_RESULTS = ('success', 'fail')
-STORE_ACTIONS = ('purchase', 'restorePurchases')
+PERMISSION_RESULTS = ('response',)
+PERMISSION_KINDS = ('push',)
+# Each opens a system sheet and runs its `onResult` on the answer; publish treats the three alike.
+STORE_ACTIONS = ('purchase', 'restorePurchases', 'requestPermission')
 
 
 def _store_actions_in(obj):
-    """Every purchase or restore inside `obj`, a conditional's branches included."""
+    """Every purchase, restore or permission request inside `obj`, a conditional's branches
+    included."""
     if isinstance(obj, dict):
         if obj.get('type') in STORE_ACTIONS:
             yield obj
@@ -2239,7 +2245,7 @@ def _branches(action):
 def _starts_store_operation(action):
     if action.get('type') == 'purchase':
         return (action.get('payload') or {}).get('type') != 'web'
-    if action.get('type') == 'restorePurchases':
+    if action.get('type') in ('restorePurchases', 'requestPermission'):
         return True
     return action.get('type') == 'conditional' and any(
         _starts_store_operation(a) for body in _branches(action) for a in body
@@ -2254,7 +2260,8 @@ def _leaves(action):
 
 
 def _leaves_before_result(actions):
-    """The first action that leaves the screen after a store operation in the same list."""
+    """The first action that leaves the screen after a store operation or a permission request
+    in the same list."""
     started = False
     for a in actions:
         if not isinstance(a, dict):
@@ -2266,7 +2273,7 @@ def _leaves_before_result(actions):
 
 
 def _outcomes(action_id, results, lists, what):
-    """`payload.onResult`: one action list per store result, run once the store answers.
+    """`payload.onResult`: one action list per result, run once the store or the app answers.
 
     A result left out, or given an empty list, runs nothing: the user stays on the screen and can
     tap again. Each nested action gets its own id, `<action_id>_<result>` (with `_<n>` from the
@@ -2284,9 +2291,9 @@ def _outcomes(action_id, results, lists, what):
             if not (isinstance(a, dict) and isinstance(a.get('type'), str)):
                 raise TypeError(f'{what} {result} must contain actions, got {a!r}')
         if any(True for _ in _store_actions_in(acts)):
-            raise ValueError(f'{what} {result}: an outcome cannot start another purchase or '
-                             f'restore (the builder disables it, publish warns '
-                             f'nested_store_operation). Put the second offer on its own screen '
+            raise ValueError(f'{what} {result}: an outcome cannot start a purchase, a restore or '
+                             f'a permission request (the builder disables it, publish warns '
+                             f'nested_store_operation). Put the second one on its own screen '
                              f'with its own button, and navigate there.')
         out[result] = [dict(a, id=f'{action_id}_{result}' + (f'_{i + 1}' if i else ''))
                        for i, a in enumerate(acts)]
@@ -2656,6 +2663,34 @@ def restore(action_id='act_restore', *, on_success=None, on_fail=None):
     if on_result:
         return {'id': action_id, 'type': 'restorePurchases', 'payload': {'onResult': on_result}}
     return {'id': action_id, 'type': 'restorePurchases'}
+
+
+_RESPONSE_DEFAULT = object()
+
+
+def request_permission(action_id='act_permission', *, on_response=_RESPONSE_DEFAULT,
+                       permission='push'):
+    """`requestPermission`: ask the app to request push notifications (trap 28).
+
+    The SDK shows no dialog: the app's code does, and answers the flow. `on_response` runs on
+    any answer, allowed or denied; it defaults to `navigate_next()`, as a new action in Flow
+    Builder does. `on_response=None` makes a bare request: the user stays on the screen after
+    answering, and the flow asks again on every tap and every appearance. Use it on a button's
+    tap (`actions=[...]`) or in `on_appear()`, the two triggers the builder offers it on.
+    """
+    if permission not in PERMISSION_KINDS:
+        raise ValueError(f'request_permission(permission={permission!r}): the action asks only '
+                         f'for {PERMISSION_KINDS} (publish refuses another with '
+                         f'invalid_action_payload). Any other permission is a custom_action() '
+                         f'the app answers')
+    if on_response is _RESPONSE_DEFAULT:
+        on_response = navigate_next()
+    payload = {'permission': permission}
+    on_result = _outcomes(action_id, PERMISSION_RESULTS, {'response': on_response},
+                          'request_permission()')
+    if on_result:
+        payload['onResult'] = on_result
+    return {'id': action_id, 'type': 'requestPermission', 'payload': payload}
 
 
 def open_url(url, *, external=None, action_id='act_url'):

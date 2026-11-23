@@ -226,7 +226,7 @@ invariants above, and is still wrong. This table is the index into them.
 
 The numbers are this file's addressing scheme: other files, and two checker messages in
 `verify-config.py` and `render-check.py`, cite them as **trap N**. They are therefore stable — a
-trap is never renumbered, a new one takes the next free number (**27**), and a new trap with no
+trap is never renumbered, a new one takes the next free number (**29**), and a new trap with no
 row here is unreachable, because the number is the only address anyone cites.
 
 | trap | the thing that parses and is still wrong |
@@ -263,6 +263,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 25 | A value only the app knows is a custom tag — shown in text, never read by logic |
 | 26 | A theme colour can be a layer stack — and only a fill reads all of it |
 | 27 | A value the flow works out is a `formula` — calculated, never set |
+| 28 | A push request leads on through `onResult.response` — and only the app can answer it |
 
 ### 1. A localizable field is a ref, and its entry's `kind` decides the value shape
 
@@ -1289,6 +1290,7 @@ looser than the service on every row:
 | `setVariable` | an **array** payload; each entry needs `left.variableId` | SetVariable action requires an array payload |
 | `conditional` | an object payload with a `cases` **array** of `[predicate, value]` tuples | Conditional action requires an array of cases |
 | `purchase` | `.payload.product` is either an **expression** or a record with a non-empty `.id` | Purchase action requires a product id |
+| `requestPermission` | `.payload.permission`, and it is `push` | Request permission action requires one of: push |
 
 The `purchase` row is the one worth reading twice: the service accepts *any* object carrying a
 string `type` without looking further, which is why the `var` form every real export uses passes
@@ -1355,6 +1357,43 @@ on_success=fk.navigate('scr_thanks'))` and `fk.restore(on_fail=…)`; what each 
   screen it leads to is.
 
 `verify-config.py` warns on each of these and errors on an `onResult` that is not a map of lists.
+
+### 28. A push request leads on through `onResult.response` — and only the app can answer it
+
+`requestPermission` asks the app to request push notifications. The SDK shows no dialog: the
+app's code shows the system one and sends the answer back, and then the flow runs
+`payload.onResult.response`, whether the user allowed or denied. Build it with
+`fk.request_permission()`, which starts `response` with `navigateNext` as Flow Builder does, or
+`fk.request_permission(on_response=fk.navigate('scr_paywall'))`.
+
+```json
+{"id": "act_permission", "type": "requestPermission", "payload": {
+  "permission": "push",
+  "onResult": {"response": [{"id": "act_permission_response", "type": "navigateNext"}]}}}
+```
+
+- **`push` is the only `permission`;** publish refuses any other (`invalid_action_payload`).
+  Location, camera, tracking and any other prompt stay a `custom` action the app answers.
+- **Put it on a button's tap or in On Appear,** the two triggers the builder offers it on. On a
+  screen that explains the notifications, use the button, so people read the screen before the
+  dialog covers it.
+- **The flow cannot branch on the answer:** `response` runs for both.
+- **Without `response` actions the user stays on the screen after answering,** and the flow asks
+  again on every tap and every appearance, Back included.
+- **A permission decided before is answered at once,** so `response` runs right away and the
+  screen flashes past.
+- **The rules of trap 16 apply:** a `navigate` beside the request in the same list leaves at the
+  tap (`navigation_before_store_result`), and `response` cannot hold a purchase, a restore or
+  another request (`nested_store_operation`), nor can an outcome of a purchase hold the request.
+- **The app must answer before the flow ships.** Without its code, iOS, Flutter, Unity and Kotlin
+  Multiplatform apps keep the user on the screen, and Android, React Native and Capacitor apps run
+  `response` at once without asking. A published flow also reaches app versions that cannot
+  answer, so show it only to versions that can: an audience on the app version. Tell the user
+  both, link [Request permission](https://adapty.io/docs/onboarding-actions#request-permission),
+  and offer the app code as for a custom action.
+
+`verify-config.py` refuses another `permission` and warns on a request with no `response`
+actions and on the trap 16 shapes.
 
 ### 17. A state override replaces each prop it names whole — nothing is inherited from the base
 
@@ -1840,7 +1879,7 @@ element, it does not qualify as evidence — a device does.
   **⚠ = in the schema, never seen on a device** — read
   [Being in the schema is not reaching a device](#being-in-the-schema-is-not-reaching-a-device)
   before authoring one. Being listed here means the builder can save it, never that users see it.
-- **15 action types**, adding `selectProduct` to the list below.
+- **16 action types**, adding `selectProduct` and `requestPermission` to the list below.
 - **Group types are a closed enum**: `product`, `single_choice`, `multi_choice`, `toggle` — so trap
   10's rule is confirmed, not inferred.
 - `_meta.screens[].products[]` requires `flowProductId`, matching the publish 422 from the other
@@ -2130,8 +2169,8 @@ never treat its absence here as evidence the file is invalid.
 | element `type` (on screens) | `stack`, `text`, `icon`, `image`, `product`, `selectable`, `text-input`, `timer` | `stack`, `text`, `icon` in all three; `image` in `quiz` + `timer`; `product` in `quiz` + `comparison`; `selectable` and `text-input` in `quiz` only; `timer` in `timer` only |
 | element `type` (in `components`) | `progress-bar`, `progress-bar-segment`, `progress-bar-loader` | `progress-bar` and `progress-bar-loader` in `quiz` + `timer`; `progress-bar-segment` in `quiz` only. All three observed *only* inside `components`, never directly on a screen |
 | element `type` (**not in these exports**, present in the transformer's front-format fixtures) | `divider`; the tabs family `tabs`, `tab-bar`, `tab-item`, `tab-content-wrapper`, `tab-content`; the input family `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker` | Absence from the three exports is absence of coverage, not evidence a type is invalid. These are real front-format inputs. `tabs` is a **composite**, not one element — see the request map below |
-| action `type` | **14 types.** In these exports: `navigate`, `conditional`, `purchase`, `closeFlow`, `nothing`. Also valid, and none of them appear here: `navigateBack`, `navigateNext`, `restorePurchases`, `setVariable`, `openUrl`, `alert`, `custom`, `showElement`, `hideElement` | `closeFlow` in all three; `navigate` in `quiz` + `timer`; `purchase` in `quiz` + `comparison`; `conditional` and `nothing` in `quiz` only. `nothing` appears only as a `conditional` case value, never as a top-level action. The other nine come from the builder transformer's front-format fixtures — and `navigateBack`/`navigateNext` are the **two most common actions there**, more common than `navigate` itself, so a Next button does not need a named destination. Payload shapes below |
-| action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `restorePurchases` → no payload, or `{onResult}` ([trap 16](#16-a-purchase-or-restore-leads-on-only-through-onresult--a-navigate-beside-it-leaves-at-the-tap)) · `navigateBack` / `navigateNext` / `closeFlow` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?, onResult?}`, see below and trap 16 | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
+| action `type` | **16 types.** In these exports: `navigate`, `conditional`, `purchase`, `closeFlow`, `nothing`. Also valid, and none of them appear here: `navigateBack`, `navigateNext`, `restorePurchases`, `setVariable`, `openUrl`, `alert`, `custom`, `showElement`, `hideElement`, `selectProduct`, `requestPermission` | `closeFlow` in all three; `navigate` in `quiz` + `timer`; `purchase` in `quiz` + `comparison`; `conditional` and `nothing` in `quiz` only. `nothing` appears only as a `conditional` case value, never as a top-level action. The other nine come from the builder transformer's front-format fixtures, and `selectProduct` and `requestPermission` from the schema — and `navigateBack`/`navigateNext` are the **two most common actions there**, more common than `navigate` itself, so a Next button does not need a named destination. Payload shapes below |
+| action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `restorePurchases` → no payload, or `{onResult}` ([trap 16](#16-a-purchase-or-restore-leads-on-only-through-onresult--a-navigate-beside-it-leaves-at-the-tap)) · `navigateBack` / `navigateNext` / `closeFlow` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?, onResult?}`, see below and trap 16 · `requestPermission` → `{permission: "push", onResult?: {response}}` ([trap 28](#28-a-push-request-leads-on-through-onresultresponse--and-only-the-app-can-answer-it)) | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
 | `purchase` `payload.product` | `{"type": "var", "variableId": "<groupId>.selectedProduct"}` when the screen has a product group, **or** `{"type": "const", "value": {"id": "<productUUID>", "offerId"?}}` when it does not | The `const` form is what a paywall with a single implied plan uses — one CTA, no product cards; its product still needs a `_meta.screens` entry ([products.md](products.md#a-purchase-can-bind-a-product-with-no-product-element)). Do not add an empty product group to satisfy the `var` form. A `payload.type` of `"native"` also appears alongside `product`; it is optional in practice |
 | interaction `trigger` | `tap` | the only trigger in all three. The schema also has `screen-appear` (On Appear: [patterns.md](patterns.md#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later)), `change`, `scroll-bottom`, `playback-finished`, `submit` and `timer-end` |
 | `conditional` `payload.type` | `switch` | `quiz` only. `cases` is an array of `[predicate, {type: "const", value: [actions]}]` pairs, plus a `default` in the same value shape. Actions nested inside a case carry `"id": ""`, not an `act_` id — including the `navigate` that a screen deletion has to repair, which is why a dangling target can sit two levels down inside a `default` branch |
@@ -2181,6 +2220,7 @@ style error: you will search for an element type that does not exist, or invent 
 | text that fits its box, a smaller font for a long translation, "it's cut off in German" | `props.autoShrink: true` on that `text`, inside a line limit or a fixed height — after shortening the string: [Text that must fit](#text-that-must-fit-autoshrink). Never a smaller `font.size`, which shrinks every locale. |
 | the user's name, their coin balance, streak, level, days left, current plan, "something the app knows" | A **custom tag**: a `variables[]` entry with `external: true` whose `name` the app's code passes, shown by a rich-text `variable` node. Text only, and it needs app code — [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic). |
 | show, hide or skip something based on what the app knows (VIP status, a permission already granted, country) | **Not buildable from a custom tag** — logic sees only its fallback. A separate flow per segment behind the placement's audiences, or a `custom` action the app handles. Say so rather than wiring a condition that never fires. |
+| ask for push notifications, a notifications screen with an "Enable" or "Continue" button | A `requestPermission` action on the button (`fk.request_permission()`), and the app answers it: [trap 28](#28-a-push-request-leads-on-through-onresultresponse--and-only-the-app-can-answer-it). Any other permission (location, camera, tracking) is a `custom` action. |
 | a thank-you or welcome screen once they subscribe, more onboarding after the paywall, an upsell after a purchase, "my paywall has to be the last screen" | `onResult.success` on the `purchase`: [patterns.md](patterns.md#what-the-user-sees-after-they-buy). Never a `navigate` beside the purchase (trap 16). |
 | a different screen when they cancel the payment, it fails or it waits for approval; a screen after a restore | `onResult.userCanceled`, `fail` or `pending` on the `purchase`, `success` or `fail` on the `restorePurchases`: [patterns.md](patterns.md#what-the-user-sees-after-they-buy). |
 | how a screen arrives — slides up, fades in, no animation | `payload.transition` on the `navigate`: [patterns.md](patterns.md#a-screen-transition). Not a `bottom-sheet` or a `sliding-sheet`, which are parts of one screen. |
