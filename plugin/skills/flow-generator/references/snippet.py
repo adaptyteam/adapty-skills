@@ -53,10 +53,41 @@ def _strip_refs(node):
     return node
 
 
+def _inline_stray_refs(node, content, path):
+    """Inline every `{_lid}` ref `resolve()` leaves: it reads only the catalog-kind props, while
+    the transform service resolves a ref anywhere in a screen or component (a screen's own
+    background image fill is one). Left in, the ref names an entry of THIS flow, and a graft
+    would point it at whatever the destination keeps under that id."""
+    if isinstance(node, dict):
+        if _loc.is_ref(node):
+            e = content.get(node['_lid'])
+            if not (isinstance(e, dict) and isinstance(e.get('values'), dict)):
+                die(f'{path}: dangling ref {node["_lid"]!r} -- no such entry in the catalog')
+            return {'_localizable': True, 'values': json.loads(json.dumps(e['values']))}
+        return {k: _inline_stray_refs(v, content, f'{path}.{k}') for k, v in node.items()}
+    if isinstance(node, list):
+        return [_inline_stray_refs(v, content, f'{path}[{i}]') for i, v in enumerate(node)]
+    return node
+
+
+def _names_a_ref(node):
+    if isinstance(node, dict):
+        return _loc.is_ref(node) or any(_names_a_ref(v) for v in node.values())
+    if isinstance(node, list):
+        return any(_names_a_ref(v) for v in node)
+    return False
+
+
 def load(path):
     """Read a flow config as the INLINE view (see LOCALIZATION above): every catalog ref
     resolved where it is used, `locales`/`defaultLocale` at the top level."""
-    return _strip_refs(_loc.resolve(load_stored(path)))
+    stored = load_stored(path)
+    content = (stored.get('localization') or {}).get('content') or {}
+    view = _strip_refs(_loc.resolve(stored))
+    for key in ('screens', 'components'):
+        if key in view:
+            view[key] = _inline_stray_refs(view[key], content, key)
+    return view
 
 
 def load_stored(path):
@@ -545,6 +576,9 @@ def read_snippet(path):
     if s.get('formatVersion') != FORMAT_VERSION:
         die(f'{path}: formatVersion {s.get("formatVersion")}, this tool speaks '
             f'{FORMAT_VERSION}')
+    if _names_a_ref(s.get('payload')):
+        die(f'{path} still names a catalog id from its source flow, so a graft would show '
+            f'whatever this flow keeps under that id; extract it again from the source flow')
     return s
 
 

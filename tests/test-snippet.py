@@ -2042,6 +2042,37 @@ _sv = subprocess.run([sys.executable, VERIFY, _sout], capture_output=True, text=
 case('same flow: the copied screen adds no checker error',
      sorted(set(error_lines(_sv)) - set(error_lines(_ml_base))), [])
 
+# A catalog ref outside an element's localizable props -- a screen's own background image fill --
+# is resolved by the transform service like any other, so the snippet must carry its VALUES. A
+# ref left in names an entry of the source flow; grafted, it means whatever the destination
+# keeps under that id (here a button label), and every gate passes it.
+_VPN = os.path.join(CORPUS, 'vpn-timer-draft.json')
+_vdoc = json.load(open(_VPN))
+_vdoc = _vdoc.get('config', _vdoc)
+_vdoc['screens'][0]['props']['fill'][0]['image'] = {'_lid': 'lc_2'}
+_want_img = _vdoc['localization']['content']['lc_2']['values']
+_vsrc = os.path.join(TMP, 'screen-fill-ref.json')
+json.dump(_vdoc, open(_vsrc, 'w'))
+_fp, _fs, _ = extract(_vsrc, '--screen', _vdoc['screens'][0]['id'], 'Screen fill ref')
+case('extract: a screen fill ref is carried as its values, never as an id',
+     '"_lid"' in json.dumps(_fs['payload']), False)
+_fout = os.path.join(TMP, 'grafted-screen-fill.json')
+run('graft', '--config', QUIZ, '--snippet', _fp, '--screen', QUIZ_S0, '--out', _fout)
+_fdoc = json.load(open(_fout))
+_fdoc = _fdoc.get('config', _fdoc)
+_fimg = next(x for x in _fdoc['screens'] if x['id'] == _vdoc['screens'][0]['id'])['props']['fill'][0]['image']
+_fcontent = _fdoc['localization']['content']
+case('graft: a grafted screen fill keeps the source image',
+     _fcontent[_fimg['_lid']]['values'] if '_lid' in _fimg else _fimg.get('values'), _want_img)
+# An older snippet file may still carry a ref: plan and graft refuse it rather than re-point it.
+_old = dict(_fs, payload=json.loads(json.dumps(_fs['payload']).replace(
+    '"_localizable": true', '"_lid": "lc_2", "_x": true', 1)))
+_oldp = os.path.join(TMP, 'stale-ref.flow-snippet.json')
+json.dump(_old, open(_oldp, 'w'))
+_rc_old, _o_old, _e_old = run('plan', '--config', QUIZ, '--snippet', _oldp, '--screen', QUIZ_S0)
+case('plan: a snippet that still names a catalog id is refused',
+     (_rc_old, 'extract it again' in _e_old), (2, True))
+
 if fails:
     print(f'\n{len(fails)} FAILED')
     for f in fails:
