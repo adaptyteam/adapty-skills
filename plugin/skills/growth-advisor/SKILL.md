@@ -25,8 +25,8 @@ the flow with the new design or product set, through `flow-generator`, a segment
 store through the CLI (`references/pricing.md`), and the A/B test itself, through `ab-tests`.
 Trials and offers are made in the store, so for those you give the user the steps. Before you
 offer to set up an A/B test, you check that everything it needs exists ("From hypothesis to A/B
-test"). Every hypothesis you suggest is saved to the app's backlog as you suggest it, and every
-A/B test you set up is linked to its hypothesis ("The backlog").
+test"). Every hypothesis you suggest on an existing placement is saved to the app's backlog as you
+send it, and every A/B test you set up is linked to its hypothesis ("The backlog").
 
 **Prices** follow `references/pricing.md`. Before you say anything about a price, read the
 prices of each product it concerns (`product-prices list`) and name the price as the store charges it, in its local
@@ -296,7 +296,7 @@ to a file.
 
 Everything this skill runs is a read, with seven writes. The first is the backlog's `hypotheses`
 commands ("The backlog"): saving what you suggest needs no yes, because a saved hypothesis changes
-nothing the app shows, and every other `hypotheses` command waits for the user's word. The other
+nothing the app's users see, and every other `hypotheses` command waits for the user's word. The other
 six run each on the user's yes: building a flow
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
 `placements create` or `placements update` (see "Changing a live placement"), adding an offer
@@ -802,14 +802,19 @@ Fix every `CHECK` line, then act on what it says for each draft:
   holds gets one line saying why, and an offer to dismiss it.
 - **dismissed:** drop it, unless its saved reason says it may come back ("not now") or the numbers
   it rested on have changed since. Never ask why it was dismissed.
+- **same kind, another title:** an open hypothesis changes the same flow or screen in the same
+  way. If both change the same thing, treat it as in the backlog; if it changes something else,
+  suggest it and save it with `"force": true`.
 
 What it prints as **due** comes first in the reply, before anything new
 (`references/backlog.md`, "Coming back").
 
-**Saving.** Once the checks pass, and before you reply, save every new hypothesis you will
-suggest: `$ADAPTY hypotheses create --app <APP_ID> --file <file>`, one call per placement (the
-server takes one placement and at most 50 per call), each file holding only that placement's
-drafts. This needs no yes: a saved hypothesis is only proposed, changes nothing the app shows, and
+**Saving.** Once the reply has passed `check-reply`, and before you send it, save every new
+hypothesis it suggests, in its order: `$ADAPTY hypotheses create --app <APP_ID> --file <file>`,
+one call per placement (the server takes one placement and at most 50 per call), each file holding
+only that placement's drafts. A saved hypothesis never changes, so when the check made you drop,
+reorder or reword one, make `drafts.json` match the reply and run `reads.py backlog` again first.
+This needs no yes: a saved hypothesis is only proposed, changes nothing the app's users see, and
 the user can skip it from the next reply or the dashboard. A create the server refuses is fixed and
 sent again (`references/backlog.md`, "The create body"); never call a hypothesis saved when it is
 not. A hypothesis on a placement that does not exist yet cannot be saved: it is in the list like the

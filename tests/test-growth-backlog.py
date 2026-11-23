@@ -36,6 +36,7 @@ FLOW = '00000000-0000-4000-8000-0000000000f1'
 VARIANT = '00000000-0000-4000-8000-0000000000f2'
 SEG = '00000000-0000-4000-8000-0000000000e1'
 TEST = '00000000-0000-4000-8000-0000000000d1'
+TITLE = 'Lead with the annual plan on Onboarding'
 
 
 def hid(n):
@@ -47,9 +48,9 @@ def subject(kind='flow', screen=None, segment=None):
             'segment_id': segment}
 
 
-def row(n, state, phase=None, kind='adapty:flow_design', subj=None, products=(), **extra):
+def row(n, state, phase=None, kind='adapty:flow_design', subj=None, products=(), title=TITLE, **extra):
     r = {'hypothesis_id': hid(n), 'app_id': APP, 'placement_id': PID, 'placement': {'id': PID, 'title': 'Onboarding'},
-         'state': state, 'phase': phase or state, 'type': kind, 'subject': subj or subject(), 'title': f'Row {n}',
+         'state': state, 'phase': phase or state, 'type': kind, 'subject': subj or subject(), 'title': title,
          'products': [dict(p) for p in products], 'ab_test_id': None, 'variant_flow_id': None,
          'suggested_result': None, 'stale': 'fresh', 'is_projected': False}
     r.update(extra)
@@ -57,7 +58,7 @@ def row(n, state, phase=None, kind='adapty:flow_design', subj=None, products=(),
 
 
 def draft(kind='adapty:flow_design', subj=None, products=(), **extra):
-    d = {'placement_id': PID, 'subject': subj or subject(), 'type': kind, 'title': 'Draft'}
+    d = {'placement_id': PID, 'subject': subj or subject(), 'type': kind, 'title': TITLE}
     if products:
         d['products'] = [dict(p) for p in products]
     d.update(extra)
@@ -92,6 +93,22 @@ check('an audience split on another segment is new',
       reads.match(draft('adapty:audience_split', subject('audience', segment=SEG)),
                   [row(1, 'proposed', kind='adapty:audience_split', subj=subject('audience', segment=hid(98)))])[0]
       == 'new')
+
+# titles: the server's duplicate check ignores them; for a change without products the skill asks the agent
+SOCIAL = 'Add reviews above the plans on Onboarding'
+b, r = reads.match(draft(title=SOCIAL), [row(1, 'proposed')])
+check('an open row of the same kind under another title is same-kind',
+      b == 'same-kind' and r['hypothesis_id'] == hid(1), b)
+check('an accepted row under another title is same-kind too',
+      reads.match(draft(title=SOCIAL), [row(1, 'accepted', 'testing')])[0] == 'same-kind')
+check('a title differing only in case and spaces is the same change',
+      reads.match(draft(title='  lead with the ANNUAL plan   on onboarding'), [row(1, 'proposed')])[0] == 'backlog')
+check('a closed row under another title still decides when none is open',
+      reads.match(draft(title=SOCIAL), [row(1, 'won')])[0] == 'tested')
+check('a row with the same title wins over an open one under another title',
+      reads.match(draft(), [row(1, 'won'), row(2, 'proposed', title=SOCIAL)])[0] == 'tested')
+check('same-kind tells the agent to judge and how to save',
+      '"force": true' in reads.say('same-kind', row(1, 'proposed')), reads.say('same-kind', row(1, 'proposed')))
 
 # products: the server's duplicate check ignores them, the skill does not
 price = 'adapty:price_change'
@@ -222,6 +239,11 @@ got = [b for b, _ in reads.match_all([draft(price, PAYWALL_SCREEN, [ANNUAL_BR]),
 check('a second draft of the same change in one batch needs force', got == ['new', 'force'], got)
 got = [b for b, _ in reads.match_all([draft(), draft()], [])]
 check('the same draft twice in one batch is a duplicate of the first', got == ['new', 'backlog'], got)
+got = [b for b, _ in reads.match_all([draft(), draft(title=SOCIAL)], [])]
+check('a second change of the same kind in one batch is same-kind', got == ['new', 'same-kind'], got)
+got = [b for b, _ in reads.match_all([draft(price, PAYWALL_SCREEN, [ANNUAL_BR]),
+                                      draft(price, PAYWALL_SCREEN, [ANNUAL_BR], title=SOCIAL)], [])]
+check('a product change matches by products, not by title', got == ['new', 'backlog'], got)
 
 aud_row = row(9, 'accepted', 'applied', kind='adapty:audience_split', subj=subject('audience', segment=SEG),
               placement_audience_id=hid(50))
