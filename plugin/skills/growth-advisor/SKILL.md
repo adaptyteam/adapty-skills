@@ -25,8 +25,8 @@ the flow with the new design or product set, through `flow-generator`, a segment
 store through the CLI (`references/pricing.md`), and the A/B test itself, through `ab-tests`.
 Trials and offers are made in the store, so for those you give the user the steps. Before you
 offer to set up an A/B test, you check that everything it needs exists ("From hypothesis to A/B
-test"). The hypotheses the user keeps are saved to the app's backlog, and every A/B test you set
-up is linked to its hypothesis ("The backlog").
+test"). Every hypothesis you suggest is saved to the app's backlog as you suggest it, and every
+A/B test you set up is linked to its hypothesis ("The backlog").
 
 **Prices** follow `references/pricing.md`. Before you say anything about a price, read the
 prices of each product it concerns (`product-prices list`) and name the price as the store charges it, in its local
@@ -48,9 +48,9 @@ These are the only two words for what you suggest, and the user sees them exactl
   do. Everything you propose is a hypothesis, never a "test" or an "idea".
 - **A hypothesis the user picks becomes an A/B test,** the thing the user runs and you help
   build. Say "A/B test" only from then on.
-- **Ask which to add to their backlog and which to skip, and why they skip one** ("The backlog").
-  Once some are added, ask which one to start with; when they are unsure, say which you would
-  start with and why in one sentence.
+- **Ask which one to start with, and which to skip and why** ("The backlog"): every one you
+  suggest is already in their backlog when you ask. Name the one you would start with and why in
+  one sentence.
 - **One they skip leaves the list.** Its reason decides what comes next: "we tried it" puts its
   next rung in its place (`references/levers.md`, "Next rung"). A skip is not a lost test and rules
   nothing out.
@@ -294,8 +294,10 @@ and a price change's files: a product's price list, the file it saves, and the r
 (`references/pricing.md`). Read every other response from the command's output; never save one
 to a file.
 
-Everything this skill runs is a read, with seven writes, each on the user's yes: the backlog's
-`hypotheses` commands ("The backlog"), building a flow
+Everything this skill runs is a read, with seven writes. The first is the backlog's `hypotheses`
+commands ("The backlog"): saving what you suggest needs no yes, because a saved hypothesis changes
+nothing the app shows, and every other `hypotheses` command waits for the user's word. The other
+six run each on the user's yes: building a flow
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
 `placements create` or `placements update` (see "Changing a live placement"), adding an offer
 the user made in the store to an existing product with `product-offers create`
@@ -365,8 +367,8 @@ and the reason.
   needs". Every one you suggest is in that list; none is only mentioned in the prose.
 - **End with Next steps:** a numbered list of at most three items, each starting with who acts,
   "You:" or "Me:". Questions to the user go there as "You:" items. After hypotheses, the first
-  item asks which to add to the backlog and which to skip ("The backlog"); once they are saved,
-  it asks which one to start with, and names the one you would pick. The last item
+  item asks which one to start with, naming the one you would pick, and which to skip ("The
+  backlog"). The last item
   is what you can do now if they say yes. The one slot between goes to a breakage fix, else an
   Adapty feature step (`references/levers.md`, "Adapty features"), else the one question; a
   question that loses the slot joins the first item, except after hypotheses, when it waits for
@@ -804,28 +806,32 @@ Fix every `CHECK` line, then act on what it says for each draft:
 What it prints as **due** comes first in the reply, before anything new
 (`references/backlog.md`, "Coming back").
 
-**The question** is the first Next step, and it holds exactly two parts: which hypotheses to add
-and which to skip, with why for a skip; and, while the backlog is empty, one sentence on what it
-gives them. A hypothesis on a placement that does not exist yet is in the list like the others; what
-saving it takes goes in the reply after the user adds it, because until then they have not chosen it. Shape (not words to copy):
+**Saving.** Once the checks pass, and before you reply, save every new hypothesis you will
+suggest: `$ADAPTY hypotheses create --app <APP_ID> --file <file>`, one call per placement (the
+server takes one placement and at most 50 per call), each file holding only that placement's
+drafts. This needs no yes: a saved hypothesis is only proposed, changes nothing the app shows, and
+the user can skip it from the next reply or the dashboard. A create the server refuses is fixed and
+sent again (`references/backlog.md`, "The create body"); never call a hypothesis saved when it is
+not. A hypothesis on a placement that does not exist yet cannot be saved: it is in the list like the
+others, and what saving it takes goes in the reply after the user picks it.
 
-> 1. You: tell me which of these you'd like to add to your backlog and which you'd skip. If you
->    skip one, tell me why, so I can make better suggestions later. Your backlog shows in the
->    Adapty dashboard, and next time I start from it instead of from scratch.
+**The question** is the first Next step, and it holds exactly two parts: which hypothesis to start
+with, naming the one you would pick; and which to skip, with why for a skip. While the backlog was
+empty before this reply, add one sentence on what it gives them. Shape (not words to copy):
 
-**The answer.** The ones added are saved with `$ADAPTY hypotheses create --app <APP_ID> --file
-<file>`, one call per placement (the server takes one placement and at most 50 per call), each file
-holding only that placement's added drafts. "Add all" adds every one; one the user did not mention
-is not saved. The ones skipped
-are saved the same way, then each gets `$ADAPTY hypotheses dismiss <ID> --app <APP_ID> --reason
-"<their reason, in their words>"`, so the next session does not suggest them again and knows why; a
-skip with no reason is dismissed without one, and a skip with "not now" stays saved and is not
-dismissed.
-No answer saves nothing. A hypothesis is dismissed only on the user's word: an answer that does
-not clearly name one (a number the list does not have) is asked back, never guessed, and a
-hypothesis already in the backlog is never dismissed through this question.
+> 1. You: I saved these to your backlog in the Adapty dashboard, so next time I start from it
+>    instead of from scratch. Which one should we start with? I'd pick 1: it acts on the biggest
+>    gap. If one won't work for you, tell me which and why, so I can make better suggestions later.
 
-**An added hypothesis whose placement does not exist yet** (a new placement, a follow-up offer)
+**The answer.** A pick goes to "From hypothesis to A/B test". A skip gets `$ADAPTY hypotheses
+dismiss <ID> --app <APP_ID> --reason "<their reason, in their words>"`, so the next session does
+not suggest it again and knows why; a skip with no reason is dismissed without one, and a skip with
+"not now" stays in the backlog and is not dismissed. No answer leaves every one in the backlog,
+proposed. A hypothesis is dismissed only on the user's word: an answer that does not clearly name
+one (a number the list does not have) is asked back, never guessed, and a hypothesis that was in
+the backlog before this reply is never dismissed through this question.
+
+**A picked hypothesis whose placement does not exist yet** (a new placement, a follow-up offer)
 cannot be saved yet: a hypothesis needs its placement, and a placement is created only with a
 published flow on it. In the reply to their pick, say it joins the backlog once its flow is
 published, and list what comes first, each with who does it. Shape (not words to copy):
@@ -836,8 +842,8 @@ published, and list what comes first, each with who does it. Shape (not words to
 > 2. Me: create its placement with that flow (I'd call it `locked_note`; the name can't be changed
 >    later) and save the hypothesis.
 
-Then it is started like any other. A skipped one with no placement is not saved, so say once that it
-may be suggested again.
+Then it is started like any other. A skipped one with no placement was never saved, so say once
+that it may be suggested again.
 
 Starting one, linking its A/B test, putting one live without a test, and results:
 `references/backlog.md`.
