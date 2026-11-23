@@ -432,7 +432,7 @@ for one of these.
 `fk.timer_digits()`, the token shape at the end of [A timer that fires an action](#a-timer-that-fires-an-action).
 A `timer-end` action is needed only for a screen that moves on after **more than 5 s**; build it
 as in [A timer that fires an action](#a-timer-that-fires-an-action). A Spinner has no completion
-trigger, so it never moves the flow on. When a loader must be pinned, the `fixed` position goes on
+trigger, so it never moves the flow on; a `loader` bar has one ([below](#a-progress-bar-that-moves-the-flow-on-counts-up-or-plays-in-turn)). When a loader must be pinned, the `fixed` position goes on
 a **container**, not on the Loader element itself.
 
 **A countdown to a date is the same `timer` with `behavior: "until_date"`** — a sale that ends at
@@ -536,10 +536,11 @@ the spinner that are not guessable:
   entry for you. Any other name is legal (a `custom` icon draws its own `raw`), but then the
   markup is yours to supply through `config(icons=[…])`.
 - **`loader`** — a determinate progress bar (`duration`, `easing`), when the affordance is a bar
-  rather than a spinner.
+  or a ring rather than a spinner. It has a completion trigger:
+  [below](#a-progress-bar-that-moves-the-flow-on-counts-up-or-plays-in-turn).
 - the screen's [On Appear](#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later)
-  `navigate` with a `delay`: that is what moves the flow on; the spinner is decoration and has
-  no completion trigger.
+  `navigate` with a `delay`: that is what moves the flow on after a spinner; the spinner is
+  decoration and has no completion trigger.
 
 **A blank where the spinner should be is a preview blindness, not a broken element** — the same
 class as a toggle's `selected` state; it lives with the rest
@@ -554,6 +555,38 @@ preview-visible impostor standing in for a real element to satisfy a screenshot.
 `spinner` / `loader-spinner-label`, disclose that the preview cannot show it, and hand the animation
 to the device check. The bundle's `Spinner`, `SpinnerGap` and `SpinnerBall` are still
 pictures of a loader, never the loader itself.
+
+### A progress bar that moves the flow on, counts up, or plays in turn
+
+A `loader` fills from 0 to 100% over `duration` each time its screen appears; `progress` is only
+the builder's still position and the device ignores it. Five optional props and one trigger cover
+the "analyzing your answers" screens:
+
+- **`variant: "radial"`** draws a ring instead of a bar; `thickness` is its stroke width
+  (default 8). `color` is the arc and the first `fill` colour layer is the track.
+- **`showPercentage: true`** writes the live percentage inside the bar or the ring, styled by
+  `percentageFont` and `percentageColor`.
+- **A percentage in a separate `text`:** give the loader a `customId`, then put a rich-text
+  `variable` node for `<customId>.progress` in the text, followed by a literal `%`. That text
+  counts up with the bar, and it **cannot carry another variable or a product value**.
+- **`progress-finished`** (the builder's On Load Complete) runs its actions once, at 100%. A
+  `navigate` there moves the flow on when the bar is full, with no 5 s cap; a `setVariable` there
+  plus a button `disabled` condition on that variable keeps Next unavailable until then.
+- **Bars that fill in turn:** `autostart: false` on every bar after the first, so they wait at 0,
+  and a `startLoader` with `payload.elements: [nextLoaderId]` under each bar's
+  `progress-finished`. `startLoader` targets loaders on the same screen only.
+- **`showAfterDelay`** (ms, also on a `spinner`) keeps the element invisible that long after it
+  appears; a bar starts filling then.
+
+On a device, Back to a full bar keeps it at 100% and does not run `progress-finished` again;
+leaving before 100% stops the bar, and coming back fills it again from 0. A reusable component's
+loader with `progress-finished` actions inside a bottom sheet that an action opens is refused at
+publish.
+
+**Check the published schema first.** These props, `progress-finished` and `startLoader` are new;
+a schema that does not list them refuses the config. Then build the auto-advance the older way: the
+On Appear `navigate` with a `delay`. The preview draws a bar full and still, so the fill, the count
+and the completion are checked on a device.
 
 ### A timer that fires an action
 
