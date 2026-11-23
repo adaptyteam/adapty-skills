@@ -81,14 +81,10 @@ Two tools put an image in the media library. Each answers the same record as the
   ([What it accepts](#what-it-accepts)). The link takes more sends until it expires, and each one
   adds an asset, so send each file once. After it expires, create a new one. The image bytes never
   pass through the conversation.
-- **`flows_media_upload`** takes the file as `content_base64`, a tool argument. You print each
-  base64 character of it, so it suits only very small images, and its answer, `preview_base64`
-  included, lands in your context.
+- **`flows_media_upload`** takes the file as base64 text in a tool argument, so it suits only
+  small images.
 
-**A 403 from the sandbox proxy is not Adapty's answer.** `403` with `connect_rejected`, `403` with
-`x-deny-reason: host_not_allowed`, or `curl: (56) CONNECT tunnel failed, response 403` means the
-sandbox may not reach the upload host. The user adds `*.adapty.io` to the allowed domains once, in claude.ai in a web browser or in Claude Desktop (the mobile app has no such setting, but the change applies there too): Settings → Capabilities on an individual plan, with Code execution and file creation and Allow network egress turned on (the Additional allowed domains field shows only then); on a Team
-or Enterprise plan an organization owner does it in Organization settings → Capabilities. Give the user the `if_blocked` text of the `uploads_create` answer, with the steps: https://adapty.io/docs/adapty-mcp#connect-your-assistant. The setting can take a short time or a new chat to apply. Choose the next step yourself from the facts above.
+If the sandbox cannot reach the link (a `403` from the sandbox proxy, not from Adapty), the user has to allow `*.adapty.io` once: pass on the `if_blocked` text of the `uploads_create` answer in your own words, with its link.
 
 ## Getting the file: the upload needs a FILE, not a picture
 
