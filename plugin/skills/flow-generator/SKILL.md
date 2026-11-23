@@ -1084,7 +1084,7 @@ The full statements — what each invariant is, what breaks it, what a violation
 
 | Check | Why no tool catches it |
 | :--- | :--- |
-| `fill` keeps the form the input used — object or array, **never converted**, and **one layer** | the form is only wrong relative to the input you fetched |
+| `fill` keeps the form the input used — object or array, **never converted** | the form is only wrong relative to the input you fetched |
 | an image URL is one **`flows media upload` or an upload over MCP answered in this session** | a plausible `public-media.adapty.io` path is indistinguishable from a real one |
 | `_meta.icons[].raw` is **real** SVG — resolved through `icons.py`, not written by you | presence is checkable, authenticity is not |
 | **every price variable's field agrees with its product's period** | needs the catalog, not the config |

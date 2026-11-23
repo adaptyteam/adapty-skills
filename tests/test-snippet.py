@@ -1778,6 +1778,14 @@ _dst_array['screens'][0]['props']['fill'] = [{'type': 'color',
 case('contrast: an array-form (v10) single-layer fill resolves the same as v9\'s object form',
      len(_contrast_fires(_dst_array)), 1)
 
+_dst_stack = json.loads(json.dumps(_dst_contrast_cfg))
+_dst_stack['screens'][0]['props']['fill'] = [
+    {'type': 'color', 'color': {'type': 'hex', 'hex': '#080D1C'}},
+    {'type': 'image', 'image': {'url': 'x'}}]
+case('contrast: a layer stack (colour under an image) is unresolvable -- the bottom '
+     'colour is not what the text sits on, so it skips silently',
+     _contrast_fires(_dst_stack), [])
+
 _dst_colorid = json.loads(json.dumps(_dst_contrast_cfg))
 _dst_colorid['theme']['colors'].append(
     {'id': 'bg', 'name': 'Background', 'light': {'hex': '#080D1C'}})
