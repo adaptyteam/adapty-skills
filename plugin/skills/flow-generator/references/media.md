@@ -88,9 +88,9 @@ Two tools put an image in the media library. Each answers the same record as the
 **A 403 from the sandbox proxy is not Adapty's answer.** `403` with `connect_rejected`, `403` with
 `x-deny-reason: host_not_allowed`, or `curl: (56) CONNECT tunnel failed, response 403` means the
 sandbox may not reach the upload host. The user adds `*.adapty.io` to the allowed domains once: in
-claude.ai, Settings → Capabilities on an individual plan; on a Team or Enterprise plan an
-organization owner does it in Organization settings → Capabilities. The setting can take a short
-time or a new chat to apply. Choose the next step yourself from the facts above.
+claude.ai, Settings → Capabilities on an individual plan, with Code execution and file creation and Allow network egress turned on (the Additional allowed domains field shows only then); on a Team
+or Enterprise plan an organization owner does it in Organization settings → Capabilities. Give the
+user the steps: https://adapty.io/docs/adapty-mcp#connect-your-assistant. The setting can take a short time or a new chat to apply. Choose the next step yourself from the facts above.
 
 ## Getting the file: the upload needs a FILE, not a picture
 
