@@ -120,7 +120,7 @@ loses it too:
 | Change one localizable string | `1 changed`, `0 removed`, exit 0 |
 | The same path as both arguments | refused, exit 2 — a clean report there would be a lie |
 | Key order permuted inside every element's `props` | **silent** |
-| 29 fills rewritten object → array (a v9 → v10 save) | `25 changed`, `0 removed` — noise to recognise, not silence |
+| 29 fills rewritten object → array (a v9 → v10 save) | `27 changed`, `0 removed` — noise to recognise, not silence |
 
 Silent on all five tracked fixtures compared against themselves, and on an envelope compared
 against its own bare config — either side may be either shape.
@@ -137,7 +137,7 @@ a diff:
   mechanisms: values are compared with sorted keys, and collections are addressed by identity
   rather than index. Do not read a clean diff as "my bytes equal theirs".
   **The v9 → v10 fill migration is the exception** — 29 fills rewritten object → array
-  come back as 25 changed elements. It changes a value's shape, so it is reported like any other
+  come back as 27 changed elements. It changes a value's shape, so it is reported like any other
   change. Recognise the signature (a block of `props` changes across unrelated elements, right
   after someone saved in the builder) instead of reading it as their edits.
 - **Anything under a top-level key it does not enumerate.** A key the format gains next release is
