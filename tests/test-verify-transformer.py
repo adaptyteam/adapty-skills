@@ -498,6 +498,13 @@ for _what, _mutate in (('a theme with no typography', lambda t: t.pop('typograph
     else:
         print(f'  ok    {_what}')
 
+# A digit-led groupId publishes: the service rewrites it into a valid script name (checked
+# against the live validate endpoint: `1quiz`, read in a condition, comes back valid with no
+# issues). The checker refused it as a publish blocker before; it must stay silent now.
+_d = json.loads(json.dumps(load()).replace('"quiz"', '"1quiz"').replace('"quiz.', '"1quiz.'))
+assert any(g['id'] == '1quiz' for s in _d['screens'] for g in s.get('selectableGroups') or [])
+silent('a digit-led groupId is not a publish blocker', _d)
+
 print()
 if fails:
     print(f'{len(fails)} FAILED')

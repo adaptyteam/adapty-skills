@@ -34,9 +34,10 @@ cannot be told apart from its own background, in BOTH appearance variants.
 Unreferenced components are reported as warnings, because real exports have them.
 
 Severity rule: an ERROR is a publish blocker or a corrupt document; a WARNING is something
-that publishes cleanly and renders wrong. A `const` matching no selection and a variable with
-no producer are both the latter -- and the first of those is present in a real raw export, so
-it is not a defect this repo introduced by sanitizing.
+that publishes cleanly and renders wrong. A `const` matching no selection is the latter -- and
+it is present in a real raw export, so it is not a defect this repo introduced by sanitizing.
+One warning breaks the rule: a `.value` variable with no producer. The publish refuses it
+(`unknown_variable_ref`), and its message says so.
 
 Usage: verify-config.py [--baseline <config.json>] <config.json> [more.json ...]
 
@@ -2024,16 +2025,14 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                            if e['type'] == 'image' else
                            ". Keep the video in flow (`relative`) and lay the screen out around it"))
 
-    # groupId naming rules, both team-stated from publish failures: digit-led ids generate
-    # invalid JavaScript (publish blocker), and a groupId reused on another screen broke
-    # selection rendering.
+    # groupId naming rule, team-stated from a publish failure: a groupId reused on another
+    # screen broke selection rendering. A digit-led id (`1a`) used to generate invalid
+    # JavaScript; the service now rewrites it into a valid script name and the publish
+    # accepts it, so it is not checked here.
     seen_groups = {}
     for s in d.get('screens', []):
         for g in s.get('selectableGroups') or []:
             gid = g.get('id', '')
-            if gid[:1].isdigit():
-                bad.append(f"{s['id']}: groupId {gid!r} starts with a digit — generates invalid "
-                           f"JavaScript and blocks publish")
             if gid in seen_groups and seen_groups[gid] != s['id']:
                 warn.append(f"groupId {gid!r} is used on both {seen_groups[gid]} and {s['id']} — "
                             f"a shared id across screens broke selection rendering; rename to "
@@ -2228,7 +2227,8 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
 
     # ---- every `<inputCustomId>.value` consumer still has its producing input element.
     # flow-schema.md invariant 12, and the failure is remote: delete the screen holding the
-    # input and the consumers survive on screens you never opened, rendering empty.
+    # input and the consumers survive on screens you never opened, and the publish refuses
+    # every one of them with `unknown_variable_ref`.
     INPUT_TYPES = {'text-input', 'email-input', 'password-input', 'number-input',
                    'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
     produced = {(e.get('props') or {}).get('customId')
@@ -2243,8 +2243,9 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             continue                      # a group/product variable, not an input
         if parts[0] not in produced:
             warn.append(f'variable {v} has no producer: no input element carries '
-                        f'customId {parts[0]!r} (invariant 12 — renders empty, publishes '
-                        f'cleanly, and the consumers are often on screens you never opened)')
+                        f'customId {parts[0]!r} (invariant 12 — the publish refuses it as '
+                        f'unknown_variable_ref, and the consumers are often on screens you '
+                        f'never opened)')
 
     for s in d.get('screens', []):
         gids = {(e.get('props') or {}).get('groupId')

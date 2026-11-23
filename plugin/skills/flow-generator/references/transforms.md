@@ -134,12 +134,12 @@ Three exits, all defensible:
   unattached on the destination screen and trips the publish blocker unless the user attaches
   it there. [`products.md`](products.md) is the rule. Either way, a screen the user never
   mentioned gained an element.
-- **Report the break.** Leave the references dangling. Nothing blocks publishing; the
-  consuming screens render an empty value until the user fixes them in the builder.
+- **Report the break.** Leave the references dangling. The publish refuses the flow: each
+  dangling read is `unknown_variable_ref`, at its path, until the user fixes it in the builder.
 
 **Your report states** which producer died, the exact reference, every screen that reads it,
-which of the three exits you took — and, for the third, that the flow still publishes in that
-state.
+which of the three exits you took — and, for the third, that the flow does not publish until
+those references are fixed.
 
 Rewriting the consumer and leaving it dangling are both defensible.
 The choice is invisible in the output file unless the report names it.
