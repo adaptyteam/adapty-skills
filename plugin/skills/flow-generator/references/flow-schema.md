@@ -253,6 +253,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 15 | Stale and degenerate sizing values persist, and the transformer believes them |
 | 16 | A purchase or restore leads on only through `onResult` — a `navigate` beside it leaves at the tap |
 | 17 | A state override replaces each prop it names whole — nothing is inherited from the base |
+| 17b | A custom state has a name, a condition, and a short list of element types that show it |
 | 18 | `props.verticalAlign` on text is emitted by the builder and ignored by the SDK |
 | 19 | A theme colour must be exactly `#RRGGBB` — and only a theme colour |
 | 20 | A screen background is bound to a token in every real export — never a literal hex |
@@ -1250,6 +1251,8 @@ Shape rules, all enforced by that walker:
 **`null` is the builder's unfinished condition** (`{"type": "==", "left": null, "right": null}`):
 accepted, and compiled as is, so an empty side compares as nothing and the condition never
 depends on the user. In conditional text that case always shows and nothing after it does.
+A state condition (custom or `disabled`) with an empty side in any row, the default row with
+`"variableId": ""` too, is dropped whole: that state never becomes active.
 `verify-config.py` warns on it; finish it or delete it, and ask the user when it came with the
 flow.
 
@@ -1377,6 +1380,47 @@ flows may say a left-out sub-field is inherited from the base; it is not.
 The same goes for `visibility`: an element hidden in its base and again in
 `propsByState.selected` stays hidden in that state when you unhide only the base. To show it,
 change both.
+
+### 17b. A custom state has a name, a condition, and a short list of element types that show it
+
+Besides the `system` states, an element can carry up to five states the author names:
+
+```json
+"states": [
+  {"id": "st_k3v9q2mx", "type": "custom", "name": "Locked",
+   "condition": {"type": "==", "left": {"type": "var", "variableId": "plan"},
+                 "right": {"type": "const", "value": "free"}}}
+],
+"propsByState": {"st_k3v9q2mx": {"fill": {"type": "color",
+                                   "color": {"type": "color-style", "colorId": "gray-800"}}}}
+```
+
+The `id` is `st_` and 8 characters, it never changes, and `propsByState` and an `elementState`
+condition use the `id`, never the `name`. The state is active while its `condition` is true;
+trap 17 holds for its overrides. Rules the builder keeps, so keep them too:
+
+- **Where it shows on a device.** `stack`, `image`, `video`, `timer` and `carousel` only with a
+  tap action (a button is a `stack` with a tap); a `selectable` with a tap action or in a selectable group; the text, email,
+  password, number and phone inputs always. Never: a bottom sheet, a tab item or tab content,
+  the date, time and date-time pickers, a progress-bar segment. On a type outside this list, or
+  without the tap action it needs, the config is accepted and the publish goes on, but the device
+  shows no variant: the builder marks the state "Not shown on the device".
+- **At most 5** custom states on one element. The builder keeps more that came from JSON, but
+  does not let the author add one more.
+- **The name** is trimmed, 1 to 30 characters, and unique on the element without case. It is never
+  `Default`, a system state name (`Selected`, `Active`, `Invalid`, `Disabled`, `Completed`,
+  `Current`, `Upcoming`) or `focused`.
+- **Priority.** When several states are true: custom, then `disabled`, `focused`, `invalid`,
+  `selected`, Default. Between custom states, the one later in `states` wins.
+- **Child styles reach the device.** A style set on a child (the text in a button) under the
+  parent's custom state is drawn on the device, the same way as under `selected`.
+- **An input changes only fill, border and corner radius** in a custom state. Other props in its
+  `propsByState.<id>` (text colour, font) do not change on the device.
+- **A video restarts and a carousel goes back to its first page** when the element switches into
+  or out of a custom state, as for `selected` and `disabled`. Do not put a custom state on a video
+  or a carousel that must keep playing or keep its page.
+- **A condition with an empty side in any row is never active** ([trap 14b](#14b-a-condition-is-an-expression-tree-and-assign-is-the-one-type-it-may-not-use)).
+  A row with a value or `empty` but no variable stops the publish.
 
 ### 18. `props.verticalAlign` on text is emitted by the builder and ignored by the SDK
 
@@ -1889,7 +1933,9 @@ No input has a `required` prop or an error-message prop. Two mechanisms gate a b
 also read another element's state: `{"type": "elementState", "elementId": "<id>"}` compared with
 `==`/`!=` to a `const` state id (`"default"` is its Default state). The publish refuses, with the
 error `unknown_element_state_ref`, a reference to an element that is not on that screen or in its
-components, to a state the element does not declare, or with no comparison to a state id.
+components, to a state the element does not declare, or with no comparison to a state id. A
+`disabled` condition with an empty side in any row is never active, so the button stays tappable:
+[trap 14b](#14b-a-condition-is-an-expression-tree-and-assign-is-the-one-type-it-may-not-use).
 
 Conditional visibility, verified from a Flow Builder export of a working screen:
 
@@ -2144,7 +2190,7 @@ never treat its absence here as evidence the file is invalid.
 | inline node `type` | `text`, `variable`, `token` | `text` in all; `variable` in `quiz`; `token` in `timer` |
 | `token` names | `timer_days`, `timer_hours`, `timer_total_hours`, `timer_minutes`, `timer_seconds` | `timer` only; `timer_hours` wraps at 24, `timer_total_hours` does not (`72` for 3 days). See [Countdown timer](https://adapty.io/docs/flow-timer.md) |
 | `selectableGroups[].type` | `single_choice`, `multi_choice`, `product`, `toggle` | `product` in `quiz` + `comparison`, `single_choice` in `quiz`; `multi_choice` and `toggle` from the transformer's front fixtures. **A tab group is declared `single_choice`, not `tabs`** — verified against a working tabs paywall, which pairs `{"id":"tabs","type":"single_choice"}` with a separate `{"id":"products","type":"product"}` on the same screen. `tabs` appears as a string constant in the transformer source but is **not** what a working config uses; emitting it produced a config the API accepted and the builder could not open. The group type, not the element type, is what makes a control a toggle or a multi-select: `toggle-selection` is a bare `stack` in a `{"type":"toggle"}` group. See [Selectable elements and groups](https://adapty.io/docs/flow-selectable-elements.md) |
-| element `states[].id` | `selected`, `focused`, `invalid`, `disabled`, all with `"type": "system"` | 10 state entries in the corpus. `selected` on all 6 selectable-group members — `quiz`'s 3 `selectable`s and **all 3** `product` elements (2 in `quiz`, 1 in `comparison`); `disabled` twice, on `quiz`'s `text-input` **and** on one of its `selectable`s; `focused` and `invalid` on the `text-input` only. `states` is not per-`type` — two elements of the same type carry different sets. No non-`system` state observed |
+| element `states[].id` | `selected`, `focused`, `invalid`, `disabled`, all with `"type": "system"` | 10 state entries in the corpus. `selected` on all 6 selectable-group members — `quiz`'s 3 `selectable`s and **all 3** `product` elements (2 in `quiz`, 1 in `comparison`); `disabled` twice, on `quiz`'s `text-input` **and** on one of its `selectable`s; `focused` and `invalid` on the `text-input` only. `states` is not per-`type` — two elements of the same type carry different sets. No `custom` state is in the corpus, but the builder makes them: `{"id": "st_<8 chars>", "type": "custom", "name", "condition"}`, styled under `propsByState.<id>` — see [trap 17b](#17b-a-custom-state-has-a-name-a-condition-and-a-short-list-of-element-types-that-show-it) |
 | `icon.type` | `phosphor` | all three, with `viewBox="0 0 256 256"` in `_meta.icons[].raw`. [Common issues](https://adapty.io/docs/flow-common-issues.md) calls the library Tabler Icons; the exports say otherwise and the exports are ground truth here |
 | `icon.weight` | `regular`, `fill` | `regular` in all; `fill` in `quiz` + `comparison` |
 | typography `weight` | `regular`, `medium`, `semibold`, `bold` | `medium` in `comparison` only |
