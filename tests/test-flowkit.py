@@ -952,6 +952,25 @@ def main():
           == 'https://a.io/t')
     check('restore() is restorePurchases and takes no payload',
           fk.restore() == {'id': 'act_restore', 'type': 'restorePurchases'})
+    buy = fk.purchase('plans', on_success=fk.navigate('scr_thanks'), on_cancel=[])
+    check('purchase(on_success=) writes payload.onResult.success',
+          buy['payload']['onResult']['success'][0]['payload']['screen'] == 'scr_thanks')
+    check('on_cancel is the userCanceled list, kept empty as given',
+          buy['payload']['onResult']['userCanceled'] == [])
+    check('a result left out is not written', 'fail' not in buy['payload']['onResult'])
+    check('purchase() with no outcomes has no onResult', 'onResult' not in
+          fk.purchase('plans')['payload'])
+    two = fk.restore(on_fail=[fk.alert(title='x'), fk.navigate('scr_help')])['payload']['onResult']
+    check('nested actions get their own ids',
+          [a['id'] for a in two['fail']] == ['act_restore_fail', 'act_restore_fail_2'])
+    check('an outcome cannot start a second purchase',
+          raises(lambda: fk.purchase('plans', on_success=fk.purchase('more'))))
+    check('...not even inside a conditional', raises(lambda: fk.purchase('plans', on_fail=[
+        fk.conditional_action([], default=[fk.restore()])])))
+    check('a navigate after the purchase in one tap is refused',
+          raises(lambda: fk.stack([], actions=[fk.purchase('plans'), fk.navigate('scr_x')])))
+    check('a navigate before it is fine',
+          bool(fk.stack([], actions=[fk.navigate('scr_x'), fk.purchase('plans')])))
     check('select_product refuses an empty element id',
           raises(lambda: fk.select_product('')))
     check('custom_action refuses an empty payload id', raises(lambda: fk.custom_action('')))
@@ -1071,7 +1090,7 @@ def main():
         return fk.config(screens=[fk.screen('scr_a', kids)])
 
     check('config() accepts a condition variable an input produces', _cfg('email.value')['screens'])
-    check('config() refuses a condition variable nothing produces (TS2304 before this)',
+    check('config() refuses a condition variable nothing produces (the publish refuses it with unknown_variable_ref)',
           raises(lambda: _cfg('emial.value')))
 
     # --- the input family. `custom_id` is the producer for `<id>.value`, which is what every
@@ -1238,10 +1257,10 @@ def main():
     check('switch_rich checks the condition against the service walker',
           raises(lambda: fk.switch_rich([({'type': 'assign'}, 'x')], default='y')))
 
-    # An unresolved variable in a conditional-text switch is COMPILED, so it is fatal —
-    # measured against the live service: valid:false, "Generated scripts failed validation",
-    # code and path both null. A `variable` SPAN in the same prop is not: it renders its
-    # literal token and publishes. Both directions, because the span must NOT be flagged.
+    # An unresolved variable in a conditional-text switch is refused by the publish
+    # (unknown_variable_ref), so config() refuses it first. A `variable` SPAN in the same prop is
+    # refused by the publish too, but config() does not check spans. Both directions, so the
+    # check stays on the switch only.
     def _doc(content_prop):
         t = fk.text(fk.rich('x'), preset='body', color_id='ink')
         t['props']['content'] = content_prop
@@ -1257,7 +1276,7 @@ def main():
     check('config() refuses a conditional-text switch naming nothing (hard 422 otherwise)',
           raises(_doc(fk.switch_rich(
               [(fk.eq(fk.ref('nosuch.selectedOptionId'), 'a'), 'A')], default='B'))))
-    check('...and still leaves a plain variable SPAN alone — it renders, it does not compile',
+    check('...and still leaves a plain variable SPAN alone — this check reads only the switch',
           _doc(fk.rich('Hi ', fk.Var('nosuch.value')))() is not None)
 
     # --- a timer that fires must have a child. Device-measured 2026-09-01 over three trips:

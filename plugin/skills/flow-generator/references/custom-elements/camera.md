@@ -32,8 +32,7 @@ camera prompt appears when the view opens.
 
 ## What the app's view does
 
-- Asks for camera access when it appears, only if the user has not answered yet; the app needs its
-  camera usage description (`NSCameraUsageDescription`) in `Info.plist`.
+- Asks for camera access when it appears, only if the user has not answered yet.
 - Starts the camera session when the view appears and **stops it when the view disappears**: the
   view goes away when the user moves to the next screen, and a session left running keeps the
   camera on.
@@ -41,8 +40,7 @@ camera prompt appears when the view opens.
   shows. When the user denies it on the screen, the view stays and says how to allow it in
   Settings.
 
-Docs: https://adapty.io/docs/flow-custom-elements.md and the iOS setup at
-https://adapty.io/docs/ios-flow-custom-elements.md
+Docs: no recipe yet; the setup page in [Docs per platform](../custom-elements.md#docs-per-platform).
 
 ## On the device
 

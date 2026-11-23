@@ -983,8 +983,8 @@ def resolve_identity(snippet, config, screen_id, catalog_path, will_declare=()):
             continue
         if c not in have and not any(h.split('.')[0] == head for h in have):
             needs.append({'level': '!', 'text':
-                          f'variable {c} has no producer in this flow. It renders empty '
-                          f'and no gate objects — a screenshot is pixel-identical.'})
+                          f'variable {c} has no producer in this flow. The publish refuses '
+                          f'it (unknown_variable_ref); a screenshot shows nothing wrong.'})
 
     screens = {s['id'] for s in config['screens']}
     for t in dep.get('navigateTargets') or []:
