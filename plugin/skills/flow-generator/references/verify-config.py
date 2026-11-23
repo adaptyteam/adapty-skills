@@ -34,9 +34,10 @@ cannot be told apart from its own background, in BOTH appearance variants.
 Unreferenced components are reported as warnings, because real exports have them.
 
 Severity rule: an ERROR is a publish blocker or a corrupt document; a WARNING is something
-that publishes cleanly and renders wrong. A `const` matching no selection and a variable with
-no producer are both the latter -- and the first of those is present in a real raw export, so
-it is not a defect this repo introduced by sanitizing.
+that publishes cleanly and renders wrong. A `const` matching no selection is the latter -- and
+it is present in a real raw export, so it is not a defect this repo introduced by sanitizing.
+One warning breaks the rule: a `.value` variable with no producer. The publish refuses it
+(`unknown_variable_ref`), and its message says so.
 
 Usage: verify-config.py [--baseline <config.json>] <config.json> [more.json ...]
 
@@ -65,6 +66,12 @@ try:
     import icons as _icons
 except Exception:                                        # noqa: BLE001 - any import failure degrades
     _icons = None
+try:
+    # Formula and Date variables. Optional for the same reason as `icons`: a copy of
+    # `flow-audit` alone runs without it, and loses only the formula checks.
+    import formulas as _formulas
+except Exception:                                        # noqa: BLE001 - any import failure degrades
+    _formulas = None
 try:
     # The catalog reader. Not optional like `icons`: without it every localizable value is an
     # opaque `{_lid}` and half the checks below would pass by seeing nothing.
@@ -1375,6 +1382,95 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                        f'reverses the arrival, and next needs an explicit `navigate`')
     walk(d, check_transition)
 
+    # What runs after a purchase or restore lives in `payload.onResult`, one action list per
+    # store result (trap 16). The four ways it goes wrong mirror the transformer's own issues;
+    # only a malformed `onResult` fails publish, the rest compile and do the wrong thing.
+    results_of = {'purchase': ('success', 'fail', 'userCanceled', 'pending'),
+                  'restorePurchases': ('success', 'fail')}
+    leaving = ('navigate', 'navigateNext', 'navigateBack', 'closeFlow')
+
+    def branches(a):
+        p = a.get('payload') if isinstance(a.get('payload'), dict) else {}
+        bodies = [c[1] for c in p.get('cases') or [] if isinstance(c, list) and len(c) == 2]
+        bodies.append(p.get('default'))
+        for b in bodies:
+            b = b.get('value') if isinstance(b, dict) and b.get('type') == 'const' else b
+            b = [b] if isinstance(b, dict) else b
+            if isinstance(b, list):
+                yield [x for x in b if isinstance(x, dict)]
+
+    def is_web(a):
+        return a.get('type') == 'purchase' and (a.get('payload') or {}).get('type') == 'web'
+
+    def starts_store(a):
+        if a.get('type') in results_of:
+            return not is_web(a)
+        return a.get('type') == 'conditional' and any(
+            starts_store(x) for b in branches(a) for x in b)
+
+    def leaves(a):
+        if a.get('type') in leaving:
+            return True
+        return a.get('type') == 'conditional' and any(leaves(x) for b in branches(a) for x in b)
+
+    def check_actions(actions, where, in_outcome):
+        started = None
+        for a in (x for x in actions if isinstance(x, dict)):
+            t, p = a.get('type'), a.get('payload')
+            name = f'{t} {a.get("id")!r}'
+            if started and leaves(a):
+                warn.append(f'{where}: {name} follows {started} in the same list, so it runs on '
+                            f'the tap, before the store answers (navigation_before_store_result). '
+                            f'Move it into the outcome it belongs to, usually `success` (trap 16)')
+            if in_outcome and t in results_of and starts_store(a):
+                warn.append(f'{where}: {name} sits inside an outcome and chains a second store '
+                            f'operation onto the first answer (nested_store_operation); the '
+                            f'builder does not allow it. Navigate to a screen with its own button')
+            if starts_store(a) and not started:
+                started = name
+            if t in results_of and isinstance(p, dict) and 'onResult' in p:
+                o = p['onResult']
+                if not isinstance(o, dict):
+                    bad.append(f'{where}: {name} has an `onResult` that is not an object; publish '
+                               f'refuses it')
+                    continue
+                if is_web(a):
+                    if any(o.values()):
+                        warn.append(f'{where}: {name} is a web purchase, whose outcomes never run '
+                                    f'(ignored_web_purchase_outcomes) and which Flow Builder drops '
+                                    f'on load. The checkout reports only whether it opened')
+                    continue
+                for key, lst in o.items():
+                    if key not in results_of[t]:
+                        warn.append(f'{where}: {name} has an outcome {key!r} it never reports '
+                                    f'(ignored_unknown_outcome); Flow Builder drops it on load. '
+                                    f'The results are {", ".join(results_of[t])}')
+                    elif not isinstance(lst, list):
+                        bad.append(f'{where}: {name} outcome {key!r} is not a list of actions; '
+                                   f'publish refuses it')
+                    else:
+                        check_actions(lst, f'{where} → {key}', True)
+            elif t == 'conditional':
+                for b in branches(a):
+                    check_actions(b, where, in_outcome)
+
+    for s in d.get('screens', []):
+        def find_interactions(o, eid=None, _s=s):
+            if isinstance(o, dict):
+                for it in o.get('interactions') or []:
+                    if isinstance(it, dict) and isinstance(it.get('actions'), list):
+                        check_actions(it['actions'], f'screen {_s.get("id")}: {eid or "screen"}',
+                                      False)
+                for k, v in o.items():
+                    if k != 'interactions':
+                        find_interactions(v, eid)
+            elif isinstance(o, list):
+                for v in o:
+                    find_interactions(v, eid)
+        for eid, e in ((s.get('elements') or {}).get('map') or {}).items():
+            find_interactions(e, eid)
+        find_interactions({k: v for k, v in s.items() if k != 'elements'})
+
     # A Show / Hide `payload.animation` the transformer cannot read is refused with
     # `invalid_action_payload`; one on an element it cannot animate plays at once, silently.
     def check_element_animation(o):
@@ -1535,9 +1631,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
 
     # --- id hygiene: the black-screen class ------------------------------------------------
     #
-    # An element id becomes an IDENTIFIER in the generated runtime script, the same code path
-    # `config()`'s condition-variable check already documents for variable ids (an unresolved
-    # head is emitted as a bare identifier and fails to compile). A character outside
+    # An element id becomes an IDENTIFIER in the generated runtime script. A character outside
     # `[A-Za-z0-9_]` therefore produces a syntactically broken script, and the flow draws a
     # BLACK SCREEN on device while every gate here is green: `flows config validate` passes a
     # hyphenated id, the schema types ids as bare strings, and `config preview` renders the
@@ -1937,16 +2031,14 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                            if e['type'] == 'image' else
                            ". Keep the video in flow (`relative`) and lay the screen out around it"))
 
-    # groupId naming rules, both team-stated from publish failures: digit-led ids generate
-    # invalid JavaScript (publish blocker), and a groupId reused on another screen broke
-    # selection rendering.
+    # groupId naming rule, team-stated from a publish failure: a groupId reused on another
+    # screen broke selection rendering. A digit-led id (`1a`) used to generate invalid
+    # JavaScript; the service now rewrites it into a valid script name and the publish
+    # accepts it, so it is not checked here.
     seen_groups = {}
     for s in d.get('screens', []):
         for g in s.get('selectableGroups') or []:
             gid = g.get('id', '')
-            if gid[:1].isdigit():
-                bad.append(f"{s['id']}: groupId {gid!r} starts with a digit — generates invalid "
-                           f"JavaScript and blocks publish")
             if gid in seen_groups and seen_groups[gid] != s['id']:
                 warn.append(f"groupId {gid!r} is used on both {seen_groups[gid]} and {s['id']} — "
                             f"a shared id across screens broke selection rendering; rename to "
@@ -2141,7 +2233,8 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
 
     # ---- every `<inputCustomId>.value` consumer still has its producing input element.
     # flow-schema.md invariant 12, and the failure is remote: delete the screen holding the
-    # input and the consumers survive on screens you never opened, rendering empty.
+    # input and the consumers survive on screens you never opened, and the publish refuses
+    # every one of them with `unknown_variable_ref`.
     INPUT_TYPES = {'text-input', 'email-input', 'password-input', 'number-input',
                    'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
     produced = {(e.get('props') or {}).get('customId')
@@ -2156,8 +2249,9 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             continue                      # a group/product variable, not an input
         if parts[0] not in produced:
             warn.append(f'variable {v} has no producer: no input element carries '
-                        f'customId {parts[0]!r} (invariant 12 — renders empty, publishes '
-                        f'cleanly, and the consumers are often on screens you never opened)')
+                        f'customId {parts[0]!r} (invariant 12 — the publish refuses it as '
+                        f'unknown_variable_ref, and the consumers are often on screens you '
+                        f'never opened)')
 
     for s in d.get('screens', []):
         gids = {(e.get('props') or {}).get('groupId')
@@ -3271,10 +3365,9 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                         _switches(v, f'{path}[{i}]')
             _switches(e.get('props'), 'props')
 
-    # An unresolved id is NOT dropped: codegen emits it as a bare identifier into the generated
-    # TypeScript, which fails to compile (`script_type_violation`, TS2304 "Cannot find name").
-    # The same id in rich text renders as its literal token and publishes, which is why that
-    # stays the warning above and this is an error.
+    # The publish refuses an unresolved id (`unknown_variable_ref`, with the path of the node).
+    # The same id in rich text is refused too; this check reads only conditions, and the rich-text
+    # case stays the warning above.
     custom_vars = {v['id'] for v in (d.get('variables') or [])
                    if isinstance(v, dict) and v.get('id')}
     all_custom_ids = {(e.get('props') or {}).get('customId')
@@ -3287,8 +3380,8 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             continue
         bad.append(f'condition variable {v!r} resolves to nothing: no input customId, '
                    f'selectableGroup, bound product or variables[] entry produces it. The '
-                   f'generated script emits it as a bare identifier and fails to compile '
-                   f'(script_type_violation, TS2304)')
+                   f'publish refuses it (unknown_variable_ref, "Variable ... is not declared in '
+                   f'the flow")')
 
     # System variables: a comparison the SDK can never satisfy, a use in text, a write. The
     # walk covers conditional actions too, which `iter_conditions` does not reach.
@@ -3324,6 +3417,12 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                                f'(invalid_action_payload)')
     walk(d.get('screens') or [], _system_uses)
     walk(d.get('components') or {}, _system_uses)
+
+    # ---- Formula and Date variables (flow-schema.md trap 27). Every finding is a publish
+    # refusal, under the service's own code, so each is an ERROR.
+    if _formulas is not None:
+        for code, where, message in _formulas.issues(d):
+            bad.append(f'{message} ({code} at {where})')
 
     # ---- custom tags: `variables[]` entries with `external: true`, whose value the app supplies.
     # The name is the contract with the app's code and publishes as an SDK tag, so the two
@@ -3369,6 +3468,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     _walk_vars(d)
     for v in d.get('variables') or []:
         if (isinstance(v, dict) and v.get('external') is not True
+                and v.get('valueType') != 'formula'      # calculated: it never has a value
                 and v.get('value') in ('', None) and v.get('id') in text_var_ids
                 and v.get('id') not in assigned):
             warn.append(f'variable {v.get("name") or v.get("id")!r} is shown in text, has no value and '
@@ -3687,7 +3787,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
 
     # ---- `<groupId>.selectedOptionId` on a MULTI_CHOICE group. In the transform service the
     # same condition validates on a `single_choice` group and is refused
-    # on `multi_choice` with `Generated scripts failed validation` -- a multi-select exposes no
+    # on `multi_choice` with `unknown_variable_ref` -- a multi-select exposes no
     # single selected option for the generated code to read. It matters because
     # `component-catalog.json`'s `quiz-rating` template declares its group `multi_choice`, is
     # `agent_allowed`, and `patterns.md` tells an agent to prefer filling a template over
@@ -3706,7 +3806,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
         head = v.split('.')[0]
         if grp_types.get(head) == 'multi_choice':
             bad.append(f'{v} reads a group declared multi_choice — the transform service '
-                       f'refuses this ("Generated scripts failed validation"); a multi-select '
+                       f'refuses this (unknown_variable_ref); a multi-select '
                        f'has no single selected option. Declare the group single_choice')
 
     # ---- the id a `flow_user_input` event carries is `props.customId`, NEVER the element's
@@ -3939,8 +4039,8 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             kids = (nodes.get(eid) or {}).get('children') or []
             if not kids:
                 warn.append(f'{where}: custom element {eid} has no fallback children — users the '
-                            f'app does not serve (an older app version, Android, a cross-platform '
-                            f'SDK, a missing file) see an empty box of its size')
+                            f'app does not serve (an older app version, a cross-platform SDK, a '
+                            f'missing file) see an empty box of its size')
             stack_ = list(kids)
             while stack_:
                 k = stack_.pop()

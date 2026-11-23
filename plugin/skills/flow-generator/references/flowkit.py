@@ -62,6 +62,7 @@ try:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import icons
     import localization
+    import formulas
 finally:
     sys.dont_write_bytecode = _bytecode
 
@@ -552,9 +553,8 @@ def ref(variable_id):
     and whose meanings did not.
 
     The id is the same vocabulary the rest of the document uses: `<inputCustomId>.value`,
-    `<groupId>.selectedOptionId`, `<groupId>.selectedProduct`, a `variables[]` id. An id
-    naming nothing is emitted into the generated script as a bare identifier and fails type
-    checking there (`script_type_violation`, TS2304), so `config()` resolves every condition
+    `<groupId>.selectedOptionId`, `<groupId>.selectedProduct`, a `variables[]` id. The publish
+    refuses an id naming nothing (`unknown_variable_ref`), so `config()` resolves every condition
     variable against the document it is building.
     """
     if not (isinstance(variable_id, str) and variable_id):
@@ -693,7 +693,7 @@ def _condition_var_ids(o, out):
 # still published. So the span kinds are named types here, and a bare tuple is rejected.
 
 class Var:
-    """A variable span: renders the variable's value, or its literal token if unresolved.
+    """A variable span: renders the variable's value; the publish refuses an undeclared id.
 
     Takes a variable id, or the entry `app_value()` returned — so a custom tag is bound by the
     object you declared rather than by an id you retyped.
@@ -880,6 +880,79 @@ def app_value(name, *, fallback, value_type='string', variable_id=None, descript
     return entry
 
 
+def formula(name, expression, *, variable_id=None, date_format=None, description=None):
+    """A value the flow calculates: a BMI, a total, a price per day, a date 7 days from now.
+
+        h = fk.fx('height.value')                 # the answer of the input `height`, in metres
+        bmi = fk.formula('bmi', f'round({fk.fx("weight.value")} / ({h} * {h}), 1)')
+        fk.text(fk.rich('Your BMI: ', fk.Var(bmi)))
+        fk.config(screens=[...], variables=[bmi])
+
+    There is no power operator: square by multiplying. `expression` is the stored form: `{{<variable id>}}` for a variable (`fx()` writes it from
+    the entry), `{{<input customId>.value}}` for an answer, `{{<group id>.selectedProduct.
+    prod_price}}` (or `.offer_price`) for the selected plan's price. Decimals take a dot. The
+    result is a Number, or a Date when the top level is a date function (`today()`,
+    `addDays()` ...); `date_format` is how a text shows that Date. `config()` checks the
+    expression against the rest of the document, the way the publish does (flow-schema.md
+    trap 27). There is no `value`: nothing can set a formula, Set Variable included.
+    """
+    if not (isinstance(name, str) and name):
+        raise ValueError('formula() needs a name')
+    if not (isinstance(expression, str) and expression.strip()):
+        raise ValueError(f'formula() {name!r} needs an expression')
+    vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
+    if not _IDENT.fullmatch(vid):
+        raise ValueError(f'formula() variable_id {vid!r} must be [A-Za-z0-9_] — it is emitted '
+                         f'as an identifier in the generated script.')
+    if date_format is not None and date_format not in formulas.DATE_FORMATS:
+        raise ValueError(f'formula() date_format must be one of {formulas.DATE_FORMATS}, got '
+                         f'{date_format!r}')
+    entry = {'id': vid, 'name': name, 'valueType': 'formula', 'expression': expression}
+    if date_format:
+        entry['dateFormat'] = date_format
+    if description:
+        entry['description'] = description
+    return entry
+
+
+def number_variable(name, value=None, *, variable_id=None):
+    """A flow-owned Number variable. With no `value` a formula reads it as 0."""
+    if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
+        raise TypeError(f'number_variable() {name!r} value must be a number, got {value!r}')
+    vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
+    entry = {'id': vid, 'name': name, 'valueType': 'number'}
+    if value is not None:
+        entry['value'] = value
+    return entry
+
+
+def date_variable(name, value=None, *, variable_id=None, date_format=None):
+    """A flow-owned Date variable: a calendar day, `YYYY-MM-DD`, no time and no zone."""
+    if value is not None and not (isinstance(value, str)
+                                  and re.fullmatch(r'\d{4}-\d{2}-\d{2}', value)):
+        raise ValueError(f'date_variable() {name!r} value must be "YYYY-MM-DD", got {value!r}')
+    if date_format is not None and date_format not in formulas.DATE_FORMATS:
+        raise ValueError(f'date_variable() date_format must be one of {formulas.DATE_FORMATS}, '
+                         f'got {date_format!r}')
+    vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
+    entry = {'id': vid, 'name': name, 'valueType': 'date'}
+    if value is not None:
+        entry['value'] = value
+    if date_format:
+        entry['dateFormat'] = date_format
+    return entry
+
+
+def fx(source):
+    """A reference inside a formula: a variable entry or id becomes `{{<id>}}`; a path such as
+    `"age.value"` or `"plans.selectedProduct.prod_price"` is wrapped as it is."""
+    if isinstance(source, dict):
+        source = source.get('id')
+    if not (isinstance(source, str) and source):
+        raise ValueError(f'fx() needs a variable entry, an id or a path, got {source!r}')
+    return '{{' + source + '}}'
+
+
 def _external_ids(variables):
     return {v['id']: v.get('name') for v in variables
             if isinstance(v, dict) and v.get('external') is True and v.get('id')}
@@ -928,6 +1001,12 @@ def _node(kind, props, *, children=None, caption=None, states=None,
         node['caption'] = caption
     if props_by_state:
         node['propsByState'] = props_by_state
+    leaving = _leaves_before_result(actions or [])
+    if leaving:
+        raise ValueError(f'{kind}(actions=...): {leaving} follows a purchase or restore in the '
+                         f'same list, so it runs on the tap, before the store answers '
+                         f'(navigation_before_store_result, trap 16). Pass it as an outcome '
+                         f'instead: purchase("plans", on_success=navigate("scr_thanks")).')
     if actions:
         node['interactions'] = [{'id': 'int' + node['id'][2:], 'trigger': 'tap',
                                  'actions': actions}]
@@ -1652,9 +1731,8 @@ def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, al
 #
 # The stakes are not cosmetic. An input's `customId` is the PRODUCER for `<customId>.value`,
 # which is what every conditional-visibility gate reads. Get it wrong or leave it out and the
-# condition compiles to a bare identifier and the flow is refused (`script_type_violation`,
-# TS2304) — so `custom_id` is positional and required here, and `config()` resolves every
-# condition variable against the inputs this module emits.
+# flow is refused (`unknown_variable_ref`) — so `custom_id` is positional and required here,
+# and `config()` resolves every condition variable against the inputs this module emits.
 
 INPUT_TYPES = ('text-input', 'email-input', 'password-input', 'number-input', 'phone-input',
                'date-picker', 'time-picker', 'date-time-picker')
@@ -1685,8 +1763,8 @@ def _input(kind, custom_id, *, placeholder=None, locale='en', width=None, height
         raise ValueError(
             f'{kind} needs a non-empty custom_id, got {custom_id!r}. It is the producer for '
             f'"{custom_id}.value" — the handle a conditional-visibility gate reads. Without it '
-            f'any condition naming this field compiles to a bare identifier and the flow is '
-            f'refused with script_type_violation.')
+            f'the flow is refused with unknown_variable_ref for any condition naming this '
+            f'field.')
     if not (isinstance(preset, str) and preset):
         raise ValueError(f'{kind} needs a typography preset id, got {preset!r} -- it sets the '
                          f'typed text\'s font, and the id must be declared in typography=(...)')
@@ -2125,11 +2203,112 @@ def tabs(tabs_, *, group_id, item_selected, width='fill', height='hug', gap=16,
     return _node('tabs', props, children=[bar, wrapper], node_id=node_id, **kw)
 
 
-def purchase(group_id, action_id='act_buy'):
-    """Buy the group's selection, never a hardcoded product."""
-    return {'id': action_id, 'type': 'purchase',
-            'payload': {'product': {'type': 'var',
-                                    'variableId': f'{group_id}.selectedProduct'}}}
+PURCHASE_RESULTS = ('success', 'fail', 'userCanceled', 'pending')
+RESTORE_RESULTS = ('success', 'fail')
+STORE_ACTIONS = ('purchase', 'restorePurchases')
+
+
+def _store_actions_in(obj):
+    """Every purchase or restore inside `obj`, a conditional's branches included."""
+    if isinstance(obj, dict):
+        if obj.get('type') in STORE_ACTIONS:
+            yield obj
+        for v in obj.values():
+            yield from _store_actions_in(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _store_actions_in(v)
+
+
+LEAVING_ACTIONS = ('navigate', 'navigateNext', 'navigateBack', 'closeFlow')
+
+
+def _branches(action):
+    """A conditional's branch action lists."""
+    payload = action.get('payload') or {}
+    bodies = [c[1] for c in payload.get('cases') or [] if isinstance(c, list) and len(c) == 2]
+    bodies.append(payload.get('default'))
+    for body in bodies:
+        body = body.get('value') if isinstance(body, dict) and body.get('type') == 'const' else body
+        if isinstance(body, dict):
+            body = [body]
+        if isinstance(body, list):
+            yield body
+
+
+def _starts_store_operation(action):
+    if action.get('type') == 'purchase':
+        return (action.get('payload') or {}).get('type') != 'web'
+    if action.get('type') == 'restorePurchases':
+        return True
+    return action.get('type') == 'conditional' and any(
+        _starts_store_operation(a) for body in _branches(action) for a in body
+        if isinstance(a, dict))
+
+
+def _leaves(action):
+    if action.get('type') in LEAVING_ACTIONS:
+        return True
+    return action.get('type') == 'conditional' and any(
+        _leaves(a) for body in _branches(action) for a in body if isinstance(a, dict))
+
+
+def _leaves_before_result(actions):
+    """The first action that leaves the screen after a store operation in the same list."""
+    started = False
+    for a in actions:
+        if not isinstance(a, dict):
+            continue
+        if started and _leaves(a):
+            return f'{a.get("type")} {a.get("id")!r}'
+        started = started or _starts_store_operation(a)
+    return None
+
+
+def _outcomes(action_id, results, lists, what):
+    """`payload.onResult`: one action list per store result, run once the store answers.
+
+    A result left out, or given an empty list, runs nothing: the user stays on the screen and can
+    tap again. Each nested action gets its own id, `<action_id>_<result>` (with `_<n>` from the
+    second on), because the builder pairs a nested action's texts by id within its list.
+    """
+    out = {}
+    for result, actions in lists.items():
+        if actions is None:
+            continue
+        if result not in results:
+            raise ValueError(f'{what}: {result!r} is not a result it reports; '
+                             f'the results are {results}')
+        acts = [actions] if isinstance(actions, dict) else list(actions)
+        for a in acts:
+            if not (isinstance(a, dict) and isinstance(a.get('type'), str)):
+                raise TypeError(f'{what} {result} must contain actions, got {a!r}')
+        if any(True for _ in _store_actions_in(acts)):
+            raise ValueError(f'{what} {result}: an outcome cannot start another purchase or '
+                             f'restore (the builder disables it, publish warns '
+                             f'nested_store_operation). Put the second offer on its own screen '
+                             f'with its own button, and navigate there.')
+        out[result] = [dict(a, id=f'{action_id}_{result}' + (f'_{i + 1}' if i else ''))
+                       for i, a in enumerate(acts)]
+    return out
+
+
+def purchase(group_id, action_id='act_buy', *, on_success=None, on_fail=None, on_cancel=None,
+             on_pending=None):
+    """Buy the group's selection, never a hardcoded product.
+
+    `on_success`, `on_fail`, `on_cancel` and `on_pending` are what runs once the store answers: an
+    action or a list of actions, typically `navigate('scr_thanks')`. Left out, that result keeps the
+    user on the paywall. Never put a `navigate` next to the purchase in the same list instead: it
+    fires on the tap, before the store answers (trap 16).
+    """
+    payload = {'product': {'type': 'var', 'variableId': f'{group_id}.selectedProduct'}}
+    on_result = _outcomes(action_id, PURCHASE_RESULTS,
+                          {'success': on_success, 'fail': on_fail, 'userCanceled': on_cancel,
+                           'pending': on_pending}, 'purchase()')
+    if on_result:
+        payload['onResult'] = on_result
+    return {'id': action_id, 'type': 'purchase', 'payload': payload}
 
 
 # Each transition as Flow Builder starts it when an author picks it.
@@ -2464,9 +2643,18 @@ def animate(node, animation, *, theme=None):
 # service in each case.
 
 
-def restore(action_id='act_restore'):
-    """`restorePurchases`. Takes no payload — and a paywall without it is rejected by both
-    stores, so this is a compliance element, not a nicety."""
+def restore(action_id='act_restore', *, on_success=None, on_fail=None):
+    """`restorePurchases`. A paywall without it is rejected by both stores, so this is a
+    compliance element, not a nicety.
+
+    With no outcomes it takes no payload. `on_success` runs when the restore finished without an
+    error, which does not mean the user has access: route it to a screen that reads fine either
+    way, or leave it out. `on_fail` runs when the restore failed.
+    """
+    on_result = _outcomes(action_id, RESTORE_RESULTS,
+                          {'success': on_success, 'fail': on_fail}, 'restore()')
+    if on_result:
+        return {'id': action_id, 'type': 'restorePurchases', 'payload': {'onResult': on_result}}
     return {'id': action_id, 'type': 'restorePurchases'}
 
 
@@ -3741,16 +3929,13 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             raise ValueError(f'variable id {vid!r} has a character outside [A-Za-z0-9_]; it is '
                              f'emitted as an identifier in the generated script.')
 
-    # Every condition variable must resolve to something this document produces. An id that
-    # resolves to nothing is not dropped: the code generator emits it as a BARE IDENTIFIER into
-    # the generated TypeScript, which then fails to compile — `script_type_violation`,
-    # `TS2304: Cannot find name 'email'`, one of the transformer's most common refusals. It is
-    # checked here rather than in `when()` because
-    # only the whole document knows what produces what.
+    # Every condition variable must resolve to something this document produces. The publish
+    # refuses an id that resolves to nothing (`unknown_variable_ref`, with the path of the
+    # node). It is checked here rather than in `when()` because only the whole document knows
+    # what produces what.
     #
-    # The same id in RICH TEXT is a different severity and is deliberately left alone: an
-    # unresolved variable there renders as its literal token, which is wrong but publishes.
-    # In a condition it is compiled, so it is fatal.
+    # A `variable` span in RICH TEXT is refused the same way, but this check does not cover
+    # spans.
     INPUT_TYPES = ('text-input', 'email-input', 'password-input', 'number-input',
                    'phone-input', 'date-picker', 'time-picker', 'date-time-picker')
     produced, group_ids, product_ids = set(), set(), set()
@@ -3796,12 +3981,9 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                 if isinstance(st, dict) and st.get('condition'):
                     trees.append(st['condition'])
             # A conditional-text `switch` (switch_rich) is COMPILED, not rendered, so an
-            # unresolved id there is fatal exactly like a visibility condition -- the live
-            # service answers `valid: false`, "Generated scripts failed
-            # validation", with `code` and `path` both null, so the refusal names neither the
-            # element nor the variable. This is the opposite severity from a `variable` SPAN in
-            # rich text, which renders its literal token and publishes; the two shapes sit in
-            # the same `props.content` and only this one compiles.
+            # unresolved id there is refused exactly like a visibility condition
+            # (`unknown_variable_ref` at the path of the predicate). A `variable` SPAN in the
+            # same `props.content` is refused too, but this check reads only the switch.
             for prop in (e.get('props') or {}).values():
                 if not (isinstance(prop, dict) and prop.get('_localizable')):
                     continue
@@ -3843,8 +4025,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
     if unresolved:
         raise ValueError(
             f'condition variable(s) {sorted(unresolved)} resolve to nothing in this document. '
-            f'The generated script emits an unresolved id as a bare identifier and fails to '
-            f'compile (script_type_violation, TS2304 "Cannot find name"). Produce it — an input '
+            f'The publish refuses it (unknown_variable_ref, "Variable ... is not declared in '
+            f'the flow"). Produce it — an input '
             f'element with that customId, a selectableGroup with that id, a bound product — or '
             f'declare it in variables=(...).')
 
@@ -3955,6 +4137,10 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                   'screens': _merge_meta_screens(meta_screens)},
         'screens': list(screens),
     }
+    found = formulas.issues(doc)
+    if found:
+        raise ValueError('the publish would refuse these formula or date variables: '
+                         + '; '.join(f'{m} ({c} at {w})' for c, w, m in found))
     out, dropped = localization.catalog(doc)
     if dropped:
         raise ValueError(

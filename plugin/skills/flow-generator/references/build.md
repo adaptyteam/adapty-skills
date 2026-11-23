@@ -79,7 +79,7 @@ what you are building — not by which you reached for last time.**
 | :--- | :--- | :--- |
 | One screen that sells — a paywall | **`paywall-teardown`** | An **archetype** (the screen's composition) plus the patterns this vertical needs |
 | A sequence — onboarding, welcome, quiz, activation | **`onboarding-teardown`** | A **skeleton** (the sequence's shape) plus the patterns, placed per screen |
-| Both — an onboarding that ends on a paywall | **Both.** `onboarding-teardown` owns the sequence and the seam; `paywall-teardown` owns the paywall screen itself | Run the sequence one first: it decides what the paywall must reflect |
+| Both — an onboarding with a paywall in it, at the end or with screens after it | **Both.** `onboarding-teardown` owns the sequence and the seam; `paywall-teardown` owns the paywall screen itself | Run the sequence one first: it decides what the paywall must reflect |
 
 Invoke it before you write anything. Both name the values they refuse to invent — a rating, a
 review count, an outcome stat, a discount, a hero asset, and for a sequence the thing the app must
@@ -137,24 +137,27 @@ With nobody to ask, choose both and say so. Text only — branching on one is no
 ## Assets: upload the file, then build with its URL
 
 **Assets are resolved here too — upload the file, then build with its URL.** The upload reads a
-**path**, so **an image you can only see is not an image you have**
-([media.md → Getting the file](media.md#getting-the-file-the-upload-needs-a-path-not-a-picture)).
+**file**, so **an image you can only see is not an image you have**
+([media.md → Getting the file](media.md#getting-the-file-the-upload-needs-a-file-not-a-picture)).
 
 For every asset the screen needs, one of three states, decided before you write the element:
 
-1. **You have a path that reads** — one they gave you, or a project file you found and *named*.
+1. **You have a file that reads** — a path they gave you, their attachment in your sandbox, or a
+   project file you found and *named*.
    A PNG or JPEG over 1 048 576 bytes (1 MiB) is converted first, and you upload the WebP and say so:
    `python3 references/weigh-config.py webp <file> media/<name>.webp`. A GIF does not upload and an
    animated WebP plays one frame, so motion is a `video` element from an mp4 or webm
    ([media.md → Uploading a video](media.md#uploading-a-video)).
-   Upload it now as [media.md → The call](media.md#the-call) says — `--json` into a record file,
+   Upload it now as [media.md → The call](media.md#the-call) says (over MCP,
+   [the upload link](media.md#over-mcp-the-upload-link-or-base64) of `uploads_create` with `kind`
+   `flow_image`, or base64) — the answer into a record file,
    **three** values off it, `previewValue` included — and bind them in one of
    [the two shapes](media.md#binding-the-url-two-different-shapes). **An asset you uploaded
    earlier is rebound from its record file, or lifted out of a config that already binds it —
    never re-uploaded, and never bound as a bare URL you remembered**
    ([When you have a URL and no preview](media.md#when-you-have-a-url-and-no-preview)).
-2. **You can see the image but have no path** (pasted, attached), or they named one they have not
-   sent — **ask for a path**, once, batched with your other asks. Never guess one: a guess that
+2. **You can see the image but have no file** (pasted, or attached with no sandbox), or they named
+   one they have not sent — **ask for a path**, once, batched with your other asks. Never guess one: a guess that
    misses fails loudly, and a guess that *hits* ships the wrong picture in a screen that renders
    perfectly. A URL they pointed at is fetchable, but say what you are downloading first.
 3. **Nobody has a file** — a **styled empty `image`** where the graphic occupies a box:

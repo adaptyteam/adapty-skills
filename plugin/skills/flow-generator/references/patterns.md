@@ -456,6 +456,39 @@ fires nothing, on every surface. The field reads exactly like a delay — a user
 `duration: 1000` reasonably asked why the screen never advanced after a second — so when a
 spinner and the screen's On Appear share a screen, say in the handoff which one moves the flow.
 
+### A number or a date the flow works out: a formula
+
+A BMI from two answers, a score, a price per day, "your goal by January 12": a `formula` variable,
+shown through a `Var` in text and compared in a condition like any variable. What a formula may
+read and what the publish refuses are in [flow-schema.md](flow-schema.md), trap 27.
+
+```python
+weight = fk.number_input('weight', number_format='decimal-point')
+height = fk.number_input('height', number_format='decimal-point')   # in metres
+h = fk.fx('height.value')
+bmi = fk.formula('bmi', f'round({fk.fx("weight.value")} / ({h} * {h}), 1)')
+goal = fk.formula('goal_date', 'addWeeks(today(), 8)', date_format='month-day')
+
+result = fk.screen('scr_result', [
+    weight, height,
+    fk.text(fk.rich('Your BMI is ', fk.Var(bmi))),
+    fk.text(fk.rich('Reach your goal by ', fk.Var(goal))),
+    fk.text('Above the healthy range', visibility=fk.when(fk.gt(fk.ref(bmi['id']), 25))),
+])
+doc = fk.config(screens=[result], variables=[bmi, goal], typography=[...])
+```
+
+The publish accepts exactly this (live validate: `valid`, no issues). Three things to tell the
+user when you build one:
+
+- **Until every source has a value, the formula has none:** the text after "Your BMI is" stays
+  empty and the condition is false. Put the result on a later screen than the inputs, or make the
+  button need the inputs filled ([Making a field mandatory](flow-schema.md#making-a-field-mandatory-show-the-button-conditionally)).
+- **Units are the user's to choose.** The flow does no conversion the formula does not spell out:
+  a height in centimetres needs `/ 100` twice.
+- **A threshold on a formula is one condition**, not the enumerated equality cases that a raw
+  answer needs. It has not yet been seen on a device; say so in the handoff.
+
 ### Under `safeArea: true`, check where an absolute element lands
 
 In the render, an absolute `top` is measured from the top of the full screen rather than from
@@ -1556,6 +1589,42 @@ screen arrives with the default push, so a user's request is the reason to set o
   color or gradient. Choose another when the screens differ a lot in color.
 - **The preview page never navigates, so a render cannot show a transition.** Say it is checked on a
   device, or in the looping preview in Flow Builder's Navigate to Screen action.
+
+### What the user sees after they buy
+
+A thank-you screen, the rest of an onboarding, an upsell, a screen for a cancelled payment: each is
+a screen in the same flow, reached from the purchase's outcome. Pass each one to the helper, which
+writes `payload.onResult` and refuses the two shapes that break it
+([trap 16](flow-schema.md#16-a-purchase-or-restore-leads-on-only-through-onresult--a-navigate-beside-it-leaves-at-the-tap)):
+
+```python
+cta = fk.stack([fk.text('Continue')],
+               actions=[fk.purchase('plans', on_success=fk.navigate('scr_thanks'))])
+restore = fk.stack([fk.text('Restore')],
+                   actions=[fk.restore(on_fail=fk.alert(title='Nothing to restore'))])
+```
+
+| Result | Flow Builder's label | When | The usual route |
+|---|---|---|---|
+| `success` | When succeeded | The store took the payment | The thank-you screen, the next onboarding step, or `closeFlow` |
+| `fail` | When failed | The store refused it: a declined card, no network | Nothing, so they can tap again; or an `alert` saying what to try |
+| `userCanceled` | When cancelled by user | They closed the store's sheet | Nothing; or a screen with a second offer |
+| `pending` | When pending | Waiting for approval: Ask to Buy, a slow card | A screen saying access arrives once it is approved |
+| restore `success` | When restore completed | The restore ran without an error, with access or without | A screen that reads true either way, or nothing |
+| restore `fail` | When restore failed | The restore errored | An `alert`, or nothing |
+
+- **Route only what the user asked for.** "Add a thank-you screen" is `on_success` alone; the
+  other results keep the user on the paywall, as they do today.
+- **A thank-you screen is a screen like any other:** it needs its own way out, a `closeFlow` or
+  a `navigate`, or the user is stuck on it.
+- **Say the app-side step in the reply.** The app must not close the flow when a purchase
+  finishes, or the user never sees the next screen. In the app's purchase handler that means doing
+  nothing and closing the flow on its close action: [Handle events](https://adapty.io/docs/ios-handling-events.md)
+  for iOS, and the page of the same name for each other platform. If the user wants that code
+  changed, offer to change it.
+- **The preview page cannot buy, so a render shows each screen but never the route.**
+  `python3 references/canvas.py draft.json --text` shows the arrows ("when bought"). Each result
+  is checked by a sandbox purchase on a device; offer to walk them through one.
 
 ### A back button, and authoring an icon that does not exist yet
 

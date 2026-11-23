@@ -47,13 +47,11 @@ users who see the fallback too.
 
 ## What the app's view does
 
-- Draws the chart with the app's chart library (Swift Charts on iOS) from the series the app
-  holds.
+- Draws the chart with the app's chart library from the series the app holds.
 - Answers a drag or a tap by marking the point and showing its value.
 - Draws nothing when the series is missing, so the fallback shows.
-- Dragging along a Swift Charts chart needs iOS 17; on iOS 16 the line still draws.
 
-Docs: https://adapty.io/docs/custom-element-interactive-chart.md
+Docs: the chart recipe in [Docs per platform](../custom-elements.md#docs-per-platform).
 
 ## On the device
 

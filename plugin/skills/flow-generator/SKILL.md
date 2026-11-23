@@ -12,10 +12,13 @@ grounded in a document that already works.
 **Authoring a new flow is also in scope**, and two things — and only these two — genuinely
 cannot be synthesized:
 
-- **An image you have no readable FILE for.** Given a path you can now upload it —
-  `flows media upload` ([media.md](references/media.md)). An image you can only *see* — pasted or
-  attached into the conversation — is not one you have: ask for a path. With no file there is
-  nothing to upload, so its catalog entry stays empty, never a made-up URL (trap 5). **SVG uploads
+- **An image you have no readable FILE for.** Given a file you can upload it — `flows media
+  upload`, or over MCP the upload link ([media.md](references/media.md)). An image the user
+  attached in a chat with a code sandbox is a file there (in claude.ai under
+  `/mnt/user-data/uploads/`): find it and send it, ask for no path
+  ([media.md → Getting the file](references/media.md#getting-the-file-the-upload-needs-a-file-not-a-picture)).
+  An image you can only *see*, with no sandbox, is not one you have: ask for a path. With no file
+  there is nothing to upload, so its catalog entry stays empty, never a made-up URL (trap 5). **SVG uploads
   fail**, so a monochrome glyph is authored inline in `_meta.icons`; a graphic no element can
   express, you draw and rasterize ([media.md](references/media.md)). An icon is **not** in this
   list: `python3 references/icons.py --search <word>` resolves any phosphor glyph, and an
@@ -179,7 +182,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [history.md](references/history.md) | The user asks about an earlier version: the list, a look at one, a restore into the draft, a rollback of a publish, a duplicate to a new flow |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
-| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, screen transitions, a screen that moves on by itself, an element that appears after a delay or animates in, plan cards |
+| [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, a number or date the flow calculates (a formula), screen transitions, what the user sees after they buy, a screen that moves on by itself, an element that appears after a delay or animates in, plan cards |
 | [placements.md](references/placements.md) | **Phase 6** — the procedure and the placement ask, every `placements` refusal and who owns it, the `update` variant, the dashboard URLs and their params, and why the developer ID is irreversible |
 | the **`paywall-teardown`** skill | **Phase 2** when *you* choose the design of a **screen that sells**, **phase 4** to grade what you built. It owns whether the screen sells; this skill owns the JSON |
 | the **`onboarding-teardown`** skill | The same two phases when what you are choosing is a **sequence** — onboarding, welcome, quiz, activation. It owns the shape of the flow and the onboarding→paywall seam. A flow that is both runs both |
@@ -187,8 +190,9 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | the **`adapty-integration`** skill | **Phase 6**, once a placement points at the flow. It owns the app side — the fetch, the render and the call sites — and this skill hands it one thing: the placement developer ID |
 
 Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph lookup,
-any phase), `localization.py` (phase 2, the catalog), `verify-config.py` (phase 3),
-`validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py`,
+any phase), `localization.py` (phase 2, the catalog), `formulas.py` (the formula and date
+variable checks `flowkit` and `verify-config.py` run), `verify-config.py` (phase 3),
+`validate-with-schema.mjs` (phase 3), `diff-config.py` (phases 2, 4 and 5), `montage.py`,
 `render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (phase 4, through `shoot.sh`),
 `mobile-preview.mjs` (phase 5, the device-preview QR), `weigh-config.py` (phase 2 before an
 upload, phase 5 before a write or a publish).
@@ -257,7 +261,7 @@ Example of the question's shape, not words to copy:
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill prefers the CLI:** `gates.sh`, `shoot.sh` and the preview script run it, and over
-MCP a whole config or image passes through the conversation as a tool argument. With MCP only,
+MCP a whole config, or an image sent as base64, passes through the conversation as a tool argument. With MCP only,
 offer the CLI in one line; on a no, go on over MCP, run the local checks yourself, and name each
 check that did not run.
 
@@ -345,7 +349,9 @@ attempt lacks it too — never from a version number you read somewhere.
 
 **`flows media upload` works in production**, so an image the user *handed you a file for* is
 yours to place, not a user ask. Its limits, the `--json` record file to keep, the three values it
-binds and the geometry: [media.md](references/media.md). A clip file is yours too, through
+binds and the geometry: [media.md](references/media.md). Over MCP, the upload link of
+`uploads_create` (`kind` `flow_image`) and `curl`, or base64 for a very small image:
+[media.md → Over MCP](references/media.md#over-mcp-the-upload-link-or-base64). A clip file is yours too, through
 `flows media upload-video`; when the CLI lacks that command, the fallback is the placeholder:
 [media.md → Uploading a video](references/media.md#uploading-a-video).
 
@@ -649,9 +655,11 @@ message family: [validate.md](references/validate.md).
 
 ### 4. Preview, and iterate until it looks right
 
-**Render the screens you changed, in ONE call, and get back one strip to look at:**
+**Render the screens you changed, in ONE call, and get back one strip to look at.** On an existing
+flow, `diff-config.py` lists them on its `render:` line.
 
 ```bash
+python3 references/diff-config.py flow.backup.json draft.json   # render: / no render: / flow-wide:
 references/shoot.sh draft.json scr_a scr_b scr_c     # preview + screenshot + montage
 ```
 
@@ -787,13 +795,12 @@ Exit 1 fills the weight slot of the ask below; exit 0 drops it. What it weighs, 
 Split it in two, because the two halves need different things from the reader.
 
 **Screens that changed — one row each, so "there are four of these" is visible at a glance.**
-Render every touched screen from the draft, and its `before` from the backup (`preview` takes the
+Render every screen on the `render:` line from the draft, and its `before` from the backup (`preview` takes the
 backup envelope as-is, no `jq`). A new screen has no before; say so rather than dropping the row.
 
 > | Screen | What changed | Look at |
 > | :-- | :-- | :-- |
 > | Paywall *(new)* | outcome rows, two plans, trial badge | [Paywall, after](<path to the render>) — open in your browser |
-> | Daily goal | nothing visual | [Daily goal, after](<path to the render>) |
 
 Name screens as the builder shows them and link each render with the screen name as its text — the
 file name is yours, not theirs.
@@ -1062,7 +1069,7 @@ The full statements — what each invariant is, what breaks it, what a violation
 | Check | Why no tool catches it |
 | :--- | :--- |
 | `fill` keeps the form the input used — object or array, **never converted**, and **one layer** | the form is only wrong relative to the input you fetched |
-| an image URL is one **`flows media upload` printed in this session** | a plausible `public-media.adapty.io` path is indistinguishable from a real one |
+| an image URL is one **`flows media upload` or an upload over MCP answered in this session** | a plausible `public-media.adapty.io` path is indistinguishable from a real one |
 | `_meta.icons[].raw` is **real** SVG — resolved through `icons.py`, not written by you | presence is checkable, authenticity is not |
 | **every price variable's field agrees with its product's period** | needs the catalog, not the config |
 
