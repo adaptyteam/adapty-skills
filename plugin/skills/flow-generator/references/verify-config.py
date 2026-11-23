@@ -4039,8 +4039,8 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             kids = (nodes.get(eid) or {}).get('children') or []
             if not kids:
                 warn.append(f'{where}: custom element {eid} has no fallback children — users the '
-                            f'app does not serve (an older app version, Android, a cross-platform '
-                            f'SDK, a missing file) see an empty box of its size')
+                            f'app does not serve (an older app version, a cross-platform SDK, a '
+                            f'missing file) see an empty box of its size')
             stack_ = list(kids)
             while stack_:
                 k = stack_.pop()

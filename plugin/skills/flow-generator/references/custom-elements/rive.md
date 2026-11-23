@@ -35,8 +35,7 @@ drags inside the animation.
 
 ## What the app's view does
 
-- Adds the Rive runtime for Apple platforms (the `RiveRuntime` package) and the `.riv` file to the
-  app bundle, named after the ID.
+- Adds the Rive runtime and the `.riv` file to the app, named after the ID.
 - For the Type `rive_animation`, plays the file named by the ID with its state machine, so taps
   and drags inside it work with no code beyond showing it.
 - When the animation shows the user's data, sets the properties of the file's view model from
@@ -45,9 +44,9 @@ drags inside the animation.
   user.
 - Draws nothing when the file is missing.
 
-Docs: https://adapty.io/docs/flow-custom-elements.md (no Rive recipe yet; the Lottie recipe
-https://adapty.io/docs/custom-element-lottie-animation.md shows the same setup with a different
-player). Rive's own data binding: https://rive.app/docs/runtimes/data-binding, and its demos with
+Docs: no Rive recipe yet; the platform's Lottie recipe in
+[Docs per platform](../custom-elements.md#docs-per-platform) shows the same setup with a different
+player. Rive's own data binding: https://rive.app/docs/runtimes/data-binding, and its demos with
 sample files: https://rive.app/docs/runtimes/demos.
 
 ## On the device

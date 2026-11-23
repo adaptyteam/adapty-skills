@@ -101,7 +101,7 @@ def to_object(o):
             to_object(v)
 to_object(a['screens'])
 assert rewritten == 29, f'fixture drifted: {rewritten} one-layer fills, expected 29'
-case('reported: 29 fills object -> array (a builder save)', a, D, 0, 0, 25, 0)
+case('reported: 29 fills object -> array (a builder save)', a, D, 0, 0, 27, 0)
 
 # --- FIRES: a loss must be named, and collapsed to the thing a user recognises ------------
 b = copy.deepcopy(D); b['screens'].pop(2)
@@ -223,6 +223,69 @@ b = copy.deepcopy(D)
 b['locales'] = []
 b['defaultLocale'] = D['localization']['defaultLocale']
 case('silent: server-echoed empty legacy locales after a save', D, b, 0, 0, 0, 0)
+
+# --- What to render: the screens a change draws on, and the ones it does not --------------
+# Phase 4 renders exactly the `render:` line, so a drawn change missing from it ships unseen and
+# a tap-only screen listed in it costs a Chrome launch for a picture that cannot differ.
+def render_lines(a, b):
+    with tempfile.TemporaryDirectory() as tmp:
+        pa, pb = os.path.join(tmp, 'a.json'), os.path.join(tmp, 'b.json')
+        json.dump(a, open(pa, 'w')); json.dump(b, open(pb, 'w'))
+        out = subprocess.run([sys.executable, DIFF, pa, pb], capture_output=True, text=True).stdout
+    got = {}
+    for l in out.splitlines():
+        for key in ('render:', 'no render:', 'flow-wide:'):
+            if l.strip().startswith(key):
+                got[key] = l.strip()[len(key):].split('—')[0].split()
+    return got
+
+
+def render_case(label, b, want):
+    got = render_lines(D, b)
+    ok = got == want
+    print(f'{"pass" if ok else "FAIL"}  {label:52} {got}')
+    if not ok:
+        fails.append(f'{label}: wanted {want}, got {got}')
+
+
+def element(doc, sid, eid):
+    return next(s_ for s_ in doc['screens'] if s_['id'] == sid)['elements']['map'][eid]
+
+
+TAP_S, TAP_E = 'scr_03lOfpai', 'el_P9W4raTmIO'
+PBS_S, PBS_E = 'scr_oAPBHPa7', 'el_0tS7XBBROs'
+
+render_case('render: nothing changed, no render lines', copy.deepcopy(D), {})
+
+b = copy.deepcopy(D)
+element(b, TAP_S, TAP_E)['interactions'][0]['actions'] = []
+render_case('render: a tap-only change draws nothing', b, {'no render:': [TAP_S]})
+
+b = copy.deepcopy(D)
+element(b, TAP_S, TAP_E)['props']['opacity'] = 0.5
+render_case('render: a props change is drawn', b, {'render:': [TAP_S]})
+
+b = copy.deepcopy(D)
+element(b, TAP_S, TAP_E)['props']['opacity'] = 0.5
+element(b, PBS_S, 'el_TyXZ9eIxZo')['interactions'] = []
+render_case('render: drawn and tap-only screens split', b,
+            {'render:': [TAP_S], 'no render:': [PBS_S]})
+
+# `propsByState` sat outside every fact, so a selected-state restyle read as no change at all:
+# a lost state override went unreported, and a render skip built on it would miss a real change.
+b = copy.deepcopy(D)
+st = element(b, PBS_S, PBS_E)['propsByState']
+st[next(iter(st))]['__probe'] = 1
+case('fires: a propsByState change', D, b, 0, 0, 1, 0)
+render_case('render: a propsByState change is drawn', b, {'render:': [PBS_S]})
+
+b = copy.deepcopy(D)
+b['screens'] = [s_ for s_ in b['screens'] if s_['id'] != TAP_S]
+render_case('render: a deleted screen has nothing to render', b, {})
+
+b = copy.deepcopy(D)
+b['theme']['colors'][0]['value'] = '#123456' if b['theme']['colors'][0].get('value') != '#123456' else '#654321'
+render_case('render: a theme colour is flow-wide', b, {'flow-wide:': ['theme.colors']})
 
 # --- The same path twice must be refused, never reported as clean ------------------------
 r = subprocess.run([sys.executable, DIFF, SRC, SRC], capture_output=True, text=True)

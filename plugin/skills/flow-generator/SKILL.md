@@ -190,7 +190,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 Executable, all under `references/`: `flowkit.py` (authoring), `icons.py` (glyph lookup,
 any phase), `localization.py` (phase 2, the catalog), `formulas.py` (the formula and date
 variable checks `flowkit` and `verify-config.py` run), `verify-config.py` (phase 3),
-`validate-with-schema.mjs` (phase 3), `diff-config.py` (phase 2 and phase 5), `montage.py`,
+`validate-with-schema.mjs` (phase 3), `diff-config.py` (phases 2, 4 and 5), `montage.py`,
 `render-measure.py` and `canvas.py` (phase 4, and whenever someone asks how screens connect), `preview-with-playwright.mjs` (phase 4, through `shoot.sh`),
 `mobile-preview.mjs` (phase 5, the device-preview QR), `weigh-config.py` (phase 2 before an
 upload, phase 5 before a write or a publish).
@@ -664,9 +664,11 @@ message family: [validate.md](references/validate.md).
 
 ### 4. Preview, and iterate until it looks right
 
-**Render the screens you changed, in ONE call, and get back one strip to look at:**
+**Render the screens you changed, in ONE call, and get back one strip to look at.** On an existing
+flow, `diff-config.py` lists them on its `render:` line.
 
 ```bash
+python3 references/diff-config.py flow.backup.json draft.json   # render: / no render: / flow-wide:
 references/shoot.sh draft.json scr_a scr_b scr_c     # preview + screenshot + montage
 ```
 
@@ -802,13 +804,12 @@ Exit 1 fills the weight slot of the ask below; exit 0 drops it. What it weighs, 
 Split it in two, because the two halves need different things from the reader.
 
 **Screens that changed — one row each, so "there are four of these" is visible at a glance.**
-Render every touched screen from the draft, and its `before` from the backup (`preview` takes the
+Render every screen on the `render:` line from the draft, and its `before` from the backup (`preview` takes the
 backup envelope as-is, no `jq`). A new screen has no before; say so rather than dropping the row.
 
 > | Screen | What changed | Look at |
 > | :-- | :-- | :-- |
 > | Paywall *(new)* | outcome rows, two plans, trial badge | [Paywall, after](<path to the render>) — open in your browser |
-> | Daily goal | nothing visual | [Daily goal, after](<path to the render>) |
 
 Name screens as the builder shows them and link each render with the screen name as its text — the
 file name is yours, not theirs.

@@ -26,6 +26,10 @@ TWO USES, one comparison. B is always the newer document.
      CHANGES are the human's manual edits, the ones a rebuild would silently drop. This is the
      only way to see them; the config carries no authorship and no history.
 
+  Either use also prints which screens to render: `render:` the screens whose drawn facts
+  changed, `no render:` the ones where only taps, actions or the product registry changed, and
+  `flow-wide:` theme, fonts, icons, components, locales or variables, which draw wherever used.
+
 Exit codes: 0 no removals, 1 removals present, 2 unreadable file or the same path twice.
 **Exit 1 is a disclosure obligation, not a defect.** Deleting a screen is a transform this
 skill supports; doing it without saying so is not. Never "fix" a 1 by reverting -- report it.
@@ -36,7 +40,7 @@ plus one addition, which is the honest reading of an id rewrite):
   typography presets [id], variables [id], `_meta.icons` [name+weight], `_meta.fonts` [family],
   `_meta.screens[].products[]` [product id] and `screens[].products` [product id + offer id] --
   the builder-owned attachments and the registry they derive from, both of which a rebuilt config
-  wipes -- element `type`, `props`, `interactions` and screen `caption`, plus every localizable
+  wipes -- element `type`, `props`, `propsByState`, `interactions` and screen `caption`, plus every localizable
   value BY LOCALE, so a dropped translation is a removal rather than a change.
 
   Localizable values are compared WHERE THEY ARE USED, not where they are stored. Both sides
@@ -53,7 +57,7 @@ WHAT IT DOES NOT SEE, and each of these is a real way to lose work invisibly to 
     so a builder save that re-sorts `_meta.icons` reads as silent. Do not conclude from a clean
     diff that your bytes equal theirs.
     The v9 -> v10 fill migration is the exception and is NOT silent (29 fills rewritten
-    object -> array come out as 25 changed elements). It changes the shape of a value, so it is
+    object -> array come out as 27 changed elements). It changes the shape of a value, so it is
     reported like any other change. Recognise it -- a block of `props` changes across unrelated
     elements right after someone saved in the builder -- rather than reading it as their edits.
   * anything under a key it does not enumerate. A top-level key the format gains next release
@@ -215,7 +219,9 @@ def facts(d):
             f[base] = canon(e.get('type'))
             f[f'{base}.props'] = canon(without_locales(e.get('props')))
             f[f'{base}.interactions'] = canon(e.get('interactions'))
+            f[f'{base}.propsByState'] = canon(without_locales(e.get('propsByState')))
             localizables(f'{base}.props', e.get('props'))
+            localizables(f'{base}.propsByState', e.get('propsByState'))
 
     for cid, c in by_id(d.get('components')):
         f[f'component:{cid}'] = canon(c)
@@ -286,6 +292,32 @@ def show(title, addrs, note=None):
     return len(lines)
 
 
+# Facts under a screen that draw nothing: taps and their actions, the builder's screen name, and
+# the product registry (a preview shows sample prices either way). Everything else under a screen
+# changes what it draws. Flow-wide facts draw on every screen that uses them.
+UNDRAWN = ('.interactions', '.products', '.products-order')
+FLOW_WIDE = ('theme.', 'font:', 'icon:', 'component:', 'locale:', 'variable:', 'other:',
+             'top:defaultLocale', 'top:schemaVersion')
+
+
+def render_plan(addrs, screens_b):
+    """Split the touched screens into the ones a render can show a difference on and the ones it
+    cannot, so phase 4 launches Chrome only for the first."""
+    drawn, undrawn, wide = [], [], []
+    for a in sorted(addrs):
+        if a.startswith('screen:'):
+            sid = a[len('screen:'):].split('/')[0].split('.')[0]
+            if sid not in screens_b:
+                continue                          # deleted: nothing left to render
+            quiet = a == f'screen:{sid}' or a.endswith(UNDRAWN) or '.registry-product:' in a
+            (undrawn if quiet else drawn).append(sid)
+        elif a.startswith(FLOW_WIDE):
+            wide.append(a.split(':')[0] if not a.startswith('top:') else a)
+    drawn = list(dict.fromkeys(drawn))
+    undrawn = [s_ for s_ in dict.fromkeys(undrawn) if s_ not in drawn]
+    return drawn, undrawn, list(dict.fromkeys(wide))
+
+
 def main(argv):
     if len(argv) != 2:
         print(__doc__.strip().splitlines()[0])
@@ -335,6 +367,18 @@ def main(argv):
     if not (removed or changed or added):
         print('  identical on every fact this compares '
               '(key order and rendering excluded — see the header)')
+    drawn, undrawn, wide = render_plan(removed | changed | added,
+                                       {s_.get('id') for s_ in b.get('screens') or []})
+    if drawn or undrawn or wide:
+        print()
+    if drawn:
+        print(f'  render: {" ".join(drawn)}   — what this change draws on; shoot these')
+    if undrawn:
+        print(f'  no render: {" ".join(undrawn)}   — only taps, actions or product bookkeeping '
+              f'changed; a render cannot differ, so say what changed in words')
+    if wide:
+        print(f'  flow-wide: {" ".join(wide)}   — draws on every screen that uses it; '
+              f'shoot one or two that do')
     print()
     print(f'summary: {nr} removed, {nc} changed, {na} added   '
           f'({len(removed)}/{len(changed)}/{len(added)} facts)')
