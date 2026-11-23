@@ -79,7 +79,7 @@ what you are building — not by which you reached for last time.**
 | :--- | :--- | :--- |
 | One screen that sells — a paywall | **`paywall-teardown`** | An **archetype** (the screen's composition) plus the patterns this vertical needs |
 | A sequence — onboarding, welcome, quiz, activation | **`onboarding-teardown`** | A **skeleton** (the sequence's shape) plus the patterns, placed per screen |
-| Both — an onboarding that ends on a paywall | **Both.** `onboarding-teardown` owns the sequence and the seam; `paywall-teardown` owns the paywall screen itself | Run the sequence one first: it decides what the paywall must reflect |
+| Both — an onboarding with a paywall in it, at the end or with screens after it | **Both.** `onboarding-teardown` owns the sequence and the seam; `paywall-teardown` owns the paywall screen itself | Run the sequence one first: it decides what the paywall must reflect |
 
 Invoke it before you write anything. Both name the values they refuse to invent — a rating, a
 review count, an outcome stat, a discount, a hero asset, and for a sequence the thing the app must
