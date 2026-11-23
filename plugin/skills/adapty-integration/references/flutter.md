@@ -312,13 +312,12 @@ await Adapty().activate(
 **If passing a known customer user ID at launch:**
 
 ```dart
-final userId = await UserManager.getCurrentUserId();
+final userId = await UserManager.getCurrentUserId(); // null until the user logs in
 
-await Adapty().activate(
-  configuration: AdaptyConfiguration(apiKey: AppConstants.adaptyPublicKey)
-    ..withLogLevel(AdaptyLogLevel.info)
-    ..withCustomerUserId(userId), // can be null if user not yet logged in
-);
+final configuration = AdaptyConfiguration(apiKey: AppConstants.adaptyPublicKey)
+  ..withLogLevel(AdaptyLogLevel.info);
+if (userId != null) configuration.withCustomerUserId(userId); // takes a non-null String
+await Adapty().activate(configuration: configuration);
 ```
 
 The SDK key comes from `AppConstants` — already set in the recommended architecture step above.
@@ -651,7 +650,7 @@ curl -s "https://adapty.io/docs/flutter-quickstart-identify.md?ref=skill-<sessio
 ```
 
 **What to do:**
-- If the user ID is known at launch, pass it to `activate()` via `..withCustomerUserId(userId)` — already covered in Stage 1
+- If the user ID is known at launch, pass it to `activate()` via `withCustomerUserId(userId)` on the configuration — already covered in Stage 1
 - If users log in after launch, call `Adapty().identify()` after `activate()` and before `getFlow()`
 - Call `Adapty().logout()` when users log out
 
@@ -785,19 +784,17 @@ After the basics are working, use `AskUserQuestion` to present this menu. Keep i
 
 > "Your integration is complete! Here are some things you might want to set up next. Which ones interest you? (or say 'done' to wrap up)"
 >
-> 1. **Fallback paywalls** — show a cached paywall if the user is offline or Adapty is unreachable
-> 2. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
-> 3. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
-> 4. **Kids mode** — COPPA/COPPA-compliant mode that disables IDFA/GAID and ad data collection
-> 5. **A/B testing** — test two paywalls or flows against each other, with no app update
-> 6. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
-> 7. **Web paywalls** — set up web-based paywalls to accept payments outside the app stores
+> 1. **Custom user attributes** — tag users with properties (plan, country, cohort) to enable segmentation and A/B testing
+> 2. **Onboardings** — add interactive onboarding flows powered by Adapty's builder
+> 3. **Kids mode** — COPPA/COPPA-compliant mode that disables IDFA/GAID and ad data collection
+> 4. **A/B testing** — test two paywalls or flows against each other, with no app update
+> 5. **Custom access levels** — set up multiple subscription tiers (e.g. `basic` vs `pro`) if different products unlock different features
+> 6. **Web paywalls** — set up web-based paywalls to accept payments outside the app stores
 
 For each item the user picks, fetch the relevant doc and implement it:
 
 | Feature | Doc slug(s) |
 |---|---|
-| Fallback paywalls | `flutter-use-fallback-paywalls` |
 | Custom user attributes | `flutter-setting-user-attributes` |
 | Onboardings | `flutter-get-onboardings`, `flutter-present-onboardings`, `flutter-handling-onboarding-events` |
 | Kids mode | `kids-mode-flutter` |

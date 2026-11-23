@@ -6,6 +6,7 @@
 #   OUT=/tmp/x shoot.sh draft.json scr_a                 # choose the output dir
 #   DEVICE=iphone-se-3 shoot.sh draft.json scr_a         # a short phone (375x667)
 #   DEVICE=google-pixel-9 shoot.sh draft.json scr_a      # a tall phone (412x924)
+#   DEVICE=iphone-duo ORIENTATION=landscape shoot.sh draft.json scr_a   # turned (default portrait)
 #   LOCALE=de shoot.sh draft.json scr_a                  # another language (the page draws one)
 #   CHROME=/path/to/browser shoot.sh draft.json scr_a    # any Chromium-based browser
 #   TIME_LIMIT=900 shoot.sh draft.json scr_a ...         # seconds before it stops (default 300)
@@ -48,8 +49,14 @@ TIME_LIMIT="${TIME_LIMIT:-300}"
 # A named device can be taller than the default frame (google-pixel-9 is 924pt), and a window
 # shorter than the frame crops it, so a device run gets a taller window.
 DEVICE="${DEVICE:-}"
-if [ -n "$DEVICE" ]; then WINDOW="${WINDOW:-520,1100}"; else WINDOW="${WINDOW:-520,900}"; fi
+# A landscape frame is wider than it is tall, so a turned run swaps the window.
+ORIENTATION="${ORIENTATION:-portrait}"
+case "$ORIENTATION" in portrait|landscape) ;; *) echo "shoot: ORIENTATION is portrait or landscape, not $ORIENTATION" >&2; exit 2 ;; esac
+if [ "$ORIENTATION" = landscape ]; then WINDOW="${WINDOW:-1100,700}"
+elif [ -n "$DEVICE" ]; then WINDOW="${WINDOW:-520,1100}"; else WINDOW="${WINDOW:-520,900}"; fi
 DEVFLAG="${DEVICE:+--device $DEVICE}"; DEVTAG="${DEVICE:+-$DEVICE}"
+ORIFLAG=""; ORITAG=""
+[ "$ORIENTATION" = landscape ] && { ORIFLAG="--orientation landscape"; ORITAG="-landscape"; }
 LOCALE="${LOCALE:-}"; LOCTAG="${LOCALE:+-$LOCALE}"
 [ -f "$CFG" ] || { echo "shoot: no such file: $CFG" >&2; exit 2; }
 mkdir -p "$OUT"
@@ -86,25 +93,30 @@ LINUX=0
 case "$(uname -s)" in Linux*) LINUX=1 ;; esac
 
 png_for() {  # $1 = screen id or __default__
-  if [ "$1" = "__default__" ]; then echo "$OUT/shot-$CFGSIG$LOCTAG$DEVTAG.png"
-  else echo "$OUT/shot-$CFGSIG-$1$LOCTAG$DEVTAG.png"; fi
+  if [ "$1" = "__default__" ]; then echo "$OUT/shot-$CFGSIG$LOCTAG$DEVTAG$ORITAG.png"
+  else echo "$OUT/shot-$CFGSIG-$1$LOCTAG$DEVTAG$ORITAG.png"; fi
 }
 
 [ -n "$SCREENS" ] || SCREENS="__default__"
 TOTAL=$(echo $SCREENS | wc -w | tr -d ' ')
+# `shots` is one path per line: a space-separated list split a folder path with spaces in it.
+NL='
+'
 shots=""; n=0; done_ids=""; CHILD=""
 
 # The strip, or the one image, and the line that says which. Called at the end and when stopped.
 finish() {  # $1 = exit code
+  local rc="${1:-0}" old_ifs="$IFS"
   if [ "$n" -eq 0 ]; then echo "shoot: nothing rendered" >&2; exit "${1:-1}"; fi
   if [ "$n" -eq 1 ]; then
-    echo; echo "LOOK AT:$shots"
+    echo; echo "LOOK AT: ${shots#"$NL"}"
   else
-    strip="$OUT/strip-$CFGSIG$LOCTAG$DEVTAG.png"
-    $PY "$HERE/montage.py" "$strip" $shots >/dev/null
+    strip="$OUT/strip-$CFGSIG$LOCTAG$DEVTAG$ORITAG.png"
+    IFS="$NL"; set -f; set -- ${shots#"$NL"}; set +f; IFS="$old_ifs"
+    $PY "$HERE/montage.py" "$strip" "$@" >/dev/null
     echo; echo "LOOK AT: $strip  ($n screens, left to right in the order given)"
   fi
-  exit "${1:-0}"
+  exit "$rc"
 }
 
 not_done() {
@@ -113,8 +125,8 @@ not_done() {
   echo "${left# }"
 }
 
-# A tool timeout or a Ctrl-C used to lose the whole batch: the finished PNGs stayed on disk, but
-# nothing said where. Now the run says what landed and what did not, and still makes the strip.
+# A tool timeout or a Ctrl-C must not lose the whole batch: the finished PNGs stay on disk, so
+# the run says what landed and what did not, and still makes the strip.
 on_signal() {
   trap - TERM INT HUP
   if [ -n "$CHILD" ]; then
@@ -139,8 +151,8 @@ collect_pw() {  # read the paths the script printed; a scroll view replaces its 
   while IFS= read -r line; do
     [ -s "$line" ] || continue
     case "$line" in
-      *-scroll.png) shots="${shots% $prev} $line"; prev="$line" ;;
-      *) shots="$shots $line"; prev="$line"; n=$((n+1)) ;;
+      *-scroll.png) shots="${shots%"$NL$prev"}$NL$line"; prev="$line" ;;
+      *) shots="$shots$NL$line"; prev="$line"; n=$((n+1)) ;;
     esac
   done < "$PWLIST"
   for s in $SCREENS; do
@@ -159,11 +171,12 @@ if [ "${PLAYWRIGHT:-1}" != 0 ] && command -v node >/dev/null 2>&1; then
     args=(--config "$ABS_CFG" --time-limit "$TIME_LIMIT")
     [ -n "$DEVICE" ] && args+=(--device "$DEVICE")
     [ -n "$LOCALE" ] && args+=(--locale "$LOCALE")
+    [ "$ORIENTATION" = landscape ] && args+=(--orientation landscape)
     if [ "$SCREENS" = "__default__" ]; then
       args+=(--out "$(png_for __default__)")
     else
       for s in $SCREENS; do args+=(--screen "$s"); done
-      args+=(--out "$OUT/shot-$CFGSIG-{screen}$LOCTAG$DEVTAG.png")
+      args+=(--out "$OUT/shot-$CFGSIG-{screen}$LOCTAG$DEVTAG$ORITAG.png")
     fi
     # In the background and waited on, so a signal reaches the trap above at once.
     ( cd "$PW_DIR" && exec node "$HERE/preview-with-playwright.mjs" "${args[@]}" ) > "$PWLIST" &
@@ -174,19 +187,26 @@ if [ "${PLAYWRIGHT:-1}" != 0 ] && command -v node >/dev/null 2>&1; then
     rm -f "$PWLIST"; PWLIST=""
     [ "$rc" = 2 ] && exit 2                       # a bad LOCALE or config; the script said why
     if [ "$n" -gt 0 ]; then
-      for s in $shots; do echo "   rendered -> $s"; done
+      printf '%s\n' "${shots#"$NL"}" | while IFS= read -r s; do echo "   rendered -> $s"; done
       [ "$rc" = 0 ] && finish 0
       echo "   not rendered: $(not_done) (the reason is above)" >&2
       finish 1
     fi
     # 3 is no browser that starts, 4 a page that never drew anything (it did not load, or did not
     # take the file): the URL route below is a different way into the same page, so try it. Any
-    # other failure is the page's own verdict on the request, which that route would only repeat.
+    # other failure is the page's own verdict on the request, which that route would only repeat;
+    # a code above 128 is a kill (a crash, out of memory), not a verdict, so it takes that route.
     case "$rc" in
       3|4) ;;
       0) echo "   the file-input script exited 0 but wrote no PNG: node did not run it as the main script" \
               "($HERE/preview-with-playwright.mjs)" >&2; exit 1 ;;
-      *) exit 1 ;;
+      *) if [ "$rc" -gt 128 ]; then
+           echo "   the file-input script was killed (exit $rc) before it wrote a PNG" >&2
+         else
+           echo "shoot: the file-input script failed (exit $rc) and rendered nothing; its own" \
+                "message, if it printed one, is above. PLAYWRIGHT=0 takes the URL route instead" >&2
+           exit 1
+         fi ;;
     esac
     echo "   the file-input route rendered nothing; trying the browser's own screenshot of the preview URL" >&2
   fi
@@ -333,8 +353,8 @@ probe_host() {  # $1 = any URL on the host
 }
 
 preview_url() {  # $1 = config, $2 = screen
-  if [ "$2" = "__default__" ]; then $ADAPTY_BIN flows config preview "$1" $DEVFLAG 2>&1
-  else $ADAPTY_BIN flows config preview "$1" --screen "$2" $DEVFLAG 2>&1; fi
+  if [ "$2" = "__default__" ]; then $ADAPTY_BIN flows config preview "$1" $DEVFLAG $ORIFLAG 2>&1
+  else $ADAPTY_BIN flows config preview "$1" --screen "$2" $DEVFLAG $ORIFLAG 2>&1; fi
 }
 
 i=0; failed_in_a_row=0
@@ -432,7 +452,7 @@ print((c.get("localization") or {}).get("defaultLocale") or "")' "$RCFG" 2>/dev/
     # made only of text -- the host probe above covers that one).
     if $PY "$HERE/render-measure.py" --sanity "$png" >/dev/null 2>&1; then
       echo "   rendered $s in $((SECONDS - t0))s -> $png"
-      shots="$shots $png"; n=$((n+1)); done_ids="$done_ids $s"
+      shots="$shots$NL$png"; n=$((n+1)); done_ids="$done_ids $s"
     elif [ "$host_ok" = 1 ]; then
       # The host ANSWERED, so this is not the offline error page. A sparse screen and a served
       # error page are not separable by pixels, so keep the file and say both things: renaming it
@@ -441,7 +461,7 @@ print((c.get("localization") or {}).get("defaultLocale") or "")' "$RCFG" 2>/dev/
       $PY "$HERE/render-measure.py" --sanity "$png" >&2
       echo "           The host answered, so this is NOT the offline error page. Either the" >&2
       echo "           screen really is this sparse, or the page served an error. LOOK AT IT." >&2
-      shots="$shots $png"; n=$((n+1)); done_ids="$done_ids $s"
+      shots="$shots$NL$png"; n=$((n+1)); done_ids="$done_ids $s"
     else
       bad="$OUT/NOT-A-RENDER-$(basename "$png")"
       mv "$png" "$bad"

@@ -45,9 +45,9 @@ Four jobs:
                   Rename a locale everywhere the document keys by it: the `locales` entry (its
                   `id`, and its `code` when that is the same string), `defaultLocale`, every
                   catalog and inline `values` map, and, in a `flows config get` envelope, each
-                  `remote_configs` entry. The repair for a code the SDK cannot match (`pt-br`
-                  publishes nothing; `pt-BR` does). It refuses a target already in the document
-                  and one that is not `language[-Script][-REGION]` with the SDK's casing.
+                  `remote_configs` entry. For a code the user wants changed (`pt` to `pt-BR`),
+                  never for casing alone: the publish writes every code in one casing. It refuses
+                  a target already in the document and one that is not `language[-Script][-REGION]`.
 
 Two semantics every edit has to keep:
   * `values` is keyed by locale ID (`localization.locales[].id`), not by language code. They are
@@ -59,7 +59,7 @@ Two semantics every edit has to keep:
 CLI:
     python3 localization.py catalog IN.json [--out OUT.json]    # default: rewrite IN in place
     python3 localization.py resolve IN.json                     # print the read view
-    python3 localization.py rename IN.json OLD NEW [--out OUT.json]   # e.g. pt-br pt-BR
+    python3 localization.py rename IN.json OLD NEW [--out OUT.json]   # e.g. pt pt-BR
 
 `rename` exits 2 and writes nothing when it refuses. When it renamed `remote_configs`, send them
 back with the config: `flows config update` takes them as `--remote-configs`.

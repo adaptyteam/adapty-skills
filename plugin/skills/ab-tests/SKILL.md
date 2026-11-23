@@ -42,7 +42,7 @@ It does not own:
 - **Bold the one thing that cannot be undone,** at most once per block.
 - **Be honest about scope:** say what you did not read (shared tests, a period of the results) and how the
   user can check.
-- Full, clickable links. Reply in the user's language; the dashboard's own words stay ("Modify" is
+- Full, clickable links. A docs page is read as its `.md` URL; the user gets the same URL without `.md`. Reply in the user's language; the dashboard's own words stay ("Modify" is
   `replace`).
 
 ## CLI or MCP
@@ -87,7 +87,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -114,11 +114,32 @@ Example of the question's shape, not words to copy:
 Resolve `$ADAPTY` once and use it for every call:
 
 ```bash
-adapty ab-tests --help >/dev/null 2>&1 && ADAPTY="adapty" || {
-  npm i -g adapty@latest >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
+if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
+  _a() { if [ -n "${HTTPS_PROXY-}${https_proxy-}" ]; then NODE_USE_ENV_PROXY=1 $ADAPTY "$@"; else $ADAPTY "$@"; fi; }
+  _v() { _a --version 2>/dev/null | sed -n 's|^adapty/\([^ ]*\).*|\1|p'; }
+  command -v adapty >/dev/null 2>&1 || { npm i -g adapty@latest >/dev/null 2>&1 \
+    && command -v adapty >/dev/null 2>&1; } || { echo npx; exit; }
+  J=$(_a version --json 2>/dev/null) && printf '%s' "$J" | node -e 'let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => { try { const j = JSON.parse(s);
+      if (j && typeof j.installed == "string" && (j.latest === null || typeof j.latest == "string")
+        && typeof j.update_available == "boolean") process.exit(j.update_available ? 1 : 0);
+    } catch (e) {} process.exit(1); });' && exit
+  old=$(_v); npm i -g adapty@latest >/dev/null 2>&1 || { echo npx; exit; }
+  new=$(_v); [ -n "$new" ] || { echo npx; exit; }
+  [ "$new" != "$old" ] && echo "CLI updated from $old to $new." || echo "Could not update the CLI: still $new."
+); [ "$VMSG" = npx ] && ADAPTY="npx --yes adapty@latest" \
+  && VMSG="Could not install or update the CLI globally, so I run it through npx."
+if [ -n "$VMSG" ]; then echo "$VMSG"; fi; fi
 ```
 
-Older CLI releases have no `ab-tests` commands. If `$ADAPTY ab-tests --help` still
+**Run this block as its own command, right after the readiness check `adapty auth whoami` and
+before any other CLI command.** Copy it as it is: it runs `$ADAPTY version --json` and updates a
+CLI that is behind or too old to have that command. If it prints a line, your reply to the user
+starts with that line, in their language, with nothing added. Say nothing else about the CLI
+version: no "up to date", no version number. A new shell does not keep `$ADAPTY`: set it again, to
+`npx --yes adapty@latest` after the npx line, else to `adapty`.
+
+Then probe `$ADAPTY ab-tests --help`; older CLI releases have no `ab-tests` commands. If it
 reports no such topic, try `npx --yes adapty@beta ab-tests --help` once; if that fails too, tell
 the user their CLI has no `ab-tests` commands yet and the test is made in the dashboard (link
 above). Do not compare version numbers. `--yes` on `npx` is required: without it `npx` waits for a
@@ -126,8 +147,7 @@ confirmation nobody gives. In `zsh`, run `setopt shwordsplit` before using a mul
 Write a literal `adapty` in a command you show the user.
 
 **The results commands** (`ab-tests metrics`) need a newer CLI than the life commands. Before you
-read a result, run `$ADAPTY ab-tests metrics --help`. If it reports no such topic: when `$ADAPTY` is
-an installed `adapty`, run `npm i -g adapty@latest` once and probe again; then try
+read a result, run `$ADAPTY ab-tests metrics --help`. If it reports no such topic, try
 `npx --yes adapty@beta ab-tests metrics --help` once (use that form for the reads if it works). If
 every probe fails, say the user's CLI has no A/B results commands yet and the results are in the
 dashboard (https://adapty.io/docs/results-and-metrics.md), and read no numbers. Do not compare
@@ -151,7 +171,7 @@ Every command takes `--app <id>`, the **Adapty** app UUID from `$ADAPTY apps lis
 | `ab-tests replace <id>` | `--title`, `--goal`, `--placement` (required), exactly one of `--paywalls` / `--flows` with the same number of arms as the live test, `--yes`; no audience flag |
 | `ab-tests archive <id>` | `--yes` (an archived test cannot be archived again) |
 | `flows get <id>` | `status`: `draft`, `dirty`, `publishing`, `published` or `publication_failed` (`flows list` may leave it out) |
-| `paywalls create` | `--title`, `--product-id <id>` once per product; a paywall with no design of its own |
+| `paywalls create` | `--title`, `--products '[{"product_id":"<id>"}, …]'` in display order; a paywall with no design of its own |
 | `placements create` | `--title`, `--developer-id`, `--audiences '<json>'` ("A new placement") |
 
 Arms are a JSON array: `[{"paywall_id":"<id>","weight":50,"title":"A"}, …]`, or the same with
@@ -295,8 +315,8 @@ placement has no users until that release is out.
      not usable; the flow goes back to `flow-generator`.
    - **A paywall arm that does not exist yet,** when it differs only in its products: take the
      product ids from `products list --page-size 100 --json`, only products the user named, then on
-     their yes run `paywalls create --app <app> --title "<title>" --product-id <id> [--product-id
-     <id> …] --json`. No user sees it until the test starts. A new product is made in the store
+     their yes run `paywalls create --app <app> --title "<title>" --products
+     '[{"product_id":"<id>"}, …]' --json`. No user sees it until the test starts. A new product is made in the store
      first, then added to Adapty: say so and wait. A paywall with a new design is the user's to
      make in the dashboard or the app's code: say which and wait. A custom paywall arm (no Paywall
      Builder design) also needs the app to log each view, or the test has no view counts: route that

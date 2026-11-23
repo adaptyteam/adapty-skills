@@ -214,6 +214,17 @@ case('where: proposes a path under the repo root when neither the repo root '
 case('where: an absent folder is reported as proposed, not existing',
      _where_lines[1], 'proposed — ask before writing')
 
+# A project in a git worktree or a submodule has a `.git` FILE, not a folder. Its root is still
+# the repo root: the proposal goes there, not to $HOME.
+_worktree = os.path.realpath(tempfile.mkdtemp(prefix='snippet-worktree-'))
+with open(os.path.join(_worktree, '.git'), 'w') as _fh:
+    _fh.write('gitdir: /elsewhere/.git/worktrees/x\n')
+os.makedirs(os.path.join(_worktree, 'src'))
+rc_w, out_w, _ew = run_where(tempfile.mkdtemp(prefix='snippet-home-worktree-'),
+                             cwd=os.path.join(_worktree, 'src'))
+case('where: a `.git` file (a worktree or a submodule) marks the repo root',
+     out_w.splitlines()[0], os.path.join(_worktree, 'adapty-flow-snippets'))
+
 # The precedence case the real failure exposed and nothing covered: an EXISTING
 # $HOME/adapty-flow-snippets/ wins over a repo root that has none -- the
 # documented rule ("An existing folder wins: repo root, then $HOME").
@@ -311,9 +322,9 @@ p3a, _s3a, _ = extract(COMP, '--screen', COMP_S0, 'Comparison table any-app',
                        extra=('--scope', 'any-app'))
 _rc2a, pl2a = plan_json(QUIZ, p3a, QUIZ_S0)
 font_asks = [n for n in pl2a['needs'] if "font library" in n['text']]
-case('theme: an any-app carried font raises one ? ask per carried font',
+case('theme: an any-app carried font raises one ! ask per carried font (it blocks publishing)',
      (len(font_asks), {n['level'] for n in font_asks}),
-     (len(pl2a['carry']['fonts']), {'?'}))
+     (len(pl2a['carry']['fonts']), {'!'}))
 
 # Same flow, same theme: nothing to adopt, nothing to carry.
 _rc3, pl3 = plan_json(QUIZ, p, QUIZ_S0)
@@ -2004,6 +2015,32 @@ _wslong_line = next(l for l in _wslong_report.splitlines() if l.strip().startswi
 case('willsay: a single over-cap line is truncated to 72 chars in the actual '
      'rendered report (end-to-end, not just the helper)',
      len(_wslong_line.strip()), 72)
+
+# A copy INSIDE one flow (snippets.md: "A copy inside one flow is in scope too"): a header onto
+# another screen of the same flow, and a second copy of a whole screen. Both land with fresh ids
+# and pass the checker with no error of their own.
+_ML = os.path.join(CORPUS, 'onboarding-multilocale.json')
+_ml_base = subprocess.run([sys.executable, VERIFY, _ML], capture_output=True, text=True).stdout
+_hp, _, _ = extract(_ML, '--element', 'el_006S@scr_welcome', 'Same-flow header')
+_hout, _, _, _hv = graft(_ML, _hp, 'scr_values', 'same-flow-header')
+_hdoc = json.load(open(_hout))
+_hdoc = _hdoc.get('config', _hdoc)
+_hvals = next(x for x in _hdoc['screens'] if x['id'] == 'scr_values')
+case('same flow: a copied header lands on the other screen under fresh ids',
+     'el_006S' in _hvals['elements']['map'], False)
+case('same flow: the copied header adds no checker error',
+     sorted(set(error_lines(_hv)) - set(error_lines(_ml_base))), [])
+_sp, _, _ = extract(_ML, '--screen', 'scr_values', 'Same-flow screen')
+_sout = os.path.join(TMP, 'grafted-same-flow-screen.json')
+run('graft', '--config', _ML, '--snippet', _sp, '--out', _sout)
+_sdoc = json.load(open(_sout))
+_sdoc = _sdoc.get('config', _sdoc)
+case('same flow: a copied screen gets a fresh screen id beside the original',
+     [x['id'] for x in _sdoc['screens'] if x['id'].startswith('scr_values')],
+     ['scr_values', 'scr_values_2'])
+_sv = subprocess.run([sys.executable, VERIFY, _sout], capture_output=True, text=True).stdout
+case('same flow: the copied screen adds no checker error',
+     sorted(set(error_lines(_sv)) - set(error_lines(_ml_base))), [])
 
 if fails:
     print(f'\n{len(fails)} FAILED')

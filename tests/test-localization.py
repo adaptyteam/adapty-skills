@@ -173,7 +173,14 @@ d = copy.deepcopy(multi)
 d['locales'] = d['localization'].pop('locales')
 d['defaultLocale'] = d['localization'].pop('defaultLocale')
 del d['localization']
-fires('a pre-catalog document is refused, with the way through', d, 'pre-catalog document')
+fires('a pre-catalog document stamped 13 is an error, with the way through', d, 'pre-catalog document')
+check('...which names the legacy warning, never a refusal',
+      'legacy_localization_format' in verify(d) and 'refuses' not in verify(d))
+d13 = copy.deepcopy(d)
+d13['schemaVersion'] = L.SCHEMA_VERSION
+check('...and routes a 13-stamped document to localization.py catalog, not the builder',
+      any('pre-catalog' in l and 'localization.py catalog' in l for l in verify(d13).splitlines()),
+      verify(d13)[-400:])
 # The same inline shape under a version that predates the catalog is the format that version
 # declares: validate passes it and it publishes. A warning to convert before editing, no error.
 d_old = copy.deepcopy(d)
@@ -185,7 +192,7 @@ check('an older-version inline document raises no catalog error',
       verify(d_old)[-400:])
 d_none = copy.deepcopy(d)
 d_none.pop('schemaVersion', None)
-fires('an inline document with no schemaVersion is still refused', d_none, 'pre-catalog document')
+fires('an inline document with no schemaVersion is still an error', d_none, 'pre-catalog document')
 
 # `config update` echoes the legacy top-level fields back on every saved document: an empty
 # `locales` and the catalog's own default. The transform service ignores both, so that shape is
@@ -282,7 +289,7 @@ d['localization']['content'][url_entries(d)[0]['_lid']]['values'] = {
     'en': [{'type': 'text', 'text': 'https://x/'}, {'type': 'text', 'text': 'terms'}]}
 check('text nodes are an address', 'openUrl' not in verify(d) and 'address' not in verify(d))
 
-print('\nrename_locale(): the repair for a code the SDK cannot match')
+print('\nrename_locale(): rename a locale everywhere it is keyed')
 # A real multi-locale export with a lowercase-region locale added the way a dashboard language
 # list has served it: declared, translated in a few entries, and the default of nothing.
 pt = copy.deepcopy(multi)

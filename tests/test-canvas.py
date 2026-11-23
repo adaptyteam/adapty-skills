@@ -96,6 +96,14 @@ sc, ed, bd, un, br = graph(d)
 check('navigateNext draws an arrow to the next screen', ('a', 'b') in ed)
 check('a timer end draws an arrow labelled "after timer"', ed.get(('b', 'c'), {}).get('labels') == ['after timer'])
 check('a target that does not exist still draws (to a missing screen)', ('c', 'nowhere') in ed)
+delayed = dict(nav('b'), payload={'type': 'screen', 'screen': 'b', 'transition': {
+    'type': 'push', 'direction': 'left', 'easing': 'ease-out', 'duration': 350, 'delay': 2500}})
+sc2, ed2, *_ = graph({'screens': [screen('a', button('h', [delayed], trigger='screen-appear')),
+                                  screen('b', button('h2', [nav('a')], trigger='screen-appear'))]})
+check('an On Appear navigate with a delay reads "after 2.5 s"',
+      ed2.get(('a', 'b'), {}).get('labels') == ['after 2.5 s'])
+check('an On Appear navigate with no delay reads "on appear"',
+      ed2.get(('b', 'a'), {}).get('labels') == ['on appear'])
 check('a screen nothing leads to is flagged', {'d', 'e'} <= un)
 text = canvas.as_text(sc, ed, bd, un, br)
 block_e = text[text.index('▢ e'):]

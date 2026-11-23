@@ -221,6 +221,67 @@ def main():
           fk.screen_transition('push', direction='up')['direction'] == 'up')
     check('none carries only its type',
           fk.navigate('s', transition='none')['payload']['transition'] == {'type': 'none'})
+    # On Appear: auto-advance is a navigate whose transition delay is the wait, a delayed
+    # reveal a Show with an animation delay; both ride one screen-appear interaction.
+    hint = fk.stack([fk.text('X', preset='h2')], visibility=fk.hidden(), actions=[fk.close()],
+                    node_id='el_hint')
+    appear_scr = fk.screen('scr_wait', [fk.text('Wait', preset='h2'), hint],
+                           on_appear=fk.on_appear(fk.auto_advance('scr_next', 3000),
+                                                  fk.show_elements(['el_hint'], animation='fade')))
+    first = appear_scr['elements']['map'][appear_scr['elements']['hierarchy']['children'][0]['id']]
+    inter = (first.get('interactions') or [{}])[-1]
+    check('on_appear goes on the first root element as a screen-appear interaction',
+          inter.get('trigger') == 'screen-appear' and len(inter.get('actions', [])) == 2, str(inter))
+    check('auto_advance waits in the transition delay',
+          fk.auto_advance('s', 2500)['payload']['transition']
+          == {'type': 'push', 'direction': 'left', 'easing': 'ease-out', 'duration': 350,
+              'delay': 2500})
+    check('show_elements(animation=kind) writes the builder defaults',
+          fk.show_elements(['el_a'], animation='rise')['payload']['animation']
+          == {'type': 'rise', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'distance': 32})
+    check('a delay alone is the none kind, with the duration and easing the schema requires',
+          fk.element_animation('none', delay=5000)
+          == {'type': 'none', 'duration': 300, 'delay': 5000, 'easing': 'ease-out'})
+    fixed = {'id': 'b', 'props': {'width': {'type': 'fixed', 'value': 300},
+                                  'height': {'type': 'fixed', 'value': 56}}}
+    check('animate() puts a wave on a fixed element',
+          fk.animate(fixed, 'wave-fill')['props']['animation']['waveColor']
+          == {'type': 'hex', 'hex': '#9751F2'})
+    check('loop_animation() takes a wave pulseScaleAmount',
+          fk.loop_animation('wave-outline', pulseScaleAmount=3)['pulseScaleAmount'] == 3)
+    for why, call in (
+            ('auto_advance over 5000 ms moves on at once', lambda: fk.auto_advance('s', 5001)),
+            ('auto_advance of 0 ms is no wait', lambda: fk.auto_advance('s', 0)),
+            ('auto_advance with none has no delay',
+             lambda: fk.auto_advance('s', 1000, transition='none')),
+            ('an unknown element animation', lambda: fk.element_animation('slide')),
+            ('a pop scale of 1', lambda: fk.element_animation('pop', scale=1)),
+            ('an element delay over 60000 ms', lambda: fk.element_animation('fade', delay=60001)),
+            ('a rise takes no scale', lambda: fk.element_animation('rise', scale=0.5)),
+            ('none takes no distance', lambda: fk.element_animation('none', distance=10)),
+            ('a pop scale under 0.1', lambda: fk.element_animation('pop', scale=0.05)),
+            ('a rise distance over 200', lambda: fk.element_animation('rise', distance=201)),
+            ('a rise distance of 0', lambda: fk.element_animation('rise', distance=0)),
+            ('an unknown loop animation', lambda: fk.loop_animation('sparkle')),
+            ('a pulse takes no waveColor', lambda: fk.loop_animation('pulse', waveColor='#FFFFFF')),
+            ('a breathe over 100 %', lambda: fk.loop_animation('breathe', fadeAmount=120)),
+            ('a loop easing it lacks', lambda: fk.loop_animation('glow', easing='spring')),
+            ('a 3-digit glow colour', lambda: fk.loop_animation('glow', glowColor='#FFF')),
+            ('a wave on Fill x Hug', lambda: fk.animate(
+                {'id': 'b', 'props': {'width': {'type': 'fill'}, 'height': {'type': 'hug'}}},
+                'wave-fill')),
+            ('a shimmer on no fill', lambda: fk.animate(
+                {'id': 'b', 'props': {}}, 'shimmer')),
+            ('a shimmer on a theme colour whose dark differs', lambda: fk.animate(
+                {'id': 'b', 'props': {'fill': [{'type': 'color', 'color': fk.color('c')}]}},
+                'shimmer', theme={'colors': [{'id': 'c', 'light': {'hex': '#adbfad'},
+                                              'dark': {'hex': '#ADBFAD'}}]})),
+            ('an empty on_appear', lambda: fk.on_appear())):
+        try:
+            call()
+            check(f'refused: {why}', False)
+        except (ValueError, TypeError):
+            check(f'refused: {why}', True)
     for why, call in (
             ('unknown kind', lambda: fk.navigate('s', transition='slide')),
             ('fadeThrough has no direction',
@@ -448,10 +509,10 @@ def main():
         check(f'image_fill takes no colour ({next(iter(kw))}=)',
               raises(lambda: fk.image_fill(HERO, preview=fk.NO_PREVIEW, **kw), TypeError))
 
-    # video() — `flows media upload` REFUSES a clip (permitted formats are JPEG/JPEG2000/WEBP/
-    # PNG/SVG), so the only correct artifact is a styled element with NO source plus a spoken
-    # "open the builder and upload it". Before this helper there was no way to emit one from
-    # this module, so a video was hand-assembled or, worse, faked with a stack and a Play icon.
+    # video() — a clip goes up with `flows media upload-video`, and its `--json` record is the
+    # only way a source gets in (`source=`); with no record the artifact is a styled element
+    # with NO source plus a spoken "open the builder and upload it". Before this helper a video
+    # was hand-assembled or, worse, faked with a stack and a Play icon.
     vid = fk.video(fixed_h=220, corner=fk.radius(16), margin=fk.pad(0, 0, 0, 16))
     check('video emits the element type, not a stack lookalike', vid['type'] == 'video')
     check('video carries NO source key at all',
@@ -488,11 +549,69 @@ def main():
             fk.video(fixed_h=200, **{arg: 'https://cdn/x.mp4'})
             return False
         except TypeError as e:
-            return 'takes no source' in str(e) and 'upload the clip' in str(e)
+            return 'takes no source by URL' in str(e) and 'upload-video' in str(e)
 
-    for arg in ('url', 'video', 'media_id', 'customMediaID', 'videoUrl'):
-        check(f'video refuses a fabricated source by name, and says why ({arg})',
+    for arg in ('url', 'video', 'media_id', 'customMediaID', 'videoUrl', 'previewUrl'):
+        check(f'video refuses a bare URL by name, and says why ({arg})',
               refuses_source(arg))
+
+    # source= takes the record `flows media upload-video --json` wrote: its path, its dict
+    # (snake case), or a video value read out of a config (camel case). It binds the flow
+    # config value `{videoUrl, previewUrl, width, height}` for the default locale only.
+    REC = {'video_url': 'https://media.example/video/1/hls/master.m3u8',
+           'preview_url': 'https://media.example/video/1/preview.jpg',
+           'preview_base64': 'UklGRg==', 'width': 1080, 'height': 1920}
+    WANT = {'videoUrl': REC['video_url'], 'previewUrl': REC['preview_url'],
+            'width': 1080, 'height': 1920}
+    bound = fk.video(fixed_h=220, source=REC)
+    check('video(source=record) binds the config value for the default locale',
+          bound['props'].get('video') == {'values': {'en': WANT}, '_localizable': True},
+          bound['props'].get('video'))
+    check('video(source=...) keeps the upload preview_base64 out of the value',
+          'preview_base64' not in json.dumps(bound['props']['video']))
+    check('video(source=...) keeps the fixed height', bound['props']['height']
+          == {'type': 'fixed', 'value': 220})
+    def names_upload_video(fn):
+        try:
+            fn()
+            return False
+        except TypeError as e:
+            return 'upload-video' in str(e)
+
+    with tempfile.TemporaryDirectory() as _tmp:
+        _rec = os.path.join(_tmp, 'intro.json')
+        with open(_rec, 'w') as _fh:
+            json.dump(REC, _fh)
+        from_file = fk.video(fixed_h=220, source=_rec, locale='de')
+        check('video(source=<path>) reads the record file', from_file['props']['video']
+              == {'values': {'de': WANT}, '_localizable': True})
+        check('video(source=<unreadable path>) raises and names the command',
+              names_upload_video(
+                  lambda: fk.video(fixed_h=220, source=os.path.join(_tmp, 'nope.json'))))
+    check('video(source=config value) takes the camel-case value as read',
+          fk.video(fixed_h=220, source=dict(WANT))['props']['video']['values']['en'] == WANT)
+    check('video(source=...) without width and height binds the two URLs only',
+          fk.video(fixed_h=220, source={'video_url': REC['video_url'],
+                                        'preview_url': REC['preview_url']}
+                   )['props']['video']['values']['en']
+          == {'videoUrl': REC['video_url'], 'previewUrl': REC['preview_url']})
+    dark = fk.video(fixed_h=220, source=REC, dark_source=dict(REC, video_url=REC['video_url']
+                                                               .replace('/1/', '/2/')))
+    check('video(dark_source=...) binds videoDark beside video',
+          dark['props']['videoDark']['values']['en']['videoUrl'].endswith('/2/hls/master.m3u8'))
+    check('video(dark_source=...) with no source raises',
+          raises(lambda: fk.video(fixed_h=220, dark_source=REC), TypeError))
+    for name, bad in (('no preview_url', {'video_url': REC['video_url']}),
+                      ('no video_url', {'preview_url': REC['preview_url']}),
+                      ('a non-https url', dict(REC, video_url='clip.mp4')),
+                      ('not a dict', ['x'])):
+        check(f'video(source=...) refuses a record with {name}, naming the command',
+              names_upload_video(lambda bad=bad: fk.video(fixed_h=220, source=bad)))
+    check('video(source=...) refuses width without height',
+          raises(lambda: fk.video(fixed_h=220, source={k: v for k, v in REC.items()
+                                                       if k != 'height'}), ValueError))
+    check('video(source=...) refuses a non-int width',
+          raises(lambda: fk.video(fixed_h=220, source=dict(REC, width='1080')), TypeError))
     check('video enforces the same two-value objectFit enum',
           raises(lambda: fk.video(fixed_h=200, fit='contain'), ValueError))
     # `IVideoElementProps` has no `fill`, no `align` and no `layout` — placement is the parent's
@@ -500,6 +619,35 @@ def main():
     # silently land in props.
     check('video takes no fill (the schema has none)',
           raises(lambda: fk.video(fixed_h=200, fill_=fk.fill('bg')), TypeError))
+
+    # custom_element: a box the app fills; its children are the fallback. Messages are asserted
+    # because `actions` would otherwise land in _node and pass silently.
+    still = lambda: fk.image(fk.PLACEHOLDER, fixed_h=200, fit='fit')
+    ce = fk.custom_element('lottie_animation', 'streak_ring', fixed_h=200, clip=True,
+                           fallback=[still()])
+    check('custom_element emits the builder type with Type and ID in base props',
+          ce['type'] == 'custom-element' and ce['props']['customType'] == 'lottie_animation'
+          and ce['props']['customElementId'] == 'streak_ring')
+    check('custom_element holds a fixed height and clipContent in its layout',
+          ce['props']['height'] == {'type': 'fixed', 'value': 200}
+          and ce['props']['layout']['clipContent'] is True)
+    check('custom_element carries its fallback as children and no interactions',
+          len(ce['_children']) == 1 and 'interactions' not in ce)
+    check('custom_element refuses a Type outside [a-z0-9_]',
+          'lowercase' in _message(lambda: fk.custom_element('Lottie-Anim', 'x', fixed_h=200,
+                                                            fallback=[still()])))
+    check('custom_element refuses a hug box',
+          'collapses' in _message(lambda: fk.custom_element('map', 'x', fixed_h=None,
+                                                            fallback=[still()]), TypeError))
+    check('custom_element refuses an empty fallback',
+          'empty box' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200,
+                                                            fallback=[])))
+    check('custom_element refuses actions, and says the button goes outside',
+          'outside the box' in _message(lambda: fk.custom_element(
+              'map', 'x', fixed_h=200, fallback=[still()], actions=[fk.close()]), TypeError))
+    check('custom_element refuses a fixed fallback child at any depth',
+          'never fixed' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200, fallback=[
+              fk.stack([fk.stack([], position={'type': 'fixed', 'top': 0})])])))
 
     spread_stack = fk.stack([], distribution='space-evenly')
     check('stack passes distribution through',
@@ -572,6 +720,26 @@ def main():
           and all('attrs' in n for n in nodes if n.get('type') == 'text'))
     check('an unknown timer unit raises rather than emitting a bare token',
           raises(lambda: fk.timer_digits(units=('hours', 'mins'))))
+
+    # timer_total_hours is every hour left (72 for 3 days); timer_hours wraps at 24, so a
+    # countdown of a day or more shown as hours of the day starts at 00:00:00.
+    total = fk.timer_digits(units=('total_hours', 'minutes', 'seconds'))
+    check('total_hours emits the timer_total_hours token',
+          [n['attrs']['token'] for n in total['props']['content']['values']['en'][0]['content']
+           if n.get('type') == 'token'] == ['timer_total_hours', 'timer_minutes', 'timer_seconds'])
+    check('total_hours with days or hours raises: it already counts the days',
+          raises(lambda: fk.timer_digits(units=('days', 'total_hours', 'minutes')))
+          and raises(lambda: fk.timer_digits(units=('total_hours', 'hours'))))
+    check('a 72-hour countdown with total_hours builds',
+          fk.timer([total], hours=72)['props']['duration']['hours'] == 72)
+    check('a countdown of a day or more showing hours without days raises',
+          raises(lambda: fk.timer([digits], days=3))
+          and raises(lambda: fk.timer([digits], hours=48)))
+    check('the same countdown with days shown builds',
+          fk.timer([fk.timer_digits(units=('days', 'hours', 'minutes'))], days=3)['type'] == 'timer')
+    check('a countdown under a day showing hours builds',
+          fk.timer([digits], hours=23, minutes=59)['type'] == 'timer')
+    check('hours above 999 raise', raises(lambda: fk.timer([total], hours=1000)))
 
     # SUPERSEDED 2026-09-01: this block used to build the delay timer CHILDLESS and assert
     # that "a delay timer with no digit child draws nothing, which is the invisible-delay
@@ -743,11 +911,22 @@ def main():
 
     # --- conditions, actions and tabs: the three transformer refusals flowkit could not
     # express before 2026-08-28. Each raise below is a hard 422 made unrepresentable.
-    check('when() builds the third visibility form',
+    check('when() builds the third visibility form, a single predicate in an && group '
+          '(the shape every real export carries and the builder edits)',
           fk.when(fk.not_empty(fk.ref('email.value')))
           == {'type': 'conditional',
-              'condition': {'type': 'notEmpty',
-                            'left': {'type': 'var', 'variableId': 'email.value'}}})
+              'condition': {'type': '&&', 'predicates': [
+                  {'type': 'notEmpty', 'left': {'type': 'var', 'variableId': 'email.value'}}]}})
+    _any = fk.any_(fk.eq(fk.ref('a'), 1), fk.eq(fk.ref('b'), 2))
+    check('when() keeps a group as it is', fk.when(_any)['condition'] == _any)
+    _ca = fk.conditional_action([(fk.eq(fk.ref('a'), 1), [])])
+    check('conditional_action() groups a bare case predicate',
+          _ca['payload']['cases'][0][0]['type'] == '&&')
+    _es = fk.eq({'type': 'elementState', 'elementId': 'el_next'}, 'st_locked')
+    check('an elementState operand is accepted (the service compiles it)',
+          fk.when(_es)['condition']['predicates'][0] == _es)
+    check('an elementState with no elementId is refused',
+          raises(lambda: fk.when(fk.eq({'type': 'elementState'}, 'default'))))
     check('a comparison auto-wraps a bare value as a const, which is what the walker wants',
           fk.eq(fk.ref('g.selectedOptionId'), 'gold')['right']
           == {'type': 'const', 'value': 'gold'})
@@ -911,7 +1090,7 @@ def main():
         return fk.config(screens=[fk.screen('scr_a', kids)])
 
     check('config() accepts a condition variable an input produces', _cfg('email.value')['screens'])
-    check('config() refuses a condition variable nothing produces (TS2304 before this)',
+    check('config() refuses a condition variable nothing produces (the publish refuses it with unknown_variable_ref)',
           raises(lambda: _cfg('emial.value')))
 
     # --- the input family. `custom_id` is the producer for `<id>.value`, which is what every
@@ -1078,10 +1257,10 @@ def main():
     check('switch_rich checks the condition against the service walker',
           raises(lambda: fk.switch_rich([({'type': 'assign'}, 'x')], default='y')))
 
-    # An unresolved variable in a conditional-text switch is COMPILED, so it is fatal —
-    # measured against the live service: valid:false, "Generated scripts failed validation",
-    # code and path both null. A `variable` SPAN in the same prop is not: it renders its
-    # literal token and publishes. Both directions, because the span must NOT be flagged.
+    # An unresolved variable in a conditional-text switch is refused by the publish
+    # (unknown_variable_ref), so config() refuses it first. A `variable` SPAN in the same prop is
+    # refused by the publish too, but config() does not check spans. Both directions, so the
+    # check stays on the switch only.
     def _doc(content_prop):
         t = fk.text(fk.rich('x'), preset='body', color_id='ink')
         t['props']['content'] = content_prop
@@ -1097,7 +1276,7 @@ def main():
     check('config() refuses a conditional-text switch naming nothing (hard 422 otherwise)',
           raises(_doc(fk.switch_rich(
               [(fk.eq(fk.ref('nosuch.selectedOptionId'), 'a'), 'A')], default='B'))))
-    check('...and still leaves a plain variable SPAN alone — it renders, it does not compile',
+    check('...and still leaves a plain variable SPAN alone — this check reads only the switch',
           _doc(fk.rich('Hi ', fk.Var('nosuch.value')))() is not None)
 
     # --- a timer that fires must have a child. Device-measured 2026-09-01 over three trips:
@@ -1727,6 +1906,30 @@ def main():
         check('a document with no screens is refused', raises(lambda: fk.ids_after({'a': 1})))
     finally:
         fk._ids = _old_ids
+
+    # --- a hero that runs under the status bar: ignoreSafeArea on the first in-flow element ---
+    check('relative(bleed=True) sets ignoreSafeArea',
+          fk.relative(bleed=True) == {'type': 'relative', 'ignoreSafeArea': True})
+    check('relative() leaves it out', 'ignoreSafeArea' not in fk.relative())
+    _x = lambda: fk.stack([], position=fk.absolute(top=12, right=16))
+    _hero = lambda: fk.stack([], height='fill', position=fk.relative(bleed=True))
+    check('the first in-flow element may bleed, behind an absolute X listed first',
+          not raises(lambda: fk.screen('scr_b', [_x(), _hero(), fk.stack([])], safe_area=True)))
+    check('a later in-flow element may not',
+          raises(lambda: fk.screen('scr_b', [fk.stack([]), _hero()], safe_area=True)))
+    check('a nested element may not',
+          raises(lambda: fk.screen('scr_b', [fk.stack([_hero()])], safe_area=True)))
+
+    # --- text that fits its box: autoShrink inside a line limit ---
+    _fit = fk.text('Plan', max_lines=1, auto_shrink=True)['props']
+    check('text(max_lines=1, auto_shrink=True) writes both',
+          _fit.get('maxLines') == 1 and _fit.get('autoShrink') is True, str(_fit))
+    _plain_t = fk.text('Plan')['props']
+    check('text() leaves both out', 'maxLines' not in _plain_t and 'autoShrink' not in _plain_t)
+    check('auto_shrink without max_lines is refused, saying why',
+          'needs max_lines' in _message(lambda: fk.text('Plan', auto_shrink=True)))
+    check('max_lines=0 is refused', raises(lambda: fk.text('Plan', max_lines=0)))
+    check('max_lines=True is refused', raises(lambda: fk.text('Plan', max_lines=True)))
 
     print()
     if FAILURES:

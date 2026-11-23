@@ -59,7 +59,7 @@ the Play equivalents) and a fix shape.
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
 | `no-restore` — the flow sells (binds a product, or carries a `purchase` action) but has no `restorePurchases` action anywhere | blocker | App Store 3.1.1 requires a restore path | **fires**: 3 of 4 real selling flows measured, including one whose copy literally says "Restore purchase". **silent**: any flow once a `restorePurchases` action exists anywhere (calibrated by injection) |
-| `no-terms-link` / `no-privacy-link` — a selling flow has no `openUrl` action whose URL tokenizes to a terms/EULA or privacy vocabulary word. The URL is a catalog entry and is read in the default locale; reading the stored `{_lid}` ref instead finds no URL at all and fires both checks on a paywall that has both links | blocker (no `openUrl` at all) or question (an `openUrl` exists but no URL matches) | App Store 3.1.2 requires both links on a subscription screen | **fires as blocker**: `openUrl` occurs in **none** of the 5 live flows measured, so no flow there ships a working legal link. **silent**: `tabs-paywall.json` (real `/terms` and `/privacy` URLs) |
+| `no-terms-link` / `no-privacy-link` — a selling flow has no `openUrl` action whose URL tokenizes to a terms/EULA or privacy vocabulary word (`privacy` also inside a run-together segment, `/privacypolicy`), or whose button's own text names it ("Privacy Policy", "Terms of Use"); a label never makes a link absent. The URL is a catalog entry and is read in the default locale; reading the stored `{_lid}` ref instead finds no URL at all and fires both checks on a paywall that has both links | blocker (no `openUrl` at all) or question (an `openUrl` exists but no URL matches) | App Store 3.1.2 requires both links on a subscription screen | **fires as blocker**: `openUrl` occurs in **none** of the 5 live flows measured, so no flow there ships a working legal link. **silent**: `tabs-paywall.json` (real `/terms` and `/privacy` URLs) |
 | `no-escape-from-paywall` — a selling screen has no `closeFlow`/`navigateBack` reachable via the navigation graph (`navigate`/`navigateNext` edges) | blocker | a user who does not buy must be able to leave | **fires**: one live paywall (only action is `purchase`); silent on `tabs-paywall.json` and the other 3 live paywalls, each with one escape reachable |
 | `no-escape-in-flow` — no `closeFlow`/`navigateBack` anywhere in the flow at all, on ANY flow (selling or not) | question | may be legitimate if the host app presents the flow modally with a system dismiss | fires on `d1faba75` (3 screens, no dismissal anywhere) and on `timeline-anchored.json` (1 screen, zero actions of any kind — a true positive on a non-selling flow with genuinely no way off); silent once a `closeFlow`/`navigateBack` exists anywhere, selling or not |
 
@@ -83,7 +83,7 @@ it is comparing the config against the dashboard, not against itself.
 | `offer-not-on-product` — a bound `offerId` (card, `const` purchase, screen registry, `_meta` declaration, product ref, or a monthly entry's `fallbackOfferId`) is not the `id` of one of that product's offers in `product-offers list` | blocker | the builder refuses the publish, and `flows config validate` passes it (a store code, an unknown offer id and another product's offer, measured on adapty 0.15.0) | **silent** on 15 live flows of a real app (5 bind offers) and on every fixture (none binds one); **fires** on a store code, an unknown offer UUID and another product's offer, each injected into a live flow. Dedups per (product, offer); a product missing from the catalog is left to `product-not-in-catalog`, a product whose offers were not read is one `offers-not-fetched` question |
 | `product-no-access-level` — a catalog product has no `access_level_id` | blocker | a purchase would grant nothing | silent on the real catalog (11 of 11 sandbox products have one, 4 of 4 in `catalog-fixture.json`); not yet proven to fire |
 | `product-store-gap` — a bound product has no `vendor_products` entry for a store the app ships on | blocker (store named) / question (store unknown) | the purchase cannot complete on that store | **fires as blocker**: 8 of 11 sandbox catalog products are `app_store`-only, so any of them would fail an Android build. Question form is silent when only the known store is checked (`--stores ios` clears an `app_store`-only product) |
-| `play-base-plan-missing` — a `play_store` vendor entry has no `base_plan_id` | blocker | Google needs product id + base plan id to complete a purchase | **silent** on the real catalog: all **3** live `play_store` products carry a real base plan (`monthly`, `monthly-base`), and all 3 in `catalog-fixture.json` too. Read **only** off the `play_store` entry — see the trap below |
+| `play-base-plan-missing` — a `play_store` vendor entry has no `base_plan_id` on a subscription period (a `lifetime` product sells as a one-time purchase and has none) | blocker | Google needs product id + base plan id to complete a purchase | **silent** on the real catalog: all **3** live `play_store` products carry a real base plan (`monthly`, `monthly-base`), and all 3 in `catalog-fixture.json` too. Read **only** off the `play_store` entry — see the trap below |
 | `period-claim-mismatch` — a card's copy names exactly one billing period and it disagrees with the bound product's catalog `period` | blocker | the user is shown a period the product does not have | **calibrated both ways**: silent on 8/8 real cards, fires on injected rebinds |
 | `foreign-price-variable` — a card's *only* price-variable reference names a different product than the one it is bound to | blocker | the card displays the wrong price | **calibrated both ways**: silent on 8/8 real cards (6 reference their own product, 2 reference none), including the fixture that was the measured false positive (`onboarding-quiz-paywall.json`'s `el_8rfwhBiXQL`); fires on the injected rebind |
 | `hardcoded-price` — a non-zero currency literal on an element with no price variable of its own | blocker | it will not localise currency and will not follow a store price change | **fires on 2 of 8 real cards** — `$79.99`/`$119.99` written as plain text in a **published** flow |
@@ -128,7 +128,9 @@ A **link address** is left out of that count and its total, and out of `untransl
 openUrl action's `url`, and any field whose default-locale value is a bare URL. A Terms or
 Privacy link is the same in every locale on purpose, a locale without its own value opens the
 default's, and `verify-config.py` forbids copying the default into the other locales. A blank
-link value still counts as `empty-translation`.
+link value still counts as `empty-translation`. A field whose default-locale text has no
+letters in any branch (a lone price variable, "50%") is left out the same way: the fallback
+shows the same text.
 
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
@@ -212,8 +214,10 @@ own face). Each check is one finding listing every face it applies to, since the
 them all on one settings screen.
 
 **Every fix goes to the font settings (Edit custom font), never to a flow edit:**
-`_meta.fonts` is a copy of the app's font record, and the next Builder save overwrites it.
-All five route to "yours to do in the Adapty dashboard".
+`_meta.fonts` is a copy of the app's font record that publishing does not read; publishing uses
+the app's own settings, and the next Builder save refreshes the copy. So the checks read a copy
+that can be older than the settings, and each name finding says to save the flow in the Builder
+and audit again after a fix there. All six route to "yours to do in the Adapty dashboard".
 
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
@@ -222,9 +226,10 @@ All five route to "yours to do in the Adapty dashboard".
 | `variable-font` — the file has an `fvar` table | question | Adapty makes one face per named style; a face's iOS name can legitimately be an instance's name, not the file's, so the file alone does not settle it | fires on an injected variable file; no real fixture has one |
 | `duplicate-ios-font-name` — two different `_meta.fonts[].id`s share one `iosName` | risk | the iOS name must be unique across the app; one font draws in the other's typeface | fires on injection; silent when faces of **one** font share a name (one variable file's faces) and on every fixture |
 | `font-file-unread` — a face's file cannot be downloaded, is not an sfnt/TTC file, or declares no PostScript name | question | the degrade path: the iOS name is unchecked, the run goes on | fires on both fixtures above (their urls are sanitized to `example.invalid`), on a 404 and on a non-font body; the run still exits 0/1, never 2 |
+| `font-names-unchecked` — a text, span, state or preset names a custom font (by id or by family name) that `_meta.fonts` lacks | question | publishing resolves it against the app's own fonts, but the flow carries no copy of its names to check; a config written through the CLI or the API often carries none | fires on a fixture with `_meta.fonts` emptied and on a reference by family name; **silent** on every tracked fixture |
 
-The `font_face_missing_ios_name` publish refusal (an empty `iosName`) is not checked here:
-`flows config validate` reports it.
+The `font_face_missing_ios_name` publish refusal (no `iosName` on a face a text draws with) is
+not checked here: `flows config validate` reports it.
 
 ### Traps — Fonts
 
@@ -262,7 +267,7 @@ defects injected — `verify-config.py` named 19 in one local pass; `validate` r
 | conditional-branch parity, variable-node parity, stray locale values | `verify-config.py` |
 | unresolved/un-prefixed timer token name | `verify-config.py` (timer-token prefix check) — Variables' `variable-no-consumer` deliberately does not restate this |
 | condition expression shape, incl. `assign`-as-a-condition | `verify-config.py` (a port of the transform service's own walker, shared by `invalid_visibility_condition` and `invalid_state_condition`) |
-| condition variable resolving to no producer | `verify-config.py` (`script_type_violation` / TS2304 — an ERROR there, where the same id in rich text is only a warning) |
+| condition variable resolving to no producer | `verify-config.py` (`unknown_variable_ref` — the publish refuses an undeclared id in a condition and in rich text alike) |
 | action payload required fields | `verify-config.py` (`invalid_action_payload`, all eight action families) |
 | carousel with no slides; tab-items disagreeing on a group; a tab group that is not `single_choice` | `verify-config.py` (`empty_carousel`, `mixed_tab_group_ids`, `wrong_tab_selectable_group_type`) |
 | a localizable `content`/`placeholder` value that is not a string, block array or switch | `verify-config.py` (`invalid_localized_rich_text`) |

@@ -5,7 +5,7 @@ description: >-
   should I test next", "I don't know what to test", "should I add a monthly plan or a trial",
   "why did revenue or renewals drop", "my A/B test ended, what now", "do I need more placements
   or a discount offer", "which of my ideas should I test first", "we don't have much traffic",
-  "we did it, what's next", "only use our own data", "we launch soon, no data yet", "how do we
+  "we did it, what's next", "what's in my backlog", "check my app every week", "only use our own data", "we launch soon, no data yet", "how do we
   win back users who cancelled".
   Also use when a user asks for a growth plan, a monetization audit, hypotheses or test ideas without naming
   one screen, or asks any question about their app's own subscription numbers.
@@ -25,7 +25,8 @@ the flow with the new design or product set, through `flow-generator`, a segment
 store through the CLI (`references/pricing.md`), and the A/B test itself, through `ab-tests`.
 Trials and offers are made in the store, so for those you give the user the steps. Before you
 offer to set up an A/B test, you check that everything it needs exists ("From hypothesis to A/B
-test").
+test"). The hypotheses the user keeps are saved to the app's backlog, and every A/B test you set
+up is linked to its hypothesis ("The backlog").
 
 **Prices** follow `references/pricing.md`. Before you say anything about a price, read the
 prices of each product it concerns (`product-prices list`) and name the price as the store charges it, in its local
@@ -47,12 +48,12 @@ These are the only two words for what you suggest, and the user sees them exactl
   do. Everything you propose is a hypothesis, never a "test" or an "idea".
 - **A hypothesis the user picks becomes an A/B test,** the thing the user runs and you help
   build. Say "A/B test" only from then on.
-- **Ask what they want to start with, never for a verdict on each.** "Which one do you want to
-  start with?" is the question; "accept or decline these" is not. When they are unsure, say which
-  one you would start with and why in one sentence, and offer to walk them through it.
-- **One they turn down leaves the list.** It is not a lost test and rules nothing out; do not
-  suggest it again in this conversation unless the user asks or their numbers change.
-- **The reply is the record.** There is no backlog to save hypotheses to yet; never offer one.
+- **Ask which to add to their backlog and which to skip, and why they skip one** ("The backlog").
+  Once some are added, ask which one to start with; when they are unsure, say which you would
+  start with and why in one sentence.
+- **One they skip leaves the list.** Its reason decides what comes next: "we tried it" puts its
+  next rung in its place (`references/levers.md`, "Next rung"). A skip is not a lost test and rules
+  nothing out.
 
 ## Questions about the numbers
 
@@ -70,6 +71,72 @@ question was about, for example "Want data-backed ideas on what to test to impro
 testing, name that change in the offer instead: for a leaking screen of a flow, the Onboarding
 change hypothesis, and that its design comes from `onboarding-teardown`; for the paywall of a
 flow, the untested Paywall design hypothesis, and that its design comes from `paywall-teardown`.
+
+## "Did the Flow Builder migration work?"
+
+The flows went on new placements next to the old paywall ones, so the old paywalls can still be in
+their placements; only their traffic stopped. Compare by id, not by placement:
+
+1. The switch date is the user's, or the first day the flow has viewers (`$ADAPTY flows metrics
+   get <FLOW_ID> --app <APP_ID> --based-on placement --granularity day --date-from … --date-to …
+   --date-type purchase_date`).
+2. `$ADAPTY paywalls list --app <APP_ID> --json` names each paywall's `kind` (`--kind` lists one);
+   the old ones are those with viewers in the period before the switch (`$ADAPTY paywalls metrics
+   get <PAYWALL_ID>`, same flags).
+3. Read the flows the same way over a period after the switch, and compare by
+   `references/diagnosis.md`, "Before you state a conclusion" (its "Before and after inside one store").
+
+Over MCP each step is its tool: `flows_metrics_get`, `paywalls_list` with `kind`, `paywalls_metrics_get`.
+
+## A health check
+
+"How is my app doing", "how was this week", "anything wrong?", "check on my app" ask how the last
+days went against the app's own normal level, and people ask it every week or month. The audit
+judges the whole business against the market; this is not the audit.
+
+1. Pick the app and run `python3 <skill>/references/reads.py health --app <APP_ID> --adapty
+   "$ADAPTY"` once. It reads the last 12 weeks by day and prints a table (the last 7 days against
+   a usual week, the last 28 against the 28 before) and the signals, costliest first, or NONE.
+   The thresholds live in it; never judge a change by eye.
+2. Reply in about 150 words plus the table, in this order:
+   - the bold verdict: a normal week, or the costliest signal with the day it started and the
+     money so far;
+   - the table, with revenue, new paid subscriptions, new trials, installs and refunds: the 7-day
+     columns, or the 28-day ones when the user asks about a month; bold the cell that moved;
+   - each other signal in one sentence: a spike or a climb is good news, fewer installs is an
+     early sign rather than money lost, fewer new buyers is money the weeks ahead will miss;
+   - Next steps: for a signal, at most one "You:" question about that day (a release, a
+     campaign, a price change), then "Me:" find why ("Questions after the audit", why did revenue
+     drop). For a normal week, "Me:" suggest what to test next, which is the audit.
+   No market medians and no hypotheses: the audit owns those. Call a fall traffic only when the
+   trials per 1,000 installs row is not marked DOWN; name no other cause the reads do not show.
+
+Shape (the form, not words to copy):
+
+> **Revenue has been 22% under its usual level since March 3, about $9k so far, and all of it is
+> Google Play.**
+>
+> | | Last 7 days | Usual week | Change |
+> |---|---|---|---|
+> | Revenue | $31.2k | $40.0k | **−22%** |
+> | New paid subscriptions | 410 | 425 | −4% |
+> | New trials | 1,180 | 1,210 | −2% |
+> | Installs | 24.1k | 24.6k | −2% |
+> | Refunds | $610 | $590 | +3% |
+>
+> Buyers are coming in as usual, so the money is lost on renewals or on one store's payments.
+>
+> **Next steps**
+> 1. You: did anything ship on Google Play around March 3?
+> 2. Me: find why Google Play revenue fell. Want me to?
+
+## Recurring checks
+
+A health check, a test the user is waiting on, and "check my app every week" can run on a
+schedule, as a task the user's agent runs, with its report shown there or posted through a
+connector (Slack, email and the like). Offer one after a health check and after you link a live
+A/B test to its hypothesis; set it up and write its prompt from `references/recurring-checks.md`,
+which also governs a run that starts from one of its prompts and the user's answer to its report.
 
 ## Without an Adapty account
 
@@ -103,6 +170,7 @@ the first two weeks of real users.
 | Building or editing a flow | `flow-generator`, on the user's yes |
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | Creating, starting, stopping or replacing an A/B test | `ab-tests`, on the user's yes, once "From hypothesis to A/B test" checks pass |
+| Messages on Apple's cancel screen (Retention Messaging): setup, messages, their numbers | This skill reads the status and the production list (`references/levers.md`, "Adapty features"); every write and draft: `retention-messaging`, invoked on the user's yes to the Next step |
 | How a dashboard feature works | `adapty-docs` |
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
@@ -158,7 +226,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -187,13 +255,33 @@ not run.
 Resolve `$ADAPTY` once and use it for every call:
 
 ```bash
-adapty analytics catalog --help >/dev/null 2>&1 && ADAPTY="adapty" || {
-  npm i -g adapty@latest >/dev/null 2>&1
-  adapty analytics catalog --help >/dev/null 2>&1 && ADAPTY="adapty" || ADAPTY="npx --yes adapty@latest"; }
+if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
+  _a() { if [ -n "${HTTPS_PROXY-}${https_proxy-}" ]; then NODE_USE_ENV_PROXY=1 $ADAPTY "$@"; else $ADAPTY "$@"; fi; }
+  _v() { _a --version 2>/dev/null | sed -n 's|^adapty/\([^ ]*\).*|\1|p'; }
+  command -v adapty >/dev/null 2>&1 || { npm i -g adapty@latest >/dev/null 2>&1 \
+    && command -v adapty >/dev/null 2>&1; } || { echo npx; exit; }
+  J=$(_a version --json 2>/dev/null) && printf '%s' "$J" | node -e 'let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => { try { const j = JSON.parse(s);
+      if (j && typeof j.installed == "string" && (j.latest === null || typeof j.latest == "string")
+        && typeof j.update_available == "boolean") process.exit(j.update_available ? 1 : 0);
+    } catch (e) {} process.exit(1); });' && exit
+  old=$(_v); npm i -g adapty@latest >/dev/null 2>&1 || { echo npx; exit; }
+  new=$(_v); [ -n "$new" ] || { echo npx; exit; }
+  [ "$new" != "$old" ] && echo "CLI updated from $old to $new." || echo "Could not update the CLI: still $new."
+); [ "$VMSG" = npx ] && ADAPTY="npx --yes adapty@latest" \
+  && VMSG="Could not install or update the CLI globally, so I run it through npx."
+if [ -n "$VMSG" ]; then echo "$VMSG"; fi; fi
 ```
 
-If `$ADAPTY analytics catalog --help` still reports no such command, try `npx --yes adapty@beta
-analytics catalog --help` once before telling the user analytics is unavailable. `--yes` is
+**Run this block as its own command, right after the readiness check `adapty auth whoami` and
+before any other CLI command.** Copy it as it is: it runs `$ADAPTY version --json` and updates a
+CLI that is behind or too old to have that command. If it prints a line, your reply to the user
+starts with that line, in their language, with nothing added. Say nothing else about the CLI
+version: no "up to date", no version number. A new shell does not keep `$ADAPTY`: set it again, to
+`npx --yes adapty@latest` after the npx line, else to `adapty`.
+
+Then probe `$ADAPTY analytics catalog --help`. If it reports no such command, try
+`npx --yes adapty@beta analytics catalog --help` once before telling the user analytics is unavailable. `--yes` is
 required: without it npx waits for a confirmation nobody will give. In `zsh`, run `setopt shwordsplit` before using a
 multi-word `$ADAPTY`. Pass the command and every flag as separate words: `"placements list"`
 in quotes is one word, and the CLI answers that no such command exists. `$ADAPTY` is the only
@@ -206,7 +294,8 @@ and a price change's files: a product's price list, the file it saves, and the r
 (`references/pricing.md`). Read every other response from the command's output; never save one
 to a file.
 
-Everything this skill runs is a read, with six writes, each on the user's yes: building a flow
+Everything this skill runs is a read, with seven writes, each on the user's yes: the backlog's
+`hypotheses` commands ("The backlog"), building a flow
 through `flow-generator`, creating a segment through `audiences`, an A/B test through `ab-tests`,
 `placements create` or `placements update` (see "Changing a live placement"), adding an offer
 the user made in the store to an existing product with `product-offers create`
@@ -232,7 +321,7 @@ user. The one other call that sends anything is the [feedback note](#feedback-no
   placement's developer ID. Never chart ids, filter keys or tool names, and never this skill's
   own scripts, checks or feedback note: when a read could not run, name the data you lack
   ("refunds by country"), not what failed or why.
-- **Full links to the exact docs page.** Find pages through `adapty-docs` when one is not here.
+- **Full links to the exact docs page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`. Find pages through `adapty-docs` when one is not here.
 - **Honest about scope, in one line.** Say what you could not check only when it could change
   the decision, and where they can check it. What you checked and ruled out is not a section; at
   most one clause ("it's not the paywall: organic conversion held").
@@ -260,10 +349,12 @@ and the reason.
   ("the US market median").
 - **A table when the numbers run across months or groups.** An audit, or an answer to "why did
   X drop", may show up to two Markdown tables: the audit's scorecard, and one table that proves
-  the main finding (months across, the groups that carry it down the side). Keep each one to
+  the main finding (in an audit whose main finding is not a country, a third: the top countries,
+  at most five rows) (months across, the groups that carry it down the side). Keep each one to
   about six rows and seven columns, put the store that earns first, and bold the cell the
   sentence under it talks about. Each table is followed by one sentence saying what it shows. A
-  table is never a list of what you checked, and a hypothesis block never holds one.
+  table is never a list of what you checked, and a hypothesis block holds one only for the
+  country price list (`references/pricing.md`).
 - **Evidence is part of the argument, not a labelled slot.** Say what their numbers show, then
   what tends to happen when apps make this change and how sure that is, naming the source in
   passing: "in Adapty's library of real subscription A/B tests", "Adapty's State of Paywalls
@@ -274,10 +365,21 @@ and the reason.
   needs". Every one you suggest is in that list; none is only mentioned in the prose.
 - **End with Next steps:** a numbered list of at most three items, each starting with who acts,
   "You:" or "Me:". Questions to the user go there as "You:" items. After hypotheses, the first
-  item asks which one they want to start with, and names the one you would pick. The last item
-  is what you can do now if they say yes. You will not remember this conversation, so a check
+  item asks which to add to the backlog and which to skip ("The backlog"); once they are saved,
+  it asks which one to start with, and names the one you would pick. The last item
+  is what you can do now if they say yes. The one slot between goes to a breakage fix, else an
+  Adapty feature step (`references/levers.md`, "Adapty features"), else the one question; a
+  question that loses the slot joins the first item, except after hypotheses, when it waits for
+  the next reply. You will not remember this conversation, so a check
   that has to wait (late refunds, a test still running) is a "You:" item with the date to come
-  back and ask, never a "Me:" item.
+  back and ask, never a "Me:" item, unless it is a recurring check ("Recurring checks").
+- **Retention Messaging (Apple's cancel screen), also when asked directly: this skill only reads**
+  (the two reads of `references/levers.md`, "Adapty features") and drafts or writes no message
+  itself. The setup status is the one status read: never add Adapty's URL (`realtime-url get`) or
+  a message read to it. **When the user allows only some reads, run only those;** any other read
+  is a Next step that waits for their yes. Once both are read, Next steps hold a "Me:" item that
+  offers the next step as an outcome and invokes `retention-messaging` on the user's yes; a missing
+  command or tool keeps the "You:" dashboard check.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
   it), one "You:" item asks when it ends. Say how far each arm is from about 200 purchases
   (`references/diagnosis.md`, "Placement metrics"), never which one leads.
@@ -306,7 +408,8 @@ Shape of an answer (the form, not words to copy; in another language Next steps,
 Shape of an audit's opening (the form, not words to copy; the scorecard's labels are translated
 too):
 
-> **Your app converts like a typical US app; renewals are what cost you most.**
+> **Monthly renewals cost you most: 41% of monthly subscribers renew, against 58% six months ago,
+> about $5k a month.** The rest converts like a typical US app.
 >
 > | Part | Yours | Against | |
 > |---|---|---|---|
@@ -317,18 +420,20 @@ too):
 > | First renewal, monthly | **41%** | 58% six months ago | weak |
 > | Setup | 1 placement, nothing after onboarding | | weak |
 >
-> Monthly renewals cost the most: about $5k a month against your own level in spring.
+> The fall is all on the March cohort, which came in on a discounted first month.
 
 ## The audit
 
 The audit is the default when the user has no specific question, and the start of every
-conversation that asks "what should I do". It looks at the whole business over the window, not at
+conversation that asks "what should I do"; how the app is doing gets "A health check" instead. It
+looks at the whole business over the window, not at
 what changed last: a part that has been weak for all six months costs more than a dip that just
 started, and it never shows up as a change.
 
 1. **Pick the app** (`apps list`, every page; ask when there are several) and read the catalog.
 2. **Read the numbers and the setup:** run `python3 <skill>/references/reads.py audit --app <APP_ID>
-   --adapty "$ADAPTY"` once. It runs every read in `references/diagnosis.md`, "The audit reads", side
+   --adapty "$ADAPTY"` once, with `--category "<category>"` when the user or the app's code names its
+   App Store category. It runs every read in `references/diagnosis.md`, "The audit reads", side
    by side within the CLI's rate limits, and prints month tables with every group; read further with
    single calls only for what it does not print. For the placements a hypothesis would run on, run
    `reads.py placement --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID>` once, with one
@@ -353,8 +458,9 @@ started, and it never shows up as a change.
    and a store with under about a fifth of revenue gets one line at most unless its dollars at
    stake rank first), its main market (a country with
    50% or more of revenue, or 40% or more and at least five times the next country's; when none
-   has it, say there is none, and correct a user who says there is; read each country against its own past, never ranked against the US or
-   another country), its main product by
+   has it, say there is none, and correct a user who says there is; a country's trend is read
+   against its own past, its level against its region's median, never against another country),
+   its main product by
    revenue (often weekly; never assume annual), offers that change the first payment (read new purchases by
    offer category: a paid first period means buyers pay less than the plan's price at first, so
    name it and judge the plan from what they actually pay), products split by market (compare a product only with others sold in the same
@@ -362,19 +468,24 @@ started, and it never shows up as a change.
    last full month, with the month anything switched: `references/diagnosis.md`, "Before you
    state a conclusion"), and whether each placement shows a flow or a paywall, read from `placements get`.
    A flow is always built in Adapty's builder: read and render it. A paywall is either drawn by
-   the app itself (its own code or remote config) or made in the legacy Paywall Builder, and the
-   CLI cannot tell which. When the app's code is in front of you, look at how it buys: a screen of
-   its own that calls `makePurchase` is a custom paywall. Otherwise ask for a
-   screenshot. Ask whether it was made in the Paywall Builder only when the user picks a
-   hypothesis that changes it and you offer to build the copy. A hypothesis about what the screen
+   the app itself (its own code or remote config) or set to use the legacy Paywall Builder: the
+   `kind` of its row in `paywalls list --json` says which (`custom` or `legacy_builder`), so take it
+   from there and ask the user nothing about how it was made. Rows with no `kind` key come from an
+   older API, which also ignores `--kind` and returns every row; for that run, with no version check
+   or upgrade, never from the paywall's name or title (see below): when the app's code is in
+   front of you, look at how it buys: a screen of its own that calls `makePurchase` is a custom
+   paywall. Otherwise ask for a screenshot. Ask whether it was made in the Paywall Builder only
+   when the user picks a hypothesis that changes it and you offer to build the copy. A hypothesis about what the screen
    shows (its copy, a trial explanation, a badge, the layout, which plan is selected by default)
    needs that screen seen: a rendered flow, a screenshot or the app's code. So does adding or
    removing a trial, plan or offer on a paywall, and seeing the screen is where that check starts,
    not where it ends: removing a trial follows `references/levers.md`, Trials, which drops it on a
    screen built around the trial. A paywall's name never tells you its design. Until then it is not
    suggested; a "You:" Next step asks for the screenshot and names what it would let you check (in an
-   audit, through the **Send me screenshots** section: "What a hypothesis needs"). A legacy Builder paywall can be moved to the new builder and then
-   copied (`references/levers.md`, Paywall design); a custom one never gets a flow copy offer.
+   audit, through the **Send me screenshots** section: "What a hypothesis needs"). A `legacy_builder` paywall may be moved to the new builder and then
+   copied (`references/levers.md`, Paywall design): name **Move to new builder** as a button the
+   user looks for on the paywall's dashboard page, shown only when a layout is saved, which `kind`
+   does not say; never a step you do or one that surely exists. A custom one never gets a flow copy offer.
 3. **Work out what the app already tried, and do not wait for the user.** Most users will not
    type a test history, so read it (`references/diagnosis.md`, "What the app already tried"): the
    A/B tests `reads.py` lists (each paywall and flow test with its placement, audience, dates and
@@ -408,21 +519,28 @@ started, and it never shows up as a change.
    app's own six-month level otherwise. Judge each part on the store that earns, in the main
    market when there is one.
    - where the money comes from: store, main market, first payments against renewals
-   - the funnel: install → trial or paid, paywall view → paid, trial → paid
+   - the funnel: paywall reach (installs that saw a paywall), install → trial or paid, paywall view →
+     trial, paywall view → paid, trial → paid
    - the plan mix, and which length leads by LTV
    - renewals: the main plan's first renewal, and why subscribers leave
-   - refunds as a share of revenue
+   - refunds as a share of revenue, and the plan length they sit on
+   - the top countries: each one's view → paid, view → trial and trial → paid against its region's
+     median, and its plan mix and first renewal against the app's other countries, from the
+     top-countries block `reads.py audit` prints; one below its region's p25 is a weak part, sized by
+     the purchases the gap costs there, and can be the main finding
    - the setup: how many placements, what follows the onboarding paywall, offers that run all the
      time
 
    Call each part strong, typical or weak, and rank the weak ones by dollars a month at stake.
    A conversion (paywall view → paid, paywall view → trial, trial → paid) is graded by its row in
    `references/market-grid.csv` (`market.md`, "The full grid"): below p25 weak, above p75 strong.
-   An annual plan's first renewal is graded against its row in `market.md`, Renewals, and
+   Paywall reach has no market median: a store a third or more below the app's reach is weak, as is a fall of a quarter or more from the window's first half to its second. An annual plan's first renewal is graded
+   against its row in `market.md`, Renewals, and
    refunds as a share of revenue against theirs in `market.md`, Refunds.
    That ranking, not the newest change, decides the main finding and the first hypothesis.
-   Refunds stay out of it: no hypothesis acts on them, so a weak refund grade is never the main
-   finding and gets a Next step instead (`market.md`, Refunds). A
+   A weak refund grade is never the main finding. When most buyers start from a trial and the
+   screen seen does not explain it, the trial-explanation hypothesis is the one that acts on it: its
+   Why names the refund share, and refunds are its guardrail (`market.md`, Refunds). A
    recent change leads only when its dollars rank first. Every part is scored even when a
    recent change is large, because the user asked about the whole app.
 
@@ -452,10 +570,12 @@ started, and it never shows up as a change.
    - more than one product carries a trial
    - only one plan length on the paywall
    - a plan length with under 5% of purchases
-   - only one placement, or nothing after the onboarding paywall closes
+   - only one placement
    - a main market
    - a main-market plan below the 25th percentile for its category (`references/pricing.md`)
-   - a top country 15% or more off the market's price ratio to the main market
+   - the country price list (`references/pricing.md`, "The country list"), built in every audit
+   - a top country whose language the paywall or flow does not have
+   - a `FEATURE GATE` line, or a trigger in `references/levers.md`, "Adapty features"
    - fewer than about 200 purchases in two weeks
    - a discount or promo that runs all the time (an onboarding offer, a win-back paywall) with no
      group kept from it
@@ -473,7 +593,15 @@ started, and it never shows up as a change.
    with a setup to copy, are where the rest come from, or the screenshots to ask for ("What a
    hypothesis needs").
 6. **Report**, following "How you write a reply" and "What a hypothesis needs". The bold answer
-   is about the business as a whole: where it stands and which part costs it most. Under it goes
+   opens with the part that costs most, as the numbers show it: the group or step, its number
+   against its yardstick, and the dollars a month at stake. It tells the user something about
+   their money they did not know; a test or a hypothesis is never in it, those start under
+   Suggested hypotheses. A setting the user chose (one language, one price everywhere, one
+   placement) explains that number after it, never leads.
+   Where the business stands as a whole, "nothing is broken" included, is the sentence after the
+   bold one, never in it; when nothing stands out, the bold answer leads with the biggest bet's
+   number and stake. Hypothesis 1 acts on the part the bold answer names, or, when that part is a
+   breakage, the fix is the Next step between. Under it goes
    the scorecard from step 4 as a table, one row per part, then what the app already tried (the
    paragraph, or the **What you already tested** list from step 3), then the main finding. An audit always ends with hypotheses. When an open question could change the first pick, give them anyway and
    say in one line what the answer would change. Before sending any reply with numbers, pass the
@@ -486,12 +614,14 @@ started, and it never shows up as a change.
    DRAFT
    ```
 
-   Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped), then send.
+   Fix every `CHECK` line it prints (a read, a narrower claim, or the line dropped), then send
+   the draft as checked; a draft edited after the check is checked again.
    If it cannot run, check the draft for the same three things yourself: a claim about every
    group names each group's number, a cause found from timing has the Cause check behind it, and
    less money is split into first payments and renewals, each in dollars.
 7. **Offer to build** the hypothesis the user picked, when it is a flow. On a yes, invoke `flow-generator`
-   with the brief. Offer two ways to put the flow in front of users, the first as the default:
+   with the brief. For an A/B test the brief says "a copy of the live version, for an A/B
+   test". Offer two ways to put the flow in front of users, the first as the default:
    - **A/B test it** against what the placement shows now, through "From hypothesis to A/B
      test". This is the only way to know what the change did, and what picking a hypothesis
      means.
@@ -622,11 +752,11 @@ test needs with a read. Never assume a thing exists because the user said they w
 | The test needs | It exists when | Who makes it |
 |---|---|---|
 | The content the placement shows now (arm A) | `placements get` names a paywall or flow on the audience the test would run on | Nothing to make |
-| A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` builds the copy as a new flow. The user publishes it, or says yes to `flow-generator` publishing it |
+| A changed flow (design, copy, product set, a discount removed) | `flows list` shows the copy, and `flows get` shows its state is `published` | Me: `flow-generator` copies the live version (`flows duplicate --version` with the `flow_version_id` of the `live` row in `flows versions list`) and edits the copy, so arm B differs from arm A only by the change. The user publishes it, or says yes to `flow-generator` publishing it |
 | A new plan length | `products get` shows its store product in each store the app sells in, with `store_status` `approved`, and a flow that sells it exists | Me: the product and its push, on your yes to its store product IDs and USD price (`references/pricing.md`, "Adding a plan length"), and the flow that sells it |
 | A trial or offer | `products list` shows the product, with the store product ID of each store the app sells in (an offer: `product-offers list` shows it on the product), and a flow that sells it exists (an offer: the flow's config binds the offer's `id` as `offerId` on that product; an App Store trial needs no binding) | You: create it in App Store Connect or Google Play Console (`references/levers.md`, "By store"); a second product it needs I make as a new plan length. Me: an offer on an existing product, with `product-offers create` on your yes once you give its store offer ID; the flow that sells it |
 | A price test's copy of a product | `products get` shows the copy's store product with `store_status` `approved`, and a flow that sells it exists | Me: the copy, its push and its prices (`references/pricing.md`, "Setting up a price A/B test"), and the flow that sells it |
-| A paywall arm (legacy Paywall Builder or custom paywall) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
+| A paywall arm (`kind` `legacy_builder` or `custom`) | `paywalls list` shows the paywall | Me: `ab-tests` creates one that differs only in its products. You: a new design, in the dashboard; a custom paywall also needs its app code to show it |
 | A segment | `segments list` shows one with the filter the hypothesis targets | Me: `audiences`, on a yes (segment steps only) |
 | A placement with traffic | `placements list` shows it, `placements get` shows the content type of its audiences (paywall or flow), and the Time line found purchases on it | Me: `ab-tests` creates a new one, on a yes to its developer ID. You: the one call in the app that fetches it (`adapty-integration`), and a release. No purchases: no test |
 | No other A/B test on that audience | `placements get` shows no test entry on the audience | A start ends a running test. The "You:" item asks how it is going first |
@@ -637,7 +767,8 @@ Then, in the Next steps:
   it starts I show you exactly who sees what." On a yes, invoke `ab-tests` with the brief: paywall
   test or flow test, the arms (A as the placement shows it now, B the new content) at 50/50, the
   placement, the audience, and as the goal the hypothesis title and its Judged on metric. `ab-tests`
-  owns the draft, the start card and the stop.
+  owns the draft, the start card and the stop; you link the draft to its hypothesis
+  (`references/backlog.md`, "Starting one").
 - **Something is missing:** one Next step for each missing thing, in the order it has to be made,
   each starting with who acts. The A/B test is the step after them: "Me: once the copy is
   published, I set up the A/B test." When the user comes back to say it is done, read again
@@ -647,6 +778,69 @@ Then, in the Next steps:
 
 Never create a draft with a placeholder arm, an arm the user still has to make, or an id you did not
 read.
+
+## The backlog
+
+The app's hypotheses live in its backlog in Adapty: the team sees it in the dashboard, and the
+next session starts from it. Every hypothesis you suggest goes through it.
+
+**Before you suggest,** write each hypothesis as a create body in `drafts.json`
+(`references/backlog.md`, "The create body") and run it with every placement a draft runs on:
+
+```bash
+python3 <skill>/references/reads.py backlog --app <APP_ID> --adapty "$ADAPTY" --placement <PLACEMENT_ID> --drafts drafts.json
+```
+
+Fix every `CHECK` line, then act on what it says for each draft:
+
+- **tested** or **live:** drop it; a tested one's next rung can take its place.
+- **testing** or **in the backlog:** not suggested again. Remind the user of it, under the
+  hypotheses as **Already in your backlog**, one line with its title, only when its Why still
+  holds in this month's numbers and it still passes "What a hypothesis needs". One that no longer
+  holds gets one line saying why, and an offer to dismiss it.
+- **dismissed:** drop it, unless its saved reason says it may come back ("not now") or the numbers
+  it rested on have changed since. Never ask why it was dismissed.
+
+What it prints as **due** comes first in the reply, before anything new
+(`references/backlog.md`, "Coming back").
+
+**The question** is the first Next step, and it holds exactly two parts: which hypotheses to add
+and which to skip, with why for a skip; and, while the backlog is empty, one sentence on what it
+gives them. A hypothesis on a placement that does not exist yet is in the list like the others; what
+saving it takes goes in the reply after the user adds it, because until then they have not chosen it. Shape (not words to copy):
+
+> 1. You: tell me which of these you'd like to add to your backlog and which you'd skip. If you
+>    skip one, tell me why, so I can make better suggestions later. Your backlog shows in the
+>    Adapty dashboard, and next time I start from it instead of from scratch.
+
+**The answer.** The ones added are saved with `$ADAPTY hypotheses create --app <APP_ID> --file
+<file>`, one call per placement (the server takes one placement and at most 50 per call), each file
+holding only that placement's added drafts. "Add all" adds every one; one the user did not mention
+is not saved. The ones skipped
+are saved the same way, then each gets `$ADAPTY hypotheses dismiss <ID> --app <APP_ID> --reason
+"<their reason, in their words>"`, so the next session does not suggest them again and knows why; a
+skip with no reason is dismissed without one, and a skip with "not now" stays saved and is not
+dismissed.
+No answer saves nothing. A hypothesis is dismissed only on the user's word: an answer that does
+not clearly name one (a number the list does not have) is asked back, never guessed, and a
+hypothesis already in the backlog is never dismissed through this question.
+
+**An added hypothesis whose placement does not exist yet** (a new placement, a follow-up offer)
+cannot be saved yet: a hypothesis needs its placement, and a placement is created only with a
+published flow on it. In the reply to their pick, say it joins the backlog once its flow is
+published, and list what comes first, each with who does it. Shape (not words to copy):
+
+> "Show 'Settings paywall' when a free user taps a locked note" joins your backlog once its flow is
+> ready:
+> 1. Me: build a copy of 'Settings paywall' for that moment; you publish it.
+> 2. Me: create its placement with that flow (I'd call it `locked_note`; the name can't be changed
+>    later) and save the hypothesis.
+
+Then it is started like any other. A skipped one with no placement is not saved, so say once that it
+may be suggested again.
+
+Starting one, linking its A/B test, putting one live without a test, and results:
+`references/backlog.md`.
 
 ## Changing a live placement
 
@@ -702,6 +896,8 @@ On a yes, run it, read the placement back, and say what changed in one line.
 | I don't know what to test | Run the audit |
 | I have ideas, which first? | `levers.md`, "Ideas the user brings" |
 | We did it, what's next? | Read what ran and what came out (`diagnosis.md`, "Past tests"), ask only what that leaves open, then `levers.md`, "After a test" |
+| What's in my backlog? How is my test going? | `reads.py backlog` for the app's placements, then `references/backlog.md`, "Coming back" |
+| Check my app every week; tell me when my test is done | `recurring-checks.md` |
 | Any question about the numbers | "Questions about the numbers" |
 
 ## Dashboard steps
@@ -756,7 +952,8 @@ shape to follow, not words to copy:
 > out value per buyer.
 
 - **Type** is one word: `numbers` (a question about the app's data), `ideas` (what to test or
-  change, or a problem brought for help), `decision` ("should I do X"), or `other` (setup, how
+  change, or a problem brought for help), `decision` ("should I do X"), `check` (setting up a recurring check, or acting on what
+  one reported), or `other` (setup, how
   something works, out of scope).
 - **Asked and Answered are a few generic words each.** What the user tried to find out or do, and
   what the reply did: explained a change, gave a split, suggested hypotheses and how many, said
@@ -801,7 +998,8 @@ shape to follow, not words to copy:
 | `references/diagnosis.md` | Running any analytics command, and for each common question |
 | `references/levers.md` | Building or ranking a hypothesis, and after a test |
 | `references/evidence.md` | Stating any expected impact or grading an idea |
-| `references/onboarding-evidence.md` | Stating the expected impact of an onboarding or flow hypothesis, next to `evidence.md` |
+| `references/onboarding-evidence.md` | Stating the expected impact of an onboarding or flow hypothesis, next to `evidence.md`; reading a flow's funnel against the benchmarks |
+| `references/onboarding-grid.csv` | A flow's reach, purchases or step drop-off against the onboarding medians for one region, category or length |
 | `references/market.md` | Comparing the app with the market: conversion, plan mix, trials, discounts, timing |
 | `references/market-grid.csv` | A conversion's median and percentiles for one plan, region and category |
 | `references/renewals.csv` | The annual first-renewal rate for one category, region and start |
@@ -809,4 +1007,6 @@ shape to follow, not words to copy:
 | `references/trials.csv` | Trial starters against direct buyers, first-year value, for one category, region and plan length |
 | `references/pricing.md` | Any price: reading, placing, a price hypothesis, its test, a live price change |
 | `references/price-index.csv`, `references/price-response.csv` | Searched from `pricing.md`; never read whole |
+| `references/backlog.md` | Saving hypotheses, starting one, linking its A/B test, putting one live, results |
+| `references/recurring-checks.md` | Offering, setting up or running a check that repeats on a schedule |
 | `references/without-account.md` | A store link, screenshots or code, and no account to read |

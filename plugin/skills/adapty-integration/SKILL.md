@@ -28,7 +28,7 @@ Every message, not only the fixed blocks in `## What you print`:
   elsewhere: a placement ID, a product ID, a menu path, a URL. Never state variables, field
   names, internal IDs, or skill or tool names.
 - **Bold at most one thing per paragraph.**
-- **Full, clickable links to the exact page.**
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Could not check it? Say how they can** — where to click and what they should see. Do
   not know something? Look it up before saying so — the CLI, the code, the `adapty-docs`
   skill.
@@ -245,7 +245,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -280,11 +280,32 @@ Always read values from Adapty — never ask the user for SDK key, placement IDs
 Resolve `$ADAPTY` once; every CLI call in this skill goes through it.
 
 ```bash
-npm i -g adapty@latest >/dev/null 2>&1 \
-  && ADAPTY="adapty" \
-  || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
-$ADAPTY auth whoami   # succeeds: already logged in, skip the login
+if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
+  _a() { if [ -n "${HTTPS_PROXY-}${https_proxy-}" ]; then NODE_USE_ENV_PROXY=1 $ADAPTY "$@"; else $ADAPTY "$@"; fi; }
+  _v() { _a --version 2>/dev/null | sed -n 's|^adapty/\([^ ]*\).*|\1|p'; }
+  command -v adapty >/dev/null 2>&1 || { npm i -g adapty@latest >/dev/null 2>&1 \
+    && command -v adapty >/dev/null 2>&1; } || { echo npx; exit; }
+  J=$(_a version --json 2>/dev/null) && printf '%s' "$J" | node -e 'let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => { try { const j = JSON.parse(s);
+      if (j && typeof j.installed == "string" && (j.latest === null || typeof j.latest == "string")
+        && typeof j.update_available == "boolean") process.exit(j.update_available ? 1 : 0);
+    } catch (e) {} process.exit(1); });' && exit
+  old=$(_v); npm i -g adapty@latest >/dev/null 2>&1 || { echo npx; exit; }
+  new=$(_v); [ -n "$new" ] || { echo npx; exit; }
+  [ "$new" != "$old" ] && echo "CLI updated from $old to $new." || echo "Could not update the CLI: still $new."
+); [ "$VMSG" = npx ] && ADAPTY="npx --yes adapty@latest" \
+  && VMSG="Could not install or update the CLI globally, so I run it through npx."
+if [ -n "$VMSG" ]; then echo "$VMSG"; fi; fi
 ```
+
+**Run this block as its own command, right after the readiness check `adapty auth whoami` and
+before any other CLI command.** Copy it as it is: it runs `$ADAPTY version --json` and updates a
+CLI that is behind or too old to have that command. If it prints a line, your reply to the user
+starts with that line, in their language, with nothing added. Say nothing else about the CLI
+version: no "up to date", no version number. A new shell does not keep `$ADAPTY`: set it again, to
+`npx --yes adapty@latest` after the npx line, else to `adapty`.
+
+Then `$ADAPTY auth whoami`: when it succeeds you are already logged in; skip the login.
 
 **If `whoami` fails, log in in the background.** From your shell `auth login` opens no browser: it
 prints a code and a link, then waits in the foreground for the user to approve, holding your shell,
@@ -443,11 +464,13 @@ $ADAPTY products push <PRODUCT_ID> --app <APP_ID> --store play_store --store-pro
 
 The user's yes to the IDs and the price is the confirmation, so each push carries `--yes`: without it the CLI stops with exit 6 and pushes nothing.
 
-**The review screenshot.** The server takes a JPEG or PNG at one of Apple's exact screen sizes (current iPhones: 1320×2868, 1290×2796, 1260×2736, 1206×2622, 1179×2556, 1170×2532) with no alpha channel. A PNG from a simulator or a browser carries an alpha channel even when fully opaque and is refused, so always pass a JPEG. Get it in this order, and say which one you used:
+**Over MCP, the App Store push is two steps.** First send the screenshot: `uploads_create` with the file name and `kind` `review_screenshot` answers a 3-minute upload link and the `curl` command; run it from your sandbox, `curl -sS -T <FILE> "<upload_url>" -o screenshot.json -w '%{http_code}\n'`. `201` stores the file as it is and answers its media record; its `id` is the screenshot. **On this path nothing converts the image:** send the file the user gave. The send runs the App Store screenshot check: a file that is not PNG or JPEG, has transparency (any PNG with an alpha channel, even a fully opaque one) or is not at an App Store size is refused there with `400` `review_screenshot_validation_error`, before the push and before the user confirms it, and nothing is stored: ask the user for a PNG with no alpha channel or a JPEG at one of the sizes below, and send that file the same way. In a chat with a code sandbox the user's attachment is a file there (in claude.ai under `/mnt/user-data/uploads/`). Then `product_push` with `store` `app_store` and `screenshot_media_id` set to that `id`, plus the inputs of the CLI push: `store_product_id`, `group_id` for a subscription, and `family_sharable` (off unless given; Apple does not let it be turned off later). Your client asks the user before the push; the push needs the same yes as above first. The push runs the same check again. If the sandbox cannot reach the link (a `403` from the sandbox proxy, not from Adapty), the user has to allow `*.adapty.io` once: pass on the `if_blocked` text of the `uploads_create` answer in your own words, with its link. With no sandbox, the App Store push needs the CLI.
+
+**The review screenshot.** The server takes a JPEG or PNG at one of Apple's exact screen sizes (current iPhones: 1320×2868, 1290×2796, 1260×2736, 1206×2622, 1179×2556, 1170×2532) with no alpha channel. A PNG from a simulator or a browser carries an alpha channel even when fully opaque and is refused, so on the CLI path always pass a JPEG. Get it in this order, and say which one you used:
 
 1. **The iOS Simulator,** when one is already running the app with the paywall on screen: `xcrun simctl io booted screenshot --type=jpeg review.jpg`. Its native size is an App Store size; check it with `sips -g pixelWidth -g pixelHeight review.jpg`. Do not boot a simulator only for this: it needs several GB of memory.
 2. **`flow-generator`,** when the paywall is a flow that exists: ask it for an App Store review screenshot of the screen with the purchase button. It writes a 1170×2532 JPEG.
-3. **The user:** ask for a screenshot of the paywall from an iPhone or the simulator. Convert a PNG with `sips -s format jpeg <file> --out review.jpg` and check its size as in 1.
+3. **The user:** ask for a screenshot of the paywall from an iPhone or the simulator. On the CLI path, convert a PNG with `sips -s format jpeg <file> --out review.jpg` and check its size as in 1.
 
 At Step 4 there is often no app build and no flow yet. Then push to Google Play now, and come back for the App Store push after Step 5 builds the flow (2), unless the user has a screenshot at hand (3).
 
@@ -599,7 +622,7 @@ On a yes, five commands — the stub is a draft until published, and a draft can
 ```bash
 $ADAPTY flows create --app <APP_ID> --name "<Location> placeholder"     # returns <FLOW_ID>; draft
 $ADAPTY flows config validate <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
-$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json
+$ADAPTY flows config update   <FLOW_ID> --app <APP_ID> --config-file <skill>/references/stub-flow.json --remote-configs '[]'
 $ADAPTY flows publish --app <APP_ID> <FLOW_ID> --yes
 $ADAPTY flows get <FLOW_ID> --app <APP_ID>                             # poll until published
 ```
@@ -640,9 +663,9 @@ Whichever route, collect the **placement developer ID(s)** via `AskUserQuestion`
 **If creating new paywalls/placements** (either `appPreference` is `new`, or `existing` but creating new ones), create one paywall and one placement per confirmed location:
 
 ```bash
-# Create paywall — --product-id is required, once per product UUID from Step 4, in display order.
+# Create paywall — --products lists the product UUIDs from Step 4, in display order.
 # Capture the returned id as <PAYWALL_ID>
-$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --product-id <PRODUCT_UUID_1> --product-id <PRODUCT_UUID_2>
+$ADAPTY paywalls create --app <APP_ID> --title "Main Paywall" --products '[{"product_id":"<PRODUCT_UUID_1>"},{"product_id":"<PRODUCT_UUID_2>"}]'
 
 # Repeat for each placement location, using the paywall id from above
 $ADAPTY placements create --app <APP_ID> --title "Main" --developer-id "main" --audiences '[{"content_type":"paywall","segment_ids":[],"paywall_id":"<PAYWALL_ID>","priority":0}]'
@@ -798,9 +821,8 @@ curl -s "https://adapty.io/docs/release-checklist.md?ref=skill-<sessionToken>"
 
 Treat it as a pointer list, not a script — don't narrate it or walk through it line by line, and don't re-verify things already done. Skim it only to pick out a few still-relevant items and their links (e.g. server notifications, privacy policy, going to production), and offer those to the user as a brief "before you ship" list of suggested next steps. Keep it to a few bullets.
 
-Two of them are always the user's, so say so plainly, in the closing message and in `ADAPTY_SETUP.md`:
+**Offer the fallback file on every run, before the "before you ship" list.** Without it, a user who opens the app for the first time offline sees an empty paywall, and nothing in testing on Wi-Fi shows that. Read `references/fallbacks.md`: it says what to tell the user, how to download the file with the CLI once the placements are live, and what goes in the left-to-do list when they are not.
 
-- **The fallback file:** the CLI cannot download it; the user downloads it in the dashboard (https://adapty.io/docs/fallback-flows for a flow, https://adapty.io/docs/local-fallback-paywalls for a paywall) and you add it to the project.
-- **Tapping through the flow:** it cannot be driven in a headless simulator; the user runs it once on a simulator or a device.
+**Tapping through the flow is always the user's,** so say so plainly, in the closing message and in `ADAPTY_SETUP.md`: it cannot be driven in a headless simulator; the user runs it once on a simulator or a device.
 
 **If `migrationSource` is not empty:** before you wrap up, re-read `references/migration.md` section 5 and check the `ADAPTY_SETUP.md` you wrote against it subsection by subsection — every one is mandatory, including the ones whose answer is "nothing to do". The two most often dropped: reconnecting the stores and re-pointing App Store Server Notifications / Google Play RTDN, and the historical data import decision. Add anything missing, with that section's plain `https://adapty.io/docs/<page>` links — no `.md`, no `?ref=` tag, since a human with no copy of this skill reads that document.

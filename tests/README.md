@@ -94,6 +94,7 @@ python3 tests/test-audit-flow.py                                         # the a
 python3 tests/test-unmapped-elements.py                                  # old-price: the guarded set vs the corpus
 python3 tests/test-schema-baseline.py                                    # schema --baseline matches by screen id, not position
 python3 tests/test-legibility.py                                         # text-vs-background, both appearance variants
+python3 tests/test-text-fit.py                                           # autoShrink outside a bounded box, a long translation in one
 python3 tests/test-price-literals.py                                     # placeholder + baseline-relative price literals
 python3 tests/test-product-fields.py                                     # the closed product-variable field set
 python3 tests/test-crop.py                                               # cutting a graphic out of a reference
@@ -105,6 +106,7 @@ python3 tests/test-theme-styles.py                                       # layer
 python3 tests/test-customid-analytics.py                                 # the customId an input/option reports under
 python3 tests/test-video-element.py                                      # the unset video + its fixed height, and the catalog contract
 python3 tests/test-custom-tags.py                                        # custom tags: names, duplicates, logic and script-context use
+python3 tests/test-system-variables.py                                   # system.platform: values, text and setVariable use
 python3 tests/test-sliding-sheet.py                                      # the sheet's root/singleton placement, startPosition, footer placement, taps in the cover band
 python3 tests/test-image-preview.py                                      # previewValue on an image this draft added, both binding shapes
 python3 tests/test-product-template.py                                   # the plan-card catalog entry, and from_catalog

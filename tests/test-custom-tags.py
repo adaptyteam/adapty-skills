@@ -100,7 +100,7 @@ def build(parts, variables, extra=()):
 
 def main():
     name = fk.app_value('user_name', fallback='there')
-    coins = fk.app_value('app.coins-balance', value_type='number', fallback=0)
+    coins = fk.app_value('app.coins-balance', fallback='0')
     good = build(['Hi, ', fk.Var(name), '! You have ', fk.Var(coins), ' coins'], [name, coins])
 
     # --- flowkit ------------------------------------------------------------------------------
@@ -122,8 +122,8 @@ def main():
            'value_type')
     raises('a number fallback for a string tag is refused',
            lambda: fk.app_value('x', fallback=3), 'not a string')
-    raises('a bool is not a number', lambda: fk.app_value('x', value_type='number',
-                                                          fallback=True), 'not a number')
+    raises('a number tag is refused (only a string can be a custom tag)',
+           lambda: fk.app_value('x', value_type='number', fallback=0), 'value_type')
     raises('fallback is required', lambda: fk.app_value('x'), 'fallback', exc=TypeError)
     gated = fk.text(fk.rich('y'), color_id='ink')
     gated['props']['visibility'] = fk.when(fk.eq(fk.ref(name['id']), 'Max'))
@@ -148,6 +148,18 @@ def main():
 
     # --- verify-config: SILENT ----------------------------------------------------------------
     silent('a tag in plain text', good)
+    # A variable shown in text, not external, with no value and nothing setting it, is blank
+    # on a device: almost always a custom tag missing `external: true`.
+    plain = {'id': 'var_nick', 'name': 'nick', 'valueType': 'string', 'value': ''}
+    fires('a text variable with no value and no external flag warns',
+          build(['Hi, ', fk.Var(plain)], [plain]), 'mark it external: true')
+    valued = dict(plain, value='friend')
+    silent('a text variable with a value of its own', build(['Hi, ', fk.Var(valued)], [valued]))
+    assigned = build(['Hi, ', fk.Var(plain)], [plain], [fk.stack([], actions=[
+        {'id': 'act_set', 'type': 'setVariable', 'payload': [
+            {'type': 'assign', 'left': {'type': 'var', 'variableId': 'var_nick'},
+             'right': {'type': 'const', 'value': 'x'}}]}])])
+    silent('a text variable an action sets', assigned)
     reg = copy.deepcopy(good)
     reg['variables'] += [{'id': 'var_a', 'name': 'dup', 'valueType': 'string', 'value': ''},
                          {'id': 'var_b', 'name': 'dup', 'valueType': 'string', 'value': ''}]

@@ -141,7 +141,11 @@ for path, doc in corpus():
 # icon markup) and is excluded from census counts everywhere else for the same reason: its
 # `raw` carries width 24 where every genuine export carries 20, so it would be measuring our own
 # authoring rather than the builder's.
-export_raw = {k: v for k, v in export_raw.items() if v[1] != 'timeline-anchored.json'}
+# onboarding-custom-actions.json is hand-built too (test-timer-digits.py names its hand-built delay
+# timer): its `_meta.icons` holds a `custom` icon (`spinner1`, which renders from its own raw and is
+# not in the bundle) and a `Star` whose raw differs from the builder's by one digit.
+HAND_BUILT = {'timeline-anchored.json', 'onboarding-custom-actions.json'}
+export_raw = {k: v for k, v in export_raw.items() if v[1] not in HAND_BUILT}
 
 missing = sorted(k for k in export_raw if not icons.has_phosphor(*k))
 check('every icon in the corpus resolves in the bundle', not missing, f'missing: {missing}')

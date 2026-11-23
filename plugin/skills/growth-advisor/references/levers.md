@@ -24,25 +24,33 @@ of them for you; a hypothesis outside the table fills them itself.
 
 ## Known hypothesis types
 
-| Type | Title template | Judged on | After a win, rule out | After a loss, rule out |
-|---|---|---|---|---|
-| Add a plan length | Add a [weekly/monthly/annual] plan next to [products] on [placement] | Purchase conversion and revenue per user | Removing that length | Adding that length |
-| Remove a plan length | Remove [product] from [paywall] on [placement] | Revenue per user | Adding that length back | Removing that length |
-| Swap a plan length | Replace [product] with a [length] plan on [placement] | Purchase conversion and revenue per user | The reverse swap | This swap |
-| Add a trial | Add a [N]-day trial to [product] on [placement] | Trial conversion and trial-to-paid together | Adding it again | Adding it on that product |
-| Move a trial | Move the [N]-day trial from [product] to [product] on [placement] | Trial conversion and trial-to-paid together | Every trial test on that paywall | This move |
-| Change trial length | Change the trial on [product] from [N] to [M] days on [placement] | Trial conversion and trial-to-paid together | This change | This change |
-| Follow-up offer | Show [offer] when [paywall] closes on [placement] | Revenue per user across the placement | This offer on that placement | This offer on that placement |
-| Audience split | Show [paywall or change] instead of [current] on [placement], for [segment] | The change's own metric, in that segment | That change for that segment | That change for that segment |
-| Win-back offer | Replace [current paywall] with a [offer] paywall on [placement], for [former subscribers / lapsed trials] | Revenue per user in that segment | This offer for that segment | This offer for that segment |
-| Seasonal paywall | Show a [event] paywall instead of [current] on [placement] from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event |
-| New placement | Show [paywall] at [moment], on a new placement | Purchases from that placement, and total revenue | — | That moment |
-| Localization | Translate [paywall] into [language] on [placement], for [countries] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall |
-| Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion; on a flow paywall, two rates that are never added: purchases per user who reached it, and trials per user who reached it | That change on that paywall | That change on that paywall |
-| Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Purchases (or trials) per user who entered the flow | That change on that flow | That change on that flow |
-| Core price | Raise/Lower [plan] in [country] from [price] to [price] | Revenue per user | Moving it back | This move in this country |
-| Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there |
-| Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder |
+| Type | Title template | Judged on | After a win, rule out | After a loss, rule out | Saved as |
+|---|---|---|---|---|---|
+| Add a plan length | Add a [weekly/monthly/annual] plan next to [products] on [placement] | Purchase conversion and revenue per user | Removing that length | Adding that length | `adapty:new_duration`, paywall screen |
+| Remove a plan length | Remove [product] from [paywall] on [placement] | Revenue per user | Adding that length back | Removing that length | `adapty:remove_duration`, paywall screen |
+| Swap a plan length | Replace [product] with a [length] plan on [placement] | Purchase conversion and revenue per user | The reverse swap | This swap | `adapty:duration_swap`, paywall screen |
+| Add a trial | Add a [N]-day trial to [product] on [placement] | Trial conversion and trial-to-paid together | Adding it again | Adding it on that product | `adapty:trial`, paywall screen |
+| Move a trial | Move the [N]-day trial from [product] to [product] on [placement] | Trial conversion and trial-to-paid together | Every trial test on that paywall | This move | `adapty:trial_restructure`, paywall screen |
+| Change trial length | Change the trial on [product] from [N] to [M] days on [placement] | Trial conversion and trial-to-paid together | This change | This change | `adapty:trial_length_change`, paywall screen |
+| Follow-up offer | Show [offer] at [later moment], on its own placement, to users who closed [paywall] without buying | Revenue per user across the placement | This offer on that placement | This offer on that placement | `growth_advisor:follow_up_offer`, flow |
+| Audience split | Show [paywall or change] instead of [current] on [placement], for [segment] | The change's own metric, in that segment | That change for that segment | That change for that segment | `adapty:audience_split`, audience |
+| Win-back offer | Replace [current paywall] with a [offer] paywall on [placement], for [former subscribers / lapsed trials] | Revenue per user in that segment | This offer for that segment | This offer for that segment | `adapty:audience_split`, audience |
+| Seasonal paywall | Show a [event] paywall instead of [current] on [placement] from [date] to [date] | Revenue in the window | — (re-run next season) | That design for that event | `growth_advisor:seasonal`, flow |
+| New placement | Show [paywall] at [moment], on a new placement | Purchases from that placement, and total revenue | — | That moment | `growth_advisor:new_placement`, flow |
+| Localization | Translate [paywall] into [language] on [placement], for [countries] | Revenue per user in that language's countries | That language on that paywall | That language on that paywall | `adapty:flow_design`, flow |
+| Paywall design | [Verb] [element] on [paywall] from [now] to [new], on [placement]; the change from `paywall-teardown` | Purchase conversion; on a flow paywall, two rates that are never added: purchases per user who reached it, and trials per user who reached it | That change on that paywall | That change on that paywall | `adapty:flow_design`, paywall screen |
+| Onboarding change | [Verb] [screen or step] in [flow] from [now] to [new]; the change from `onboarding-teardown` | Purchases (or trials) per user who entered the flow | That change on that flow | That change on that flow | `adapty:flow_design`, flow or its screen |
+| Core price | Raise/Lower [plan] in [country] from [price] to [price] | Revenue per user | Moving it back | This move in this country | `adapty:price_change`, paywall screen |
+| Country or tier price | Price [plan] in [countries] at [price] | Revenue per user in those countries | Moving it back there | This move there | `adapty:price_change`, paywall screen |
+| Plan ladder | Move [plan] from [price] to [price] so annual is [N]× [plan] | Revenue per user | The reverse | This ladder | `adapty:price_change`, paywall screen |
+| Commitment plan | Add a 12-month commitment option to [annual product] on [placement], for App Store users outside the US | Revenue per user | Removing it | Adding it there | `growth_advisor:commitment`, flow |
+
+**Saved as** is the type and subject a hypothesis is saved with in the backlog ("The backlog" in SKILL.md). A
+change to a legacy or custom paywall is not saved: Adapty keeps paywall hypotheses read only, so it stays in
+the reply.
+Judged on is saved as the expected metric: revenue per user `arpu`, purchase conversion `cr_to_purchase`, trial
+conversion and trial-to-paid `cr_to_trial` with `cr_to_paid` in `metrics_impact`; a metric with no match goes
+in the rationale.
 
 When each price type applies, and how it is tested on a copy: `pricing.md`. Before an Add a trial
 row, the first-use gate in "Trials" below.
@@ -144,6 +152,13 @@ app's US numbers) when you compare, and call the target "the market median", nev
 - The core lengths are weekly, monthly and annual. Weekly plus annual is the most common pair.
 - **One product on the paywall:** add a second length first; nothing can be optimised without a
   comparison. Then a trial if the category uses one.
+- **Before anything that moves buyers toward annual** (adding it, preselecting it, an annual
+  follow-up offer, a commitment plan): set what annual buyers actually pay in their first year
+  (first-payment revenue, `renewal_period=1`, ÷ new subscriptions for the annual product, offers
+  included) against the leading short
+  plan's LTV at day 365 (read 12; at the furthest day both reached when it has not, and say so).
+  When the short plan earns as much or more, suggest no annual push and say why in one sentence.
+  When it cannot be computed, the Why names that risk.
 - **Two or more products:** find the leading length (by LTV from `analytics ltv`, otherwise by
   revenue share) and push purchases toward it: the trial on it, preselected, a badge. It is
   often weekly, not annual; the evidence library leans annual-first, so check the app's own
@@ -187,14 +202,19 @@ app's US numbers) when you compare, and call the target "the market median", nev
 
 These are the hypotheses this skill can build: a flow, put in front of users by an A/B test (`SKILL.md`, "From hypothesis to A/B test"), a new placement, or a change to an existing one (`SKILL.md`, "Changing a live placement").
 
-- **A healthy set is about three placements:** the onboarding paywall (push the leading length), an in-app
-  paywall at a value moment (a limit hit, a locked feature, settings), and an offer after the
-  onboarding paywall closes.
+- **A healthy set is about two placements:** the onboarding paywall (push the leading length) and an
+  in-app paywall at a value moment (a limit hit, a locked feature, settings).
 - **Only one placement** is itself an opportunity. A large share of revenue outside onboarding
   (chart 8 in `diagnosis.md`) calls for a dedicated paywall at that moment.
-- **Follow-up offer:** a discounted second screen when the onboarding paywall closes. Well
-  evidenced after the onboarding paywall, and it loses after the main in-app paywall
-  (`evidence.md`, across the flow).
+- **Follow-up offer:** a discount for users who closed the onboarding paywall without buying, on
+  its own placement the app shows at a later moment (the next app open, a limit hit). It is a
+  growth bet only ("When nothing stands out"), never a weak part: its absence is not a finding, and
+  it is sized on the onboarding placement's first payments, never on the users who closed it. **The close
+  button always closes:** Apple rejects a close that opens another offer, a second screen or a
+  sheet (App Store 5.6), so never propose that shape, and an offer live in it is a fix to move,
+  not a hypothesis to drop. `evidence.md` measured the offer right after the close, so the later
+  one's Expected is untested; after the main in-app paywall it loses (`evidence.md`, across the
+  flow).
 - **Before any win-back plan, say who leaves, with numbers** (the "Winning back users who left"
   reads in `diagnosis.md`): how many endings are users cancelling and how many are billing
   issues, and how many trials end without paying. Billing issues come back through grace period
@@ -235,7 +255,7 @@ These are the hypotheses this skill can build: a flow, put in front of users by 
 
 Before ranking, drop any hypothesis that:
 
-- matches what is live now (a trial already on that plan, an offer already shown on close, a
+- matches what is live now (a trial already on that plan, a follow-up offer already on its own placement, a
   placement that already exists). A default plan counts as live when any paywall that sold on
   that placement in the last full month has it: check every paywall's name and plans, not the
   top ones. When some paywalls have it and others not, say "N of your paywalls there already
@@ -264,8 +284,8 @@ stake. It questions money they already spend, which a dashboard never shows them
 ## When nothing stands out
 
 When no split shows one group carrying a gap and no step of the funnel is clearly weak, say so in
-the bold answer ("nothing is broken; these are bets"). Then suggest growth bets, still ranked by
-purchases at stake: a lever the app has not touched (a placement at a value moment, a plan length it does not sell), a strong part copied to a group that lacks
+the sentence after the bold answer ("nothing is broken; these are bets"). Then suggest growth bets, still ranked by
+purchases at stake: a lever the app has not touched (a placement at a value moment, a plan length it does not sell, a follow-up offer), a strong part copied to a group that lacks
 it ("Build on what works"), something rare in the market with evidence
 behind it (`market.md`, How paywalls look; `evidence.md`), a bet aimed at a segment, and at least
 one bolder change sized to their traffic. Never fill the list with standard moves the app already
@@ -349,7 +369,7 @@ Adapty](https://adapty.io/docs/create-offer.md).
 | Add a plan length | A new subscription in the existing group, created and pushed from Adapty (`pricing.md`, "Adding a plan length"); a lifetime plan is a non-consumable in-app purchase | A new base plan on the existing subscription, pushed from Adapty; a lifetime plan is a one-time product |
 | Add, change or remove a trial | An introductory offer on the product. It reaches every eligible buyer of that product, so a test needs a second product with or without it | An offer on the product's base plan (at least 3 days). Its offer ID goes on the product in Adapty; the test is a paywall that sells the product with the offer against one without |
 | A discount for former subscribers | A win-back offer on the existing product, added to it in Adapty and picked on the paywall. Only churned users are eligible; no new product | An offer on the base plan with "Developer determined" eligibility, shown only to the win-back audience |
-| A discount for anyone (an offer on close) | A promotional offer on the existing product, or a second product | An offer on the base plan |
+| A discount for anyone (a follow-up offer) | A promotional offer on the existing product, or a second product | An offer on the base plan |
 
 - **The Adapty side of an offer is yours to add.** Once the user has created the offer in the
   store and given its offer ID (never guess one), add it on their yes; a Google Play trial or
@@ -372,12 +392,60 @@ Adapty](https://adapty.io/docs/create-offer.md).
   a longer [grace period](https://adapty.io/docs/grace-period.md) (App Store 3, 16 or 28 days, 3
   or 6 for weekly plans; Google Play set per base plan), given as dashboard steps.
 
+## Adapty features
+
+Some weak parts are moved by an Adapty feature, not an A/B test. A feature is named only when its
+trigger holds in the reads; with no trigger it is not mentioned, not even as "also consider". For
+the "Trial still active" event and Refund Saver, the CLI cannot see whether any of these is on, so
+each is a "You:" Next step that asks the user to check and names the number that fired it ("paid
+trials pay at 12% against 27% organic"). Retention Messaging is read first (below). At most one per
+reply, in the free Next step, after a breakage fix and before the one question (which then joins
+the first item); when two fire, the higher row in the table below.
+
+| Feature | Trigger | Not when | Link |
+|---|---|---|---|
+| The "Trial still active" event sent through the attribution integration (AppsFlyer, Adjust, Branch, Singular, Firebase), so ad networks optimise for users who keep the trial; with Meta or TikTok through Adapty Attribution, Qualified trial instead, never both for one network | `reads.py audit` prints `FEATURE GATE: trial still active` | the app has no attribution integration (the user says so) | [events](https://adapty.io/docs/events), [Qualified trial](https://adapty.io/docs/ua-facebook) |
+| Retention Messaging: a message on Apple's cancel screen | the App Store is the store that earns, voluntary cancellation leads the endings (read 6), and the scorecard grades renewals weak | the money comes from Google Play | [Retention Messaging](https://adapty.io/docs/retention-messaging) |
+| Refund Saver | the scorecard grades refunds weak (`market.md`, Refunds) | | [Refund Saver](https://adapty.io/docs/refund-saver) |
+
+**Retention Messaging is read before its step,** when its row wins the slot. Read the setup status
+and the production messages with their numbers, and nothing else (no `realtime-url get`):
+
+```bash
+$ADAPTY retention-messaging setup-status --app <APP_ID> --json
+$ADAPTY retention-messaging messages list --app <APP_ID> --mode production --json
+```
+
+- **With the CLI,** first probe both with `--help`; if either reports no such command after one
+  `npx --yes adapty@beta … --help` try, write the "You:" step to check it in the dashboard, as for
+  the other two features.
+- **Over MCP** (`retention_messaging_setup_status`, `retention_messaging_messages_list`): a tool
+  missing from your list, the "You:" step. Neither read needs a yes on either path.
+
+The step names what the reads show and offers the next step as an outcome, then invokes
+`retention-messaging` on the user's yes: not set up (no keys, no Apple approval, or production not pointing at Adapty: name
+which), no message in production (`meta.exists` false), or the messages' numbers (the save rate and
+saved revenue of the live ones, said the way the dashboard does). The item follows `SKILL.md`,
+"How you write a reply". Example of the shape, not words to copy:
+
+> Me: on your yes, I set up a message on Apple's cancel screen: voluntary cancellations lead your
+> endings, and Apple does not send cancel-screen requests to Adapty yet in production.
+
+The 12-month commitment plan is a hypothesis, not a step: the Commitment plan row of the Known
+types. It is a candidate when the App Store's main market is outside the US, a shorter plan leads
+new subscriptions while annual sells, and annual brings more per buyer in a year than that plan's
+LTV at day 365 (the annual check in "Plan structure"); buyers who want annual's price but not its
+upfront payment get twelve monthly payments. Not when the US is the main market or there is no
+annual product. `evidence.md` has no entry, so Expected is untested. Whether the app already sells one is a
+question to the user ([12-month commitment](https://adapty.io/docs/app-store-12-month-commitment)).
+
 ## Localization
 
-The kind of test that wins most often (`market.md`). A candidate when installs or revenue from
-countries in another language are a large share and the paywall shows one language. The CLI
-shows which countries the users are in, not which languages the paywall has; check the paywall
-or ask. A flow paywall gets its locales from `flow-generator`, which this skill can run.
+The kind of test that wins most often (`market.md`). A candidate when a top country in another
+language (the top-countries block of `reads.py audit` prints each one's language) is missing from
+the paywall's languages. A flow's languages are its `localization.locales`; a paywall's are not in
+the CLI, so it takes a screenshot in that country's language. A flow paywall gets its locales from
+`flow-generator`, which this skill can run.
 
 ## Paywall design
 
@@ -395,12 +463,15 @@ the offer is real.
 - **Which flow:** the one that brings the most purchases first; a placement that brings almost
   none is a question about the moment it shows, not only about its screen.
 - **A change to a live flow is a copy.** Offer: "I can build this as a copy of your flow and,
-  once it is published, set up an A/B test of it against the current one." `flow-generator` builds the copy as a new flow. Never
-  edit the live flow in place: every user gets the change, and nothing measures it.
-- **A paywall from the old Paywall Builder** (the user confirms it; the CLI cannot tell it from a
-  custom one) cannot be copied this way. Offer the dashboard's
-  **Move to new builder** first ([convert a paywall to a flow](https://adapty.io/docs/convert-paywall-to-flow.md)),
-  then the copy.
+  once it is published, set up an A/B test of it against the current one." `flow-generator`
+  copies the live version (`flows duplicate --version` with the `live` row of
+  `flows versions list`, never the draft) and edits it. Never edit the live flow in place: every
+  user gets the change, and nothing measures it.
+- **A paywall from the old Paywall Builder** (`kind` `legacy_builder` in `paywalls list`; a row
+  with no `kind` key: the user confirms it) cannot be copied this way. Offer the dashboard's
+  **Move to new builder** first as a button to look for on the paywall's page, never as a step
+  you do or one that surely exists: it shows only when a layout is saved, which `kind` does not say
+  ([convert a paywall to a flow](https://adapty.io/docs/convert-paywall-to-flow.md)), then the copy.
 - **Say what it rests on:** the teardown's reading of the screen and the evidence library, plus
   this paywall's view → paid rate and its purchases per screen (reads 8 and 9 in `diagnosis.md`).
   For a paywall in a flow, add what its funnel shows: the paywall screen's `reached`, `trials`,
@@ -424,6 +495,21 @@ the offer is real.
 - After adding a plan length, suggest checking in a couple of months that its buyers renew.
 - When a lever stops producing lifts, say further tests on it will likely return little, and
   move to another lever. Never invent rounds to fill a plan.
+
+## Next rung
+
+A basic hypothesis has stronger versions. Move to the next rung when the test history shows the
+rung below finished on that placement, or when the user turns a hypothesis down with a reason
+("we tried it", "we do X instead"); a turn-down with no reason leaves the list. When the history
+does not say what came out, the one question asks what ran and what won. A loss rules out its own
+rung on its target, not the next one.
+
+| Ladder | Rungs, in order |
+|---|---|
+| Annual | Annual as a second plan → a 12-month commitment plan, outside the US. Each rung passes the annual check in "Plan structure" first |
+| Follow-up offer | A discount on the same plan → a different product (another length, a commitment plan), each on the follow-up placement |
+| Trial | As "Trials" orders it: on the leading length, then its length, then which plan carries it |
+| Localization | Translated copy → local prices in that country (`pricing.md`) |
 
 ## Ideas the user brings
 

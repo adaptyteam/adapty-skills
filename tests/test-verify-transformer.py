@@ -84,8 +84,21 @@ def no_error(name, doc, fragment):
 
 # ---------------------------------------------------------------- SILENT: the real corpus
 print('SILENT on every real export (the false-positive half):')
+# The one known true positive of the corpus, the same one test-timer-digits.py pins: the
+# hand-built 3 s delay of onboarding-custom-actions.json has no digits child, so it does not fire
+# on a device. That file must give exactly this error and no other.
+KNOWN = {'onboarding-custom-actions.json': 'timer el_delay has a timer-end action but no text inside it'}
 for path in sorted(glob.glob(os.path.join(CORPUS, '*.json'))):
-    silent(f'tracked {os.path.basename(path)}', load(path))
+    name = os.path.basename(path)
+    if name not in KNOWN:
+        silent(f'tracked {name}', load(path))
+        continue
+    errs = errors(load(path))
+    if len(errs) == 1 and KNOWN[name] in errs[0]:
+        print(f'  ok    tracked {name}: only its known delay-timer error')
+    else:
+        fails.append(f'tracked {name}: expected only {KNOWN[name]!r}, got {errs!r}')
+        print(f'  FAIL  tracked {name}')
 for path in sorted(glob.glob(os.path.join(RAW, '*.json'))):
     d = json.load(open(path))
     silent(f'raw {os.path.basename(path)}', d)
@@ -118,6 +131,63 @@ fires('condition: a switch case that is not a [predicate, value] pair',
       with_visibility({'type': 'switch', 'cases': [['only-one']]}), '.cases[0]')
 fires('condition: a bare string where an expression belongs',
       with_visibility('email.value'), 'invalid condition expression')
+
+# --- an EMPTY side (`null`) is the builder's unfinished condition. The service accepts it in an
+# operand slot (`findInvalidOperandPath`) and compiles it as is, so it must not be an error; it is
+# a warning, because the condition then never depends on the user. A MISSING side stays an error.
+def warnings(doc):
+    with tempfile.TemporaryDirectory() as tmp:
+        p = os.path.join(tmp, 'c.json')
+        json.dump(doc, open(p, 'w'))
+        r = subprocess.run([sys.executable, VERIFY, p], capture_output=True, text=True)
+    return [l.split('warning:', 1)[1].strip() for l in r.stdout.splitlines() if 'warning:' in l]
+
+
+def warns(name, doc, fragment, expect=True):
+    hit = any(fragment in w for w in warnings(doc))
+    if hit is not expect:
+        fails.append(f'{name}: expected warning {fragment!r} fired={expect}, got {hit}')
+        print(f'  FAIL  {name}')
+    else:
+        print(f'  ok    {name}')
+
+
+BLANK = {'type': '==', 'left': None, 'right': None}
+no_error('condition: both sides empty is accepted, as the service does',
+         with_visibility(BLANK), 'invalid condition expression')
+warns('...and is reported as unfinished', with_visibility(BLANK), 'unfinished condition')
+warns('...inside an && group too',
+      with_visibility({'type': '&&', 'predicates': [
+          {'type': 'notEmpty', 'left': {'type': 'var', 'variableId': 'a.value'}}, BLANK]}),
+      'unfinished condition')
+warns('a finished condition is not reported as unfinished',
+      with_visibility({'type': '==', 'left': {'type': 'var', 'variableId': 'a.value'},
+                       'right': {'type': 'const', 'value': 'x'}}),
+      'unfinished condition', expect=False)
+
+
+def with_conditional_text(predicate):
+    d = load()
+    s, eid, e = first_element(d, lambda e: e.get('type') == 'text')
+    e['props']['content'] = {'_localizable': True, 'values': {'en': {
+        'type': 'switch',
+        'cases': [[predicate, {'type': 'const', 'value': [
+            {'type': 'paragraph', 'content': [{'type': 'text', 'text': 'A'}]}]}]],
+        'default': {'type': 'const', 'value': [
+            {'type': 'paragraph', 'content': [{'type': 'text', 'text': 'B'}]}]}}}}
+    return d
+
+
+warns('conditional text: a case with both sides empty always shows',
+      with_conditional_text(BLANK), 'this case always shows')
+no_error('...and is not an error', with_conditional_text(BLANK),
+         'invalid conditional text predicate')
+fires('conditional text: a predicate the service cannot read is an error',
+      with_conditional_text({'type': 'bogus'}), 'invalid_conditional_text_predicate')
+warns('conditional text: a finished case is silent',
+      with_conditional_text({'type': '==', 'left': {'type': 'var', 'variableId': 'a.value'},
+                             'right': {'type': 'const', 'value': 'x'}}),
+      'this case always shows', expect=False)
 
 # --- productRef, the structured product reference. The service validates the target itself
 # and names the part it rejected, so the port mirrors its two shapes rather than waving the
@@ -185,6 +255,18 @@ def with_state_condition(condition):
 fires('state condition: same walker, custom state',
       with_state_condition({'type': 'bogus'}), 'invalid condition expression')
 
+# `elementState` reads another element's state; the service compiles it (and a `disabled`
+# state's condition, into the element's enabled binding), so neither is reported.
+_es = {'type': '==', 'left': {'type': 'elementState', 'elementId': 'el_next'},
+       'right': {'type': 'const', 'value': 'default'}}
+d = load()
+_s, _eid, _e = first_element(d, lambda e: e.get('type') == 'text')
+_e['states'] = [{'id': 'disabled', 'type': 'system', 'condition': _es}]
+silent('state condition: a disabled state reading another element\'s state', d)
+fires('condition: an elementState with no elementId',
+      with_visibility({'type': '==', 'left': {'type': 'elementState'},
+                       'right': {'type': 'const', 'value': 'default'}}), '.elementId')
+
 # A `selected` system state's condition is overwritten by the service before use, so a
 # malformed one there must NOT be reported -- that would be a false positive.
 d = load()
@@ -192,11 +274,16 @@ _s, _eid, _e = first_element(d, lambda e: e.get('type') == 'text')
 _e['states'] = [{'id': 'selected', 'type': 'system', 'condition': {'type': 'bogus'}}]
 silent('state condition: `selected` is overwritten by the service, so not checked', d)
 
-# --- script_type_violation: an unresolved condition variable becomes a bare identifier.
-fires('condition variable resolving to nothing (TS2304)',
+# --- unknown_variable_ref: a condition variable that nothing declares.
+fires('condition variable resolving to nothing',
       with_visibility({'type': 'notEmpty',
                        'left': {'type': 'var', 'variableId': 'nosuchinput.value'}}),
       'resolves to nothing')
+# external: the error names the code the publish returns for it, so an agent can match the two.
+fires('condition variable resolving to nothing names unknown_variable_ref',
+      with_visibility({'type': 'notEmpty',
+                       'left': {'type': 'var', 'variableId': 'nosuchinput.value'}}),
+      'unknown_variable_ref')
 
 # --- invalid_action_payload, one code per required field.
 def with_action(action):
@@ -361,11 +448,15 @@ fires('flowkit: one branch printing the selected price and a fixed one',
       f'replace `{_P1}.prod_price` with `plans.selectedProduct.prod_price`')
 
 # --- theme colour hexes, position-scoped (see THEME_HEX in verify-config.py).
-for _tag, _hex in (('3-digit', '#fff'), ('empty', ''), ('no-hash', 'FFFFFF'),
-                   ('8-digit', '#FFFFFFD9'), ('7-digit', '#FFFFFFF')):
+for _tag, _hex in (('empty', ''), ('7-digit', '#FFFFFFF')):
     _d = load(os.path.join(CORPUS, 'comparison-paywall.json'))
     _d['theme']['colors'][0]['light']['hex'] = _hex
     fires(f'theme hex {_tag} ({_hex!r})', _d, 'not #RRGGBB')
+# The transform service reads these, so they are not errors.
+for _tag, _hex in (('3-digit', '#fff'), ('no-hash', 'FFFFFF'), ('8-digit', '#FFFFFFD9')):
+    _d = load(os.path.join(CORPUS, 'comparison-paywall.json'))
+    _d['theme']['colors'][0]['light']['hex'] = _hex
+    no_error(f'theme hex {_tag} ({_hex!r}) is read by the service', _d, 'not #RRGGBB')
 
 # An ELEMENT colour is a different rule: the service accepts a 3-digit hex, an 8-digit one and
 # an empty string there, and real exports carry both -- so this must stay silent.

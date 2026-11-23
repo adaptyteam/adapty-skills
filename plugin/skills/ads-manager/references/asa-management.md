@@ -189,7 +189,8 @@ filter syntax, and routing any segment into a placement.
 
 Who changed what in the account, and when — read live from the Apple Ads API, so it also shows
 changes made in Apple Ads itself, by Apple Support, or by another API tool. Nothing is stored on
-Adapty's side, and Apple keeps 6 months. Needs CLI **0.9.4**.
+Adapty's side, and Apple keeps 6 months. Probe `$ADAPTY asa change-history --help` first; when it
+reports no such topic, try `npx --yes adapty@beta asa change-history --help` once.
 
 | Command | Flags | Notes |
 |---|---|---|

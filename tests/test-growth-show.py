@@ -65,6 +65,21 @@ seg = {'key': 'x', 'title': 'App Store', 'values': [{'x': m, 'value': 10} for m 
 text = shown(CHART, {'data': {'segments': [seg]}}, conv=False)
 check('a group live in the last full month counts as live', 'with a value in 2025-06: 1' in text, text)
 
+# b: what show() returns has no partial month either, so the readers after it (moved, split_money) never
+# compare the month still running with the last full one
+CH = 'analytics chart --chart installs --date-from 2025-01-01 --date-to 2025-06-30 --granularity month'
+tot = {'key': 'total', 'is_total': True, 'values': [{'x': m, 'value': 1000} for m in MONTHS] + [{'x': '2025-07-01', 'value': 200}]}
+ch = {'key': 'ch', 'title': 'Organic', 'values': [{'x': m, 'value': 1000} for m in MONTHS] + [{'x': '2025-07-01', 'value': 200}]}
+out = io.StringIO()
+with contextlib.redirect_stdout(out):
+    segs = reads.show('t', CH, {'data': {'segments': [tot, ch]}}, None)
+    reads.moved(segs, 'channel')
+check('moved() never reads the partial month after the window', '2025-07' not in out.getvalue() and 'moved in' not in out.getvalue(), out.getvalue())
+body = {'data': {'segments': [{'key': 'a', 'values': [{'x': m, 'value': 1} for m in MONTHS + ['2025-07-01']]}]}}
+reads.call = lambda _ad, _args: type('F', (), {'result': lambda self: (body, None)})()
+b, _ = reads.cli('adapty', ['analytics', 'chart', '--date-from', '2025-01-01', '--date-to', '2025-06-30', '--app', 'x'])
+check('cli() drops the period after --date-to', [p['x'] for p in reads.segments(b)[0]['values']][-1] == '2025-06-01', b)
+
 # c: no name falls back to the id
 ID = '00000000-0000-4000-8000-0000000000f1'
 reads.prefetch = lambda *_a: None

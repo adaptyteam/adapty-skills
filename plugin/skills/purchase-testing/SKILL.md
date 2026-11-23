@@ -38,7 +38,7 @@ Every message, not only the fixed blocks:
   saved while working.
 - **Bold at most one thing per paragraph.** A label the user must pick or match (a test
   card, a menu item) goes in quotes, not bold.
-- **Full, clickable links to the exact page.**
+- **Full, clickable links to the exact page.** A docs page is read as its `.md` URL; the user gets the same URL without `.md`.
 - **Could not check it? Say how they can** — where to click and what they should see.
   Do not know something? Look it up before saying so — the CLI, the code, the
   `adapty-docs` skill.
@@ -109,7 +109,7 @@ options.
 
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
-  https://adapty.io/docs/developer-cli-cowork.md
+  https://adapty.io/docs/developer-cli-cowork
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
@@ -136,11 +136,32 @@ Example of the question's shape, not words to copy:
 Resolve `$ADAPTY` once, the way `adapty-integration` does:
 
 ```bash
-npm i -g adapty@latest >/dev/null 2>&1 \
-  && ADAPTY="adapty" \
-  || ADAPTY="npx --yes adapty@latest"              # fallback: prefix not writable
-$ADAPTY auth whoami
+if [ "${ADAPTY-}" != "npx --yes adapty@latest" ]; then ADAPTY="adapty"; VMSG=$(
+  _a() { if [ -n "${HTTPS_PROXY-}${https_proxy-}" ]; then NODE_USE_ENV_PROXY=1 $ADAPTY "$@"; else $ADAPTY "$@"; fi; }
+  _v() { _a --version 2>/dev/null | sed -n 's|^adapty/\([^ ]*\).*|\1|p'; }
+  command -v adapty >/dev/null 2>&1 || { npm i -g adapty@latest >/dev/null 2>&1 \
+    && command -v adapty >/dev/null 2>&1; } || { echo npx; exit; }
+  J=$(_a version --json 2>/dev/null) && printf '%s' "$J" | node -e 'let s = "";
+    process.stdin.on("data", d => s += d).on("end", () => { try { const j = JSON.parse(s);
+      if (j && typeof j.installed == "string" && (j.latest === null || typeof j.latest == "string")
+        && typeof j.update_available == "boolean") process.exit(j.update_available ? 1 : 0);
+    } catch (e) {} process.exit(1); });' && exit
+  old=$(_v); npm i -g adapty@latest >/dev/null 2>&1 || { echo npx; exit; }
+  new=$(_v); [ -n "$new" ] || { echo npx; exit; }
+  [ "$new" != "$old" ] && echo "CLI updated from $old to $new." || echo "Could not update the CLI: still $new."
+); [ "$VMSG" = npx ] && ADAPTY="npx --yes adapty@latest" \
+  && VMSG="Could not install or update the CLI globally, so I run it through npx."
+if [ -n "$VMSG" ]; then echo "$VMSG"; fi; fi
 ```
+
+**Run this block as its own command, right after the readiness check `adapty auth whoami` and
+before any other CLI command.** Copy it as it is: it runs `$ADAPTY version --json` and updates a
+CLI that is behind or too old to have that command. If it prints a line, your reply to the user
+starts with that line, in their language, with nothing added. Say nothing else about the CLI
+version: no "up to date", no version number. A new shell does not keep `$ADAPTY`: set it again, to
+`npx --yes adapty@latest` after the npx line, else to `adapty`.
+
+Then `$ADAPTY auth whoami`.
 
 `--yes` on the fallback is load-bearing: without it npx stops to ask permission to install,
 and a headless run has nobody to answer. In `zsh` a multi-word `$ADAPTY` is not word-split,
@@ -215,8 +236,9 @@ looks exactly like a broken SDK call from inside the app. Then check what it sho
   publish the response also carries `publication_error` and `transform_error`: quote
   that string, it is the transform service's own objection.
 - **A paywall** — `$ADAPTY paywalls get --app <APP_ID> <PAYWALL_ID>` returns its title
-  and `product_ids`; there is nothing to publish. The CLI cannot see whether the paywall
-  has a Paywall Builder layout, so if the code renders it with Adapty's own paywall UI,
+  and its products (`products[].product_id`); there is nothing to publish. It also returns
+  `use_paywall_builder_v4`, which says the paywall is set to use Paywall Builder, not
+  that a layout is saved, so if the code renders it with Adapty's own paywall UI,
   name that as something you could not check.
 
 **5. The products carry store IDs and an access level.** `products list` and

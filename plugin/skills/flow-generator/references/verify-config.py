@@ -15,11 +15,8 @@ well-formed* and knows nothing about publishability; this answers *do the docume
 references agree* — and it owns outright the rows neither of the others looks at, notably
 anything to do with an image, a top-level `status`/`id`, and a missing `states` key.
 
-History worth keeping: this was called `verify-fixture.py` and lived in `tests/` until 2026-08-25 and therefore did NOT ship,
-which quietly weakened several rules the repo had already escalated from prose to a mechanical
-check -- every GREEN round that scored against those guards ran in-repo, where the file
-existed, so the closures did not transfer to a customer install. Moving it here is what makes
-them real everywhere.
+It ships with the skill, never under `tests/`: the rules escalated from prose to a mechanical
+check here are only real on an install that carries this file.
 
 Checks, in order: map keys match element ids; hierarchy references resolve;
 navigate targets resolve; product elements AND `const` purchase targets are
@@ -27,7 +24,8 @@ declared in _meta.screens;
 price variables name a field in the closed product set and reference declared
 products, across all three families (prod_/offer_/is_); selectableGroups and groupId agree
 both ways; font.preset and colorId resolve in the file's own theme;
-font.family resolves in _meta.fonts; every icon used appears in _meta.icons;
+font.family not in _meta.fonts (a warning: publishing resolves it against the app's own
+fonts, which only `flows config validate` sees); every icon used appears in _meta.icons;
 image elements carry a bound asset with a string id, since neither publish-time
 gate looks at an image at all; no id is declared twice in any id-keyed
 collection, and theme colour and typography ids do not collide; element types the transform
@@ -82,6 +80,9 @@ GROUP_TYPES = {'single_choice', 'multi_choice', 'product', 'toggle'}
 # its own input-type map (read from the transformer's source).
 # `password-input` is deliberately NOT here: the transformer omits it and the docs say a
 # password field sends no event.
+# A custom element's Type, as the builder's publish check accepts it. Same pattern as flowkit.
+CUSTOM_TYPE = re.compile(r'^[a-z0-9_]+$')
+
 REPORTING_INPUT_TYPES = {'text-input', 'email-input', 'number-input', 'phone-input',
                          'date-picker', 'time-picker', 'date-time-picker'}
 
@@ -92,7 +93,7 @@ REPORTING_INPUT_TYPES = {'text-input', 'email-input', 'number-input', 'phone-inp
 # agree belong here; the progress-bar family is real builder output and does not. See
 # flow-schema.md, "Being in the schema is not reaching a device".
 UNMAPPED_ELEMENT_TYPES = {
-    'old-price': 'draws in `flows config preview` and NOT on a device — measured',
+    'old-price': 'draws in `flows config preview` and NOT on a device',
 }
 
 # The closed set of product-variable fields, from the public docs page the skill already links
@@ -144,7 +145,7 @@ BASELINE_ONLY_LITERALS = (('price', CURRENCY_LITERAL),
 # large text) and 13% of the text in real builder exports is already below 4.5 — auditing a
 # designer's palette is not this tool's job. This catches the *construction* defect: a fill
 # recoloured (or a screen repainted dark) with the text colour left behind, so the text lands
-# on a background it cannot be told apart from. Measured over the corpus, the gap between the
+# on a background it cannot be told apart from. Over the corpus, the gap between the
 # two is wide and empty: real accent-on-card text bottoms out at 1.89 (amber stars on a light
 # card, a deliberate rating visual) and the next value down is 1.08 (near-white on white).
 MIN_LEGIBLE_CONTRAST = 1.5
@@ -160,26 +161,26 @@ MIN_OPAQUE_ALPHA = 0.8
 # defects costs three network round trips; this names all of them in one local pass. The
 # service validates `props.visibility.condition` and `states[].condition` with a single
 # function (`findInvalidExpressionPath`), which is why two codes share one walker here.
-# Ranked 3rd and 18th among transformer refusals over the 40 days to 2026-08-28.
+# Both are frequent transformer refusals.
 EXPR_TYPES = {'const', 'switch', '&&', '||', '==', '!=', 'has', 'notHas', 'empty',
               'notEmpty', 'in', 'notIn', '>', '<', 'size', 'var', 'assign', 'concat',
-              'productRef'}
+              'productRef', 'elementState'}
 # `assign` is in the schema's ExpressionType enum and has NO case in the condition walker, so
 # it falls through to `default` and the flow is refused. Legal in a `setVariable` payload,
 # illegal as a condition — hence scoped here and not to expressions generally.
 COND_ILLEGAL_TYPES = {'assign'}
-# A THEME colour must be exactly `#RRGGBB`. Measured against the transform service
-# In `theme.colors[].light/dark` a 3-digit, 8-digit, 7-digit, unprefixed or EMPTY
-# hex is refused -- and refused with the location-free `Generated JSON failed schema
-# validation`, which names no field. The render cannot see it: `config preview` draws light
-# mode only. The published schema's hex pattern `^(?:#[0-9A-Fa-f]{6})?$` catches the rest but
-# allows the EMPTY string, so this check is the only local gate for that one.
-#
-# POSITION-SCOPED on purpose. In an element position the same service accepts a 3-digit hex,
-# an 8-digit one and an empty string, and real exports carry 8 eight-digit and 16 empty values
-# in `props.fill.color` / `props.color` and validate clean -- so an error here would fire on
-# the builder's own output. The schema check reports the 3- and 8-digit ones; `--baseline`
-# keeps the ones already in the fetched config out of its report. Theme colours only.
+# System variables: read-only device context a condition reads by a reserved `var` id, with no
+# app code. The transform service compiles `system.platform` to the SDK's own platform value
+# (iOS and Android SDK 4.0.0+), so nothing produces it in the document. It is a condition operand
+# only: compared with a value outside its list it is `invalid_system_variable_value`, in text
+# `unsupported_system_variable_use`, as a `setVariable` target `invalid_action_payload`. A
+# `variables[]` entry with the same id shadows it and is an ordinary custom variable.
+SYSTEM_VARIABLES = {'system.platform': ('ios', 'android')}
+# A colour hex the schema allows: `#RRGGBB`. The transform service also reads `#RGB`,
+# `#RRGGBBAA` and an unprefixed hex, in a theme colour as in an element; a theme colour whose hex
+# it cannot read at all (empty, 7 digits) is refused or its solid dropped, depending on the
+# service build. Real exports carry looser forms in element positions (8 eight-digit and 16 empty
+# values in `props.fill.color` / `props.color`), so only theme colours are checked here.
 THEME_HEX = re.compile(r'#[0-9A-Fa-f]{6}\Z')
 
 # An id that reaches the generated runtime script as an identifier. Element ids, group ids,
@@ -195,6 +196,11 @@ _BINARY = {'==', '!=', '>', '<', 'has', 'notHas', 'in', 'notIn'}
 _UNARY = {'empty', 'notEmpty', 'size'}
 
 
+def _strip_monthly(segment):
+    """A product segment without its `@monthly` plan suffix (str.removesuffix needs Python 3.9)."""
+    return segment[:-len('@monthly')] if segment.endswith('@monthly') else segment
+
+
 def bad_expr_path(v, path):
     """Path of the first node the service rejects, or None. Faithful port, including the
     three collections whose ABSENCE is legal — a stricter rule would fire on valid documents."""
@@ -208,6 +214,11 @@ def bad_expr_path(v, path):
     if t == 'var':
         vid = v.get('variableId')
         return None if isinstance(vid, str) and vid else f'{path}.variableId'
+    if t == 'elementState':
+        # Another element's current state, compared with `==`/`!=` against a `const` state id
+        # (`'default'` is its Default state). The service checks only the id's shape here.
+        eid = v.get('elementId')
+        return None if isinstance(eid, str) and eid else f'{path}.elementId'
     if t == 'productRef':
         # The structured form of a product reference. The service validates the target itself
         # and its messages name the part, so mirror its two shapes exactly rather than waving
@@ -239,10 +250,10 @@ def bad_expr_path(v, path):
             return f'{path}.field ({field!r} is not a product variable)'
         return None
     if t in _BINARY:
-        return (bad_expr_path(v.get('left'), f'{path}.left')
-                or bad_expr_path(v.get('right'), f'{path}.right'))
+        return (_bad_operand(v.get('left', _MISSING), f'{path}.left')
+                or _bad_operand(v.get('right', _MISSING), f'{path}.right'))
     if t in _UNARY:
-        return bad_expr_path(v.get('left'), f'{path}.left')
+        return _bad_operand(v.get('left', _MISSING), f'{path}.left')
     for key, kind in (('predicates', ('&&', '||')), ('operands', ('concat',))):
         if t in kind:
             if key not in v:
@@ -272,6 +283,40 @@ def bad_expr_path(v, path):
             return bad_expr_path(v['default'], f'{path}.default')
         return None
     return f'{path}.type'
+
+
+_MISSING = object()
+
+
+def _bad_operand(v, path):
+    """An operand slot (binary `left`/`right`, unary `left`) also takes `null`: the builder stores
+    an unset operand that way and the service accepts it. Collections never take `null`."""
+    return None if v is None else bad_expr_path(v, path)
+
+
+def blank_operand_path(v, path):
+    """Path of the first `null` operand, walking `&&`/`||` groups, or None. Port of the service's
+    `findBlankOperandPath`: the builder's unfinished condition (`== null null`). It is valid and
+    compiles as is, so `==` between two empties is always true and the condition never depends
+    on the user."""
+    if not (isinstance(v, dict) and isinstance(v.get('type'), str)):
+        return None
+    t = v['type']
+    if t in ('&&', '||'):
+        for i, p in enumerate(v.get('predicates') or []):
+            r = blank_operand_path(p, f'{path}.predicates[{i}]')
+            if r:
+                return r
+        return None
+    if t in _BINARY:
+        if v.get('left', 0) is None:
+            return f'{path}.left'
+        if v.get('right', 0) is None:
+            return f'{path}.right'
+        return None
+    if t in _UNARY and v.get('left', 0) is None:
+        return f'{path}.left'
+    return None
 
 
 def iter_conditions(d):
@@ -364,7 +409,7 @@ RESERVED_TAG_NAMES = frozenset({
     'PROD_PRICE_PER_YEAR', 'OFFER_BILLING_PERIOD', 'OFFER_FULL_DURATION',
 })
 TAG_NAME_RE = re.compile(r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*')
-TAG_VALUE_TYPES = ('string', 'number', 'boolean')
+TAG_VALUE_TYPES = ('string',)
 
 
 def tag_name_issue(name):
@@ -379,7 +424,7 @@ def tag_name_issue(name):
 
 
 # Required payload fields per action type, read off the transform service's own error
-# messages in `compile-actions.ts` rather than from the schema, which is looser than the
+# messages in the transformer's source rather than from the schema, which is looser than the
 # service on every row. `invalid_action_payload` is one code covering all of them.
 #   (action type) -> (dotted required field, human description)
 ACTION_REQUIRED = {
@@ -418,6 +463,103 @@ def transition_problem(t):
     return None
 
 
+# A Show / Hide `payload.animation`, read the way the transformer reads it.
+ELEMENT_ANIMATION_TYPES = {'none', 'fade', 'rise', 'pop'}
+ELEMENT_EASINGS = {'linear', 'ease-in', 'ease-out', 'ease-in-out'}
+
+
+def element_animation_problem(a):
+    """What is wrong with a Show / Hide `animation` value, or None."""
+    def ms(v):
+        return type(v) is int and 0 <= v <= 60000
+    if not isinstance(a, dict) or a.get('type') not in ELEMENT_ANIMATION_TYPES:
+        return f'type must be one of {sorted(ELEMENT_ANIMATION_TYPES)}'
+    if not ms(a.get('delay', 0)):
+        return 'delay must be whole ms, 0-60000'
+    # The published schema requires `duration` and `easing` on every type, `none` included;
+    # `flows config validate` refuses one without them.
+    if not ms(a.get('duration')):
+        return 'duration must be whole ms, 0-60000 (`none` needs one too)'
+    if a.get('easing') not in ELEMENT_EASINGS:
+        return f'easing must be one of {sorted(ELEMENT_EASINGS)} (`none` needs one too)'
+    dist = a.get('distance', 32)
+    if isinstance(dist, bool) or not isinstance(dist, (int, float)) or not 1 <= dist <= 200:
+        return 'distance must be a number of pt, 1-200'
+    sc = a.get('scale', 0.8)
+    if isinstance(sc, bool) or not isinstance(sc, (int, float)) or not 0.1 <= sc <= 0.99:
+        return 'scale must be a number from 0.1 to 0.99'
+    return None
+
+
+
+# An element's own looping `props.animation`, by type: the keys each one takes besides `type`
+# and the four timing keys. Read the way the transformer reads it: an unknown type or a
+# malformed one publishes and plays nothing.
+LOOP_TIMING_KEYS = {'duration', 'delayBetweenLoops', 'showAfterDelay', 'easing'}
+LOOP_ANIMATION_KEYS = {
+    'pulse': {'scaleAmount'},
+    'wave-fill': {'scaleAmount', 'waveSize', 'waveColor'},
+    'wave-outline': {'scaleAmount', 'waveSize', 'waveColor'},
+    'glow': {'glowColor', 'glowSize'},
+    'shake': {'distance'},
+    'wiggle': {'angle'},
+    'bounce': {'distance'},
+    'breathe': {'fadeAmount'},
+    'color-shift': {'shiftColor'},
+    'border-flash': {'flashColor', 'flashWidth'},
+    'shimmer': {'shimmerColor', 'shimmerSize', 'shimmerAngle'},
+}
+LOOP_OPTIONAL_KEYS = {'pulse': {'shadowColor', 'shadowSize'},
+                      'wave-fill': {'pulseScaleAmount'}, 'wave-outline': {'pulseScaleAmount'}}
+LOOP_EASINGS = ELEMENT_EASINGS | {'ease-out-elastic', 'ease-out-bounce'}
+_LOOP_CUBIC = re.compile(r'^cubic-bezier\(-?(?:\d+\.?\d*|\.\d+)(?:, -?(?:\d+\.?\d*|\.\d+)){3}\)$')
+
+
+def loop_animation_problem(a):
+    """What is wrong with an element's own `animation` value, or None."""
+    if not isinstance(a, dict) or a.get('type') not in LOOP_ANIMATION_KEYS:
+        return f'type must be one of {sorted(LOOP_ANIMATION_KEYS)}'
+    kind = a['type']
+    need = LOOP_ANIMATION_KEYS[kind] | LOOP_TIMING_KEYS
+    have = set(a) - {'type'}
+    if need - have:
+        return f'{kind} is missing {sorted(need - have)}'
+    if have - need - LOOP_OPTIONAL_KEYS.get(kind, set()):
+        return f'{kind} takes no {sorted(have - need - LOOP_OPTIONAL_KEYS.get(kind, set()))}'
+    e = a['easing']
+    if e not in LOOP_EASINGS and not (isinstance(e, str) and _LOOP_CUBIC.match(e)):
+        return f'easing must be one of {sorted(LOOP_EASINGS)} or a cubic-bezier(...)'
+    for k, v in a.items():
+        if k in ('type', 'easing') or k.endswith('Color'):
+            continue
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return f'{k} must be a number'
+        if k != 'shimmerAngle' and v < 0 and kind != 'pulse':
+            return f'{k} must not be below 0'
+        if k in ('fadeAmount', 'shimmerSize') and v > 100:
+            return f'{k} is a 0-100 percentage'
+    return None
+
+
+def solid_fill_color(fill):
+    """The one colour of a fill made of exactly one colour layer, else None."""
+    layers = fill if isinstance(fill, list) else [fill] if isinstance(fill, dict) else []
+    if len(layers) != 1 or not isinstance(layers[0], dict):
+        return None
+    if 'hex' in layers[0]:
+        return layers[0]
+    return layers[0].get('color') if layers[0].get('type') == 'color' else None
+
+def _iter_dicts(o):
+    if isinstance(o, dict):
+        yield o
+        for v in o.values():
+            yield from _iter_dicts(v)
+    elif isinstance(o, list):
+        for v in o:
+            yield from _iter_dicts(v)
+
+
 def walk(o, fn):
     if isinstance(o, dict):
         fn(o)
@@ -434,7 +576,8 @@ def walk(o, fn):
 # over an element reaches `propsByState` and rich-text spans too, which a props-path walk
 # would miss.
 ICOLOR_KEYS = frozenset({'color', 'activeColor', 'shadowColor', 'overlayColor',
-                         'clearButtonColor', 'passwordIconColor'})
+                         'clearButtonColor', 'passwordIconColor', 'waveColor', 'glowColor',
+                         'shiftColor', 'flashColor', 'shimmerColor'})
 
 
 def iter_elements(d):
@@ -647,10 +790,9 @@ def fill_backgrounds(fill, pal):
 
     A solid gives one. A GRADIENT gives one per stop and the caller takes the worst contrast
     across them, because text that vanishes over one end of a gradient is text that vanishes.
-    Resolving a gradient at all is what this function exists for: it used to return nothing, so
-    the walk fell through to the screen fill and reported near-black-on-black for black text on
-    a bright foil button. Measured on six independent agent runs, all of which diagnosed it as
-    a false positive and two of which changed their design to route around it.
+    Resolving a gradient at all is what this function exists for: without it the walk falls
+    through to the screen fill and calls black text on a bright foil button near-black-on-black,
+    a false positive that pushes authors to change a correct design to route around it.
 
     A translucent component makes the whole fill unresolvable, the same rule solids follow: what
     shows through is the designer's scrim, not something this can compute. That applies per stop,
@@ -680,9 +822,9 @@ def fill_below(fill, pal, under):
     translucent SOLID is flattened onto `under` when that is known. Anything else -- an image or a
     video layer, several layers, a translucent gradient (a fade), a theme style holding a gradient,
     a colour that does not resolve -- paints something this cannot compute, so the result is
-    UNKNOWN and every text below it is skipped. Falling through to the background further up was
-    the wrong answer: four runs had white text over a gradient footer, a fade and a photo reported
-    as white on the white page.
+    UNKNOWN and every text below it is skipped. Falling through to the background further up is
+    the wrong answer: it calls white text over a gradient footer, a fade or a photo white on the
+    white page.
     """
     layers = fill if isinstance(fill, list) else [fill] if isinstance(fill, dict) and fill else []
     if not layers or all(isinstance(l, dict) and l.get('type') == 'gradient' and not l.get('stops')
@@ -851,7 +993,7 @@ def catalog_findings(raw):
     Every localizable value lives in `localization.content` and each field holds a `{_lid}`
     ref, so the failures are new ones: a ref that names no entry, an entry of the wrong kind,
     an inline value left behind by a graft, a value keyed by a locale nobody declared. None of
-    them is visible in a render, and `validate` stops at the first fatal.
+    them is visible in a render, and `validate` names only the first error of the stage that failed.
     """
     bad, warn = [], []
     lz = raw.get('localization')
@@ -859,7 +1001,8 @@ def catalog_findings(raw):
         where = 'top-level `locales`/`defaultLocale`' if ('locales' in raw or 'defaultLocale'
                                                          in raw) else 'no `localization`'
         v = raw.get('schemaVersion')
-        route = ('run `localization.py catalog` over it' if v == _loc.MIN_SOURCE_VERSION else
+        route = ('run `localization.py catalog` over it'
+                 if isinstance(v, int) and not isinstance(v, bool) and v >= _loc.MIN_SOURCE_VERSION else
                  f'it is schemaVersion {v!r}, so have the user open the flow in the Flow Builder '
                  f'and save it, then fetch it again')
         # Keyed on the version. A document whose number predates the catalog (013) is in the
@@ -871,8 +1014,11 @@ def catalog_findings(raw):
             warn.append(f'pre-catalog document (schemaVersion {v}, {where}, inline localizable '
                         f'values): valid as it is, but convert it before you edit it — {route}')
             return bad, warn
-        bad.append(f'pre-catalog document ({where}, inline localizable values): the transform '
-                   f'service refuses it. To convert it, {route}')
+        bad.append(f'pre-catalog document ({where}, inline localizable values) stamped '
+                   f'schemaVersion {v!r}: the catalog that version declares is missing, so the '
+                   f'transform service reads it only as a legacy document (a '
+                   f'`legacy_localization_format` warning). Convert it before you edit or save '
+                   f'it: {route}')
         return bad, warn
 
     if raw.get('schemaVersion') != _loc.SCHEMA_VERSION:
@@ -978,8 +1124,10 @@ def catalog_findings(raw):
         warn.append(f"catalog value(s) for {', '.join(sorted(stray))} on "
                     f"{sum(len(v) for v in stray.values())} entr(ies), but "
                     f"{'none of them is' if len(stray) > 1 else 'it is not'} a declared locale "
-                    f"id — nothing renders them. If this run wrote them, declaring the locale is "
-                    f"the fix; if they were already in the fetched config, report and ask")
+                    f"id — nothing renders them. If this run wrote them, declare the locale and "
+                    f"translate what adding it implies; if they were already in the fetched "
+                    f"config, they are usually half a locale someone started, so do not fix them: "
+                    f"name both exits (finish the locale or delete the values) and ask")
 
     # Translation parity, per ENTRY. A missing value is not a defect in this format: it falls
     # back to the default locale, which is also why nobody may copy the default into other
@@ -997,6 +1145,13 @@ def catalog_findings(raw):
         if kind in ('image', 'video'):
             key = 'url' if kind == 'image' else 'videoUrl'
             asset = src.get(key) if isinstance(src, dict) else None
+            if not asset and any(isinstance(vals.get(l), dict) and vals[l].get(key)
+                                 for l in others):
+                warn.append(f'catalog entry {lid} ({used[lid][0]}) has its {kind} only under '
+                            f'{", ".join(l for l in others if isinstance(vals.get(l), dict) and vals[l].get(key))}'
+                            f', not under {dflt} — every locale without its own value falls back '
+                            f'to {dflt}, so those locales show an empty {kind}. Bind the asset '
+                            f'under {dflt} (flowkit.image(..., locale=<default locale>))')
             for loc in others:
                 v = vals.get(loc)
                 if asset and isinstance(v, dict) and v.get(key) == asset:
@@ -1070,7 +1225,32 @@ def _var_ids(v):
     return out
 
 
-def check(path, baseline_text=None, baseline_images=None):
+def screen_ids(path):
+    """The real screen ids of a document, or none if it cannot be read (its check reports that)."""
+    try:
+        doc = unwrap(json.load(open(path, encoding='utf-8')))
+        return {s['id'] for s in doc.get('screens') or [] if isinstance(s, dict)
+                and isinstance(s.get('id'), str)}
+    except Exception:                             # noqa: BLE001 - the check itself reports it
+        return set()
+
+
+def unnamed_labels(screens, reserved=frozenset()):
+    """Position -> message label of each screen with no `id`: `with no id (position N)`, with `*`
+    added until it equals no real id of these screens and none in `reserved`."""
+    screens = screens if isinstance(screens, list) else []
+    real = {s['id'] for s in screens if isinstance(s, dict) and 'id' in s}
+    out = {}
+    for i, s in enumerate(screens):
+        if isinstance(s, dict) and 'id' not in s:
+            label = f'with no id (position {i + 1})'
+            while label in real or label in reserved or label in out.values():
+                label += '*'
+            out[i] = label
+    return out
+
+
+def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     raw = unwrap(json.load(open(path, encoding='utf-8')))
     bad, warn = catalog_findings(raw)
     # Every check below reads THIS: the same document with each `{_lid}` ref inlined, so a check
@@ -1078,6 +1258,38 @@ def check(path, baseline_text=None, baseline_images=None):
     d = _loc.resolve(raw)
     els = lambda: ((s, e) for s in d.get('screens', [])
                    for e in s.get('elements', {}).get('map', {}).values())
+
+    # Screen well-formedness. The screen is `{id, props, caption, elements: {map, hierarchy},
+    # selectableGroups, products}` and the Flow Builder's screen schema requires `id`, `props` and
+    # `elements` (`"props": {}` is valid). A fetched flow can arrive with a screen that has only
+    # `id` and `elements`. Report each missing key here, then give the read view an empty
+    # stand-in, so every check below reads the screen instead of crashing on it. A screen with no
+    # `id` keeps its position (screens[0] is the entry, `navigateNext` goes to the next one) and
+    # gets its message label as its id, made unlike every real id so that its findings never print
+    # as another screen's. A navigate target resolves only to a real id: one that equals a label
+    # stays dangling. `--baseline` lists a fetched flow's own as ALREADY IN, as for the element
+    # keys below; for that, `reserved` holds the real ids of the baseline and of every document
+    # checked against it, so each run gives a screen the same label and no label equals a real id
+    # of another run. Position is no identity across two documents, so the main part never lists a
+    # finding in an unnamed screen as ALREADY IN, apart from the screen's own missing-key error.
+    real_sids = {s['id'] for s in d.get('screens') or [] if isinstance(s, dict) and 'id' in s}
+    labels = unnamed_labels(d.get('screens'), reserved)
+    unnamed = set(labels.values())
+    for i, s in enumerate(d.get('screens') or []):
+        if not isinstance(s, dict):
+            continue
+        miss = [k for k in ('id', 'props', 'elements') if k not in s]
+        if isinstance(s.get('elements'), dict):
+            miss += [f'elements.{k}' for k in ('map', 'hierarchy') if k not in s['elements']]
+        if 'id' not in s:
+            s['id'] = labels[i]
+        if miss:
+            bad.append(f'screen {s["id"]} missing required key(s) {miss} — the Flow Builder\'s '
+                       f'screen schema requires each; `"props": {{}}` is valid')
+        s.setdefault('props', {})
+        if isinstance(s.setdefault('elements', {}), dict):
+            s['elements'].setdefault('map', {})
+            s['elements'].setdefault('hierarchy', {'id': 'root', 'children': []})
 
     for s in d.get('screens', []):
         for k, e in s['elements']['map'].items():
@@ -1138,7 +1350,7 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'BASELINE=<the backup>): the flow\'s own are then listed apart and do not '
                     f'block your edit. Give `"states": []` only to elements you wrote')
 
-    sids = {s['id'] for s in d.get('screens', [])}
+    sids = real_sids
     tg = []
     walk(d, lambda o: tg.append(o['screen'])
          if o.get('type') == 'screen' and isinstance(o.get('screen'), str) else None)
@@ -1156,7 +1368,8 @@ def check(path, baseline_text=None, baseline_images=None):
             why = transition_problem(p['transition'])
             if why:
                 bad.append(f'navigate to {p.get("screen")}: bad transition ({why}); '
-                           f'the device would play the default push')
+                           f'the device would play the default push, and from On Appear it '
+                           f'would move on at once instead of waiting')
         elif o.get('type') in ('navigateBack', 'navigateNext'):
             bad.append(f'{o["type"]} carries a transition, which only `navigate` reads: back '
                        f'reverses the arrival, and next needs an explicit `navigate`')
@@ -1251,7 +1464,98 @@ def check(path, baseline_text=None, baseline_images=None):
             find_interactions(e, eid)
         find_interactions({k: v for k, v in s.items() if k != 'elements'})
 
-    # An undeclared-but-bound product is a WARNING, not an error: measured, the Flow Builder
+    # A Show / Hide `payload.animation` the transformer cannot read is refused with
+    # `invalid_action_payload`; one on an element it cannot animate plays at once, silently.
+    def check_element_animation(o):
+        p = o.get('payload')
+        if not isinstance(p, dict) or 'animation' not in p:
+            return
+        if o.get('type') in ('showElement', 'hideElement'):
+            why = element_animation_problem(p['animation'])
+            if why:
+                bad.append(f'{o["type"]} of {p.get("elements")}: bad animation ({why}); the '
+                           f'transformer refuses it (invalid_action_payload)')
+    walk(d, check_element_animation)
+
+    # An element's own looping `animation` publishes whatever it holds (`flows config validate`
+    # passes an unknown type), and the transformer skips what it cannot play, so each of these
+    # is a warning: it publishes and nothing moves.
+    theme_colors = {c.get('id'): c for c in ((d.get('theme') or {}).get('colors') or [])
+                    if isinstance(c, dict)}
+    for where, eid, e in iter_elements(d):
+        props = e.get('props') or {}
+        variants = [('', props)] + [(f' ({st})', v) for st, v in
+                                    (e.get('propsByState') or {}).items() if isinstance(v, dict)]
+        for state, pv in variants:
+            a = pv.get('animation')
+            if a is None:
+                continue
+            at = f'{where}/{eid}{state}'
+            why = loop_animation_problem(a)
+            if why:
+                warn.append(f'{at}: its animation does not play ({why}); build it with '
+                            f'flowkit.loop_animation()')
+                continue
+            kind = a['type']
+            look = {**props, **pv}
+            if kind == 'pulse' and ('shadowColor' in a or 'shadowSize' in a):
+                warn.append(f'{at}: the pulse carries shadowColor/shadowSize, a halo only the '
+                            f'builder canvas draws; the device scales the element alone. Drop '
+                            f'them, or use glow or a wave for a halo')
+            if kind.startswith('wave'):
+                sizes = [(look.get(k) or {}).get('type') for k in ('width', 'height')]
+                margin = look.get('margin') or {}
+                if sizes != ['fixed', 'fixed'] or any(
+                        v for v in margin.values() if isinstance(v, (int, float))):
+                    warn.append(f'{at}: a {kind} plays only around a fixed width and height with '
+                                f'no margin (this one is {sizes[0]} x {sizes[1]}); it publishes '
+                                f'and never shows')
+            if kind in ('color-shift', 'shimmer'):
+                fill = look.get('fill')
+                solid = solid_fill_color(fill)
+                if solid is None and (kind == 'shimmer' or fill not in (None, [])):
+                    warn.append(f'{at}: a {kind} needs one solid colour fill'
+                                + (' or none' if kind == 'color-shift' else '')
+                                + '; on this fill it publishes and never plays')
+                elif kind == 'shimmer' and solid.get('type') == 'color-style':
+                    c = theme_colors.get(solid.get('colorId')) or {}
+                    if c and c.get('dark') is not None and c.get('dark') != c.get('light'):
+                        warn.append(f'{at}: a shimmer on the theme colour {solid.get("colorId")!r}, '
+                                    f'whose dark value differs from its light one (letter case '
+                                    f'counts), is skipped; fill it with a hex colour')
+
+    def _moving(anim):
+        return isinstance(anim, dict) and (anim.get('delay') or 0) + (
+            0 if anim.get('type') == 'none' else anim.get('duration') or 0) > 0
+
+    for s in d.get('screens', []):
+        smap = s.get('elements', {}).get('map') or {}
+        def _animated(o, out):
+            if isinstance(o, dict):
+                if o.get('type') in ('showElement', 'hideElement') and \
+                        _moving((o.get('payload') or {}).get('animation')):
+                    out += [t for t in (o['payload'].get('elements') or []) if isinstance(t, str)]
+                for v in o.values():
+                    _animated(v, out)
+            elif isinstance(o, list):
+                for v in o:
+                    _animated(v, out)
+            return out
+        for t in sorted(set(_animated([e.get('interactions') for e in smap.values()], []))):
+            if t not in smap:
+                warn.append(f'screen {s["id"]}: an animated Show / Hide targets {t}, which is not '
+                            f'on this screen, so it shows or hides at once with no animation')
+            elif ((smap[t].get('props') or {}).get('visibility') or {}).get('type') == 'conditional':
+                warn.append(f'screen {s["id"]}: {t} has a conditional visibility, so an animated '
+                            f'Show / Hide on it plays at once with no animation')
+    for cid, comp in (d.get('components') or {}).items():
+        if any(isinstance(o, dict) and o.get('type') in ('showElement', 'hideElement')
+               and _moving((o.get('payload') or {}).get('animation'))
+               for o in _iter_dicts(comp)):
+            warn.append(f'component {cid}: an animated Show / Hide inside a component plays at '
+                        f'once with no animation; put the action on the screen')
+
+    # An undeclared-but-bound product is a WARNING, not an error: the Flow Builder
     # mints the `flowProductId` and writes the declaration the first time someone opens the
     # flow, keeping the binding as written. An agent cannot author it (the id is a UUIDv5 over
     # an input the config does not contain), so a config an agent produced is EXPECTED to look
@@ -1262,24 +1566,26 @@ def check(path, baseline_text=None, baseline_images=None):
     codes = [l.get('code') for l in d.get('locales', []) if isinstance(l, dict) and l.get('code')]
 
     # A browser export carries top-level `status` and `id`; a stored fixture keeping them is
-    # fine, but a FILE DELIVERABLE that ships status:"published" imports as live-looking content,
-    # and two GREEN-round agents shipped exactly that after reading every prose placement of the
-    # rule (finding 10, rounds 6-7). Both agents ran THIS check and quoted its output faithfully,
-    # so the warning is the mechanical slot the prose could not be.
+    # fine, but a FILE DELIVERABLE that ships status:"published" imports as live-looking content.
+    # Prose alone does not stop it; agents run THIS check and quote its output faithfully, so the
+    # warning is the mechanical slot the prose cannot be.
     if d.get('status') == 'published':
         warn.append("top-level status is 'published' — fine for a stored export; NEVER ship it in "
-                    "a file deliverable. Drop status/id or set draft, and say which you chose")
+                    "a file deliverable, where it imports as live-looking content. Drop status/id "
+                    "or set draft, say which you chose, and say the import must be pointed at the "
+                    "flow the user means: the id names the flow the export came FROM")
     elif 'status' in d or 'id' in d:
         warn.append(f"top-level {'status' if 'status' in d else ''}"
                     f"{'+' if 'status' in d and 'id' in d else ''}{'id' if 'id' in d else ''} "
-                    f"present — for a file deliverable, say whether you kept or dropped them; "
-                    f"the id names the flow the export came FROM")
+                    f"present — for a file deliverable, say whether you kept or dropped them, and "
+                    f"that the import must be pointed at the flow the user means: the id names "
+                    f"the flow the export came FROM")
 
     # `theme.colors` and `theme.typography` share ONE id namespace on the device. A collision
     # decodes as Swift `DecodingError.dataCorrupted ... "Duplicate Key"` and the flow fails to
-    # open — while `validate`, the schema check and the render all pass it. Evidence: 8/8 real
-    # exports (sanitized and raw) have zero overlap; the one collision seen in the wild was
-    # authored here (a `footer` colour plus a `footer` preset), reported from an iOS device.
+    # open — while `validate`, the schema check and the render all pass it. Real exports
+    # (sanitized and raw) have zero overlap, so a collision is an authoring mistake, typically a
+    # `footer` colour plus a `footer` preset.
     theme = d.get('theme') or {}
 
     def _dups(seq):
@@ -1318,9 +1624,7 @@ def check(path, baseline_text=None, baseline_images=None):
 
     # --- id hygiene: the black-screen class ------------------------------------------------
     #
-    # An element id becomes an IDENTIFIER in the generated runtime script, the same code path
-    # `config()`'s condition-variable check already documents for variable ids (an unresolved
-    # head is emitted as a bare identifier and fails to compile). A character outside
+    # An element id becomes an IDENTIFIER in the generated runtime script. A character outside
     # `[A-Za-z0-9_]` therefore produces a syntactically broken script, and the flow draws a
     # BLACK SCREEN on device while every gate here is green: `flows config validate` passes a
     # hyphenated id, the schema types ids as bare strings, and `config preview` renders the
@@ -1441,16 +1745,26 @@ def check(path, baseline_text=None, baseline_images=None):
             if ad:
                 bad.append(f"{eid}: action id {', '.join(ad)} used twice")
 
+    # A declaration is keyed on the whole binding, (id, offerId, billingPlanId), and separately on
+    # flowProductId, as the transform service keys it (`duplicate_flow_product_meta`): the same
+    # product with two offers, or with and without one, is two entries, not a duplicate.
     for sid, dec in (meta.get('screens') or {}).items():
-        pd = _dups([x.get('id') for x in (dec or {}).get('products') or []])
+        entries = (dec or {}).get('products') or []
+        pd = _dups([(x.get('id'), x.get('offerId') or None, x.get('billingPlanId') or None)
+                    for x in entries])
         if pd:
-            bad.append(f"_meta.screens.{sid}.products declares {', '.join(pd)} twice")
+            bad.append(f"_meta.screens.{sid}.products declares "
+                       + ', '.join('/'.join(str(p) for p in k if p) for k in pd) + " twice")
+        fd = _dups([x.get('flowProductId') for x in entries if x.get('flowProductId')])
+        if fd:
+            bad.append(f"_meta.screens.{sid}.products declares flowProductId "
+                       f"{', '.join(fd)} twice")
 
-    # Images are invisible to the publish gate: `flows config validate` returned valid:true on an
+    # Images are invisible to the publish gate: `flows config validate` returns valid:true on an
     # empty values map, a numeric id and a missing id alike. The schema step catches the id
     # shapes but not an empty values map, which is a legal shape. So an empty hero publishes an
     # "Upload Image" checkerboard to real users, and this warning is the only mechanical slot
-    # that sees it. Measured.
+    # that sees it.
     empty_imgs, unstrung = [], []
     for _s, el in els():
         if el.get('type') != 'image':
@@ -1515,12 +1829,11 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"mints a second asset. An empty lookup means whoever bound it dropped "
                         f"the field — not that the field is optional")
 
-    # A `video` is the empty-image story one element type over, with one difference that makes
-    # it permanent rather than provisional: `flows media upload` REFUSES a clip outright
-    # (`validation_error`, permitted formats JPEG/JPEG2000/WEBP/PNG/SVG), so nobody can ever
-    # bind it from the CLI and the upload is always the user's, in the builder. Both publish-time
-    # gates are blind here exactly as they are for images -- measured 2026-09-10 against the real
-    # transform service: an unset `video` returns `valid: true, issues: []` in the styled, the
+    # A `video` is the empty-image story one element type over: a clip file is uploaded with
+    # `flows media upload-video` and bound, and with no file -- or a CLI with no such command --
+    # the element stays unset and the upload is the user's, in the builder. Both publish-time
+    # gates are blind here exactly as they are for images -- the real transform service
+    # returns, for an unset `video`, `valid: true, issues: []` in the styled, the
     # empty-`values`-map and the bare forms alike -- so this warning is the only mechanical slot
     # that puts the upload in the handover. The transform service maps `video`, so unlike
     # `old-price` it does reach a device; the checkerboard is what real users would see.
@@ -1544,16 +1857,17 @@ def check(path, baseline_text=None, baseline_images=None):
         warn.append(f"{len(unset_vids)} video element(s) with NO source "
                     f"({', '.join(str(i) for i in unset_vids[:4])}"
                     f"{', …' if len(unset_vids) > 4 else ''}) — they publish as an 'Upload Video' "
-                    f"placeholder and no gate objects. This is the EXPECTED shape (there is no "
-                    f"CLI upload path for a clip), so it is not a defect: tell the user to open "
-                    f"the flow in the builder and upload each clip there, and name every one of "
-                    f"these elements when you do")
+                    f"placeholder and no gate objects. Given a clip file, upload it with "
+                    f"`flows media upload-video` and bind it (media.md, Uploading a video). With "
+                    f"no file, or a CLI with no such command, this is the expected shape, not a "
+                    f"defect: tell the user to open the flow in the builder and upload each clip "
+                    f"there, and name every one of these elements when you do")
     if hug_vids:
         hug_unset = [i for i in hug_vids if i in unset_vids]
         if hug_unset:
             warn.append(f"video element(s) with height: hug AND no source "
                         f"({', '.join(str(i) for i in hug_unset[:4])}"
-                        f"{', …' if len(hug_unset) > 4 else ''}) — measured: the placeholder draws "
+                        f"{', …' if len(hug_unset) > 4 else ''}) — the placeholder draws "
                         f"an arbitrary 256pt, the renderer's default and no function of the clip "
                         f"nobody has uploaded yet, so the layout you previewed is not the one "
                         f"that ships and everything below it moves when the file lands. If you "
@@ -1565,10 +1879,10 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"{', …' if len(hug_bound) > 4 else ''}) — the drawn height then comes "
                         f"from the FILE rather than from the design, so replacing the clip with "
                         f"one of a different aspect silently re-flows this screen. (What a bound "
-                        f"clip draws at hug is not measurable from here — there is no CLI upload "
-                        f"path for a video — so this is the sizing model, not a render "
-                        f"measurement.) If you FETCHED this config, report it rather than "
-                        f"rewriting someone else's height silently")
+                        f"clip draws at hug was not measured, so this is the sizing model, not a "
+                        f"render measurement.) Give it a fixed height from the design; if you "
+                        f"FETCHED this config, report it rather than rewriting someone else's "
+                        f"height silently")
 
     # Locale code SHAPE, separate from whether the code is declared. Casing is not checked: the
     # transformer writes every code out in one casing. A code outside the pattern it refuses.
@@ -1598,18 +1912,27 @@ def check(path, baseline_text=None, baseline_images=None):
                                f"saves fine, kills the element on device")
 
     # The stretch-between-anchors pair: an absolute element anchored top AND bottom stretches to
-    # its parent, and ONLY with height `auto`. Both halves are measured render failures on a
-    # timeline rail and both read as "the line is too short", which is why they are mechanical:
-    # `fill` with the anchors stopped 2px before the next chip, and `auto` with no bottom anchor
-    # collapsed the rail and left 108px of white. Nothing else sees either one — the schema types
-    # both heights as legal and `validate` has no opinion on layout.
+    # its parent, and ONLY with height `auto`. Both halves are render failures on a timeline
+    # rail and both read as "the line is too short", which is why they are mechanical: `fill`
+    # with the anchors stops 2px before the next chip, and `auto` with no bottom anchor
+    # collapses the rail and leaves 108px of white. Nothing else sees either one — the schema types
+    # both heights as legal and `validate` has no opinion on layout. A `fixed` element anchored top
+    # and bottom is the other way round: the transformer stretches only its wrapper and gives the
+    # element no height for `auto`, so the element hugs its content.
     for s, e in els():
         p = (e.get('props') or {})
         pos, h = p.get('position'), p.get('height')
         if not isinstance(pos, dict) or not isinstance(h, dict):
             continue
-        anchored = (pos.get('type') == 'absolute'
-                    and pos.get('top') is not None and pos.get('bottom') is not None)
+        pinned = pos.get('top') is not None and pos.get('bottom') is not None
+        anchored = pos.get('type') == 'absolute' and pinned
+        if pos.get('type') == 'fixed' and pinned and h.get('type') == 'auto':
+            warn.append(f"{s['id']}/{e['id']}: fixed and anchored top+bottom with height `auto` — "
+                        f"a fixed element stretches only the box around it between the anchors, "
+                        f"so `auto` keeps the element at its content's height at the top; "
+                        f"a `fill` height fills that box, a shape no export shows yet, so check "
+                        f"it on a device")
+            continue
         if anchored and h.get('type') != 'auto':
             warn.append(f"{s['id']}/{e['id']}: absolute and anchored top+bottom, but height is "
                         f"{h.get('type')!r} — only `auto` stretches between the anchors; a fill "
@@ -1620,10 +1943,10 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"real height")
 
     # A negative zIndex sends an element behind the fill of every ancestor that has one, so a
-    # timeline rail at `zIndex: -10` inside a filled card draws nothing at all. Render-measured;
-    # the fix is paint order: declare the element before the sibling it must sit under and drop
-    # the zIndex. On a page with no filled ancestor the same rail draws, which is why the recipe
-    # survived until it met a card.
+    # timeline rail at `zIndex: -10` inside a filled card draws nothing at all. The fix is paint
+    # order: declare the element before the sibling it must sit under and drop the zIndex. On a
+    # page with no filled ancestor the same rail draws, which is why the defect hides until the
+    # rail meets a card.
     def _neg_z_under_fill(m, node, filled):
         for ch in node.get('children') or []:
             e = m.get(ch.get('id'))
@@ -1673,8 +1996,8 @@ def check(path, baseline_text=None, baseline_images=None):
                         f"absolute, listed after it); otherwise drop the zIndex")
 
     # A screen-sized image or video taken out of flow (absolute or fixed) is a background made the
-    # wrong way. Device-reported: listed first on each screen, it still sat over its siblings and
-    # took the taps of every option, and a box wider than the screen widened the screen. Preview
+    # wrong way. On a device, even listed first on its screen, it sits over its siblings and
+    # takes the taps of every option, and a box wider than the screen widens the screen. Preview
     # and validate were clean. The screen `fill` is the background slot, so nothing to tap sits
     # under it. A hero-sized absolute image (242pt wide in a real export) stays silent.
     def _big(sz, floor):
@@ -1721,11 +2044,10 @@ def check(path, baseline_text=None, baseline_images=None):
 
     # `_meta.screens` is keyed BY SCREEN ID, so a key naming no declared screen means the two
     # halves have come apart -- almost always a screen renamed without moving its key, and
-    # occasionally a screen deleted without clearing it. Measured against the live transform
-    # service (adapty 0.8.2): renaming a paywall screen and leaving the key
-    # behind makes the flow UNPUBLISHABLE -- `flows config validate` refuses it with
+    # occasionally a screen deleted without clearing it. Renaming a paywall screen and leaving
+    # the key behind makes the flow UNPUBLISHABLE -- `flows config validate` refuses it with
     # `_meta.screens["<new-id>"].products is missing flowProductId for product "<uuid>"` -- while
-    # this checker reported OK, because the products then read as merely bound-but-undeclared,
+    # the products otherwise read here as merely bound-but-undeclared,
     # which is the ordinary and legitimate state of a freshly authored flow. Two very different
     # situations wearing one warning, so the orphaned key gets named directly.
     if isinstance(ms, dict):
@@ -1775,7 +2097,7 @@ def check(path, baseline_text=None, baseline_images=None):
     # An `offerId` is the Adapty offer id, the `id` that `product-offers list` returns, which is
     # a UUID. The same list carries the store's own code under `store_offers.<store>.offer_id`, a
     # field named like flowkit.product()'s parameter, and `flows config validate` answers
-    # `valid: true` for that code and for an unknown offer id alike (measured, adapty 0.15.0).
+    # `valid: true` for that code and for an unknown offer id alike.
     # The builder then refuses the publish with "This offer no longer exists".
     uuid_re = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
                          r'[0-9a-fA-F]{12}\Z')
@@ -1796,8 +2118,7 @@ def check(path, baseline_text=None, baseline_images=None):
 
     # A `const` purchase action names a product with no element behind it, so the
     # declaration harvester — which walks `product` elements only — never sees it.
-    # Measured against adapty/0.8.0 in production: `flows config validate`
-    # refuses such a config with the same `missing flowProductId` error, path ending
+    # `flows config validate` refuses such a config with the same `missing flowProductId` error, path ending
     # `.purchase.product`. The render says nothing, because the preview page does not
     # run the transform service. Warning, not error, for the same reason as above: an
     # agent-authored config is expected to look this way until predeclare() runs.
@@ -1840,9 +2161,9 @@ def check(path, baseline_text=None, baseline_images=None):
          if isinstance(o.get('variableId'), str) else None)
     for v in sorted(set(vids)):
         field = v.rsplit('.', 1)[-1]
-        # Widened from a `.prod_` substring test, which skipped every `offer_*` and `is_*`
-        # variable entirely -- head included. Measured: `<bogus-uuid>.offer_price` passed
-        # silently. The field families are the discriminator, and they do not collide with the
+        # Keyed on the field families, not a `.prod_` substring, which would skip every
+        # `offer_*` and `is_*` variable entirely -- head included -- and let
+        # `<bogus-uuid>.offer_price` pass silently. The field families are the discriminator, and they do not collide with the
         # other variable shapes in the corpus (`email.value`, `plans.selectedProduct`,
         # `quiz.selectedOptionId`).
         if not field.startswith(('prod_', 'offer_', 'is_')):
@@ -1853,7 +2174,7 @@ def check(path, baseline_text=None, baseline_images=None):
                        f'{", ".join(sorted(PRODUCT_FIELDS))}')
             continue
         # A monthly binding's product segment is `<id>@monthly`; the declaration names the id.
-        head = v.split('.')[0].removesuffix('@monthly')
+        head = _strip_monthly(v.split('.')[0])
         if '.selectedProduct.' in v:
             if head not in product_groups:
                 bad.append(f'group-relative price variable on unknown product group: {v}')
@@ -1949,6 +2270,12 @@ def check(path, baseline_text=None, baseline_images=None):
                     thin_opacity(v, where)
         for eid, e in s['elements']['map'].items():
             thin_opacity(e.get('props'), eid)
+            # An element's own `opacity` is on the same 0-100 scale. The device reads a value
+            # below 1 as a fraction, but 1 is 1%, and the builder reads every value as a percentage.
+            op = (e.get('props') or {}).get('opacity')
+            if isinstance(op, (int, float)) and not isinstance(op, bool) and 0 < op <= 1:
+                warn.append(f'{eid}: element opacity is {op} on a 0-100 scale; the builder shows '
+                            f'it ~{op}% opaque — did you mean {int(op * 100)}?')
             thin_opacity(e.get('propsByState'), f'{eid}.propsByState')
         thin_opacity(s['props'], f'screen {s["id"]}')
 
@@ -1991,9 +2318,9 @@ def check(path, baseline_text=None, baseline_images=None):
                            f'(a tab group is `single_choice`)')
 
     # Reachability, which is NOT the same property as "every navigate target resolves".
-    # A flow whose targets all resolve can still loop forever or strand a screen: measured
-    # on a hand-built onboarding where two screens navigated back to the branch that sent
-    # them, so the paywall was unreachable and every referential check passed.
+    # A flow whose targets all resolve can still loop forever or strand a screen: two screens
+    # that navigate back to the branch that sent them leave the paywall unreachable while
+    # every referential check passes.
     sids = [s['id'] for s in d.get('screens', [])]
     if sids:
         edges = {}
@@ -2003,7 +2330,7 @@ def check(path, baseline_text=None, baseline_images=None):
                 if isinstance(o, dict):
                     if o.get('type') == 'navigate':
                         t = (o.get('payload') or {}).get('screen')
-                        if t: outs.append(t)
+                        if t and t not in unnamed: outs.append(t)
                     for v in o.values(): collect(v)
                 elif isinstance(o, list):
                     for v in o: collect(v)
@@ -2101,14 +2428,20 @@ def check(path, baseline_text=None, baseline_images=None):
     uf = set()
     walk(d, lambda o: uf.add(o['family']['id'])
          if isinstance(o.get('family'), dict) and o['family'].get('id') else None)
+    # Publishing replaces `_meta.fonts` with the app's own fonts and resolves each reference
+    # there, by id or by a family name one font has (trimmed, any case). So a reference the copy
+    # lacks may publish, and one it holds may not (a font from another app); only
+    # `flows config validate` sees the app's fonts. A warning, then, never an error.
     if uf - fonts:
-        bad.append(f'font.family.id not in _meta.fonts: {sorted(uf - fonts)}')
+        warn.append(f'font.family.id not in _meta.fonts: {sorted(uf - fonts)}. Publishing looks '
+                    f'each one up in the app\'s own fonts, by id or by family name, so run '
+                    f'`flows config validate`: a font the app lacks fails with '
+                    f'missing_flow_font_meta')
 
     # Both halves read `name`+`weight` off dicts an author wrote, so both must survive one being
-    # absent. They used to subscript directly and a `_meta.icons` entry with no `weight` killed
-    # the script with a bare `KeyError: 'weight'` — which reads as "your config is corrupt"
-    # rather than "one icon entry is missing a field", the same misdiagnosis the envelope
-    # `KeyError: 'theme'` caused. Calibrated before choosing the severity: 0 of 21 `_meta.icons`
+    # absent. A direct subscript on a `_meta.icons` entry with no `weight` kills the script with
+    # a bare `KeyError: 'weight'` — which reads as "your config is corrupt" rather than "one icon
+    # entry is missing a field", the same misdiagnosis an envelope `KeyError: 'theme'` causes. Calibrated before choosing the severity: 0 of 21 `_meta.icons`
     # entries, 0 of 60 icon elements and 0 of 76 catalog templates omit either field, so an
     # absent one is malformed authored input and worth reporting rather than defaulting away.
     # A `custom` icon is the exception: the schema gives it no `weight` at all (it refuses the
@@ -2159,10 +2492,10 @@ def check(path, baseline_text=None, baseline_images=None):
                    f'matches), or declare that weight in _meta.icons')
 
     # A `phosphor` icon resolves from the renderer's OWN bundle by name, so a name the bundle
-    # lacks draws NOTHING — and an authored `raw` does not rescue it. Measured: correct
-    # hand-authored two-stroke markup under `name: "CloseX"`, correctly declared, rendered as
-    # empty space twice (once with `stroke="currentColor"`, once with filled paths, so it is the
-    # name and not the markup); `name: "X"` drew immediately. Every other gate is blind —
+    # lacks draws NOTHING — and an authored `raw` does not rescue it: correct hand-authored
+    # two-stroke markup under `name: "CloseX"`, correctly declared, renders as empty space with
+    # `stroke="currentColor"` and with filled paths alike, so it is the name and not the markup;
+    # `name: "X"` draws. Every other gate is blind —
     # `validate` returns valid:true, the schema types the name as a bare string, and a blank
     # reads as a spacing bug in a screenshot — which is why this is an ERROR rather than a
     # warning: it is a hard render failure that only a device or a careful eye can otherwise
@@ -2226,12 +2559,12 @@ def check(path, baseline_text=None, baseline_images=None):
 
     # A countdown's digits are rich-text `token` nodes, and the builder only resolves the
     # timer_-prefixed ids. The bare names save and `validate` clean, but the Flow Builder paints
-    # them red "Unknown" and the device/preview renders the literal "%hours%". Measured,
-    # builder- and device-confirmed: the prefixed ids render live `23:59:59`.
-    # `component-catalog.json` shipped the bare names until 2026-08-25, so a timer lifted from a
+    # them red "Unknown" and the device/preview renders the literal "%hours%". Builder- and
+    # device-confirmed: the prefixed ids render live `23:59:59`. A timer lifted from an older
     # template is the usual source of this. Render-wrong-but-publishes, so a warning by the
     # severity rule — but it is the author's to fix if this run wrote it.
-    valid_timer_tokens = {'timer_days', 'timer_hours', 'timer_minutes', 'timer_seconds'}
+    valid_timer_tokens = {'timer_days', 'timer_hours', 'timer_total_hours', 'timer_minutes',
+                          'timer_seconds'}
     bad_tokens = []
     def _timer_tokens(o):
         if isinstance(o, dict):
@@ -2252,11 +2585,10 @@ def check(path, baseline_text=None, baseline_images=None):
                     f"{sorted(valid_timer_tokens)}. If you lifted a timer from "
                     f"component-catalog.json, add the prefix; flowkit.timer_digits() emits it")
     # A `timer` carrying a `timer-end` action and NO children DOES NOT FIRE on a device.
-    # Device-measured across three trips: the childless form left a real onboarding
-    # stuck on its loading screen; the same timer with one child text advanced; an isolating
-    # probe whose two exits led to different destinations then confirmed it directly (it
-    # reported "YOU TAPPED", i.e. the manual route, never the timer's). An element with nothing
-    # to lay out is one the renderer skips, timer included.
+    # Device-confirmed: the childless form leaves an onboarding stuck on its loading screen; the
+    # same timer with one child text advances; an isolating probe whose two exits lead to
+    # different destinations always takes the manual route, never the timer's. An element with
+    # nothing to lay out is one the renderer skips, timer included.
     #
     # Severity is an ERROR, and every other gate is blind: `flows config validate` returns
     # `valid: true` for both forms, the schema check passes both, and `config preview` NEVER
@@ -2264,10 +2596,8 @@ def check(path, baseline_text=None, baseline_images=None):
     # observation. The failure is silent, terminal (the flow has no other way off that screen
     # unless the author happened to add one) and only visible on hardware.
     #
-    # This also CORRECTS the shape `patterns.md` published as device-verified, which carried no
-    # children: that verification was confounded by its own instrumentation -- the session that
-    # ran it had added visible digits to diagnose the failure, and documented the shape without
-    # them. See docs/maintainers/flow-generator.md, finding 29.
+    # A childless timer is not a device-verified shape: a device check run with diagnostic
+    # digits added verifies the instrumented shape, not the one without them.
     for s in d.get('screens') or []:
         for eid_, e in (s.get('elements', {}).get('map') or {}).items():
             if e.get('type') != 'timer':
@@ -2285,7 +2615,7 @@ def check(path, baseline_text=None, baseline_images=None):
                     return any(w(c) for c in (n.get('children') or []))
                 w(root)
                 return found
-            # A child is not enough: device-measured, a timer whose only child is a logo or a
+            # A child is not enough: on a device, a timer whose only child is a logo or a
             # plain sentence does not fire either. It fires once a text inside it carries its
             # own digits (a `timer_*` token), and those digits may be coloured like the
             # background, which keeps the delay invisible and still fires.
@@ -2307,8 +2637,51 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'Put a timer_digits() text inside it; to keep the delay invisible, colour the '
                     f'digits like the background. Neither validate nor preview can see this')
 
-    # `footer` is the pinned bottom bar, and all three of these were measured by
-    # rendering one screen eight ways. The element is lifted out of the flow and pinned to the
+    # An `until_date` timer counts down to `endDate` ({date, time, timeZone}). The schema keeps
+    # `date` optional so a builder draft can save without one, but publish refuses the flow when
+    # the date is missing, or the date, time or zone is not valid -- so the agent's own config
+    # must carry a full end. A past date is valid (the timer shows zero). The zone is an IANA name,
+    # `UTC`, or `local` (each device's own clock).
+    def _end_date_problem(end):
+        import datetime
+        if not isinstance(end, dict) or not end.get('date'):
+            return 'has no end date (endDate.date)'
+        date_, time_, zone_ = end.get('date'), end.get('time'), end.get('timeZone')
+        try:
+            if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(date_)):
+                raise ValueError
+            datetime.date.fromisoformat(date_)
+        except ValueError:
+            return f'has an end date {date_!r} that is not a real YYYY-MM-DD date'
+        if not isinstance(time_, str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', time_):
+            return f'has an end time {time_!r} that is not HH:mm (00:00-23:59)'
+        if not zone_:
+            return 'has no time zone (endDate.timeZone)'
+        if zone_ not in ('local', 'UTC'):
+            try:
+                import zoneinfo
+                zoneinfo.ZoneInfo(zone_)
+            except ImportError:
+                pass
+            except Exception:
+                return f"has a time zone {zone_!r} that is not an IANA zone name, 'UTC' or 'local'"
+        return None
+    _containers = [(f'screen {s.get("id")}', s.get('elements', {}).get('map') or {})
+                   for s in d.get('screens') or []]
+    _containers += [(f'component {cid}', (c or {}).get('map') or {})
+                    for cid, c in (d.get('components') or {}).items() if isinstance(c, dict)]
+    for where, m_ in _containers:
+        for eid_, e in m_.items():
+            if e.get('type') != 'timer' or (e.get('props') or {}).get('behavior') != 'until_date':
+                continue
+            problem = _end_date_problem((e.get('props') or {}).get('endDate'))
+            if problem:
+                bad.append(f'{where}: timer {eid_} counts down to a date (until_date) but '
+                           f'{problem}, so publish refuses the flow. Set it with '
+                           f'flowkit.timer_end_date(date, time, time_zone=...)')
+
+    # `footer` is the pinned bottom bar, and all three of these come from rendering one screen
+    # eight ways. The element is lifted out of the flow and pinned to the
     # viewport bottom; the same props under `type: "stack"` land below the fold.
     for s in d.get('screens', []):
         m = s['elements']['map']
@@ -2383,8 +2756,8 @@ def check(path, baseline_text=None, baseline_images=None):
                         f'shape (a backing plate behind docked elements). The pinned opaque bar '
                         f'is a `footer` element; see patterns.md')
                 else:
-                    # The commoner fake footer, and the one BOTH control arms of the GREEN round
-                    # produced: not an empty plate but a full-bleed `fixed` container with a fill
+                    # The commoner fake footer, and the one authors produce unprompted: not an
+                    # empty plate but a full-bleed `fixed` container with a fill
                     # and no action of its own, holding the legal links. Keyed on full-bleed
                     # (left+right+bottom all 0) so a real docked CTA at {left:24,right:24,bottom:N}
                     # -- the shape three real exports carry -- does not trip it.
@@ -2519,19 +2892,18 @@ def check(path, baseline_text=None, baseline_images=None):
     # slide/step ever shows and the dots are inert). Same class as the fake footer and the fake
     # spinner, and no other gate sees it.
     #
-    # WIDENED 2026-08-28, after a report that the previous check did not stop the fake. It keyed
-    # on ONE shape -- >=3 leaf `stack`s, both axes fixed and EQUAL, <=12, rounded -- and seven
-    # fakes rebuilt from `tests/fixtures/reviews-carousel.json` measured 1/7 caught. The six
-    # misses were all natural authoring choices, not exotic ones: an active dot drawn as a wider
-    # PILL (the commonest indicator design, and the shape in the reported screenshot), dots drawn
+    # WIDE ON PURPOSE. Keyed on ONE shape -- >=3 leaf `stack`s, both axes fixed and EQUAL, <=12,
+    # rounded -- the check catches 1 of 7 fakes rebuilt from
+    # `tests/fixtures/reviews-carousel.json`. The six misses are all natural authoring choices,
+    # not exotic ones: an active dot drawn as a wider PILL (the commonest indicator design), dots drawn
     # as small phosphor `Circle` ICONS (natural in a catalog carrying 61 phosphor icons), dots as
     # one TEXT node of bullet glyphs, dots one size over the <=12 cap, a two-slide carousel, and
     # -- with no dots at all to key on -- a horizontal row of fixed-width cards wider than the
     # screen, which is the "swipeable cards" ask faked as a static row.
     #
-    # Severity is an ERROR for the indicator-row families, raised from a warning: prose has now
-    # failed this trap twice (the SKILL.md rule, then the narrow warning), which is this repo's
-    # own trigger for escalating a rule to a mechanical guard. The message names the two legal
+    # Severity is an ERROR for the indicator-row families: neither the SKILL.md rule nor a
+    # warning stops this trap, which is this repo's own trigger for escalating a rule to a
+    # mechanical guard. The message names the two legal
     # alternatives, so it is actionable rather than merely disapproving. The overflow-row family
     # stays a WARNING -- it is the one family whose fix may legitimately be a layout change
     # rather than a carousel.
@@ -2547,9 +2919,9 @@ def check(path, baseline_text=None, baseline_images=None):
         """A leaf stack small and round enough to be an indicator dot.
 
         Height is the anchor and width is allowed to run to 3x it, because the ACTIVE dot is
-        very often drawn as a pill. Requiring width == height is what let the reported shape
-        through: with one pill among three dots only two equal dots remain, and the old
-        `>= 3` count never fired.
+        very often drawn as a pill. Requiring width == height would let that shape through:
+        with one pill among three dots only two equal dots remain, and a `>= 3` count never
+        fires.
         """
         if e.get('type') != 'stack' or e.get('children'):
             return False
@@ -2607,8 +2979,8 @@ def check(path, baseline_text=None, baseline_images=None):
     # STEP INDICATOR GUARD. A fake slider is one frozen screen; a step indicator is the
     # same row on several screens with the active marker somewhere else on each ("step 1
     # of 3", "step 2 of 3"). Both signals required, so a fake slider copied unchanged
-    # onto two screens still fires. Measured on a real onboarding whose three "Progress
-    # dots" pills (the wide one moving 1 -> 2 -> 3 over three screens) errored three
+    # onto two screens still fires. Without it, a real onboarding whose three "Progress
+    # dots" pills (the wide one moving 1 -> 2 -> 3 over three screens) errors three
     # times here -- and flow-audit reports a failing ERROR as a blocker.
     def _row_marker(n, m):
         kids = [c['id'] for c in n.get('children') or []]
@@ -2616,6 +2988,10 @@ def check(path, baseline_text=None, baseline_images=None):
                 json.dumps(((m.get(k) or {}).get('props') or {}).get('fill'), sort_keys=True))
                for k in kids]
         odd = [i for i, x in enumerate(sig) if sig.count(x) == 1]
+        if len(odd) == 2 and len(kids) == 2:
+            # Two markers that differ are both unique: take the one with the smaller
+            # signature, the same marker on every screen, so its index moves with the step.
+            odd = [sig.index(min(sig))]
         return len(kids), (odd[0] if len(odd) == 1 else None)
 
     _rows = {}
@@ -2642,8 +3018,8 @@ def check(path, baseline_text=None, baseline_images=None):
         if any(e.get('type') == 'carousel' for e in m.values()):
             continue
         # Walk the hierarchy; at every node look at its DIRECT children. Screen-wide counting
-        # tripped on list bullet dots (one dot per list row, each in its own parent), a real
-        # false positive measured against a live flow; requiring one shared parent drops those
+        # trips on list bullet dots (one dot per list row, each in its own parent), a real
+        # false positive on a live flow; requiring one shared parent drops those
         # and still catches the indicator row, whose dots are always siblings.
         def _walk(n):
             kids = n.get('children') or []
@@ -2657,15 +3033,12 @@ def check(path, baseline_text=None, baseline_images=None):
             # many heights encodes MAGNITUDE -- an audio waveform, an equalizer, a sparkline --
             # and no `carousel` could replace it: there is no slide to page through.
             #
-            # Measured, and the separation is total: every stack-based fake in
-            # tests/test-fake-carousel.py has exactly ONE distinct height, the wider-pill case
-            # included (its WIDTH differs, its height does not), while a waveform read off a real
-            # reference has NINE. Added 2026-09-02 after 6 of 6 agents in a GREEN round hit this
-            # as a false positive at ERROR severity -- one dropped its bars' corner radius purely
-            # to quiet the checker ("these are artwork, not indicators"), another abandoned the
-            # waveform and shipped an image placeholder, calling it "a real fidelity loss".
-            # Finding 19's own lesson -- a guard calibrated against a single remembered shape
-            # tests the memory, not the trap -- applied to finding 19's own widened guard.
+            # The separation is total: every stack-based fake in tests/test-fake-carousel.py
+            # has exactly ONE distinct height, the wider-pill case included (its WIDTH differs,
+            # its height does not), while a waveform read off a real reference has NINE. Without
+            # this guard a waveform is a false positive at ERROR severity, and authors damage
+            # real artwork to quiet it. A guard calibrated against a single remembered shape
+            # tests the memory, not the trap.
             _dot_h = {_sz((m.get(i) or {}).get('props') or {}, 'height') for i in dots}
             _dot_h = {h for h in _dot_h if isinstance(h, (int, float))}
             if len(_dot_h) > 2 and not solo_text:
@@ -2687,8 +3060,8 @@ def check(path, baseline_text=None, baseline_images=None):
                             and kids[_at[i] + 1]['id'] not in dots and _texty(kids[_at[i] + 1])
                             for i in dots):
                 dots = []
-            # TWO is the floor, not three: a two-slide carousel gets two dots, and the old
-            # `>= 3` let that through. Measured silent at this threshold on all 12 real configs
+            # TWO is the floor, not three: a two-slide carousel gets two dots, and `>= 3` would
+            # let that through. Silent at this threshold on all 12 real configs
             # (7 tracked fixtures + 5 raw exports), so the looser count costs no false positive.
             if n.get('id') in step_rows:
                 dots, solo_text = [], False
@@ -2738,12 +3111,11 @@ def check(path, baseline_text=None, baseline_images=None):
     # whichever one you drew that way, forever: tapping flips the internal selection and nothing
     # on screen moves. The user-visible symptom is "the card just blinks and nothing changes".
     #
-    # Added 2026-08-28 after shipping exactly that to a user. `patterns.md` has stated the rule
-    # in words since the plan-card section was written -- "Put the selected LOOK in
-    # `propsByState`, never on whichever card starts selected" -- and it was read past anyway,
-    # because the reference screenshot showed one card highlighted and copying a static image
-    # literally bakes in the one frame it can show. A prose rule that was documented AND still
-    # defeated is this repo's trigger for a mechanical guard.
+    # `patterns.md` states the rule in words -- "Put the selected LOOK in `propsByState`, never
+    # on whichever card starts selected" -- and it is read past anyway, because a reference
+    # screenshot shows one card highlighted and copying a static image literally bakes in the
+    # one frame it can show. A prose rule that is documented AND still defeated is this repo's
+    # trigger for a mechanical guard.
     #
     # NOTHING else sees it: `flows config validate` returns valid (the document is well formed),
     # the schema check passes (both shapes are legal), and `config preview` draws a single frame
@@ -2813,14 +3185,13 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'(a radio dot with its own state) this is fine. Members: {names}')
     # A STATE OVERRIDE THAT DROPS A SUB-FIELD. A prop in `propsByState.<state>` replaces the base
     # prop whole, on device and in the preview alike: a key it leaves out falls back to its
-    # default, it is not inherited (flow-schema.md, trap 17). The transformer deep-merged until
-    # October 2026, so a delta override (`font: {weight}` over `font: {preset}`) is the shape an
-    # author writes from the old rule, and it now loses the preset. Every state override in every
-    # real export and catalog template repeats each key of the base prop it replaces (407 of 407
-    # measured), so this never fires on builder output. A colour switched to another variant
-    # (`type` differs) is a new value, not a partial one. Two left-out keys draw the same and are
-    # not reported, both measured as false positives in a test round: `font.preset` when the
-    # override sets its own `size` (a manual font in place of the preset), and `border.style`
+    # default, it is not inherited (flow-schema.md, trap 17). A delta override (`font: {weight}`
+    # over `font: {preset}`) therefore loses the preset. Every state override in every real
+    # export and catalog template repeats each key of the base prop it replaces (407 of 407),
+    # so this never fires on builder output. A colour switched to another variant (`type`
+    # differs) is a new value, not a partial one. Two left-out keys draw the same and are not
+    # reported, because flagging them is a false positive: `font.preset` when the override sets
+    # its own `size` (a manual font in place of the preset), and `border.style`
     # (only `none` changes the drawing).
     for where, k, e in iter_elements(d):
         base = e.get('props') or {}
@@ -2843,10 +3214,13 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'override. See flow-schema.md, trap 17')
     # A `product` ELEMENT WITH NOTHING IN IT. The single-plan shape where the plan's name and price
     # are loose text beside an empty (often hidden) `product` "attach point". The builder draws the
-    # empty element as a 1x1 box the user has to find and delete by hand, and it breaks the layout
-    # around it — while `config preview` collapses it and draws the screen clean. The text that
-    # describes the plan IS the product: wrap it in the `product` element. Zero real exports and
-    # zero catalog templates contain a childless `product`, so this is never builder output.
+    # empty element as a 1x1 box the user has to find and delete by hand, while `config preview`
+    # collapses it. On a device it has no size (the transformer emits an empty box sized 0 on
+    # every hug axis) but it still takes its stack gap, so in a stack with a gap the content
+    # around it sits one gap further apart. It can be deliberate: a product element is what
+    # declares a product on the screen, so an empty one may exist only so another element's
+    # price can name that product.
+    # Zero real exports and zero catalog templates contain one, so it is never builder output.
     for s in d.get('screens', []):
         m = s['elements']['map']
 
@@ -2854,14 +3228,45 @@ def check(path, baseline_text=None, baseline_images=None):
             if (m.get(n.get('id'), {}).get('type') == 'product'
                     and not n.get('children')):
                 warn.append(
-                    f'screen {s["id"]}: {n["id"]} is a `product` element with no children. The '
-                    f'builder shows it as a 1x1 box that breaks the layout, and the preview hides '
-                    f'it. Move the text that names and prices the plan INSIDE this element and '
-                    f'delete the empty one — on a single-plan screen that text block is the '
-                    f'product. See patterns.md, "A single-plan screen"')
+                    f'screen {s["id"]}: {n["id"]} is a `product` element with no children. On a '
+                    f'device it has no size but still takes its stack gap, so the content around '
+                    f'it sits one gap further apart; the builder shows it as a 1x1 box and the '
+                    f'preview hides it. If you are building the screen, move the text that names and '
+                    f'prices the plan INSIDE this element and delete the empty one — on a '
+                    f'single-plan screen that text block is the product. If it came with the '
+                    f'flow, it may be there only so another price can name this product: ask '
+                    f'before changing it. See patterns.md, "A single-plan screen"')
             for c in n.get('children') or []:
                 _empty_products(c)
         _empty_products(s['elements']['hierarchy'])
+
+    # A SPREAD STACK WITH A FILL CHILD AMONG NON-FILL ONES. The transformer puts a spacer between
+    # the children of a space-between/-around/-evenly stack unless every child fills the main
+    # axis; on iOS a fill child is then exactly as flexible as each spacer, so it gets only an
+    # equal share of the free space and its text truncates. Android and the builder canvas give
+    # it the rest. `gap` distribution gives the fill child the rest on both.
+    for s in d.get('screens', []):
+        m = s['elements']['map']
+
+        def _spread_fill(n):
+            lay = (m.get(n.get('id'), {}).get('props') or {}).get('layout')
+            dist = lay.get('distribution') if isinstance(lay, dict) else None
+            kind = dist.get('type') if isinstance(dist, dict) else None
+            axis = {'horizontal': 'width', 'vertical': 'height'}.get(
+                lay.get('direction') if isinstance(lay, dict) else None)
+            kids = n.get('children') or []
+            if kind in ('space-between', 'space-around', 'space-evenly') and axis and kids:
+                fills = [_obj((m.get(c.get('id'), {}).get('props') or {}).get(axis)).get('type')
+                         == 'fill' for c in kids]
+                if any(fills) and not all(fills):
+                    warn.append(
+                        f'screen {s["id"]}: {n["id"]} is a {kind} stack with a fill-{axis} child '
+                        f'beside fixed or hug ones. On iOS the fill child gets only an equal '
+                        f'share of the free space with the gaps, so its text truncates; the '
+                        f'builder and Android give it the rest. Use a `gap` distribution')
+            for c in kids:
+                _spread_fill(c)
+        _spread_fill(s['elements']['hierarchy'])
 
     # A `const` PURCHASE OF A PRODUCT A `product` ELEMENT ON THE SAME SCREEN ALREADY BINDS. The
     # product is then named twice: swap it on the card in the builder and the button keeps buying
@@ -2907,24 +3312,104 @@ def check(path, baseline_text=None, baseline_images=None):
             bad.append(f'screen {sid}: invalid condition expression at {offending} — refused as '
                        f'invalid_visibility_condition / invalid_state_condition. Legal types are '
                        f'{sorted(EXPR_TYPES - COND_ILLEGAL_TYPES)}')
+        blank = None if offending else blank_operand_path(tree, f'{eid}.{where}')
+        if blank:
+            warn.append(f'screen {sid}: {blank} is empty — an unfinished condition. It passes '
+                        f'`validate` and ships as is: an empty side compares as nothing, so the '
+                        f'condition never depends on the user. Finish it or delete it; if it '
+                        f'came with the flow, ask the user which they meant')
 
-    # An unresolved id is NOT dropped: codegen emits it as a bare identifier into the generated
-    # TypeScript, which fails to compile (`script_type_violation`, TS2304 "Cannot find name").
-    # The same id in rich text renders as its literal token and publishes, which is why that
-    # stays the warning above and this is an error.
+    # ---- conditional TEXT: a `switch` in an element's props. Each case predicate is checked by
+    # the same walker (a bad one is refused as invalid_conditional_text_predicate), and a case
+    # with an empty side is compiled as is: `==` between two empties is true, so that case always
+    # shows and every case after it and the default never do. Nothing else reports it.
+    for s in d.get('screens', []):
+        for eid, e in (s.get('elements', {}).get('map') or {}).items():
+            seen = set()
+
+            def _switches(o, path):
+                if isinstance(o, dict):
+                    if o.get('type') == 'switch' and isinstance(o.get('cases'), list):
+                        for i, c in enumerate(o['cases']):
+                            if not (isinstance(c, list) and len(c) == 2) or i in seen:
+                                continue
+                            where = f'{eid}.{path}.cases[{i}][0]'
+                            off = bad_expr_path(c[0], where)
+                            if off:
+                                seen.add(i)
+                                bad.append(f'screen {s["id"]}: invalid conditional text predicate '
+                                           f'at {off} — refused as '
+                                           f'invalid_conditional_text_predicate')
+                                continue
+                            blank = blank_operand_path(c[0], where)
+                            if blank:
+                                seen.add(i)
+                                warn.append(
+                                    f'screen {s["id"]}: {eid} conditional text case {i + 1} has an '
+                                    f'empty side ({blank}) — an unfinished condition. It ships '
+                                    f'as is and an empty side compares as nothing, so with `==` '
+                                    f'this case always shows and no case after it, nor the '
+                                    f'default, ever does. Finish it or delete it; if it came '
+                                    f'with the flow, ask the user which they meant')
+                    for k, v in o.items():
+                        _switches(v, f'{path}.{k}')
+                elif isinstance(o, list):
+                    for i, v in enumerate(o):
+                        _switches(v, f'{path}[{i}]')
+            _switches(e.get('props'), 'props')
+
+    # The publish refuses an unresolved id (`unknown_variable_ref`, with the path of the node).
+    # The same id in rich text is refused too; this check reads only conditions, and the rich-text
+    # case stays the warning above.
     custom_vars = {v['id'] for v in (d.get('variables') or [])
                    if isinstance(v, dict) and v.get('id')}
     all_custom_ids = {(e.get('props') or {}).get('customId')
                       for _, e in els() if (e.get('props') or {}).get('customId')}
+    system_ids = set(SYSTEM_VARIABLES) - custom_vars
     for v in sorted(cond_var_ids):
         head = v.split('.')[0]
-        if (v in custom_vars or head in all_custom_ids or head in group_ids
+        if (v in system_ids or v in custom_vars or head in all_custom_ids or head in group_ids
                 or head in allprod or head in bound_products or head in product_groups):
             continue
         bad.append(f'condition variable {v!r} resolves to nothing: no input customId, '
                    f'selectableGroup, bound product or variables[] entry produces it. The '
-                   f'generated script emits it as a bare identifier and fails to compile '
-                   f'(script_type_violation, TS2304)')
+                   f'publish refuses it (unknown_variable_ref, "Variable ... is not declared in '
+                   f'the flow")')
+
+    # System variables: a comparison the SDK can never satisfy, a use in text, a write. The
+    # walk covers conditional actions too, which `iter_conditions` does not reach.
+    def _system_uses(o):
+        t = o.get('type')
+        if t in ('==', '!=', 'in', 'notIn'):
+            pairs = [(o.get('left'), o.get('right'))]
+            if t in ('==', '!='):
+                pairs.append((o.get('right'), o.get('left')))
+            for var, other in pairs:
+                if not (isinstance(var, dict) and var.get('type') == 'var'
+                        and var.get('variableId') in system_ids):
+                    continue
+                vid = var['variableId']
+                if not (isinstance(other, dict) and other.get('type') == 'const'):
+                    continue
+                vals = other.get('value') if t in ('in', 'notIn') else [other.get('value')]
+                for val in vals if isinstance(vals, list) else []:
+                    if val is not None and val not in SYSTEM_VARIABLES[vid]:
+                        bad.append(f'{vid} is compared with {val!r}, which the SDK never reports '
+                                   f'(invalid_system_variable_value); use one of '
+                                   f'{list(SYSTEM_VARIABLES[vid])}')
+        if t == 'variable' and isinstance(o.get('attrs'), dict) \
+                and o['attrs'].get('variableId') in system_ids:
+            bad.append(f'{o["attrs"]["variableId"]} is in text (unsupported_system_variable_use): '
+                       f'a system variable works only in conditions')
+        if t == 'setVariable' and isinstance(o.get('payload'), list):
+            for asg in o['payload']:
+                left = asg.get('left') if isinstance(asg, dict) else None
+                if isinstance(left, dict) and left.get('variableId') in system_ids:
+                    bad.append(f'setVariable action {o.get("id")!r} writes '
+                               f'{left["variableId"]}, which is read-only '
+                               f'(invalid_action_payload)')
+    walk(d.get('screens') or [], _system_uses)
+    walk(d.get('components') or {}, _system_uses)
 
     # ---- custom tags: `variables[]` entries with `external: true`, whose value the app supplies.
     # The name is the contract with the app's code and publishes as an SDK tag, so the two
@@ -2938,8 +3423,8 @@ def check(path, baseline_text=None, baseline_images=None):
     for v in tag_vars:
         if v.get('valueType') not in TAG_VALUE_TYPES:
             warn.append(f'variable {v.get("name")!r} carries external: true but is a '
-                        f'{v.get("valueType")!r}; only string, number and boolean variables can '
-                        f'come from the app, so the flag is ignored and the app cannot set it')
+                        f'{v.get("valueType")!r}; only a string variable can come from the app, so the '
+                        f'flag is ignored and the app cannot set it (custom_tag_non_string)')
             continue
         issue = tag_name_issue(v.get('name'))
         if issue:
@@ -2951,6 +3436,30 @@ def check(path, baseline_text=None, baseline_images=None):
         bad.append(f'custom tag name {n!r} is also used by another variable '
                    f'(custom_tag_duplicate_name): both publish as the same SDK tag, so the app '
                    f'value overrides the other one wherever it is used')
+    # A text that shows a variable which is not external, has no value and nothing assigns:
+    # it publishes as a script variable and is blank for every user. Almost always a custom
+    # tag missing `external: true`; the service publishes it without a word.
+    text_var_ids, assigned = set(), set()
+
+    def _walk_vars(o):
+        if isinstance(o, dict):
+            if o.get('type') == 'variable' and isinstance(o.get('attrs'), dict):
+                text_var_ids.add(o['attrs'].get('variableId'))
+            if o.get('type') == 'setVariable':
+                assigned.update(all_var_ids(o.get('payload')))
+            for x in o.values():
+                _walk_vars(x)
+        elif isinstance(o, list):
+            for x in o:
+                _walk_vars(x)
+    _walk_vars(d)
+    for v in d.get('variables') or []:
+        if (isinstance(v, dict) and v.get('external') is not True
+                and v.get('value') in ('', None) and v.get('id') in text_var_ids
+                and v.get('id') not in assigned):
+            warn.append(f'variable {v.get("name") or v.get("id")!r} is shown in text, has no value and '
+                        f'nothing sets it, so it is blank on a device. If the app supplies it, mark '
+                        f'it external: true (a custom tag)')
     locs = [l.get('code') if isinstance(l, dict) else l for l in (d.get('locales') or [])]
     if len(locs) > 1:
         for v in tag_vars:
@@ -3245,7 +3754,7 @@ def check(path, baseline_text=None, baseline_images=None):
                     groups = sorted(f[2:] for f in found if f.startswith('G:'))
                     swaps = []
                     for vid in fixed:
-                        pid = vid.split('.')[0].removesuffix('@monthly')
+                        pid = _strip_monthly(vid.split('.')[0])
                         grp = (groups[0] if len(groups) == 1
                                else group_of.get(pid) or '<groupId>')
                         swaps.append(f'`{vid}` with `{grp}.selectedProduct.{vid.rsplit(".", 1)[-1]}`')
@@ -3262,14 +3771,13 @@ def check(path, baseline_text=None, baseline_images=None):
                     break
 
 
-    # ---- `<groupId>.selectedOptionId` on a MULTI_CHOICE group. Measured against the transform
-    # service: the same condition validates on a `single_choice` group and is refused
-    # on `multi_choice` with `Generated scripts failed validation` -- a multi-select exposes no
+    # ---- `<groupId>.selectedOptionId` on a MULTI_CHOICE group. In the transform service the
+    # same condition validates on a `single_choice` group and is refused
+    # on `multi_choice` with `unknown_variable_ref` -- a multi-select exposes no
     # single selected option for the generated code to read. It matters because
     # `component-catalog.json`'s `quiz-rating` template declares its group `multi_choice`, is
     # `agent_allowed`, and `patterns.md` tells an agent to prefer filling a template over
-    # assembling a skeleton -- so the recommended path leads straight into the refusal. Three
-    # agents in one GREEN round hit it independently and worked around it by hand.
+    # assembling a skeleton -- so the recommended path leads straight into the refusal.
     grp_types = {g['id']: g.get('type')
                  for s in d.get('screens', [])
                  for g in (s.get('selectableGroups') or [])}
@@ -3284,7 +3792,7 @@ def check(path, baseline_text=None, baseline_images=None):
         head = v.split('.')[0]
         if grp_types.get(head) == 'multi_choice':
             bad.append(f'{v} reads a group declared multi_choice — the transform service '
-                       f'refuses this ("Generated scripts failed validation"); a multi-select '
+                       f'refuses this (unknown_variable_ref); a multi-select '
                        f'has no single selected option. Declare the group single_choice')
 
     # ---- the id a `flow_user_input` event carries is `props.customId`, NEVER the element's
@@ -3475,6 +3983,83 @@ def check(path, baseline_text=None, baseline_images=None):
                             f'service does not map and no real export uses — '
                             f'{why}. Do not lay out around it without a device check')
 
+    # ---- custom elements: a box the app fills with its own view, its children the fallback.
+    # The rules come from the builder's publish check and the transformer's refusals; see
+    # custom-elements.md. Screens and components alike, since a component can carry one.
+    ce_holders = [(f'screen {s["id"]}', s['elements']['map'], s['elements']['hierarchy'])
+                  for s in d.get('screens', [])]
+    ce_holders += [(f'component {cid}', c.get('map', {}), c.get('hierarchy', {}))
+                   for cid, c in (d.get('components') or {}).items()]
+    for where, m, hroot in ce_holders:
+        nodes, parent = {}, {}
+
+        def _ce_idx(n):
+            nodes[n.get('id')] = n
+            for c in n.get('children') or []:
+                parent[c.get('id')] = n.get('id')
+                _ce_idx(c)
+
+        _ce_idx(hroot)
+        pairs = {}
+        for eid, e in m.items():
+            if e.get('type') != 'custom-element':
+                continue
+            pr = e.get('props') or {}
+            ctype, cid_ = pr.get('customType'), pr.get('customElementId')
+            if not (isinstance(ctype, str) and CUSTOM_TYPE.match(ctype)):
+                bad.append(f'{where}: custom element {eid} has Type {ctype!r} — lowercase letters, '
+                           f'digits and underscores only, never empty, or the flow does not publish')
+            pairs.setdefault((ctype, cid_), []).append(eid)
+            for st, sp in (e.get('propsByState') or {}).items():
+                if isinstance(sp, dict) and {'customType', 'customElementId'} & set(sp):
+                    bad.append(f'{where}: custom element {eid} sets its Type or ID in state {st!r} '
+                               f'— they live in base props only')
+            if e.get('interactions'):
+                bad.append(f'{where}: custom element {eid} carries interactions — the element has '
+                           f'none, and the transformer deletes them, so the tap never runs. Put '
+                           f'the button outside the box')
+            if (pr.get('height') or {}).get('type') != 'fixed':
+                warn.append(f'{where}: custom element {eid} has a {(pr.get("height") or {}).get("type")!r} '
+                            f'height — a native view without a height of its own (a map, a chart, a '
+                            f'camera) collapses to almost nothing; give the box a fixed height')
+            kids = (nodes.get(eid) or {}).get('children') or []
+            if not kids:
+                warn.append(f'{where}: custom element {eid} has no fallback children — users the '
+                            f'app does not serve (an older app version, Android, a cross-platform '
+                            f'SDK, a missing file) see an empty box of its size')
+            stack_ = list(kids)
+            while stack_:
+                k = stack_.pop()
+                ke = m.get(k.get('id')) or {}
+                kt, kp = ke.get('type'), (ke.get('props') or {}).get('position') or {}
+                if kt in ('bottom-sheet', 'sliding-sheet', 'footer') or kp.get('type') == 'fixed':
+                    bad.append(f'{where}: custom element {eid} holds '
+                               f'{"a " + kt if kt in ("bottom-sheet", "sliding-sheet", "footer") else "a fixed-position element"} '
+                               f'({k.get("id")}) — the transformer refuses it '
+                               f'(unsupported_fixed_descendant_in_custom_element) and drops the box')
+                if kt == 'product' or ke.get('interactions'):
+                    warn.append(f'{where}: custom element {eid} has {k.get("id")} ({kt}) in its '
+                                f'fallback — users whose app draws the view never see the fallback, '
+                                f'so a button or a plan inside it disappears for them. Keep it '
+                                f'outside the box')
+                stack_.extend(k.get('children') or [])
+            up, seen_kinds = parent.get(eid), set()
+            while up:
+                ut = (m.get(up) or {}).get('type')
+                if ut == 'carousel' and ut not in seen_kinds:
+                    warn.append(f'{where}: custom element {eid} sits inside carousel {up} — a drag '
+                                f'in a map, a chart or a Rive view also swipes the carousel')
+                if ut in ('product', 'selectable') and not seen_kinds & {'product', 'selectable'}:
+                    warn.append(f'{where}: custom element {eid} sits inside {ut} {up} — when the '
+                                f'selection changes, the native view can lose its state; keep '
+                                f'the box outside selectable elements')
+                seen_kinds.add(ut)
+                up = parent.get(up)
+        for (ctype, cid_), eids in pairs.items():
+            if len(eids) > 1:
+                warn.append(f'{where}: custom elements {eids} share Type {ctype!r} and ID '
+                            f'{cid_!r} — the app cannot tell them apart; give each its own ID')
+
     # ---- money, discounts and durations written as literal text. See PLACEHOLDER_PRICE.
     # The placeholder form is always reported: no real config contains one and nobody means to
     # ship it. The other three are reported only against a --baseline, because real exports
@@ -3507,9 +4092,9 @@ def check(path, baseline_text=None, baseline_images=None):
     #
     # It judges only what it can compute: a solid or a gradient it can see under the text. An
     # unresolvable fill on the way down makes the background UNKNOWN (see `fill_below`), and so
-    # does an OVERLAY -- something positioned out of flow that may sit under or over the text. Four
-    # runs read white type over a gradient footer, a fade, a photo and an image hero as "white on
-    # white", because the walk measured them against the page. Two overlay shapes: the text's own
+    # does an OVERLAY -- something positioned out of flow that may sit under or over the text.
+    # Judged against the page instead, white type over a gradient footer, a fade, a photo or an
+    # image hero reads as "white on white". Two overlay shapes: the text's own
     # branch is `absolute`/`fixed` and a sibling paints (a headline floated over a hero image), or
     # an `absolute` sibling paints and is more than a dot, a rail or a hairline (a fade beside the
     # headline). The size exemption keeps the timeline's 8pt rail and 32pt icon chip, which sit
@@ -3662,11 +4247,16 @@ def check(path, baseline_text=None, baseline_images=None):
             if not isinstance(v, dict) or 'hex' not in v:
                 continue
             h = v['hex']
-            if not (isinstance(h, str) and THEME_HEX.match(h)):
+            if isinstance(h, str) and THEME_HEX.match(h):
+                continue
+            if parse_hex(h):
+                warn.append(f'theme colour {c.get("id")!r} {variant} hex is {h!r}: the service '
+                            f'reads it, but the schema allows only #RRGGBB — write that, with '
+                            f'alpha in `opacity`')
+            else:
                 bad.append(f'theme colour {c.get("id")!r} {variant} hex is {h!r}, not #RRGGBB — '
-                           f'the transform service refuses this with the location-free '
-                           f'"Generated JSON failed schema validation", and neither the schema '
-                           f'check nor the render can see it')
+                           f'the transform service cannot read it, so it refuses the flow or '
+                           f'drops the colour, and the render (light mode only) cannot show it')
 
     theme_style_findings(d, bad, warn)
 
@@ -3760,6 +4350,71 @@ def check(path, baseline_text=None, baseline_images=None):
                     f'with both set the preset\'s face draws and the family is ignored. Keep one: drop the preset, '
                     f'or drop the manual keys and change the preset in `theme.typography`')
 
+    bad_fit, warn_fit = text_fit_findings(raw)
+    bad += bad_fit
+    warn += warn_fit
+    return bad, warn
+
+
+# A text's box is bounded by a positive `maxLines` or a positive fixed height that the
+# `auto-height` layout does not override -- the rule the transformer maps to `on_overflow: scale`
+# and the builder uses to enable the switch. Outside a bounded box `autoShrink` does nothing.
+# Translation length is compared in visible characters against the default locale: a bounded
+# text cuts a longer string off with an ellipsis, in a locale nobody rendered.
+FIT_RATIO = 1.2
+FIT_MIN_EXTRA = 5
+
+
+def _bounded_text(p):
+    h = p.get('height') if isinstance(p.get('height'), dict) else {}
+    ml, hv = p.get('maxLines'), h.get('value')
+    lines = isinstance(ml, (int, float)) and not isinstance(ml, bool) and ml > 0
+    fixed = (p.get('layout') != 'auto-height' and h.get('type') == 'fixed'
+             and isinstance(hv, (int, float)) and not isinstance(hv, bool) and hv > 0)
+    return lines or fixed
+
+
+def text_fit_findings(raw):
+    bad, warn = [], []
+    lz = raw.get('localization') if isinstance(raw.get('localization'), dict) else {}
+    content = lz.get('content') if isinstance(lz.get('content'), dict) else {}
+    default = lz.get('defaultLocale')
+    names = {l.get('id'): l.get('code') or l.get('id')
+             for l in lz.get('locales') or [] if isinstance(l, dict)}
+    maps = [(s.get('id'), (s.get('elements') or {}).get('map') or {})
+            for s in raw.get('screens') or []]
+    maps += [(cid, (c or {}).get('map') or {}) for cid, c in (raw.get('components') or {}).items()]
+    idle, long_ = [], []
+    for where, m in maps:
+        for eid, e in m.items():
+            if not isinstance(e, dict) or e.get('type') != 'text':
+                continue
+            p = e.get('props') if isinstance(e.get('props'), dict) else {}
+            bounded, shrink = _bounded_text(p), p.get('autoShrink') is True
+            if 'autoShrink' in p and not isinstance(p['autoShrink'], bool):
+                bad.append(f'text {eid} on {where}: autoShrink is {p["autoShrink"]!r}; it is '
+                           f'true, false or absent')
+            if shrink and not bounded:
+                idle.append(f'{eid} on {where}')
+            if not bounded or shrink or default is None:
+                continue
+            for lid in _loc.refs_in(p.get('content')):
+                vals = (content.get(lid) or {}).get('values') or {}
+                base = len(_plain(vals.get(default)).strip())
+                for loc, v in vals.items():
+                    n = len(_plain(v).strip())
+                    if loc != default and base and n > base * FIT_RATIO and n - base >= FIT_MIN_EXTRA:
+                        long_.append(f'{eid} on {where} in {names.get(loc, loc)} '
+                                     f'({n} characters against {base})')
+    if idle:
+        warn.append(f'autoShrink does nothing on {", ".join(idle)}: text shrinks only inside a '
+                    f'line limit (maxLines above 0) or a fixed height, and layout "auto-height" '
+                    f'overrides a fixed height. Set the line limit, or drop autoShrink')
+    if long_:
+        warn.append(f'translation longer than the default locale in a text with a line limit or a '
+                    f'fixed height, so it may be cut off with "…": {"; ".join(long_)}. Shorten it '
+                    f'to about the default\'s length; when no shorter wording keeps the meaning, '
+                    f'set autoShrink on that text and render that locale')
     return bad, warn
 
 
@@ -3769,7 +4424,8 @@ def check(path, baseline_text=None, baseline_images=None):
 # photo under a scrim in dark, and every fill that references it follows the appearance. The
 # transform service refuses a malformed stack with a 422 whose path names the style; the checks
 # below mirror each refusal so a document is named in one local pass. Video layers are only the
-# user's to add, so they are checked for the two topology rules and otherwise carried through.
+# user's to add (an uploaded clip goes into a `video` element), so they are checked for the two
+# topology rules and otherwise carried through.
 STYLE_LAYER_TYPES = {'color', 'gradient', 'image', 'video'}
 # The schema's image fill layer is `additionalProperties: false` over exactly these.
 IMAGE_LAYER_KEYS = {'type', 'image', 'customMediaID'}
@@ -4007,14 +4663,16 @@ args = sys.argv[1:]
 # fail the run. Without this, three runs editing one fetched flow read its own missing `states`
 # as their defect. A finding whose words changed (a count grew, an id moved) counts as new.
 baseline_text = baseline_images = base_found = None
+reserved = frozenset()
 base_name = ''
 if '--baseline' in args:
     i = args.index('--baseline')
     if i + 1 >= len(args):
         sys.exit('verify-config.py: --baseline needs a config path')
     base_name = os.path.basename(args[i + 1])
+    reserved = frozenset().union(*(screen_ids(a) for a in args if a != '--baseline'))
     try:
-        _b_bad, _b_warn = check(args[i + 1])
+        _b_bad, _b_warn = check(args[i + 1], reserved=reserved)
         base_found = set(_b_bad), set(_b_warn)
     except Exception:                             # noqa: BLE001 - a broken baseline only loses the split
         base_found = None
@@ -4049,7 +4707,7 @@ for path in args:
         print(f'   {exc}')
         sys.exit(2)
     try:
-        bad, warn = check(path, baseline_text, baseline_images)
+        bad, warn = check(path, baseline_text, baseline_images, reserved)
     except Exception as exc:                                  # noqa: BLE001 - the point is breadth
         import traceback
         print(f'{os.path.basename(path):34} CHECKER ERROR')
@@ -4061,10 +4719,20 @@ for path in args:
         sys.exit(2)
     old = []
     if base_found is not None:
-        old = ([('error', b) for b in bad if b in base_found[0]]
-               + [('warning', w) for w in warn if w in base_found[1]])
-        bad = [b for b in bad if b not in base_found[0]]
-        warn = [w for w in warn if w not in base_found[1]]
+        # A finding in a screen with no id is always this edit's: a position names no screen across
+        # two documents. Only that screen's own missing-key error can be ALREADY IN.
+        _labels = unnamed_labels(unwrap(json.load(open(path, encoding='utf-8'))).get('screens'),
+                                 reserved).values()
+        def known(msg, found):
+            if msg not in found:
+                return False
+            if any(msg.startswith(f'screen {lb} missing required key(s)') for lb in _labels):
+                return True
+            return not any(lb in msg for lb in _labels)
+        old = ([('error', b) for b in bad if known(b, base_found[0])]
+               + [('warning', w) for w in warn if known(w, base_found[1])])
+        bad = [b for b in bad if not known(b, base_found[0])]
+        warn = [w for w in warn if not known(w, base_found[1])]
     print(f'{os.path.basename(path):34} {"OK" if not bad else "VIOLATIONS"}')
     for b in bad:
         print(f'   ERROR:   {b}')

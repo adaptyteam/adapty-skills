@@ -25,7 +25,8 @@ not be read.
 `webp` converts one image to WebP and caps its width (1290 px is a full-width image on the
 widest phone at 3x) without enlarging a smaller one. It uses Pillow when it is installed, else
 `sharp` installed once into ~/.cache/adapty-flow-webp; it prints the size before and after. A GIF
-is refused: an animated WebP uploads but plays one frame, so motion is a `video` element.
+is refused: an animated WebP uploads but plays one frame, so motion is a `video` element from an
+mp4 or webm clip (`flows media upload-video`).
 
 `swap` rebinds every place the config uses <old-url> (each locale, each fill) to the asset a
 `flows media upload --json` call returned, with its id as a string and its preview, and writes
@@ -335,9 +336,10 @@ def weigh(path, offline):
                      'to the width it fills.')
         offers.insert(0, 'scale the heavy WebP images down to the size they show')
     if any(f['kind'] == 'video' for _, f in heavy):
-        fixes.append('Shorten or re-encode the video (H.264, 720 px wide is plenty for a phone) '
-                     'and upload it again in the builder; I cannot upload a video.')
-        offers.append('tell you how to re-encode the video for the builder')
+        fixes.append('Shorten or re-encode the video (H.264, about 720 px on its shorter side is '
+                     'plenty for a phone, and the upload needs at least 640). Send me the new '
+                     'file and I can upload it and rebind the element.')
+        offers.append('tell you how to re-encode the video, then upload the new file')
     known = sum(f.get('bytes') or 0 for f in files.values())
     # what one user gets: the default language's files plus every fill, not each locale's variant
     mine = sum(f.get('bytes') or 0 for f in files.values()
@@ -390,7 +392,8 @@ def weigh(path, offline):
 def webp(src, dst, max_width, quality):
     if src.lower().endswith('.gif'):
         print(f'{src}: a GIF is not converted. An animated WebP uploads but plays one frame, so '
-              f'motion is a `video` element (media.md, The video placeholder).', file=sys.stderr)
+              f'motion is a `video` element from an mp4 or webm clip (media.md, Uploading a '
+              f'video).', file=sys.stderr)
         return 2
     before = os.path.getsize(src)
     done = None

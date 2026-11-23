@@ -114,7 +114,7 @@ last published version — so the dashboard shows the new design while the devic
 old one, with no error anywhere.
 
 > Editing an existing screen in plain language is the **AI Editor**, a different tool from
-> anything above: https://adapty.io/docs/flow-ai-editor.md
+> anything above: https://adapty.io/docs/flow-ai-editor
 
 ## Next: run the purchase
 

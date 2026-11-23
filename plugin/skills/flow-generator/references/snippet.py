@@ -515,7 +515,8 @@ def snippet_dir(start=None):
     here = os.path.abspath(start or os.getcwd())
     root = here
     while True:
-        if os.path.isdir(os.path.join(root, '.git')):
+        # `.git` is a folder in a clone and a file in a git worktree or a submodule.
+        if os.path.exists(os.path.join(root, '.git')):
             break
         parent = os.path.dirname(root)
         if parent == root:
@@ -638,16 +639,17 @@ def resolve_theme(snippet, config, dest_screen=None):
 
     contrast_needs = check_carried_contrast(carry['colors'], dest_screen, dest_colors)
 
-    # Each app has its own font library. A font entry carried into another app keeps the
-    # reference resolvable and the preview drawing, but the destination's library does not have
-    # it, so the user cannot manage or replace it there. Carry it, and ask.
+    # Each app has its own font library, and publishing looks every font reference up in the
+    # destination app's library, ignoring the `_meta.fonts` entry carried with it. A font from
+    # another app keeps the preview drawing but blocks the publish. Carry it, and ask.
     font_needs = []
     if snippet.get('intendedScope', 'same-app') == 'any-app':
         for f in carry['fonts']:
-            font_needs.append({'level': '?', 'text':
+            font_needs.append({'level': '!', 'text':
                                f'font "{f.get("name") or f.get("id")}" comes from another app\'s '
-                               f'font library. Upload it to this app in the Flow Builder (or pick '
-                               f'a font this app has), then repoint the text to it.'})
+                               f'font library, and the flow will not publish while a text uses '
+                               f'it. Upload it to this app in the Flow Builder (or pick a font '
+                               f'this app has), then repoint the text to it.'})
 
     return {'adopt': adopt, 'carry': carry, 'reuse': sorted(set(reuse)),
             'needs': contrast_needs + font_needs}
@@ -723,9 +725,9 @@ def rewrite_ids(payload, el_renames, group_renames):
     The groupId head hides in a `conditional`'s payload, and a case there is a
     two-element list -- `[predicate_dict, {"type": "const", "value": [...actions]}]`
     -- not `{"actions": [...]}`, and `default` is a sibling action container of its
-    own (measured against a real quiz-and-paywall export in the tracked fixture
-    corpus). Rather than hand-walk that branch shape (which drifted from it once
-    already, silently), any
+    own (as a real quiz-and-paywall export in the tracked fixture corpus
+    shows). Rather than hand-walk that branch shape (a hand walk drifts from it
+    silently), any
     `variableId` string is rewritten generically wherever it occurs under an element,
     keyed on the FIELD NAME `variableId` -- never on an arbitrary string value, so the
     `tabs` trap stays closed. Element ids an action names (`showElement`/`hideElement`

@@ -148,7 +148,7 @@ def main(argv):
         print(f'montage: {parsed}\n{USAGE}', file=sys.stderr)
         return 2
     out, sources, gutter = parsed
-    # The output comes first, so `montage.py a.png b.png` used to overwrite the render a.png with
+    # The output comes first, so `montage.py a.png b.png` would overwrite the render a.png with
     # a strip of b.png alone, silently. Refuse to write over any file this script did not make.
     try:
         prior = open(out, 'rb').read()

@@ -73,9 +73,9 @@ fi
 echo "-- 2/4 schema shape (ADVISORY — does not decide the verdict)"
 # --config, not a positional. Pass BASELINE=flow.backup.json when editing a fetched config, or a
 # v9 flow buries you in pre-existing findings that are not yours.
-# ajv is installed ONCE into a cache dir, never resolved through `npx` per run. Measured: the
-# npx form cost 12.7 s of a 24 s gate run — over half of it — for a step that is only advisory.
-# From the cache dir the same check is 0.3 s. `loadAjv` searches cwd first, hence the subshell cd.
+# ajv is installed ONCE into a cache dir, never resolved through `npx` per run: the npx form
+# costs over half of a gate run (about 12 s of 24) for a step that is only advisory, and from
+# the cache dir the same check takes well under a second. `loadAjv` searches cwd first, hence the subshell cd.
 AJV_DIR="${AJV_DIR:-$HOME/.cache/adapty-flow-schema}"
 if [ -f "$HERE/validate-with-schema.mjs" ]; then
   if [ ! -d "$AJV_DIR/node_modules/ajv" ]; then
@@ -102,8 +102,8 @@ fi
 # findings — on an element you wrote they are usually real — but do not let them gate.
 
 # `validate` answers `valid: true` for a product id the app does not have, a store code in place
-# of an Adapty id, and an offer that is not one of its product's offers (all measured, adapty
-# 0.15.0); the builder then refuses the publish. So the ids are read against the app here: one
+# of an Adapty id, and an offer that is not one of its product's offers; the builder then
+# refuses the publish. So the ids are read against the app here: one
 # `products list`, and one `product-offers list` per product bound with an offer. A flow that binds
 # nothing makes no call.
 echo "-- 3/4 bound products and offers exist in the app"
@@ -111,8 +111,9 @@ if [ -z "$APP" ]; then
   echo "   SKIPPED — pass APP_UUID to read them"
 else
   if $PY - "$CFG" "$APP" "$ADAPTY_BIN" <<'PYEOF'
-import json, re, shlex, subprocess, sys
+import json, re, shlex, shutil, subprocess, sys
 cfg, app, cli = json.load(open(sys.argv[1], encoding='utf-8')), sys.argv[2], shlex.split(sys.argv[3])
+cli[0] = shutil.which(cli[0]) or cli[0]  # Windows: `adapty` and `npx` are .cmd shims
 pairs, where = set(), {}
 def bind(pid, oid, at):
     if isinstance(pid, str) and pid:
@@ -220,21 +221,28 @@ else
     [ "$waited" -gt 0 ] && echo "   validating now (waited ${waited}s)"
   fi
 
-  run_validate() {  # $1 = config file -> the CLI's raw JSON answer, one 502 retried
+  # stdout is the JSON and nothing else; stderr goes to its own file. The CLI writes warnings
+  # there (`Warning: Using non-default API URL`), and merged into stdout they made every verdict
+  # unparseable.
+  VERR="$(mktemp "${TMPDIR:-/tmp}/adapty-validate-err.XXXXXX")"
+  run_validate() {  # $1 = config file -> the CLI's JSON answer, one 502 retried
     local raw
-    raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>&1)"
-    case "$raw" in *http_502*|*http_504*)
+    raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>"$VERR")"
+    case "$raw $(cat "$VERR")" in *http_502*|*http_504*)
       echo "   validate answered a gateway error (the server, not your config); retrying once in 5 s" >&2
       sleep 5
-      raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>&1)" ;;
+      raw="$($ADAPTY_BIN flows config validate --app "$APP" "$FLOW" --config-file "$1" --json 2>"$VERR")" ;;
     esac
     printf '%s\n' "$raw"
   }
   verdict_of() {  # $1 = config file -> the verdict, one line
     run_validate "$1" | $PY -c '
 import json,sys
-try: d=json.load(sys.stdin)
-except Exception: print("UNPARSEABLE"); raise SystemExit
+raw=sys.stdin.read()
+try: d=json.loads(raw)
+except Exception:
+    err=" ".join(open(sys.argv[1], encoding="utf-8", errors="replace").read().split())
+    print("UNPARSEABLE — the CLI printed no JSON: " + (raw.strip() or err)[:200]); raise SystemExit
 v=d.get("valid")
 if v is True:  print("valid: true")
 elif v is False:
@@ -242,7 +250,7 @@ elif v is False:
     print("valid: false — " + "; ".join(str(i.get("message")) for i in iss[:3] or ["(no issues listed)"]))
 else:
     print("API ERROR (not a verdict — retry this run alone, not beside another): " + json.dumps(d)[:160])
-' 2>/dev/null
+' "$VERR" 2>/dev/null
   }
   verdict="$(verdict_of "$CFG")"
   echo "   $verdict"
@@ -264,6 +272,7 @@ json.dump(d.get("config", d) if isinstance(d, dict) else d, open(sys.argv[2], "w
     fi
     rm -f "$bare" ;;
   esac
+  rm -f "$VERR"
 fi
 
 echo

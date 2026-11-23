@@ -12,14 +12,27 @@ Length follows the job the onboarding does. Where the user already knows what th
 extra question costs; where the app has to make someone feel understood before they pay, a short
 flow skips that job.
 
-| Category | Usual length | Opens with | Why |
-| :-- | :-- | :-- | :-- |
-| **Health & Fitness** | 20–50 screens; the longest pass 70 | An easy choice: the goal, or an age range | The flow builds the feeling of a plan made for you before the price |
-| **Mental health, wellness, sleep** | 20–50 screens | A goal or a first-person "how do you feel" question | Same job, softer pace |
-| **Education, language learning** | Long and quiz-style; a level check is common | The goal or the current level | Explains the method and the pace before asking for money |
-| **Photo & video, AI photo** | 5–15 screens | The output: what you will make | The user already knows what they want to see; a long quiz cut purchases in half when tested against a short one |
-| **Utilities, scanners, cleaners** | 3–6 screens | The capability, working | Monetization is contextual; the paywall that converts is often the one at a limit |
-| **Productivity** | Short, close to utilities | A UI preview of the main job | Rational buyers; static screens, no ceremony |
+**Usual length** is the middle half of the top 50 US apps in the category, by steps in their
+recorded onboarding, with the median in brackets and the usual number of quiz questions. **Most
+apps** is the median app's screen count. Both are from Adapty's
+[State of Onboarding 2026](https://adapty.io/state-of-onboarding/report/); the top apps are the
+target, the median app is what the user's competitors usually ship.
+
+| Category | Usual length | Most apps | Opens with | Why |
+| :-- | :-- | :-- | :-- | :-- |
+| **Health & Fitness** | 11–26 steps (19), 7 questions | 12 | An easy choice: the goal, or an age range | The flow builds the feeling of a plan made for you before the price |
+| **Mental health, wellness, sleep** | As Health & Fitness | — | A goal or a first-person "how do you feel" question | Same job, softer pace |
+| **Education, language learning** | 11–18 steps (13), 5 questions; a level check is common | 9 | The goal or the current level | Explains the method and the pace before asking for money |
+| **Lifestyle** | 7–15 steps (10), 2 questions | 8 | The goal or the user's situation | A plan or a result for this user; shows the price per week or day more than any category |
+| **Entertainment** | 4–8 steps (6), no quiz | 8 | The content itself | Users decide on the first day; earns the most per onboarding open of any category |
+| **Photo & video, AI photo** | 5–9 steps (7), no quiz | 5 | The output: what you will make | The user already knows what they want to see; a long quiz cut purchases in half when tested against a short one |
+| **Productivity** | 6–9 steps (8), no quiz | 4 | A UI preview of the main job | Rational buyers; static screens, no ceremony |
+| **Utilities, scanners, cleaners** | 4–8 steps (5), no quiz | 4 | The capability, working | Monetization is contextual; the paywall that converts is often the one at a limit |
+
+Length costs finishers and earns money, both at once: 90% of opens finish a flow of 1–5 screens
+against 63% for 21+, while the 21+ flows earn about four times as much per open and their trials
+convert better. That comes mostly from Health & Fitness and Education, so it says what length
+suits a category, not that adding screens pays.
 
 **Traffic moves it too.** The same app needs a longer flow for cold traffic (paid social) and a
 shorter one for high-intent traffic (search, the store page). When you don't know the source,

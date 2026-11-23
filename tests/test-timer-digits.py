@@ -52,8 +52,15 @@ check('FIRES: only plain text inside', MSG in run(doc([words])))
 check('FIRES: only an image inside', MSG in run(doc([image])))
 check('SILENT: digits inside', MSG not in run(doc([digits])))
 check('SILENT: digits nested in a stack beside a logo', MSG not in run(doc([image, digits], nest=True)))
+# `onboarding-custom-actions.json` carries a hand-built 3 s delay (`el_delay` on `scr_building`)
+# lifted from patterns.md's "A timer that fires an action" block WITHOUT its digits child: the
+# childless shape that does not fire on a device. The check is right to fire on it, once.
+TRUE_POSITIVES = {'onboarding-custom-actions.json': 1}
 for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
-    check(f'SILENT on real export {os.path.relpath(f, ROOT)}', MSG not in run(json.load(open(f))))
+    want = TRUE_POSITIVES.get(os.path.basename(f), 0)
+    got = run(json.load(open(f))).count(MSG)
+    check(f'{"FIRES " + str(want) + "x" if want else "SILENT"} on real export {os.path.relpath(f, ROOT)}',
+          got == want, f'{got} finding(s)')
 print()
 if fails:
     print(f'{len(fails)} FAILED'); sys.exit(1)
