@@ -269,7 +269,7 @@ def with_disabled_condition(condition):
 
 
 NO_VAR = {'type': 'var', 'variableId': ''}
-FINISHED = {'type': '==', 'left': {'type': 'var', 'variableId': 'a.value'},
+FINISHED = {'type': '==', 'left': {'type': 'var', 'variableId': 'name.value'},
             'right': {'type': 'const', 'value': 'x'}}
 S2 = {'type': '==', 'left': NO_VAR, 'right': None}
 NEVER = 'this state never becomes active'
@@ -278,12 +278,17 @@ for _id, _doc, _error, _warn, *_also in (
         ('S2 the default row, custom', with_state_condition(S2), None, True),
         ('S2 the default row, disabled', with_disabled_condition(S2), None, True),
         ('S3 a variable with no value, disabled',
-         with_disabled_condition({'type': '==', 'left': {'type': 'var', 'variableId': 'a.value'},
+         with_disabled_condition({'type': '==', 'left': {'type': 'var', 'variableId': 'name.value'},
                                   'right': None}), None, True),
         ('all: one finished row and the default row',
          with_state_condition({'type': '&&', 'predicates': [FINISHED, S2]}), None, True),
         ('any: one finished row and both sides empty',
          with_disabled_condition({'type': '||', 'predicates': [FINISHED, BLANK]}), None, True),
+        ('all: an undeclared variable and the default row, custom',
+         with_state_condition({'type': '&&', 'predicates': [
+             {'type': '==', 'left': {'type': 'var', 'variableId': 'nosuchinput.value'},
+              'right': {'type': 'const', 'value': 'x'}}, S2]}),
+         'unknown_variable_ref', True),
         ('S4 is empty with no variable, custom',
          with_state_condition({'type': 'empty', 'left': NO_VAR}), '.variableId', False),
         ('S5 a value with no variable, disabled',

@@ -3320,7 +3320,10 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     for sid, eid, where, tree in iter_conditions(d):
         if where.startswith('states['):
             # A state condition with an empty side in any row is dropped whole before the
-            # compile, under `&&` and `||` alike, so none of its rows is refused or read.
+            # compile, under `&&` and `||` alike, so no row is refused for its shape. Its
+            # variables are still resolved first: an undeclared one is `unknown_variable_ref`.
+            # The empty id of an untouched row is not a variable and is not resolved.
+            cond_var_ids |= {v for v in expr_var_ids(tree, set()) if v}
             blank = blank_operand_path(tree, f'{eid}.{where}', _BLANK_UNARY_SERVICE)
             if blank:
                 warn.append(f'screen {sid}: {blank} is empty — an unfinished state condition. '
