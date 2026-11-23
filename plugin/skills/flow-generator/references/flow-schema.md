@@ -34,7 +34,7 @@ observed.
 | `components` | `{}` or `{"pb_XXXXXXXX": {map, hierarchy}}` | Reusable blocks with the same `{map, hierarchy}` shape as a screen's `elements`. Referenced from a screen hierarchy as `{"id": "pb_XXXXXXXX", "type": "global"}` — a hierarchy node with no entry in that screen's `map`. Empty object in `comparison`. May be present and referenced by nobody. |
 | `screens` | `[{id, props, caption, elements: {map, hierarchy}, selectableGroups, products}]` | Array order is flow order; `screens[0]` is the entry screen. `selectableGroups` is `[]` on screens with no groups, never omitted. `hierarchy` is a single rooted node — see below. **`products` is the screen's Product + Offer registry, and it is what `_meta.screens[].products[]` is derived from** — [`products.md`](products.md) owns the rules, including the one that matters most here: absent and `[]` mean opposite things, so omit the key rather than emptying it. The three exports in this corpus are v9 and carry the other five keys only; a screen you did not export yourself has six. |
 | `localization` | `{locales, defaultLocale, content}` | `locales`: `[{id, code, name}]`, e.g. `{"id": "en", "code": "en", "name": "English"}`. `defaultLocale`: a locale **id**, and it must name an entry in `locales`. `content`: the catalog, one entry per localizable value. There is no top-level `locales` or `defaultLocale` to write: `localization.py catalog` drops a legacy pair, and the server echoes it back on save, which the catalog outranks. [Localization: the catalog](#localization-the-catalog) owns the rules. |
-| `variables` | `[{id, name, valueType}]` | **Custom, app-supplied variables only** — `{"id": "var_ddvg4jeg", "name": "app.permission.location.allowed", "valueType": "boolean"}`. Built-ins are never declared here. `[]` in `timer` and `comparison`. |
+| `variables` | `[{id, name, valueType}]` | **The variables the author created** — `{"id": "var_ddvg4jeg", "name": "app.permission.location.allowed", "valueType": "boolean"}`: flow-owned ones, custom tags (trap 25), and calculated `formula` and `date` variables (trap 27). Built-ins are never declared here. `[]` in `timer` and `comparison`. |
 | `theme` | `{typography: [{id, name, settings}], colors: [{id, name, light, dark?}]}` | Per-project design system. **Not a fixed vocabulary** — see [Shape traps](#shape-traps). `colors[].dark` is present only where dark mode was configured (`quiz` only). |
 | `_meta` | `{icons, fonts, screens}` | `icons`: `[{name, weight, raw}]`, `raw` being literal SVG markup. `fonts`: `[{id, name, url, iosName, androidName, faces}]`, `[]` in `quiz`; `faces` is one entry per uploaded weight and style, `{id, url, iosName, androidName, weight, italic, isDefault}`, and the top-level `url`/`iosName`/`androidName` copy the default face. An older entry has no `faces` and is still accepted. **Carry `fonts` through untouched, `faces` included; never write an entry yourself** — [trap 8](#8-custom-fonts-do-not-ship-with-the-flow). `screens`: an object keyed by screen id, holding that screen's declared products — `{"<screen-id>": {"products": [{"id": "<product-uuid>", "flowProductId": "<flow-product-uuid>"}]}}`. An entry also carries `offerId` when the binding has one, between `id` and `flowProductId`. Screens with no products have no entry at all. **Rewriting a flow: carry `screens[].products[]` through untouched. Authoring one: derive it with `flowkit.predeclare()`.** [`products.md`](products.md) owns the rules and the reasoning. |
 
@@ -184,7 +184,7 @@ the one invariant on this list that a real multi-locale export has never exercis
 | 3 | Every `navigate` action's `payload.screen` names an existing screen — **including targets nested inside a `conditional`'s `cases` and `default`**, which is where a dangling one hides, since the branch that reaches it may never be the one you looked at | **screen deletion** | **Publish blocker.** A Navigate action with a destination that no longer exists is an incomplete interaction, and [Common issues](https://adapty.io/docs/flow-common-issues.md) names it explicitly: it "also occurs when the destination screen is deleted after the action is set up." The flow will neither preview nor publish. |
 | 4 | Every `product` element's `props.product.id` is declared in `_meta.screens.<thatScreenId>.products[]` | moving a product element to another screen | **Publish blocker** — a product element with no product attached. Declaration is per screen, so a moved element arrives **unattached on its new screen**, and no edit you can make to the JSON clears that. There is no re-keying fix: see [`transforms.md`](transforms.md#decisions-you-must-disclose) decision 2 for the exits, and [`products.md`](products.md) for why binding is not yours to write. |
 | 5 | A price variable resolves by **one of two forms**, and which one decides what it must name. Product-relative — `<productUUID>.prod_price_per_*`, head is a product id declared in `_meta.screens` (in the corpus, always on the same screen that reads it). Group-relative — `<groupId>.selectedProduct.<field>`, head is a `product`-typed `selectableGroups` id, **not** a product id | copy rewrite, moving a screen or element | The price renders empty. Nothing fails loudly. **Validate the head against the form, or you generate a false positive:** checking the first segment of a group-relative variable against the product list rejects a valid file and invites an agent to "repair" correct work. Provenance, precisely: the product-relative form is the only one in the corpus. The **field names are documented** — [Element variables](https://adapty.io/docs/onboarding-variables.md) lists `prod_price` alongside `prod_price_per_{day,week,month,year}`. What is unverified is the group-relative **reference syntax** `<groupId>.selectedProduct.<field>`: it appears in no export and on no docs page, only in a live Flow Builder screen. **That syntax is now device-verified and safe to author:** on a real device a root-level line reading `<groupId>.selectedProduct.prod_price` resolved to a real price and **changed as each card was tapped**, so it tracks the live selection rather than resolving once. `prod_price_per_month` on an **annual** product likewise resolved to a real derived figure, so a per-month field does not require a monthly product. Preserve it verbatim where you find it, and authoring it is fine. [`products.md`](products.md) owns the handling rules. |
-| 6 | Every `selectableGroups[].id` has at least one member element carrying that `groupId`, and every `groupId` in use has a declared group | branching edits | A group with no members and a member with no group are both broken selection state. Groups are per screen and typed (`single_choice`, `product`). Two naming rules: a `groupId` must **not start with a digit** (`1a` generates invalid JavaScript and blocks publish), and should be **unique across the flow**, not merely its screen — two screens sharing `"products"` break selection rendering. |
+| 6 | Every `selectableGroups[].id` has at least one member element carrying that `groupId`, and every `groupId` in use has a declared group | branching edits | A group with no members and a member with no group are both broken selection state. Groups are per screen and typed (`single_choice`, `product`). One naming rule: a `groupId` should be **unique across the flow**, not merely its screen — two screens sharing `"products"` break selection rendering. A `groupId` that starts with a digit (`1a`) publishes: the service turns it into a valid script name. |
 | 7 | Every `const` compared against `<groupId>.selectedOptionId` matches some member's `customId` | branching edits, renaming an option | The case never matches, so every user takes the `default` branch. Silent — the flow still routes somewhere. |
 | 8 | Every `colorId` and every `font.preset` resolves in **that file's own** `theme` | pasting a screen from another flow | **A hard 422, confirmed.** A screen pasted in from another flow kept `font.preset: "button-label"`, a preset the destination theme does not define; device preview returned `unknown_font_preset` as **severity `error`**, once per text element, blocking the whole flow. `config update` had saved it without complaint. So this is a publish blocker, not a cosmetic drift — and `references/verify-config.py` catches it, which is the check earning its place. Fix by repointing to a preset the destination theme has, not by adding the source's name to the theme. Never validate these against a remembered list of built-in names — see [Shape traps](#shape-traps). |
 | 9 | Every `family.id` names a font **this app** has — its id, or its family name (trimmed, any case) when exactly one of the app's fonts has that name — via **all four** reference paths: an element's `props.font.family.id`, `theme.typography[].settings.family.id`, a state override's `propsByState.<state>.font.family.id`, and a rich-text span's `attrs.family.id` (a span's `family: null` clears the family and references nothing) | pasting a screen from another flow or another app, editing or deleting a typography preset | `missing_flow_font_meta` blocks publishing. Publishing looks every reference up in the app's own fonts and ignores the `_meta.fonts` the config carries, so a font copied from another app's flow fails even with its entry carried along. Only `flows config validate` sees the app's fonts; `verify-config.py` warns on a reference `_meta.fonts` lacks. **Check every path or you check nothing**: element-level refs number 7 in `timer` and 0 in both `quiz` and `comparison`, so in `comparison` all three declared fonts are reached only through theme presets, and in `timer` the element and preset paths together are what reach all four. A check that reads only element props would find `comparison`'s `_meta.fonts` entirely unreferenced and could license deleting them. Resolving here also does not mean the font ships — trap 8. |
@@ -251,7 +251,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 14b | A condition is an expression tree, and `assign` is the one type it may not use |
 | 14c | Every action payload has a required field, and one code covers all of them |
 | 15 | Stale and degenerate sizing values persist, and the transformer believes them |
-| 16 | `purchase` hard-terminates the flow — nothing can be shown after it |
+| 16 | A purchase or restore leads on only through `onResult` — a `navigate` beside it leaves at the tap |
 | 17 | A state override replaces each prop it names whole — nothing is inherited from the base |
 | 18 | `props.verticalAlign` on text is emitted by the builder and ignored by the SDK |
 | 19 | A theme colour must be exactly `#RRGGBB` — and only a theme colour |
@@ -262,6 +262,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 24 | A `{_lid}` names an entry of THIS flow's catalog — never copy a ref between flows |
 | 25 | A value only the app knows is a custom tag — shown in text, never read by logic |
 | 26 | A theme colour can be a layer stack — and only a fill reads all of it |
+| 27 | A value the flow works out is a `formula` — calculated, never set |
 
 ### 1. A localizable field is a ref, and its entry's `kind` decides the value shape
 
@@ -985,7 +986,8 @@ either then edits both.
 
 **Before reaching for one, check the flow does not already know the value.** A name the user typed
 on an earlier screen is `<inputCustomId>.value`, an answer is `<groupId>.selectedOptionId` (trap 4)
-— both readable on any later screen with no app code. A custom tag is for what only the app has.
+— both readable on any later screen with no app code — and a number or date worked out from the
+flow's own values is a `formula` (trap 27). A custom tag is for what only the app has.
 
 Users rarely say "custom tag". They say *greet them by name*, *show their coin balance*, *how many
 days are left on their streak*, *their level*, *the plan they are on*, *the city we detected* —
@@ -1150,6 +1152,69 @@ above and on text bound to a no-solid style. [`verify-config.py`](verify-config.
 same on a fetched config, and resolves a layered style the way the service does in its legibility
 check: as text, the blend of the solids; as a background, only when every layer is a solid.
 
+### 27. A value the flow works out is a `formula` — calculated, never set
+
+Users say *show their BMI*, *the total of their answers*, *the price per day*, *a goal date
+8 weeks from today*, *when the trial ends*, *only show this if they are under 18*. When every
+input is already in the flow, that is a `formula` variable: Flow Builder's **Formula** type,
+recalculated whenever a source changes. Use a custom tag (trap 25) only for a value the app alone
+knows.
+
+```json
+"variables": [
+  {"id": "var_bmi", "name": "bmi", "valueType": "formula",
+   "expression": "round({{weight.value}} / ({{height.value}} * {{height.value}}), 1)"},
+  {"id": "var_goal", "name": "goal_date", "valueType": "formula",
+   "expression": "addWeeks(today(), 8)", "dateFormat": "month-day"}
+]
+```
+
+It is shown like any variable, with a rich-text `{"type": "variable", "attrs": {"variableId":
+"var_bmi"}}` node, and read in a condition as `{"type": "var", "variableId": "var_bmi"}`.
+
+| Part | What it is |
+| :--- | :--- |
+| `expression` | The stored form. `{{<variable id>}}` for a `number`, `date` or `formula` variable: Flow Builder stores the **id**, so the formula survives a rename (a name resolves too, but write the id). `{{<input customId>.value}}` for an answer: a `text-input`, `number-input` or wheel range picker reads as a number, a `date-picker` or `date-time-picker` as a date; any other input is refused. `{{<group id>.selectedProduct.prod_price}}` or `.offer_price` for the selected plan's price; `{{<group id>.selectedProduct}}` only as the second argument of `addOfferDuration`. A selection (`.selectedOptionId`) cannot be read |
+| numbers | A dot for decimals, `1.5`: a comma separates only a function's arguments, and `1,5` is refused |
+| operators | `+ - * /`, a leading minus, brackets; `*` and `/` before `+` and `-`. **No power operator:** square by multiplying |
+| functions | `round(n)`, `round(n, digits)` with `digits` a whole number 0–6, half away from zero; `floor(n)`; `mod(a, b)`, the remainder with the sign of `b`; `today()`; `addDays`, `addWeeks`, `addMonths`, `addYears` `(date, n)`, a missing day of the target month moving to its last day; `addOfferDuration(date, {{<group>.selectedProduct}})`, the length of the selected plan's offer. Names are case-sensitive |
+| result | A Number, or a Date when the top level is a date function. A Date takes `dateFormat`: `short`, `medium` (the default), `long`, `month-day` ("November 17") or `month-day-short` ("Nov 17"); a text node can set its own `attrs.dateFormat` |
+| no value | A `number` variable with no `value` reads as 0. Any other empty source, a division by zero, or an offer the product does not have gives **no value**: the text is empty, `is empty` is true, and every comparison is false |
+| `value`, `external` | Neither. Nothing writes a formula: **Set Variable on one is refused** |
+
+A `date` variable is the stored half: `{"valueType": "date", "value": "2026-12-01"}`, a calendar
+day with no time and no zone, which Set Variable can write as a `"YYYY-MM-DD"` constant.
+
+**On a device.** A Number whose top level is `round(x, N)` shows N decimals with the device
+language's separator; any other Number shows a dot. A Date shows in the device language.
+`today()` is the day the flow opened and stays that day. A `number-input` that a formula reads
+accepts only digits and one separator.
+
+**Conditions compare a formula numerically.** `==`, `!=`, `<` and `>` with a formula or a date on
+either side compare numbers, or calendar days for a date. That is the way past
+[Conditions cannot compare numbers](#conditions-cannot-compare-numbers--enumerate-equality-instead):
+wrap the answer in a formula (`{{age.value}}`) and compare the formula with `18`. Read from the
+transformer's source and accepted by the publish (live validate: `valid`, no issues); no device
+measurement yet.
+
+**What the publish refuses**, each with its own code:
+
+| Code | When |
+| :--- | :--- |
+| `formula_syntax_error` | It does not parse: a decimal comma, an unknown or wrongly-cased function, `^`, an unclosed bracket |
+| `formula_argument_count` | A function with the wrong number of arguments |
+| `formula_operand_type` | A Date in arithmetic, a number where a date goes, a `string` or `boolean` variable, a product field other than the two prices, `round` decimals that are not 0–6, a reference to a formula that has an error |
+| `formula_unknown_reference` | A deleted or unknown variable, answer or product group |
+| `formula_ambiguous_reference` | A custom variable named like an answer or a product field |
+| `formula_cycle` | Formulas that read each other in a loop (each one in the loop is reported) |
+| `set_variable_formula_target` | A Set Variable action writes a formula |
+| `date_or_formula_in_action_text` | A date or a formula in an alert title or message, an Open URL address, or a Set Variable text value: an action builds a plain string, so it would show a raw number or nothing. Show it in a text element instead |
+
+`flowkit.formula()`, `number_variable()`, `date_variable()` and `fx()` build these, and
+`flowkit.config()` raises on every refusal above. [`formulas.py`](formulas.py) is the same check,
+and `verify-config.py` runs it on a fetched config. Flow Builder shows the formula with variable
+names in place of ids; that is display only.
+
 ### 14b. A condition is an expression tree, and `assign` is the one type it may not use
 
 The `conditional` form above carries a JSON expression, and the transform service validates it
@@ -1194,12 +1259,12 @@ takes. Measured against the real service on a live v10 flow — `assign`, an unk
 comparison missing `right`, a non-array `predicates` and a non-pair case were each refused with
 `Visibility condition must be a valid JSON expression` and the path of the offending node.
 
-**A variable named in a condition must resolve to something the document produces.** An id that
-resolves to nothing is not dropped — the code generator emits it as a **bare identifier** into
-the generated TypeScript, which then fails to compile: `script_type_violation`, `TS2304: Cannot
-find name 'email'`, the 4th most common refusal. The same id in **rich text** is a different
-severity and renders as its literal token instead, which is wrong but publishes — so
-`verify-config.py` errors on the condition case and only warns on the rich-text one.
+**A variable named in a condition must resolve to something the document produces.** The publish
+refuses an id that resolves to nothing with `unknown_variable_ref`, at the path of the node's
+`variableId`, with the message `Variable "email.value" is not declared in the flow`. A
+`setVariable` target and a `variable` node in **rich text** are refused the same way (the rich-text
+path ends in `.attrs.variableId`, the message starts `Text variable`). `verify-config.py` errors on
+the condition case; on rich text it warns at most, and the publish still refuses it.
 
 `flowkit` builds these with `ref`/`lit`/`eq`/`neq`/`all_`/`any_`/`not_empty`/`when`, raises on
 every row above, and `config()` resolves each condition variable against the document, so the
@@ -1250,14 +1315,46 @@ plain `{min, max}` size and it stops filling, so a gap built from them no longer
 height. The shape that works is a fixed-height block plus an empty `height: fill` spacer
 ([patterns.md → A tall phone's extra height goes to the hero](patterns.md#a-tall-phones-extra-height-goes-to-the-hero)).
 
-### 16. `purchase` hard-terminates the flow — nothing can be shown after it
+### 16. A purchase or restore leads on only through `onResult` — a `navigate` beside it leaves at the tap
 
-The `purchase` action compiles only into the SDK
-purchase call, and flow continuation after it does not exist — no success screen, no
-post-purchase discount screen, unconditionally, whether the purchase succeeded or not. So **never
-author a screen that is reachable only after a purchase**: it is dead content that every check here
-accepts. A second (discount) paywall is reachable only via an explicit `navigate` on something the
-user taps *instead* of buying — the close button is the standing pattern.
+What runs once the store answers is `payload.onResult`: one action list per result. A `purchase`
+reports `success`, `fail`, `userCanceled` and `pending`; a `restorePurchases` reports `success` and
+`fail`, and takes a payload only to carry them. Build it with `fk.purchase('plans',
+on_success=fk.navigate('scr_thanks'))` and `fk.restore(on_fail=…)`; what each result fits is in
+[patterns.md](patterns.md#what-the-user-sees-after-they-buy).
+
+```json
+{"id": "act_buy", "type": "purchase", "payload": {
+  "product": {"type": "var", "variableId": "plans.selectedProduct"},
+  "onResult": {"success": [{"id": "act_buy_success", "type": "navigate",
+                            "payload": {"type": "screen", "screen": "scr_thanks"}}],
+               "userCanceled": []}}}
+```
+
+- **A result with no list, or an empty one, keeps the user on the screen,** and the button works
+  again. That is the right default for `fail` and `userCanceled`.
+- **A `navigate`, `navigateNext`, `navigateBack` or `closeFlow` after the purchase in the same list
+  runs on the tap, before the store answers.** That was the only way to chain a paywall before
+  outcomes, so older flows carry it: the user leaves whether they paid or not. Flow Builder and
+  publish both warn (`navigation_before_store_result`); move it into `success`. A flow that never
+  uses outcomes behaves as it always did.
+- **An outcome cannot start a second purchase or restore,** at any depth (the builder disables
+  it). An upsell after a purchase is a screen of its own with its own button, reached from
+  `success`.
+- **A web purchase (`payload.type: "web"`) runs no outcomes:** the checkout reports only whether
+  it opened. Flow Builder drops them on load, and a result a type never reports (a restore's
+  `userCanceled`) is dropped the same way.
+- **A restore's `success` does not mean the user has access,** only that the restore ran without
+  an error. Its screen has to read true for someone who had nothing to restore.
+- **In observer mode the app buys, and the SDK reports `pending` on iOS and `success` on Android**
+  whatever happened. Give both the same route there.
+- **The app must leave the flow open when a purchase finishes.** An app that dismisses the flow in
+  its purchase handler closes it before the next screen appears. That code is the app's, not the
+  config's.
+- **A paywall whose `success` leads on is no longer the flow's last screen** in analytics; the
+  screen it leads to is.
+
+`verify-config.py` warns on each of these and errors on an `onResult` that is not a map of lists.
 
 ### 17. A state override replaces each prop it names whole — nothing is inherited from the base
 
@@ -1377,9 +1474,8 @@ fires on its own injected duplicate.
 ### 22. Which group types a conditional can read — and the one action that does not work
 
 Each row is `flows config validate` on a real flow, one predicate per run. A
-conditional whose predicate names an unreadable variable fails the publish gate with
-**`Generated scripts failed validation`** — location-free, exactly like a malformed hex, because
-the transformer compiles predicates into JavaScript and an unresolvable name yields invalid script.
+conditional whose predicate names a variable the group type does not expose fails the publish gate
+with **`unknown_variable_ref`**, at the path of that predicate's `variableId`.
 
 | group `type` | predicate variable | `validate` |
 |---|---|---|
@@ -1651,12 +1747,9 @@ From a real builder export. A `content` value is normally a single ref. It may i
 
 **Emit it with [`flowkit.switch_rich()`](flowkit.py)**, which builds the inline authoring form
 and checks each predicate against the service's own walker; `config()` catalogues it into this
-shape. Two facts that make hand-authoring it a bad trade, both true against the live
-service: the predicate is **compiled**, so an unresolved variable here is `valid: false` —
-*"Generated scripts failed validation"*, with `code` and `path` both `null`, naming neither the
-element nor the variable — while a `variable` **span** in an ordinary text value merely renders
-its literal token and publishes. Same property, opposite severity. `flowkit.config()` refuses the
-fatal half locally.
+shape. An unresolved variable in a predicate here is refused with `unknown_variable_ref` at the
+path of the predicate (`….cases[0][0].left.variableId`), and a `variable` **span** in a text
+value is refused the same way. `flowkit.config()` refuses the predicate case locally.
 
 Consequences:
 
@@ -1757,11 +1850,9 @@ element, it does not qualify as evidence — a device does.
 
 ### Element and screen ids become identifiers
 
-An element id is emitted as an **identifier in the generated runtime script** — the same code path
-that makes an unresolved condition variable a `script_type_violation`, where the head is written
-out bare and the script fails to compile. So a character outside `[A-Za-z0-9_]` (a hyphen, a dot, a
-space) in an element id produces a syntactically broken script and the flow renders a **black
-screen on device**. An id
+An element id is emitted as an **identifier in the generated runtime script**. So a character
+outside `[A-Za-z0-9_]` (a hyphen, a dot, a space) in an element id produces a syntactically
+broken script and the flow renders a **black screen on device**. An id
 reused on a second screen collides in the same script, because there is one script per flow.
 
 **Every gate reachable from here is blind to it.** `flows config validate` passes a hyphenated id
@@ -1796,7 +1887,9 @@ No input has a `required` prop or an error-message prop. Two mechanisms gate a b
 …}`, greyed with `propsByState.disabled`; the button takes no taps while it holds), and
 **conditional visibility on the button** — show it once the field has content. A condition may
 also read another element's state: `{"type": "elementState", "elementId": "<id>"}` compared with
-`==`/`!=` to a `const` state id (`"default"` is its Default state).
+`==`/`!=` to a `const` state id (`"default"` is its Default state). The publish refuses, with the
+error `unknown_element_state_ref`, a reference to an element that is not on that screen or in its
+components, to a state the element does not declare, or with no comparison to a state id.
 
 Conditional visibility, verified from a Flow Builder export of a working screen:
 
@@ -1903,36 +1996,36 @@ payload, is typed as an unconstrained value, so a well-formed expression and a b
 pass. Never reshape a condition to satisfy the schema; it has no opinion here.
 
 `flows config validate` reaches the transform service and does check the
-*references* inside a condition — a `const` compared against an undeclared product, or a `groupId`
-naming no group, comes back as an `Unsupported flow input` error ([validate.md](validate.md)). It
+*references* inside a condition — a `const` compared against an undeclared product, a `groupId`
+naming no group, or a variable the flow does not declare comes back as an `Unsupported flow input`
+error ([validate.md](validate.md)). It
 still says nothing about whether the condition expresses what you meant. So the gates on a
 condition's *logic* are: the preview render (visibility only, empty state only), device preview,
 and a human.
 
 ### The transform service compiles conditions to TypeScript
 
-Worth knowing because it shapes the error you get. A malformed reference comes back not as a schema
-complaint but as a compiler diagnostic:
+Worth knowing because it shapes the error you get. Before it compiles, the service checks every
+variable reference, so an undeclared one comes back with its own code and its place:
 
 ```
-{"error": "Generated scripts failed validation",
- "issues": [{"severity": "error", "code": "script_type_violation", "path": "scripts",
-             "message": "TS2304: Cannot find name 'email'. (line 22, col 21)"}, …]}
+{"severity": "error", "code": "unknown_variable_ref",
+ "path": "screens[\"scr_a\"].elements.map[\"hint\"].props.visibility.condition.left.variableId",
+ "message": "Variable \"email.value\" is not declared in the flow"}
 ```
 
-`code` is `script_type_violation`, `path` is the useless constant `"scripts"`, and the real
-information is a **TS error code plus a line/col into a generated file you cannot see**. Read the
-identifier out of the message and find it in your config; do not try to map the line number.
+The 422 message starts with `Unsupported flow input`. Each place is its own issue, and its path
+names the screen, the element and the node, so fix the id at that path. A broken `elementState`
+reference comes back the same way, as `unknown_element_state_ref`.
 
-**Count nothing from the number of issues.** Codegen emits *more than one* diagnostic per authored
-reference — **one** state condition referencing `email` produces **two** TS2304 errors, at
-different line/col pairs. So the issue count tells you nothing about how many places you have to fix.
+A compile error that no check before it catches still comes back as `script_type_violation`, with
+`path: "scripts"` and a `TS<code>: … (line N, col M)` message into a generated file you cannot see.
+Read the identifier out of the message and search the whole config for it; do not try to map the
+line number.
 
-**Codegen validates the whole flow, not the screen you are previewing.** Previewing
-`?screen=scr_probe` fails on an identifier that exists only on a *different, unlinked* screen in
-the same flow. Combined with `path: "scripts"` carrying no screen id, the only reliable move is to
-search the entire config for the identifier in the message — not the screen you were looking at.
-A single broken screen anywhere blocks preview and publish for every screen.
+**The service checks the whole flow, not the screen you are previewing.** Previewing
+`?screen=scr_probe` fails on a reference that exists only on a *different, unlinked* screen in the
+same flow. A single broken screen anywhere blocks preview and publish for every screen.
 
 **The builder's duplicate-screen action copies a broken condition faithfully** — a duplicated
 screen carries a broken condition into a flow whose
@@ -1971,7 +2064,13 @@ platforms instead of one flow each:
 
 ## Conditions cannot compare numbers — enumerate equality instead
 
-**`ExpressionType` lists `<` and `>`. They do not work.** A gate written as
+**First, the way around it: compare a formula.** `<` and `>` with a `formula` or `date` variable
+on one side compare numbers (trap 27). Declare `{"valueType": "formula", "expression":
+"{{age.value}}"}` and compare that variable with `18`: one condition, any age, and an empty or
+non-numeric field compares false. The publish accepts it; it has not yet been seen on a device, so
+say so when you use it. Everything below is about comparing an answer **directly**.
+
+**`ExpressionType` lists `<` and `>`. On an answer itself they do not work.** A gate written as
 
 ```json
 {"left": {"type":"var","variableId":"age.value"}, "type": "<", "right": {"type":"const","value":18}}
@@ -2032,7 +2131,7 @@ never treat its absence here as evidence the file is invalid.
 | element `type` (in `components`) | `progress-bar`, `progress-bar-segment`, `progress-bar-loader` | `progress-bar` and `progress-bar-loader` in `quiz` + `timer`; `progress-bar-segment` in `quiz` only. All three observed *only* inside `components`, never directly on a screen |
 | element `type` (**not in these exports**, present in the transformer's front-format fixtures) | `divider`; the tabs family `tabs`, `tab-bar`, `tab-item`, `tab-content-wrapper`, `tab-content`; the input family `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker` | Absence from the three exports is absence of coverage, not evidence a type is invalid. These are real front-format inputs. `tabs` is a **composite**, not one element — see the request map below |
 | action `type` | **14 types.** In these exports: `navigate`, `conditional`, `purchase`, `closeFlow`, `nothing`. Also valid, and none of them appear here: `navigateBack`, `navigateNext`, `restorePurchases`, `setVariable`, `openUrl`, `alert`, `custom`, `showElement`, `hideElement` | `closeFlow` in all three; `navigate` in `quiz` + `timer`; `purchase` in `quiz` + `comparison`; `conditional` and `nothing` in `quiz` only. `nothing` appears only as a `conditional` case value, never as a top-level action. The other nine come from the builder transformer's front-format fixtures — and `navigateBack`/`navigateNext` are the **two most common actions there**, more common than `navigate` itself, so a Next button does not need a named destination. Payload shapes below |
-| action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `navigateBack` / `navigateNext` / `closeFlow` / `restorePurchases` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?}`, see below | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
+| action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `restorePurchases` → no payload, or `{onResult}` ([trap 16](#16-a-purchase-or-restore-leads-on-only-through-onresult--a-navigate-beside-it-leaves-at-the-tap)) · `navigateBack` / `navigateNext` / `closeFlow` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?, onResult?}`, see below and trap 16 | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
 | `purchase` `payload.product` | `{"type": "var", "variableId": "<groupId>.selectedProduct"}` when the screen has a product group, **or** `{"type": "const", "value": {"id": "<productUUID>", "offerId"?}}` when it does not | The `const` form is what a paywall with a single implied plan uses — one CTA, no product cards; its product still needs a `_meta.screens` entry ([products.md](products.md#a-purchase-can-bind-a-product-with-no-product-element)). Do not add an empty product group to satisfy the `var` form. A `payload.type` of `"native"` also appears alongside `product`; it is optional in practice |
 | interaction `trigger` | `tap` | the only trigger in all three. The schema also has `screen-appear` (On Appear: [patterns.md](patterns.md#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later)), `change`, `scroll-bottom`, `playback-finished`, `submit` and `timer-end` |
 | `conditional` `payload.type` | `switch` | `quiz` only. `cases` is an array of `[predicate, {type: "const", value: [actions]}]` pairs, plus a `default` in the same value shape. Actions nested inside a case carry `"id": ""`, not an `act_` id — including the `navigate` that a screen deletion has to repair, which is why a dangling target can sit two levels down inside a `default` branch |
@@ -2050,7 +2149,7 @@ never treat its absence here as evidence the file is invalid.
 | `icon.weight` | `regular`, `fill` | `regular` in all; `fill` in `quiz` + `comparison` |
 | typography `weight` | `regular`, `medium`, `semibold`, `bold` | `medium` in `comparison` only |
 | `text.props.layout` | `auto-height` | the only value observed |
-| `timer.props.behavior` | `start_at_every_appear` | `timer` only. The schema also has `start_at_first_appear`, `start_at_first_appear_persisted` and `until_date` (counts down to `props.endDate` `{date, time, timeZone}` and ignores `duration`: [patterns.md](patterns.md#a-countdown)) |
+| `timer.props.behavior` | `start_at_every_appear` | `timer` only. The schema also has `start_at_first_appear`, `start_at_first_appear_persisted`, `until_date` (counts down to `props.endDate` `{date, time, timeZone}` and ignores `duration`: [patterns.md](patterns.md#a-countdown)) and `developer_defined` (Flow Builder's "Developer defined": the app sets the end date through the SDK, keyed by the Timer ID, which is the timer's `customId`; `duration` is ignored. The publish refuses it with an empty Timer ID, `missing_timer_id`, or one with a line break, an internal timer prefix or another timer's element id, `invalid_timer_id`) |
 | locale `id` | `en` | the only locale in all three; `localization.locales[].id`, and the key of every catalog `values` map. For how locales are added in the builder, see [Add locale](https://adapty.io/docs/add-paywall-locale-in-adapty-paywall-builder.md) |
 
 ### From what the user asks for to what the JSON calls it
@@ -2076,11 +2175,14 @@ style error: you will search for an element type that does not exist, or invent 
 | a timeline, a trial timeline, a list of steps | The catalog's `list-timeline` template (`flowkit.from_catalog()`): one icon + title + description row per step, all in flow. Connect the steps with a 2pt absolute line between icons, never a wide track — see [patterns.md](patterns.md#a-connected-timeline-where-a-rail-must-reach-the-next-chip). |
 | a progress bar, step dots | A `components` entry (`progress-bar` → `progress-bar-segment` → `progress-bar-loader`), referenced from a screen's `hierarchy` as `{"id": "pb_…", "type": "global"}`, and switched on per screen via `props.progressBar: {enabled, segment}`. **Never** fake it with a static `stack` bar or a row of decorative step/segment `stack`s — a lookalike neither advances nor tracks the flow (trap 5), the same mistake as the fake carousel/footer. |
 | a divider, a rule | A `divider` element exists. Both real exports instead use a `stack` with `height: {type: "fixed", value: 1}` and a `fill` — either is valid; prefer whichever the input already uses. |
+| a calculated number or date — a BMI, a score, a price per day, "8 weeks from today", the trial's end, an age threshold | A `formula` variable shown through a rich-text `variable` node, and compared in conditions with `<` / `>`: trap 27. `flowkit.formula()` |
 | a text field, email, phone, a date picker | `text-input`, or one of `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker`. Its `customId` becomes the variable `<customId>.value`. **An input has no text colour**: no such prop on any input, on `font` or on a `theme.typography` entry, and none in any export (only `clearButtonColor` and `passwordIconColor` exist). The renderer picks it: the preview draws the placeholder in a fixed 38% black whatever the fill, and on a device typed text on a dark fill could not be seen in light mode, in dark mode, or with the screen's `statusBarTheme` set to dark: it is drawn dark whatever you set. So a dark field is never readable; keep the field's fill light and carry a dark design in the screen and the border. `font` is optional (the builder's own input templates carry none); a `font.preset` must be a `theme.typography` id of this file, or `validate` refuses it (trap 3). |
 | a price | Never literal text. A rich-text `variable` node — see invariant 5 for the two forms. |
 | text that fits its box, a smaller font for a long translation, "it's cut off in German" | `props.autoShrink: true` on that `text`, inside a line limit or a fixed height — after shortening the string: [Text that must fit](#text-that-must-fit-autoshrink). Never a smaller `font.size`, which shrinks every locale. |
 | the user's name, their coin balance, streak, level, days left, current plan, "something the app knows" | A **custom tag**: a `variables[]` entry with `external: true` whose `name` the app's code passes, shown by a rich-text `variable` node. Text only, and it needs app code — [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic). |
 | show, hide or skip something based on what the app knows (VIP status, a permission already granted, country) | **Not buildable from a custom tag** — logic sees only its fallback. A separate flow per segment behind the placement's audiences, or a `custom` action the app handles. Say so rather than wiring a condition that never fires. |
+| a thank-you or welcome screen once they subscribe, more onboarding after the paywall, an upsell after a purchase, "my paywall has to be the last screen" | `onResult.success` on the `purchase`: [patterns.md](patterns.md#what-the-user-sees-after-they-buy). Never a `navigate` beside the purchase (trap 16). |
+| a different screen when they cancel the payment, it fails or it waits for approval; a screen after a restore | `onResult.userCanceled`, `fail` or `pending` on the `purchase`, `success` or `fail` on the `restorePurchases`: [patterns.md](patterns.md#what-the-user-sees-after-they-buy). |
 | how a screen arrives — slides up, fades in, no animation | `payload.transition` on the `navigate`: [patterns.md](patterns.md#a-screen-transition). Not a `bottom-sheet` or a `sliding-sheet`, which are parts of one screen. |
 | a screen that moves on by itself after a few seconds — a splash, a "building your plan" screen | An On Appear (`trigger: "screen-appear"`) `navigate` whose transition `delay` is the wait, up to 5000 ms: [patterns.md](patterns.md#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later). Over 5 s, a `timer` with its digits inside it. |
 | an element that fades, rises or pops in — by itself, or on a tap | A `showElement` (or `hideElement`) with `payload.animation`: `fade`, `rise` or `pop`, with `duration`, `delay` and `easing`. By itself means On Appear, the element starting `visibility: hidden`: [patterns.md](patterns.md#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later). An element's own `animation` prop is a loop, not an entrance (next row). A motion none of these makes is a `video` element (a GIF does not upload, and an animated WebP plays one frame). |

@@ -61,27 +61,58 @@ screen ships with a hole in it, exactly as if you had never had it — so treat 
 as a value to go and find ([When you have a URL and no preview](#when-you-have-a-url-and-no-preview)),
 never as a fact about the format.
 
-## Getting the file: the upload needs a PATH, not a picture
+## Over MCP: the upload link or base64
 
-The command reads a file off disk. **An image you can only *see* is not an image you have** — a
-screenshot or hero the user pasted or attached into the conversation reaches you as pixels in your
-context, and there is no path for it and no way to write one: you cannot re-emit the bytes you were
-shown. Checked on a Claude Code install, pasted images are not persisted to disk (`~/.claude/paste-cache`
-held text only), and this has to hold across harnesses anyway — this skill runs on four CLIs whose
-attachment handling differs.
+Two tools put an image in the media library. Each answers the same record as the CLI's `--json`
+(`id`, `url`, `name`, `preview_base64`), and each send makes a new asset. Pick from these facts:
 
-So resolve every asset to a path, in this order:
+- **`uploads_create`** (the app, the file name and `kind` `flow_image`) answers a 3-minute
+  `upload_url`, its `expires_at`, `max_bytes` and the `curl -T` command that sends the file. The
+  send stores the image and answers its record: the `id` and `url` the config binds. Run that
+  command from your sandbox on the file, with the answer going to the record file, never to your
+  context:
+
+  ```bash
+  mkdir -p media
+  curl -sS -T /mnt/user-data/uploads/hero.png "<upload_url>" -o media/hero.json -w '%{http_code}\n'
+  ```
+
+  `201` is the uploaded asset; any other code is the refusal of the upload, in the file
+  ([What it accepts](#what-it-accepts)). The link takes more sends until it expires, and each one
+  adds an asset, so send each file once. After it expires, create a new one. The image bytes never
+  pass through the conversation.
+- **`flows_media_upload`** takes the file as base64 text in a tool argument, so it suits only
+  small images.
+
+If the sandbox cannot reach the link (a `403` from the sandbox proxy, not from Adapty), the user has to allow `*.adapty.io` once: pass on the `if_blocked` text of the `uploads_create` answer in your own words, with its link.
+
+## Getting the file: the upload needs a FILE, not a picture
+
+The upload reads a file. **An image you can only *see* is not an image you have** — a screenshot
+or hero the user pasted or attached into the conversation reaches you as pixels in your context,
+and you cannot re-emit the bytes you were shown. Checked on a Claude Code install, pasted images
+are not persisted to disk (`~/.claude/paste-cache` held text only), and this has to hold across
+harnesses anyway — this skill runs on agents whose attachment handling differs. A chat with a
+code sandbox is the exception: there an attachment is also a file.
+
+So resolve every asset to a file, in this order:
 
 1. **A path the user gave you** — typed (`./assets/hero.png`), or dragged into the terminal, which
    most terminals insert as a path. Confirm it reads before you build around it.
-2. **A file already in the project** — look for it (`assets/`, `public/`, `design/`) and name what
+2. **An attachment in your sandbox.** When you can run commands in a sandbox next to the chat
+   (claude.ai and the Claude apps with code execution), a file the user attached is in it: in
+   claude.ai under `/mnt/user-data/uploads/`. List that folder and take the file whose name and
+   type match the attachment; with more than one candidate, name the one you took. Send it as
+   [Over MCP: the upload link or base64](#over-mcp-the-upload-link-or-base64) says, or with
+   `flows media upload` when the CLI is your way.
+3. **A file already in the project** — look for it (`assets/`, `public/`, `design/`) and name what
    you found, so a wrong guess is the user's to catch rather than yours to hide.
-3. **A URL the user pointed at** — downloadable, but a download is a side effect: say what you are
+4. **A URL the user pointed at** — downloadable, but a download is a side effect: say what you are
    fetching and from where, and get a yes before you fetch. Then upload the downloaded file.
-4. **Pasted or attached only, with no path** — **ask for one.** "I can see the hero but I can't
-   upload what I can't read from disk — save it anywhere and give me the path." One ask, batched
-   with your other asks; until it arrives the element's catalog entry has empty `values`, exactly
-   as if no asset existed.
+5. **Pasted or attached only, with no sandbox and no path** — **ask for one.** "I can see the hero
+   but I can't upload what I can't read from disk — save it anywhere and give me the path." One
+   ask, batched with your other asks; until it arrives the element's catalog entry has empty
+   `values`, exactly as if no asset existed.
 
 **Never guess a path, and never substitute a file that merely looks right.** A guess that misses
 fails loudly and safely — exit 2, `Cannot read file: ./hero.png`. The damaging version is the guess
@@ -108,7 +139,8 @@ used.
 22 KB uploads fine, while a **1150×900** PNG at 3.1 MB is refused. The boundary sits between
 2,599,724 bytes (accepted) and 2,950,946 bytes (refused), so treat **~2.5 MB as the working
 ceiling**. A bare `http_400` with an empty `fieldErrors` on this command means *too large* — the
-endpoint says nothing else, so do not go hunting for a config problem.
+endpoint says nothing else, so do not go hunting for a config problem. The upload link of
+[Over MCP](#over-mcp-the-upload-link-or-base64) states its own limit in `max_bytes`.
 
 **SVG is rejected in practice even though both sides claim to support it.** `.svg` is in the CLI's
 own MIME map and `SVG` is in the server's permitted-format list, and it still returns `http_500`
@@ -489,7 +521,7 @@ spacing bug rather than as an image, so prefer `cover` unless the whole asset mu
 
 ## Uploading a video
 
-Given a clip file (a path, as for an image: [Getting the file](#getting-the-file-the-upload-needs-a-path-not-a-picture)),
+Given a clip file (a path, as for an image: [Getting the file](#getting-the-file-the-upload-needs-a-file-not-a-picture)),
 upload it once and keep the `--json` record, exactly as for an image:
 
 ```bash
