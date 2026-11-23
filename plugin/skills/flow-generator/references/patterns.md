@@ -456,6 +456,39 @@ fires nothing, on every surface. The field reads exactly like a delay — a user
 `duration: 1000` reasonably asked why the screen never advanced after a second — so when a
 spinner and the screen's On Appear share a screen, say in the handoff which one moves the flow.
 
+### A number or a date the flow works out: a formula
+
+A BMI from two answers, a score, a price per day, "your goal by January 12": a `formula` variable,
+shown through a `Var` in text and compared in a condition like any variable. What a formula may
+read and what the publish refuses are in [flow-schema.md](flow-schema.md), trap 27.
+
+```python
+weight = fk.number_input('weight', number_format='decimal-point')
+height = fk.number_input('height', number_format='decimal-point')   # in metres
+h = fk.fx('height.value')
+bmi = fk.formula('bmi', f'round({fk.fx("weight.value")} / ({h} * {h}), 1)')
+goal = fk.formula('goal_date', 'addWeeks(today(), 8)', date_format='month-day')
+
+result = fk.screen('scr_result', [
+    weight, height,
+    fk.text(fk.rich('Your BMI is ', fk.Var(bmi))),
+    fk.text(fk.rich('Reach your goal by ', fk.Var(goal))),
+    fk.text('Above the healthy range', visibility=fk.when(fk.gt(fk.ref(bmi['id']), 25))),
+])
+doc = fk.config(screens=[result], variables=[bmi, goal], typography=[...])
+```
+
+The publish accepts exactly this (live validate: `valid`, no issues). Three things to tell the
+user when you build one:
+
+- **Until every source has a value, the formula has none:** the text after "Your BMI is" stays
+  empty and the condition is false. Put the result on a later screen than the inputs, or make the
+  button need the inputs filled ([Making a field mandatory](flow-schema.md#making-a-field-mandatory-show-the-button-conditionally)).
+- **Units are the user's to choose.** The flow does no conversion the formula does not spell out:
+  a height in centimetres needs `/ 100` twice.
+- **A threshold on a formula is one condition**, not the enumerated equality cases that a raw
+  answer needs. It has not yet been seen on a device; say so in the handoff.
+
 ### Under `safeArea: true`, check where an absolute element lands
 
 In the render, an absolute `top` is measured from the top of the full screen rather than from

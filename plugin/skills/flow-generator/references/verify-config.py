@@ -67,6 +67,12 @@ try:
 except Exception:                                        # noqa: BLE001 - any import failure degrades
     _icons = None
 try:
+    # Formula and Date variables. Optional for the same reason as `icons`: a copy of
+    # `flow-audit` alone runs without it, and loses only the formula checks.
+    import formulas as _formulas
+except Exception:                                        # noqa: BLE001 - any import failure degrades
+    _formulas = None
+try:
     # The catalog reader. Not optional like `icons`: without it every localizable value is an
     # opaque `{_lid}` and half the checks below would pass by seeing nothing.
     import localization as _loc
@@ -3412,6 +3418,12 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     walk(d.get('screens') or [], _system_uses)
     walk(d.get('components') or {}, _system_uses)
 
+    # ---- Formula and Date variables (flow-schema.md trap 27). Every finding is a publish
+    # refusal, under the service's own code, so each is an ERROR.
+    if _formulas is not None:
+        for code, where, message in _formulas.issues(d):
+            bad.append(f'{message} ({code} at {where})')
+
     # ---- custom tags: `variables[]` entries with `external: true`, whose value the app supplies.
     # The name is the contract with the app's code and publishes as an SDK tag, so the two
     # errors mirror the transform service's own (`custom_tag_invalid_name`,
@@ -3456,6 +3468,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     _walk_vars(d)
     for v in d.get('variables') or []:
         if (isinstance(v, dict) and v.get('external') is not True
+                and v.get('valueType') != 'formula'      # calculated: it never has a value
                 and v.get('value') in ('', None) and v.get('id') in text_var_ids
                 and v.get('id') not in assigned):
             warn.append(f'variable {v.get("name") or v.get("id")!r} is shown in text, has no value and '

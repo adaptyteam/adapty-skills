@@ -34,7 +34,7 @@ observed.
 | `components` | `{}` or `{"pb_XXXXXXXX": {map, hierarchy}}` | Reusable blocks with the same `{map, hierarchy}` shape as a screen's `elements`. Referenced from a screen hierarchy as `{"id": "pb_XXXXXXXX", "type": "global"}` — a hierarchy node with no entry in that screen's `map`. Empty object in `comparison`. May be present and referenced by nobody. |
 | `screens` | `[{id, props, caption, elements: {map, hierarchy}, selectableGroups, products}]` | Array order is flow order; `screens[0]` is the entry screen. `selectableGroups` is `[]` on screens with no groups, never omitted. `hierarchy` is a single rooted node — see below. **`products` is the screen's Product + Offer registry, and it is what `_meta.screens[].products[]` is derived from** — [`products.md`](products.md) owns the rules, including the one that matters most here: absent and `[]` mean opposite things, so omit the key rather than emptying it. The three exports in this corpus are v9 and carry the other five keys only; a screen you did not export yourself has six. |
 | `localization` | `{locales, defaultLocale, content}` | `locales`: `[{id, code, name}]`, e.g. `{"id": "en", "code": "en", "name": "English"}`. `defaultLocale`: a locale **id**, and it must name an entry in `locales`. `content`: the catalog, one entry per localizable value. There is no top-level `locales` or `defaultLocale` to write: `localization.py catalog` drops a legacy pair, and the server echoes it back on save, which the catalog outranks. [Localization: the catalog](#localization-the-catalog) owns the rules. |
-| `variables` | `[{id, name, valueType}]` | **Custom, app-supplied variables only** — `{"id": "var_ddvg4jeg", "name": "app.permission.location.allowed", "valueType": "boolean"}`. Built-ins are never declared here. `[]` in `timer` and `comparison`. |
+| `variables` | `[{id, name, valueType}]` | **The variables the author created** — `{"id": "var_ddvg4jeg", "name": "app.permission.location.allowed", "valueType": "boolean"}`: flow-owned ones, custom tags (trap 25), and calculated `formula` and `date` variables (trap 27). Built-ins are never declared here. `[]` in `timer` and `comparison`. |
 | `theme` | `{typography: [{id, name, settings}], colors: [{id, name, light, dark?}]}` | Per-project design system. **Not a fixed vocabulary** — see [Shape traps](#shape-traps). `colors[].dark` is present only where dark mode was configured (`quiz` only). |
 | `_meta` | `{icons, fonts, screens}` | `icons`: `[{name, weight, raw}]`, `raw` being literal SVG markup. `fonts`: `[{id, name, url, iosName, androidName, faces}]`, `[]` in `quiz`; `faces` is one entry per uploaded weight and style, `{id, url, iosName, androidName, weight, italic, isDefault}`, and the top-level `url`/`iosName`/`androidName` copy the default face. An older entry has no `faces` and is still accepted. **Carry `fonts` through untouched, `faces` included; never write an entry yourself** — [trap 8](#8-custom-fonts-do-not-ship-with-the-flow). `screens`: an object keyed by screen id, holding that screen's declared products — `{"<screen-id>": {"products": [{"id": "<product-uuid>", "flowProductId": "<flow-product-uuid>"}]}}`. An entry also carries `offerId` when the binding has one, between `id` and `flowProductId`. Screens with no products have no entry at all. **Rewriting a flow: carry `screens[].products[]` through untouched. Authoring one: derive it with `flowkit.predeclare()`.** [`products.md`](products.md) owns the rules and the reasoning. |
 
@@ -262,6 +262,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 24 | A `{_lid}` names an entry of THIS flow's catalog — never copy a ref between flows |
 | 25 | A value only the app knows is a custom tag — shown in text, never read by logic |
 | 26 | A theme colour can be a layer stack — and only a fill reads all of it |
+| 27 | A value the flow works out is a `formula` — calculated, never set |
 
 ### 1. A localizable field is a ref, and its entry's `kind` decides the value shape
 
@@ -985,7 +986,8 @@ either then edits both.
 
 **Before reaching for one, check the flow does not already know the value.** A name the user typed
 on an earlier screen is `<inputCustomId>.value`, an answer is `<groupId>.selectedOptionId` (trap 4)
-— both readable on any later screen with no app code. A custom tag is for what only the app has.
+— both readable on any later screen with no app code — and a number or date worked out from the
+flow's own values is a `formula` (trap 27). A custom tag is for what only the app has.
 
 Users rarely say "custom tag". They say *greet them by name*, *show their coin balance*, *how many
 days are left on their streak*, *their level*, *the plan they are on*, *the city we detected* —
@@ -1149,6 +1151,69 @@ ask the user to switch the theme preview in the Flow Builder.
 above and on text bound to a no-solid style. [`verify-config.py`](verify-config.py) reports the
 same on a fetched config, and resolves a layered style the way the service does in its legibility
 check: as text, the blend of the solids; as a background, only when every layer is a solid.
+
+### 27. A value the flow works out is a `formula` — calculated, never set
+
+Users say *show their BMI*, *the total of their answers*, *the price per day*, *a goal date
+8 weeks from today*, *when the trial ends*, *only show this if they are under 18*. When every
+input is already in the flow, that is a `formula` variable: Flow Builder's **Formula** type,
+recalculated whenever a source changes. Use a custom tag (trap 25) only for a value the app alone
+knows.
+
+```json
+"variables": [
+  {"id": "var_bmi", "name": "bmi", "valueType": "formula",
+   "expression": "round({{weight.value}} / ({{height.value}} * {{height.value}}), 1)"},
+  {"id": "var_goal", "name": "goal_date", "valueType": "formula",
+   "expression": "addWeeks(today(), 8)", "dateFormat": "month-day"}
+]
+```
+
+It is shown like any variable, with a rich-text `{"type": "variable", "attrs": {"variableId":
+"var_bmi"}}` node, and read in a condition as `{"type": "var", "variableId": "var_bmi"}`.
+
+| Part | What it is |
+| :--- | :--- |
+| `expression` | The stored form. `{{<variable id>}}` for a `number`, `date` or `formula` variable: Flow Builder stores the **id**, so the formula survives a rename (a name resolves too, but write the id). `{{<input customId>.value}}` for an answer: a `text-input`, `number-input` or wheel range picker reads as a number, a `date-picker` or `date-time-picker` as a date; any other input is refused. `{{<group id>.selectedProduct.prod_price}}` or `.offer_price` for the selected plan's price; `{{<group id>.selectedProduct}}` only as the second argument of `addOfferDuration`. A selection (`.selectedOptionId`) cannot be read |
+| numbers | A dot for decimals, `1.5`: a comma separates only a function's arguments, and `1,5` is refused |
+| operators | `+ - * /`, a leading minus, brackets; `*` and `/` before `+` and `-`. **No power operator:** square by multiplying |
+| functions | `round(n)`, `round(n, digits)` with `digits` a whole number 0–6, half away from zero; `floor(n)`; `mod(a, b)`, the remainder with the sign of `b`; `today()`; `addDays`, `addWeeks`, `addMonths`, `addYears` `(date, n)`, a missing day of the target month moving to its last day; `addOfferDuration(date, {{<group>.selectedProduct}})`, the length of the selected plan's offer. Names are case-sensitive |
+| result | A Number, or a Date when the top level is a date function. A Date takes `dateFormat`: `short`, `medium` (the default), `long`, `month-day` ("November 17") or `month-day-short` ("Nov 17"); a text node can set its own `attrs.dateFormat` |
+| no value | A `number` variable with no `value` reads as 0. Any other empty source, a division by zero, or an offer the product does not have gives **no value**: the text is empty, `is empty` is true, and every comparison is false |
+| `value`, `external` | Neither. Nothing writes a formula: **Set Variable on one is refused** |
+
+A `date` variable is the stored half: `{"valueType": "date", "value": "2026-12-01"}`, a calendar
+day with no time and no zone, which Set Variable can write as a `"YYYY-MM-DD"` constant.
+
+**On a device.** A Number whose top level is `round(x, N)` shows N decimals with the device
+language's separator; any other Number shows a dot. A Date shows in the device language.
+`today()` is the day the flow opened and stays that day. A `number-input` that a formula reads
+accepts only digits and one separator.
+
+**Conditions compare a formula numerically.** `==`, `!=`, `<` and `>` with a formula or a date on
+either side compare numbers, or calendar days for a date. That is the way past
+[Conditions cannot compare numbers](#conditions-cannot-compare-numbers--enumerate-equality-instead):
+wrap the answer in a formula (`{{age.value}}`) and compare the formula with `18`. Read from the
+transformer's source and accepted by the publish (live validate: `valid`, no issues); no device
+measurement yet.
+
+**What the publish refuses**, each with its own code:
+
+| Code | When |
+| :--- | :--- |
+| `formula_syntax_error` | It does not parse: a decimal comma, an unknown or wrongly-cased function, `^`, an unclosed bracket |
+| `formula_argument_count` | A function with the wrong number of arguments |
+| `formula_operand_type` | A Date in arithmetic, a number where a date goes, a `string` or `boolean` variable, a product field other than the two prices, `round` decimals that are not 0–6, a reference to a formula that has an error |
+| `formula_unknown_reference` | A deleted or unknown variable, answer or product group |
+| `formula_ambiguous_reference` | A custom variable named like an answer or a product field |
+| `formula_cycle` | Formulas that read each other in a loop (each one in the loop is reported) |
+| `set_variable_formula_target` | A Set Variable action writes a formula |
+| `date_or_formula_in_action_text` | A date or a formula in an alert title or message, an Open URL address, or a Set Variable text value: an action builds a plain string, so it would show a raw number or nothing. Show it in a text element instead |
+
+`flowkit.formula()`, `number_variable()`, `date_variable()` and `fx()` build these, and
+`flowkit.config()` raises on every refusal above. [`formulas.py`](formulas.py) is the same check,
+and `verify-config.py` runs it on a fetched config. Flow Builder shows the formula with variable
+names in place of ids; that is display only.
 
 ### 14b. A condition is an expression tree, and `assign` is the one type it may not use
 
@@ -1999,7 +2064,13 @@ platforms instead of one flow each:
 
 ## Conditions cannot compare numbers — enumerate equality instead
 
-**`ExpressionType` lists `<` and `>`. They do not work.** A gate written as
+**First, the way around it: compare a formula.** `<` and `>` with a `formula` or `date` variable
+on one side compare numbers (trap 27). Declare `{"valueType": "formula", "expression":
+"{{age.value}}"}` and compare that variable with `18`: one condition, any age, and an empty or
+non-numeric field compares false. The publish accepts it; it has not yet been seen on a device, so
+say so when you use it. Everything below is about comparing an answer **directly**.
+
+**`ExpressionType` lists `<` and `>`. On an answer itself they do not work.** A gate written as
 
 ```json
 {"left": {"type":"var","variableId":"age.value"}, "type": "<", "right": {"type":"const","value":18}}
@@ -2104,6 +2175,7 @@ style error: you will search for an element type that does not exist, or invent 
 | a timeline, a trial timeline, a list of steps | The catalog's `list-timeline` template (`flowkit.from_catalog()`): one icon + title + description row per step, all in flow. Connect the steps with a 2pt absolute line between icons, never a wide track — see [patterns.md](patterns.md#a-connected-timeline-where-a-rail-must-reach-the-next-chip). |
 | a progress bar, step dots | A `components` entry (`progress-bar` → `progress-bar-segment` → `progress-bar-loader`), referenced from a screen's `hierarchy` as `{"id": "pb_…", "type": "global"}`, and switched on per screen via `props.progressBar: {enabled, segment}`. **Never** fake it with a static `stack` bar or a row of decorative step/segment `stack`s — a lookalike neither advances nor tracks the flow (trap 5), the same mistake as the fake carousel/footer. |
 | a divider, a rule | A `divider` element exists. Both real exports instead use a `stack` with `height: {type: "fixed", value: 1}` and a `fill` — either is valid; prefer whichever the input already uses. |
+| a calculated number or date — a BMI, a score, a price per day, "8 weeks from today", the trial's end, an age threshold | A `formula` variable shown through a rich-text `variable` node, and compared in conditions with `<` / `>`: trap 27. `flowkit.formula()` |
 | a text field, email, phone, a date picker | `text-input`, or one of `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker`. Its `customId` becomes the variable `<customId>.value`. **An input has no text colour**: no such prop on any input, on `font` or on a `theme.typography` entry, and none in any export (only `clearButtonColor` and `passwordIconColor` exist). The renderer picks it: the preview draws the placeholder in a fixed 38% black whatever the fill, and on a device typed text on a dark fill could not be seen in light mode, in dark mode, or with the screen's `statusBarTheme` set to dark: it is drawn dark whatever you set. So a dark field is never readable; keep the field's fill light and carry a dark design in the screen and the border. `font` is optional (the builder's own input templates carry none); a `font.preset` must be a `theme.typography` id of this file, or `validate` refuses it (trap 3). |
 | a price | Never literal text. A rich-text `variable` node — see invariant 5 for the two forms. |
 | text that fits its box, a smaller font for a long translation, "it's cut off in German" | `props.autoShrink: true` on that `text`, inside a line limit or a fixed height — after shortening the string: [Text that must fit](#text-that-must-fit-autoshrink). Never a smaller `font.size`, which shrinks every locale. |

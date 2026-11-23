@@ -62,6 +62,7 @@ try:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import icons
     import localization
+    import formulas
 finally:
     sys.dont_write_bytecode = _bytecode
 
@@ -877,6 +878,79 @@ def app_value(name, *, fallback, value_type='string', variable_id=None, descript
     if description:
         entry['description'] = description
     return entry
+
+
+def formula(name, expression, *, variable_id=None, date_format=None, description=None):
+    """A value the flow calculates: a BMI, a total, a price per day, a date 7 days from now.
+
+        h = fk.fx('height.value')                 # the answer of the input `height`, in metres
+        bmi = fk.formula('bmi', f'round({fk.fx("weight.value")} / ({h} * {h}), 1)')
+        fk.text(fk.rich('Your BMI: ', fk.Var(bmi)))
+        fk.config(screens=[...], variables=[bmi])
+
+    There is no power operator: square by multiplying. `expression` is the stored form: `{{<variable id>}}` for a variable (`fx()` writes it from
+    the entry), `{{<input customId>.value}}` for an answer, `{{<group id>.selectedProduct.
+    prod_price}}` (or `.offer_price`) for the selected plan's price. Decimals take a dot. The
+    result is a Number, or a Date when the top level is a date function (`today()`,
+    `addDays()` ...); `date_format` is how a text shows that Date. `config()` checks the
+    expression against the rest of the document, the way the publish does (flow-schema.md
+    trap 27). There is no `value`: nothing can set a formula, Set Variable included.
+    """
+    if not (isinstance(name, str) and name):
+        raise ValueError('formula() needs a name')
+    if not (isinstance(expression, str) and expression.strip()):
+        raise ValueError(f'formula() {name!r} needs an expression')
+    vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
+    if not _IDENT.fullmatch(vid):
+        raise ValueError(f'formula() variable_id {vid!r} must be [A-Za-z0-9_] — it is emitted '
+                         f'as an identifier in the generated script.')
+    if date_format is not None and date_format not in formulas.DATE_FORMATS:
+        raise ValueError(f'formula() date_format must be one of {formulas.DATE_FORMATS}, got '
+                         f'{date_format!r}')
+    entry = {'id': vid, 'name': name, 'valueType': 'formula', 'expression': expression}
+    if date_format:
+        entry['dateFormat'] = date_format
+    if description:
+        entry['description'] = description
+    return entry
+
+
+def number_variable(name, value=None, *, variable_id=None):
+    """A flow-owned Number variable. With no `value` a formula reads it as 0."""
+    if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
+        raise TypeError(f'number_variable() {name!r} value must be a number, got {value!r}')
+    vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
+    entry = {'id': vid, 'name': name, 'valueType': 'number'}
+    if value is not None:
+        entry['value'] = value
+    return entry
+
+
+def date_variable(name, value=None, *, variable_id=None, date_format=None):
+    """A flow-owned Date variable: a calendar day, `YYYY-MM-DD`, no time and no zone."""
+    if value is not None and not (isinstance(value, str)
+                                  and re.fullmatch(r'\d{4}-\d{2}-\d{2}', value)):
+        raise ValueError(f'date_variable() {name!r} value must be "YYYY-MM-DD", got {value!r}')
+    if date_format is not None and date_format not in formulas.DATE_FORMATS:
+        raise ValueError(f'date_variable() date_format must be one of {formulas.DATE_FORMATS}, '
+                         f'got {date_format!r}')
+    vid = variable_id or 'var_' + re.sub(r'[^A-Za-z0-9_]', '_', name)
+    entry = {'id': vid, 'name': name, 'valueType': 'date'}
+    if value is not None:
+        entry['value'] = value
+    if date_format:
+        entry['dateFormat'] = date_format
+    return entry
+
+
+def fx(source):
+    """A reference inside a formula: a variable entry or id becomes `{{<id>}}`; a path such as
+    `"age.value"` or `"plans.selectedProduct.prod_price"` is wrapped as it is."""
+    if isinstance(source, dict):
+        source = source.get('id')
+    if not (isinstance(source, str) and source):
+        raise ValueError(f'fx() needs a variable entry, an id or a path, got {source!r}')
+    return '{{' + source + '}}'
 
 
 def _external_ids(variables):
@@ -4063,6 +4137,10 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                   'screens': _merge_meta_screens(meta_screens)},
         'screens': list(screens),
     }
+    found = formulas.issues(doc)
+    if found:
+        raise ValueError('the publish would refuse these formula or date variables: '
+                         + '; '.join(f'{m} ({c} at {w})' for c, w, m in found))
     out, dropped = localization.catalog(doc)
     if dropped:
         raise ValueError(
