@@ -301,17 +301,22 @@ def _bad_operand(v, path):
     return None if v is None else bad_expr_path(v, path)
 
 
-def blank_operand_path(v, path):
+# The unary types whose `null` operand the service's `findBlankOperandPath` sees as blank.
+_BLANK_UNARY_SERVICE = ('empty', 'notEmpty')
+
+
+def blank_operand_path(v, path, unary=_UNARY):
     """Path of the first `null` operand, walking `&&`/`||` groups, or None. Port of the service's
-    `findBlankOperandPath`: the builder's unfinished condition (`== null null`). It is valid and
-    compiles as is, so `==` between two empties is always true and the condition never depends
-    on the user."""
+    `findBlankOperandPath`: the builder's unfinished condition (`== null null`). A visibility
+    condition or a text case with one compiles as is, so `==` between two empties is always true
+    and the condition never depends on the user; a state condition with one is dropped whole.
+    `unary` names the unary types checked: pass `_BLANK_UNARY_SERVICE` for the service's own set."""
     if not (isinstance(v, dict) and isinstance(v.get('type'), str)):
         return None
     t = v['type']
     if t in ('&&', '||'):
         for i, p in enumerate(v.get('predicates') or []):
-            r = blank_operand_path(p, f'{path}.predicates[{i}]')
+            r = blank_operand_path(p, f'{path}.predicates[{i}]', unary)
             if r:
                 return r
         return None
@@ -321,7 +326,7 @@ def blank_operand_path(v, path):
         if v.get('right', 0) is None:
             return f'{path}.right'
         return None
-    if t in _UNARY and v.get('left', 0) is None:
+    if t in unary and v.get('left', 0) is None:
         return f'{path}.left'
     return None
 
@@ -1382,11 +1387,13 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                        f'reverses the arrival, and next needs an explicit `navigate`')
     walk(d, check_transition)
 
-    # What runs after a purchase or restore lives in `payload.onResult`, one action list per
-    # store result (trap 16). The four ways it goes wrong mirror the transformer's own issues;
-    # only a malformed `onResult` fails publish, the rest compile and do the wrong thing.
+    # What runs after a purchase, a restore or a permission request lives in `payload.onResult`,
+    # one action list per result (traps 16 and 28). The ways it goes wrong mirror the
+    # transformer's own issues; only a malformed `onResult` or permission fails publish, the rest
+    # compile and do the wrong thing.
     results_of = {'purchase': ('success', 'fail', 'userCanceled', 'pending'),
-                  'restorePurchases': ('success', 'fail')}
+                  'restorePurchases': ('success', 'fail'),
+                  'requestPermission': ('response',)}
     leaving = ('navigate', 'navigateNext', 'navigateBack', 'closeFlow')
 
     def branches(a):
@@ -1420,12 +1427,30 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             name = f'{t} {a.get("id")!r}'
             if started and leaves(a):
                 warn.append(f'{where}: {name} follows {started} in the same list, so it runs on '
-                            f'the tap, before the store answers (navigation_before_store_result). '
-                            f'Move it into the outcome it belongs to, usually `success` (trap 16)')
+                            f'the tap, before the answer (navigation_before_store_result). '
+                            + ('Move it into `response` (trap 28)'
+                               if started.startswith('requestPermission') else
+                               'Move it into the outcome it belongs to, usually `success` '
+                               '(trap 16)'))
             if in_outcome and t in results_of and starts_store(a):
-                warn.append(f'{where}: {name} sits inside an outcome and chains a second store '
-                            f'operation onto the first answer (nested_store_operation); the '
+                warn.append(f'{where}: {name} sits inside an outcome and chains a second system '
+                            f'sheet onto the first answer (nested_store_operation); the '
                             f'builder does not allow it. Navigate to a screen with its own button')
+            if t == 'requestPermission':
+                perm = p.get('permission') if isinstance(p, dict) else None
+                if perm != 'push':
+                    bad.append(f'{where}: {name} asks for {perm!r}; the action asks only for '
+                               f'"push" and publish refuses anything else '
+                               f'(invalid_action_payload). Any other permission is a custom '
+                               f'action the app answers (trap 28)')
+                    continue
+                resp = (p.get('onResult') or {}).get('response') \
+                    if isinstance(p.get('onResult'), dict) else None
+                if not resp:
+                    warn.append(f'{where}: {name} has no actions after the response, so the '
+                                f'user stays on the screen after answering and the flow asks '
+                                f'again on every tap and every appearance. Add one, usually '
+                                f'navigateNext (trap 28)')
             if starts_store(a) and not started:
                 started = name
             if t in results_of and isinstance(p, dict) and 'onResult' in p:
@@ -3247,11 +3272,12 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                 _empty_products(c)
         _empty_products(s['elements']['hierarchy'])
 
-    # A SPREAD STACK WITH A FILL CHILD AMONG NON-FILL ONES. The transformer puts a spacer between
-    # the children of a space-between/-around/-evenly stack unless every child fills the main
-    # axis; on iOS a fill child is then exactly as flexible as each spacer, so it gets only an
-    # equal share of the free space and its text truncates. Android and the builder canvas give
-    # it the rest. `gap` distribution gives the fill child the rest on both.
+    # A SPREAD STACK WHOSE ONLY FILL CHILDREN ARE CAPPED OR CONDITIONAL. The transformer drops the
+    # spacers of a space-between/-around/-evenly stack when at least one child is a plain fill on
+    # the main axis (no `min`/`max`, not under a conditional visibility): that child takes all the
+    # free space, as on the builder canvas. A capped fill or a conditionally visible one keeps the
+    # spacers, and on iOS such a fill child is then exactly as flexible as each spacer, so it gets
+    # only an equal share of the free space and its text truncates. `gap` gives it the rest.
     for s in d.get('screens', []):
         m = s['elements']['map']
 
@@ -3263,14 +3289,23 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                 lay.get('direction') if isinstance(lay, dict) else None)
             kids = n.get('children') or []
             if kind in ('space-between', 'space-around', 'space-evenly') and axis and kids:
-                fills = [_obj((m.get(c.get('id'), {}).get('props') or {}).get(axis)).get('type')
-                         == 'fill' for c in kids]
-                if any(fills) and not all(fills):
+                def _fill(c):
+                    pr = _obj(_obj(m.get(c.get('id'))).get('props'))
+                    sz = _obj(pr.get(axis))
+                    if sz.get('type') != 'fill':
+                        return None
+                    capped = any(isinstance(sz.get(k), (int, float)) and not isinstance(sz.get(k), bool)
+                                 for k in ('min', 'max'))
+                    cond = _obj(pr.get('visibility')).get('type') == 'conditional'
+                    return 'kept' if capped or cond else 'plain'
+                fills = [_fill(c) for c in kids]
+                if 'kept' in fills and 'plain' not in fills:
                     warn.append(
-                        f'screen {s["id"]}: {n["id"]} is a {kind} stack with a fill-{axis} child '
-                        f'beside fixed or hug ones. On iOS the fill child gets only an equal '
-                        f'share of the free space with the gaps, so its text truncates; the '
-                        f'builder and Android give it the rest. Use a `gap` distribution')
+                        f'screen {s["id"]}: {n["id"]} is a {kind} stack whose fill-{axis} '
+                        f'child is capped (min/max) or conditionally visible, so the spacers '
+                        f'stay. On iOS that child gets only an equal share of the free space '
+                        f'with the gaps, so its text truncates; the builder gives it the rest. '
+                        f'Use a `gap` distribution, or an uncapped, always-visible fill')
             for c in kids:
                 _spread_fill(c)
         _spread_fill(s['elements']['hierarchy'])
@@ -3313,6 +3348,19 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     # condition loosely and `config preview` renders the element in whichever state it draws.
     cond_var_ids = set()
     for sid, eid, where, tree in iter_conditions(d):
+        if where.startswith('states['):
+            # A state condition with an empty side in any row is dropped whole before the
+            # compile, under `&&` and `||` alike, so no row is refused for its shape. Its
+            # variables are still resolved first: an undeclared one is `unknown_variable_ref`.
+            # The empty id of an untouched row is not a variable and is not resolved.
+            cond_var_ids |= {v for v in expr_var_ids(tree, set()) if v}
+            blank = blank_operand_path(tree, f'{eid}.{where}', _BLANK_UNARY_SERVICE)
+            if blank:
+                warn.append(f'screen {sid}: {blank} is empty — an unfinished state condition. '
+                            f'The service drops the whole condition, so this state never '
+                            f'becomes active. Finish it or delete it; if it came with the flow, '
+                            f'ask the user which they meant')
+                continue
         expr_var_ids(tree, cond_var_ids)
         offending = bad_expr_path(tree, f'{eid}.{where}')
         if offending:

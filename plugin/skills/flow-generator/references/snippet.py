@@ -364,11 +364,12 @@ def _screen_background_hex(screen, dest_colors):
     cannot be resolved without guessing: an `image` fill, an absent fill, or a
     shape this does not recognise. A `color` fill resolves via `colorId` or a
     literal `hex`; a `gradient` fill resolves via its FIRST stop. A fill may be
-    a single object (v9) or a one-element array (v10) -- read either, per this
-    file's own note on the array holding exactly one layer."""
+    a single object (v9) or an array of layers drawn bottom to top (v10); an
+    array of more than one layer is a stack whose composite this does not
+    compute, so it is unresolvable too."""
     fill = (screen.get('props') or {}).get('fill')
     if isinstance(fill, list):
-        fill = fill[0] if fill else None
+        fill = fill[0] if len(fill) == 1 else None
     if not isinstance(fill, dict):
         return None
     if fill.get('type') == 'color':

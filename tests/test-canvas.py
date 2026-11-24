@@ -136,6 +136,13 @@ web = {'id': '', 'type': 'purchase', 'payload': {'type': 'web', 'product': {'id'
 sc, ed, bd, un, br = graph({'screens': [screen('paywall', button('b1', [web])), screen('thanks')]})
 check("a web purchase's outcomes draw nothing, since they never run", not ed and 'thanks' in un)
 
+ask = {'id': '', 'type': 'requestPermission', 'payload': {'permission': 'push',
+                                                         'onResult': {'response': [nav('paywall')]}}}
+sc, ed, bd, un, br = graph({'screens': [screen('notify', button('b1', [ask])), screen('paywall')]})
+check('a permission request draws its response as an arrow, and is a badge',
+      ed.get(('notify', 'paywall'), {}).get('labels') == ['after the answer']
+      and 'asks for push' in bd['notify'] and not un)
+
 # --- the script end to end ---------------------------------------------------------------------
 
 with tempfile.TemporaryDirectory() as tmp:

@@ -147,8 +147,9 @@ one it shows that is not there:
   **is** evaluated: a conditionally-shown button correctly appears or hides in the render, which
   makes the empty-field state of a form gate genuinely checkable here. A **`states[].condition`**
   is **not**: every element draws in its base props, so buttons carrying `disabled`-state
-  conditions all draw in their base fill. That asymmetry is
-  survivable only because a conditional `disabled` state is not a real mechanism anyway — see
+  conditions all draw in their base fill. The condition is real on the device (a `disabled`
+  state blocks taps, a custom state changes the style); the static preview draws base props
+  only, so judge a state condition on a device preview — see
   [flow-schema.md](flow-schema.md#making-a-field-mandatory-show-the-button-conditionally).
   What the render still cannot tell you about a `visibility` condition: **an unresolvable variable
   is silently treated as empty**, so `empty` over a typo'd id renders exactly like `empty` over a
@@ -397,7 +398,7 @@ diagnosis and a guess. Four layers can own a defect: the **config data** you are
 | wrong in the preview **and** on the device | the **config data** — and that is the good case, because it is the only layer you can fix |
 | right in the preview, wrong on the device | the **transformer or the SDK**. Check the known one-way blindnesses on this page before concluding it is a bug: an unsupported element type, a font, an id, an emoji |
 | right on the device, wrong in the preview | the **preview page**. Do not restyle a config to make a screenshot look right — see the section above; that has broken working configs |
-| the transform is green and the device is wrong | not a validation problem at all. Nothing you can publish differently will help; the defect is in one of the two layers downstream of the document |
+| the transform is green and the device is wrong | not a validation problem at all: the defect is in one of the two layers downstream of the document. Changing the config will not help, but publishing again will when the published build predates a transformer fix — a screen fill stack that draws only one of its layers on the device is that case |
 | the flow will not open in the **builder** | the config data again, but a shape the *authoring tool* rejects rather than one the SDK does — a different renderer with its own failures, and a config that breaks it can render fine here |
 
 Two rules that keep this honest:

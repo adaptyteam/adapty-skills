@@ -491,9 +491,11 @@ user when you build one:
 
 ### Under `safeArea: true`, check where an absolute element lands
 
-In the render, an absolute `top` is measured from the top of the full screen rather than from
-below the status bar, so a timer or back button at `top: 0` sits under the clock. Look for it in
-the render and move the element down rather than trusting the number.
+On the device and in the render alike, an absolute `top` is measured from the top of the full
+screen rather than from below the status bar (only an absolute element that stretches to the full
+height is inset), so a timer or close button at `top: 0` sits under the clock and can be untappable
+on a phone. Look for it in the render and move the element down rather than trusting the
+number.
 
 **A `fixed` element is the opposite:** its `top` is measured from below the status bar, in the
 builder and in the local render alike. So the same `top` lands lower on a `fixed` element than on

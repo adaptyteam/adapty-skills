@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Calibration for verify-config.py's spread-stack warning.
 
-A space-between/-around/-evenly stack gets a spacer between its children unless every child
-fills the main axis; on iOS a fill child is then only as flexible as each spacer, so it gets an
-equal share of the free space and its text truncates. Android and the builder give it the rest.
+Publishing drops the spacers of a space-between/-around/-evenly stack when at least one child is
+a plain fill on the main axis (no min/max, not conditionally visible), read from the
+transformer's source. A capped or conditionally visible fill keeps them; on iOS that child is then
+only as flexible as each spacer, so it gets an equal share of the free space and its text
+truncates. The builder gives it the rest.
 
-    FIRES   -- a space-between row with one fill child beside hug ones
-    SILENT  -- the same row with every child fill, or with a gap distribution
+    FIRES   -- a space-between row with one capped fill child beside hug ones
+            -- the same with a conditionally visible fill child
+    SILENT  -- the same row with one plain fill child, or every child a plain fill
+            -- a capped fill beside a plain one
+            -- a gap distribution
             -- all real exports
 
 Usage: python3 tests/test-spread-fill.py    # 0 all pass, 1 a case regressed
@@ -17,7 +22,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 FLOW = os.path.join(ROOT, 'tests', 'fixtures', 'tabs-paywall.json')
 ROW = 'el_RvS101'          # a space-between row of three hug children in the real export
-NEEDLE = 'stack with a fill'
+NEEDLE = 'stack whose fill'
 fails = []
 
 
@@ -58,11 +63,29 @@ check('fixture setup: the row is space-between with hug children',
       m[ROW]['props']['layout']['distribution']['type'] == 'space-between'
       and all(m[c['id']]['props']['width']['type'] == 'hug' for c in n['children']))
 
+plain = copy.deepcopy(base)
+m, n = row(plain)
+m[n['children'][1]['id']]['props']['width'] = {'type': 'fill'}
+check('SILENT on one plain fill child beside hug ones (publish drops the spacers)', not hits(plain))
+
 one = copy.deepcopy(base)
 m, n = row(one)
-m[n['children'][1]['id']]['props']['width'] = {'type': 'fill'}
+m[n['children'][1]['id']]['props']['width'] = {'type': 'fill', 'max': 200}
 got = hits(one)
-check('FIRES on one fill child beside hug ones, naming the stack', len(got) == 1 and ROW in got[0], got)
+check('FIRES on one capped fill child beside hug ones, naming the stack',
+      len(got) == 1 and ROW in got[0], got)
+
+cond = copy.deepcopy(plain)
+m, n = row(cond)
+m[n['children'][1]['id']]['props']['visibility'] = {
+    'type': 'conditional', 'condition': {'type': 'const', 'value': True}}
+got = hits(cond)
+check('FIRES on a conditionally visible fill child', len(got) == 1 and ROW in got[0], got)
+
+mixed = copy.deepcopy(one)
+m, n = row(mixed)
+m[n['children'][0]['id']]['props']['width'] = {'type': 'fill'}
+check('SILENT when a plain fill sits beside the capped one', not hits(mixed))
 
 every = copy.deepcopy(base)
 m, n = row(every)

@@ -226,7 +226,7 @@ invariants above, and is still wrong. This table is the index into them.
 
 The numbers are this file's addressing scheme: other files, and two checker messages in
 `verify-config.py` and `render-check.py`, cite them as **trap N**. They are therefore stable — a
-trap is never renumbered, a new one takes the next free number (**27**), and a new trap with no
+trap is never renumbered, a new one takes the next free number (**29**), and a new trap with no
 row here is unreachable, because the number is the only address anyone cites.
 
 | trap | the thing that parses and is still wrong |
@@ -253,6 +253,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 15 | Stale and degenerate sizing values persist, and the transformer believes them |
 | 16 | A purchase or restore leads on only through `onResult` — a `navigate` beside it leaves at the tap |
 | 17 | A state override replaces each prop it names whole — nothing is inherited from the base |
+| 17b | A custom state has a name, a condition, and a short list of element types that show it |
 | 18 | `props.verticalAlign` on text is emitted by the builder and ignored by the SDK |
 | 19 | A theme colour must be exactly `#RRGGBB` — and only a theme colour |
 | 20 | A screen background is bound to a token in every real export — never a literal hex |
@@ -263,6 +264,7 @@ row here is unreachable, because the number is the only address anyone cites.
 | 25 | A value only the app knows is a custom tag — shown in text, never read by logic |
 | 26 | A theme colour can be a layer stack — and only a fill reads all of it |
 | 27 | A value the flow works out is a `formula` — calculated, never set |
+| 28 | A push request leads on through `onResult.response` — and only the app can answer it |
 
 ### 1. A localizable field is a ref, and its entry's `kind` decides the value shape
 
@@ -771,8 +773,11 @@ the shape, it is the vocabulary:
 | `direction` | `vertical`, `horizontal`, **`free`** |
 | `clipContent`, `rtl` | booleans, optional |
 
-**A spread distribution with a `fill` child beside fixed or hug ones** gives the fill child only
-an equal share of the free space on iOS, so its text truncates; use `gap`. `verify-config.py` warns.
+**A spread distribution with a plain `fill` child** (no `min`/`max`, always visible) hands that
+child all the free space, as the builder canvas does: publishing drops the spacers. A fill child
+that is **capped or conditionally visible** keeps the spacers, and on iOS it then gets only an equal
+share of the free space, so its text truncates; use `gap` there. `verify-config.py` warns. A flow
+published before this change keeps the old spacers until it is published again.
 
 **`space-between` on a screen root spreads a SHORT screen's content away from its bottom bar** —
 give the root two children and the free space lands between them. It does **not** pin anything: a
@@ -1250,6 +1255,8 @@ Shape rules, all enforced by that walker:
 **`null` is the builder's unfinished condition** (`{"type": "==", "left": null, "right": null}`):
 accepted, and compiled as is, so an empty side compares as nothing and the condition never
 depends on the user. In conditional text that case always shows and nothing after it does.
+A state condition (custom or `disabled`) with an empty side in any row, the default row with
+`"variableId": ""` too, is dropped whole: that state never becomes active.
 `verify-config.py` warns on it; finish it or delete it, and ask the user when it came with the
 flow.
 
@@ -1289,6 +1296,7 @@ looser than the service on every row:
 | `setVariable` | an **array** payload; each entry needs `left.variableId` | SetVariable action requires an array payload |
 | `conditional` | an object payload with a `cases` **array** of `[predicate, value]` tuples | Conditional action requires an array of cases |
 | `purchase` | `.payload.product` is either an **expression** or a record with a non-empty `.id` | Purchase action requires a product id |
+| `requestPermission` | `.payload.permission`, and it is `push` | Request permission action requires one of: push |
 
 The `purchase` row is the one worth reading twice: the service accepts *any* object carrying a
 string `type` without looking further, which is why the `var` form every real export uses passes
@@ -1356,6 +1364,43 @@ on_success=fk.navigate('scr_thanks'))` and `fk.restore(on_fail=…)`; what each 
 
 `verify-config.py` warns on each of these and errors on an `onResult` that is not a map of lists.
 
+### 28. A push request leads on through `onResult.response` — and only the app can answer it
+
+`requestPermission` asks the app to request push notifications. The SDK shows no dialog: the
+app's code shows the system one and sends the answer back, and then the flow runs
+`payload.onResult.response`, whether the user allowed or denied. Build it with
+`fk.request_permission()`, which starts `response` with `navigateNext` as Flow Builder does, or
+`fk.request_permission(on_response=fk.navigate('scr_paywall'))`.
+
+```json
+{"id": "act_permission", "type": "requestPermission", "payload": {
+  "permission": "push",
+  "onResult": {"response": [{"id": "act_permission_response", "type": "navigateNext"}]}}}
+```
+
+- **`push` is the only `permission`;** publish refuses any other (`invalid_action_payload`).
+  Location, camera, tracking and any other prompt stay a `custom` action the app answers.
+- **Put it on a button's tap or in On Appear,** the two triggers the builder offers it on. On a
+  screen that explains the notifications, use the button, so people read the screen before the
+  dialog covers it.
+- **The flow cannot branch on the answer:** `response` runs for both.
+- **Without `response` actions the user stays on the screen after answering,** and the flow asks
+  again on every tap and every appearance, Back included.
+- **A permission decided before is answered at once,** so `response` runs right away and the
+  screen flashes past.
+- **The rules of trap 16 apply:** a `navigate` beside the request in the same list leaves at the
+  tap (`navigation_before_store_result`), and `response` cannot hold a purchase, a restore or
+  another request (`nested_store_operation`), nor can an outcome of a purchase hold the request.
+- **The app must answer before the flow ships.** Without its code, iOS, Flutter, Unity and Kotlin
+  Multiplatform apps keep the user on the screen, and Android, React Native and Capacitor apps run
+  `response` at once without asking. A published flow also reaches app versions that cannot
+  answer, so show it only to versions that can: an audience on the app version. Tell the user
+  both, link [Request permission](https://adapty.io/docs/onboarding-actions#request-permission),
+  and offer the app code as for a custom action.
+
+`verify-config.py` refuses another `permission` and warns on a request with no `response`
+actions and on the trap 16 shapes.
+
 ### 17. A state override replaces each prop it names whole — nothing is inherited from the base
 
 A prop in `propsByState.<state>` (`selected`, `focused`, `invalid`, any state) replaces the base
@@ -1377,6 +1422,47 @@ flows may say a left-out sub-field is inherited from the base; it is not.
 The same goes for `visibility`: an element hidden in its base and again in
 `propsByState.selected` stays hidden in that state when you unhide only the base. To show it,
 change both.
+
+### 17b. A custom state has a name, a condition, and a short list of element types that show it
+
+Besides the `system` states, an element can carry up to five states the author names:
+
+```json
+"states": [
+  {"id": "st_k3v9q2mx", "type": "custom", "name": "Locked",
+   "condition": {"type": "==", "left": {"type": "var", "variableId": "plan"},
+                 "right": {"type": "const", "value": "free"}}}
+],
+"propsByState": {"st_k3v9q2mx": {"fill": {"type": "color",
+                                   "color": {"type": "color-style", "colorId": "gray-800"}}}}
+```
+
+The `id` is `st_` and 8 characters, it never changes, and `propsByState` and an `elementState`
+condition use the `id`, never the `name`. The state is active while its `condition` is true;
+trap 17 holds for its overrides. Rules the builder keeps, so keep them too:
+
+- **Where it shows on a device.** `stack`, `image`, `video`, `timer` and `carousel` only with a
+  tap action (a button is a `stack` with a tap); a `selectable` with a tap action or in a selectable group; the text, email,
+  password, number and phone inputs always. Never: a bottom sheet, a tab item or tab content,
+  the date, time and date-time pickers, a progress-bar segment. On a type outside this list, or
+  without the tap action it needs, the config is accepted and the publish goes on, but the device
+  shows no variant: the builder marks the state "Not shown on the device".
+- **At most 5** custom states on one element. The builder keeps more that came from JSON, but
+  does not let the author add one more.
+- **The name** is trimmed, 1 to 30 characters, and unique on the element without case. It is never
+  `Default`, a system state name (`Selected`, `Active`, `Invalid`, `Disabled`, `Completed`,
+  `Current`, `Upcoming`) or `focused`.
+- **Priority.** When several states are true: custom, then `disabled`, `focused`, `invalid`,
+  `selected`, Default. Between custom states, the one later in `states` wins.
+- **Child styles reach the device.** A style set on a child (the text in a button) under the
+  parent's custom state is drawn on the device, the same way as under `selected`.
+- **An input changes only fill, border and corner radius** in a custom state. Other props in its
+  `propsByState.<id>` (text colour, font) do not change on the device.
+- **A video restarts and a carousel goes back to its first page** when the element switches into
+  or out of a custom state, as for `selected` and `disabled`. Do not put a custom state on a video
+  or a carousel that must keep playing or keep its page.
+- **A condition with an empty side in any row is never active** ([trap 14b](#14b-a-condition-is-an-expression-tree-and-assign-is-the-one-type-it-may-not-use)).
+  A row with a value or `empty` but no variable stops the publish.
 
 ### 18. `props.verticalAlign` on text is emitted by the builder and ignored by the SDK
 
@@ -1840,7 +1926,7 @@ element, it does not qualify as evidence — a device does.
   **⚠ = in the schema, never seen on a device** — read
   [Being in the schema is not reaching a device](#being-in-the-schema-is-not-reaching-a-device)
   before authoring one. Being listed here means the builder can save it, never that users see it.
-- **15 action types**, adding `selectProduct` to the list below.
+- **16 action types**, adding `selectProduct` and `requestPermission` to the list below.
 - **Group types are a closed enum**: `product`, `single_choice`, `multi_choice`, `toggle` — so trap
   10's rule is confirmed, not inferred.
 - `_meta.screens[].products[]` requires `flowProductId`, matching the publish 422 from the other
@@ -1889,7 +1975,9 @@ No input has a `required` prop or an error-message prop. Two mechanisms gate a b
 also read another element's state: `{"type": "elementState", "elementId": "<id>"}` compared with
 `==`/`!=` to a `const` state id (`"default"` is its Default state). The publish refuses, with the
 error `unknown_element_state_ref`, a reference to an element that is not on that screen or in its
-components, to a state the element does not declare, or with no comparison to a state id.
+components, to a state the element does not declare, or with no comparison to a state id. A
+`disabled` condition with an empty side in any row is never active, so the button stays tappable:
+[trap 14b](#14b-a-condition-is-an-expression-tree-and-assign-is-the-one-type-it-may-not-use).
 
 Conditional visibility, verified from a Flow Builder export of a working screen:
 
@@ -2130,8 +2218,8 @@ never treat its absence here as evidence the file is invalid.
 | element `type` (on screens) | `stack`, `text`, `icon`, `image`, `product`, `selectable`, `text-input`, `timer` | `stack`, `text`, `icon` in all three; `image` in `quiz` + `timer`; `product` in `quiz` + `comparison`; `selectable` and `text-input` in `quiz` only; `timer` in `timer` only |
 | element `type` (in `components`) | `progress-bar`, `progress-bar-segment`, `progress-bar-loader` | `progress-bar` and `progress-bar-loader` in `quiz` + `timer`; `progress-bar-segment` in `quiz` only. All three observed *only* inside `components`, never directly on a screen |
 | element `type` (**not in these exports**, present in the transformer's front-format fixtures) | `divider`; the tabs family `tabs`, `tab-bar`, `tab-item`, `tab-content-wrapper`, `tab-content`; the input family `email-input`, `password-input`, `number-input`, `phone-input`, `date-picker`, `time-picker`, `date-time-picker` | Absence from the three exports is absence of coverage, not evidence a type is invalid. These are real front-format inputs. `tabs` is a **composite**, not one element — see the request map below |
-| action `type` | **15 types.** In these exports: `navigate`, `conditional`, `purchase`, `closeFlow`, `nothing`. Also valid, and none of them appear here: `navigateBack`, `navigateNext`, `restorePurchases`, `setVariable`, `openUrl`, `alert`, `custom`, `showElement`, `hideElement`, `startLoader` | `closeFlow` in all three; `navigate` in `quiz` + `timer`; `purchase` in `quiz` + `comparison`; `conditional` and `nothing` in `quiz` only. `nothing` appears only as a `conditional` case value, never as a top-level action. The other nine come from the builder transformer's front-format fixtures — and `navigateBack`/`navigateNext` are the **two most common actions there**, more common than `navigate` itself, so a Next button does not need a named destination. Payload shapes below |
-| action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `restorePurchases` → no payload, or `{onResult}` ([trap 16](#16-a-purchase-or-restore-leads-on-only-through-onresult--a-navigate-beside-it-leaves-at-the-tap)) · `navigateBack` / `navigateNext` / `closeFlow` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?, onResult?}`, see below and trap 16 · `startLoader` → `{elements: [loaderId]}`, loaders on the same screen with `autostart: false` | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
+| action `type` | **17 types.** In these exports: `navigate`, `conditional`, `purchase`, `closeFlow`, `nothing`. Also valid, and none of them appear here: `navigateBack`, `navigateNext`, `restorePurchases`, `setVariable`, `openUrl`, `alert`, `custom`, `showElement`, `hideElement`, `selectProduct`, `requestPermission`, `startLoader` | `closeFlow` in all three; `navigate` in `quiz` + `timer`; `purchase` in `quiz` + `comparison`; `conditional` and `nothing` in `quiz` only. `nothing` appears only as a `conditional` case value, never as a top-level action. The other nine come from the builder transformer's front-format fixtures, and `selectProduct`, `requestPermission` and `startLoader` from the schema — and `navigateBack`/`navigateNext` are the **two most common actions there**, more common than `navigate` itself, so a Next button does not need a named destination. Payload shapes below |
+| action payloads | `navigate` → `{screen, transition?}` ([how the screen arrives](patterns.md#a-screen-transition)) · `restorePurchases` → no payload, or `{onResult}` ([trap 16](#16-a-purchase-or-restore-leads-on-only-through-onresult--a-navigate-beside-it-leaves-at-the-tap)) · `navigateBack` / `navigateNext` / `closeFlow` / `nothing` → **no payload** · `openUrl` → `{url, external?}` · `alert` → `{title, message}` · `custom` → `{id}` (the "Action ID" whose absence is a publish blocker) · `showElement` / `hideElement` → `{elements: ["<element id>", …]}`, a **list** even for one element (`fk.show_elements()` / `fk.hide_elements()`) · `setVariable` → an array of `{type: "assign", left, right}` · `purchase` → `{product, type?, onResult?}`, see below and trap 16 · `requestPermission` → `{permission: "push", onResult?: {response}}` ([trap 28](#28-a-push-request-leads-on-through-onresultresponse--and-only-the-app-can-answer-it)) · `startLoader` → `{elements: [loaderId]}`, loaders on the same screen with `autostart: false` | Observed in the transformer's front fixtures. `purchase` is the one with two product forms — see the next row. The `elements` list is the schema's shape and the builder template's (`component-catalog.json`); `validate` also passes a singular `{element}`, and some builder-saved configs carry it — keep it in a config you read, never author it |
 | `purchase` `payload.product` | `{"type": "var", "variableId": "<groupId>.selectedProduct"}` when the screen has a product group, **or** `{"type": "const", "value": {"id": "<productUUID>", "offerId"?}}` when it does not | The `const` form is what a paywall with a single implied plan uses — one CTA, no product cards; its product still needs a `_meta.screens` entry ([products.md](products.md#a-purchase-can-bind-a-product-with-no-product-element)). Do not add an empty product group to satisfy the `var` form. A `payload.type` of `"native"` also appears alongside `product`; it is optional in practice |
 | interaction `trigger` | `tap` | the only trigger in all three. The schema also has `screen-appear` (On Appear: [patterns.md](patterns.md#on-appear-a-screen-that-moves-on-by-itself-an-element-that-appears-later)), `change`, `scroll-bottom`, `playback-finished`, `submit`, `timer-end` and `progress-finished` (a `loader` only, the builder's On Load Complete: [patterns.md](patterns.md#a-progress-bar-that-moves-the-flow-on-counts-up-or-plays-in-turn)) |
 | `conditional` `payload.type` | `switch` | `quiz` only. `cases` is an array of `[predicate, {type: "const", value: [actions]}]` pairs, plus a `default` in the same value shape. Actions nested inside a case carry `"id": ""`, not an `act_` id — including the `navigate` that a screen deletion has to repair, which is why a dangling target can sit two levels down inside a `default` branch |
@@ -2144,7 +2232,7 @@ never treat its absence here as evidence the file is invalid.
 | inline node `type` | `text`, `variable`, `token` | `text` in all; `variable` in `quiz`; `token` in `timer` |
 | `token` names | `timer_days`, `timer_hours`, `timer_total_hours`, `timer_minutes`, `timer_seconds` | `timer` only; `timer_hours` wraps at 24, `timer_total_hours` does not (`72` for 3 days). See [Countdown timer](https://adapty.io/docs/flow-timer.md) |
 | `selectableGroups[].type` | `single_choice`, `multi_choice`, `product`, `toggle` | `product` in `quiz` + `comparison`, `single_choice` in `quiz`; `multi_choice` and `toggle` from the transformer's front fixtures. **A tab group is declared `single_choice`, not `tabs`** — verified against a working tabs paywall, which pairs `{"id":"tabs","type":"single_choice"}` with a separate `{"id":"products","type":"product"}` on the same screen. `tabs` appears as a string constant in the transformer source but is **not** what a working config uses; emitting it produced a config the API accepted and the builder could not open. The group type, not the element type, is what makes a control a toggle or a multi-select: `toggle-selection` is a bare `stack` in a `{"type":"toggle"}` group. See [Selectable elements and groups](https://adapty.io/docs/flow-selectable-elements.md) |
-| element `states[].id` | `selected`, `focused`, `invalid`, `disabled`, all with `"type": "system"` | 10 state entries in the corpus. `selected` on all 6 selectable-group members — `quiz`'s 3 `selectable`s and **all 3** `product` elements (2 in `quiz`, 1 in `comparison`); `disabled` twice, on `quiz`'s `text-input` **and** on one of its `selectable`s; `focused` and `invalid` on the `text-input` only. `states` is not per-`type` — two elements of the same type carry different sets. No non-`system` state observed |
+| element `states[].id` | `selected`, `focused`, `invalid`, `disabled`, all with `"type": "system"` | 10 state entries in the corpus. `selected` on all 6 selectable-group members — `quiz`'s 3 `selectable`s and **all 3** `product` elements (2 in `quiz`, 1 in `comparison`); `disabled` twice, on `quiz`'s `text-input` **and** on one of its `selectable`s; `focused` and `invalid` on the `text-input` only. `states` is not per-`type` — two elements of the same type carry different sets. No `custom` state is in the corpus, but the builder makes them: `{"id": "st_<8 chars>", "type": "custom", "name", "condition"}`, styled under `propsByState.<id>` — see [trap 17b](#17b-a-custom-state-has-a-name-a-condition-and-a-short-list-of-element-types-that-show-it) |
 | `icon.type` | `phosphor` | all three, with `viewBox="0 0 256 256"` in `_meta.icons[].raw`. [Common issues](https://adapty.io/docs/flow-common-issues.md) calls the library Tabler Icons; the exports say otherwise and the exports are ground truth here |
 | `icon.weight` | `regular`, `fill` | `regular` in all; `fill` in `quiz` + `comparison` |
 | typography `weight` | `regular`, `medium`, `semibold`, `bold` | `medium` in `comparison` only |
@@ -2181,6 +2269,7 @@ style error: you will search for an element type that does not exist, or invent 
 | text that fits its box, a smaller font for a long translation, "it's cut off in German" | `props.autoShrink: true` on that `text`, inside a line limit or a fixed height — after shortening the string: [Text that must fit](#text-that-must-fit-autoshrink). Never a smaller `font.size`, which shrinks every locale. |
 | the user's name, their coin balance, streak, level, days left, current plan, "something the app knows" | A **custom tag**: a `variables[]` entry with `external: true` whose `name` the app's code passes, shown by a rich-text `variable` node. Text only, and it needs app code — [trap 25](#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic). |
 | show, hide or skip something based on what the app knows (VIP status, a permission already granted, country) | **Not buildable from a custom tag** — logic sees only its fallback. A separate flow per segment behind the placement's audiences, or a `custom` action the app handles. Say so rather than wiring a condition that never fires. |
+| ask for push notifications, a notifications screen with an "Enable" or "Continue" button | A `requestPermission` action on the button (`fk.request_permission()`), and the app answers it: [trap 28](#28-a-push-request-leads-on-through-onresultresponse--and-only-the-app-can-answer-it). Any other permission (location, camera, tracking) is a `custom` action. |
 | a thank-you or welcome screen once they subscribe, more onboarding after the paywall, an upsell after a purchase, "my paywall has to be the last screen" | `onResult.success` on the `purchase`: [patterns.md](patterns.md#what-the-user-sees-after-they-buy). Never a `navigate` beside the purchase (trap 16). |
 | a different screen when they cancel the payment, it fails or it waits for approval; a screen after a restore | `onResult.userCanceled`, `fail` or `pending` on the `purchase`, `success` or `fail` on the `restorePurchases`: [patterns.md](patterns.md#what-the-user-sees-after-they-buy). |
 | how a screen arrives — slides up, fades in, no animation | `payload.transition` on the `navigate`: [patterns.md](patterns.md#a-screen-transition). Not a `bottom-sheet` or a `sliding-sheet`, which are parts of one screen. |

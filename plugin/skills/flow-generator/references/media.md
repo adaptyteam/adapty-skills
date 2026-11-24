@@ -61,6 +61,40 @@ screen ships with a hole in it, exactly as if you had never had it — so treat 
 as a value to go and find ([When you have a URL and no preview](#when-you-have-a-url-and-no-preview)),
 never as a fact about the format.
 
+### When the upload warns that an image is heavy
+
+The `--json` answer also carries `size` (bytes of the file sent) and `warnings`: an item with
+`code` `heavy_image`, a `title` and a `message` when the sent file is over 1 048 576 bytes (1 MiB). Read it off the
+record: `jq -c '.warnings // empty' media/hero.json`. No `warnings` key (an older server): say
+nothing about the weight of the upload.
+
+On a `heavy_image` warning:
+
+1. Tell the user which image is heavy, its weight as the warning's `title` says it, and that it
+   slows the first load of its screen. Offer **one** reduction step, named by width and quality,
+   and ask. The width is the weigh's: 3× the box the image fills, 1290 px for full width
+   ([below](#weighing-a-config-before-a-write-or-a-publish)); it stays, only the quality drops.
+2. Only on their yes: reduce the file they gave you, upload it, and put it in place of the old one
+   (`swap` on a config that already binds it; else bind the new record):
+   ```bash
+   python3 references/weigh-config.py webp media/hero-src.png media/hero-2.webp --max-width 1290 --quality 72
+   $ADAPTY flows media upload --app "$APP" media/hero-2.webp --json > media/hero-2.json
+   python3 references/weigh-config.py swap draft.json "<old url>" media/hero-2.json
+   ```
+3. The new answer still warns: say the new weight (its new `title`) and offer the next step, a
+   lower quality (72, 62, 52) at the same width. Each step needs its own yes. On a no, the
+   current image stays. After a step, say what changed (the same width, a lower quality), not
+   that the image or the screen looks the same: a local render does not show the user's device.
+
+The weight of this offer is always the warning's `title` (the file sent). The weigh's Load time
+line before a save measures the stored file and can give another number: keep the two apart, and
+ask the reduction step here, right after the upload, not inside the save question.
+
+The weight never blocks a save or a publish. An example of the ask's shape, not words to copy:
+
+> The photo on Welcome is heavy (Large image — 3 MB), so that screen loads slower the first time.
+> I can keep it 1290 px wide at quality 72 and use it instead. Do it?
+
 ## Over MCP: the upload link or base64
 
 Two tools put an image in the media library. Each answers the same record as the CLI's `--json`
@@ -132,14 +166,10 @@ used.
 | animated WEBP | uploads, and is served as one still frame: motion is a [`video`](#uploading-a-video) |
 | **SVG** | **`ApiError: http_500`, reproducible**; through the MCP server it has come back as `INVALID_ARGUMENT` — see below |
 | Anything else that is not an image | refused with the list of the image types |
-| ~2.6 MB file | uploads |
-| ~2.95 MB file | bare `http_400`, no message, no `fieldErrors` |
+| up to 20 MiB | uploads; over 1 MiB the answer carries a [`heavy_image` warning](#when-the-upload-warns-that-an-image-is-heavy) |
+| over 20 MiB | refused: `File size must not exceed 20 MiB.` (`media_file_too_large`, HTTP 413) |
 
-**The size cap is on file bytes, not on dimensions.** A **3000×2000** PNG at
-22 KB uploads fine, while a **1150×900** PNG at 3.1 MB is refused. The boundary sits between
-2,599,724 bytes (accepted) and 2,950,946 bytes (refused), so treat **~2.5 MB as the working
-ceiling**. A bare `http_400` with an empty `fieldErrors` on this command means *too large* — the
-endpoint says nothing else, so do not go hunting for a config problem. The upload link of
+**The size cap is on file bytes, not on dimensions:** a **3000×2000** PNG at 22 KB uploads fine. The upload link of
 [Over MCP](#over-mcp-the-upload-link-or-base64) states its own limit in `max_bytes`.
 
 **SVG is rejected in practice even though both sides claim to support it.** `.svg` is in the CLI's
@@ -495,8 +525,8 @@ Two riders. **Crop before the first upload, not after** — the upload does not 
 `flows media` has no delete, so a re-crop leaves the uncropped copies in the user's library
 permanently (disclose them). And
 because the box is in **points** while the asset scales to it, upsample the crop 2–3× on the way
-out: it costs bytes well inside the ~2.5 MB cap and keeps the artwork crisp on a retina device,
-which no preview render can confirm.
+out: it costs bytes (keep the file at 1 MiB or less, where the upload does not warn) and keeps the
+artwork crisp on a retina device, which no preview render can confirm.
 
 **`hug` reflows and `fixed` does not.** With `hug`, the element's height is a function of the file
 you upload, so swapping a 3:2 asset for a 4:5 one silently rewrites the screen. With `fixed`, the
@@ -550,15 +580,17 @@ seconds or less, at least 640 px on its shorter side. The call returns after the
 transcoded the clip, so a long clip takes a while: wait for it, and never run it twice for one
 file — the upload does not deduplicate.
 
-**The record holds five values, and the config binds four.** `{video_url, preview_url,
+**The record holds five values, and the config binds all five.** `{video_url, preview_url,
 preview_base64, width, height}`: `video_url` is an HLS playlist (it ends in `master.m3u8`),
-`preview_url` a still frame the renderer shows until the clip plays, `width` and `height` the
-pixel size of the largest rendition, with the clip's aspect ratio. `preview_base64` is not part of
-a video value; leave it in the file. The video value is:
+`preview_url` a still frame (the poster) the renderer shows until the clip plays, `preview_base64`
+that poster's inline preview, painted while the poster downloads, as for an image (`previewValue`,
+as the builder's own upload stores it), `width` and `height` the pixel size of the largest rendition, with the clip's aspect
+ratio. The video value is:
 
 ```json
 "video": {"_localizable": true, "values": {"<defaultLocaleId>": {
-  "videoUrl": "<video_url>", "previewUrl": "<preview_url>", "width": 1080, "height": 1920}}}
+  "videoUrl": "<video_url>", "previewUrl": "<preview_url>", "previewValue": "<preview_base64>",
+  "width": 1080, "height": 1920}}}
 ```
 
 `flowkit.video(fixed_h=220, source='media/intro.json')` reads the record and emits it, and
@@ -606,8 +638,9 @@ so this shape is authored from the schema plus the render checks above — evide
 read off builder output. Treat the device check as load-bearing rather than ceremonial.
 
 **Once the user has uploaded the clip, read the config back and check every locale.** `video` is a
-catalog ref like an image's, and its value — `{previewUrl, videoUrl, width?, height?}` — is kept
-per locale. A builder upload can land only under a non-default locale; every other
+catalog ref like an image's, and its value — `{previewUrl, videoUrl, previewValue?, width?,
+height?}` — is kept per locale. `previewValue` is the poster image's inline preview; keep it when
+you pass a fetched value back. A builder upload can land only under a non-default locale; every other
 language then falls back to the empty default and shows no clip. So after their upload,
 `flows config get`, follow the element's `video` (and `videoDark`) ref into
 `localization.content`, and confirm the default locale holds a `videoUrl`. If only another locale

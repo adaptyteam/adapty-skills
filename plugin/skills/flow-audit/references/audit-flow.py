@@ -2342,8 +2342,9 @@ def check_navigation(config):
     return out
 
 
-# --- CUSTOM ACTIONS. A flow cannot ask for a permission, open the rating sheet or sign
-# anyone in: a button that does any of these fires a `custom` action whose ID the app's
+# --- CUSTOM ACTIONS. Apart from push notifications (`requestPermission`), a flow cannot ask
+# for a permission, open the rating sheet or sign anyone in: a button that does any of these
+# fires a `custom` action whose ID the app's
 # code matches, and an ID the app does not handle does nothing at all (Adapty's actions
 # doc: "A custom action does nothing on its own"). So every ID is put to the user once,
 # and the answers (`--custom-actions`) decide which store rules apply to which screen.
@@ -2473,9 +2474,9 @@ def check_custom_actions(config, answers=None):
     return out
 
 
-# --- PERMISSION SCREENS (store review, advisory). A flow cannot show a system permission
-# prompt itself; it shows the screen before it, whose button fires a custom action the
-# app turns into the prompt. Apple's HIG wants that screen to have ONE button, worded
+# --- PERMISSION SCREENS (store review, advisory). A flow never shows a system permission
+# prompt itself; it shows the screen before it, whose button fires a Request permission
+# action (push) or a custom action, and the app turns either into the prompt. Apple's HIG wants that screen to have ONE button, worded
 # like "Continue" or "Next", never "Allow", and no way round it: the person declines in
 # the system prompt. 2023-2026 rejections under 5.1.1(iv) removed a "Skip"/"Not now"
 # or an "Enable" button. Google's guidance asks the opposite (always offer a cancel), so
@@ -2499,10 +2500,38 @@ def screen_text(config, screen):
                     if e.get('type') == 'text')
 
 
-def primer_screens(config, kinds):
-    """screen id -> the permission/tracking custom action IDs fired on it."""
+# The key a Request permission action takes among the custom action IDs: a push prompt for
+# certain, so it is answered and never put to the user.
+NATIVE_PERMISSION = 'Request permission'
+
+
+def _requests_permission(node):
+    if isinstance(node, dict):
+        return node.get('type') == 'requestPermission' or any(
+            _requests_permission(v) for v in node.values())
+    if isinstance(node, list):
+        return any(_requests_permission(v) for v in node)
+    return False
+
+
+def native_permission_sites(config):
+    """[(screen id, element id, label)] for each element whose actions request a permission."""
+    dl = default_locale(config)
+    screens = {s['id']: s for s in config.get('screens') or []}
+    out = []
+    for s, eid, e in elements(config):
+        if any(_requests_permission(a) for _, a in actions_of(e)):
+            out.append((s['id'], eid,
+                        card_text(config, screens[s['id']], eid, dl)
+                        or flat_text((e.get('props') or {}).get('content'), dl)
+                        or 'an icon with no text'))
+    return out
+
+
+def primer_screens(config, kinds, sites=None):
+    """screen id -> the permission/tracking action IDs fired on it."""
     out = {}
-    for cid, sites in custom_sites(config).items():
+    for cid, sites in (sites if sites is not None else custom_sites(config)).items():
         if kinds.get(cid, ('unknown',))[0] in PERMISSION_KINDS:
             for sid, _, _ in sites:
                 out.setdefault(sid, [])
@@ -2527,9 +2556,13 @@ def check_permission_screens(config, answers=None, stores=None):
         return []
     kinds = custom_kinds(config, answers)
     sites = custom_sites(config)
+    native = native_permission_sites(config)
+    if native:
+        sites = {**sites, NATIVE_PERMISSION: native}
+        kinds = {**kinds, NATIVE_PERMISSION: ('permission', True)}
     screens = {s['id']: s for s in config.get('screens') or []}
     out = []
-    for sid, cids in primer_screens(config, kinds).items():
+    for sid, cids in primer_screens(config, kinds, sites).items():
         s = screens[sid]
         cid = cids[0]
         lead = _if_unanswered(kinds, cid, 'shows a system permission prompt')

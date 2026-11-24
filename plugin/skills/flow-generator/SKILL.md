@@ -39,7 +39,7 @@ When you do author, [`references/flowkit.py`](references/flowkit.py) owns the me
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
 It also covers conditions (`when`/`ref`/`all_`/`not_empty`, and `platform_is` for one flow
-across iOS and Android), all fourteen action types, the
+across iOS and Android), all sixteen action types, the
 eight inputs and the tabs composite — each raising on the shape the transform service refuses,
 `interactions=` included (the error says what to pass).
 
@@ -74,7 +74,7 @@ irreversible developer ID is spent. Fill their slots and do not pad them.
 The missing-assets block, when it goes out and its slots: [build.md → The missing-assets block](references/build.md#the-missing-assets-block).
 
 **Name what the builder cannot do yet, beside it**: for each behaviour or effect in the design the
-flow does not perform (creating an account, a permission prompt, a blur), say what the screen really
+flow does not perform (creating an account, a location or camera prompt, a blur), say what the screen really
 does ("sends `create_account` to your app; the flow creates no account") and the routes that fit — a
 custom action your app answers with its own screen, a second flow on its own placement if the
 onboarding continues after it, or an image or a video of an effect — and
@@ -83,6 +83,8 @@ When any route is a custom action, list the action IDs and offer to write their 
 app: "I can add the code that answers these in your app. Want me to?" — on a yes, hand the IDs to
 the `adapty-integration` skill, which owns app code; without it, find the platform's "Respond to
 actions" page through the `adapty-docs` skill and link it.
+A push notification request is in the builder (`requestPermission`, [trap 28](references/flow-schema.md#28-a-push-request-leads-on-through-onresultresponse--and-only-the-app-can-answer-it)),
+but the app still answers it: say so and make the same offer.
 
 **A view the app can draw is a custom element, not a gap.** A Lottie or Rive animation that
 follows the user, a map, a chart of the user's data, a camera preview, any view the app already
@@ -93,9 +95,11 @@ builder yet", and build it from its template in
 [custom-elements/](references/custom-elements/). An animation that plays the same for everyone
 stays an image or a video.
 
-Images up to ~2.5 MB and mp4 or webm clips you can upload; **SVG, fonts and larger images are
-builder-only** ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
-line, not a repeat of the table.
+Images up to 20 MiB and mp4 or webm clips you can upload; **SVG and fonts are builder-only**
+([fidelity.md](references/fidelity.md)). Phase 5's callout carries the outstanding count as one
+line, not a repeat of the table. An upload answer with a `heavy_image` warning gets one named
+reduction step per yes and never blocks a save or a publish
+([media.md](references/media.md#when-the-upload-warns-that-an-image-is-heavy)).
 
 **Send Adapty one feedback note at the end of every run that called the CLI** — whether it wrote,
 handed over a file, or stopped on something you could not get past. It tells Adapty how the job
@@ -239,9 +243,20 @@ options.
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
   https://adapty.io/docs/developer-cli-cowork
+
+  **EU account:** first check that the CLI knows the region: `ADAPTY_REGION=xx $ADAPTY auth status`
+  exits 2. On any other exit, set `ADAPTY="npx --yes adapty@latest"` and keep it for the login and
+  every next call, also in a new shell, whatever the version block printed. Then log in with
+  `$ADAPTY auth login --region eu` (or `ADAPTY_REGION=eu`); where this skill has the user log in,
+  run no login yourself and tell them to run `adapty auth login --region eu`. The user opens the
+  link in a browser signed in through https://app.adapty.io/eu-login. After a damaged login file,
+  log in again with the same region; if you do not know it, ask the user.
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
+  An account on Adapty's EU servers uses the EU instance, `https://mcp-eu.adapty.io/mcp`, instead.
+  The plugin adds only the default server, so add the EU one in your agent by hand:
+  [Adapty on EU servers](https://adapty.io/docs/eu-cluster).
   - Claude Code: `/mcp`, pick `plugin:adapty-skills:adapty`, **Authenticate**. Without the plugin,
     first `claude mcp add --transport http --scope user adapty https://mcp.adapty.io/mcp`.
   - Codex CLI: the plugin's connect prompt signs in. Without the plugin:
@@ -336,7 +351,7 @@ $ADAPTY flows config preview  <CONFIG_FILE> [--screen <id>] [--device <id>] [--o
 $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
     (--config-file <file|-> | --config <json-string>) --remote-configs <json> \
     [--expected-updated-at <int>]   # --remote-configs is required: a write replaces the stored list
-$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, < ~2.5 MB; no SVG, GIF or HEIC
+$ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, ≤ 20 MiB; no SVG, GIF or HEIC
 $ADAPTY flows media upload-video <VIDEO_FILE> --app <APP_UUID> --json  # mp4/webm, ≤ 30 s, ≥ 640 px each side
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; a `Method "PUT" not allowed`: rename in the builder
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; an `http_404`: see below
@@ -717,8 +732,8 @@ the variables ([preview.md](references/preview.md#what-a-render-cannot-show-you)
 before you report what a screenshot proves** — every blindness listed there is real, and two of them run
 the *wrong* way: the render draws things a device will not. Two you act on here: it draws no notch,
 no home indicator and no iPhone Duo side bar, so author `safeArea: true`, never pad for the bar by
-hand, and hand short-device clipping over as a device check; and even then it measures an `absolute` element's `top` from the screen's top edge, not
-from below the status bar ([patterns.md](references/patterns.md#under-safearea-true-check-where-an-absolute-element-lands)).
+hand, and hand short-device clipping over as a device check. An `absolute` element's `top` counts from the
+screen's top edge, not from below the status bar, on the device as in the render ([patterns.md](references/patterns.md#under-safearea-true-check-where-an-absolute-element-lands)).
 
 **Never stand a lookalike in for a real element** — not for one the preview cannot draw, not for one that looks hard to build: [preview.md → Never fake an element](references/preview.md#never-fake-an-element-to-make-the-screenshot-look-complete).
 
@@ -1066,7 +1081,7 @@ The full statements — what each invariant is, what breaks it, what a violation
 
 | Check | Why no tool catches it |
 | :--- | :--- |
-| `fill` keeps the form the input used — object or array, **never converted**, and **one layer** | the form is only wrong relative to the input you fetched |
+| `fill` keeps the form the input used — object or array, **never converted** | the form is only wrong relative to the input you fetched |
 | an image URL is one **`flows media upload` or an upload over MCP answered in this session** | a plausible `public-media.adapty.io` path is indistinguishable from a real one |
 | `_meta.icons[].raw` is **real** SVG — resolved through `icons.py`, not written by you | presence is checkable, authenticity is not |
 | **every price variable's field agrees with its product's period** | needs the catalog, not the config |
