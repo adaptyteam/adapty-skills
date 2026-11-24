@@ -39,7 +39,7 @@ When you do author, [`references/flowkit.py`](references/flowkit.py) owns the me
 the `hierarchy`/`map` split above all — and [patterns.md](references/patterns.md) owns the shapes.
 
 It also covers conditions (`when`/`ref`/`all_`/`not_empty`, and `platform_is` for one flow
-across iOS and Android), all fourteen action types, the
+across iOS and Android), all sixteen action types, the
 eight inputs and the tabs composite — each raising on the shape the transform service refuses,
 `interactions=` included (the error says what to pass).
 
@@ -74,7 +74,7 @@ irreversible developer ID is spent. Fill their slots and do not pad them.
 The missing-assets block, when it goes out and its slots: [build.md → The missing-assets block](references/build.md#the-missing-assets-block).
 
 **Name what the builder cannot do yet, beside it**: for each behaviour or effect in the design the
-flow does not perform (creating an account, a permission prompt, a blur), say what the screen really
+flow does not perform (creating an account, a location or camera prompt, a blur), say what the screen really
 does ("sends `create_account` to your app; the flow creates no account") and the routes that fit — a
 custom action your app answers with its own screen, a second flow on its own placement if the
 onboarding continues after it, or an image or a video of an effect — and
@@ -83,6 +83,8 @@ When any route is a custom action, list the action IDs and offer to write their 
 app: "I can add the code that answers these in your app. Want me to?" — on a yes, hand the IDs to
 the `adapty-integration` skill, which owns app code; without it, find the platform's "Respond to
 actions" page through the `adapty-docs` skill and link it.
+A push notification request is in the builder (`requestPermission`, [trap 28](references/flow-schema.md#28-a-push-request-leads-on-through-onresultresponse--and-only-the-app-can-answer-it)),
+but the app still answers it: say so and make the same offer.
 
 **A view the app can draw is a custom element, not a gap.** A Lottie or Rive animation that
 follows the user, a map, a chart of the user's data, a camera preview, any view the app already

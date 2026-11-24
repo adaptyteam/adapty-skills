@@ -704,9 +704,10 @@ Recorded so nobody re-litigates these from the guideline text alone.
 
 ## Onboarding
 
-Eight checks for the screens around the paywall. A flow cannot ask for a permission,
-show the rating sheet or sign anyone in on its own: the button fires a `custom` action
-whose ID the app's code handles. So these checks read what the user said each ID does
+Eight checks for the screens around the paywall. A button with a Request permission
+action (`requestPermission`, push notifications) is a permission prompt for certain. Any
+other permission, the rating sheet or a sign-in is a `custom` action whose ID the app's
+code handles. So these checks read what the user said each ID does
 (`--custom-actions`, asked through `custom-action-unconfirmed`, see `checks.md`), and
 until then guess the kind from **the ID only**, read as words (`rate_us`, `rateApp`,
 `request_att`; an ambiguous word such as "location" or "tracking" counts only beside one
@@ -731,7 +732,7 @@ activity onboarding whose notifications screen has one "Continue" button).
 
 | Check | Fires when | Store | Severity | Evidence | Calibration |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `primer-skip` | a screen carrying a permission or tracking action has another button that navigates on or closes the flow (a Back arrow does not count); the finding quotes that button's words | iOS | risk | 5.1.1(iv); HIG Privacy wants one button and no cancel, the decline happens in the prompt; about six rejection reports 2023–2026 whose fix removed a Skip or "Not now" | **fires** four times in the corpus, all true positives: "No, I'll do this on my own", "Not now" and twice "maybe later" beside the prompt button; on an injected "Not now". **silent** on the real one-button primer, on the same screen answered `other`, with `--stores android` |
+| `primer-skip` | a screen carrying a Request permission action, or a permission or tracking custom action, has another button that navigates on or closes the flow (a Back arrow does not count); the finding quotes that button's words | iOS | risk | 5.1.1(iv); HIG Privacy wants one button and no cancel, the decline happens in the prompt; about six rejection reports 2023–2026 whose fix removed a Skip or "Not now" | **fires** four times in the corpus, all true positives: "No, I'll do this on my own", "Not now" and twice "maybe later" beside the prompt button; on an injected "Not now". **silent** on the real one-button primer, on the same screen answered `other`, with `--stores android` |
 | `primer-grant-wording` | the button carrying that action says allow, enable, turn on or grant | iOS | risk | HIG Privacy: "Continue" or "Next", never "Allow"; a 2023 rejection over an "Enable" button | **fires** three times in the corpus, on "Turn on reminders" buttons (true positives by the HIG); on an injected "Allow notifications" |
 | `permission-incentive` | that screen's text makes an offer: "1 week free", "a free month", "free trial", "20% off", a bonus, a gift or a reward | iOS | risk | 5.1.2(i), no compensation for enabling system features; Apple's user-privacy FAQ says no to incentivizing tracking | fires on three injected offers; **silent** on "Feel free to change this later", "ad-free", "deals and discounts", "Unlock daily reminders" (each fired on bare `free`/`discount`/`unlock` first) and on the corpus |
 | `att-fake-alert` | any screen's text copies the system prompt ("Ask App Not to Track", "Allow Tracking") or points at it ("tap Allow") | iOS | risk | HIG Privacy: such a screen before the tracking prompt "will lead to rejection" | fires on both injected forms; silent on a plain tracking explainer and the corpus |

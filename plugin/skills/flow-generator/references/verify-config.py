@@ -1387,11 +1387,13 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                        f'reverses the arrival, and next needs an explicit `navigate`')
     walk(d, check_transition)
 
-    # What runs after a purchase or restore lives in `payload.onResult`, one action list per
-    # store result (trap 16). The four ways it goes wrong mirror the transformer's own issues;
-    # only a malformed `onResult` fails publish, the rest compile and do the wrong thing.
+    # What runs after a purchase, a restore or a permission request lives in `payload.onResult`,
+    # one action list per result (traps 16 and 28). The ways it goes wrong mirror the
+    # transformer's own issues; only a malformed `onResult` or permission fails publish, the rest
+    # compile and do the wrong thing.
     results_of = {'purchase': ('success', 'fail', 'userCanceled', 'pending'),
-                  'restorePurchases': ('success', 'fail')}
+                  'restorePurchases': ('success', 'fail'),
+                  'requestPermission': ('response',)}
     leaving = ('navigate', 'navigateNext', 'navigateBack', 'closeFlow')
 
     def branches(a):
@@ -1425,12 +1427,30 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             name = f'{t} {a.get("id")!r}'
             if started and leaves(a):
                 warn.append(f'{where}: {name} follows {started} in the same list, so it runs on '
-                            f'the tap, before the store answers (navigation_before_store_result). '
-                            f'Move it into the outcome it belongs to, usually `success` (trap 16)')
+                            f'the tap, before the answer (navigation_before_store_result). '
+                            + ('Move it into `response` (trap 28)'
+                               if started.startswith('requestPermission') else
+                               'Move it into the outcome it belongs to, usually `success` '
+                               '(trap 16)'))
             if in_outcome and t in results_of and starts_store(a):
-                warn.append(f'{where}: {name} sits inside an outcome and chains a second store '
-                            f'operation onto the first answer (nested_store_operation); the '
+                warn.append(f'{where}: {name} sits inside an outcome and chains a second system '
+                            f'sheet onto the first answer (nested_store_operation); the '
                             f'builder does not allow it. Navigate to a screen with its own button')
+            if t == 'requestPermission':
+                perm = p.get('permission') if isinstance(p, dict) else None
+                if perm != 'push':
+                    bad.append(f'{where}: {name} asks for {perm!r}; the action asks only for '
+                               f'"push" and publish refuses anything else '
+                               f'(invalid_action_payload). Any other permission is a custom '
+                               f'action the app answers (trap 28)')
+                    continue
+                resp = (p.get('onResult') or {}).get('response') \
+                    if isinstance(p.get('onResult'), dict) else None
+                if not resp:
+                    warn.append(f'{where}: {name} has no actions after the response, so the '
+                                f'user stays on the screen after answering and the flow asks '
+                                f'again on every tap and every appearance. Add one, usually '
+                                f'navigateNext (trap 28)')
             if starts_store(a) and not started:
                 started = name
             if t in results_of and isinstance(p, dict) and 'onResult' in p:
