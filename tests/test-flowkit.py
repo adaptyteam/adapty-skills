@@ -557,18 +557,22 @@ def main():
 
     # source= takes the record `flows media upload-video --json` wrote: its path, its dict
     # (snake case), or a video value read out of a config (camel case). It binds the flow
-    # config value `{videoUrl, previewUrl, width, height}` for the default locale only.
+    # config value `{videoUrl, previewUrl, previewValue, width, height}` for the default locale
+    # only; `previewValue` is the upload's `preview_base64`, as the builder's own upload stores it.
     REC = {'video_url': 'https://media.example/video/1/hls/master.m3u8',
            'preview_url': 'https://media.example/video/1/preview.jpg',
            'preview_base64': 'UklGRg==', 'width': 1080, 'height': 1920}
     WANT = {'videoUrl': REC['video_url'], 'previewUrl': REC['preview_url'],
-            'width': 1080, 'height': 1920}
+            'previewValue': REC['preview_base64'], 'width': 1080, 'height': 1920}
     bound = fk.video(fixed_h=220, source=REC)
     check('video(source=record) binds the config value for the default locale',
           bound['props'].get('video') == {'values': {'en': WANT}, '_localizable': True},
           bound['props'].get('video'))
-    check('video(source=...) keeps the upload preview_base64 out of the value',
+    check('video(source=...) binds preview_base64 as previewValue, not under its record name',
           'preview_base64' not in json.dumps(bound['props']['video']))
+    check('video(source=...) binds no previewValue when the upload returned none',
+          'previewValue' not in fk.video(fixed_h=220, source=dict(REC, preview_base64=None)
+                                         )['props']['video']['values']['en'])
     check('video(source=...) keeps the fixed height', bound['props']['height']
           == {'type': 'fixed', 'value': 220})
     def names_upload_video(fn):
@@ -588,7 +592,7 @@ def main():
         check('video(source=<unreadable path>) raises and names the command',
               names_upload_video(
                   lambda: fk.video(fixed_h=220, source=os.path.join(_tmp, 'nope.json'))))
-    check('video(source=config value) takes the camel-case value as read',
+    check('video(source=config value) takes the camel-case value as read, previewValue too',
           fk.video(fixed_h=220, source=dict(WANT))['props']['video']['values']['en'] == WANT)
     check('video(source=...) without width and height binds the two URLs only',
           fk.video(fixed_h=220, source={'video_url': REC['video_url'],

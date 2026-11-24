@@ -1529,9 +1529,13 @@ _VIDEO_SOURCE_ARGS = ('url', 'video', 'src', 'media_id', 'customMediaID',
 
 
 def _video_value(source, what='source'):
-    """`{videoUrl, previewUrl, width?, height?}` -- the flow config video value -- from the
-    record of one `flows media upload-video --json` call: its path, its parsed dict (snake
-    case), or a video value read out of a config (camel case).
+    """`{videoUrl, previewUrl, previewValue?, width?, height?}` -- the flow config video value --
+    from the record of one `flows media upload-video --json` call: its path, its parsed dict
+    (snake case), or a video value read out of a config (camel case).
+
+    `previewValue` is the base64 thumbnail the device paints while the clip loads, as for an
+    image. The builder stores its upload's base64 preview there; from an upload record it is
+    `preview_base64`. A value without one still publishes, and shows nothing until the clip loads.
 
     The camel-case form is there to pass back a value read from a fetched config, unchanged.
     Nothing here can tell it from a hand-written one, so never type a `{videoUrl, previewUrl}`
@@ -1557,6 +1561,9 @@ def _video_value(source, what='source'):
                 'video value with no preview is refused by the builder. With no record, emit '
                 'the element with no source and tell the user to upload the clip in the builder')
     out = {'videoUrl': url, 'previewUrl': prev}
+    inline = rec.get('previewValue', rec.get('preview_base64'))
+    if isinstance(inline, str) and inline.strip():
+        out['previewValue'] = inline
     w, h = rec.get('width'), rec.get('height')
     if (w is None) != (h is None):
         raise ValueError(f'video({what}=...) has only one of width and height: they give the '
@@ -1577,9 +1584,9 @@ def video(*, fixed_h, source=None, dark_source=None, locale='en', width=None, fi
 
     `source` is the clip: the record that `flows media upload-video --json` wrote -- its path
     or its parsed dict -- and `dark_source` the dark file's record (`props.videoDark`). The
-    element then carries `{videoUrl, previewUrl, width, height}` for `locale`, the default
-    locale, as an inline localizable (run `localization.py catalog` over the document). The
-    upload's `preview_base64` is not part of a video value and stays in the file.
+    element then carries `{videoUrl, previewUrl, previewValue, width, height}` for `locale`, the
+    default locale, as an inline localizable (run `localization.py catalog` over the document).
+    `previewValue` is the upload's `preview_base64`, the thumbnail shown while the clip loads.
 
     With no `source` the element has NO clip: a styled "Upload Video" placeholder for a clip
     nobody has a file for, or a CLI with no `upload-video`. Say to the user in words that they
