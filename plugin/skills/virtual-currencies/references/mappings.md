@@ -61,7 +61,9 @@ items in one upsert, one item for each product.
 
 ## Building the card
 
-From the read just before the write, for each item of the change:
+From the read just before the write. The card names currencies and products, never ids.
+
+**A mapping change:** one line for each item that differs from the read.
 
 | The read has | The item | Card line |
 |---|---|---|
@@ -70,9 +72,18 @@ From the read just before the write, for each item of the change:
 | `expiring` or the trial coins | another value | `<product>: <field> <old> → <new>` (trial coins: `none` for `null`) |
 | every field the same | the same | leave it out of the card: the server reports it as `unchanged` |
 
-A removal names the product with its coins now → none (`<product>: 30 <currency> for each paid
-period → none`) and says its purchases stop giving coins, with no ledger row to show it. A create lists the code, the name and each product with its coins, and says the currency can
-never be deleted and its code never changes.
+Then: **purchases from now on credit the new numbers;** past purchases keep what they got.
+
+**A removal:** one product for each removal, as `<product>: <coins> <currency> for each paid
+period → none` (or `each purchase`), and **its purchases stop giving coins, with no ledger row to
+show it.**
+
+**A create:** the code, the name and each mapped product with its coins; **a currency can never be
+deleted and its code never changes;** the app then has one place fewer of its 20. Add one line: a balance belongs to one user profile, so an app whose players do not sign in
+loses their coins on a reinstall or a new device; the app should identify users
+(https://adapty.io/docs/virtual-currency-balance#balances-profiles-and-devices).
+
+**A name or a description:** old → new of what changes; the rest stays.
 
 ## Refusals the server sends
 

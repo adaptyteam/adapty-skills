@@ -571,6 +571,14 @@ Use `AskUserQuestion` before deciding to skip. When nobody can answer, take **No
 
 If the user says no, skip the rest of this stage.
 
+**When the app sells coins** (a product gives gems, credits or another virtual currency, or the code
+or the user mentions one), add to the question that without identification a reinstall or a new
+device starts the player at 0 coins, and word the skip option as **No, skip — players lose their
+coins on a reinstall or a new device**. With nobody to answer, still skip, and say in the closing
+message that coins are lost on a reinstall until identification is done. **Balances never merge
+between profiles:** coins earned anonymously stay behind when the player logs in to an account that
+already has a profile ([Balances, profiles, and devices](https://adapty.io/docs/virtual-currency-balance#balances-profiles-and-devices)).
+
 Read before writing code:
 ```bash
 curl -s https://adapty.io/docs/capacitor-quickstart-identify.md
@@ -591,7 +599,7 @@ await adapty.logout();
 userStorage.clearUserId();
 ```
 
-- For apps where users can purchase before logging in: no extra setup needed. Adapty handles profile merging automatically when `identify()` is called after an anonymous purchase.
+- For apps where users can purchase before logging in: no extra setup needed. Adapty handles profile merging automatically when `identify()` is called after an anonymous purchase, except coin balances, which stay on the profile that earned them.
 
 **Order matters:** `activate()` → `identify()` → `getFlow()`. If `identify()` is called after `getFlow()`, the purchase may be attributed to the anonymous profile.
 

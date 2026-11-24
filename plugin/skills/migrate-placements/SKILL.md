@@ -133,7 +133,7 @@ options.
 Example of the question's shape, not words to copy:
 
 > I can reach your Adapty account in two ways. Which one should I set up?
-> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 1. The Adapty CLI: I install it, and you sign in once in the browser.
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill needs the CLI:** `migrate.py` reads the inventory, holds the guards and builds

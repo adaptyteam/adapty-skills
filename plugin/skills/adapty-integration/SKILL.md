@@ -273,7 +273,7 @@ options.
 Example of the question's shape, not words to copy:
 
 > I can reach your Adapty account in two ways. Which one should I set up?
-> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 1. The Adapty CLI: I install it, and you sign in once in the browser.
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill prefers MCP** when both are ready.
@@ -532,6 +532,11 @@ $ADAPTY products create \
 ```
 
 Repeat for each product to create.
+
+When a product gives the user coins (gems, credits: a coin pack, or a subscription that credits
+coins each period), Adapty credits them only once the product is mapped to a virtual currency.
+After the products exist, offer it as an outcome ("I can set up how many gems each pack gives")
+and invoke `virtual-currencies` on a yes.
 
 **Offers on these products.** An offer set up in the store applies only once it is also added to the product in Adapty, and a missing one fails silently: the buyer pays full price and nothing reports it. What gets added ([Add offers to Adapty](https://adapty.io/docs/create-offer.md)):
 

@@ -1,6 +1,6 @@
 ---
 name: virtual-currencies
-description: Use when a user wants to read or change the virtual currencies of an Adapty app — list the currencies and how many coins each product gives, create a currency, change its name or description, set or change the coins a product gives, stop a product giving coins, read the coin transactions of the app or of one user, read a user's balances, or find out why a user has a number of coins. Triggers on "which currencies does my app have", "how many coins does this product give", "give the annual plan 50 gems", "create a gems currency", "this product should stop giving coins", "why does this user have 40 coins", "coin transactions", "a user's coin balance".
+description: Use when a user wants to read or change an Adapty app's virtual currency (coins, gems, credits, tokens) — which virtual currencies the app has and how many coins each product gives, a new virtual currency, its name or description, the coins a product gives, a product that should stop giving coins — or to read the coin ledger (one user's coin balance and coin transactions, the app's coin transactions, why a user has a number of coins or got none after a purchase). Triggers on "how many gems does the annual plan give", "give the annual plan 50 gems", "create a gems currency", "this coin pack should stop giving coins", "why does this user have 40 coins", "I bought the coin pack but my balance did not change", "show this user's coin transactions", "set up the coins we had in RevenueCat". Not for coin totals or which coin pack sells better (`growth-advisor` reads those from analytics), and not for the currency of a price.
 ---
 
 # Virtual currencies: coins for purchases
@@ -16,12 +16,21 @@ dashboard: https://adapty.io/docs/virtual-currencies
 
 It does not own:
 
-- **A grant, a spend or a correction of a user's balance:** the app's server does it through the
-  Server API (https://adapty.io/docs/api-adapty/operations/createVirtualCurrencyTransaction), or a
-  person in the dashboard (https://adapty.io/docs/virtual-currency-balance). This skill reads
-  balances; it never changes one.
-- **Products:** a mapping takes an existing Adapty product. A new product comes first
-  (`adapty-integration` creates them).
+- **Any change to a user's balance** (a spend, a grant, a starting balance, a correction): the
+  app's server does it through the Server API, or a person in the dashboard. This skill reads
+  balances; it never changes one. Send the user to the page for what they asked:
+  - the app spends coins: https://adapty.io/docs/virtual-currency-quickstart
+  - free coins for every new user, or a backfill: https://adapty.io/docs/grant-initial-balance
+  - one user's balance corrected by hand: https://adapty.io/docs/virtual-currency-balance
+- **Products:** a mapping takes an existing Adapty product. A new product comes first →
+  `adapty-integration`.
+- **Coin totals and trends, and how coin products sell** (coins bought, spent or expired by day,
+  which pack sells better, packs against a coin subscription, which amounts to test) →
+  `growth-advisor`, which reads them from analytics.
+- **A paywall or flow for users by their balance** (fewer than 30 gems sees the top-up flow) →
+  `audiences`, which builds the segment.
+- **The app's screens that show or spend coins** (a balance on a paywall, a top-up flow) →
+  `flow-generator`; the app code and the server's spend call come from the docs.
 - **Deleting a currency or changing its code:** there is no way. An app has at most 20 currencies.
 - **Balances carried over from another purchase system:** the migration of `adapty-integration`.
 
@@ -108,7 +117,7 @@ options.
 Example of the question's shape, not words to copy:
 
 > I can reach your Adapty account in two ways. Which one should I set up?
-> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 1. The Adapty CLI: I install it, and you sign in once in the browser.
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill prefers MCP** when both are ready: each write takes the mappings as a list and the
@@ -154,7 +163,7 @@ for a confirmation nobody gives. In `zsh`, run `setopt shwordsplit` before using
 `$ADAPTY`. Write a literal `adapty` in a command you show the user.
 
 Every command takes `--app <id>`, the Adapty app UUID from `$ADAPTY apps list`. Read with
-`--json`; take the other flags from the command's `--help`, and over MCP from the tool's schema.
+`--json`; take the other flags from the command's `--help`.
 
 | CLI `virtual-currencies …` | MCP tool `virtual_currencies_…` | Does | Yes |
 |---|---|---|---|
@@ -169,14 +178,12 @@ Every command takes `--app <id>`, the Adapty app UUID from `$ADAPTY apps list`. 
 | `profiles balances get` | `profiles_balances_get` | one user's balance of each currency | no |
 
 The currency and mapping shapes, the mapping file, the cards and the server's refusals:
-[references/mappings.md](references/mappings.md). The ledger, the balances, "why does this user
-have N coins" and the totals: [references/ledger.md](references/ledger.md).
-
-Without `--yes`, `create`, `mappings upsert` and `mappings delete` ask at a terminal and, in a pipe
-or with `--json`, exit 6 and send nothing; a "no" at the terminal is exit 1. `update` asks nothing.
-With `--yes`, `mappings upsert` and `mappings delete` also need `--expected-updated-at <updated_at
-of your read>`, else exit 6. Exit 2 is a refusal before anything was sent, 3 a missing or refused
-sign-in or right, 4 the server's refusal with its own text, 5 no answer from the server.
+[references/mappings.md](references/mappings.md). The ledger, the balances and "why does this
+user have N coins": [references/ledger.md](references/ledger.md). Without `--yes`, `create`,
+`mappings upsert` and `mappings delete` ask at a terminal and, in a pipe or with `--json`, exit 6
+and send nothing; a "no" at the terminal is exit 1. `update` asks nothing. Exit 2 is a refusal
+before anything was sent, 3 a missing or refused sign-in or right, 4 the server's refusal with its
+own text, 5 no answer from the server.
 
 ## The yes rules
 
@@ -184,22 +191,13 @@ Over the CLI and over MCP alike. Only an answer to the card counts, not an earli
 about the plan. "No", silence or a change of plan: send nothing.
 
 - **Reads need no yes:** `list`, `get`, the transactions and the balances.
-- **Read the currency (`get`) right before each write** and build the card from that read (before
-  a create, `list`: the codes in use and the places left). Its
-  `updated_at` is the token of the write: over MCP pass it as `expected_updated_at`; with the CLI
-  pass `--yes --expected-updated-at <updated_at>` to `mappings upsert` and `mappings delete`.
-  The MCP `update` takes `expected_updated_at` too. The CLI `update` takes no token: it reads the
-  currency itself, so call `get` again just before it and ask again when anything changed since
-  the card.
-- **Mapping change.** Card: one line for each product, as old → new in coins for each purchase
-  (one-time) or each paid period (subscription); a new product as "new"; each other changed field
-  (`expiring`, the trial coins) as old → new. **Purchases from now on credit the new numbers;**
-  past purchases keep what they got.
-- **Mapping removal.** Card: the product with its coins now → none, and **its purchases stop
-  giving coins, with no ledger row to show it.** One product for each removal.
-- **Create.** Card: the code, the name and each mapped product with its coins; **a currency can
-  never be deleted and its code never changes;** the app then has one place fewer of its 20.
-- **Name or description.** Card: old → new of what changes; the rest stays.
+- **Read the currency (`get`) right before each write** (before a create, `list`: the codes in use
+  and the places left) and build the card from that read: [references/mappings.md](references/mappings.md),
+  "Building the card", has the line for each kind of write.
+- **The `updated_at` of that read is the token of the write:** over MCP `expected_updated_at`
+  (`update` takes it too); with the CLI `--yes --expected-updated-at <updated_at>` on `mappings
+  upsert` and `mappings delete`, which exit 6 without it. The CLI `update` takes no token: call
+  `get` again just before it and ask again when anything changed since the card.
 - **The server says `virtual_currency_conflict` (409):** someone changed the currency after your
   read, and nothing was written. Read it again, show a new card from the new read, and write only
   after a new yes. Never resend with a newer token on the old yes.
@@ -230,15 +228,15 @@ and **without** `--yes`.
 3. **Show the mappings** with `get`: each product, its coins for each purchase or each period, and
    for a subscription whether the coins expire and the trial coins.
 4. **Change mappings** with `mappings upsert`: each item is the whole mapping, every field from the
-   read or the user's words. Products that the upsert does not name keep their mapping; it never
-   removes one. To stop a product giving coins, `mappings delete`.
+   read or the user's words (`references/mappings.md`, "The mapping file and the MCP list"). To
+   stop a product giving coins, `mappings delete`.
 5. **Change the name or the description** with `update`. A description the user does not change
    stays; to clear it: CLI `--clear-description`, MCP `description` set to `""`.
-6. **Why a user has N coins, or where their coins went:** the balances, then their transactions
-   (`references/ledger.md`, "Why a user has N coins").
-7. **Totals and trends** (coins credited or spent by day, by currency) come from the virtual
-   currency charts, never from a sum of transaction rows (`references/ledger.md`, "Totals and
-   trends").
+6. **Why a user has N coins, where their coins went, or why a purchase gave none:** the balances,
+   then their transactions (`references/ledger.md`, "Why a user has N coins").
+7. **Totals, trends and how coin products sell** are read from analytics: offer the answer as an
+   outcome ("I can show how many gems were bought and spent each week") and invoke
+   `growth-advisor` on a yes, with the currency's code and each product's coins from your read.
 
 ## A lost answer
 
@@ -254,32 +252,49 @@ missing, with a new card from the new read.
 - **Never pass `--yes` on a command the user will run themselves.**
 - **Never build a mapping from memory:** every field comes from a read or the user's words. Never
   change a product's type in a mapping (the server refuses it).
-- **Never add up transaction rows as a total:** say the total comes from the chart.
+- **Never add up transaction rows as a total or a trend:** that is `growth-advisor`'s chart read.
+- **Never retry a refused write with changed values** to get it through: say the server's reason
+  in plain words (`references/mappings.md`, "Refusals the server sends") and ask.
 - **Never guess an id or a field:** take each from a read or `--help`.
 
 ## Feedback note
 
-**Send Adapty one feedback note per write that the user asked for, right after it,** and one when
-the user asked for a write and the run stops before it. A run that only reads sends none. Write it
-in English, in this shape: the shape to follow, not words to copy:
+**Send Adapty one feedback note per write, right after it,** and one when the user asked for a
+write and the run stops before it. A run that only reads sends none. Write it in English, in this
+shape: the shape to follow, not words to copy:
 
-> Change: mappings of 2 products. Did: changed them after the yes.
+> Change: the coins of two products, one of them new. Source: growth-advisor. Did: changed the
+> mappings.
 
-- **No value and no name from the account:** no currency name or code, product, coin number or user
-  id, none of the user's words. Sentiment is your own outcome: `positive`, done as this skill
-  describes; `neutral`, done after a wrong turn; `negative`, this skill or the CLI stopped you, with
-  "Got in the way:" and the command and its error.
-- **Write the note into the command in single quotes,** never from a file or a script; drop
-  backticks and write "does not" for "doesn't":
+> Change: a new currency with one product. Source: not given. Did: stopped before the create. Got
+> in the way: virtual-currencies create failed with http_500 (request id req_7f3a9c), and this
+> skill does not say whether a retry is safe.
+
+- **Change is the kind of write in a few generic words:** a new currency, the coins of how many
+  products (new or changed), a removal, a new name. **Source** is `growth-advisor`, `migration`
+  (from another purchase system), `own data`, `other` with a few generic words, or `not given`;
+  never ask for it. **Did** names the write, or that the run stopped before it.
+- **No value and no name from the account or the user's business:** no currency name or code,
+  product, coin number, price or user id, none of the user's words. The ids in `--context` are all
+  Adapty needs.
+- **Sentiment is your own outcome, never the user's mood:** `positive`, done the way this skill
+  describes, or declined because this skill says it cannot be done; `neutral`, done after a wrong
+  turn or a workaround; `negative`, this skill or the CLI stopped you. Neutral and negative notes
+  add "Got in the way:" with the command and its error, never a value.
+- **Write the note into the command in single quotes,** never from a file or a script. Inside
+  single quotes the shell runs nothing, so drop backticks and write "does not" for "doesn't":
 
   ```bash
   $ADAPTY feedback --feature virtual-currencies --sentiment <positive|neutral|negative> \
-    --message '<the note>' --context 'app <app id>, currency <currency id>: <create|update|upsert|delete>'
+    --message '<the note>' \
+    --context 'app <app id>, currency <currency id>: <create|update|upsert|delete>'
   ```
 
-- **Tell the user in one line only when the command printed `Feedback sent.`:** "I also sent Adapty
-  a short note on how this went." Never retry. If the user says not to send feedback, send none
-  for the rest of the session.
+- **Tell the user in one line, in the same reply, only when the command printed `Feedback sent.`**:
+  in their language, "I also sent Adapty a short note on how this went." Any other result gets no
+  line at all. Never retry, never hold up the reply.
+- **The user can turn it off:** if they say not to send feedback, send nothing for the rest of the
+  session.
 
 ## Anything not covered here
 

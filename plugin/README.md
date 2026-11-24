@@ -28,7 +28,7 @@ Every skill below is part of the `adapty-skills` plugin. Install the plugin once
 | Skill | What it does | Needs |
 |---|---|---|
 | [`adapty-integration`](#integrating-the-sdk) | Sets up in-app purchases end to end — dashboard, SDK, paywall, store config — or moves you over from another purchase system | Adapty CLI |
-| [`growth-advisor`](#growing-revenue) | Reads your subscription numbers, finds where the app leaves money, and suggests hypotheses per placement — a different audience, product set or flow design, plans, trials, offers, localization — then sets up the one you pick through the CLI and gives you the steps for the rest | Adapty CLI |
+| [`growth-advisor`](#growing-revenue) | Reads your subscription and coin numbers, finds where the app leaves money, and suggests hypotheses per placement — a different audience, product set or flow design, plans, trials, offers, localization — then sets up the one you pick through the CLI and gives you the steps for the rest | Adapty CLI |
 | [`adapty-attribution`](#reading-ad-attribution) | Reads your Adapty Attribution data: which channels, campaigns, ads and countries pay back, trial quality, weekly changes, predicted payback, and why an ad network's numbers differ from Adapty's | Adapty CLI, Adapty Attribution |
 | [`adapty-mail`](#running-email-campaigns) | Runs your Adapty Mail project: connects its MCP server, launches email flows, translates campaigns, sets up a sending domain, reads campaign and A/B test results, and finds out why someone did not get an email | Adapty Mail, its MCP server |
 | [`ads-manager`](#managing-apple-search-ads) | Runs your Apple Search Ads: performance across campaigns and keywords, bid and budget changes, search-term harvesting, campaigns on and off, a segment per campaign routed to its own paywall | Adapty CLI, Apple Ads account |
@@ -363,7 +363,7 @@ A virtual currency (coins, gems, credits) is credited to a user when they buy a 
 Give the Annual plan 50 gems instead of 30
 ```
 
-It reads the currency first and shows each change as before and after, in coins for each purchase or each paid period: "Annual: 30 → 50 gems". It writes only after your yes, and only what the card shows; products it does not name keep their coins. If someone changed the currency in the meantime, it reads it again and asks again. A new currency is for good (it cannot be deleted and its code never changes), and the card says so. For "why does this user have 40 coins", it reads the user's balances and transactions and names each credit and spend. Totals and trends come from the virtual currency charts, not from adding up transactions. It never changes a user's balance: that is your server or the dashboard.
+It reads the currency first and shows each change as before and after, in coins for each purchase or each paid period: "Annual: 30 → 50 gems". It writes only after your yes, and only what the card shows; products it does not name keep their coins. If someone changed the currency in the meantime, it reads it again and asks again. A new currency is for good (it cannot be deleted and its code never changes), and the card says so. For "why does this user have 40 coins", it reads the user's balances and transactions and names each credit and spend. Coin totals and trends, and which coin pack sells better, come from `growth-advisor`, which reads them from analytics. It never changes a user's balance: that is your server or the dashboard.
 
 ## Migrating placements to flows
 

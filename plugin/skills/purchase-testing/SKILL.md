@@ -137,7 +137,7 @@ options.
 Example of the question's shape, not words to copy:
 
 > I can reach your Adapty account in two ways. Which one should I set up?
-> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 1. The Adapty CLI: I install it, and you sign in once in the browser.
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill prefers MCP** when both are ready.
@@ -351,6 +351,7 @@ the layer faster than any single symptom.
 | Old design on the phone, new one in the builder | 1 | Unpublished flow changes — the placement serves the last published version |
 | Purchase sheet never opens | 5 | Phone or account state: wrong sandbox account, tester not opted in, app not installed from the store |
 | Purchase completes, nothing unlocks | 1 or 2 | The product's access level is not the one the app checks, or the app never reads it |
+| Purchase completes, the coins (gems, credits) never arrive | 1 or 2 | The product gives no coins in that currency, or the app shows a balance it read before the credit. Read both now, no yes needed: `virtual-currencies get` for the product's coins and `virtual-currencies profiles transactions list` for the user's rows (the `virtual-currencies` skill, `references/ledger.md`); a mapping change is that skill's, on a yes |
 | The store took the purchase, but a paywall that closes on success stays up | 3 or 5 | Adapty could not verify it (check 1: store identity), a pending payment, or an error the code swallows — the log says which |
 | Google Play said the payment went through, the app got billing response code 6, the paywall stayed up until a restore | 5 | Google Play's own error (`ERROR`), not the setup: Event Feed, then restore — `references/google-play.md`, Getting unstuck |
 | The Play Store on an emulator calls the closed-testing build incompatible | 5 | The emulator, not the setup: a real device — `references/google-play.md`, Getting unstuck |

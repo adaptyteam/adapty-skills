@@ -8,7 +8,8 @@ description: >-
   "we did it, what's next", "what's in my backlog", "check my app every week", "only use our own data", "we launch soon, no data yet", "how do we
   win back users who cancelled".
   Also use when a user asks for a growth plan, a monetization audit, hypotheses or test ideas without naming
-  one screen, or asks any question about their app's own subscription numbers.
+  one screen, or asks any question about their app's subscription or coin numbers
+  ("which coin pack sells best").
   Also use with no Adapty data, from a store link, the app's code, or onboarding plus paywall
   screens: "here's our app, how do we make more money", "where are we losing money". Paywall or
   onboarding screens alone, with no data, go to the teardown skills.
@@ -62,7 +63,8 @@ people who start a trial renew better") is answered from the numbers. Find the o
 grouping and the filter that answer it in the catalog (`references/diagnosis.md`, "Before the
 first read"), run them, and answer in the reply shape. A question about one flow or paywall (how it does, how
 many finish it, how many see it) is read from its metrics (`references/diagnosis.md`, "Placement metrics"),
-and where a flow's users leave it from its funnel ("Reading a flow"). Do not run the audit, read the test history
+and where a flow's users leave it from its funnel ("Reading a flow"). A question about coins or the
+products that give them is read from `references/coins.md`. Do not run the audit, read the test history
 or suggest hypotheses unless the user asks what to do. A problem the user brings (a drop, a fall,
 "help", "take a look", "what's wrong") asks what to do: it gets the explanation and then the
 hypotheses, not an offer of them. For a question about the numbers alone, end with one offer that names the metric the
@@ -161,6 +163,8 @@ the first two weeks of real users.
 | One paywall screenshot and no numbers ("improve this paywall") | `paywall-teardown` alone; this skill adds nothing without the numbers |
 | Onboarding screens alone and no numbers ("improve our onboarding") | `onboarding-teardown` alone, for the same reason |
 | A price, a price test, pricing by country | This skill, `references/pricing.md` |
+| Coins (a virtual currency): coins bought, spent or expired, which coin pack sells, packs against a coin subscription, which coin amounts to test | This skill, `references/coins.md` |
+| Which products give coins and how many, a user's coin balance or transactions, a new currency or a mapping change | `virtual-currencies`, on the user's yes; this skill reads the mappings and never writes one |
 | One paywall screen: layout, copy, badges | `paywall-teardown`; this skill invokes it for the design hypotheses |
 | A screen with a change in the app's numbers ("people buy half as often since summer") | This skill first: which paywall it is, its view → paid by month, what changed then; `paywall-teardown` for the design part after. Prices on a screenshot may be preview samples: never read them as what users pay |
 | Where users leave an onboarding or a flow, why they do not finish it, which branch works better, whether its paywall is the problem | This skill, from the flow's funnel; `onboarding-teardown` or `paywall-teardown` for the design part |
@@ -254,7 +258,7 @@ options.
 Example of the question's shape, not words to copy:
 
 > I can reach your Adapty account in two ways. Which one should I set up?
-> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 1. The Adapty CLI: I install it, and you sign in once in the browser.
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill prefers the CLI:** `reads.py` makes the audit's reads through it. With MCP only,
@@ -316,7 +320,9 @@ test's copy (`products create --price-usd`, `products push`) and `product-prices
 Of the `ab-tests` commands you run only the reads, `list`, `get` and `metrics`; every other one is
 the `ab-tests` skill's. The numbers of `ab-tests metrics`, what each means and which arm leads
 follow the rules of the `ab-tests` skill ("Results and the leader"): invoke it for them, and
-without it show the numbers and name no leader. Never `product-offers update`: an offer a live
+without it show the numbers and name no leader. Of the `virtual-currencies` commands you run only
+`list` and `get` (`references/coins.md`); every other one is the `virtual-currencies` skill's.
+Never `product-offers update`: an offer a live
 paywall or flow already picks reaches buyers today, so changing one is a dashboard step for the
 user. The one other call that sends anything is the [feedback note](#feedback-note).
 
@@ -1017,6 +1023,7 @@ shape to follow, not words to copy:
 | `references/refunds.csv` | The share of revenue lost to refunds for one category, region and start |
 | `references/trials.csv` | Trial starters against direct buyers, first-year value, for one category, region and plan length |
 | `references/pricing.md` | Any price: reading, placing, a price hypothesis, its test, a live price change |
+| `references/coins.md` | The app sells coins: the coin charts, coin products in money, packs against a coin subscription, coin hypotheses |
 | `references/price-index.csv`, `references/price-response.csv` | Searched from `pricing.md`; never read whole |
 | `references/backlog.md` | Saving hypotheses, starting one, linking its A/B test, putting one live, results |
 | `references/recurring-checks.md` | Offering, setting up or running a check that repeats on a schedule |

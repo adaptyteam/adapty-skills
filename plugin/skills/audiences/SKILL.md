@@ -1,6 +1,6 @@
 ---
 name: audiences
-description: Use when a user wants different users to see different paywalls or flows at the same placement — by country, language, app version, platform, revenue, subscription state, install date, a custom attribute, or attribution — or wants to create, edit or reuse an Adapty segment through the CLI. Triggers on "show this paywall only to users in Germany", "target users on version 2.0", "a cheaper paywall for non-payers", "users with my custom attribute should see…", "create a segment", "add an audience to my placement", "who sees which paywall".
+description: Use when a user wants different users to see different paywalls or flows at the same placement — by country, language, app version, platform, revenue, subscription state, install date, a coin balance, a custom attribute, or attribution — or wants to create, edit or reuse an Adapty segment through the CLI. Triggers on "show this paywall only to users in Germany", "target users on version 2.0", "a cheaper paywall for non-payers", "users with my custom attribute should see…", "create a segment", "add an audience to my placement", "who sees which paywall".
 ---
 
 # Audiences: who sees what at a placement
@@ -149,7 +149,7 @@ options.
 Example of the question's shape, not words to copy:
 
 > I can reach your Adapty account in two ways. Which one should I set up?
-> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 1. The Adapty CLI: I install it, and you sign in once in the browser.
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill prefers the CLI:** `segments create` and `segments update` have no tool, and a
@@ -239,6 +239,7 @@ value format from here. Labels are the dashboard's.
 | `subscription_product_id` | Subscription product | the Adapty product UUID from `products list` |
 | `subscription_expiration_date` | Subscription expiration date | `YYYY-MM-DD` |
 | `total_revenue_usd` | Calculated total revenue USD | a number |
+| `virtual_currency_balance__<code>` | Virtual currency: <name> (<code>) | the balance the user can spend now, a whole number 0 or more; `<`, `<=`, `>`, `>=`, `BETWEEN`, `IN`, `NOT IN`. The code is the currency's, letter case kept, from `virtual-currencies list` or `analytics values --dimension virtual_currency`; a code the app does not have is refused |
 | `age` | Age | a number |
 | `gender` | Gender | `f`, `m`, `o` |
 | `customer_user_id` | App User ID | usually `IS NULL` / `IS NOT NULL` |
@@ -253,6 +254,10 @@ value format from here. Labels are the dashboard's.
 the suffix must match its type: a value stored with the other type counts as not set. No command
 lists an app's keys, so take the key from, in order: an existing segment's `filters[]`
 (`segments list`, then `segments get --json`), the app's code, or the user. Never guess a key.
+
+**A balance segment** counts a user who never got the currency, and a new anonymous install, as 0,
+so "fewer than 30" includes them: say so on the card. Its user count is not computed
+(`profile_count_available: false`): never report one.
 
 **Last seen** is in the dashboard but not in this list: the server refuses it. A segment on it is
 made in the dashboard.

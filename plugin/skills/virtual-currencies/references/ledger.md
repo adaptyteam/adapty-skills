@@ -1,7 +1,7 @@
-# The coin ledger: transactions, balances, totals
+# The coin ledger: transactions and balances
 
-Open this when you read coin transactions or a user's balances, answer "why does this user have N
-coins", or the user asks for a total or a trend. The commands are in `SKILL.md`.
+Open this when you read coin transactions or a user's balances, or answer "why does this user have
+N coins". The commands are in `SKILL.md`; totals and trends are `growth-advisor`'s.
 
 ## One page for each call
 
@@ -71,6 +71,11 @@ now) and `expiry`: `non_expiring`, `expiring[]` (`amount`, `expires_at`, soonest
 
 ## Why a user has N coins
 
+**Coins gone after a reinstall, on another device or after a login:** a balance belongs to one
+profile and never moves, so the coins are on the old profile
+([Balances, profiles, and devices](https://adapty.io/docs/virtual-currency-balance#balances-profiles-and-devices)).
+Read it by profile id when the user can give it; the lasting fix is identifying users in the app.
+
 1. **Read the balances** of the user. Say `balance`, and `available` when it differs: name the
    held coins and the coins about to expire with their dates.
 2. **Read the user's transactions** of that currency, newest first, filtered by the `code` of its
@@ -93,14 +98,3 @@ Example of the answer's shape, not words to copy:
 > - Nov 12: −10, spent on "unlock level"
 >
 > I read their transactions back to Nov 1; nothing before that changes this number.
-
-## Totals and trends
-
-Totals and trends (coins credited, spent or expired, by day or by currency) come from the virtual
-currency charts of the analytics: find their ids and the currency filter in `analytics catalog`,
-then read one with `analytics chart` (MCP `analytics_catalog`, `analytics_chart`). When the app has
-more than one currency, a chart takes exactly one currency code.
-
-**A chart leaves out each user with a sandbox row, and the transaction list does not,** so a sum
-of rows can differ from the chart. Never add up rows as a total; give the chart's number and say
-which period and currency it covers.

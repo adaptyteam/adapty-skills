@@ -25,6 +25,7 @@ first row that fits wins.
 | the camera: a live preview, a scanner, a mirror | a custom element: [camera.md](custom-elements/camera.md) |
 | any other view the app already has or can build: a 3D model, a native wheel, a game, a widget preview | a custom element with the generic shape below; no template |
 | something a button **does**: sign in, create an account, ask for a permission other than push notifications, open the app's own screen | a custom action, not a custom element (push notifications: a `requestPermission` action). The element cannot run an action (below) |
+| a coin balance that changes while the flow is open, a button that spends coins with a spinner, a top-up flow | a custom element: [coins.md](custom-elements/coins.md) |
 | a value the app knows, shown as text: a name, a streak number, a balance | a custom tag (flow-schema.md trap 25), not a custom element |
 
 A custom element and the other routes combine: the streak number as a custom tag in the title,

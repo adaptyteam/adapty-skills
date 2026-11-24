@@ -287,9 +287,9 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 ### `virtual-currencies`
 
-- **Every write runs only after the user's yes to its card,** built from a `get` right before the write: each changed mapping as old → new coins for each product, a removal says its purchases stop giving coins with no ledger row, a create says the currency and its code are for good. The `updated_at` of that read is the token (MCP `expected_updated_at`, CLI `--yes --expected-updated-at` on `mappings upsert` and `mappings delete`); a 409 is a new read, a new card and a new yes.
+- **Every write runs only after the user's yes to its card,** built from a `get` right before it; the card lines live in `references/mappings.md` alone. The `updated_at` of that read is the write's token; a 409 is a new read, a new card and a new yes.
 - **A mapping item is the whole mapping;** the upsert never removes one, a removal is `mappings delete`, one product each.
-- **Totals and trends come from the virtual currency charts, never from a sum of ledger rows;** "why N coins" reads the balances, then the user's transactions.
+- **Coin analytics are `growth-advisor`'s:** totals, trends and how coin products sell come from its chart reads, never from a sum of ledger rows; this skill invokes it.
 - **Commands and flags come from `src/cli/commands/virtual-currencies/**` in `adapty-cli`, the MCP parameters from the `virtual_currencies_*` tools;** the skill names only the flags it needs and sends the rest to `--help`.
 
 ### `purchase-testing`
