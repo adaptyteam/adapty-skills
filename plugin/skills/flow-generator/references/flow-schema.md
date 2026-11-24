@@ -775,8 +775,11 @@ the shape, it is the vocabulary:
 | `direction` | `vertical`, `horizontal`, **`free`** |
 | `clipContent`, `rtl` | booleans, optional |
 
-**A spread distribution with a `fill` child beside fixed or hug ones** gives the fill child only
-an equal share of the free space on iOS, so its text truncates; use `gap`. `verify-config.py` warns.
+**A spread distribution with a plain `fill` child** (no `min`/`max`, always visible) hands that
+child all the free space, as the builder canvas does: publishing drops the spacers. A fill child
+that is **capped or conditionally visible** keeps the spacers, and on iOS it then gets only an equal
+share of the free space, so its text truncates; use `gap` there. `verify-config.py` warns. A flow
+published before this change keeps the old spacers until it is published again.
 
 **`space-between` on a screen root spreads a SHORT screen's content away from its bottom bar** —
 give the root two children and the free space lands between them. It does **not** pin anything: a

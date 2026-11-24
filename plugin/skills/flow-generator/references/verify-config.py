@@ -3272,11 +3272,12 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                 _empty_products(c)
         _empty_products(s['elements']['hierarchy'])
 
-    # A SPREAD STACK WITH A FILL CHILD AMONG NON-FILL ONES. The transformer puts a spacer between
-    # the children of a space-between/-around/-evenly stack unless every child fills the main
-    # axis; on iOS a fill child is then exactly as flexible as each spacer, so it gets only an
-    # equal share of the free space and its text truncates. Android and the builder canvas give
-    # it the rest. `gap` distribution gives the fill child the rest on both.
+    # A SPREAD STACK WHOSE ONLY FILL CHILDREN ARE CAPPED OR CONDITIONAL. The transformer drops the
+    # spacers of a space-between/-around/-evenly stack when at least one child is a plain fill on
+    # the main axis (no `min`/`max`, not under a conditional visibility): that child takes all the
+    # free space, as on the builder canvas. A capped fill or a conditionally visible one keeps the
+    # spacers, and on iOS such a fill child is then exactly as flexible as each spacer, so it gets
+    # only an equal share of the free space and its text truncates. `gap` gives it the rest.
     for s in d.get('screens', []):
         m = s['elements']['map']
 
@@ -3288,14 +3289,23 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                 lay.get('direction') if isinstance(lay, dict) else None)
             kids = n.get('children') or []
             if kind in ('space-between', 'space-around', 'space-evenly') and axis and kids:
-                fills = [_obj((m.get(c.get('id'), {}).get('props') or {}).get(axis)).get('type')
-                         == 'fill' for c in kids]
-                if any(fills) and not all(fills):
+                def _fill(c):
+                    pr = _obj(_obj(m.get(c.get('id'))).get('props'))
+                    sz = _obj(pr.get(axis))
+                    if sz.get('type') != 'fill':
+                        return None
+                    capped = any(isinstance(sz.get(k), (int, float)) and not isinstance(sz.get(k), bool)
+                                 for k in ('min', 'max'))
+                    cond = _obj(pr.get('visibility')).get('type') == 'conditional'
+                    return 'kept' if capped or cond else 'plain'
+                fills = [_fill(c) for c in kids]
+                if 'kept' in fills and 'plain' not in fills:
                     warn.append(
-                        f'screen {s["id"]}: {n["id"]} is a {kind} stack with a fill-{axis} child '
-                        f'beside fixed or hug ones. On iOS the fill child gets only an equal '
-                        f'share of the free space with the gaps, so its text truncates; the '
-                        f'builder and Android give it the rest. Use a `gap` distribution')
+                        f'screen {s["id"]}: {n["id"]} is a {kind} stack whose fill-{axis} '
+                        f'child is capped (min/max) or conditionally visible, so the spacers '
+                        f'stay. On iOS that child gets only an equal share of the free space '
+                        f'with the gaps, so its text truncates; the builder gives it the rest. '
+                        f'Use a `gap` distribution, or an uncapped, always-visible fill')
             for c in kids:
                 _spread_fill(c)
         _spread_fill(s['elements']['hierarchy'])
