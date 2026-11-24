@@ -1178,10 +1178,10 @@ It is shown like any variable, with a rich-text `{"type": "variable", "attrs": {
 
 | Part | What it is |
 | :--- | :--- |
-| `expression` | The stored form. `{{<variable id>}}` for a `number`, `date` or `formula` variable: Flow Builder stores the **id**, so the formula survives a rename (a name resolves too, but write the id). `{{<input customId>.value}}` for an answer: a `text-input`, `number-input` or wheel range picker reads as a number, a `date-picker` or `date-time-picker` as a date; any other input is refused. `{{<group id>.selectedProduct.prod_price}}` or `.offer_price` for the selected plan's price; `{{<group id>.selectedProduct}}` only as the second argument of `addOfferDuration`. A selection (`.selectedOptionId`) cannot be read |
+| `expression` | The stored form. `{{<variable id>}}` for a `number`, `date` or `formula` variable: Flow Builder stores the **id**, so the formula survives a rename (a name resolves too, but write the id). `{{<input customId>.value}}` for an answer: a `text-input`, `number-input` or wheel range picker reads as a number, a `date-picker` or `date-time-picker` as a date; any other input is refused. `{{<group id>.selectedProduct.prod_price}}`, `.offer_price` or a per-period price for the selected plan; `{{<group id>.selectedProduct}}` only as the second argument of `addOfferDuration`. `{{<product id>.prod_price}}` or a per-period price for any product of the app catalog, with no offer and no plan: the flow reads it through a Products row of that product with no offer and no plan on any screen, and `flowkit.config()` adds that row to each screen that reads the formula. A per-period price (`prod_price_per_day`, `_week`, `_month`, `_year`) is a number: the price over the units in the subscription period (7 days in a week, 30 in a month, 365 in a year; 52 weeks and 12 months in a year), no value with no subscription period. A selection (`.selectedOptionId`) cannot be read |
 | numbers | A dot for decimals, `1.5`: a comma separates only a function's arguments, and `1,5` is refused |
 | operators | `+ - * /`, a leading minus, brackets; `*` and `/` before `+` and `-`. **No power operator:** square by multiplying |
-| functions | `round(n)`, `round(n, digits)` with `digits` a whole number 0–6, half away from zero; `floor(n)`; `mod(a, b)`, the remainder with the sign of `b`; `today()`; `addDays`, `addWeeks`, `addMonths`, `addYears` `(date, n)`, a missing day of the target month moving to its last day; `addOfferDuration(date, {{<group>.selectedProduct}})`, the length of the selected plan's offer. Names are case-sensitive |
+| functions | `round(n)`, `round(n, digits)` with `digits` a whole number 0–6, half away from zero; `floor(n)`; `mod(a, b)`, the remainder with the sign of `b`; `today()`; `addDays`, `addWeeks`, `addMonths`, `addYears` `(date, n)`, a missing day of the target month moving to its last day; `addOfferDuration(date, {{<group>.selectedProduct}})`, the length of the selected plan's offer; `daysBetween`, `weeksBetween`, `monthsBetween`, `yearsBetween` `(start, end)`, the whole units from start to end as a Number, negative when end is earlier. Names are case-sensitive |
 | result | A Number, or a Date when the top level is a date function. A Date takes `dateFormat`: `short`, `medium` (the default), `long`, `month-day` ("November 17") or `month-day-short` ("Nov 17"); a text node can set its own `attrs.dateFormat` |
 | no value | A `number` variable with no `value` reads as 0. Any other empty source, a division by zero, or an offer the product does not have gives **no value**: the text is empty, `is empty` is true, and every comparison is false |
 | `value`, `external` | Neither. Nothing writes a formula: **Set Variable on one is refused** |
@@ -1199,7 +1199,8 @@ either side compare numbers, or calendar days for a date. That is the way past
 [Conditions cannot compare numbers](#conditions-cannot-compare-numbers--enumerate-equality-instead):
 wrap the answer in a formula (`{{age.value}}`) and compare the formula with `18`. Read from the
 transformer's source and accepted by the publish (live validate: `valid`, no issues); no device
-measurement yet.
+measurement yet. `empty` and `notEmpty` take a Date variable or a Date formula: true while it has
+no value.
 
 **What the publish refuses**, each with its own code:
 
@@ -1207,10 +1208,11 @@ measurement yet.
 | :--- | :--- |
 | `formula_syntax_error` | It does not parse: a decimal comma, an unknown or wrongly-cased function, `^`, an unclosed bracket |
 | `formula_argument_count` | A function with the wrong number of arguments |
-| `formula_operand_type` | A Date in arithmetic, a number where a date goes, a `string` or `boolean` variable, a product field other than the two prices, `round` decimals that are not 0–6, a reference to a formula that has an error |
+| `formula_operand_type` | A Date in arithmetic, a number where a date goes, a `string` or `boolean` variable, a field of the selected plan other than `prod_price`, `offer_price` and the per-period prices, an offer, a plan or a field other than `prod_price` and the per-period prices of a catalog product ("not supported yet"), `round` decimals that are not 0–6, a reference to a formula that has an error |
 | `formula_unknown_reference` | A deleted or unknown variable, answer or product group |
 | `formula_ambiguous_reference` | A custom variable named like an answer or a product field |
 | `formula_cycle` | Formulas that read each other in a loop (each one in the loop is reported) |
+| `formula_undeclared_product` | A formula that a text, a condition, an action or another formula reads names a catalog product that has no Products row with no offer and no plan on any screen. A formula nothing reads is not refused |
 | `set_variable_formula_target` | A Set Variable action writes a formula |
 | `date_or_formula_in_action_text` | A date or a formula in an alert title or message, an Open URL address, or a Set Variable text value: an action builds a plain string, so it would show a raw number or nothing. Show it in a text element instead |
 

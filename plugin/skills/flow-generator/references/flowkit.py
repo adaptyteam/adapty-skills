@@ -889,7 +889,10 @@ def formula(name, expression, *, variable_id=None, date_format=None, description
 
     There is no power operator: square by multiplying. `expression` is the stored form: `{{<variable id>}}` for a variable (`fx()` writes it from
     the entry), `{{<input customId>.value}}` for an answer, `{{<group id>.selectedProduct.
-    prod_price}}` (or `.offer_price`) for the selected plan's price. Decimals take a dot. The
+    prod_price}}` (or `.offer_price`, `.prod_price_per_month` ...) for the selected plan's price,
+    `{{<product id>.prod_price}}` (or a per-period field) for any catalog product's price:
+    `config()` gives that product a Products row on each screen that reads the formula, as the
+    Flow Builder does. Decimals take a dot. The
     result is a Number, or a Date when the top level is a date function (`today()`,
     `addDays()` ...); `date_format` is how a text shows that Date. `config()` checks the
     expression against the rest of the document, the way the publish does (flow-schema.md
@@ -4192,6 +4195,7 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                   'screens': _merge_meta_screens(meta_screens)},
         'screens': list(screens),
     }
+    _declare_formula_products(doc)
     found = formulas.issues(doc)
     if found:
         raise ValueError('the publish would refuse these formula or date variables: '
@@ -4203,6 +4207,32 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
             + '; '.join(f'{w["path"]}: {w["message"]}' for w in dropped)
             + ' Give every locale of a conditional text the same cases, in the same order.')
     return out
+
+
+def _declare_formula_products(doc):
+    """As the Flow Builder does: each catalog product whose price a formula reads gets a row with
+    no offer and no plan on every screen that reads the formula, in the registry and in
+    `_meta.screens`. A screen that has such a row keeps it as it is."""
+    reads = formulas.read_formulas(doc)
+    meta = doc['_meta']['screens']
+    for i, scr in enumerate(doc['screens']):
+        sid = scr.get('id')
+        pids = []
+        for v in doc['variables']:
+            if (isinstance(v, dict) and v.get('id') in reads.get(sid, ())
+                    and isinstance(v.get('expression'), str)):
+                pids += [p for p in formulas.catalog_products(v['expression'], doc)
+                         if p not in pids]
+        registry = list(scr.get('products') or [])
+        rows = list((meta.get(sid) or {}).get('products') or [])
+        for pid in pids:
+            if {'id': pid} not in registry:
+                registry.append({'id': pid})
+            if not any(formulas.base_row_product(r) == pid for r in rows):
+                rows.append({'id': pid, 'flowProductId': flow_product_id(sid, pid)})
+        if pids:
+            doc['screens'][i] = {**scr, 'products': registry}
+            meta[sid] = {**(meta.get(sid) or {}), 'products': rows}
 
 
 def _merge_meta_screens(meta_screens):

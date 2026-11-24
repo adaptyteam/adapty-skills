@@ -15,7 +15,8 @@ Measured against the live validate endpoint, on a one-screen flow:
     FIRES   -- `{{var_w}} * 1,5`: formula_syntax_error "Use a dot in a decimal number";
                Set Variable writing a formula: set_variable_formula_target
 
-The other codes are read from the formula checker the builder and the transformer share.
+The other codes, catalog prices with `formula_undeclared_product` and the date differences are
+read from the formula checker the builder and the transformer share, and from the transformer.
 
 Usage: python3 tests/test-formulas.py    # 0 all pass, 1 a case regressed
 """
@@ -164,6 +165,161 @@ for name, v, code in (
 ):
     expect(name, codes(base(W, H, v)), [code])
 
+# ---------------------------------------------------------------- catalog prices
+# Admission: external. The publish reads a catalog product's price only through a Products row
+# with no offer and no plan on a screen of the flow, and refuses a formula that the flow reads
+# with no such row (`formula_undeclared_product`); a formula that nothing reads publishes.
+print('catalog prices')
+PAYWALL, PROD = 'scr_QXcVa3FZ', '8fb58c50-7c05-42f9-a8e3-8d0fde19505a'  # its base row is on PAYWALL
+SAVING = '{{weekly.prod_price}} * 52 - {{%s.prod_price}}' % PROD
+
+
+def para(*vids):
+    return [{'type': 'paragraph', 'content': [{'type': 'variable', 'attrs': {'variableId': v}}
+                                              for v in vids]}]
+
+
+def rows(*entries, screen=PAYWALL):
+    def edit(d):
+        d['_meta']['screens'].setdefault(screen, {'products': []})['products'] += [
+            dict(e, flowProductId=f'fp_{i}_{screen}') for i, e in enumerate(entries)]
+    return edit
+
+
+def tap_actions(d):
+    return first(d, lambda e: e.get('interactions'))['interactions'][0]['actions']
+
+
+def card(placed):
+    def edit(d):
+        d['components']['card'] = {
+            'map': {'card_text': {'id': 'card_text', 'type': 'text',
+                                  'props': {'content': {'_lid': 'lc_card'}}}},
+            'hierarchy': {'id': 'root', 'children': [{'id': 'card_text'}]}}
+        d['localization']['content']['lc_card'] = {'kind': 'rich-text', 'values': {'en': para('var_x')}}
+        if placed:
+            d['screens'][2]['elements']['hierarchy']['children'].append({'id': 'card', 'type': 'global'})
+    return edit
+
+
+def in_progress_bar(d):
+    """The bar shows on every screen that enables it, so it is read with no placement."""
+    pb = d['components']['pb_dl05vuVs']
+    pb['map']['pb_text'] = {'id': 'pb_text', 'type': 'text', 'props': {'content': {'_lid': 'lc_pb'}}}
+    pb['hierarchy']['children'].append({'id': 'pb_text'})
+    d['localization']['content']['lc_pb'] = {'kind': 'rich-text', 'values': {'en': para('var_x')}}
+    for s in d['screens']:
+        h = s['elements']['hierarchy']
+        h['children'] = [c for c in h['children'] if c.get('type') != 'global']
+
+
+def in_text(d):
+    d['localization']['content']['lc_27']['values']['en'] = para('var_x')
+
+
+def in_translation(d):
+    d['localization']['locales'].append({'id': 'es', 'code': 'es', 'name': 'Spanish'})
+    in_undeclared_locale(d)
+
+
+def in_undeclared_locale(d):
+    """The publish drops a value of a locale that `localization.locales` does not declare."""
+    d['localization']['content']['lc_27']['values']['es'] = para('var_x')
+
+
+def in_second_progress_bar(d):
+    """The publish shows only the first progress bar and ignores another one."""
+    bar = d['components']['pb_dl05vuVs']['map']['el_P6zW0Xfzjx']
+    d['components']['pb_second'] = {
+        'map': {'pb2_bar': dict(bar, id='pb2_bar'),
+                'pb2_text': {'id': 'pb2_text', 'type': 'text', 'props': {'content': {'_lid': 'lc_pb2'}}}},
+        'hierarchy': {'id': 'root', 'children': [{'id': 'pb2_bar'}, {'id': 'pb2_text'}]}}
+    d['localization']['content']['lc_pb2'] = {'kind': 'rich-text', 'values': {'en': para('var_x')}}
+
+
+def in_action_condition(d):
+    tap_actions(d).insert(0, {'id': 'act_if', 'type': 'conditional', 'payload': {
+        'type': 'switch', 'cases': [[fk.gt(fk.ref('var_x'), 1), []]],
+        'default': {'type': 'const', 'value': []}}})
+
+
+def through_formula(d):
+    d['variables'].append(fk.formula('double', '{{var_x}} * 2', variable_id='var_double'))
+    d['localization']['content']['lc_27']['values']['en'] = para('var_double')
+
+
+def build(expr, *edits):
+    d = base(formula(expr))
+    for edit in edits:
+        edit(d)
+    return d
+
+
+WEEKLY = rows({'id': 'weekly'})
+for name, d, want in (
+        ('a catalog price with its base row on another screen', build(SAVING, in_text, WEEKLY), []),
+        ('a catalog per-week price', build('{{weekly.prod_price_per_week}} * 4', in_text, WEEKLY), []),
+        ('a per-month price of the selected plan',
+         build('{{products.selectedProduct.prod_price_per_month}} * 12', in_text), []),
+        ('nothing reads the formula', build(SAVING), []),
+        ('only a component that no screen places reads it', build(SAVING, card(False)), []),
+        ('a read formula with no row of the product', build(SAVING, in_text),
+         ['formula_undeclared_product']),
+        ('only an offer row and a plan row', build(SAVING, in_text, rows(
+            {'id': 'weekly', 'offerId': 'intro'}, {'id': 'weekly', 'billingPlanId': 'monthly'})),
+         ['formula_undeclared_product']),
+        ('a base row whose id is not a string', build(SAVING, in_text, rows({'id': 5})),
+         ['formula_undeclared_product']),
+        ('the base row only under a deleted screen',
+         build(SAVING, in_text, rows({'id': 'weekly'}, screen='scr_deleted')),
+         ['formula_undeclared_product']),
+        ('read only in one translation', build(SAVING, in_translation), ['formula_undeclared_product']),
+        ('read only in a locale the flow does not declare', build(SAVING, in_undeclared_locale), []),
+        ('read only through a placed component', build(SAVING, card(True)), ['formula_undeclared_product']),
+        ('read only in the progress bar', build(SAVING, in_progress_bar), ['formula_undeclared_product']),
+        ('read only in a second progress bar', build(SAVING, in_second_progress_bar), []),
+        ('read only in an action condition', build(SAVING, in_action_condition),
+         ['formula_undeclared_product']),
+        ('read only through another formula', build(SAVING, through_formula),
+         ['formula_undeclared_product']),
+        ('an offer of a catalog product', build('{{weekly(intro).prod_price}}', WEEKLY),
+         ['formula_operand_type']),
+        ('a billing plan of a catalog product', build('{{weekly@monthly.prod_price}}', WEEKLY),
+         ['formula_operand_type']),
+        ('a catalog field other than the prices', build('{{weekly.offer_price}}', WEEKLY),
+         ['formula_operand_type']),
+        ('a group head keeps its own meaning', build('{{products.prod_price}}'),
+         ['formula_unknown_reference']),
+        ('a variable head keeps its own meaning',
+         build('{{height.prod_price}}', lambda d: d['variables'].append(H)), ['formula_unknown_reference']),
+        ('an answer head keeps its own meaning', build('{{name.prod_price}}'),
+         ['formula_unknown_reference']),
+):
+    expect(f'formulas.py: {name}', codes(d), want)
+
+d = build(SAVING, in_text)
+expect('the undeclared product message names the formula and the product',
+       [(w, m) for c, w, m in formulas.issues(d)],
+       [(f'variables[{len(d["variables"]) - 1}].expression',
+         'Formula "x": the product "weekly" has no Products row with no offer and no plan on any '
+         'screen of the flow; add it to the Products of a screen that reads the formula')])
+expect('an offer is refused as not supported yet',
+       [m for _, _, m in formulas.issues(build('{{weekly(intro).prod_price}}', WEEKLY))],
+       ['Formula "x": {{weekly(intro).prod_price}}: Offers, billing plans and fields other than '
+        'prod_price, prod_price_per_day, prod_price_per_week, prod_price_per_month and '
+        'prod_price_per_year of a catalog product are not supported yet'])
+
+# Admission: external. The four date differences take two dates and give a Number.
+print('date differences')
+D = {'id': 'var_d', 'name': 'start', 'valueType': 'date', 'value': '2026-12-01'}
+for name, expr, want in (
+        ('daysBetween two dates', 'daysBetween({{var_d}}, today())', []),
+        ('daysBetween a number and a date', 'daysBetween(5, today())', ['formula_operand_type']),
+        ('a date difference where a date goes', 'addDays(monthsBetween({{var_d}}, today()), 1)',
+         ['formula_operand_type']),
+):
+    expect(f'formulas.py: {name}', codes(base(D, formula(expr))), want)
+
 # ---------------------------------------------------------------- flowkit
 print('flowkit')
 expect('fx() of an entry', fk.fx(W), '{{var_w}}')
@@ -206,6 +362,22 @@ doc = fk.config(screens=[result], variables=[bmi, goal], typography=[('body', 'B
 expect('the patterns.md formula example builds clean', codes(doc), [])
 expect('verify-config: the patterns.md example has no ERROR or blank warning',
        [l for l in checker(doc) if 'ERROR' in l or 'blank on a device' in l], [])
+
+# Admission: external. Without a row of the product on the screen that reads it, the publish
+# refuses the flow; the Flow Builder adds that row itself, and so does config().
+saving = fk.formula('saving', '{{weekly.prod_price}} * 52 - {{annual.prod_price}}')
+plans = fk.screen('scr_plans', [fk.text('Choose a plan')])
+offer = fk.screen('scr_offer', [fk.text(fk.rich('Save ', fk.Var(saving)))])
+doc = fk.config(screens=[plans, offer], variables=[saving], typography=[('body', 'Body', 16, 'regular')],
+                meta_screens=[fk.predeclare('scr_offer', ['annual'])])
+expect('config() declares a catalog price on the screen that reads it, once',
+       (doc['_meta']['screens'], [s.get('products') for s in doc['screens']]),
+       ({'scr_offer': {'products': [
+           {'id': 'annual', 'flowProductId': fk.flow_product_id('scr_offer', 'annual')},
+           {'id': 'weekly', 'flowProductId': fk.flow_product_id('scr_offer', 'weekly')}]}},
+        [None, [{'id': 'weekly'}, {'id': 'annual'}]]))
+expect('verify-config: a built catalog price formula has no ERROR',
+       [l for l in checker(doc) if 'ERROR' in l], [])
 
 print()
 if fails:
