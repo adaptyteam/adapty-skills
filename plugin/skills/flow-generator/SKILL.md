@@ -732,8 +732,8 @@ the variables ([preview.md](references/preview.md#what-a-render-cannot-show-you)
 before you report what a screenshot proves** — every blindness listed there is real, and two of them run
 the *wrong* way: the render draws things a device will not. Two you act on here: it draws no notch,
 no home indicator and no iPhone Duo side bar, so author `safeArea: true`, never pad for the bar by
-hand, and hand short-device clipping over as a device check; and even then it measures an `absolute` element's `top` from the screen's top edge, not
-from below the status bar ([patterns.md](references/patterns.md#under-safearea-true-check-where-an-absolute-element-lands)).
+hand, and hand short-device clipping over as a device check. An `absolute` element's `top` counts from the
+screen's top edge, not from below the status bar, on the device as in the render ([patterns.md](references/patterns.md#under-safearea-true-check-where-an-absolute-element-lands)).
 
 **Never stand a lookalike in for a real element** — not for one the preview cannot draw, not for one that looks hard to build: [preview.md → Never fake an element](references/preview.md#never-fake-an-element-to-make-the-screenshot-look-complete).
 
