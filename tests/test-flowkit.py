@@ -1235,6 +1235,23 @@ def main():
           'margin' not in fk.carousel([fk.stack([]), fk.stack([])],
                                       slide_w=300, slide_h=100)['props'])
 
+    # external: the generated flow refers to the selected slide, rejects an invalid slide
+    # number and omits the setting when the caller leaves it unset.
+    for why, arg, error_range in (
+            ('start_slide=2 writes the id of the second slide', 2, None),
+            ('start_slide=0 refuses and names the range 1..3', 0, '1..3'),
+            ('start_slide above the slide count refuses and names the range 1..3', 4, '1..3'),
+            ('no start_slide writes no startSlide key', None, None)):
+        _slides = [fk.stack([]) for _ in range(3)]
+        _make = lambda: fk.carousel(_slides, slide_w=300, slide_h=100,
+                                    **({} if arg is None else {'start_slide': arg}))
+        if error_range is not None:
+            check(why, error_range in _message(_make))
+        elif arg is None:
+            check(why, 'startSlide' not in _make()['props'])
+        else:
+            check(why, _make()['props'].get('startSlide') == _slides[arg - 1]['id'])
+
     _COLORS_MIN = [('bg', 'Background', '#FFFFFF', '#101014'),
                    ('ink', 'Ink', '#111114', '#F5F5F7')]
     _TYPO_MIN = [('body', 'Body', 16, 'regular')]
