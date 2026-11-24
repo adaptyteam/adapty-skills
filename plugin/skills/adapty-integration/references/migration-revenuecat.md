@@ -196,3 +196,5 @@ written. Before telling the user Adapty cannot do something, run that feature's 
 `gaps`, or re-read the named page for the rows that are behavioral limits rather than missing features.
 Two specifically: **Offline Entitlements** (→ local access levels) and **virtual currencies** were gaps
 in the comparison behind this table and both closed — never report either as missing; `entitlements` and `gaps` map them.
+The currencies and their product mappings are set up through the CLI topic `virtual-currencies` or
+the MCP tools `virtual_currencies_*`; `gaps` names the commands.

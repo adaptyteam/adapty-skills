@@ -98,3 +98,12 @@ grants credits, and read or adjust balances through the server-side API. This wa
 comparison behind this file was written and is not one now. An app using RC's virtual currencies has a
 real migration path — a nontrivial one, since balances have to be carried over, but a path.
 `https://adapty.io/docs/virtual-currencies`
+
+The agent sets the currencies up itself: the Adapty CLI topic `virtual-currencies` (`list`, `get`,
+`create`, `update`, `mappings upsert`, `mappings delete`) or the Adapty MCP tools
+`virtual_currencies_*` create each RC currency and map it to the products, with the user's yes
+before each write. The same topic reads the coin ledger (`transactions list`, `profiles
+transactions list`, `profiles balances get`) to check the carried-over balances. The
+`virtual-currencies` skill runs these steps; without it, take the flags from
+`$ADAPTY virtual-currencies <command> --help`. Carrying the balances over is a Server API write of
+the app's server: `https://adapty.io/docs/grant-initial-balance`
