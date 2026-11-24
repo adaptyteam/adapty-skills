@@ -582,9 +582,9 @@ file — the upload does not deduplicate.
 
 **The record holds five values, and the config binds all five.** `{video_url, preview_url,
 preview_base64, width, height}`: `video_url` is an HLS playlist (it ends in `master.m3u8`),
-`preview_url` a still frame the renderer shows until the clip plays, `preview_base64` the small
-inline thumbnail painted before even that frame arrives (`previewValue`, as the builder's own upload
-stores it), `width` and `height` the pixel size of the largest rendition, with the clip's aspect
+`preview_url` a still frame (the poster) the renderer shows until the clip plays, `preview_base64`
+that poster's inline preview, painted while the poster downloads, as for an image (`previewValue`,
+as the builder's own upload stores it), `width` and `height` the pixel size of the largest rendition, with the clip's aspect
 ratio. The video value is:
 
 ```json
@@ -639,8 +639,8 @@ read off builder output. Treat the device check as load-bearing rather than cere
 
 **Once the user has uploaded the clip, read the config back and check every locale.** `video` is a
 catalog ref like an image's, and its value — `{previewUrl, videoUrl, previewValue?, width?,
-height?}` — is kept per locale. `previewValue` is the base64 thumbnail shown while the clip loads;
-keep it when you pass a fetched value back. A builder upload can land only under a non-default locale; every other
+height?}` — is kept per locale. `previewValue` is the poster image's inline preview; keep it when
+you pass a fetched value back. A builder upload can land only under a non-default locale; every other
 language then falls back to the empty default and shows no clip. So after their upload,
 `flows config get`, follow the element's `video` (and `videoDark`) ref into
 `localization.content`, and confirm the default locale holds a `videoUrl`. If only another locale

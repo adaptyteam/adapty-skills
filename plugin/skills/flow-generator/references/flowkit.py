@@ -1533,9 +1533,10 @@ def _video_value(source, what='source'):
     from the record of one `flows media upload-video --json` call: its path, its parsed dict
     (snake case), or a video value read out of a config (camel case).
 
-    `previewValue` is the base64 thumbnail the device paints while the clip loads, as for an
-    image. The builder stores its upload's base64 preview there; from an upload record it is
-    `preview_base64`. A value without one still publishes, and shows nothing until the clip loads.
+    `previewValue` is the poster image's inline preview: the base64 thumbnail the device paints
+    while `previewUrl` downloads, exactly as an image's `previewValue`. The builder stores its
+    upload's base64 preview there; from an upload record it is `preview_base64`. A value without
+    one still publishes, and the poster then waits behind a generic placeholder.
 
     The camel-case form is there to pass back a value read from a fetched config, unchanged.
     Nothing here can tell it from a hand-written one, so never type a `{videoUrl, previewUrl}`
@@ -1586,7 +1587,7 @@ def video(*, fixed_h, source=None, dark_source=None, locale='en', width=None, fi
     or its parsed dict -- and `dark_source` the dark file's record (`props.videoDark`). The
     element then carries `{videoUrl, previewUrl, previewValue, width, height}` for `locale`, the
     default locale, as an inline localizable (run `localization.py catalog` over the document).
-    `previewValue` is the upload's `preview_base64`, the thumbnail shown while the clip loads.
+    `previewValue` is the upload's `preview_base64`, the poster image's inline preview.
 
     With no `source` the element has NO clip: a styled "Upload Video" placeholder for a clip
     nobody has a file for, or a CLI with no `upload-video`. Say to the user in words that they
