@@ -971,6 +971,21 @@ def main():
           raises(lambda: fk.stack([], actions=[fk.purchase('plans'), fk.navigate('scr_x')])))
     check('a navigate before it is fine',
           bool(fk.stack([], actions=[fk.navigate('scr_x'), fk.purchase('plans')])))
+    ask = fk.request_permission()
+    check('request_permission() asks for push and goes on with Navigate Next, as the builder starts it',
+          ask == {'id': 'act_permission', 'type': 'requestPermission', 'payload': {
+              'permission': 'push', 'onResult': {'response': [
+                  {'id': 'act_permission_response', 'type': 'navigateNext'}]}}})
+    check('request_permission(on_response=None) is a bare request with no onResult',
+          'onResult' not in fk.request_permission(on_response=None)['payload'])
+    check('request_permission refuses a permission other than push',
+          raises(lambda: fk.request_permission(permission='camera')))
+    check('a response cannot start a purchase',
+          raises(lambda: fk.request_permission(on_response=fk.purchase('plans'))))
+    check('a purchase outcome cannot hold a permission request',
+          raises(lambda: fk.purchase('plans', on_success=fk.request_permission())))
+    check('a navigate after the request in one tap is refused',
+          raises(lambda: fk.stack([], actions=[fk.request_permission(), fk.navigate('scr_x')])))
     check('select_product refuses an empty element id',
           raises(lambda: fk.select_product('')))
     check('custom_action refuses an empty payload id', raises(lambda: fk.custom_action('')))

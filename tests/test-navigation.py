@@ -317,7 +317,7 @@ print('\npurchase and restore outcomes (verify-config)')
 TO_B = {'id': 'n', 'type': 'navigate', 'payload': {'type': 'screen', 'screen': 'scr_b'}}
 BUY = {'id': 'buy', 'type': 'purchase', 'payload': {'product': {'id': 'p1'}}}
 RESTORE = {'id': 'rs', 'type': 'restorePurchases'}
-OUTCOME_HITS = ('before the store answers', 'nested_store_operation', 'ignored_unknown_outcome',
+OUTCOME_HITS = ('navigation_before_store_result', 'nested_store_operation', 'ignored_unknown_outcome',
                 'ignored_web_purchase_outcomes', '`onResult` that is not', 'is not a list')
 
 
@@ -343,13 +343,13 @@ out = verify_out(tapped(outcome(RESTORE, success=[TO_B], fail=[])))
 check('a restore routed through success is silent', not hits(out), out)
 check('a navigate BEFORE the purchase is silent', not hits(verify_out(tapped(TO_B, BUY))))
 out = verify_out(tapped(BUY, TO_B))
-check('a navigate after the purchase FIRES', 'before the store answers' in out, out)
+check('a navigate after the purchase FIRES', 'navigation_before_store_result' in out, out)
 out = verify_out(tapped(RESTORE, {'id': 'c', 'type': 'closeFlow'}))
-check('a close after the restore FIRES', 'before the store answers' in out, out)
+check('a close after the restore FIRES', 'navigation_before_store_result' in out, out)
 cond = {'id': 'c', 'type': 'conditional', 'payload': {
     'type': 'switch', 'cases': [], 'default': {'type': 'const', 'value': [TO_B]}}}
 check('a conditional that leaves, after the purchase, FIRES',
-      'before the store answers' in verify_out(tapped(BUY, cond)))
+      'navigation_before_store_result' in verify_out(tapped(BUY, cond)))
 web = {'id': 'w', 'type': 'purchase', 'payload': {'type': 'web', 'product': {'id': 'p1'}}}
 check('a navigate after a WEB purchase is silent', not hits(verify_out(tapped(web, TO_B))))
 out = verify_out(tapped(outcome(web, success=[TO_B])))
@@ -364,11 +364,31 @@ out = verify_out(tapped(outcome(BUY, success=[deep])))
 check('a purchase in a conditional inside an outcome FIRES', 'nested_store_operation' in out, out)
 out = verify_out(tapped(outcome(BUY, success=[BUY, TO_B])))
 check('...and the navigate after it, inside the outcome, FIRES too',
-      'before the store answers' in out, out)
+      'navigation_before_store_result' in out, out)
 out = verify_out(tapped({**BUY, 'payload': {**BUY['payload'], 'onResult': [TO_B]}}))
 check('an onResult that is not an object is an error', '`onResult` that is not' in out, out)
 out = verify_out(tapped(outcome(BUY, success=TO_B)))
 check('an outcome that is not a list is an error', 'is not a list' in out, out)
+print('\npermission request outcomes (verify-config)')
+ASK = {'id': 'ask', 'type': 'requestPermission', 'payload': {'permission': 'push'}}
+NO_RESPONSE = 'no actions after the response'
+out = verify_out(tapped(outcome(ASK, response=[TO_B])))
+check('a request routed through response is silent', not hits(out) and NO_RESPONSE not in out, out)
+check('...and the screen it routes to is reachable', 'unreachable' not in out, out)
+out = verify_out(tapped(ASK))
+check('a request with no response FIRES', NO_RESPONSE in out, out)
+out = verify_out(tapped(outcome(ASK, response=[TO_B]), {'id': 'c', 'type': 'closeFlow'}))
+check('a close after the request FIRES', 'navigation_before_store_result' in out, out)
+check('...and points at response', 'Move it into `response`' in out, out)
+out = verify_out(tapped(outcome(ASK, response=[BUY])))
+check('a purchase inside a response FIRES', 'nested_store_operation' in out, out)
+out = verify_out(tapped(outcome(BUY, success=[outcome(ASK, response=[TO_B])])))
+check('a request inside a purchase outcome FIRES', 'nested_store_operation' in out, out)
+out = verify_out(tapped(outcome(ASK, response=[TO_B], granted=[TO_B])))
+check('an outcome other than response FIRES as unknown', 'ignored_unknown_outcome' in out, out)
+out = verify_out(tapped({**ASK, 'payload': {'permission': 'camera'}}))
+check('a permission other than push is an error', "asks for 'camera'" in out, out)
+
 for f in sorted(glob.glob(os.path.join(ROOT, 'tests', 'fixtures*', '*.json'))):
     out = subprocess.run([sys.executable, VERIFY, f], capture_output=True, text=True).stdout
     if hits(out):

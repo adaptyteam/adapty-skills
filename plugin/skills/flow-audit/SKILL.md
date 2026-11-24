@@ -81,9 +81,20 @@ options.
 - **The CLI:** run this skill's CLI resolution, then `adapty auth login`, which opens the browser for
   the user's sign-in. The Claude app also needs Adapty's domains allowed first:
   https://adapty.io/docs/developer-cli-cowork
+
+  **EU account:** first check that the CLI knows the region: `ADAPTY_REGION=xx $ADAPTY auth status`
+  exits 2. On any other exit, set `ADAPTY="npx --yes adapty@latest"` and keep it for the login and
+  every next call, also in a new shell, whatever the version block printed. Then log in with
+  `$ADAPTY auth login --region eu` (or `ADAPTY_REGION=eu`); where this skill has the user log in,
+  run no login yourself and tell them to run `adapty auth login --region eu`. The user opens the
+  link in a browser signed in through https://app.adapty.io/eu-login. After a damaged login file,
+  log in again with the same region; if you do not know it, ask the user.
 - **MCP:** the server is `https://mcp.adapty.io/mcp`, and the user signs in in the browser. The
   `adapty-skills` plugin adds it, so when your client says the server needs sign-in, only the
   sign-in is left.
+  An account on Adapty's EU servers uses the EU instance, `https://mcp-eu.adapty.io/mcp`, instead.
+  The plugin adds only the default server, so add the EU one in your agent by hand:
+  [Adapty on EU servers](https://adapty.io/docs/eu-cluster).
   - Claude Code: `/mcp`, pick `plugin:adapty-skills:adapty`, **Authenticate**. Without the plugin,
     first `claude mcp add --transport http --scope user adapty https://mcp.adapty.io/mcp`.
   - Codex CLI: the plugin's connect prompt signs in. Without the plugin:
@@ -338,8 +349,9 @@ report the second run's verdict, not the first.
 
 If a `custom-action-unconfirmed` question fires, **ask the user what each listed custom
 action does**, in one message, naming each by its screen and button as the finding does.
-A flow cannot ask for a permission, open the rating sheet or sign anyone in on its own: the
-button fires an action ID that the app's code carries out, and only the user knows which.
+Apart from push notifications (the Request permission action, which the checks read without
+asking), a flow cannot ask for a permission, open the rating sheet or sign anyone in on its own:
+the button fires an action ID that the app's code carries out, and only the user knows which.
 Map each plain-words answer to one kind and re-run with
 `--custom-actions id=kind[,id=kind…]`:
 
