@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Calibration for the store-review checks in `references/audit-flow.py`.
+"""Calibration for the store-review checks in `store-compliance`'s `store-check.py`.
 
-Repo-only, like everything under `tests/`. Runs the shipped script as a subprocess --
+Most cases run them through `flow-audit`'s `audit-flow.py`, which merges them into its
+report; the advisory section and the verdict are asserted there. Repo-only, like everything
+under `tests/`. Runs the shipped scripts as a subprocess --
 never imports it, so nothing writes a `__pycache__` into `references/`, which the
 copy-install path would ship.
 
@@ -21,6 +23,8 @@ from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
+STORE = os.path.join(ROOT, 'plugin', 'skills', 'store-compliance', 'references',
+                     'store-check.py')
 FIX = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')
 CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
@@ -658,14 +662,14 @@ check('fires when the only trial promise sits inside a switch and no terms follo
 # script whose disclosure blob reads `flat_text` again must fire, or the silence above
 # is caused by something other than `branch_text`.
 with tempfile.TemporaryDirectory() as tmp:
-    src = open(AUDIT).read()
+    src = open(STORE).read()
     marker = "branch_text((e.get('props') or {}).get('content'), dl)"
     check('the disclosure blob is built with branch_text (the negative test can find it)',
           src.count(marker) == 1, str(src.count(marker)))
     # The whole references dir, since the script imports its siblings (`localization.py`).
     refs = os.path.join(tmp, 'references')
-    shutil.copytree(os.path.dirname(AUDIT), refs)
-    old = os.path.join(refs, 'audit-flow.py')
+    shutil.copytree(os.path.dirname(STORE), refs)
+    old = os.path.join(refs, 'store-check.py')
     open(old, 'w').write(src.replace(marker, "flat_text((e.get('props') or {}).get('content'), dl)"))
     cpath = os.path.join(tmp, 'c.json')
     json.dump(switch_terms, open(cpath, 'w'))

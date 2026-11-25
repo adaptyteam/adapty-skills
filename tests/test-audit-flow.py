@@ -17,6 +17,8 @@ from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
+STORE = os.path.join(ROOT, 'plugin', 'skills', 'store-compliance', 'references',
+                     'store-check.py')
 FIX = os.path.join(ROOT, 'tests', 'fixtures')
 FLOW = os.path.join(FIX, 'onboarding-multilocale.json')
 CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
@@ -75,6 +77,18 @@ def _load_audit_module():
 
 
 audit_mod = _load_audit_module()
+
+
+def _load_store_module():
+    import importlib.util
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location('store_check', STORE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+store_mod = _load_store_module()
 
 
 def load(path=FLOW):
@@ -484,7 +498,11 @@ check('a /tc url on a button reading "Terms of Use" clears no-terms-link',
 _lf = _one_link('https://example.com/privacypolicy', 'Read more')
 check('a run-together /privacypolicy url clears no-privacy-link',
       len(of(_lf, 'no-privacy-link')) == 0, f'got {of(_lf, "no-privacy-link")}')
-check('...and leaves the terms question for an unrelated label',
+check('...and, its only link being plainly the privacy page, makes no-terms-link a blocker',
+      len(of(_lf, 'no-terms-link')) == 1
+      and of(_lf, 'no-terms-link')[0]['severity'] == 'blocker')
+_lf = _one_link('https://example.com/a1', 'Read more')
+check('an unexplained link with an unrelated label leaves the terms question',
       len(of(_lf, 'no-terms-link')) == 1
       and of(_lf, 'no-terms-link')[0]['severity'] == 'question')
 _lf = _one_link('https://x.co/a1', 'Privacy Policy')
@@ -2309,7 +2327,7 @@ _f = run(_b)[1]
 check('a dead end in a flow whose only escape is Back is not a blocker (nothing closes it)',
       not of(_f, 'dead-end-screen'), of(_f, 'dead-end-screen'))
 
-_guess = {cid: audit_mod.custom_kinds({'screens': [{'id': 's', 'elements': {
+_guess = {cid: store_mod.custom_kinds({'screens': [{'id': 's', 'elements': {
     'map': {'e': {'type': 'stack', 'interactions': [{'trigger': 'tap', 'actions': [
         {'type': 'custom', 'payload': {'id': cid}}]}]}}, 'hierarchy': {'id': 'root',
         'children': [{'id': 'e'}]}}}]})[cid][0] for cid in (
