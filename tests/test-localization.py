@@ -387,6 +387,41 @@ with tempfile.TemporaryDirectory() as tmp:
                        text=True)
     check('rename without a target prints usage and exits 2', r.returncode == 2, r.stderr)
 
+print('\nactions in a purchase, restore or permission outcome are catalogued')
+# The transformer walks `payload.onResult.<result>` of every action that reports results, as it
+# walks a conditional's branches, and skips a web purchase, whose outcomes never run.
+def _alert(t):
+    return {'id': 'act_' + t, 'type': 'alert',
+            'payload': {'title': {'_localizable': True, 'values': {'en': t}}}}
+_btn = {'id': 'btn_buy', 'type': 'button', 'states': [], 'props': {}, 'interactions': [
+    {'trigger': 'tap', 'actions': [
+        {'id': 'act_buy', 'type': 'purchase', 'payload': {
+            'product': {'type': 'var', 'variableId': 'plans.selectedProduct'},
+            'onResult': {'fail': [_alert('BuyFailed')]}}},
+        {'id': 'act_restore', 'type': 'restorePurchases',
+         'payload': {'onResult': {'success': [_alert('Restored')]}}},
+        {'id': 'act_perm', 'type': 'requestPermission',
+         'payload': {'permission': 'push', 'onResult': {'response': [_alert('Asked')]}}},
+        {'id': 'act_web', 'type': 'purchase', 'payload': {
+            'type': 'web', 'onResult': {'fail': [_alert('WebIgnored')]}}}]}]}
+_doc = {'schemaVersion': 13, 'locales': [{'id': 'en', 'code': 'en', 'name': 'English'}],
+        'defaultLocale': 'en',
+        'screens': [{'id': 'scr_a', 'elements': {'hierarchy': {'id': 'btn_buy'},
+                                                 'map': {'btn_buy': _btn}}}]}
+_out, _ = L.catalog(_doc)
+_acts = _out['screens'][0]['elements']['map']['btn_buy']['interactions'][0]['actions']
+_title = lambda a, r: a['payload']['onResult'][r][0]['payload']['title']
+check('a purchase outcome alert becomes a catalog ref', L.is_ref(_title(_acts[0], 'fail')))
+check('a restore outcome alert becomes a catalog ref', L.is_ref(_title(_acts[1], 'success')))
+check('a permission outcome alert becomes a catalog ref',
+      L.is_ref(_title(_acts[2], 'response')))
+check('a web purchase outcome is left as it is', not L.is_ref(_title(_acts[3], 'fail')))
+_view = L.resolve(_out)
+check('resolve() inlines the outcome alerts again', '"_lid"' not in json.dumps(_view))
+_where = [w for w, *_ in L.iter_fields(_out)]
+check('iter_fields() reaches the three outcome alerts',
+      sum('alert' in w for w in _where) == 3, _where)
+
 print('\ncopies')
 a, b = open(GEN, 'rb').read(), open(AUD, 'rb').read()
 check('flow-generator and flow-audit ship byte-identical localization.py', a == b,
