@@ -342,6 +342,12 @@ and the finding numbers): a flow can be changed later without a new app release.
 breath that each change is still held to the guidelines ([`references/app-level.md`](references/app-level.md#changing-screens-after-review)).
 When the user wants to stay in code, offer the code change instead.
 
+**A flow finding that holds in some of the countries the app sells in and not in others** (a
+rule of one storefront, like a link to pay on the web): offer, beside the fix, to keep the allowed version where it
+is allowed, with a copy of the flow shown to those countries only. The shape, the country
+attribute and the steps are in [`references/country-versions.md`](references/country-versions.md);
+`flow-generator` and `audiences` do the writes on the user's yes.
+
 ## What you cannot check
 
 Say these when they apply, each with where the user checks it:
@@ -356,36 +362,45 @@ Say these when they apply, each with where the user checks it:
 
 ## Feedback note
 
-**Send Adapty a feedback note only when a check got it wrong**: the user tells you a finding is
-not true for their screen, or you see that a check fired on something that works, and you agree
-after looking again. Nothing else goes. Write it in English, in this shape — the shape to follow,
-not words to copy:
+**Send Adapty one feedback note per run, with its first verdict**, on every path, good runs
+included (a re-check later in the run sends none): it tells
+Adapty how the job went for **you** with this skill and the CLI. Send it with the CLI or MCP when
+one is ready; never set one up only for the note. Write it in English, in one of these shapes — the
+shape to follow, not words to copy:
 
-> What I did: checked a one-screen paywall before submitting. What helped: the report named the
-> button, so the user could check the finding at once. What got in the way: the no-terms-link
-> check fired on a paywall whose terms link has a translated path, and this skill does not say
-> that the link must contain an English word.
+> Checked a two-screen paywall flow and found two missing legal links before submission.
 
-- **Sentiment is `negative`**: the check told the user something that is not true. Never the
-  user's mood.
+> What I did: checked an onboarding from screenshots. What helped: the rule table named what a
+> picture cannot show. What got in the way: the developer forum refused every thread page, and
+> this skill does not say where else to read recent rejections.
+
+- **Sentiment is your own outcome, never the user's mood, nor how many findings there were**:
+  - `positive` — the check ran the way this skill describes, whatever it found. One sentence on
+    what you checked and the kind of thing it found.
+  - `neutral` — done, after a wrong turn, a workaround, or a source that would not load.
+  - `negative` — this skill, its checker or the CLI stopped you, or a check told the user
+    something that is not true and you agree after looking again.
+
+  Neutral and negative notes carry all three parts. Name a check by the name the checker prints
+  for it, or the row's heading on the screens and code path.
 - **Every sentence is about the task, this skill or the CLI**, in plain words, one short sentence
-  each: none of the user's copy, brand, product names, code, file paths or account values. Name
-  the check by the name the checker prints for it, or the row's heading on the screens and code
-  path.
-- **`--context` carries the ids and the check**: `app <app id>, flow <flow id>: <check name> fired
-  on a flow that has the link`; for screens or code, `screens: <check name>`.
+  each: none of the user's copy, brand, product names, code, file paths or account values.
+- **`--context` carries the ids and the path**: `app <app id>, flow <flow id>: flow path`; for
+  screenshots or code, `screens` or `code`.
 - **Write the note into the command in single quotes**, never from a file or a script. Inside
   single quotes the shell runs nothing, so drop backticks and write "does not" for "doesn't":
 
   ```bash
-  $ADAPTY feedback --feature paywall-compliance --sentiment negative \
+  $ADAPTY feedback --feature paywall-compliance --sentiment <positive|neutral|negative> \
     --message '<the note>' \
-    --context '<ids>: <check name> fired on <the shape, generic>'
+    --context '<ids>: <path>'
   ```
 
-- **Always run the command once the note is due**, and tell the user in one line, inside the reply
-  that corrects the finding, only when it printed `Feedback sent.`: "I also sent Adapty a short
+- **Always run the command once the note is due**, and tell the user in one line, inside the
+  message with the verdict, only when it printed `Feedback sent.`: "I also sent Adapty a short
   note on how this went." Any other result gets no line. Never retry, never hold up the task.
+- **A finding the user disputes later** gets its own note then, `negative` when you agree the
+  check was wrong.
 - **The user can turn it off**: if they say not to send feedback, send nothing for the rest of the
   session.
 
@@ -401,6 +416,8 @@ not words to copy:
 - [`references/app-level.md`](references/app-level.md) — the app around the screens.
 - [`references/developer-reports.md`](references/developer-reports.md) — where developers write
   about rejections and how to read them.
+- [`references/country-versions.md`](references/country-versions.md) — a flow shown in one version
+  where a rule allows more and another everywhere else.
 - `store-check.py --screens` — each flow screen's text and buttons, for the three above.
 - [`references/mechanisms.md`](references/mechanisms.md) — evidence and calibration of the four
   required mechanisms. Read it before changing one.
@@ -413,7 +430,8 @@ docs URL from a topic name.
 
 ## Boundaries
 
-- **No writes.** A flow change is `flow-generator`'s; a code change is the user's yes away.
+- **No writes.** A flow change is `flow-generator`'s, a segment or a placement audience is
+  `audiences`'s; a code change is the user's yes away.
 - **Not conversion advice.** What a store will accept, never what will convert — that is
   `paywall-teardown` for a paywall screen, `onboarding-teardown` for the sequence around it.
 - **Not legal advice.** Consumer-law findings name what regulators act on; whether a law applies
