@@ -1,12 +1,12 @@
-# `flow-audit` store-review reference
+# `paywall-compliance` store-review reference
 
-Per-check evidence for the fourteen **advisory** store-review checks in `audit-flow.py`:
+Per-check evidence for the fourteen **advisory** store-review checks in `store-check.py`:
 six on the paywall — `trial-toggle`, `billed-amount-not-shown`, `derived-price-louder`,
 `no-period-disclosed`, `trial-terms-incomplete` and `external-purchase-link` — and eight
 on the onboarding around it, under [Onboarding](#onboarding).
 
-Same contract as [`checks.md`](checks.md), which stays the owner of every pre-existing
-check: per check, what it looks at, its severity and **why** that severity, its
+Same contract as [`mechanisms.md`](mechanisms.md), which owns the four required
+mechanisms: per check, what it looks at, its severity and **why** that severity, its
 calibration in **both** directions with the fixture named, the false-positive trap it
 closes, and the negative-test outcome that proved the mechanism load-bearing. **Read
 this before changing one of these checks** — several of the rules below are narrower
@@ -18,7 +18,7 @@ These checks answer *"is this likely to draw a rejection"* — never *"will this
 ## The framing rule
 
 1. **Every check here is a `risk` or a `question`. None is a `blocker`.** No new
-   severity was introduced: `risk` is already defined in `audit-flow.py`'s own docstring
+   severity was introduced: `risk` is already defined in `flow-audit`'s own checker
    as "it works and is probably not what anyone intended", which is exactly a rejection
    hazard.
 2. **A store-review finding never changes the verdict.** Blockers decide it, and no
@@ -56,7 +56,7 @@ reviewer will read a design, never to a missing action.
 
 ### Isolation is a tested property, not a read one
 
-`render()` partitions these checks out of the findings list **before** the
+`flow-audit`'s `render()` partitions these checks out of the findings list **before** the
 severity loop and the verdict line run, so the verdict is isolated by construction
 rather than by a special case in the verdict code. That partition is negative-tested:
 removing the partition line so store findings flow back into the severity groups turns
@@ -98,9 +98,10 @@ Ranked the way this repo already ranks evidence, strongest first.
 3. **The store-review guide**,
    [prepare-your-app-for-store-review](https://adapty.io/docs/prepare-your-app-for-store-review)
    — the page a client is sent to, rather than a guidelines wall. **It is handed over by
-   [`SKILL.md`](../SKILL.md)'s phase-5 report instruction, not by any finding's `fix`
-   string.** Keep it there: `lint-links.mjs` walks `.md` files only, so a URL placed
-   inside `audit-flow.py` is unlinted and rots silently. The findings carry the guideline
+   the report instructions of this skill's [`SKILL.md`](../SKILL.md) and of `flow-audit`, and
+   printed by `store-check.py --report`, never by a finding's `fix` string.** A URL inside a
+   script is unlinted (`lint-links.mjs` walks `.md` files only), so it lives in exactly one
+   script constant and in the `.md` files that the lint checks. The findings carry the guideline
    number (what a developer pastes into an appeal); the report carries the link.
 4. **What is computable from a config plus the catalog.** A rule that cannot be
    measured from those two inputs is not a check; it is a **Check these yourself** line.
@@ -169,9 +170,8 @@ design. The pattern is legal, it renders, and it sells; enforcement is inconsist
 **Why structure and not the caption.** A caption match would test the template's name.
 The shape is what a reviewer sees.
 
-**Never put a conversion claim in a fix string.** `SKILL.md` is explicit — *"Not conversion
-advice. This skill answers 'is it wired up', never 'will it convert' — that is
-`paywall-teardown`"* — and a comparison like "both convert at least as well" sits in no
+**Never put a conversion claim in a fix string.** This skill's `SKILL.md` is explicit — it
+answers what a store will accept, never what will convert, which is `paywall-teardown`'s — and a comparison like "both convert at least as well" sits in no
 evidence tier here. Each remediation stands on its own as a way to show the trial's terms
 without a tap, which is the only thing this check knows about. A conversion comparison
 between them belongs to `paywall-teardown`.
@@ -284,7 +284,7 @@ it is pinned by its own case in `tests/test-store-review.py`; the negative test 
 the branch back to one wording and exactly the two wording assertions redden.
 
 **Negative test.** Removing the `if not billed:` guard does not merely misreport — it
-crashes `audit-flow.py` (`ValueError: max() iterable argument is empty`, rc 1) on both
+crashes `store-check.py` (`ValueError: max() iterable argument is empty`, rc 1) on both
 multilocale scenarios, because `billed` really is empty there. Stronger than the
 predicted "three FAIL lines", and recorded as the mismatch it was rather than as a
 match: the guard is load-bearing, and its absence is loud.
@@ -640,7 +640,7 @@ Stated plainly, because each is a thing a reader could otherwise assume is cover
   a config and a catalog. That boundary is the skill's, not this section's.
 - **A url query string or fragment can carry a matching token.** `_url_tokens` runs over
   the whole url string, so `?ref=checkout-promo` on an unrelated page would match. This
-  is the same pre-existing limitation `checks.md` records for the legal-link checks.
+  is the same limitation [`mechanisms.md`](mechanisms.md) records for the legal-link checks.
 - **`no-period-disclosed`'s lifetime exemption depends on the catalog.** A one-time
   product absent from `products list` has no `period` row, so it cannot be exempted and
   the screen is judged as if it billed recurringly.
@@ -672,7 +672,7 @@ Recorded so nobody re-litigates these from the guideline text alone.
   conversion advice. Out of scope by the boundary that already exists between the two
   skills.
 - **Anything needing a render** — obscured close buttons, contrast, a price hidden behind
-  an image. `flow-audit` is a config-and-catalog question by its own boundaries;
+  an image. The flow checker is a config-and-catalog question by its own boundaries;
   `flow-generator`'s preview loop owns pixels.
 - **Onboarding shapes teams worry about and the stores show nothing against:** quiz
   questions about age, gender, weight or health; "building your plan" loading screens;
@@ -708,7 +708,7 @@ Eight checks for the screens around the paywall. A button with a Request permiss
 action (`requestPermission`, push notifications) is a permission prompt for certain. Any
 other permission, the rating sheet or a sign-in is a `custom` action whose ID the app's
 code handles. So these checks read what the user said each ID does
-(`--custom-actions`, asked through `custom-action-unconfirmed`, see `checks.md`), and
+(`--custom-actions`, asked through `flow-audit`'s `custom-action-unconfirmed`), and
 until then guess the kind from **the ID only**, read as words (`rate_us`, `rateApp`,
 `request_att`; an ambiguous word such as "location" or "tracking" counts only beside one
 that asks, so `select_location` and `habit_tracking_setup` stay unknown), and word the
@@ -800,7 +800,7 @@ right console, which is a text change no evidence in this file supports yet.
 ## The disclaimer
 
 The section's heading is the disclaimer: **Store review (advisory, doesn't block
-publishing)** — `STORE_REVIEW_HEADING` in `audit-flow.py`. It used to be a three-line
+publishing)** — `STORE_REVIEW_HEADING` in `flow-audit`'s `audit-flow.py`. It used to be a three-line
 paragraph after the last finding, and the heading replaced it for a measured reason: it
 stated two directions, and one of them had nothing to attach to. "A clean section is not
 a pass" can never be read, because a clean section is never printed. What a reader needs
@@ -831,7 +831,7 @@ rather than softening it, is **unmeasured**. That stays open.
 
 ## The rule
 
-Same bar as [`checks.md`](checks.md): a check ships only when it is **silent on every
+Same bar as [`mechanisms.md`](mechanisms.md): a check ships only when it is **silent on every
 fixture in the corpus and fires on an injected instance of its own defect**, and — added
 by this change's own experience — when **each mechanism has been negative-tested by
 disabling it and exactly the intended case reddens**. Three checks in this family had
