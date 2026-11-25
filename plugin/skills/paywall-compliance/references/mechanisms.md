@@ -1,4 +1,4 @@
-# `store-compliance` mechanism reference
+# `paywall-compliance` mechanism reference
 
 Per-check evidence for the four checks in `store-check.py` that a store REQUIRES: Restore, the
 Terms and Privacy links, and a way out. What each looks at, its severity and why, its

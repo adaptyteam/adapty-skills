@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The `store-compliance` checker on its own, and the seam `flow-audit` calls it through.
+"""The `paywall-compliance` checker on its own, and the seam `flow-audit` calls it through.
 
 The checks themselves are calibrated in `test-store-review.py` (advisory shapes) and
 `test-audit-flow.py` (the required mechanisms), both through `flow-audit`'s report. This file
@@ -7,7 +7,7 @@ covers what only shows when the two skills are apart:
 
   - `store-check.py --report`, the standalone verdict line and its disclaimer;
   - `store-check.py --json` equals the store findings `audit-flow.py --json` prints;
-  - `flow-audit` copied without `store-compliance` says so as a question, and its verdict
+  - `flow-audit` copied without `paywall-compliance` says so as a question, and its verdict
     never reads a bare "Ready to publish".
 
 Runs the shipped scripts as subprocesses, so nothing writes a `__pycache__` into them.
@@ -18,7 +18,7 @@ import glob, json, os, re, shutil, subprocess, sys, tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKILLS = os.path.join(ROOT, 'plugin', 'skills')
 AUDIT = os.path.join(SKILLS, 'flow-audit', 'references', 'audit-flow.py')
-STORE = os.path.join(SKILLS, 'store-compliance', 'references', 'store-check.py')
+STORE = os.path.join(SKILLS, 'paywall-compliance', 'references', 'store-check.py')
 FIX = os.path.join(ROOT, 'tests', 'fixtures')
 CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
 DISCLAIMER = 'a clean check is not an approval, and a finding is not a rejection'
@@ -78,7 +78,7 @@ for path in sorted(glob.glob(os.path.join(FIX, '*.json'))):
               'store finding, in order', mine == merged,
               f'{[f["check"] for f in mine]} vs {[f["check"] for f in merged]}')
 
-print('\nflow-audit copied without store-compliance')
+print('\nflow-audit copied without paywall-compliance')
 with tempfile.TemporaryDirectory() as tmp:
     alone = os.path.join(tmp, 'skills', 'flow-audit')
     shutil.copytree(os.path.join(SKILLS, 'flow-audit'), alone)

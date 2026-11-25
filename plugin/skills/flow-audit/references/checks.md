@@ -17,7 +17,7 @@ font names fire correctly (see Fonts below). `timeline-anchored.json` is
 no `closeFlow`/`navigateBack`, nothing tappable at all — so `no-escape-in-flow` fires
 on it, correctly, as a `question` (a store check, see Store rules below). It stays a
 negative control for every other family. `tabs-paywall.json` is the store control (see
-`store-compliance`'s `mechanisms.md`). It is **not** a negative control for the
+`paywall-compliance`'s `mechanisms.md`). It is **not** a negative control for the
 products family: it binds three products through `const` purchase actions, none of
 which exist in the catalog fixture, and the products family correctly fires
 `product-not-in-catalog` × 3 on it. Treat that firing as correct — do not read it as a
@@ -50,7 +50,7 @@ fixture/live flow it fires on, or both — a check with only one half proven is 
 ## Store rules
 
 Every store check — Restore, the Terms and Privacy links, a way out of a paywall, and
-the advisory store-review shapes — belongs to the `store-compliance` skill. `audit-flow.py`
+the advisory store-review shapes — belongs to the `paywall-compliance` skill. `audit-flow.py`
 runs its `store-check.py` from the sibling skill directory and merges the findings into
 this report: the required mechanisms count against the verdict, the advisory ones print
 in their own section. Their evidence and calibration live in that skill's

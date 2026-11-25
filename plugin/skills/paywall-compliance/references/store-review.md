@@ -1,4 +1,4 @@
-# `store-compliance` store-review reference
+# `paywall-compliance` store-review reference
 
 Per-check evidence for the fourteen **advisory** store-review checks in `store-check.py`:
 six on the paywall — `trial-toggle`, `billed-amount-not-shown`, `derived-price-louder`,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Calibration for the store-review checks in `store-compliance`'s `store-check.py`.
+"""Calibration for the store-review checks in `paywall-compliance`'s `store-check.py`.
 
 Most cases run them through `flow-audit`'s `audit-flow.py`, which merges them into its
 report; the advisory section and the verdict are asserted there. Repo-only, like everything
@@ -23,7 +23,7 @@ from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
-STORE = os.path.join(ROOT, 'plugin', 'skills', 'store-compliance', 'references',
+STORE = os.path.join(ROOT, 'plugin', 'skills', 'paywall-compliance', 'references',
                      'store-check.py')
 FIX = os.path.join(ROOT, 'tests', 'fixtures')
 RAW = os.path.join(ROOT, 'tests', 'fixtures-raw')

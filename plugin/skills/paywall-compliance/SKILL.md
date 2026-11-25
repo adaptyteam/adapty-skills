@@ -1,9 +1,9 @@
 ---
-name: store-compliance
+name: paywall-compliance
 description: 'Use when someone wants to know whether a paywall, an onboarding or a purchase screen will pass App Store or Google Play review, whether it breaks subscription consumer law, or why it was rejected — "will Apple reject this paywall?", "is my paywall compliant?", "check store guidelines", "App Store rejected us under 3.1.2", "do I need a restore button?", "can I put a skip on the notifications screen?", "is a free-trial toggle allowed?", "is this a dark pattern?", "is my paywall FTC-compliant?", "can our AI companion app get banned?", "what is Apple rejecting lately?". Works on an Adapty Flow Builder flow, on screenshots or designs, and on a paywall built in the app''s own code (SwiftUI, UIKit, Jetpack Compose, Flutter, React Native). Read-only. `flow-audit` runs its store checker on every flow audit.'
 ---
 
-# store-compliance
+# paywall-compliance
 
 ## What this answers
 
@@ -378,7 +378,7 @@ not words to copy:
   single quotes the shell runs nothing, so drop backticks and write "does not" for "doesn't":
 
   ```bash
-  $ADAPTY feedback --feature store-compliance --sentiment negative \
+  $ADAPTY feedback --feature paywall-compliance --sentiment negative \
     --message '<the note>' \
     --context '<ids>: <check name> fired on <the shape, generic>'
   ```

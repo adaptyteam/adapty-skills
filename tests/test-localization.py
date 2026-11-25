@@ -14,7 +14,7 @@ Repo-only. Four things are pinned here, and each is a way the port could be wron
   2. It is idempotent: the tracked corpus (every fixture is stored v13) comes back unchanged.
   3. `resolve()` is a read view that cannot be mistaken for stored data: no `_lid` anywhere in
      it, no catalog left in it, and resolving it again changes nothing.
-  4. The shipped copies (flow-generator, flow-audit, store-compliance) are byte-identical, so a
+  4. The shipped copies (flow-generator, flow-audit, paywall-compliance) are byte-identical, so a
      directory-copy install of either skill reads the catalog the same way.
 """
 import copy, glob, json, os, subprocess, sys, tempfile
@@ -26,7 +26,7 @@ from v13 import localization as L  # noqa: E402
 
 GEN = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'localization.py')
 AUD = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'localization.py')
-SC = os.path.join(ROOT, 'plugin', 'skills', 'store-compliance', 'references', 'localization.py')
+SC = os.path.join(ROOT, 'plugin', 'skills', 'paywall-compliance', 'references', 'localization.py')
 VERIFY = os.path.join(ROOT, 'plugin', 'skills', 'flow-generator', 'references', 'verify-config.py')
 
 fails = []
@@ -392,10 +392,10 @@ print('\ncopies')
 a, b = open(GEN, 'rb').read(), open(AUD, 'rb').read()
 check('flow-generator and flow-audit ship byte-identical localization.py', a == b,
       'cp plugin/skills/flow-generator/references/localization.py plugin/skills/flow-audit/references/')
-check('flow-generator and store-compliance ship byte-identical localization.py',
+check('flow-generator and paywall-compliance ship byte-identical localization.py',
       a == open(SC, 'rb').read(),
       'cp plugin/skills/flow-generator/references/localization.py '
-      'plugin/skills/store-compliance/references/')
+      'plugin/skills/paywall-compliance/references/')
 
 print()
 if fails:

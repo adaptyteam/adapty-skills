@@ -318,7 +318,7 @@ fails, the report asks the user to check that font in Font Book and the run goes
 the names saved with the flow, which publishing does not use: publishing reads the app's font
 settings, which can be newer.
 
-**The store rules come from the `store-compliance` skill.** `audit-flow.py` runs its
+**The store rules come from the `paywall-compliance` skill.** `audit-flow.py` runs its
 `store-check.py` from the sibling skill directory, with the same `--catalog`, `--stores` and
 `--custom-actions`, and merges the findings; nothing extra to run. Two kinds come back:
 
@@ -329,16 +329,16 @@ settings, which can be newer.
   print in their own section, and their questions are excluded from the pending count, so a
   full store-review section beside a clean **Ready to publish** is correct, not a bug.
 
-If `store-compliance` is not installed beside this skill, the report carries one question
+If `paywall-compliance` is not installed beside this skill, the report carries one question
 saying the store rules did not run, and the verdict cannot read **Ready to publish**. The
 evidence behind every store rule lives in that skill's references; when the user asks why a
 store rule exists, or asks about the same paywall's screenshots or app code, invoke
-`store-compliance`.
+`paywall-compliance`.
 
 Consumer law, the app around the screens and what developers report lately are
-`store-compliance`'s own layers and are not in this report. When the flow sells, offer them as a
+`paywall-compliance`'s own layers and are not in this report. When the flow sells, offer them as a
 next step in one line ("I can also check this flow against subscription consumer law and what
-Apple has been rejecting lately") and invoke `store-compliance` on a yes.
+Apple has been rejecting lately") and invoke `paywall-compliance` on a yes.
 
 `flows config validate` takes `--config-file`, **not** `--config` (that flag wants a
 literal JSON string and fails with `Invalid --config JSON` on a file path). It also
@@ -440,7 +440,7 @@ block publishing)** section; the heading is its disclaimer. Translate it, never 
 it, and never restate a store-review risk as a blocker or as a reason the flow is not ready — those
 findings are hazards, not verdicts, and the verdict line already accounts for everything
 that gates a release. Its checks and the reason they are advisory belong to the
-`store-compliance` skill.
+`paywall-compliance` skill.
 
 **Hand the user one link alongside that section** —
 `https://adapty.io/docs/prepare-your-app-for-store-review` — as the page to read next.
@@ -574,7 +574,7 @@ for the traps each one closes; most were wrong on first contact with real data.
 at, its severity and why, its calibration in both directions, and the false-positive trap
 it closes. Read it before changing a check.
 
-The store rules, their evidence and calibration belong to the `store-compliance` skill, whose
+The store rules, their evidence and calibration belong to the `paywall-compliance` skill, whose
 checker `audit-flow.py` runs; change a store rule there, never here.
 
 ## Boundaries

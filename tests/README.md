@@ -92,7 +92,7 @@ python3 tests/test-snippet.py                                            # extra
 python3 tests/test-canvas.py                                             # the screen map: every arrow, badge and flag
 python3 tests/test-audit-flow.py                                         # the audit's checks, both directions
 python3 tests/test-store-review.py                                       # the advisory store-review checks, through the audit
-python3 tests/test-store-check.py                                        # store-compliance alone, and the seam flow-audit calls it through
+python3 tests/test-store-check.py                                        # paywall-compliance alone, and the seam flow-audit calls it through
 python3 tests/test-unmapped-elements.py                                  # old-price: the guarded set vs the corpus
 python3 tests/test-schema-baseline.py                                    # schema --baseline matches by screen id, not position
 python3 tests/test-legibility.py                                         # text-vs-background, both appearance variants
@@ -213,11 +213,11 @@ only proven silent — lives in
 the checks were written against.
 
 The store checks (Restore, the legal links, a way out, and the advisory store-review shapes)
-run in `store-compliance`'s `store-check.py`; `audit-flow.py` runs it from the sibling skill
+run in `paywall-compliance`'s `store-check.py`; `audit-flow.py` runs it from the sibling skill
 directory and merges its findings, so these suites still assert them through the audit's
 report. `test-store-check.py` covers the checker alone and a `flow-audit` copied without it.
 Their calibration lives in
-[store-review.md](../plugin/skills/store-compliance/references/store-review.md).
+[store-review.md](../plugin/skills/paywall-compliance/references/store-review.md).
 
 ## `test-id-hygiene.py` — the black-screen class, and the scope that is the finding
 

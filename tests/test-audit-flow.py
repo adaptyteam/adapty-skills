@@ -17,7 +17,7 @@ from v13 import localization  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIT = os.path.join(ROOT, 'plugin', 'skills', 'flow-audit', 'references', 'audit-flow.py')
-STORE = os.path.join(ROOT, 'plugin', 'skills', 'store-compliance', 'references',
+STORE = os.path.join(ROOT, 'plugin', 'skills', 'paywall-compliance', 'references',
                      'store-check.py')
 FIX = os.path.join(ROOT, 'tests', 'fixtures')
 FLOW = os.path.join(FIX, 'onboarding-multilocale.json')

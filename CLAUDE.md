@@ -26,11 +26,11 @@ Gemini CLI), all shipped in one plugin, `adapty-skills`:
 | `growth-advisor` | Reads the app's subscription numbers through the read-only `analytics` topic and its prices through `product-prices`, and returns hypotheses to A/B test |
 | `migrate-placements` | Moves an app from paywall placements to flow placements, by creating new ones |
 | `onboarding-teardown` | Growth hypotheses for an onboarding sequence; touches nothing |
+| `paywall-compliance` | Read-only: would the App Store or Google Play reject this paywall or onboarding, or a regulator object, from a flow, screenshots or the app's code; `flow-audit` runs its checker |
 | `paywall-teardown` | Conversion hypotheses for a paywall screen; touches nothing |
 | `purchase-testing` | The first sandbox purchase and every failed one |
 | `refund-saver` | Runs Refund Saver through the CLI's `refund-saver` topic or its MCP tools: store readiness, the switch, store and per-user preferences, consent policy, troubleshooting |
 | `retention-messaging` | Runs Apple Retention Messaging through the CLI's `retention-messaging` topic or its MCP tools: setup status, URL and performance test, messages, their status and numbers |
-| `store-compliance` | Read-only: would the App Store or Google Play reject this paywall or onboarding, or a regulator object, from a flow, screenshots or the app's code; `flow-audit` runs its checker |
 
 Three distribution channels: the Claude Code plugin (marketplace `.claude-plugin/marketplace.json`,
 plugin in `plugin/` with `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`), the
@@ -233,7 +233,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 - **Read-only; installs nothing.**
 - **"Ready to publish" only with zero blockers and every open question put to the user.**
-- **Store rules live in `store-compliance`;** `audit-flow.py` runs its `store-check.py` from the sibling
+- **Store rules live in `paywall-compliance`;** `audit-flow.py` runs its `store-check.py` from the sibling
   directory and merges the findings, and a copy without it reports `store-check-missing`.
 - **Nothing parses finding message text;** tests key on check names. Read `checks.md` before changing a check.
 
@@ -280,6 +280,16 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Design mode is entered only when no design reference was given;** a given reference outranks the library; findings on your own draft are fixed, not reported.
 - **Looks follow `look.md`:** the app's design first; with a brand invent only the layout; with none, invent from a random starting point and roll by command. Never put a test fixture's own nouns in shipped examples.
 
+### `paywall-compliance`
+
+- **The store-review checks stay advisory** (`risk`/`question`, own section in `flow-audit`, fixed
+  disclaimer) and never move a verdict; missing-mechanism checks stay blockers. Never re-add
+  `subscription-under-7-days`. Read `mechanisms.md` or `store-review.md` before changing a check.
+- **`screens-and-code.md` is the same rule set as `store-check.py`:** a rule changed in one changes in the other; a row the checker cannot judge says so.
+- **A new check needs a slot in `audit-flow.py`'s run order** (`STORE_MECHANISMS`, `STORE_ONBOARDING`, or the paywall default).
+- **Consumer law, app-level rules and developer reports are read by the agent** (`consumer-law.md`, `app-level.md`, `developer-reports.md`), never `store-check.py` findings. Consumer law and reports never make a blocker; report queries carry no app name, brand or copy.
+- **Borrowed rule text keeps its credit section:** `app-store-compliance` only from releases before its 2026-08-24 relicence (CC BY 4.0), `paywall-council` under MIT.
+
 ### `refund-saver`
 
 - **Commands and flags come from `src/cli/commands/refund-saver/**` in `adapty-cli`, the refusal codes and readiness rule from the CLI's `docs/agent/refund-saver.md`;** the MCP parameter for `--needs-consent` is `refund_saver_needs_consent`.
@@ -292,16 +302,6 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Only the CLI uploads images and adds bullet points;** with MCP only the skill names the CLI command or the dashboard and does not run it.
 - **Never repeat a create whose answer was lost;** find the candidates by name and read each by id.
 - **Commands and flags come from `src/cli/commands/retention-messaging/**` in `adapty-cli`, the change-file keys from `src/sdk/adapty/retention-messaging/change.ts`, the MCP parameters from the `retention_messaging_*` tools (`message_type` for `--type`);** the skill names only the flags it needs and sends the rest to `--help`.
-
-### `store-compliance`
-
-- **The store-review checks stay advisory** (`risk`/`question`, own section in `flow-audit`, fixed
-  disclaimer) and never move a verdict; missing-mechanism checks stay blockers. Never re-add
-  `subscription-under-7-days`. Read `mechanisms.md` or `store-review.md` before changing a check.
-- **`screens-and-code.md` is the same rule set as `store-check.py`:** a rule changed in one changes in the other; a row the checker cannot judge says so.
-- **A new check needs a slot in `audit-flow.py`'s run order** (`STORE_MECHANISMS`, `STORE_ONBOARDING`, or the paywall default).
-- **Consumer law, app-level rules and developer reports are read by the agent** (`consumer-law.md`, `app-level.md`, `developer-reports.md`), never `store-check.py` findings. Consumer law and reports never make a blocker; report queries carry no app name, brand or copy.
-- **Borrowed rule text keeps its credit section:** `app-store-compliance` only from releases before its 2026-08-24 relicence (CC BY 4.0), `paywall-council` under MIT.
 
 ### `purchase-testing`
 

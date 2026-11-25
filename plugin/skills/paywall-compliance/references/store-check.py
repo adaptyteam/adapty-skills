@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Would the stores reject this flow?
 
-The checker of the `store-compliance` skill. Takes an Adapty flow config and, when there is
+The checker of the `paywall-compliance` skill. Takes an Adapty flow config and, when there is
 one, the app's product catalog; returns the store-review findings. No CLI calls -- `SKILL.md`
 owns those, so this script stays testable against fixtures. No network reads.
 

@@ -2214,12 +2214,12 @@ def check_fonts(config, fetch=read_font, stores=None):
 
 
 # --- STORE RULES. Every store check -- the mechanisms App Store 3.1.1 and 3.1.2 require and
-# the advisory store-review shapes -- belongs to the `store-compliance` skill, whose
+# the advisory store-review shapes -- belongs to the `paywall-compliance` skill, whose
 # `store-check.py` this script runs from the sibling skill directory. Both skills ship in one
 # plugin; a copy of this skill alone gets a `store-check-missing` question instead, so the
 # verdict never reads a clean "Ready to publish" without the store rules having run.
 STORE_CHECK = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__)))), 'store-compliance', 'references', 'store-check.py')
+    os.path.abspath(__file__)))), 'paywall-compliance', 'references', 'store-check.py')
 # Where each store finding sits in this report's run order, by check name: the required
 # mechanisms after the triggers, the onboarding shapes after the purchase outcomes, and every
 # other store check (the paywall shapes) after the price checks.
@@ -2231,14 +2231,14 @@ STORE_ONBOARDING = frozenset({'primer-skip', 'primer-grant-wording', 'permission
 
 
 def run_store_check(config_path, catalog_path=None, stores=None, custom_actions=None):
-    """The `store-compliance` findings for this flow, or one question saying why there are
+    """The `paywall-compliance` findings for this flow, or one question saying why there are
     none. Same inputs as this script, so a re-run with `--stores` or `--custom-actions`
     re-runs the store rules with the answer too."""
     if not os.path.isfile(STORE_CHECK):
         return [finding(
             'question', 'compliance', 'store-check-missing',
             'I could not check the store rules (Restore, the Terms and Privacy links, a way '
-            'out of the paywall, and what has drawn rejections): the store-compliance skill '
+            'out of the paywall, and what has drawn rejections): the paywall-compliance skill '
             'is not installed beside this one.',
             'Install the whole Adapty skills plugin, then run the audit again.')]
     argv = [sys.executable, STORE_CHECK, config_path, '--json']
@@ -2256,7 +2256,7 @@ def run_store_check(config_path, catalog_path=None, stores=None, custom_actions=
             'question', 'compliance', 'store-check-missing',
             f'I could not check the store rules: the store check stopped with "{exc}".',
             'Run the audit again; if it stops the same way, check the store rules with the '
-            'store-compliance skill on its own.')]
+            'paywall-compliance skill on its own.')]
 
 
 def audit(config, catalog=None, stores=None, answers=None, offers=None, store=None):
