@@ -4668,8 +4668,7 @@ def theme_style_findings(d, bad, warn):
 
     # Where a layered style may be used. A fill is what it exists for. A border takes its solid
     # and gradient layers only. Text — and an input's text — gets the BLEND of its solid layers,
-    # so a style with no solid layer draws text at alpha 0. An input's or picker's fill draws only
-    # the first layer. Any other colour position (an icon, a shadow, carousel dots, a spinner) must
+    # so a style with no solid layer draws text at alpha 0. Any other colour position (an icon, a shadow, carousel dots, a spinner) must
     # be one solid layer per appearance in the Flow Builder; the service uses the first layer.
     for where, eid_, e in iter_elements(d):
         etype = e.get('type')
@@ -4681,10 +4680,6 @@ def theme_style_findings(d, bad, warn):
             c = layered[sid]
             segs = {seg.split('[')[0] for seg in path.split('.')}
             if 'fill' in segs:
-                if etype in INPUT_ELEMENT_TYPES and any(
-                        len(style_layers(style_side(c, v)) or []) > 1 for v in ('light', 'dark')):
-                    warn.append(f'{where}/{eid_} {path}: an input or picker fill bound to the '
-                                f'layered style {sid!r} draws only its first (bottom) layer')
                 continue
             if 'border' in segs:
                 for variant in ('light', 'dark'):

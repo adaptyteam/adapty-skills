@@ -225,8 +225,7 @@ def fill(color_id=None, *, hexval=None, opacity=None, layers=None):
     One layer is `fill('card')` or `fill(hexval=...)`; a stack is the layer helpers concatenated,
     or `layers=`: `image_fill(url, preview=p) + fill(hexval='#000000', opacity=40)` is a photo
     under a scrim. When the stack must change between light and dark, put it in a theme colour
-    (`config(colors=...)`) and fill with `fill(color_id)`. An input's fill draws only its first
-    layer.
+    (`config(colors=...)`) and fill with `fill(color_id)`.
     """
     if layers is not None:
         return list(layers)

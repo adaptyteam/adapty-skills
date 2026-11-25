@@ -18,11 +18,11 @@ case records the service's verdict rather than a guess.
                layer (accepted, draws transparent); input border on two paint layers
     WARNS   -- #RGB / 8-digit solid and #RGB / unprefixed / 8-digit stop hex (read, but the
                schema allows only #RRGGBB); an unreadable stop beside a good one (dropped); an
-               input fill on a layered style (first layer only); a carousel dot colour bound
+               carousel dot colour bound
                to a layered style; a border bound to an image-only style; an image layer
                carrying a colour (the schema allows type, image, customMediaID)
     SILENT  -- every tracked and raw export; a gradient/image/scrim stack on a screen fill; a
-               one-gradient input border (accepted); a
+               one-gradient input border (accepted); an input fill on a layered style; a
                dark-only stack; a stack used next to an image layer in an element fill; text
                bound to [image, solid] (the solid is what text draws)
     FLOWKIT -- builds a stack from gradient()/image_fill()/fill(hexval=, opacity=), and an
@@ -213,10 +213,6 @@ for tag, h in (('#RGB', '#fff'), ('unprefixed', 'FFFFFF'), ('8-digit', '#FFFFFFD
           'allows only #RRGGBB')
 warns('unreadable stop beside a good one', variant(REVIEWS, lambda d: style(d, 'bg').update(
     light=[grad('#XYZ', '#EEEEEE')])), 'the stop is dropped')
-warns('input fill on a layered style', variant(REVIEWS, lambda d: (
-    input_border(d), d['screens'][0]['elements']['map']['el_probe_input']['props'].update(
-        border=None, fill=[{'type': 'color', 'color': {'type': 'color-style', 'colorId': 'card'}}]))),
-    'draws only its first (bottom) layer')
 warns('dots bound to a layered style', variant(REVIEWS, lambda d: style(d, 'ink').update(
     light=[IMG, solid('#111114')])), 'carousel colour bound to the layered style')
 
@@ -284,6 +280,10 @@ if any('effectively invisible' in w and 'light mode' in w and 'el_C_014T' in w f
     fails.append(f'bg stack with an image: must be unresolvable, got {ws!r}')
 else:
     print('  SILENT near-white text on a bg stack with an image (unresolvable)')
+silent('input fill on a layered style (inputs and pickers draw every layer)',
+       variant(REVIEWS, lambda d: (
+           input_border(d), d['screens'][0]['elements']['map']['el_probe_input']['props'].update(
+               border=None, fill=[{'type': 'color', 'color': {'type': 'color-style', 'colorId': 'card'}}]))))
 silent('input border on one gradient layer (the service accepts one)',
        variant(REVIEWS, lambda d: input_border(d, [grad('#FFFFFF', '#E0E0FF')])))
 

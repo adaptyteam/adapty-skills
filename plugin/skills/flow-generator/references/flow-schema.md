@@ -1130,8 +1130,7 @@ style shares one `loop`. Breaking either is refused (`unsupported_appearance_fil
 
 | position | what it gets |
 | :--- | :--- |
-| `fill` (screen, stack, card) | the whole stack, per appearance — what the form is for |
-| an input's or a picker's `fill` | the **first (bottom) layer only** |
+| `fill` (screen, stack, card, input, picker) | the whole stack, per appearance — what the form is for |
 | `border.color` | the solid and gradient layers only; an **input's** border takes at most one, and a second is refused (`unsupported_input_border_layers`) |
 | text `color` — a `text`, its rich-text spans, a `timer`, an `old-price`, an input's text | the **blend of the solid layers only** — gradient, image and video layers contribute nothing |
 | any other colour (icon, shadow, carousel dots, spinner) | the Flow Builder requires **exactly one solid layer per appearance**; the service uses the first layer as a plain colour |
@@ -1784,8 +1783,7 @@ The layers are the ones a color style holds (trap 26) — solid, gradient, image
 fill may also hold a single `color-style` reference to a layered style, which is the form to use
 when the stack must change between light and dark. A gradient layer is linear, set by its
 `angle`: Flow Builder cannot draw a radial gradient yet, so a glow is a linear gradient or an image
-([media.md](media.md)). An input's or a picker's fill draws only its
-first (bottom) layer. An image layer on a stack can draw blank in the preview and still draw on a
+([media.md](media.md)). An image layer on a stack can draw blank in the preview and still draw on a
 device ([preview.md](preview.md#what-a-render-cannot-show-you)).
 
 ### `effects` renders — a drop shadow is available
