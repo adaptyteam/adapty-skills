@@ -10,8 +10,8 @@ before it decides. Refund Saver answers for the app, with a refund preference an
 usage, so unfair requests get disputed; the store still decides. This skill runs it through the
 CLI's `refund-saver` topic or the Adapty MCP tools `refund_saver_*`: whether each store is set up,
 the switch, the preference of each store and of one user, the consent policy, and why it does not
-work. **Refund Saver is a paid add-on:** the account owner turns the add-on on in Billing in the
-dashboard; no command does. Every write runs only after the user's yes to its effect.
+work. **Refund Saver is a paid add-on:** it is turned on and cancelled on the Subscription & Billing
+tab of the dashboard's account settings; no command does. Every write runs only after the user's yes to its effect.
 
 How each part works in the dashboard: https://adapty.io/docs/refund-saver
 
@@ -186,13 +186,16 @@ What Refund Saver asks the store for. The store makes the final call.
 | Decline every request | `always_decline` | `decline` |
 | Grant every request | `always_refund` | `grant` |
 | Refund only the unused part (App Store only) | `always_prorated` | `grant_prorated` (Google Play gets no preference) |
-| Ask for nothing; the store decides alone | `no_preference` | `no_preference` |
+| Ask for nothing; the store decides alone | `no_preference` | — |
+| Follow the store's preference again | — | `no_preference` |
 
 - **Recommend the default** unless the user has a reason: declining every request does not cut
   refunds for sure, and repeat declines give the user a reason to ask again.
 - **A prorated refund** fits a purchase the user partly used (coins half spent, a yearly plan
   cancelled early): https://adapty.io/docs/refund-saver#how-adapty-calculates-the-consumed-share
-- **One user's preference wins** over the store's, on both stores, also over "decline first".
+- **One user's grant or decline wins** over the store's preference, on both stores, also over
+  "decline first". The user's `no_preference` is the only way back to the store's: a setting cannot
+  be cleared. A user's consent set to false sends Apple nothing under either consent policy.
 
 **The consent policy** is App Store only: whether Refund Saver sends Apple the data of a user who
 has no recorded consent. `--needs-consent` is opt-in (Apple's recommendation: no consent
@@ -204,17 +207,19 @@ sent). It must match how the app asks for consent, which only the user knows: as
 Over the CLI and over MCP alike. Only an answer to the card counts, not an earlier "go ahead"
 about the plan. "No", silence or a change of plan: send nothing. Reads need no yes.
 
-- **Turn on.** Card: from now Adapty answers the refund requests of both stores for this app,
-  with each store's preference (name it); on the App Store it sends Apple the usage of users who
-  consented, or of everyone without a recorded consent under opt-out (name the policy). **The
-  user's privacy policy must disclose this before App Store data goes out.** Then relay the
-  answer's note as it comes.
-- **Turn off.** Card: Adapty stops answering both stores' refund requests for this app; **the
-  paid add-on stays on** until the account owner cancels it in Billing.
+- **Turn on.** Card: from now Adapty answers this app's App Store refund requests and Google Play
+  chargeback reviews, with each store's preference (name it); on the App Store it sends Apple the
+  usage of users who consented, or of everyone without a recorded consent under opt-out (name the
+  policy). **The user's privacy policy must disclose this before App Store data goes out.** Then
+  relay the answer's note as it comes.
+- **Turn off.** Card: Adapty stops answering this app's App Store refund requests and Google Play
+  chargeback reviews; **the paid add-on stays on** until it is cancelled on the Subscription &
+  Billing tab.
 - **Change a store's preference or the consent policy.** Card: the old and the new value in
   words, and that it applies to every new request of that store from now.
 - **Change one user's preference or consent.** Card: the user (their customer user ID if they
-  have one), the old and the new value; it wins over the store's preference on both stores.
+  have one), the old and the new value; a grant or a decline wins over the store's preference on
+  both stores.
 
 Example of a card's shape, not words to copy:
 
@@ -234,8 +239,10 @@ stops and reports the card and the command for the user to run, written with a l
 
 1. **Read `get` and `readiness`** and lead with what they mean: on or off, and each store ready or
    not. A store that is not ready names what is missing, in App settings in the dashboard: the App
-   Store needs the bundle ID and the App Store Connect API key (key ID, issuer ID, private key);
-   Google Play the bundle ID and the service account key. Neither the CLI nor MCP sets these: the
+   Store needs the bundle ID and the In-App Purchase key (issuer ID, key ID, private key) in App
+   settings → iOS SDK; Google Play the package name and the service account key file in App
+   settings → Android SDK. The CLI's own `readiness` text calls the App Store key "the App Store
+   Connect API key": name the In-App Purchase key instead. Neither the CLI nor MCP sets these: the
    user does, or `adapty-integration` walks them through it on a yes. Say a ready store as "has
    the keys Refund Saver needs"; that is all `readiness` shows.
 2. **Say what no read can see,** once, as the user's checks: **the store notifications reach
@@ -256,7 +263,7 @@ stops and reports the card and the command for the user to run, written with a l
 ## When it does not work
 
 - **`on` refused (exit 4):** say the error's reason in plain words, and who acts on it: the add-on
-  is the account owner's, in Billing; Apple keys are fixed in App settings. Never retry
+  is turned on on the Subscription & Billing tab; Apple credentials are fixed in App settings. Never retry
   `refund_saver_addon_unavailable`; the user contacts Adapty support.
 - **`edit_rights_required` (exit 3):** the account can see the app but not change it. A company
   owner or admin grants edit rights; never retry before.
@@ -268,7 +275,7 @@ stops and reports the card and the command for the user to run, written with a l
     the payment), which are far fewer.
   - Few requests in a small app is normal: say so before calling it broken.
 - **Google Play outcomes come late:** Adapty polls the order until Google settles the review.
-- **`profile_not_found` (404):** the ID is a customer user ID or another app's profile. Find the
+- **`profile_not_found` (404):** the ID belongs to another app, or it is a customer user ID. Find the
   profile ID in a `requests` row or the dashboard's profile page.
 - **How much it saved, the win rate, whether it pays off:** `growth-advisor` reads `metrics` and
   puts them against the app's refunds; offer that read as an outcome and invoke it on a yes.
@@ -277,7 +284,7 @@ stops and reports the card and the command for the user to run, written with a l
 
 - **Never turn it on, off or change a preference without the card's yes,** also for "all my
   apps": one card names each app.
-- **Never retry a refused `on` with anything changed,** and never retry
+- **Never retry a refused `on` before its cause is fixed,** and never retry
   `refund_saver_addon_unavailable` at all.
 - **Never promise a cut in refunds:** the store decides; give no expected number.
 - **Never guess an id, a value or a field:** take each from a read or `--help`.
