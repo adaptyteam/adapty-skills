@@ -695,18 +695,24 @@ class Var:
     """A variable span: renders the variable's value; the publish refuses an undeclared id.
 
     Takes a variable id, or the entry `app_value()` returned — so a custom tag is bound by the
-    object you declared rather than by an id you retyped.
+    object you declared rather than by an id you retyped. `strikethrough=True` (or `bold`,
+    `italic`, `underline`) marks the variable itself: `Var(vid, strikethrough=True)` is a struck
+    price. A mark on the `Span` beside it does not reach the variable.
     """
 
-    __slots__ = ('variable_id',)
+    __slots__ = ('variable_id', 'marks')
 
-    def __init__(self, variable_id):
+    def __init__(self, variable_id, *, bold=False, italic=False, underline=False,
+                 strikethrough=False):
         if isinstance(variable_id, dict):
             variable_id = variable_id.get('id')
         if not (isinstance(variable_id, str) and variable_id):
             raise ValueError(f'Var() needs a variable id or an app_value() entry, got '
                              f'{variable_id!r}')
         self.variable_id = variable_id
+        self.marks = {k: True for k, v in (('bold', bold), ('italic', italic),
+                                           ('underline', underline),
+                                           ('strikethrough', strikethrough)) if v}
 
 
 class Span:
@@ -724,7 +730,7 @@ def _span(part):
     if isinstance(part, str):
         part = Span(part)
     if isinstance(part, Var):
-        return {'type': 'variable', 'attrs': {'variableId': part.variable_id}}
+        return {'type': 'variable', 'attrs': {'variableId': part.variable_id, **part.marks}}
     if isinstance(part, Span):
         attrs = {'bold': part.bold, 'italic': part.italic,
                  'underline': part.underline, 'strikethrough': part.strikethrough}
@@ -1687,7 +1693,8 @@ def _check_fallback(nodes, where):
         _check_fallback(n.get('_children') or [], where)
 
 
-def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, align_h='center',
+def custom_element(custom_type, element_id, *, fallback, fixed_h=None, hug=False, width=None,
+                   align_h='center',
                    align_v='center', gap=0, corner=None, clip=False, padding=None, fill_=None,
                    margin=None, position=None, visibility=None, **kw):
     """A box the app fills with its own native view: Lottie, Rive, a map, a chart, a camera.
@@ -1701,8 +1708,9 @@ def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, al
     (custom-elements.md):
 
     * `custom_type` is `[a-z0-9_]+`; any other spelling is refused at publish.
-    * `fixed_h` is required: a map, a chart or a camera in a `hug` box collapses to almost
-      nothing, because the native view has no height of its own.
+    * a height is required: `fixed_h` in points, or `hug=True` only for a view that sets its own
+      height (a Lottie or Rive animation at a set size). A map, a chart or a camera in a `hug`
+      box collapses to almost nothing, because the native view has no height of its own.
     * `fallback` is required and non-empty: without it the users the app does not serve see an
       empty area the size of the box. No `fixed` child, no bottom sheet, sliding sheet or footer
       at any depth: the transformer refuses them and drops the box.
@@ -1720,9 +1728,12 @@ def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, al
     if not (isinstance(element_id, str) and element_id.strip()):
         raise ValueError(f'element_id names this box for the app, such as "streak_ring", '
                          f'not {element_id!r}')
-    if fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float)):
+    if hug and fixed_h is not None:
+        raise ValueError('custom_element() takes one of fixed_h and hug=True, not both')
+    if not hug and (fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float))):
         raise TypeError(f'custom_element(fixed_h=...) wants a height in points, not {fixed_h!r}: '
-                        f'a native view without a height of its own collapses in a hug box')
+                        f'a map, a chart or a camera has no height of its own and collapses in a '
+                        f'hug box. Pass hug=True only when the app\'s view sets its own height')
     fallback = list(fallback or [])
     if not fallback:
         raise ValueError('custom_element() needs a fallback: the users the app does not serve '
@@ -1735,7 +1746,7 @@ def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, al
         'customType': custom_type,
         'customElementId': element_id,
         'width': _width(width, None, position),
-        'height': size('fixed', fixed_h),
+        'height': size('hug') if hug else size('fixed', fixed_h),
         'layout': lay,
         'position': position or relative(),
     }

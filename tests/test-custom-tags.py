@@ -246,6 +246,44 @@ def main():
     check('the double-space warning is reported once per element',
           sum('double space' in l for l in report(gap)) == 1)
 
+    # --- a different tag per locale: a translated fallback ------------------------------------
+    # The transformer builds each string's fallback from the tag in that string, and checks no
+    # variable parity across locales, so a tag per locale publishes and each shows its own
+    # fallback. The cost is that the app must pass every one of them.
+    def all_lines(cfg):
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
+            json.dump(cfg, f)
+        try:
+            r = subprocess.run([sys.executable, VERIFY, f.name], capture_output=True, text=True)
+        finally:
+            os.unlink(f.name)
+        return (r.stdout + r.stderr).splitlines()
+
+    en_tag = fk.app_value('user_name_en', fallback='there')
+    sr_tag = fk.app_value('user_name_sr', fallback='prijatelju')
+    per = build(['Hi, ', fk.Var(en_tag), '!'], [en_tag, sr_tag])
+    per['localization']['locales'].append({'id': 'sr', 'code': 'sr', 'name': 'Serbian'})
+    text_values(per)['sr'] = [{'type': 'paragraph', 'content': [
+        {'type': 'text', 'text': 'Zdravo, ', 'attrs': {}},
+        {'type': 'variable', 'attrs': {'variableId': sr_tag['id']}},
+        {'type': 'text', 'text': '!', 'attrs': {}}]}]
+    lines = all_lines(per)
+    check('a different custom tag per locale is not an error',
+          not any('variable nodes differ' in l for l in lines), lines)
+    check('...it warns that the app must pass every tag',
+          any('custom tag' in l and 'must pass' in l for l in lines), lines)
+    check('...and a tag shown in one locale only may hold words in that locale',
+          not any('untranslated' in l and 'custom tag' in l for l in lines), lines)
+    dropped = copy.deepcopy(per)
+    text_values(dropped)['sr'] = [{'type': 'paragraph', 'content': [
+        {'type': 'text', 'text': 'Zdravo!', 'attrs': {}}]}]
+    check('a locale that drops the tag is still an error',
+          any('variable nodes differ' in l for l in all_lines(dropped)))
+    price = copy.deepcopy(per)
+    text_values(price)['sr'][0]['content'][1]['attrs']['variableId'] = 'p1.prod_price'
+    check('a locale whose price differs is still an error',
+          any('variable nodes differ' in l for l in all_lines(price)))
+
     # --- the two reserved lists are one list ----------------------------------------------------
     src = open(VERIFY).read()
     block = re.search(r'RESERVED_TAG_NAMES = frozenset\(\{(.*?)\}\)', src, re.S).group(1)

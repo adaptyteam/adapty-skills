@@ -817,6 +817,19 @@ def rewrite_ids(payload, el_renames, group_renames):
     return payload
 
 
+def _has_words(value):
+    """Whether a localizable value is text someone translates: not an image or a video (a dict),
+    not a link, not empty. Every other locale falls back to the default's asset or link."""
+    if isinstance(value, str):
+        return bool(value.strip()) and not re.match(r'https?://', value.strip())
+    if isinstance(value, list):
+        found = []
+        walk(value, lambda o: found.append(o['text'])
+             if isinstance(o.get('text'), str) and o['text'].strip() else None)
+        return bool(found)
+    return False
+
+
 def resolve_locales(snippet, config, payload):
     """Intersect the snippet's localizable `values` maps against the destination's
     declared locales, mutating `payload` in place.
@@ -824,7 +837,8 @@ def resolve_locales(snippet, config, payload):
     A locale the destination does not declare is dropped: nothing would render it. A
     destination locale the snippet lacks is LEFT absent, because an absent value falls back
     to the default locale -- copying the default text in would turn "not translated yet" into
-    an explicit value nobody translated. It is reported (`untranslated`) as a translation ask.
+    an explicit value nobody translated. It is reported (`untranslated`) as a translation ask,
+    for text only: an image, a video, a link or an empty text falls back with nothing to translate.
 
     The one fill is the destination's DEFAULT locale: every other locale falls back to it, so
     a value without it shows nothing anywhere the snippet lacks a translation. It is filled
@@ -851,6 +865,8 @@ def resolve_locales(snippet, config, payload):
             base = vals.get(src_default) or vals[sorted(vals)[0]]
             vals[dest_default] = json.loads(json.dumps(base))
             filled.add(dest_default)
+        if not _has_words(vals.get(dest_default)):
+            return
         for code in dest:
             if code not in vals:
                 untranslated.add(code)

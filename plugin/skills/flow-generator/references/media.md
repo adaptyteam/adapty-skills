@@ -379,10 +379,13 @@ opaque version or a device check of that area. A screen-sized background
 belongs here, not in an `image` element positioned `absolute` or `fixed`: that one takes the
 taps of everything beside it ([flow-schema.md](flow-schema.md), trap 9).
 
-**A photo over a flexible-height band: crop the file to the band's shape.** An image fill draws
-at the file's natural aspect, so a hero stack whose height grows leaves a gap under the photo.
-The fix: crop the file to the band's rendered aspect (`crop.py --box` for a PNG),
-upload it, and put it in that stack's own `fill`; render the tallest device to check the edge.
+**An image fill covers its whole box and crops what does not fit.** It never leaves a gap, but
+the edges it cuts change with the screen's shape, and where the crop falls differs between iOS and
+Android (Android keeps the top of the file). So keep the subject clear of the edges, and never
+bake a fade into the file: it lands in a different place on each phone. Draw the fade as a
+gradient layer above the image in the same `fill`
+([patterns.md](patterns.md#a-hero-with-the-content-sliding-over-it-sliding-sheet)), and render the
+shortest and the tallest device to see what the crop cuts.
 
 Because the element form is localizable, **a different asset per locale is expressible** — the
 entry's `values` is keyed by locale id exactly like copy. A fill's image can be localized too: its
