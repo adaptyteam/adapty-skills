@@ -28,6 +28,7 @@ Gemini CLI), all shipped in one plugin, `adapty-skills`:
 | `onboarding-teardown` | Growth hypotheses for an onboarding sequence; touches nothing |
 | `paywall-teardown` | Conversion hypotheses for a paywall screen; touches nothing |
 | `purchase-testing` | The first sandbox purchase and every failed one |
+| `refund-saver` | Runs Refund Saver through the CLI's `refund-saver` topic or its MCP tools: store readiness, the switch, store and per-user preferences, consent policy, troubleshooting |
 | `retention-messaging` | Runs Apple Retention Messaging through the CLI's `retention-messaging` topic or its MCP tools: setup status, URL and performance test, messages, their status and numbers |
 
 Three distribution channels: the Claude Code plugin (marketplace `.claude-plugin/marketplace.json`,
@@ -276,6 +277,12 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **Choose skeletons and archetypes by observable prerequisites,** disclose the choice, and never fake a missing prerequisite (an offer, an asset, a personalized result). A flow cannot request a permission.
 - **Design mode is entered only when no design reference was given;** a given reference outranks the library; findings on your own draft are fixed, not reported.
 - **Looks follow `look.md`:** the app's design first; with a brand invent only the layout; with none, invent from a random starting point and roll by command. Never put a test fixture's own nouns in shipped examples.
+
+### `refund-saver`
+
+- **Commands and flags come from `src/cli/commands/refund-saver/**` in `adapty-cli`, the refusal codes and readiness rule from the CLI's `docs/agent/refund-saver.md`;** the MCP parameter for `--needs-consent` is `refund_saver_needs_consent`.
+- **`on`, `off`, `update` and `profile update` run only after the user's yes to the card;** the `on` card names the consent policy and the privacy-policy duty. An unattended run never writes.
+- **The numbers belong to `growth-advisor`:** it reads `get`, `readiness` and `metrics`, and offers turning it on (this app or the account's other apps) as a Next step that invokes `refund-saver` on a yes.
 
 ### `retention-messaging`
 

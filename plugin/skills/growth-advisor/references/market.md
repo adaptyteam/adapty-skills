@@ -136,18 +136,11 @@ purchase).
   timeline of the trial days, no reminder promise, no charge date): a Paywall design hypothesis
   adds that explanation, from `paywall-teardown`. Untested in `evidence.md`; judged on trial →
   paid, with refunds as the guardrail. Without the screen seen, it waits for the screenshot.
-- **A weak grade is a scorecard line, never the bold answer, and a "You:" Next step when it wins
-  the feature slot** (`levers.md`, "Adapty features"): check that [Refund Saver](https://adapty.io/docs/refund-saver.md) is on in the
-  dashboard. It answers Apple's questions about a refund request, and Google Play's about a
-  chargeback, with how the user used the app, so unfair ones get disputed; the store still
-  decides. The CLI cannot see whether it is on, so the step asks the user to check, and gives no
-  expected cut in refunds.
-
-  > You: check that [Refund Saver](https://adapty.io/docs/refund-saver) is on in the Adapty
-  > dashboard. It answers the store's questions about each refund request with how the user used
-  > the app, so unfair ones get disputed.
-
-  (The shape of the step, not words to copy.)
+- **A weak grade is a scorecard line, never the bold answer, and a Refund Saver Next step when it
+  wins the feature slot** (`levers.md`, "Adapty features", its reads and step). [Refund
+  Saver](https://adapty.io/docs/refund-saver.md) answers Apple's questions about a refund request,
+  and Google Play's about a chargeback, with how the user used the app, so unfair ones get
+  disputed; the store still decides, so the step gives no expected cut in refunds.
 
 ## Trial or direct
 
