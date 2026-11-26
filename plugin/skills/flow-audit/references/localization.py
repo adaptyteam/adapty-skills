@@ -14,7 +14,8 @@ field stores only a reference to it:
 The localizable fields, and nothing else (names, ids, fills and geometry are never catalogued):
 text `content`, every input and picker `placeholder`, image `image`, video `video`, alert
 `title` / `message`, and the Open URL action's `url` (a `rich-string` entry, so each locale can
-open its own page) -- including actions nested in conditional actions, and elements inside
+open its own page) -- including actions nested in conditional actions or in what runs after a
+purchase, a restore or a permission request (`payload.onResult`), and elements inside
 `components`. `LOCALIZABLE` and `LOCALIZABLE_ACTION_FIELDS` below are that list, read off the
 schema.
 
@@ -98,6 +99,26 @@ LOCALIZABLE_ACTION_FIELDS = {
     'alert': {'title': 'rich-string', 'message': 'rich-string'},
     'openUrl': {'url': 'rich-string'},
 }
+
+#: action type -> the results whose `payload.onResult` lists hold actions to run, walked as a
+#: conditional's branches are. A web purchase reports no result, so its outcomes are never walked.
+OUTCOME_RESULTS = {
+    'purchase': ('success', 'fail', 'userCanceled', 'pending'),
+    'restorePurchases': ('success', 'fail'),
+    'requestPermission': ('response',),
+}
+
+
+def _outcome_lists(action):
+    """`(result, actions)` for each outcome list of `action` that runs: none for an action with no
+    results, a web purchase, or an `onResult` that is not an object."""
+    results = OUTCOME_RESULTS.get(action.get('type'))
+    p = action.get('payload')
+    if not results or not _rec(p) or not _rec(p.get('onResult')):
+        return []
+    if action['type'] == 'purchase' and p.get('type') == 'web':
+        return []
+    return [(r, v) for r, v in p['onResult'].items() if r in results and isinstance(v, list)]
 
 _CONTENT_ID = re.compile(r'^lc_(\d+)$')
 #: `language[-Script][-REGION]` as the transformer accepts it: any casing, `-` or `_`.
@@ -403,6 +424,9 @@ def _migrate_action(action, owner, path, cat):
     if table and _rec(action.get('payload')):
         own = dict(owner, actionId=action['id']) if isinstance(action.get('id'), str) else owner
         _migrate_fields(action['payload'], table, own, f'{path}.payload', cat)
+    for result, acts in _outcome_lists(action):
+        for i, a in enumerate(acts):
+            _migrate_action(a, owner, f'{path}.payload.onResult.{result}[{i}]', cat)
 
 
 def _migrate_result(result, owner, path, cat):
@@ -571,6 +595,9 @@ def resolve(flow):
             walk_result(p.get('default'))
         elif a.get('type') in LOCALIZABLE_ACTION_FIELDS and _rec(a.get('payload')):
             walk_fields(a['payload'], LOCALIZABLE_ACTION_FIELDS[a['type']])
+        for _r, acts in _outcome_lists(a):
+            for x in acts:
+                walk_action(x)
 
     def walk_result(r):
         if _is_const(r):
@@ -604,7 +631,8 @@ def iter_fields(flow):
     """Yield `(where, kind, holder, key)` for every localizable field in the document, where
     `holder[key]` is the stored value (a ref, a switch of refs, or -- before `catalog()` -- an
     inline value). `where` names the element or action, for messages. Walks what migration 013
-    walks: screen and component element maps, their interactions, and conditional actions."""
+    walks, and the outcome lists the transformer walks: screen and component element maps, their
+    interactions, conditional actions and `payload.onResult`."""
     def fields(holder, table, where):
         for key, kind in table.items():
             if key in holder:
@@ -622,6 +650,9 @@ def iter_fields(flow):
         elif a.get('type') in LOCALIZABLE_ACTION_FIELDS and _rec(a.get('payload')):
             yield from fields(a['payload'], LOCALIZABLE_ACTION_FIELDS[a['type']],
                               f'{where} {a["type"]} {a.get("id") or ""}'.rstrip())
+        for _r, acts in _outcome_lists(a):
+            for x in acts:
+                yield from action(x, where)
 
     def result(r, where):
         if _is_const(r):
