@@ -144,13 +144,16 @@ $ADAPTY asa metrics --entity campaign --date-from 2026-07-01 --date-to 2026-07-3
 ### Windows the cohort has not lived through yet
 
 A cohort value is what has been observed so far, not a projection. A window longer than the
-cohort's age repeats the last real figure instead of returning nothing — a July cohort read in
-August reports the same number at day 60, day 90 and day 300 as at day 28.
+cohort's age has no value yet: it comes back `null` (a blank cell in the table), and an older
+response repeats the last real figure instead. Neither one is a result.
 
-`meta.max_valid_day` in the response is how many days the youngest cohort in the date range has
-lived, counted from `--date-to`. Treat every `--by-days` window above it as not reached:
+With a date `--group-by` (`day`, `week`, `month`, ...) each period row is cut at its own age.
+Without one, `meta.max_valid_day` in the response is how many days the youngest cohort in the
+date range has lived, counted from `--date-to`, and it applies to every row. Treat every
+`--by-days` window above a row's age as not reached:
 
-- Never read a flat line past `max_valid_day` as a plateau. That time has not passed yet.
+- Never read a `null` past `max_valid_day` as zero, or a flat line as a plateau. That time has
+  not passed yet.
 - Never divide a clipped numerator by a full-window denominator — it understates the result.
 - Compare markets or campaigns only at a window all of them have reached.
 
