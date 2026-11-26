@@ -341,16 +341,18 @@ array of **inline** nodes, of which exactly three types exist:
 {"type": "token",    "attrs": {"token": "timer_minutes"}}
 ```
 
-**A `variable` span takes no formatting of its own** — you cannot strike or bold the price
-without styling the whole line. The strikethrough recipe that works on a device is a
-*separate* `text` element holding the other product's price variable, with strikethrough and colour
-applied at the **element** level, not in rich text — its known costs: the hidden donor product adds
-invisible scroll, and deleting it takes the visible price down with it.
+**A `variable` node carries its own marks, beside `variableId`:** `"strikethrough": true` (or
+`bold`, `italic`, `underline`) in its `attrs` strikes just the price. Publishing keeps the marks and
+both SDKs draw them; a mark on the `text` node next to it does not reach the variable. The Flow
+Builder has no control for this and no real export carries one, so check a struck price on a
+device before shipping it. The route already verified on a device is a *separate* `text` element
+holding the other product's price variable, with strikethrough and colour applied at the
+**element** level — its known costs: the hidden donor product adds invisible scroll, and deleting
+it takes the visible price down with it.
 
 `variable` carries prices and user input; `token` carries countdown digits. Neither has a
-`text` key, and per
-[Style variables](https://adapty.io/docs/onboarding-variables.md) formatting cannot be
-applied to a variable at all — which is why they carry no `attrs` marks.
+`text` key. [Style variables](https://adapty.io/docs/onboarding-variables.md) describes the
+builder's editor, which offers no formatting on a variable; a mark written in the config is kept.
 
 A paragraph rebuilt from its rendered plain text still renders and still looks right in the
 export — but a flattened `variable` node is a hardcoded price that has stopped tracking the
@@ -427,11 +429,14 @@ Worth having in full, because it is the answer to "what do I bind instead of typ
 | `is_free_trial`, `is_pay_up_front`, `is_pay_as_you_go` | booleans, for conditional visibility |
 | `is_monthly_plan` | boolean: this user buys the binding under the monthly plan |
 
-Two things to carry with them. **Every `offer_*` field is empty when the user is not eligible for
+Three things to carry with them. **Every `offer_*` field is empty when the user is not eligible for
 an offer**, so a line built around one silently loses its number for everyone else — gate it on
 `is_free_trial` rather than assuming it renders. And `offer_billing_period` equals
 `offer_full_duration` for trial and pay-upfront offers but *not* for pay-as-you-go (1 week versus
-3 weeks in the docs' own example), so they are not interchangeable.
+3 weeks in the docs' own example), so they are not interchangeable. And the period's words come
+from the device, not the render: iOS prints whole weeks of days as weeks and 12 months as a year
+(a 7-day trial reads "1 week"), while Android prints the period as Google Play stores it (P7D
+reads "7 days"). Write copy that reads right with either, never a number beside the field.
 
 A boolean is for visibility, never for text: the transform service refuses one inside rich text
 (`boolean_product_var_in_text`).
@@ -717,8 +722,8 @@ rather than reaching for `zIndex`.
 **The horizontal pair works the same way: `left` and `right` take `width: {"type": "auto"}`**,
 the width the three `fixed` CTAs above carry. With `width: fill` the anchors are ignored — the
 element takes its parent's full width starting at the `left` offset and runs past the right edge
-(rendered, on a text and on a stack); `auto` keeps both insets, in the preview and on a device. `flowkit` defaults such an element
-to `auto` and refuses `fill`.
+(rendered, on a text and on a stack); a `fixed` width also starts at `left` and ignores `right`. `auto` keeps both insets, in the preview and on a device. `flowkit` defaults such an element
+to `auto` and refuses `fill` and `fixed_w`; `verify-config.py` warns on either.
 
 **An `absolute` element paints over every `relative` sibling, wherever either one is listed, and a
 `zIndex` on a `relative` element does nothing** (preview render; no device run). So never raise a
@@ -1054,6 +1059,15 @@ string tag that has to start a sentence ("Maria, better places…") gets its own
 the punctuation moves into the value the app passes. `verify-config.py` warns on both: a word
 fallback on a multi-locale flow, and an empty fallback between two spaces.
 
+**An empty value does not remove its text.** Both SDKs draw a tag with no value as empty text, so
+a `text` holding only the tag keeps its place and its line's height on a device, and a tag cannot
+drive `visibility`. Keep the tag inside a line that has words of its own.
+
+**A fallback in each locale's own words takes a tag per locale:** `user_name_en` in the English
+text with "there", `user_name_sr` in the Serbian text with its own word. Each string shows its own
+tag's fallback, and it publishes; the app must then pass the value under every one of those names,
+so ask the user whether it will before you build it. `verify-config.py` warns with the list.
+
 **Keep the copy in the flow and pass only the bare value** — the city, the number — so the words
 stay translatable in the builder. Have the app pass a whole phrase only when the language changes
 the value's own form (a case ending on the city, a plural on the noun), and say so: that copy then
@@ -1132,8 +1146,7 @@ style shares one `loop`. Breaking either is refused (`unsupported_appearance_fil
 
 | position | what it gets |
 | :--- | :--- |
-| `fill` (screen, stack, card) | the whole stack, per appearance — what the form is for |
-| an input's or a picker's `fill` | the **first (bottom) layer only** |
+| `fill` (screen, stack, card, input, picker) | the whole stack, per appearance — what the form is for |
 | `border.color` | the solid and gradient layers only; an **input's** border takes at most one, and a second is refused (`unsupported_input_border_layers`) |
 | text `color` — a `text`, its rich-text spans, a `timer`, an `old-price`, an input's text | the **blend of the solid layers only** — gradient, image and video layers contribute nothing |
 | any other colour (icon, shadow, carousel dots, spinner) | the Flow Builder requires **exactly one solid layer per appearance**; the service uses the first layer as a plain colour |
@@ -1786,8 +1799,7 @@ The layers are the ones a color style holds (trap 26) — solid, gradient, image
 fill may also hold a single `color-style` reference to a layered style, which is the form to use
 when the stack must change between light and dark. A gradient layer is linear, set by its
 `angle`: Flow Builder cannot draw a radial gradient yet, so a glow is a linear gradient or an image
-([media.md](media.md)). An input's or a picker's fill draws only its
-first (bottom) layer. An image layer on a stack can draw blank in the preview and still draw on a
+([media.md](media.md)). An image layer on a stack can draw blank in the preview and still draw on a
 device ([preview.md](preview.md#what-a-render-cannot-show-you)).
 
 ### `effects` renders — a drop shadow is available

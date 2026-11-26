@@ -730,6 +730,15 @@ Follow the platform-specific file for the exact doc URLs and implementation orde
 
 Never skip a checkpoint. A failed checkpoint means something is wrong that will cascade.
 
+### After a flow purchase
+
+**The flow decides what the user sees next; the access level decides what the app unlocks.** Before you write the purchase callback of a `flow_builder` run, read each flow: `$ADAPTY flows config get <FLOW_ID> --app <APP_ID> --json`.
+
+- **Its `purchase` action has `payload.onResult.success`:** the callback closes nothing. The flow shows its next screen or closes itself, and a dismiss in the callback skips that screen.
+- **It has none:** the callback dismisses on a successful result only, never on pending or cancelled. Offer a **When succeeded** outcome (a thank-you screen, or Close Flow) through `flow-generator`.
+
+A native screen or an unlock in the app follows the access level turning active in the profile listener from Stage 1, never the purchase callback: a Close action that runs before the store answers destroys the view, and that purchase's callback never arrives.
+
 **When the last stage's checkpoint passes, the first sandbox purchase is not yours to run — invoke the `purchase-testing` skill.** It preflights the dashboard and the app code through the CLI before anyone opens a browser, so nobody is sent to App Store Connect or Play Console over a placement developer ID that does not match, a placement that is Inactive, or a flow still sitting in `dirty`. Creating store products and connecting the store to Adapty stay here (`references/store-setup-*.md`); that skill routes back when its preflight lands on one of them.
 
 As soon as the app builds with the last stage in place, send the [feedback note](#feedback-note), before that stage's message and before the handoff. The code stage's message has a slot for its line.
@@ -833,6 +842,8 @@ curl -s "https://adapty.io/docs/release-checklist.md?ref=skill-<sessionToken>"
 Treat it as a pointer list, not a script — don't narrate it or walk through it line by line, and don't re-verify things already done. Skim it only to pick out a few still-relevant items and their links (e.g. server notifications, privacy policy, going to production), and offer those to the user as a brief "before you ship" list of suggested next steps. Keep it to a few bullets.
 
 **Offer the fallback file on every run, before the "before you ship" list.** Without it, a user who opens the app for the first time offline sees an empty paywall, and nothing in testing on Wi-Fi shows that. Read `references/fallbacks.md`: it says what to tell the user, how to download the file with the CLI once the placements are live, and what goes in the left-to-do list when they are not.
+
+**Offer Refund Saver once, as the last item of the list,** when the app sells on the App Store or Google Play: "Adapty can answer the stores' refund requests for you, so unfair ones get disputed. Want me to set it up?" On a yes, invoke the `refund-saver` skill: it checks the store keys and notifications this integration set up, and the paid add-on. Write no refund code here.
 
 **Tapping through the flow is always the user's,** so say so plainly, in the closing message and in `ADAPTY_SETUP.md`: it cannot be driven in a headless simulator; the user runs it once on a simulator or a device.
 

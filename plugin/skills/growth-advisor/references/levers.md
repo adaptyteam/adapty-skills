@@ -396,9 +396,9 @@ Adapty](https://adapty.io/docs/create-offer.md).
 
 Some weak parts are moved by an Adapty feature, not an A/B test. A feature is named only when its
 trigger holds in the reads; with no trigger it is not mentioned, not even as "also consider". For
-the "Trial still active" event and Refund Saver, the CLI cannot see whether any of these is on, so
-each is a "You:" Next step that asks the user to check and names the number that fired it ("paid
-trials pay at 12% against 27% organic"). Retention Messaging is read first (below). At most one per
+the "Trial still active" event, the CLI cannot see whether it is on, so it is a "You:" Next step
+that asks the user to check and names the number that fired it ("paid trials pay at 12% against
+27% organic"). Retention Messaging and Refund Saver are read first (below). At most one per
 reply, in the free Next step, after a breakage fix and before the one question (which then joins
 the first item); when two fire, the higher row in the table below.
 
@@ -406,7 +406,7 @@ the first item); when two fire, the higher row in the table below.
 |---|---|---|---|
 | The "Trial still active" event sent through the attribution integration (AppsFlyer, Adjust, Branch, Singular, Firebase), so ad networks optimise for users who keep the trial; with Meta or TikTok through Adapty Attribution, Qualified trial instead, never both for one network | `reads.py audit` prints `FEATURE GATE: trial still active` | the app has no attribution integration (the user says so) | [events](https://adapty.io/docs/events), [Qualified trial](https://adapty.io/docs/ua-facebook) |
 | Retention Messaging: a message on Apple's cancel screen | the App Store is the store that earns, voluntary cancellation leads the endings (read 6), and the scorecard grades renewals weak | the money comes from Google Play | [Retention Messaging](https://adapty.io/docs/retention-messaging) |
-| Refund Saver | the scorecard grades refunds weak (`market.md`, Refunds) | | [Refund Saver](https://adapty.io/docs/refund-saver) |
+| Refund Saver | the scorecard grades refunds weak (`market.md`, Refunds), a refund day stands far above the usual, or the user asks about refunds or Refund Saver; also when its read shows it on here with money saved and the account has other apps | the app sells only on the web | [Refund Saver](https://adapty.io/docs/refund-saver) |
 
 **Retention Messaging is read before its step,** when its row wins the slot. Read the setup status
 and the production messages with their numbers, and nothing else (no `realtime-url get`):
@@ -418,7 +418,7 @@ $ADAPTY retention-messaging messages list --app <APP_ID> --mode production --jso
 
 - **With the CLI,** first probe both with `--help`; if either reports no such command after one
   `npx --yes adapty@beta … --help` try, write the "You:" step to check it in the dashboard, as for
-  the other two features.
+  the trial event.
 - **Over MCP** (`retention_messaging_setup_status`, `retention_messaging_messages_list`): a tool
   missing from your list, the "You:" step. Neither read needs a yes on either path.
 
@@ -430,6 +430,45 @@ saved revenue of the live ones, said the way the dashboard does). The item follo
 
 > Me: on your yes, I set up a message on Apple's cancel screen: voluntary cancellations lead your
 > endings, and Apple does not send cancel-screen requests to Adapty yet in production.
+
+**Refund Saver is read before its step,** when its row wins the slot: the switch, then, when it is
+on, what it answered over the audit window (the dates of read 7, the refunds chart):
+
+```bash
+$ADAPTY refund-saver get --app <APP_ID> --json
+$ADAPTY refund-saver readiness --app <APP_ID> --json
+$ADAPTY refund-saver metrics --app <APP_ID> --date-from $FROM --date-to $TO --json
+```
+
+- **With the CLI,** probe `refund-saver get --help` first; no such command after one
+  `npx --yes adapty@beta … --help` try: the "You:" step to check it in the dashboard.
+- **Over MCP** (`refund_saver_get`, `refund_saver_readiness`, `refund_saver_metrics`): a tool
+  missing from your list, the "You:" step. No read needs a yes on either path.
+- **The numbers, in the dashboard's words:** saved (`saved_amount_usd`, `saved_count`: refunds the
+  store declined), requested (`requested_amount_usd`, `requested_count`: every request it
+  answered), win rate (`win_rate`: the declined share of the settled ones, already a percent).
+  The share of the money asked back that it kept is saved over requested; the refunds of read 7
+  for the same dates are what still came back, Refund Saver's requests among them.
+  Google Play outcomes settle late, so a recent window understates them; say so. Fewer than about
+  20 settled requests: give the counts, not a rate.
+- **The setup is one sentence, in these words:** "Both stores have the keys Refund Saver needs"
+  (or which store lacks them). That is all `readiness` shows; the reply says nothing else about
+  the setup.
+- **Other apps,** only when this app has it on and `saved_count` is above zero: read `apps list`
+  (every page) and `refund-saver get` for each other app. Those with it off are the step's
+  subject; none off, or no other app, and the step is this app's numbers.
+
+The step names what the reads show and offers the next step as an outcome, then invokes
+`refund-saver` on the user's yes: off (with the store that is not ready, if any), on with its
+numbers against the refunds, or off in other apps of the account (name them, at most five, then
+"and N more"). The step never promises a cut in refunds: the store decides. Examples of the shape,
+not words to copy:
+
+> Me: on your yes, I turn on Refund Saver: refunds take 9% of your revenue against about 5% for
+> apps like yours, and Adapty answers none of the stores' refund requests now.
+
+> Me: Refund Saver kept $1,240 of $3,900 asked back since August (win rate 41%). On your yes, I turn
+> it on for Atlas and Bloom too, where it is off.
 
 The 12-month commitment plan is a hypothesis, not a step: the Commitment plan row of the Known
 types. It is a candidate when the App Store's main market is outside the US, a shorter plan leads

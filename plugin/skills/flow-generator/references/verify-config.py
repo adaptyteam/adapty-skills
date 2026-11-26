@@ -1149,6 +1149,9 @@ def catalog_findings(raw):
     # parity is per branch without any extra machinery.
     others = [i for i in ids if i != dflt]
     untranslated = {}
+    tag_ids = {v['id'] for v in raw.get('variables') or []
+               if isinstance(v, dict) and v.get('external') is True and v.get('id')}
+    per_locale_tags = set()
     copies, copied_bytes = {}, 0
     for lid in used:
         e = content.get(lid) or {}
@@ -1184,9 +1187,21 @@ def catalog_findings(raw):
             if _loc.is_empty(kind, v):
                 untranslated.setdefault(loc, []).append(label)
             elif _var_ids(v) != src_vars:
+                # A custom tag may differ per locale: each string's fallback comes from its own tag,
+                # which is the one way to translate a fallback. A price or any other variable may not.
+                shape = lambda ids: [None if i in tag_ids else i for i in ids]
+                if shape(_var_ids(v)) == shape(src_vars):
+                    per_locale_tags.update(i for i in _var_ids(v) + src_vars if i in tag_ids)
+                    continue
                 bad.append(f'locale {loc}: variable nodes differ from {dflt} on {label!r} '
                            f'({lid}) — a translated block must be a structural copy, or the '
                            f'locale loses its price')
+    if per_locale_tags:
+        names = sorted((v.get('name') or v['id']) for v in raw.get('variables') or []
+                       if isinstance(v, dict) and v.get('id') in per_locale_tags)
+        warn.append(f'custom tags differ between locales ({", ".join(names)}): this publishes, and '
+                    f'each locale shows its own tag\'s fallback, but the app must pass the value '
+                    f'under every one of these names, or those locales show the fallback')
     for loc, labels in untranslated.items():
         warn.append(f'locale {loc}: {len(labels)} field(s) untranslated, so they show the {dflt} '
                     f'text ({", ".join(repr(x) for x in labels[:3])}{", …" if len(labels) > 3 else ""}). '
@@ -1791,6 +1806,19 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
         if fd:
             bad.append(f"_meta.screens.{sid}.products declares flowProductId "
                        f"{', '.join(fd)} twice")
+    # And once in the whole flow: the SDK keys a flow's products by flowProductId, so the same id
+    # on two screens is refused at publish (`duplicate_flow_product_id`), the same product included.
+    fp_screens = {}
+    for sid, dec in (meta.get('screens') or {}).items():
+        for fp in {x.get('flowProductId') for x in (dec or {}).get('products') or []
+                   if isinstance(x, dict) and x.get('flowProductId')}:
+            fp_screens.setdefault(fp, []).append(sid)
+    for fp, sids in fp_screens.items():
+        if len(sids) > 1:
+            bad.append(f"flowProductId {fp} is declared on more than one screen "
+                       f"({', '.join(sids)}) — publishing refuses it (duplicate_flow_product_id). "
+                       f"Give each screen's entry its own id: flowkit.flow_product_id(screen_id, "
+                       f"product_id)")
 
     # Images are invisible to the publish gate: `flows config validate` returns valid:true on an
     # empty values map, a numeric id and a missing id alike. The schema step catches the id
@@ -1973,6 +2001,22 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             warn.append(f"{s['id']}/{e['id']}: height `auto` without an absolute top+bottom "
                         f"anchor pair collapses to nothing — give it both offsets, or use a "
                         f"real height")
+
+    # The horizontal pair: anchored left AND right, the transformer sets the width from the anchors
+    # only for `auto`. An element that already has a width keeps it and starts at `left`, so the
+    # right anchor pins nothing and a wide button draws past the right edge. Every real export's
+    # docked button is `auto`.
+    for s, e in els():
+        p = (e.get('props') or {})
+        pos, w = p.get('position'), p.get('width')
+        if not (isinstance(pos, dict) and isinstance(w, dict)
+                and pos.get('type') in ('absolute', 'fixed')
+                and pos.get('left') is not None and pos.get('right') is not None):
+            continue
+        if w.get('type') in ('fixed', 'fill'):
+            warn.append(f"{s['id']}/{e['id']}: {pos.get('type')} and anchored left+right, but width is "
+                        f"{w.get('type')!r} — only `auto` stretches between the anchors; this width "
+                        f"starts at `left`, ignores `right` and can run past the right edge")
 
     # A negative zIndex sends an element behind the fill of every ancestor that has one, so a
     # timeline rail at `zIndex: -10` inside a filled card draws nothing at all. The fix is paint
@@ -3524,7 +3568,28 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                         f'it external: true (a custom tag)')
     locs = [l.get('code') if isinstance(l, dict) else l for l in (d.get('locales') or [])]
     if len(locs) > 1:
+        # A tag shown in one locale only (a tag per locale) may hold words in that locale. A locale
+        # with no value of its own shows the default's, so it shows the default's tags too.
+        tag_locales = {}
+        loc_ids = [l.get('id') if isinstance(l, dict) else l for l in (d.get('locales') or [])]
+        dflt_id = d.get('defaultLocale') or (loc_ids[0] if loc_ids else None)
+
+        def _tag_locales(o):
+            if isinstance(o, dict):
+                if o.get('_localizable') is True and isinstance(o.get('values'), dict):
+                    for loc in loc_ids:
+                        val = o['values'].get(loc) or o['values'].get(dflt_id)
+                        for i in _var_ids(val):
+                            tag_locales.setdefault(i, set()).add(loc)
+                for x in o.values():
+                    _tag_locales(x)
+            elif isinstance(o, list):
+                for x in o:
+                    _tag_locales(x)
+        _tag_locales(d)
         for v in tag_vars:
+            if len(tag_locales.get(v.get('id'), ())) == 1:
+                continue
             if (v.get('valueType') == 'string' and isinstance(v.get('value'), str)
                     and re.search(r'[^\W\d_]', v['value'])):
                 warn.append(f'custom tag {v.get("name")!r} has the fallback {v["value"]!r} on a flow '
@@ -4083,7 +4148,8 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             if (pr.get('height') or {}).get('type') != 'fixed':
                 warn.append(f'{where}: custom element {eid} has a {(pr.get("height") or {}).get("type")!r} '
                             f'height — a native view without a height of its own (a map, a chart, a '
-                            f'camera) collapses to almost nothing; give the box a fixed height')
+                            f'camera) collapses to almost nothing; give the box a fixed height, '
+                            f'unless the app\'s view sets its own height')
             kids = (nodes.get(eid) or {}).get('children') or []
             if not kids:
                 warn.append(f'{where}: custom element {eid} has no fallback children — users the '
@@ -4668,8 +4734,7 @@ def theme_style_findings(d, bad, warn):
 
     # Where a layered style may be used. A fill is what it exists for. A border takes its solid
     # and gradient layers only. Text — and an input's text — gets the BLEND of its solid layers,
-    # so a style with no solid layer draws text at alpha 0. An input's or picker's fill draws only
-    # the first layer. Any other colour position (an icon, a shadow, carousel dots, a spinner) must
+    # so a style with no solid layer draws text at alpha 0. Any other colour position (an icon, a shadow, carousel dots, a spinner) must
     # be one solid layer per appearance in the Flow Builder; the service uses the first layer.
     for where, eid_, e in iter_elements(d):
         etype = e.get('type')
@@ -4681,10 +4746,6 @@ def theme_style_findings(d, bad, warn):
             c = layered[sid]
             segs = {seg.split('[')[0] for seg in path.split('.')}
             if 'fill' in segs:
-                if etype in INPUT_ELEMENT_TYPES and any(
-                        len(style_layers(style_side(c, v)) or []) > 1 for v in ('light', 'dark')):
-                    warn.append(f'{where}/{eid_} {path}: an input or picker fill bound to the '
-                                f'layered style {sid!r} draws only its first (bottom) layer')
                 continue
             if 'border' in segs:
                 for variant in ('light', 'dark'):

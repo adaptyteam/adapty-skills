@@ -34,7 +34,7 @@ of `ab-tests get` bodies for the tests those placements run, whose variants coun
 to its `product-offers list` rows; `--list-offer-products` prints the product ids bound with an
 offer, one per line, which is the list Phase 3 reads offers for.
 """
-import ast, json, os, re, struct, sys, urllib.request
+import ast, json, os, re, struct, subprocess, sys, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 # The localization catalog reader, shipped beside this file (a byte-identical copy of
@@ -315,45 +315,6 @@ def check_triggers(config):
     return out
 
 
-ESCAPE_ACTIONS = ('closeFlow', 'navigateBack')
-
-# Legal-link detection starts from the openUrl action's URL PAYLOAD. A label is a
-# design choice -- measured: 7 of 9 real escape affordances (`escape_labels` above) are
-# icon-only with no text at all. A button labeled "Legal" that opens
-# https://example.com/terms is a real terms link, so a label never makes a link ABSENT.
-# It can make one PRESENT: a button reading "Privacy Policy" that opens a url is that
-# link, whatever the url's path says (`/tc`, a shortlink). Two small, separate
-# vocabularies of URL tokens, matched case-insensitively against the url itself, and
-# two of label words, matched against the text of the element carrying the action:
-TERMS_URL_WORDS = ('terms', 'tos', 'eula', 'legal', 'conditions')
-PRIVACY_URL_WORDS = ('privacy', 'policy')
-TERMS_LABEL_WORDS = ('terms', 'eula', 'conditions', 'tos')
-PRIVACY_LABEL_WORDS = ('privacy',)
-# No ordinary word contains this one, so it also matches inside a run-together path
-# segment (`/privacypolicy`); the short words stay exact tokens -- see `_url_tokens`.
-URL_STEMS = ('privacy',)
-
-
-def _url_tokens(url):
-    """Split a url into lowercase alphanumeric tokens on any non-alphanumeric run.
-
-    Matching a vocabulary word by substring containment is a false-negative trap:
-    'tos' matches inside 'photos' and 'autos', 'legal' matches inside 'illegally',
-    which SILENCES a real compliance blocker -- a paywall whose only openUrl points
-    at a hero image reads as compliant. Tokenizing on separators and requiring an
-    EXACT token match closes that: 'photos'/'hero'/'jpg' and 'illegally'/'obtained'/
-    'content' contain no vocabulary token, while '/tos' and 'terms-of-service' still
-    tokenize to 'tos' and 'terms'/'of'/'service' respectively.
-
-    Deliberate direction of error: a concatenated path with no separator at all
-    (`/termsofservice`) now tokenizes to one unsplit word and will not match, which
-    turns a would-be silent pass into a QUESTION asking the human to confirm the url.
-    A question is honest; false silence on an App Store 3.1.2 requirement is not.
-    """
-    toks = set(re.split(r'[^a-z0-9]+', url.lower()))
-    return toks | {stem for stem in URL_STEMS for t in toks if stem in t}
-
-
 def selling_screens(config):
     """A screen sells if it binds a product or carries a purchase action."""
     out = set()
@@ -406,170 +367,6 @@ def nav_graph(config):
         for _, a in actions_of(e):
             edges[s['id']].update(_nav_targets(a, s['id'], order))
     return edges
-
-
-def escape_screens(config):
-    """Screens that carry an escape action of their own."""
-    out = set()
-    for s, eid, e in elements(config):
-        for _, a in actions_of(e):
-            if a.get('type') in ESCAPE_ACTIONS:
-                out.add(s['id'])
-    return out
-
-
-def escape_labels(config):
-    """(screen, label) for every escape affordance. Measured: 7 of 9 are icon-only, so
-    the label is reported as evidence and never used for detection."""
-    dl = default_locale(config)
-    out = []
-    for s, eid, e in elements(config):
-        for _, a in actions_of(e):
-            if a.get('type') in ESCAPE_ACTIONS:
-                out.append((s['id'],
-                            flat_text((e.get('props') or {}).get('content'), dl)
-                            or 'an icon with no text'))
-    return out
-
-
-def openurl_urls(config):
-    """Every url carried by an openUrl action's payload, flattened to plain text.
-
-    The mechanism's own target, not the button's label -- see the vocab comment
-    above. A url may be a plain string or a localizable/rich-text value; `flat_text`
-    already handles the latter, so both shapes are covered here. Empty urls (an
-    `openUrl` with no `url` at all) are dropped -- `check_triggers`'s
-    `openurl-no-url` already flags that as its own defect, so this list is never the
-    reason `no-terms-link`/`no-privacy-link` mistakes an unset url for a real one.
-    """
-    return [url for url, _ in openurl_links(config)]
-
-
-def openurl_links(config):
-    """(url, label) for every openUrl action with a url: `label` is the default-locale
-    text of the element that carries the action and of everything inside it."""
-    dl = default_locale(config)
-    out = []
-    for s, eid, e in elements(config):
-        for _, a in actions_of(e):
-            if a.get('type') != 'openUrl':
-                continue
-            url = (a.get('payload') or {}).get('url')
-            text = url if isinstance(url, str) else flat_text(url, dl)
-            if text:
-                label = ' '.join(filter(None, (
-                    flat_text((e.get('props') or {}).get('content'), dl),
-                    card_text(config, s, eid, dl))))
-                out.append((text, label))
-    return out
-
-
-def _reaches(edges, start, targets):
-    seen, queue = {start}, [start]
-    while queue:
-        cur = queue.pop(0)
-        if cur in targets:
-            return cur
-        for nxt in edges.get(cur, ()):
-            if nxt not in seen:
-                seen.add(nxt)
-                queue.append(nxt)
-    return None
-
-
-def check_compliance(config):
-    out = []
-    # `no-escape-in-flow` applies to ANY flow, selling or not -- a non-paywall
-    # onboarding flow with no way off is exactly the case this check exists to name,
-    # so it runs ahead of the selling-screen gate below rather than behind it.
-    # `no-escape-from-paywall` stays scoped to selling screens: it needs both a
-    # selling screen and a nav graph to walk from it.
-    edges, escapes = nav_graph(config), escape_screens(config)
-    if not escapes:
-        out.append(finding(
-            'question', 'compliance', 'no-escape-in-flow',
-            'Nothing in this flow lets a user leave it: there is no "Close Flow" or '
-            '"Navigate back" action anywhere.',
-            'If your app shows this flow with its own close button or swipe-to-dismiss, '
-            'you are fine. If not, add a close button with a "Close Flow" action.'))
-
-    selling = selling_screens(config)
-    if not selling:
-        return out
-    dl = default_locale(config)
-    all_actions = {a.get('type') for _, eid, e in elements(config) for _, a in actions_of(e)}
-    corpus_text = ' '.join(
-        flat_text((e.get('props') or {}).get('content'), dl).lower()
-        for _, eid, e in elements(config))
-
-    if 'restorePurchases' not in all_actions:
-        out.append(finding(
-            'blocker', 'compliance', 'no-restore',
-            'There is no way to restore a purchase. Someone who reinstalls your app '
-            'or moves to a new phone cannot get their subscription back.'
-            + (' The text mentions "restore", but nothing is wired to it.'
-               if 'restore' in corpus_text else ''),
-            'Add a "Restore purchases" action to a button, usually a small link under '
-            'the purchase button. (App Store 3.1.1)'))
-
-    # Three outcomes, in order of certainty. (1) No `openUrl` action anywhere: there
-    # cannot be a legal link without one, so both checks are a blocker. (2) An
-    # `openUrl` exists and some url matches the pattern: silent -- the link is real,
-    # whatever the button says. (3) An `openUrl` exists but nothing matches: this is
-    # NOT a blocker, because the audit cannot know what an arbitrary url points to --
-    # a shortlink or a `/legal` page may well serve the document -- so it is a
-    # question that names the urls actually found and asks the human to confirm.
-    links = openurl_links(config)
-    urls = [u for u, _ in links]
-    url_token_sets = [_url_tokens(u) for u in urls]
-    label_token_sets = [set(re.split(r'[^a-z0-9]+', lb.lower())) for _, lb in links]
-    for words, label_words, name, label in (
-            (TERMS_URL_WORDS, TERMS_LABEL_WORDS, 'no-terms-link', 'Terms of Use'),
-            (PRIVACY_URL_WORDS, PRIVACY_LABEL_WORDS, 'no-privacy-link', 'Privacy Policy')):
-        if not urls:
-            out.append(finding(
-                'blocker', 'compliance', name,
-                f'There is no link to your {label}: the flow has no "Open URL" '
-                'action at all.',
-                f'Add a link with an "Open URL" action that opens your {label} page. '
-                '(App Store 3.1.2)'))
-            continue
-        # Exact token match, never substring containment -- see `_url_tokens`.
-        if any(w in toks for toks in url_token_sets for w in words):
-            continue  # a url matches -- the link is real, regardless of the label
-        if any(w in toks for toks in label_token_sets for w in label_words):
-            continue  # the button that opens a url says what it is
-        shown = ', '.join(sorted(set(urls)))
-        out.append(finding(
-            'question', 'compliance', name,
-            f'The flow has links, but none of them looks like your {label}: {shown}',
-            f'If one of them is your {label}, there is nothing to do. If not, add a '
-            f'link with an "Open URL" action that opens it.'))
-
-    if escapes:
-        # Evidence for the human, never a detection signal: 7 of 9 measured escape
-        # affordances are icon-only with no text at all, so a label can only be shown,
-        # not matched on. Dedup so a flow with several identical icon buttons prints
-        # one line instead of one per button.
-        seen_labels = []
-        for _, lbl in escape_labels(config):
-            if lbl not in seen_labels:
-                seen_labels.append(lbl)
-        labels_str = '; '.join(seen_labels)
-        for sid in sorted(selling):
-            if _reaches(edges, sid, escapes) is None:
-                out.append(finding(
-                    'blocker', 'compliance', 'no-escape-from-paywall',
-                    'Someone who does not buy cannot leave this screen: no "Close Flow" '
-                    'or "Navigate back" action can be reached from it. Other screens in '
-                    f'the flow do have a way out ({labels_str}).',
-                    'Add a close button with a "Close Flow" action. A close icon with no '
-                    'text is enough.', sid))
-    # else: escapes is empty, already handled above by `no-escape-in-flow` -- when
-    # there is no escape ANYWHERE, the per-screen reachability blocker below would be
-    # true of every selling screen too, which is exactly the redundant restating the
-    # flow-wide question already exists to avoid.
-    return out
 
 
 def _element_product_id(e):
@@ -1147,482 +944,6 @@ def check_price_integrity(config, catalog):
                         'it is a savings figure, check that it still holds when '
                         'prices change.',
                         s['id'], lit_eid), _amount=nonzero[0]))
-    return out
-
-
-# --- STORE REVIEW (advisory). See `references/store-review.md` for the rejection
-# notices these rest on. Every check below emits `risk` or `question`, NEVER `blocker`:
-# store review is a human process that changes without announcement (the January 2026
-# toggle wave arrived with no guideline edit and no grace period), so a checker can
-# name a hazard and must not issue a verdict. `render()` prints these under their own
-# heading with a fixed disclaimer, and they are excluded from the verdict counts.
-
-# A weight is a name, not a number, and the two prominence checks need to order them.
-# Ranks are ordinal only -- nothing reads the gaps.
-WEIGHT_RANK = {'thin': 1, 'extralight': 2, 'ultralight': 2, 'light': 3, 'regular': 4,
-               'normal': 4, 'medium': 5, 'semibold': 6, 'demibold': 6, 'bold': 7,
-               'extrabold': 8, 'heavy': 8, 'black': 9}
-
-# The price variable whose value IS the amount the store charges, per catalog `period`.
-# `prod_price` is always the billed amount whatever the period. A period absent from
-# this map (quarterly, lifetime, or anything added later) has no per-unit alias, so
-# only `prod_price` counts for it -- which is correct, not a gap.
-BILLED_SUFFIX = {'weekly': 'prod_price_per_week', 'monthly': 'prod_price_per_month',
-                 'annual': 'prod_price_per_year'}
-
-
-def is_billed_suffix(suffix, period):
-    """True if this price variable renders the amount the user is actually charged."""
-    return suffix == 'prod_price' or (bool(period) and suffix == BILLED_SUFFIX.get(period))
-
-
-def resolve_font(config, element):
-    """(size, weight rank) for a text element, resolving the theme typography preset.
-
-    An element's own `font.size`/`font.weight` override the preset. A preset that names
-    no size at all resolves to 0, which makes both prominence comparisons fall through
-    rather than fire -- silence is the right direction of error for an advisory check
-    reading a theme it does not fully understand.
-    """
-    presets = {t.get('id'): (t.get('settings') or {})
-               for t in ((config.get('theme') or {}).get('typography') or [])}
-    f = (element.get('props') or {}).get('font') or {}
-    base = presets.get(f.get('preset')) or {}
-    size = f.get('size') or base.get('size') or 0
-    weight = f.get('weight') or base.get('weight') or 'regular'
-    return size, WEIGHT_RANK.get(str(weight).lower(), 0)
-
-
-def price_sites(config, screen, locale):
-    """Every price variable drawn on this screen, with the type it is set in.
-
-    Returns `[(element_id, product_id, suffix, size, weight_rank), ...]`.
-
-    SCREEN-scoped, deliberately, where `check_price_integrity` is card-scoped. The
-    June 2026 rejection is about what the user SEES -- a billed amount printed in the
-    footnote under the CTA satisfies "clearly and conspicuously displayed" just as
-    well as one printed inside the card, and a card-scoped walk would report that
-    perfectly compliant layout as a defect.
-
-    Reads `props.content` only. A price drawn from `propsByState.<state>.content` is
-    invisible here: measured, `tabs-paywall.json` binds and prices its products in a
-    shape this walk returns nothing for, so that flow gets no price findings rather
-    than wrong ones. Silence, not a guess -- recorded in `store-review.md`.
-
-    LATENT FONT MISATTRIBUTION, recorded rather than fixed because it is unreachable
-    today: this filters to `type == 'text'` and then calls `_element_blobs`, which
-    walks DESCENDANTS, while `resolve_font(config, e)` reads the font off the PARENT
-    `e`. Across all 12 tracked and raw fixtures no text element is a descendant of
-    another text element, so every blob's font really is its own element's -- checked,
-    not assumed. If a nested text element ever appears, a price drawn by the child
-    would be sized by the ancestor, and both prominence comparisons would read the
-    wrong number. Resolve the font per blob element (the `eid` `_element_blobs`
-    returns) if that day comes.
-    """
-    out = []
-    emap = (screen.get('elements') or {}).get('map') or {}
-    for eid, e in emap.items():
-        if e.get('type') != 'text':
-            continue
-        for _, blob in _element_blobs(config, screen, eid, locale):
-            size, rank = resolve_font(config, e)
-            for m in VAR_RE.finditer(blob):
-                suffix = m.group(2)
-                if suffix.startswith('prod_price'):
-                    out.append((eid, m.group(1), suffix, size, rank))
-    return out
-
-
-def check_price_prominence(config, catalog):
-    """The June 2026 rejection, in two checks.
-
-    Notice, verbatim: "The auto-renewable subscription displays the monthly calculated
-    pricing for the subscription more clearly and conspicuously than the billed
-    amount." The customer had to change every active paywall.
-
-    `billed-amount-not-shown` is the hard case: a derived per-unit figure is drawn and
-    the amount the store will actually charge appears NOWHERE on the screen.
-    `derived-price-louder` is the soft one: both are drawn, and the derived figure wins
-    on size or weight. Both are `risk`, because "conspicuously" is a judgement over
-    colour, position and container as well as type, and this reads only type.
-
-    Unknown period -> `question`. With no catalog row there is no `period`, so which
-    suffix IS the billed amount is undecidable -- and guessing produced a measured
-    false positive on `onboarding-quiz-paywall.json`, whose per-year + per-month pair
-    is the COMPLIANT shape.
-
-    But that question is SUPPRESSED whenever the missing catalog row is already
-    reported: its entire content would be "I could not find that product in the
-    catalog", which the report has said once already, and this check would repeat it
-    once per (screen, product). Measured on `onboarding-quiz-paywall.json`: two
-    `product-not-in-catalog` blockers plus two advisory questions saying the same
-    thing; with `--catalog` omitted, one `catalog-not-fetched` question plus one
-    advisory question per price site. This file establishes the pattern twice already
-    -- `check_products_catalog` returns after a single `catalog-not-fetched`, and
-    `check_period_claim` returns on a falsy catalog. The question survives only for
-    the two cases nothing else covers, and they get DIFFERENT wording because a
-    single sentence was wrong for one of them: a product that IS in the catalog whose
-    row carries no `period`, and a product reached only through a price variable --
-    absent from the catalog and bound nowhere, so `check_products_catalog` never saw
-    it either, since that check walks `bound_products`.
-    """
-    out = []
-    by_id = {p['id']: p for p in (catalog or [])}
-    # None when there is no catalog at all (`catalog-not-fetched` covers the whole
-    # flow with one question); otherwise every BOUND product missing from the catalog,
-    # each of which is already a `product-not-in-catalog` blocker. A price variable
-    # naming a product that is bound NOWHERE is in neither set, so it keeps its
-    # question -- nothing else in the report mentions it.
-    already_reported = (None if catalog is None
-                        else {pid for _, _, pid in bound_products(config)
-                              if pid not in by_id})
-    dl = default_locale(config)
-    for s in config.get('screens') or []:
-        sites = price_sites(config, s, dl)
-        if not sites:
-            continue
-        for pid in sorted({p for _, p, _, _, _ in sites}):
-            rows = [r for r in sites if r[1] == pid]
-            row = by_id.get(pid)
-            period = (row or {}).get('period')
-            title = (row or {}).get('title') or pid
-            billed = [r for r in rows if is_billed_suffix(r[2], period)]
-            derived = [r for r in rows if r[2].startswith('prod_price_per')
-                       and not is_billed_suffix(r[2], period)]
-            if not derived:
-                continue
-            if not billed:
-                if period:
-                    out.append(finding(
-                        'risk', 'compliance', 'billed-amount-not-shown',
-                        f'This screen shows "{title}" as a price per '
-                        f'{derived[0][2].rsplit("_", 1)[-1]}, but not the amount the '
-                        f'store actually charges. Apple has rejected paywalls for '
-                        f'exactly this.',
-                        f'Show the billed {period} amount too, at least as prominently. '
-                        f'You can keep the calculated price: it shows the saving. '
-                        f'(App Store 3.1.2(c), Google Play)',
-                        s['id'], rows[0][0]))
-                elif already_reported is None or pid in already_reported:
-                    # Already reported, once, by `check_products_catalog` -- see the
-                    # docstring. Silence here, not a second copy of that sentence.
-                    pass
-                elif row is None:
-                    # No catalog row AND not a bound product, so `check_products_catalog`
-                    # never saw it either -- that check walks `bound_products`, and this
-                    # id reaches us only through a price variable. Nothing else in the
-                    # report mentions it, so the question stays; but it must not claim a
-                    # catalog entry that does not exist, which is what the single earlier
-                    # wording did. `title` is the bare id here, by construction.
-                    out.append(finding(
-                        'question', 'compliance', 'billed-amount-not-shown',
-                        f'This screen shows a calculated price for a product that is '
-                        f'not in your product list and not sold anywhere in this flow '
-                        f'({pid}), so I cannot tell whether the billed amount is shown.',
-                        'Check that this price belongs to a product you actually sell: '
-                        'an unknown product usually means it was left behind by an edit. '
-                        'Then make sure the amount the store charges is on the screen. '
-                        '(App Store 3.1.2, Google Play)',
-                        s['id'], rows[0][0]))
-                else:
-                    out.append(finding(
-                        'question', 'compliance', 'billed-amount-not-shown',
-                        f'This screen shows a calculated price for "{title}", but the '
-                        f'product has no billing period set, so I cannot tell whether '
-                        f'the billed amount is shown.',
-                        'Make sure the amount the store actually charges is on this '
-                        'screen, not only a calculated per-month price. '
-                        '(App Store 3.1.2, Google Play)',
-                        s['id'], rows[0][0]))
-                continue
-            bmax = max((r[3], r[4]) for r in billed)
-            dmax = max((r[3], r[4]) for r in derived)
-            if dmax > bmax:
-                # Name the dimension that actually differs. `dmax > bmax` compares
-                # (size, weight rank) TUPLES, so weight only breaks a tie on equal
-                # size -- and the earlier single wording ("set larger or heavier
-                # (13pt) than the billed amount (13pt)") printed the same number
-                # twice and never mentioned weight on exactly that path. The weight
-                # NAME is not recoverable here: `WEIGHT_RANK` is many-to-one
-                # (regular/normal both rank 4), so the size-equal branch names the
-                # dimension and leaves the value to the config.
-                if dmax[0] > bmax[0]:
-                    louder = (f'is bigger than the billed amount '
-                              f'({dmax[0]} pt against {bmax[0]} pt)')
-                else:
-                    louder = (f'is bolder than the billed amount, '
-                              f'both at {dmax[0]} pt')
-                out.append(finding(
-                    'risk', 'compliance', 'derived-price-louder',
-                    f'The calculated price for "{title}" {louder}. Apple wants the '
-                    f'billed amount to be the more prominent of the two, and has '
-                    f'rejected paywalls over it.',
-                    'Make the billed amount bigger or bolder than the calculated one, '
-                    'for example billed amount bold at 14 pt and the per-month price at '
-                    '12 pt. (App Store 3.1.2(c), Google Play)',
-                    s['id'], derived[0][0]))
-    return out
-
-
-def _switch_shaped(props):
-    """A pill: a fixed box wider than tall, fully rounded on all four corners.
-
-    Measured against the corpus: exactly ONE element in 12 real exports matches --
-    a 50x30 stack on `onboarding-multilocale.json`'s `scr_notify`, which is a
-    notifications opt-in. So shape alone is nearly specific enough and is still not
-    used alone; see `check_trial_toggle` for the second and third signals.
-
-    Shape only -- deliberately blind to `propsByState`. A pill can also be a static
-    "3-day trial" badge chip on a plan card, which is the check's own recommended fix;
-    `check_trial_toggle` requires the state-dependence separately, on the same element,
-    so a badge (shape but no `propsByState.selected`) never reaches this function's
-    caller alone.
-    """
-    w, h = (props.get('width') or {}), (props.get('height') or {})
-    if w.get('type') != 'fixed' or h.get('type') != 'fixed':
-        return False
-    width, height = w.get('value') or 0, h.get('value') or 0
-    if not (width > height > 0):
-        return False
-    br = props.get('borderRadius') or {}
-    return all((br.get(k) or 0) >= height / 2 for k in ('tl', 'tr', 'bl', 'br'))
-
-
-def check_trial_toggle(config, stores):
-    """Apple began rejecting the free-trial on/off switch in January 2026 under App
-    Store 3.1.2.
-
-    No guideline edit, no documentation change, no grace period -- apps just started
-    coming back rejected. Adapty warned roughly twenty customer teams on 2026-02-11 and
-    several replied that it had already happened to them. The objection: the trial's
-    terms are not visible unless the user touches the switch, so a user who never
-    touches it is never shown them.
-
-    iOS only -- Android and web implementations were unaffected -- so an app that does
-    not ship on iOS gets nothing. Unknown stores still print, worded as iOS.
-
-    THREE signals, all required, because any pair alone false-fires. Shape alone hits
-    the corpus's one notifications toggle; trial copy alone hits every paywall that
-    mentions a trial, which is most of them; shape-plus-copy alone also hits a static
-    "3-day trial" badge chip on a plan card -- the check's own recommended remediation
-    -- because a badge can be pill-shaped and say "trial" without being a switch. The
-    third signal, state-dependence (`propsByState.selected` on the SAME pill-shaped
-    element), is what a switch has and a badge does not: the catalog's own
-    `trial-toggle` template's pill child moves its knob (`layout.alignH`) between
-    states, while a static badge carries no `propsByState` at all.
-    """
-    if stores is not None and 'ios' not in stores:
-        return []
-    out = []
-    dl = default_locale(config)
-    selling = selling_screens(config)
-    for s in config.get('screens') or []:
-        if s['id'] not in selling:
-            continue
-        els = s.get('elements') or {}
-        emap, hier = els.get('map') or {}, els.get('hierarchy') or {}
-        for eid, e in emap.items():
-            if not (e.get('props') or {}).get('groupId'):
-                continue
-            node = _find_node(hier, eid)
-            kids = _descendants(node) if node else [eid]
-            if not any(_switch_shaped((emap.get(k) or {}).get('props') or {})
-                       and ((emap.get(k) or {}).get('propsByState') or {}).get('selected')
-                       for k in kids):
-                continue
-            copytext = ' '.join(flat_text(((emap.get(k) or {}).get('props') or {})
-                                          .get('content'), dl) for k in kids)
-            if not TRIAL_RE.search(copytext):
-                continue
-            out.append(finding(
-                'risk', 'compliance', 'trial-toggle',
-                'This looks like a free-trial switch: the user has to flip it to see the '
-                'trial. Apple has been rejecting this pattern, with no warning.',
-                'Show the trial without a tap: two plans side by side with the trial on '
-                'one of them, or a timeline that says when the first charge happens. If '
-                'you keep the switch, expect questions at iOS review. (App Store 3.1.2)',
-                s['id'], eid))
-    return out
-
-
-def check_disclosure(config, catalog):
-    """The Schedule 2 disclosure floor, on the screen itself.
-
-    Apple's App Store 3.1.2 rejection boilerplate, as reviewers send it: "Apps offering
-    auto-renewable subscriptions must include all of the following required information
-    in the binary: Title of auto-renewing subscription; Length of subscription; Price of
-    subscription, and price per unit if appropriate; Functional links to the privacy
-    policy and Terms of Use (EULA)." Terms and privacy are already covered by
-    `no-terms-link`/`no-privacy-link`. This function covers the other two: LENGTH
-    (`no-period-disclosed`) and what happens when a free trial ends
-    (`trial-terms-incomplete`).
-
-    Screen-scoped and reported ONCE per screen. The period may legitimately be stated
-    outside the card -- "Billed yearly" under the CTA discloses it for every card above
-    -- so a card-scoped test would flag a compliant layout, and one row per card would
-    bury four identical findings in the report.
-
-    Reuses `period_terms`, so it inherits that function's billing-context guard, which
-    took four measured false positives to get right ("Weekly progress reports" read as a
-    weekly billing claim). Inverted here for `no-period-disclosed`: the check is that NO
-    period term appears anywhere on the screen.
-
-    Both checks read the same per-screen `blob`, so a screen with neither a stated
-    period nor stated trial terms produces both findings -- deliberately: they are two
-    separate disclosures and a user reading the report should see both gaps, not just
-    whichever the code happened to check first.
-    """
-    out = []
-    dl = default_locale(config)
-    selling = selling_screens(config)
-    lifetime_only = {p['id'] for p in (catalog or [])
-                     if p.get('period') in ('lifetime', None)}
-    for s in config.get('screens') or []:
-        if s['id'] not in selling:
-            continue
-        bound = {pid for sid, _, pid in bound_products(config) if sid == s['id']}
-        # A screen selling only one-time purchases has no billing period to disclose.
-        if bound and bound <= lifetime_only:
-            continue
-        emap = (s.get('elements') or {}).get('map') or {}
-        # `branch_text`, not `flat_text`: a disclosure written inside a conditional-text
-        # switch (the price line switching on the trial flag) is still on the screen.
-        blob = ' | '.join(
-            branch_text((e.get('props') or {}).get('content'), dl)
-            for e in emap.values() if e.get('type') == 'text')
-        if not period_terms(blob):
-            out.append(finding(
-                # Says only what the check knows: no period term appears in this
-                # screen's copy. It must NOT assert that a price is shown -- the one
-                # real export this fires on, `tests/fixtures/tabs-paywall.json`, has
-                # ZERO price variables in the whole document (recorded in
-                # `store-review.md`), so the earlier wording ("a user sees a price
-                # and a button") asserted a fact its only real firing case
-                # contradicts, and its fix pointed at a price that is not there.
-                'risk', 'compliance', 'no-period-disclosed',
-                'This screen asks people to subscribe but never says how often they '
-                'will be billed.',
-                'Add the billing period to the text: "Billed yearly" under the button, '
-                'or "/year" next to the price. '
-                '(App Store 3.1.2, Google Play)',
-                s['id']))
-
-        # trial-terms-incomplete. Google Play, verbatim: developers must "clearly and
-        # accurately describe the terms of your offer, including the duration, pricing,
-        # and description of accessible content or services" and explain "the paid
-        # subscription cost after the offer ends". Apple rejects the same omission under
-        # App Store 3.1.2. The test is narrow on purpose: the copy PROMISES a trial and the screen
-        # says nothing anywhere about a charge following it. THREE satisfiers -- a
-        # currency amount, a billing verb, or a period term -- a deliberately generous
-        # bar, because this check reads copy and copy is where false positives are
-        # cheapest to create and most expensive to keep.
-        #
-        # A fourth, `VAR_RE.search(blob)` (a price VARIABLE), was here and was DEAD
-        # CODE: `blob` comes from `branch_text`/`flat_text`, which render a variable node as '' by
-        # design (see its docstring), so no variable id ever reaches this string and
-        # the branch could not match. Removing it reddened nothing. Do not re-add it --
-        # this file's own history is full of assertions that shipped unable to fail,
-        # and a satisfier that cannot fire is a fourth one only on paper. If a
-        # variable-backed price should count here, `after` has to read
-        # `_element_blobs`, which renders variable ids inline, not `flat_text`.
-        if not TRIAL_RE.search(blob):
-            continue
-        after = (MONEY_RE.search(blob)
-                 or BILLING_VERB_RE.search(blob) or period_terms(blob))
-        if after:
-            continue
-        out.append(finding(
-            'risk', 'compliance', 'trial-terms-incomplete',
-            'This screen offers a free trial but does not say what happens when it '
-            'ends: no price, no billing period, nothing about renewal.',
-            'Say what the trial turns into, next to the offer: "Free for 7 days, '
-            'then $79.99/year". (App Store 3.1.2, '
-            'Google Play)',
-            s['id']))
-    return out
-
-
-# A url that looks like it takes the user somewhere to pay. Matched as exact tokens,
-# never substrings -- `_url_tokens`' own docstring records why ('tos' matches inside
-# 'photos'). `subscribe` is deliberately absent: a marketing page at /subscribe is an
-# ordinary content-gating link, not evidence of a purchase flow, so including it would
-# manufacture a question on almost every subscription app's marketing site.
-#
-# The vocabulary names a PAYMENT MECHANISM, never a PRODUCT SURFACE -- that line is
-# what keeps this list from regrowing the words dropped below. `billing`, `upgrade`
-# and `paywall` were all tried and dropped on real-world false positives: `billing`
-# fires on `/support/billing`, `/account/billing-history`, `/help/manage-billing` --
-# and `billing` is the decisive case, because Google Play *requires* an accessible
-# subscription-management path, plausibly living at exactly that kind of url, so the
-# token would fire on a link another store demands the app carry. `upgrade` fires on
-# `/why-upgrade`, `/upgrade-info`, `/compare-plans-upgrade`; `paywall` fires on an
-# attribution deep link routing back into the app's OWN paywall
-# (`yourapp.onelink.me/xyz?af_dp=yourapp://paywall`). All three name an in-app surface
-# or a management/marketing path, never a payment mechanism. `paddle` stays despite its
-# own narrow false positive (`/blog/paddle-boarding-tips`) because, unlike the three
-# dropped words, it names a real web-checkout processor and nothing else plausible
-# collides with it as often.
-PURCHASE_URL_WORDS = ('checkout', 'pay', 'payment', 'stripe', 'paddle',
-                      'purchase', 'buy')
-
-
-def _screen_openurls(screen, locale):
-    """Every openUrl target on this one screen, flattened to plain text.
-
-    KNOWN DUPLICATION, recorded on purpose rather than refactored: this is
-    `openurl_urls`'s body with the scope narrowed from the whole flow to one screen,
-    and the two were deliberately left as twins. `openurl_urls` feeds two shipped
-    BLOCKERS (`no-terms-link`, `no-privacy-link`); this feeds one advisory question
-    (`external-purchase-link`). Unifying them would put a live blocker's url handling
-    at risk to save twelve lines. **A future fix to how urls are read must land in
-    BOTH functions** -- that is the whole reason this note exists, because a fix
-    applied to one twin and not the other is exactly the kind of defect that gets
-    rediscovered as a bug months later.
-    """
-    out = []
-    for eid, e in ((screen.get('elements') or {}).get('map') or {}).items():
-        for _, a in actions_of(e):
-            if a.get('type') != 'openUrl':
-                continue
-            url = (a.get('payload') or {}).get('url')
-            text = url if isinstance(url, str) else flat_text(url, locale)
-            if text:
-                out.append(text)
-    return out
-
-
-def check_external_purchase(config, stores):
-    """App Store 3.1.1: an app may not steer users to a purchase mechanism other than
-    in-app purchase, except on the US storefront or under an entitlement.
-
-    A `question`, and it stays one however suspicious the url looks. The audit cannot
-    see which storefronts the app ships to, and cannot know whether the developer holds
-    the External Link Account Entitlement -- both of which make the same link legal. It
-    is worth asking anyway because Adapty ships web paywalls, so this is a real
-    foot-gun rather than a hypothetical.
-    """
-    if stores is not None and 'ios' not in stores:
-        return []
-    out = []
-    dl = default_locale(config)
-    selling = selling_screens(config)
-    for s in config.get('screens') or []:
-        if s['id'] not in selling:
-            continue
-        hits = [u for u in _screen_openurls(s, dl)
-                if set(PURCHASE_URL_WORDS) & _url_tokens(u)]
-        if not hits:
-            continue
-        out.append(finding(
-            'question', 'compliance', 'external-purchase-link',
-            'This screen links to what looks like a payment page: '
-            + ', '.join(sorted(set(hits)))
-            + '. Outside the US, Apple does not allow sending users to pay outside '
-            'the app.',
-            'If it is a payment page and you sell outside the US, remove it: this is a '
-            'reliable rejection. If it is a help page, or you sell only in the US, you '
-            'are fine. (App Store 3.1.1)',
-            s['id']))
     return out
 
 
@@ -2342,47 +1663,6 @@ def check_navigation(config):
     return out
 
 
-# --- CUSTOM ACTIONS. Apart from push notifications (`requestPermission`), a flow cannot ask
-# for a permission, open the rating sheet or sign anyone in: a button that does any of these
-# fires a `custom` action whose ID the app's
-# code matches, and an ID the app does not handle does nothing at all (Adapty's actions
-# doc: "A custom action does nothing on its own"). So every ID is put to the user once,
-# and the answers (`--custom-actions`) decide which store rules apply to which screen.
-#
-# Before an answer, a guess from the ID and the button's text lets the store checks
-# speak in "if" form. An answer always replaces the guess.
-# Read on the ID's words (split on `_`, `-`, spaces and camelCase), never on substrings:
-# `\b` treats `_` as a word character, so `rate_us` and `request_att` read as nothing, while
-# a bare "tracking" or "location" also matches a habit tracker or a city picker. A word that
-# names the thing outright counts alone; one that is ambiguous counts only beside a word
-# that asks for something.
-ASKING = {'request', 'ask', 'allow', 'enable', 'permission', 'prompt', 'grant', 'access'}
-CUSTOM_GUESS = (
-    ('tracking', {'att', 'idfa'}, {'tracking', 'track'}),
-    ('permission', {'notification', 'notifications', 'notif', 'notify', 'camera', 'microphone',
-                    'mic', 'contacts', 'healthkit'},
-     {'push', 'location', 'photo', 'photos', 'health', 'reminders'}),
-    ('review', {'rate', 'rating', 'review'}, set()),
-    ('sign-in', {'login', 'signin', 'signup', 'register'}, set()),
-)
-
-
-def _id_words(cid):
-    spaced = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', cid)
-    return [w for w in re.split(r'[_\-\s.]+', spaced.lower()) if w]
-
-
-def _guess_kind(cid):
-    words = _id_words(cid)
-    joined = set(words) | {a + b for a, b in zip(words, words[1:])}  # sign_in -> signin
-    if {'create', 'new'} & joined and 'account' in joined:
-        return 'sign-in'
-    for kind, alone, beside in CUSTOM_GUESS:
-        if alone & joined or (beside & joined and ASKING & joined):
-            return kind
-    return 'unknown'
-
-
 def _custom_ids(node):
     """Every custom action ID inside `node`, conditional branches included -- a quiz
     answer can fire one, and missing it would leave that button out of the question."""
@@ -2422,25 +1702,6 @@ def custom_sites(config):
     return out
 
 
-def custom_kinds(config, answers=None):
-    """custom action ID -> (kind, answered). An answer wins; otherwise the first guess
-    the ID matches; otherwise ('unknown', False).
-
-    The ID only, never the button's text: measured on a real activity onboarding, an
-    "Add a pregnancy" button naming a health app (ID `add_pregnancy`) read as a permission prompt
-    from its label and put a Skip finding on a screen that asks for nothing. An ID is
-    the developer naming what the code does; a label is copy."""
-    answers = answers or {}
-    out = {}
-    for cid in custom_sites(config):
-        if cid in answers:
-            out[cid] = (answers[cid], True)
-            continue
-        guess = _guess_kind(cid)
-        out[cid] = (guess, False)
-    return out
-
-
 def _site_phrase(config, cid, sites):
     where = _join_and(dict.fromkeys(f'"{screen_name(config, sid)}"' for sid, _, _ in sites))
     labels = [lbl for _, _, lbl in sites if lbl != 'an icon with no text']
@@ -2471,341 +1732,6 @@ def check_custom_actions(config, answers=None):
                 f'handle this custom action, so tapping it does nothing.',
                 'Handle this action ID in your app\'s code, or give the button a '
                 'different action in the Flow Builder.', sid, eid))
-    return out
-
-
-# --- PERMISSION SCREENS (store review, advisory). A flow never shows a system permission
-# prompt itself; it shows the screen before it, whose button fires a Request permission
-# action (push) or a custom action, and the app turns either into the prompt. Apple's HIG wants that screen to have ONE button, worded
-# like "Continue" or "Next", never "Allow", and no way round it: the person declines in
-# the system prompt. 2023-2026 rejections under 5.1.1(iv) removed a "Skip"/"Not now"
-# or an "Enable" button. Google's guidance asks the opposite (always offer a cancel), so
-# every check here is iOS-only and never tells anyone to add a Skip. Evidence and
-# calibration: `store-review.md`, "Onboarding".
-PERMISSION_KINDS = ('permission', 'tracking')
-GRANT_WORDS = re.compile(r'\b(allow|enable|turn on|grant)\b', re.I)
-# An OFFER, not a word: "feel free", "ad-free", "deals and discounts" and "unlock daily
-# reminders" are ordinary primer copy and fired on bare `free`/`discount`/`unlock`.
-REWARD_WORDS = re.compile(
-    r'\b\d+\s*(day|week|month|year)s?\s+free\b|\bfree\s+(trial|day|week|month|year)\b|'
-    r'\ba\s+free\b|\d+\s*%\s*off\b|\b(bonus|gift|reward)\b', re.I)
-SYSTEM_ALERT_WORDS = re.compile(r'ask app not to track|allow tracking|'
-                                r'\b(tap|press|click)\s+["“]?allow\b', re.I)
-
-
-def screen_text(config, screen):
-    dl = default_locale(config)
-    return ' '.join(flat_text((e.get('props') or {}).get('content'), dl)
-                    for e in ((screen.get('elements') or {}).get('map') or {}).values()
-                    if e.get('type') == 'text')
-
-
-# The key a Request permission action takes among the custom action IDs: a push prompt for
-# certain, so it is answered and never put to the user.
-NATIVE_PERMISSION = 'Request permission'
-
-
-def _requests_permission(node):
-    if isinstance(node, dict):
-        return node.get('type') == 'requestPermission' or any(
-            _requests_permission(v) for v in node.values())
-    if isinstance(node, list):
-        return any(_requests_permission(v) for v in node)
-    return False
-
-
-def native_permission_sites(config):
-    """[(screen id, element id, label)] for each element whose actions request a permission."""
-    dl = default_locale(config)
-    screens = {s['id']: s for s in config.get('screens') or []}
-    out = []
-    for s, eid, e in elements(config):
-        if any(_requests_permission(a) for _, a in actions_of(e)):
-            out.append((s['id'], eid,
-                        card_text(config, screens[s['id']], eid, dl)
-                        or flat_text((e.get('props') or {}).get('content'), dl)
-                        or 'an icon with no text'))
-    return out
-
-
-def primer_screens(config, kinds, sites=None):
-    """screen id -> the permission/tracking action IDs fired on it."""
-    out = {}
-    for cid, sites in (sites if sites is not None else custom_sites(config)).items():
-        if kinds.get(cid, ('unknown',))[0] in PERMISSION_KINDS:
-            for sid, _, _ in sites:
-                out.setdefault(sid, [])
-                if cid not in out[sid]:
-                    out[sid].append(cid)
-    return out
-
-
-def _if_unanswered(kinds, cid, what):
-    """The conditional opening a finding takes while the user has not said what `cid`
-    does -- the guess may be wrong, so the sentence must not state it as fact."""
-    return '' if kinds[cid][1] else f'If "{cid}" {what}, '
-
-
-def _cap(text):
-    """The first letter upper-cased: a message that may start after an empty `lead`."""
-    return text[:1].upper() + text[1:]
-
-
-def check_permission_screens(config, answers=None, stores=None):
-    if stores is not None and 'ios' not in stores:
-        return []
-    kinds = custom_kinds(config, answers)
-    sites = custom_sites(config)
-    native = native_permission_sites(config)
-    if native:
-        sites = {**sites, NATIVE_PERMISSION: native}
-        kinds = {**kinds, NATIVE_PERMISSION: ('permission', True)}
-    screens = {s['id']: s for s in config.get('screens') or []}
-    out = []
-    for sid, cids in primer_screens(config, kinds, sites).items():
-        s = screens[sid]
-        cid = cids[0]
-        lead = _if_unanswered(kinds, cid, 'shows a system permission prompt')
-        carriers = {eid for c in cids for x, eid, _ in sites[c] if x == sid}
-        m = (s.get('elements') or {}).get('map') or {}
-        around = [eid for eid, e in m.items() if eid not in carriers and any(
-            t in ('navigate', 'navigateNext', 'closeFlow') for _, a in actions_of(e)
-            for t in _action_types(a))]
-        if around:
-            # Named by its own words: a round's agents told users to "remove the other way
-            # out" when the finding did not say which button that was.
-            way = (card_text(config, s, around[0], default_locale(config))
-                   or flat_text((m[around[0]].get('props') or {}).get('content'),
-                                default_locale(config)))
-            way = f'"{way[:40]}"' if way else 'an icon with no text'
-            out.append(finding(
-                'risk', 'compliance', 'primer-skip',
-                _cap(f'{lead}{way} on the "{screen_name(config, sid)}" screen lets people go '
-                f'past the permission prompt without seeing it. Apple has rejected onboardings '
-                f'for a "Skip" or "Not now" on the screen before a permission prompt: people '
-                f'are meant to decline in the prompt itself.'),
-                f'Keep one button on this screen, worded like "Continue", that always shows '
-                f'the prompt, and remove {way}. (App Store 5.1.1(iv))',
-                sid, around[0]))
-        for c in cids:
-            for x, eid, label in sites[c]:
-                if x == sid and GRANT_WORDS.search(label):
-                    out.append(finding(
-                        'risk', 'compliance', 'primer-grant-wording',
-                        _cap(f'{_if_unanswered(kinds, c, "shows a system permission prompt")}'
-                        f'the button that leads to the permission prompt says "{label[:40]}". '
-                        f'Apple asks for a word like "Continue" or "Next" here, because the '
-                        f'real choice is made in the prompt that follows.'),
-                        'Change the button text to "Continue". (Apple Human Interface '
-                        'Guidelines, Privacy)', sid, eid))
-        reward = REWARD_WORDS.search(screen_text(config, s))
-        if reward:
-            out.append(finding(
-                'risk', 'compliance', 'permission-incentive',
-                _cap(f'{lead}the "{screen_name(config, sid)}" screen offers something '
-                f'("{reward.group(0)}") for turning the permission on. Apple does not allow a '
-                f'reward for granting notifications, location or tracking.'),
-                'Take the offer off this screen. (App Store 5.1.2(i))', sid))
-    for s in config.get('screens') or []:
-        alert = SYSTEM_ALERT_WORDS.search(screen_text(config, s))
-        if alert:
-            out.append(finding(
-                'risk', 'compliance', 'att-fake-alert',
-                f'The "{screen_name(config, s["id"])}" screen says "{alert.group(0)}", which '
-                f'copies or points at the system permission prompt. Apple says a screen like '
-                f'this before the tracking prompt leads to rejection.',
-                'Explain what the permission is for in your own words, and leave the '
-                'choice to the prompt. (App Store 5.1.2(i))', s['id']))
-    return out
-
-
-def check_rating_and_signup(config, answers=None, stores=None):
-    """Two onboarding steps that have drawn rejections (store review, advisory).
-
-    `rating-in-onboarding`: Apple's HIG says not to ask for a rating during onboarding,
-    5.6.1 disallows custom review prompts, and 2026 rejections removed a rating step
-    shown before the person had used the app; Google's in-app review guidance also says
-    not to trigger it from a button. Both stores, so it is not store-gated. Only a flow
-    of two or more screens is an onboarding: a rating button on a one-screen flow is not
-    a step anybody is walked through.
-
-    `signup-wall`: 5.1.1(v) -- an app may not require an account unless its core
-    features need one. Whether they do is the user's answer, so it is a question, and
-    it fires only when signing in is the ONLY way past the screen."""
-    kinds = custom_kinds(config, answers)
-    sites = custom_sites(config)
-    out = []
-    if len(config.get('screens') or []) > 1:
-        rated = []
-        for cid, (kind, answered) in kinds.items():
-            if kind == 'review':
-                for sid, eid, _ in sites[cid]:
-                    rated.append((sid, eid, _if_unanswered(kinds, cid,
-                                                           'opens the rating sheet')))
-        for s, eid, e in elements(config):
-            for _, a in actions_of(e):
-                url = (a.get('payload') or {}).get('url') if a.get('type') == 'openUrl' else None
-                if isinstance(url, str) and 'write-review' in url:
-                    rated.append((s['id'], eid, ''))
-        for sid, eid, lead in rated:
-            out.append(finding(
-                'risk', 'compliance', 'rating-in-onboarding',
-                _cap(f'{lead}the "{screen_name(config, sid)}" screen asks for a rating while '
-                f'people are still going through the onboarding, before they have used '
-                f'your app. Apple has rejected onboardings for this.'),
-                'Take the rating step out of the onboarding and ask later, once people '
-                'have used the app, through the store\'s own rating prompt. (App Store '
-                '5.6.1; Apple Human Interface Guidelines, Ratings and reviews)', sid, eid))
-    if stores is None or 'ios' in stores:
-        # A way past is a navigate or close, or a custom action that is not itself a
-        # sign-in: a "Continue as guest" button wired to the app's own code is still one.
-        forward = {}
-        for s, eid, e in elements(config):
-            for _, a in actions_of(e):
-                if any(t in ('navigate', 'navigateNext', 'closeFlow')
-                       for t in _action_types(a)) or any(
-                        kinds.get(c, ('unknown',))[0] != 'sign-in' for c in _custom_ids(a)):
-                    forward.setdefault(s['id'], set()).add(eid)
-        # One finding per screen: a sign-in screen with Apple, Google and email buttons is
-        # one wall, and every one of those buttons is a carrier, not a way past it.
-        walls = {}
-        for cid, (kind, _) in kinds.items():
-            if kind == 'sign-in':
-                for sid, eid, _ in sites[cid]:
-                    walls.setdefault(sid, []).append((cid, eid))
-        for sid, carried in walls.items():
-            if forward.get(sid, set()) - {eid for _, eid in carried}:
-                continue
-            cid, eid = carried[0]
-            out.append(finding(
-                'question', 'compliance', 'signup-wall',
-                _cap(f'{_if_unanswered(kinds, cid, "signs people in")}signing in is the only '
-                f'way past the "{screen_name(config, sid)}" screen. Apple allows that '
-                f'only when the app\'s core features need an account.'),
-                'If your app works without an account, add a way to continue without '
-                'one, such as "Continue as guest" or "Skip". (App Store 5.1.1(v))',
-                sid, eid))
-    return out
-
-
-CLOSE_WORDS = re.compile(r'\b(close|no thanks|not now|maybe later|skip)\b', re.I)
-
-
-def _norm_label(text):
-    return re.sub(r'\s+', ' ', text or '').strip().lower()
-
-
-def _shown_selling(screen, element):
-    """Elements this element's showElement actions reveal whose subtree sells: a purchase
-    action or a bound product. A sheet opened from a close is the same exit offer as a
-    second screen."""
-    emap = (screen.get('elements') or {}).get('map') or {}
-    kids = {}
-
-    def walk(n):
-        kids[n.get('id')] = [c.get('id') for c in n.get('children') or []]
-        for c in n.get('children') or []:
-            walk(c)
-    walk((screen.get('elements') or {}).get('hierarchy') or {})
-
-    def sells(x, seen):
-        if x in seen:
-            return False
-        seen.add(x)
-        e = emap.get(x) or {}
-        if ((e.get('props') or {}).get('product') or {}).get('id') or any(
-                a.get('type') == 'purchase' for _, a in actions_of(e)):
-            return True
-        return any(sells(k, seen) for k in kids.get(x, []))
-
-    def shown(node):
-        if isinstance(node, dict):
-            got = []
-            if node.get('type') == 'showElement':
-                got += [x for x in (node.get('payload') or {}).get('elements') or []
-                        if isinstance(x, str)]
-            return got + [x for v in node.values() for x in shown(v)]
-        if isinstance(node, list):
-            return [x for v in node for x in shown(v)]
-        return []
-    return [x for x in dict.fromkeys(shown(element.get('interactions')))
-            if x in emap and sells(x, set())]
-
-
-def check_exit_and_cta(config, stores=None):
-    """Two paywall-in-onboarding shapes (store review, advisory).
-
-    `exit-offer-on-dismiss` (iOS): closing a selling screen opens another selling
-    screen. Rejected under 5.6 with the reviewer's own words about manipulating people
-    into purchases (Nov 2024); the same shape had passed earlier versions, so it is a
-    risk on any update, not a certainty. Not the deferred `escape-gated` idea: that
-    names any close that does not close, which has no rejection behind it yet.
-
-    `purchase-looks-like-continue` (Android): Google Play's Subscriptions policy lists
-    "multiple screens in the purchase flow that lead users into accidentally clicking
-    the subscribe button". The observable form is the purchase button carrying the same
-    words as the forward buttons on the two screens before it."""
-    out = []
-    selling = selling_screens(config)
-    if not selling:
-        return out
-    screens = {s['id']: s for s in config.get('screens') or []}
-    dl = default_locale(config)
-
-    def label(sid, eid):
-        e = (screens[sid].get('elements') or {}).get('map', {}).get(eid) or {}
-        return (card_text(config, screens[sid], eid, dl)
-                or flat_text((e.get('props') or {}).get('content'), dl))
-
-    if stores is None or 'ios' in stores:
-        for s, eid, e in elements(config):
-            if s['id'] not in selling:
-                continue
-            types, targets = [], []
-            for _, a in actions_of(e):
-                types += _action_types(a)
-                targets += _nav_targets(a, s['id'], list(screens))
-            text = label(s['id'], eid)
-            offers = [screen_name(config, t) for t in targets
-                      if t in selling and t != s['id']]
-            offers += [(s['elements']['map'][x].get('caption') or 'a sheet')
-                       for x in _shown_selling(s, e)]
-            if offers and 'purchase' not in types and (not text or CLOSE_WORDS.search(text)):
-                out.append(finding(
-                    'risk', 'compliance', 'exit-offer-on-dismiss',
-                    f'Closing the "{screen_name(config, s["id"])}" screen opens another '
-                    f'offer ("{offers[0]}") instead of letting people '
-                    f'leave. Apple has rejected this as pushing people into a purchase they '
-                    f'did not want.',
-                    'Make the close button close the flow ("Close Flow"), and show the '
-                    'second offer somewhere people choose to open it. (App Store 5.6)',
-                    s['id'], eid))
-    if stores is None or 'android' in stores:
-        forward = {}
-        for s, eid, e in elements(config):
-            if s['id'] in selling:
-                continue
-            if any(t in ('navigate', 'navigateNext') for _, a in actions_of(e)
-                   for t in _action_types(a)):
-                forward.setdefault(s['id'], set()).add(_norm_label(label(s['id'], eid)))
-        path = _reachable(config)
-        for s, eid, e in elements(config):
-            if s['id'] not in selling or not any(
-                    a.get('type') == 'purchase' for _, a in actions_of(e)):
-                continue
-            before = [x for x in path[:path.index(s['id'])] if x in forward][-2:] if (
-                s['id'] in path) else []
-            words = _norm_label(label(s['id'], eid))
-            if len(before) == 2 and words and all(words in forward[x] for x in before):
-                out.append(finding(
-                    'risk', 'compliance', 'purchase-looks-like-continue',
-                    f'The purchase button on the "{screen_name(config, s["id"])}" screen '
-                    f'says "{label(s["id"], eid)[:40]}", the same as the buttons that moved '
-                    f'people through the screens before it, so someone tapping through can '
-                    f'subscribe without meaning to. Google Play lists this as a policy '
-                    f'violation.',
-                    'Word the purchase button for what it does, such as "Subscribe" or '
-                    '"Start free trial". (Google Play Subscriptions policy)', s['id'], eid))
     return out
 
 
@@ -3292,18 +2218,65 @@ def check_fonts(config, fetch=read_font, stores=None):
     return out
 
 
-def audit(config, catalog=None, stores=None, answers=None, offers=None):
+# --- STORE RULES. Every store check -- the mechanisms App Store 3.1.1 and 3.1.2 require and
+# the advisory store-review shapes -- belongs to the `paywall-compliance` skill, whose
+# `store-check.py` this script runs from the sibling skill directory. Both skills ship in one
+# plugin; a copy of this skill alone gets a `store-check-missing` question instead, so the
+# verdict never reads a clean "Ready to publish" without the store rules having run.
+STORE_CHECK = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))), 'paywall-compliance', 'references', 'store-check.py')
+# Where each store finding sits in this report's run order, by check name: the required
+# mechanisms after the triggers, the onboarding shapes after the purchase outcomes, and every
+# other store check (the paywall shapes) after the price checks.
+STORE_MECHANISMS = frozenset({'no-escape-in-flow', 'no-restore', 'no-terms-link',
+                              'no-privacy-link', 'no-escape-from-paywall'})
+STORE_ONBOARDING = frozenset({'primer-skip', 'primer-grant-wording', 'permission-incentive',
+                              'att-fake-alert', 'rating-in-onboarding', 'signup-wall',
+                              'exit-offer-on-dismiss', 'purchase-looks-like-continue'})
+
+
+def run_store_check(config_path, catalog_path=None, stores=None, custom_actions=None):
+    """The `paywall-compliance` findings for this flow, or one question saying why there are
+    none. Same inputs as this script, so a re-run with `--stores` or `--custom-actions`
+    re-runs the store rules with the answer too."""
+    if not os.path.isfile(STORE_CHECK):
+        return [finding(
+            'question', 'compliance', 'store-check-missing',
+            'I could not check the store rules (Restore, the Terms and Privacy links, a way '
+            'out of the paywall, and what has drawn rejections): the paywall-compliance skill '
+            'is not installed beside this one.',
+            'Install the whole Adapty skills plugin, then run the audit again.')]
+    argv = [sys.executable, STORE_CHECK, config_path, '--json']
+    for flag, value in (('--catalog', catalog_path), ('--stores', stores),
+                        ('--custom-actions', custom_actions)):
+        if isinstance(value, str):
+            argv += [flag, value]
+    r = subprocess.run(argv, capture_output=True, text=True)
+    try:
+        if r.returncode not in (0, 1):
+            raise ValueError(r.stderr.strip() or f'exit {r.returncode}')
+        return json.loads(r.stdout)['findings']
+    except (ValueError, KeyError, TypeError) as exc:
+        return [finding(
+            'question', 'compliance', 'store-check-missing',
+            f'I could not check the store rules: the store check stopped with "{exc}".',
+            'Run the audit again; if it stops the same way, check the store rules with the '
+            'paywall-compliance skill on its own.')]
+
+
+def audit(config, catalog=None, stores=None, answers=None, offers=None, store=None):
+    store = store or []
+    mechanisms = [f for f in store if f['check'] in STORE_MECHANISMS]
+    onboarding = [f for f in store if f['check'] in STORE_ONBOARDING]
+    paywall = [f for f in store if f not in mechanisms and f not in onboarding]
     findings = []
     findings += check_triggers(config)
-    findings += check_compliance(config)
+    findings += mechanisms
     findings += check_products_catalog(config, catalog, stores)
     findings += check_offers(config, catalog, offers)
     findings += check_period_claim(config, catalog)
     findings += check_price_integrity(config, catalog)
-    findings += check_price_prominence(config, catalog)
-    findings += check_trial_toggle(config, stores)
-    findings += check_disclosure(config, catalog)
-    findings += check_external_purchase(config, stores)
+    findings += paywall
     findings += check_localization(config)
     findings += check_placeholders(config)
     findings += check_fake_carousel(config)
@@ -3312,9 +2285,7 @@ def audit(config, catalog=None, stores=None, answers=None, offers=None):
     findings += check_custom_actions(config, answers)
     findings += check_dead_ends(config)
     findings += check_purchase_outcomes(config)
-    findings += check_permission_screens(config, answers, stores)
-    findings += check_rating_and_signup(config, answers, stores)
-    findings += check_exit_and_cta(config, stores)
+    findings += onboarding
     findings += check_fonts(config, stores=stores)
     return findings
 
@@ -3340,9 +2311,6 @@ def check_meta(meta):
             'Failed). Nothing in this audit explains why, so I will not guess.',
             'Open the flow in the Flow Builder: it shows why the publish failed.'))
     return out
-
-
-ORDER = {'blocker': 0, 'risk': 1, 'question': 2}
 
 # Store-review checks are partitioned out of the severity groups and printed under
 # their own heading. They are advisory: they never count toward the verdict, never
@@ -3411,66 +2379,6 @@ CHECK_LABELS = {
     'android-font-name': 'wrong Android font names',
     'ios-font-name': 'wrong iOS font names',
 }
-
-# Plural forms that a naive trailing-'s' gets wrong (a leading noun, not the last
-# word, needs to change). Anything absent from this dict falls back to a trailing
-# 's' on the whole label, which is correct for every single-final-noun label above
-# (`hardcoded price` -> `hardcoded prices`, `empty translation` -> `empty
-# translations`).
-PLURAL_OVERRIDES = {
-    'product not in catalog': 'products not in catalog',
-    'product missing access level': 'products missing access level',
-    'wrong price shown': 'wrong prices shown',
-    'locale entirely empty': 'locales entirely empty',
-}
-
-# Labels that are already a negation read correctly no matter how many times the
-# underlying check fired -- "no legal links" is true whether one link is missing or
-# both, so it is never counted. (Two distinct checks, `no-terms-link` and
-# `no-privacy-link`, share this one label, which is exactly how a naive count-prefix
-# produced the ungrammatical "2 no legal links".) A count only helps a countable
-# noun, where pluralizing the label (via `PLURAL_OVERRIDES` or the trailing-'s'
-# fallback) keeps it grammatical instead.
-NEGATION_LABELS = {
-    'no restore action',
-    'no legal links',
-    'no way off the flow',
-    'no way off the paywall',
-}
-
-
-def _pluralize(label):
-    if label in PLURAL_OVERRIDES:
-        return PLURAL_OVERRIDES[label]
-    return label if label.endswith('s') else label + 's'
-
-
-def _verdict_labels(blockers, cap=4):
-    """Distinct, short labels for the verdict line -- counting repeats where a count
-    helps a countable noun (`2 hardcoded prices`), capped so a dozen blocker rows
-    still fit on one line. A merged finding (see `_collapse_for_report`) carries its
-    own `_label`, chosen by `MERGE_ORDER`, instead of the raw `check` name.
-
-    A label in `NEGATION_LABELS` reads correctly whether it fired once or several
-    times ("no legal links" is true regardless of how many links are missing), so it
-    is printed once with no count prefix -- prefixing a count there ("2 no legal
-    links") reads ungrammatically because the label already negates.
-    """
-    order, counts = [], {}
-    for f in blockers:
-        label = f.get('_label') or CHECK_LABELS.get(f['check'], f['check'])
-        if label not in counts:
-            counts[label] = 0
-            order.append(label)
-        counts[label] += 1
-    parts = [
-        (l if l in NEGATION_LABELS else
-         (f'{counts[l]} {_pluralize(l)}' if counts[l] > 1 else l))
-        for l in order
-    ]
-    shown = parts[:cap]
-    extra = len(parts) - len(shown)
-    return ', '.join(shown) + (f' +{extra} more' if extra > 0 else '')
 
 
 # --- Report-only collapse of `dead-affordance` with the compliance blockers it
@@ -3906,7 +2814,8 @@ CHECK_TO_GROUP = {
 # `catalog-not-fetched` and `publication-failed` are deliberately excluded: none of
 # them is a question whose ANSWER changes whether the finding is a problem.
 VERDICT_CONDITIONAL = {'no-terms-link', 'no-privacy-link', 'no-escape-in-flow',
-                        'product-store-gap', 'custom-action-unconfirmed'}
+                        'product-store-gap', 'custom-action-unconfirmed',
+                        'store-check-missing'}
 
 # The Flow Builder's own status labels, so the header says what the dashboard says.
 # `dirty` reads as "Dirty" there, which means nothing to a newcomer, so it carries
@@ -3919,7 +2828,7 @@ STATUS_LABELS = {'draft': 'Draft', 'dirty': 'Dirty (unpublished changes)',
 # Questions whose answer IS the whole next step: there is nothing to fix until the user
 # has said what each thing does, so they get the GROUP_ANSWER line and nothing else --
 # "I can fix it for you" under an unanswered question promises a fix nobody can name.
-ANSWER_ONLY = {'custom-action-unconfirmed'}
+ANSWER_ONLY = {'custom-action-unconfirmed', 'store-check-missing'}
 
 
 def _next_step_groups(f):
@@ -3952,6 +2861,9 @@ def _answer_prompt(f, n):
     if check == 'custom-action-unconfirmed':
         return (f'What does each custom action in finding {n} do in your app? One your '
                 f'app does not handle is a button that does nothing.')
+    if check == 'store-check-missing':
+        return (f'Finding {n}: once the store rules have run, the verdict can change. '
+                'Can you install the whole Adapty skills plugin?')
     return f'Look at finding {n}: your answer may change the verdict.'
 
 
@@ -4424,7 +3336,9 @@ def main(argv):
         print(exc, file=sys.stderr)
         return 2
 
-    findings = audit(config, catalog, stores, answers, offers)
+    store = run_store_check(args[0], flags.get('--catalog'), flags.get('--stores'),
+                            flags.get('--custom-actions'))
+    findings = audit(config, catalog, stores, answers, offers, store)
     meta = {'name': flags.get('--name') if isinstance(flags.get('--name'), str) else None,
             'flow_id': flags.get('--flow-id') if isinstance(flags.get('--flow-id'), str)
             else None,

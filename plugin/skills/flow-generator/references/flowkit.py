@@ -225,8 +225,7 @@ def fill(color_id=None, *, hexval=None, opacity=None, layers=None):
     One layer is `fill('card')` or `fill(hexval=...)`; a stack is the layer helpers concatenated,
     or `layers=`: `image_fill(url, preview=p) + fill(hexval='#000000', opacity=40)` is a photo
     under a scrim. When the stack must change between light and dark, put it in a theme colour
-    (`config(colors=...)`) and fill with `fill(color_id)`. An input's fill draws only its first
-    layer.
+    (`config(colors=...)`) and fill with `fill(color_id)`.
     """
     if layers is not None:
         return list(layers)
@@ -356,8 +355,8 @@ def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
     nothing; swap `auto` for `fill` and it stops 2px short.
 
     The horizontal pair works the same way: `left` AND `right` stretch it between them with
-    `width='auto'`, which the element helpers default to for such a position. A `fill` width is
-    refused: rendered, it takes the parent's whole width shifted by `left`, past the right edge.
+    `width='auto'`, which the element helpers default to for such a position. A `fill` width or
+    a `fixed_w` is refused: either keeps its own width from `left`, and can draw past the right edge.
 
     It paints over every `relative` sibling, wherever either is listed. To sit behind its
     `absolute` siblings, list it FIRST among them and leave `z` unset: later absolute siblings
@@ -696,18 +695,24 @@ class Var:
     """A variable span: renders the variable's value; the publish refuses an undeclared id.
 
     Takes a variable id, or the entry `app_value()` returned — so a custom tag is bound by the
-    object you declared rather than by an id you retyped.
+    object you declared rather than by an id you retyped. `strikethrough=True` (or `bold`,
+    `italic`, `underline`) marks the variable itself: `Var(vid, strikethrough=True)` is a struck
+    price. A mark on the `Span` beside it does not reach the variable.
     """
 
-    __slots__ = ('variable_id',)
+    __slots__ = ('variable_id', 'marks')
 
-    def __init__(self, variable_id):
+    def __init__(self, variable_id, *, bold=False, italic=False, underline=False,
+                 strikethrough=False):
         if isinstance(variable_id, dict):
             variable_id = variable_id.get('id')
         if not (isinstance(variable_id, str) and variable_id):
             raise ValueError(f'Var() needs a variable id or an app_value() entry, got '
                              f'{variable_id!r}')
         self.variable_id = variable_id
+        self.marks = {k: True for k, v in (('bold', bold), ('italic', italic),
+                                           ('underline', underline),
+                                           ('strikethrough', strikethrough)) if v}
 
 
 class Span:
@@ -725,7 +730,7 @@ def _span(part):
     if isinstance(part, str):
         part = Span(part)
     if isinstance(part, Var):
-        return {'type': 'variable', 'attrs': {'variableId': part.variable_id}}
+        return {'type': 'variable', 'attrs': {'variableId': part.variable_id, **part.marks}}
     if isinstance(part, Span):
         attrs = {'bold': part.bold, 'italic': part.italic,
                  'underline': part.underline, 'strikethrough': part.strikethrough}
@@ -1042,14 +1047,21 @@ def _width(width, fixed_w, position, default='fill'):
     those anchors, and only `width: auto` lets the anchors decide. Rendered side by side: a
     `fill` element takes the parent's WHOLE width and is then shifted by `left`, so it draws
     past the parent's right edge by that offset, while `auto` sits exactly between the anchors
-    -- and the builder's own docked CTAs carry `auto`. So the width defaults to `auto` on such
-    an element and `fill` is refused. Elsewhere the default is the helper's own.
+    -- and the builder's own docked CTAs carry `auto`. A `fixed_w` keeps its size from `left`
+    and ignores `right`. So the width defaults to `auto` on such an element, and `fill` and
+    `fixed_w` are refused. Elsewhere the default is the helper's own.
     """
-    if fixed_w is not None:
-        return size('fixed', fixed_w)
     pos = position or {}
     anchored = (pos.get('type') in ('absolute', 'fixed')
                 and pos.get('left') is not None and pos.get('right') is not None)
+    if fixed_w is not None:
+        if anchored:
+            raise ValueError(
+                "an absolute or fixed element anchored left AND right needs width='auto' to "
+                "stretch between them, not fixed_w -- a fixed width keeps its size from `left` and "
+                "the right anchor pins nothing, so a wide one draws past the right edge. Drop "
+                "fixed_w, or keep it and drop `right`")
+        return size('fixed', fixed_w)
     if width is None:
         width = 'auto' if anchored else default
     if anchored and width == 'fill':
@@ -1302,6 +1314,13 @@ def text(content, *, preset='body', color_id=None, align='left', width=None,
     if auto_shrink and max_lines is None:
         raise ValueError('text(auto_shrink=True) needs max_lines: text shrinks only inside a line '
                          'limit or a fixed height, and without one autoShrink does nothing')
+    if isinstance(content, dict) and not ({'_localizable', 'values', '_lid'} & content.keys()):
+        raise ValueError(
+            f'text(): content {sorted(content)!r} is a bare map, which publish refuses as '
+            'invalid_localized_rich_text. Pass rich(...) or a string, and give a translation as '
+            "content[id].values[<localeId>] once localization.py catalog has run. A string that is "
+            'the same in every language is written once: a locale with no value falls back to the '
+            'default one.')
     props = {'font': {'preset': preset}, 'align': align,
              'width': _width(width, None, position), 'height': size('hug'),
              'layout': 'auto-height',
@@ -1688,7 +1707,8 @@ def _check_fallback(nodes, where):
         _check_fallback(n.get('_children') or [], where)
 
 
-def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, align_h='center',
+def custom_element(custom_type, element_id, *, fallback, fixed_h=None, hug=False, width=None,
+                   align_h='center',
                    align_v='center', gap=0, corner=None, clip=False, padding=None, fill_=None,
                    margin=None, position=None, visibility=None, **kw):
     """A box the app fills with its own native view: Lottie, Rive, a map, a chart, a camera.
@@ -1702,8 +1722,9 @@ def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, al
     (custom-elements.md):
 
     * `custom_type` is `[a-z0-9_]+`; any other spelling is refused at publish.
-    * `fixed_h` is required: a map, a chart or a camera in a `hug` box collapses to almost
-      nothing, because the native view has no height of its own.
+    * a height is required: `fixed_h` in points, or `hug=True` only for a view that sets its own
+      height (a Lottie or Rive animation at a set size). A map, a chart or a camera in a `hug`
+      box collapses to almost nothing, because the native view has no height of its own.
     * `fallback` is required and non-empty: without it the users the app does not serve see an
       empty area the size of the box. No `fixed` child, no bottom sheet, sliding sheet or footer
       at any depth: the transformer refuses them and drops the box.
@@ -1721,9 +1742,12 @@ def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, al
     if not (isinstance(element_id, str) and element_id.strip()):
         raise ValueError(f'element_id names this box for the app, such as "streak_ring", '
                          f'not {element_id!r}')
-    if fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float)):
+    if hug and fixed_h is not None:
+        raise ValueError('custom_element() takes one of fixed_h and hug=True, not both')
+    if not hug and (fixed_h is None or fixed_h is True or not isinstance(fixed_h, (int, float))):
         raise TypeError(f'custom_element(fixed_h=...) wants a height in points, not {fixed_h!r}: '
-                        f'a native view without a height of its own collapses in a hug box')
+                        f'a map, a chart or a camera has no height of its own and collapses in a '
+                        f'hug box. Pass hug=True only when the app\'s view sets its own height')
     fallback = list(fallback or [])
     if not fallback:
         raise ValueError('custom_element() needs a fallback: the users the app does not serve '
@@ -1736,7 +1760,7 @@ def custom_element(custom_type, element_id, *, fixed_h, fallback, width=None, al
         'customType': custom_type,
         'customElementId': element_id,
         'width': _width(width, None, position),
-        'height': size('fixed', fixed_h),
+        'height': size('hug') if hug else size('fixed', fixed_h),
         'layout': lay,
         'position': position or relative(),
     }

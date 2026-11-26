@@ -91,9 +91,11 @@ fk.custom_element('lottie_animation', 'streak_plant', fixed_h=220,
   a Type and ID pair (the builder warns, and the app could not tell them apart); across screens
   and flows the same pair is the same view.
 - **`customType` and `customElementId` live in base `props` only**, never in `propsByState`.
-- **Height is `fixed`.** A native view that sizes itself to its space, a map, a chart, a camera,
-  collapses to almost nothing in a `hug` box. Take the height from the reference, or from the
-  template. Width is usually `fill`.
+- **Height is `fixed`, unless the app's view sets its own.** A native view that sizes itself to
+  its space, a map, a chart, a camera, collapses to almost nothing in a `hug` box. Take the height
+  from the reference, or from the template. `hug` (`hug=True` in `flowkit`) is for a view the app
+  gives a height of its own, such as an animation at a set size; ask the user when you cannot
+  tell. Width is usually `fill`.
 - **No `interactions`** on the element.
 - **The fallback is required, and it is the design for every user the app does not serve.** A
   box with no children shows those users an empty area of its size. Make the fallback a finished
