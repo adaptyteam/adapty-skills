@@ -238,10 +238,14 @@ $ADAPTY flows copy <FLOW_ID> --app <SOURCE_APP_UUID> --to-app <TARGET_APP_UUID> 
   and offer id of the source app is gone, with the product and formula variables that used one:
   bind the target app's products, [products.md](products.md)); `font_replaced`,
   `font_not_in_source_app`, `font_import_failed` (that family is now the system font: upload it to
-  the target app or pick another, [flow-schema.md → Invariants](flow-schema.md#invariants) row 9);
+  the target app, [media.md → Uploading a font](media.md#uploading-a-font), or pick another,
+  [flow-schema.md → Invariants](flow-schema.md#invariants) row 9);
   `fonts_to_bundle` ([trap 8](flow-schema.md#8-custom-fonts-do-not-ship-with-the-flow)). Media
   URLs, the other variables, custom tags and actions, and remote configs are copied as they are.
   The copy is not published.
+- **Fonts:** the copy adds each custom font of the flow to the target app, or uses the target
+  app's same font; do not run `fonts upload` for them. `$ADAPTY fonts list --app <TARGET_APP_UUID>
+  --json` shows them.
 - **Errors:** `target_app_not_available` (a wrong id, no access, or another account: say so, never
   pick another app yourself); `target_app_is_source_app` (use `flows duplicate`); `flow_archived`
   as for a restore.
@@ -252,9 +256,13 @@ Then go on with the edit on the new flow: phase 2 as an existing flow, with `--a
 
 `flows create` in the target app, then one write of the fetched source config, after you tell the
 user what that drops ([Look at one version](#look-at-one-version)) and they say yes. Before the
-write, replace every product and offer id with the target app's ([products.md](products.md)) and
+write, replace every product and offer id with the target app's ([products.md](products.md)).
+Fonts live in the app, not in the flow: a config that names a custom font the target app does not
+have does not publish there. Check `$ADAPTY fonts list --app <TARGET_APP_UUID> --json`; upload each
+missing font to the target app ([media.md → Uploading a font](media.md#uploading-a-font)), then
 point each custom font at a font of the target app
-([flow-schema.md → Invariants](flow-schema.md#invariants) row 9).
+([flow-schema.md → Invariants](flow-schema.md#invariants) row 9). `flows publish` then refreshes
+the font copy of the config.
 
 ## Rename a version
 
