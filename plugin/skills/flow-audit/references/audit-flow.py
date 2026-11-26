@@ -4,8 +4,8 @@
 Structural half of the `flow-audit` skill. Takes a flow config and the app's product
 catalog; returns findings. No CLI calls -- `SKILL.md` owns those, so this script stays
 testable against fixtures. The one network read is the fonts family downloading each
-custom font file named in `_meta.fonts` to read its PostScript name; when a download
-fails, that part degrades to a question and the run goes on.
+custom font file the flow uses to read its PostScript name; when a download fails, that part
+degrades to a question and the run goes on.
 
 Severity is a verdict input, not a mood:
   blocker  -- the flow will not work for a real user, OR will show them something false
@@ -21,6 +21,7 @@ Usage:
                 [--json | --report] [--name <name>] [--flow-id <id>] [--status <status>]
                 [--placements <placements.json>] [--ab-tests <ab-tests.json>]
                 [--custom-actions id=kind,...] [--offers <offers.json>]
+                [--fonts <fonts.json>]
   audit-flow.py <config.json> --list-offer-products
 Exit: 0 no blockers, 1 at least one blocker, 2 usage or unreadable input.
 
@@ -32,7 +33,9 @@ from `flows list`, not the config, and feed `render()`'s header and the
 `--flow-id` it answers whether any placement shows this flow; `--ab-tests` is a JSON array
 of `ab-tests get` bodies for the tests those placements run, whose variants count. `--offers` maps a product id
 to its `product-offers list` rows; `--list-offer-products` prints the product ids bound with an
-offer, one per line, which is the list Phase 3 reads offers for.
+offer, one per line, which is the list Phase 3 reads offers for. `--fonts` is the answer of
+`fonts list --json`: the fonts family then checks the app's current font names, which publishing
+uses, instead of the copy saved with the flow.
 """
 import ast, json, os, re, struct, subprocess, sys, urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -1985,9 +1988,11 @@ def check_sibling_locales(config, siblings):
 #
 # Every fix points at the font itself (the Builder's font settings or `adapty fonts faces
 # update`), never at a flow edit: `_meta.fonts` is a copy of the app's font record, and the next
-# Builder save (or a publish through the CLI) overwrites it. A fix never asks for a publish. An empty iOS name
-# is not checked here -- the transform service refuses it as `font_face_missing_ios_name`
-# and `flows config validate` reports it.
+# Builder save (or a publish through the CLI) overwrites it. A fix never asks for a publish. With
+# `--fonts` (the `fonts list` answer) the checks read the app's own record, which publishing
+# reads; without it, the copy, which can be older. An empty iOS name is not checked here -- the
+# transform service refuses it as `font_face_missing_ios_name` and `flows config validate`
+# reports it.
 ANDROID_FONT_NAME_RE = re.compile(r'^[a-z0-9_]+$')
 FONT_TIMEOUT = 15
 FONT_MAX_BYTES = 30 * 1024 * 1024
@@ -2002,6 +2007,35 @@ def _font_faces(config):
             for face in font.get('faces') or [font]:
                 if isinstance(face, dict):
                     yield font, face
+
+
+def app_font_entries(listing):
+    """The `fonts list --json` answer (`{data: [family]}`, or the bare list) in the shape of
+    `_meta.fonts`: one entry per family, its faces carrying `url`, `iosName`, `androidName`,
+    `weight` and `italic`."""
+    families = listing.get('data') if isinstance(listing, dict) else listing
+    out = []
+    for fam in families or []:
+        if not isinstance(fam, dict):
+            continue
+        out.append({'id': fam.get('id'), 'name': fam.get('name'), 'faces': [
+            {'id': f.get('id'), 'url': f.get('file_url'), 'iosName': f.get('font_alias_ios'),
+             'androidName': f.get('font_alias_android'), 'weight': f.get('weight'),
+             'italic': f.get('italic')}
+            for f in fam.get('faces') or [] if isinstance(f, dict)]})
+    return out
+
+
+def _resolve_family(ref, fonts):
+    """The font a `family.id` names, as publishing resolves it: its id, else the one font whose
+    name matches it trimmed and in any case. None when none or several match."""
+    for font in fonts:
+        if font.get('id') == ref:
+            return font
+    key = ref.strip().casefold()
+    named = [f for f in fonts if isinstance(f.get('name'), str)
+             and f['name'].strip().casefold() == key]
+    return named[0] if len(named) == 1 else None
 
 
 def _face_label(font, face):
@@ -2087,12 +2121,12 @@ def _font_list(items, cap=4, sep=None):
 FONT_SETTINGS = ('In the Flow Builder, open the font settings (Edit custom font in any font '
                  'dropdown) and click the row of each face named above, or use '
                  'adapty fonts faces update with the face\'s id')
-# The names come from the copy of the font settings saved with the flow; publishing reads the
-# app's own settings, and a Builder save of the flow refreshes the copy. Never send the user to a
-# publish to refresh it: a publish releases every pending draft edit before the audit is answered.
+# Without `--fonts` the names come from the copy of the font settings saved with the flow;
+# publishing reads the app's own settings, and a Builder save of the flow refreshes the copy.
+# Never send the user to a publish to refresh it: a publish releases every pending draft edit
+# before the audit is answered. With `--fonts` the names are the app's own, and no note follows.
 FONT_COPY = (' If you already changed it, save this flow in the Flow Builder and run the audit '
-             'again: I read the font names saved with the flow. The current names are also in '
-             'adapty fonts list --app <app id>, which changes nothing.')
+             'again: I read the font names saved with the flow.')
 
 
 def _font_references(config):
@@ -2114,28 +2148,53 @@ def _font_references(config):
     return list(dict.fromkeys(refs))
 
 
-def check_fonts(config, fetch=read_font, stores=None):
+def check_fonts(config, fetch=read_font, stores=None, app_fonts=None):
     """Do the custom fonts' iOS and Android names match what the app bundle can carry?
 
     One finding per check, listing every face it applies to: the user fixes them on one
     settings screen, and a template with four fonts would otherwise print eight rows.
     `fetch` is `read_font`; each distinct url is downloaded once, in parallel. `stores` is
     the set from `--stores`, or None when unknown: an app that does not ship on Android
-    gets no `android-font-name`; unknown stores keep it.
+    gets no `android-font-name`; unknown stores keep it. `app_fonts` is the `fonts list`
+    answer: the checks then read the app's own font record for every font the flow names or
+    copies, as publishing does, and no fix asks for a Builder save.
     """
     out = []
-    declared = {font.get('id') for font, _ in _font_faces(config)}
-    uncopied = [r for r in _font_references(config) if r not in declared]
-    if uncopied:
+    refs = _font_references(config)
+    copy_note = FONT_COPY
+    if app_fonts is None:
+        declared = {font.get('id') for font, _ in _font_faces(config)}
+        unresolved = [r for r in refs if r not in declared]
+        unresolved_text = 'whose settings the flow does not carry'
+        unresolved_fix = ('Open this flow in the Flow Builder and save it, which copies the '
+                          'font settings into the flow, then run the audit again.')
+    else:
+        copy_note = ''
+        live = app_font_entries(app_fonts)
+        wanted, unresolved = {}, []
+        for r in refs:
+            font = _resolve_family(r, live)
+            if font is None:
+                unresolved.append(r)
+            else:
+                wanted[font.get('id')] = font
+        for font, _ in _font_faces(config):
+            match = next((f for f in live if f.get('id') == font.get('id')), None)
+            if match is not None:
+                wanted.setdefault(match.get('id'), match)
+        config = {'_meta': {'fonts': list(wanted.values())}}
+        unresolved_text = 'that is not among this app\'s fonts'
+        unresolved_fix = ('Upload the font to this app, or switch that text to a font this '
+                          'app has: the flow cannot be published while a text uses a font the '
+                          'app lacks.')
+    if unresolved:
         out.append(finding(
             'question', 'fonts', 'font-names-unchecked',
             f'Text in this flow uses '
-            f'{"a custom font" if len(uncopied) == 1 else f"{len(uncopied)} custom fonts"} '
-            f'whose settings the flow does not carry, so I could not check '
-            f'{"its" if len(uncopied) == 1 else "their"} iOS and Android font names.',
-            'Open this flow in the Flow Builder and save it, which copies the font settings '
-            'into the flow, then run the audit again. Or read the current names with '
-            'adapty fonts list --app <app id>, which changes nothing.'))
+            f'{"a custom font" if len(unresolved) == 1 else f"{len(unresolved)} custom fonts"} '
+            f'{unresolved_text}, so I could not check '
+            f'{"its" if len(unresolved) == 1 else "their"} iOS and Android font names.',
+            unresolved_fix))
     faces = list(_font_faces(config))
     if not faces:
         return out
@@ -2179,7 +2238,7 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'{FONT_SETTINGS}. Set its Android font name to the font file\'s name in your '
             f'app\'s res/font/ folder, without the extension, using only lowercase '
             f'letters, numbers and underscores (for example inter_medium), and name the '
-            f'file in your app the same.' + FONT_COPY))
+            f'file in your app the same.' + copy_note))
     if bad_ios:
         out.append(finding(
             'blocker', 'fonts', 'ios-font-name',
@@ -2187,7 +2246,7 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'by the PostScript name stored in its file, and these iOS font names do not '
             f'match it: {_font_list(bad_ios, sep="; ")}. The Builder preview still looks '
             f'right because it draws the uploaded file.',
-            f'{FONT_SETTINGS}. Set its iOS font name to the name its file says.' + FONT_COPY))
+            f'{FONT_SETTINGS}. Set its iOS font name to the name its file says.' + copy_note))
     dupes = [(ios, labels) for ios, labels in by_ios.items() if len(labels) > 1]
     for ios, labels in dupes:
         out.append(finding(
@@ -2195,7 +2254,7 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'{_join_and(sorted(labels.values()))} share the iOS font name "{ios}". iOS '
             f'keeps one font per name, so one of them will show in the other\'s typeface.',
             f'{FONT_SETTINGS}. Give each one the PostScript name stored in its own file.'
-            + FONT_COPY))
+            + copy_note))
     if variable:
         out.append(finding(
             'question', 'fonts', 'variable-font',
@@ -2214,7 +2273,7 @@ def check_fonts(config, fetch=read_font, stores=None):
             f'against the file.',
             f'Open each font file in Font Book on a Mac and compare its PostScript name with '
             f'the iOS font name in the Flow Builder font settings (Edit custom font in any '
-            f'font dropdown) or in adapty fonts list --app <app id>.'))
+            f'font dropdown).'))
     return out
 
 
@@ -2264,7 +2323,8 @@ def run_store_check(config_path, catalog_path=None, stores=None, custom_actions=
             'paywall-compliance skill on its own.')]
 
 
-def audit(config, catalog=None, stores=None, answers=None, offers=None, store=None):
+def audit(config, catalog=None, stores=None, answers=None, offers=None, store=None,
+          app_fonts=None):
     store = store or []
     mechanisms = [f for f in store if f['check'] in STORE_MECHANISMS]
     onboarding = [f for f in store if f['check'] in STORE_ONBOARDING]
@@ -2286,7 +2346,7 @@ def audit(config, catalog=None, stores=None, answers=None, offers=None, store=No
     findings += check_dead_ends(config)
     findings += check_purchase_outcomes(config)
     findings += onboarding
-    findings += check_fonts(config, stores=stores)
+    findings += check_fonts(config, stores=stores, app_fonts=app_fonts)
     return findings
 
 
@@ -3233,7 +3293,7 @@ def _voice(line):
 
 VALUE_FLAGS = ('--catalog', '--stores', '--name', '--flow-id', '--status',
                '--placements', '--ab-tests', '--sibling-locales', '--custom-actions',
-               '--offers')
+               '--offers', '--fonts')
 
 # What the user said each custom action ID does. A flow cannot request a permission,
 # show the rating sheet or sign anyone in: each of those is a `custom` action whose
@@ -3317,6 +3377,8 @@ def main(argv):
             flags.get('--sibling-locales'), str) else None
         offers = json.load(open(flags['--offers'], encoding='utf-8')) if isinstance(
             flags.get('--offers'), str) else None
+        app_fonts = json.load(open(flags['--fonts'], encoding='utf-8')) if isinstance(
+            flags.get('--fonts'), str) else None
     except (OSError, ValueError) as exc:
         print(f'cannot read input: {exc}', file=sys.stderr)
         return 2
@@ -3338,7 +3400,7 @@ def main(argv):
 
     store = run_store_check(args[0], flags.get('--catalog'), flags.get('--stores'),
                             flags.get('--custom-actions'))
-    findings = audit(config, catalog, stores, answers, offers, store)
+    findings = audit(config, catalog, stores, answers, offers, store, app_fonts)
     meta = {'name': flags.get('--name') if isinstance(flags.get('--name'), str) else None,
             'flow_id': flags.get('--flow-id') if isinstance(flags.get('--flow-id'), str)
             else None,

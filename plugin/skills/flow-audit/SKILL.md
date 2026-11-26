@@ -293,9 +293,10 @@ it there. Both skills ship in the same plugin, so it is always present in a plug
 ```bash
 FG="$(dirname "<skill>")/flow-generator"        # sibling skill directory
 python3 "$FG/references/verify-config.py" flow.config.json
+$ADAPTY fonts list --app "$APP" --json > fonts.json   # CLI only: see below
 python3 <skill>/references/audit-flow.py flow.config.json --catalog catalog.json \
   --offers offers.json --placements placements.json --ab-tests ab-tests.json \
-  --sibling-locales sibling-locales.json \
+  --sibling-locales sibling-locales.json --fonts fonts.json \
   --report --name "$NAME" --status "$STATUS" --flow-id "$FLOW"
 $ADAPTY flows config validate "$FLOW" --app "$APP" --config-file flow.config.json --json
 ```
@@ -314,12 +315,12 @@ localization catalog (`references/localization.py`, shipped beside `audit-flow.p
 untranslated field is reported as showing the default language, which is what users see.
 `audit-flow.py` also checks the custom fonts' iOS and Android names against what the app
 bundle can carry. It downloads each font file to read the name stored in it; when a download
-fails, the report asks the user to check that font in Font Book and the run goes on. It reads
-the names saved with the flow, which publishing does not use: publishing reads the app's font
-settings, which can be newer. To read the current names, run
-`$ADAPTY fonts list --app "$APP" --json` (read-only; check it with `$ADAPTY fonts list --help`
-first, and when this CLI has no `fonts` topic, the names are in the builder's font settings).
-Never publish to refresh the copy: the audit runs before a release.
+fails, the report asks the user to check that font in Font Book and the run goes on. With
+`--fonts` it reads the app's current font names, which publishing uses. `fonts list` is
+read-only and has no MCP tool: run it only when `$ADAPTY fonts list --help` describes it, and
+otherwise drop `--fonts`; the script then reads the names saved with the flow, which can be
+older, and its findings say so. Never publish to refresh that copy: the audit runs before a
+release.
 
 **The store rules come from the `paywall-compliance` skill.** `audit-flow.py` runs its
 `store-check.py` from the sibling skill directory, with the same `--catalog`, `--stores` and

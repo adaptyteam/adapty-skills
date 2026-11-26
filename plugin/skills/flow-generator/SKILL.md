@@ -96,11 +96,9 @@ builder yet", and build it from its template in
 stays an image or a video.
 
 Images up to 20 MiB, mp4 or webm clips and `.ttf` or `.otf` font files you can upload; **SVG is
-builder-only** ([fidelity.md](references/fidelity.md)). A brand font the user gives you files for
-goes up through the CLI: [media.md → Uploading a font](references/media.md#uploading-a-font).
-Phase 5's callout carries the outstanding count as one line, not a repeat of the table. An upload
-answer with a `heavy_image` warning gets one named reduction step per yes and never blocks a save
-or a publish ([media.md](references/media.md#when-the-upload-warns-that-an-image-is-heavy)).
+builder-only** ([fidelity.md](references/fidelity.md)). Phase 5's callout carries the
+outstanding count as one line, not a repeat of the table. An upload answer with a `heavy_image`
+warning gets one named reduction step per yes and never blocks a save or a publish ([media.md](references/media.md#when-the-upload-warns-that-an-image-is-heavy)).
 
 **Send Adapty one feedback note at the end of every run that called the CLI** — whether it wrote,
 handed over a file, or stopped on something you could not get past. It tells Adapty how the job

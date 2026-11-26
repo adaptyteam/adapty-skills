@@ -678,10 +678,9 @@ typeface name: that is a named ask in the [missing-assets block](build.md#the-mi
 never a silent substitution.
 
 **Check each command before its first call:** `$ADAPTY fonts <command> --help` for `list`,
-`upload` and every other one you run. When it says there is no such command, try
-`npx --yes adapty@latest fonts <command> --help` once (and the beta, as `SKILL.md` says for any
-missing command). Still missing: say this CLI cannot manage fonts yet and the user uploads them
-in the builder, with the link above.
+`upload` and every other one you run. A command is missing only as
+[SKILL.md → The CLI surface](../SKILL.md#the-cli-surface) says; then say this CLI cannot manage
+fonts yet and the user uploads them in the builder, with the link above.
 
 1. **Look first.** `$ADAPTY fonts list --app "$APP" --json`. A family with the brand's name that
    already has the faces the design needs is the one to use: upload nothing.
@@ -781,16 +780,10 @@ in the builder, with the link above.
    Never write `_meta.fonts` by hand. Then `flows config validate`: it resolves the family
    against the app's fonts.
 5. **Publish and wait** as [publish.md](publish.md#running-flows-publish) says. `flows publish`
-   reads the app's fonts first and, when the copy in `_meta.fonts` is out of date, saves the
-   config with the current fonts (the line `Fonts refreshed: …`), then publishes. Poll
-   `flows get` until `published` or `publication_failed`. It stops before any write when the font
-   read fails, when a font name in the config matches several families (exit 2: name the
-   family by ID, or ask the user to rename one). The config response must contain a `config`
-   object and an integer `updated_at`, even when no save is needed. A save also needs a
-   `remote_configs` list in that response. Missing or invalid fields stop the command before
-   any write with exit 4 (`malformed_response`). A publication that fails after the save
-   leaves the saved config. For a missing flow or a failed save, follow the recovery in
-   [publish.md](publish.md#running-flows-publish).
+   first saves the config with the app's current fonts when its copy is out of date (the line
+   `Fonts refreshed: …`), then publishes; poll `flows get` until `published` or
+   `publication_failed`. When it stops before the publish, read its message and follow it: a
+   font name several families share (exit 2) is named by its family id instead.
 6. **Say the bundle line every time.** Adapty does not send the font file to the device: the app
    must bundle the same files, under the iOS and Android names above, or users see the system
    font ([Add the font files to your app's bundle](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)).

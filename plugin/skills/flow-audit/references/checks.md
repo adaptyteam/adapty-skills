@@ -194,18 +194,22 @@ Adapty does not send custom fonts to the device: the app bundle carries every fa
 flow finds each one by the names in the Builder's font settings. A name that does not match
 draws SF Pro or Roboto **silently**, and every Builder preview still looks right, because the
 preview draws the uploaded file. The naming rules are the "Add the font files to your app's
-bundle" section of https://adapty.io/docs/using-custom-fonts-in-flow-builder.md. Each
-`_meta.fonts[]` entry is read face by face (`faces[]`; an older entry with no `faces` is its
-own face). Each check is one finding listing every face it applies to, since the user fixes
-them all on one settings screen.
+bundle" section of https://adapty.io/docs/using-custom-fonts-in-flow-builder.md. Each font is
+read face by face (`faces[]`; an older `_meta.fonts` entry with no `faces` is its own face).
+Each check is one finding listing every face it applies to, since the user fixes them all on
+one settings screen.
+
+**The names come from the app when `--fonts` is given.** `--fonts` is the `fonts list --json`
+answer, the record publishing reads; the checks then cover every family the flow names (by id,
+or by a name exactly one family has, trimmed and in any case, as publishing resolves it) or
+copies into `_meta.fonts`. Without it (MCP only, or a CLI with no `fonts` topic) they read
+`_meta.fonts`, a copy that the next Builder save or `flows publish` refreshes and that can be
+older than the app's record; only then does each name finding add "save this flow in the
+Builder and audit again".
 
 **Every fix goes to the font (its settings, Edit custom font, or `adapty fonts faces update`),
-never to a flow edit:** `_meta.fonts` is a copy of the app's font record that publishing does not
-read; publishing uses the app's own settings, and the next Builder save or `flows publish` refreshes
-the copy. So the checks read a copy that can be older than the settings, and each name finding
-says to save the flow in the Builder and audit again after a fix there, or to read the current
-names with `fonts list` (read-only). A finding never suggests a publish to refresh the copy: a
-publish releases every pending draft edit before the audit is answered. All six route to "yours to do in the Adapty dashboard".
+never to a flow edit,** and never to a publish: a publish releases every pending draft edit
+before the audit is answered. All six route to "yours to do in the Adapty dashboard".
 
 | Check | Severity | Why | Calibration |
 | :--- | :--- | :--- | :--- |
@@ -214,7 +218,7 @@ publish releases every pending draft edit before the audit is answered. All six 
 | `variable-font` — the file has an `fvar` table | question | Adapty makes one face per named style; a face's iOS name can legitimately be an instance's name, not the file's, so the file alone does not settle it | fires on an injected variable file; no real fixture has one |
 | `duplicate-ios-font-name` — two different `_meta.fonts[].id`s share one `iosName` | risk | the iOS name must be unique across the app; one font draws in the other's typeface | fires on injection; silent when faces of **one** font share a name (one variable file's faces) and on every fixture |
 | `font-file-unread` — a face's file cannot be downloaded, is not an sfnt/TTC file, or declares no PostScript name | question | the degrade path: the iOS name is unchecked, the run goes on | fires on both fixtures above (their urls are sanitized to `example.invalid`), on a 404 and on a non-font body; the run still exits 0/1, never 2 |
-| `font-names-unchecked` — a text, span, state or preset names a custom font (by id or by family name) that `_meta.fonts` lacks | question | publishing resolves it against the app's own fonts, but the flow carries no copy of its names to check; a config written through the CLI or the API often carries none | fires on a fixture with `_meta.fonts` emptied and on a reference by family name; **silent** on every tracked fixture |
+| `font-names-unchecked` — a text, span, state or preset names a custom font (by id or by family name) that `_meta.fonts` lacks; with `--fonts`, one that no family of the app answers to | question | without `--fonts`: publishing resolves it against the app's own fonts, but the flow carries no copy of its names to check, and a config written through the CLI or the API often carries none. With `--fonts`: publishing will not find it either and refuses the flow (`missing_flow_font_meta`) | fires on a fixture with `_meta.fonts` emptied and on a reference by family name; with `--fonts`, fires on an empty app font list and is silent when the copy lacks a font the app has or the reference is by family name; **silent** on every tracked fixture |
 
 The `font_face_missing_ios_name` publish refusal (no `iosName` on a face a text draws with) is
 not checked here: `flows config validate` reports it.
