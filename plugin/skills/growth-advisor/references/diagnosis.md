@@ -498,6 +498,9 @@ against these before it goes in a reply:
 - **A market median is compared on its own slice.** The State of Paywalls numbers are App Store
   only and per region: filter the app's read to `store=app_store` and to that region's countries
   before putting the two side by side.
+- **A grade needs enough behind it.** Place a rate against p25 and p75 only when its slice has
+  at least 1,000 paywall views or installs (for a conversion from them) or 100 trials (for
+  trial → paid). Below that, give the rate with its counts and say it is too few to grade.
 - **What the CLI does not show is asked, not stated.** Which plan a paywall preselects or lists
   first, its prices and its trial copy are not in any read; a paywall's or product's name only
   hints at them. When to expect renewals comes from the data: read revenue by product and

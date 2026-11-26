@@ -550,7 +550,8 @@ started, and it never shows up as a change.
 
    Call each part strong, typical or weak, and rank the weak ones by dollars a month at stake.
    A conversion (paywall view → paid, paywall view → trial, trial → paid) is graded by its row in
-   `references/market-grid.csv` (`market.md`, "The full grid"): below p25 weak, above p75 strong.
+   `references/market-grid.csv` (`market.md`, "The full grid"): below p25 weak, above p75 strong,
+   once its slice passes `references/diagnosis.md`, "A grade needs enough behind it".
    Paywall reach has no market median: a store a third or more below the app's reach is weak, as is a fall of a quarter or more from the window's first half to its second. An annual plan's first renewal is graded
    against its row in `market.md`, Renewals, and
    refunds as a share of revenue against theirs in `market.md`, Refunds.
