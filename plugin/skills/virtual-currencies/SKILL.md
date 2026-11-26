@@ -1,6 +1,6 @@
 ---
 name: virtual-currencies
-description: Use when a user wants to read or change an Adapty app's virtual currency (coins, gems, credits, tokens) — which virtual currencies the app has and how many coins each product gives, a new virtual currency, its name or description, the coins a product gives, a product that should stop giving coins — or to read the coin ledger (one user's coin balance and coin transactions, the app's coin transactions, why a user has a number of coins or got none after a purchase). Triggers on "how many gems does the annual plan give", "give the annual plan 50 gems", "create a gems currency", "this coin pack should stop giving coins", "why does this user have 40 coins", "I bought the coin pack but my balance did not change", "show this user's coin transactions", "set up the coins we had in RevenueCat". Not for coin totals or which coin pack sells better (`growth-advisor` reads those from analytics), and not for the currency of a price.
+description: Use when a user wants to read or change an Adapty app's virtual currency (coins, gems, credits, tokens) — which currencies the app has and how many coins each product gives, a new currency, its name or description, the coins a product gives, a product that should stop giving coins — to read the coin ledger (one user's coin balance and coin transactions, the app's coin transactions, why a user has a number of coins or got none after a purchase), or to correct one user's balance by hand. Triggers on "how many gems does the annual plan give", "give the annual plan 50 gems", "create a gems currency", "this coin pack should stop giving coins", "why does this user have 40 coins", "I bought the coin pack but my balance did not change", "give this user 10 gems", "show this user's coin transactions", "set up the coins we had in RevenueCat". Not for coin totals or which coin pack sells better (`growth-advisor` reads those from analytics), not for coins of many users at once, and not for the currency of a price.
 ---
 
 # Virtual currencies: coins for purchases
@@ -9,19 +9,19 @@ A virtual currency (coins, gems, credits) is credited to a user when they buy a 
 currency maps: a one-time product gives coins for each purchase, a subscription for each paid
 period. This skill runs the feature through the CLI's `virtual-currencies` topic or the Adapty MCP
 tools `virtual_currencies_*`: the currencies with their product mappings, a new currency, its name
-and description, the mappings, and the coin ledger (the transactions of the app or of one user, and
-a user's balances). **A mapping sets the coins of every later purchase of its product, for real
-buyers, at once.** Every write runs only after the user's yes to its card. How it works in the
-dashboard: https://adapty.io/docs/virtual-currencies
+and description, the mappings, the coin ledger (the transactions of the app or of one user, and
+a user's balances), and a manual credit or debit of one user's balance. **A mapping sets the coins
+of every later purchase of its product, for real buyers, at once.** Every write runs only after the
+user's yes to its card. How it works in the dashboard: https://adapty.io/docs/virtual-currencies
 
 It does not own:
 
-- **Any change to a user's balance** (a spend, a grant, a starting balance, a correction): the
-  app's server does it through the Server API, or a person in the dashboard. This skill reads
-  balances; it never changes one. Send the user to the page for what they asked:
+- **Balance changes the app makes, or for many users at once** (a spend in the app, free coins for
+  every new user, a backfill): the app's server does them through the Server API. This skill
+  corrects one user's balance in one currency for each call, never a list of users. Send the user
+  to the page for what they asked:
   - the app spends coins: https://adapty.io/docs/virtual-currency-quickstart
   - free coins for every new user, or a backfill: https://adapty.io/docs/grant-initial-balance
-  - one user's balance corrected by hand: https://adapty.io/docs/virtual-currency-balance
 - **Products:** a mapping takes an existing Adapty product. A new product comes first →
   `adapty-integration`.
 - **Coin totals and trends, and how coin products sell** (coins bought, spent or expired by day,
@@ -38,7 +38,8 @@ It does not own:
 
 - **"I" for what you do, "you" for what they do.** Lead with the answer, end on one next step; no
   opener, no recap. Name a skill only when the user must act on it themselves.
-- **Name currencies and products, not ids:** "Gems", "the Annual plan". Ids only inside a command.
+- **Name currencies and products, not ids:** "Gems", "the Annual plan". Ids only inside a command and on
+  a balance adjustment card.
 - **A fixed block where a decision is made (the yes card), one line otherwise.** Say each thing
   once.
 - **Bold the one thing not to miss,** at most once per block.
@@ -158,8 +159,11 @@ tool on this computer, never the user's Adapty data.
 Then probe `$ADAPTY virtual-currencies list --help`. If it reports no such topic, try
 `npx --yes adapty@beta virtual-currencies list --help` once (use that form if it works). If that
 fails too, say the CLI does not support virtual currencies yet and offer MCP when it is ready, else
-the dashboard. Do not compare version numbers. `--yes` on `npx` is required: without it `npx` waits
-for a confirmation nobody gives. In `zsh`, run `setopt shwordsplit` before using a multi-word
+the dashboard. Probe `$ADAPTY virtual-currencies profiles transactions create --help` the same
+way before the first balance adjustment; when both forms report no such command, say the CLI does
+not support a balance adjustment yet and offer the MCP tool when it is ready, else the dashboard:
+https://adapty.io/docs/virtual-currency-balance. Do not compare version numbers. `--yes` on `npx`
+is required: without it `npx` waits for a confirmation nobody gives. In `zsh`, run `setopt shwordsplit` before using a multi-word
 `$ADAPTY`. Write a literal `adapty` in a command you show the user.
 
 Every command takes `--app <id>`, the Adapty app UUID from `$ADAPTY apps list`. Read with
@@ -176,14 +180,15 @@ Every command takes `--app <id>`, the Adapty app UUID from `$ADAPTY apps list`. 
 | `transactions list` | `transactions_list` | one page of the app's coin transactions in a period | no |
 | `profiles transactions list` | `profiles_transactions_list` | one page of one user's coin transactions | no |
 | `profiles balances get` | `profiles_balances_get` | one user's balance of each currency | no |
+| `profiles transactions create` | `profiles_transactions_create` | credits or debits one user's balance in one currency | yes card |
 
 The currency and mapping shapes, the mapping file, the cards and the server's refusals:
-[references/mappings.md](references/mappings.md). The ledger, the balances and "why does this
-user have N coins": [references/ledger.md](references/ledger.md). Without `--yes`, `create`,
-`mappings upsert` and `mappings delete` ask at a terminal and, in a pipe or with `--json`, exit 6
-and send nothing; a "no" at the terminal is exit 1. `update` asks nothing. Exit 2 is a refusal
-before anything was sent, 3 a missing or refused sign-in or right, 4 the server's refusal with its
-own text, 5 no answer from the server.
+[references/mappings.md](references/mappings.md). The ledger, the balances, "why does this
+user have N coins" and a balance adjustment: [references/ledger.md](references/ledger.md).
+Without `--yes`, `create`, `mappings upsert`, `mappings delete` and `profiles transactions create`
+ask at a terminal and, in a pipe or with `--json`, exit 6 and send nothing; a "no" at the terminal
+is exit 1. `update` asks nothing. Exit 2 is a refusal before anything was sent, 3 a missing or
+refused sign-in or right, 4 the server's refusal with its own text, 5 no answer from the server.
 
 ## The yes rules
 
@@ -193,7 +198,10 @@ about the plan. "No", silence or a change of plan: send nothing.
 - **Reads need no yes:** `list`, `get`, the transactions and the balances.
 - **Read the currency (`get`) right before each write** (before a create, `list`: the codes in use
   and the places left) and build the card from that read: [references/mappings.md](references/mappings.md),
-  "Building the card", has the line for each kind of write.
+  "Building the card", has the line for each kind of write. A balance adjustment reads the user's
+  balances (`profiles balances get`) instead and takes no token: its card line is in
+  `references/mappings.md`, its write in [references/ledger.md](references/ledger.md), "Adjust
+  one user's balance".
 - **The `updated_at` of that read is the token of the write:** over MCP `expected_updated_at`
   (`update` takes it too); with the CLI `--yes --expected-updated-at <updated_at>` on `mappings
   upsert` and `mappings delete`, which exit 6 without it. The CLI `update` takes no token: call
@@ -234,7 +242,11 @@ and **without** `--yes`.
    stays; to clear it: CLI `--clear-description`, MCP `description` set to `""`.
 6. **Why a user has N coins, where their coins went, or why a purchase gave none:** the balances,
    then their transactions (`references/ledger.md`, "Why a user has N coins").
-7. **Totals, trends and how coin products sell** are read from analytics: offer the answer as an
+7. **Credit or debit one user's coins by hand** (a support compensation, a correction):
+   `profiles transactions create`, after its card (`references/ledger.md`, "Adjust one user's
+   balance"). After "why N coins", offer it as the next step only when the user expected another
+   number or asks for a fix.
+8. **Totals, trends and how coin products sell** are read from analytics: offer the answer as an
    outcome ("I can show how many gems were bought and spent each week") and invoke
    `growth-advisor` on a yes, with the currency's code and each product's coins from your read.
 
@@ -246,6 +258,8 @@ passed. A repeat can then give the 409, a 404 for a removed mapping, or the 400 
 although the first write passed.
 Compare the read with the card, tell the user what is there, and write again only for what is still
 missing, with a new card from the new read.
+**A balance adjustment is the exception:** repeat it once with the same idempotency key, never
+with a new one (`references/ledger.md`, "A lost answer of an adjustment").
 
 ## Never
 
@@ -271,8 +285,9 @@ shape: the shape to follow, not words to copy:
 > skill does not say whether a retry is safe.
 
 - **Change is the kind of write in a few generic words:** a new currency, the coins of how many
-  products (new or changed), a removal, a new name. **Source** is `growth-advisor`, `migration`
-  (from another purchase system), `own data`, `other` with a few generic words, or `not given`;
+  products (new or changed), a removal, a new name, a credit or a debit of one user's balance.
+  **Source** is `growth-advisor`, `migration` (from another purchase system), `own data`, `other`
+  with a few generic words, or `not given`;
   never ask for it. **Did** names the write, or that the run stopped before it.
 - **No value and no name from the account or the user's business:** no currency name or code,
   product, coin number, price or user id, none of the user's words. The ids in `--context` are all
@@ -289,6 +304,8 @@ shape: the shape to follow, not words to copy:
     --message '<the note>' \
     --context 'app <app id>, currency <currency id>: <create|update|upsert|delete>'
   ```
+
+  For a balance adjustment the context is `app <app id>: adjust`.
 
 - **Tell the user in one line, in the same reply, only when the command printed `Feedback sent.`**:
   in their language, "I also sent Adapty a short note on how this went." Any other result gets no
