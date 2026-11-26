@@ -53,9 +53,10 @@ What it is, read from the builder, the transformer and the SDKs:
   from the app's code, and when the app chooses not to draw (a missing file, a denied
   permission). So the flow can be published before the app release.
 - **Platforms:** the native view is served by the Adapty SDK 4.4 and later in a native iOS or
-  Android app. The cross-platform SDKs (Flutter, React Native, Unity, Kotlin Multiplatform,
-  Capacitor) are **not yet** supported and show the fallback. Say this when the app is not native
-  iOS or Android, and build the fallback as the real design for those users.
+  Android app, and in a Flutter app, whose views are written in its iOS and Android code, not as
+  Flutter widgets. The other cross-platform SDKs (React Native, Unity, Kotlin Multiplatform,
+  Capacitor) are **not yet** supported and show the fallback. Say this when the app is one of
+  them, and build the fallback as the real design for those users.
 - **The native view changes only with an app release.** The fallback, the Type, the ID and the
   box's size change with a flow publish.
 
@@ -134,8 +135,8 @@ in this shape. The shape to follow, not words to copy:
 - Name the **Type and ID** exactly: the user types them into code or sees them in the builder.
 - Say what users see until the app draws it (the fallback), and that it ships with an **app
   release**.
-- Name the app's own SDK (iOS or Android) in the "In your app" line. When the app is neither,
-  say that its platform shows the fallback for now.
+- Name the app's own SDK (iOS, Android or Flutter) in the "In your app" line. When the app is
+  none of them, say that its platform shows the fallback for now.
 - Link the recipe for the app's platform from [Docs per platform](#docs-per-platform), or its
   setup page when the template has no recipe, without `.md`. With no app yet, link the general
   page https://adapty.io/docs/flow-custom-elements.
@@ -161,7 +162,8 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
    setup page, and the template's recipe when it has one. Fetch only that platform's column. The
    pages own every platform detail: the SDK version, the resolver and its registration, the
    library, where the file goes, the permission declaration, the device test. This file owns the
-   rules they serve. A platform with no column gets no code: say its users see the fallback until
+   rules they serve. A Flutter app follows [Flutter](#flutter) as well. A platform with no column
+   and no section there gets no code: say its users see the fallback until
    its SDK supports custom elements, and stop. An app below the SDK version the setup page names
    needs the update first: say so, ask before touching the dependency, and on a yes apply the
    SDK update page.
@@ -174,7 +176,7 @@ jq -r '[.screens[], (.components // {} | .[])] | .[] | (.elements.map // .map) |
      has only when it opens that flow, such as answers from an earlier flow
      ([chart.md](custom-elements/chart.md)). Those values are fixed at the fetch, and this
      registration replaces the app-wide one in that flow, so it hands every other Type on to the
-     app-wide one.
+     app-wide one. A Flutter app has no per-flow registration ([Flutter](#flutter)).
 4. **Write the view** the template's "What the app's view does" describes, in its own file, with
    the library the recipe names added the way the project adds packages; a template with no
    recipe uses the platform's usual library for it.
@@ -205,7 +207,7 @@ fallback conditions are the template's; its code is the platform's.
 | Recipe: [map](custom-elements/map.md) | https://adapty.io/docs/custom-element-map.md | https://adapty.io/docs/android-custom-element-map.md |
 | SDK update to 4.4 | https://adapty.io/docs/migration-to-ios-sdk-44.md | https://adapty.io/docs/migration-to-android-sdk-44.md |
 
-A new platform or recipe is a new column or row here, never a new file. Where a page does not
+A new native platform or recipe is a new column or row here, never a new file. Where a page does not
 show a call, read the SDK source at the release tag the app depends on
 ([iOS](https://github.com/adaptyteam/AdaptySDK-iOS), [Android](https://github.com/adaptyteam/AdaptySDK-Android),
 search it for "custom element") rather than guess a signature. What the pages do not say yet:
@@ -215,6 +217,29 @@ search it for "custom element") rather than guess a signature. What the pages do
 - **Android camera:** CameraX returns the camera provider as a Guava future, and the Adapty UI
   module brings Guava at runtime only: add `com.google.guava:guava` (the `-android` version the
   Adapty UI module resolves to) as the app's own dependency, or the app does not compile.
+
+### Flutter
+
+A Flutter app on `adapty_flutter` 4.4 or later draws custom elements with the native resolver of
+each platform it ships, so it uses **both columns** above: the iOS view in Swift under `ios/`, the
+Android view in Kotlin under `android/`. A Flutter widget cannot be a custom element. The Flutter
+docs have no custom element pages yet; the SDK's release notes are
+https://github.com/adaptyteam/AdaptySDK-Flutter/releases and its source is
+https://github.com/adaptyteam/AdaptySDK-Flutter. What differs from a native app:
+
+- **Registration is app-wide only,** at launch: in the iOS `AppDelegate`'s
+  `didFinishLaunchingWithOptions`, and on Android in the `onCreate` of an `Application` subclass
+  that `AndroidManifest.xml` names in place of `${applicationName}`. It covers every flow,
+  including one embedded in a Flutter screen.
+- **Android dependency:** add `io.adapty:android-ui` to the app module **without a version**, and
+  no Adapty BOM: `adapty_flutter` sets the version, and a newer one can break flows at runtime.
+- **Data from Dart:** the native view cannot read Dart state. The app hands the value over the way
+  it already shares data with native code (a method channel, or a store both sides read such as
+  `shared_preferences`), before the flow opens. A chart's series ([chart.md](custom-elements/chart.md))
+  goes this way instead of a per-flow registration.
+- **Both platforms:** write the view for each platform the app ships; one it skips shows the
+  fallback there. Updating to 4.4 needs iOS 16 for flows (below it a flow fails to open) and a new
+  fallback file for both platforms: apply the release notes, not the native SDK update pages.
 
 ## Checking it
 

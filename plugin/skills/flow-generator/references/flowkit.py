@@ -225,8 +225,7 @@ def fill(color_id=None, *, hexval=None, opacity=None, layers=None):
     One layer is `fill('card')` or `fill(hexval=...)`; a stack is the layer helpers concatenated,
     or `layers=`: `image_fill(url, preview=p) + fill(hexval='#000000', opacity=40)` is a photo
     under a scrim. When the stack must change between light and dark, put it in a theme colour
-    (`config(colors=...)`) and fill with `fill(color_id)`. An input's fill draws only its first
-    layer.
+    (`config(colors=...)`) and fill with `fill(color_id)`.
     """
     if layers is not None:
         return list(layers)
@@ -1210,7 +1209,7 @@ def _dot_color(value, default):
 def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width=None,
              dots=True, dot_size=6, dot_gap=6, dot_color=None, dot_active_color=None,
              fill_=None, padding=None, margin=None, corner=None, position=None,
-             visibility=None, node_id=None, **kw):
+             visibility=None, start_slide=None, node_id=None, **kw):
     """A swipeable `carousel`. Reviews, testimonials, sliders, swipeable cards, cards with dots.
 
     Reach for this whenever the design shows more than one card the user is meant to move
@@ -1234,6 +1233,11 @@ def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width=None,
 
     Note there is no `layout` prop on a carousel (schema-confirmed: `CarouselProps` has
     none) -- `gap` is the whole spacing story, and the slides are its `children`, one per slide.
+
+    **`start_slide` is the slide the carousel opens on,** a 1-based number: the builder's own
+    "Slide N". It is written as `props.startSlide`, the id of that slide. Omit it to open on the
+    first slide. With a start slide configured, returning to the screen in the same flow
+    session keeps the last slide the user saw.
     """
     slides = list(slides)
     if len(slides) < 2:
@@ -1268,6 +1272,14 @@ def carousel(slides=(), *, slide_w, slide_h, height=None, gap=12, width=None,
     if corner is not None:     props['borderRadius'] = corner
     if position is not None:   props['position'] = position
     if visibility is not None: props['visibility'] = _check_visibility(visibility, 'carousel')
+    if start_slide is not None:
+        if (isinstance(start_slide, bool) or not isinstance(start_slide, int)
+                or not 1 <= start_slide <= len(slides)):
+            raise ValueError(
+                f'carousel(start_slide={start_slide!r}) is out of range: it is a slide number '
+                f'from 1 to {len(slides)} (1..{len(slides)}), the same "Slide N" as the builder. '
+                'Omit it to open on the first slide.')
+        props['startSlide'] = slides[start_slide - 1]['id']
     return _node('carousel', props, children=slides, node_id=node_id, **kw)
 
 def text(content, *, preset='body', color_id=None, align='left', width=None,

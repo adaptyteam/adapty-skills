@@ -307,8 +307,8 @@ admit that.
 
 `verify-config.py` is `flow-generator`'s structural checker (shapes, invariants,
 referential integrity) — run it and report its output, never reimplement any check it
-already owns. `audit-flow.py` is this skill's own script: the six completeness families
-(triggers, store compliance, products, variables, localization, placeholders). Both are
+already owns. `audit-flow.py` is this skill's own script: the completeness families
+(triggers, products, variables, localization, placeholders, navigation, fonts). Both are
 stdlib-only and take the bare config, never the envelope. Both read the flow's text through its
 localization catalog (`references/localization.py`, shipped beside `audit-flow.py`), so an
 untranslated field is reported as showing the default language, which is what users see.
@@ -318,21 +318,27 @@ fails, the report asks the user to check that font in Font Book and the run goes
 the names saved with the flow, which publishing does not use: publishing reads the app's font
 settings, which can be newer.
 
-`audit-flow.py` also runs fourteen **store-review** checks, which ask whether this flow
-carries a shape that has actually drawn a store rejection: six on the paywall
-(`trial-toggle`, `billed-amount-not-shown`, `derived-price-louder`, `no-period-disclosed`,
-`trial-terms-incomplete`, `external-purchase-link`) and eight on the onboarding around it
-(`primer-skip`, `primer-grant-wording`, `permission-incentive`, `att-fake-alert`,
-`rating-in-onboarding`, `signup-wall`, `exit-offer-on-dismiss`,
-`purchase-looks-like-continue`). **Their findings are
-advisory: they never change the verdict.** They are `risk`/`question` only, they are
-printed in their own section, and **every `question` among them is excluded from the
-pending count** — `external-purchase-link` and `signup-wall` always ask one, and
-`billed-amount-not-shown` degrades to one when a catalogued product's row states no
-billing period, so "the one question" is three checks, not one. A store-review section
-can be full and the verdict can still read a clean **Ready to publish** — that is
-correct, not a bug. Evidence and calibration:
-`references/store-review.md`.
+**The store rules come from the `paywall-compliance` skill.** `audit-flow.py` runs its
+`store-check.py` from the sibling skill directory, with the same `--catalog`, `--stores` and
+`--custom-actions`, and merges the findings; nothing extra to run. Two kinds come back:
+
+- **Required mechanisms** (Restore, the Terms and Privacy links, a way out of the paywall)
+  count against the verdict like any blocker or question here.
+- **Store-review shapes** (a trial toggle, a per-week price louder than the billed amount, a
+  Skip beside a permission prompt…) are **advisory: they never change the verdict.** They
+  print in their own section, and their questions are excluded from the pending count, so a
+  full store-review section beside a clean **Ready to publish** is correct, not a bug.
+
+If `paywall-compliance` is not installed beside this skill, the report carries one question
+saying the store rules did not run, and the verdict cannot read **Ready to publish**. The
+evidence behind every store rule lives in that skill's references; when the user asks why a
+store rule exists, or asks about the same paywall's screenshots or app code, invoke
+`paywall-compliance`.
+
+Consumer law, the app around the screens and what developers report lately are
+`paywall-compliance`'s own layers and are not in this report. When the flow sells, offer them as a
+next step in one line ("I can also check this flow against subscription consumer law and what
+Apple has been rejecting lately") and invoke `paywall-compliance` on a yes.
 
 `flows config validate` takes `--config-file`, **not** `--config` (that flag wants a
 literal JSON string and fails with `Invalid --config JSON` on a file path). It also
@@ -433,8 +439,8 @@ If any store-review check fired, the report carries a **Store review (advisory, 
 block publishing)** section; the heading is its disclaimer. Translate it, never weaken
 it, and never restate a store-review risk as a blocker or as a reason the flow is not ready — those
 findings are hazards, not verdicts, and the verdict line already accounts for everything
-that gates a release. Its checks and the reason they are advisory are in
-`references/store-review.md`.
+that gates a release. Its checks and the reason they are advisory belong to the
+`paywall-compliance` skill.
 
 **Hand the user one link alongside that section** —
 `https://adapty.io/docs/prepare-your-app-for-store-review` — as the page to read next.
@@ -557,7 +563,7 @@ For an Adapty docs page this skill does not link — what a dashboard setting do
 billing behaviour behind a finding — use the `adapty-docs` skill to locate it. Never assemble a
 docs URL from a topic name.
 
-`references/audit-flow.py` — the six-family completeness checker (stdlib only). Takes
+`references/audit-flow.py` — the completeness checker (stdlib only). Takes
 the bare config plus the catalog JSON; `--report` prints the user-facing block, `--json`
 prints raw findings, no flag prints a plain list. Exit 0 no blockers, 1 at least one
 blocker, 2 usage/unreadable input. Every check is calibrated in both directions against
@@ -568,11 +574,8 @@ for the traps each one closes; most were wrong on first contact with real data.
 at, its severity and why, its calibration in both directions, and the false-positive trap
 it closes. Read it before changing a check.
 
-`references/store-review.md` — the same contract for the fourteen advisory store-review
-checks: the two rejection notices verbatim with their dates, the evidence tiers, the
-framing rule and why it is a rule, per-check calibration and negative-test outcomes, the
-two accepted false-negative classes, the blind spots, and what was ruled out (so nobody
-re-adds it from the guideline text).
+The store rules, their evidence and calibration belong to the `paywall-compliance` skill, whose
+checker `audit-flow.py` runs; change a store rule there, never here.
 
 ## Boundaries
 

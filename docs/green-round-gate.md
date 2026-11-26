@@ -286,3 +286,10 @@ could have.
       agent not pick it? ______
 
 - [ ] **A test about where an agent takes STYLE from needs the style source out of control's line of sight.** *reference-adapt-green* round 1 put the session in a branded app repo and asked for "a paywall for my app, like this one": all six runs adapted, because the repo was the first thing every agent read, so the round could not tell the arms apart. Round 2 moved the style into the app's published flows, which nothing in the control skill points at, and separated 0/3 vs 3/3. Where does the control arm's agent look first, and is the answer already there? ______
+
+- [ ] **A write the skill gates behind its own confirmation cannot be scored in a first turn.** *refund-saver-green*
+      round 1 asked to turn a feature on and scored what the agent said when the server refused; the treatment
+      correctly stopped at its card, so the row was unreachable for it alone. Score a refusal in a second turn whose
+      history holds the card and the user's yes.
+- [ ] **Keep the stand-in where an agent will not read it.** *refund-saver-green* round 2: a control run read the
+      stub's source before its first call. Put the stub outside the run's tree, or under a name that says nothing.

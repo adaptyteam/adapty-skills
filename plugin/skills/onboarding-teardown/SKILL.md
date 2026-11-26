@@ -361,7 +361,7 @@ with no attribution. Rule 3's range measures purchases, not opt-in, and says not
   is, asked first.
 - **A soft prompt before ATT is fine and usually helps;** it says what tracking is used for and
   offers nothing in return for allowing it, and its button says Continue, not Allow. The rest of
-  Apple's review rules for it are `flow-audit`'s store-review checks.
+  Apple's review rules for it are `paywall-compliance`'s.
 - **The app sends the answer to Adapty right after the prompt,** so the integrations get it in
   time — [Deal with App Tracking Transparency](https://adapty.io/docs/ios-deal-with-att) on iOS;
   other platforms through `adapty-docs`. ATT is iOS only.
@@ -555,8 +555,9 @@ per fact:
   reads no data.
 - **`flow-generator`** owns the JSON — editing the flow, previewing it, writing it back. This skill
   decides *what* should change and what it is worth; it writes nothing anywhere.
-- **`flow-audit`** owns whether the flow is safe to ship (triggers, products, locales, store
-  compliance). "Is it ready?" is that skill; "is it any good?" is this one.
+- **`flow-audit`** owns whether the flow is safe to ship (triggers, products, locales), and
+  **`paywall-compliance`** whether the stores will accept it. "Is it ready?" and "will Apple
+  reject it?" are those skills; "is it any good?" is this one.
 - **`adapty-docs`** owns what the product actually does — what a setting means, how a feature
   behaves. This skill reads nothing and fetches nothing, so hand such a question over rather than
   answering it from memory.

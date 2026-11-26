@@ -6,10 +6,9 @@ description: >-
   "why did revenue or renewals drop", "my A/B test ended, what now", "do I need more placements
   or a discount offer", "which of my ideas should I test first", "we don't have much traffic",
   "we did it, what's next", "what's in my backlog", "check my app every week", "only use our own data", "we launch soon, no data yet", "how do we
-  win back users who cancelled".
+  win back users who cancelled", "how much did Refund Saver save".
   Also use when a user asks for a growth plan, a monetization audit, hypotheses or test ideas without naming
-  one screen, or asks any question about their app's subscription or coin numbers
-  ("which coin pack sells best").
+  one screen, or asks any question about their app's subscription or coin numbers.
   Also use with no Adapty data, from a store link, the app's code, or onboarding plus paywall
   screens: "here's our app, how do we make more money", "where are we losing money". Paywall or
   onboarding screens alone, with no data, go to the teardown skills.
@@ -175,6 +174,7 @@ the first two weeks of real users.
 | Creating a segment, or who sees what at a placement | `audiences`, on the user's yes |
 | Creating, starting, stopping or replacing an A/B test | `ab-tests`, on the user's yes, once "From hypothesis to A/B test" checks pass |
 | Messages on Apple's cancel screen (Retention Messaging): setup, messages, their numbers | This skill reads the status and the production list (`references/levers.md`, "Adapty features"); every write and draft: `retention-messaging`, invoked on the user's yes to the Next step |
+| Refund Saver: on or off, what it saved, its win rate, the account's other apps | This skill reads them (`references/levers.md`, "Adapty features"); turning it on or off, preferences, consent, setup and troubleshooting: `refund-saver`, invoked on the user's yes to the Next step |
 | How a dashboard feature works | `adapty-docs` |
 
 The CLI reads the app's charts, conversion rates (paywall view → paid included, per paywall),
@@ -397,6 +397,11 @@ and the reason.
   is a Next step that waits for their yes. Once both are read, Next steps hold a "Me:" item that
   offers the next step as an outcome and invokes `retention-messaging` on the user's yes; a missing
   command or tool keeps the "You:" dashboard check.
+- **Refund Saver, also when asked directly ("how much did Refund Saver save", "is it worth it"):
+  this skill only reads** (the reads of `references/levers.md`, "Adapty features") and puts its
+  numbers against the app's refunds. Turning it on or off, a preference, consent, setup and why it
+  answers nothing: a "Me:" item that offers the outcome and invokes `refund-saver` on the user's
+  yes, for this app or the account's other apps.
 - **Before suggesting an A/B test on a placement where a test runs now** (`placements get` names
   it), one "You:" item asks when it ends. Say how far each arm is from about 200 purchases
   (`references/diagnosis.md`, "Placement metrics"), never which one leads.

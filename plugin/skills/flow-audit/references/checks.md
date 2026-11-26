@@ -15,13 +15,9 @@ produces **zero** findings across every family except Fonts, where its real, mal
 font names fire correctly (see Fonts below). `timeline-anchored.json` is
 **not** a full negative control: it carries **zero actions anywhere** — no purchase,
 no `closeFlow`/`navigateBack`, nothing tappable at all — so `no-escape-in-flow` fires
-on it, correctly, as a `question`. That is a true positive, not a blind spot: a flow
-with genuinely no way out is exactly the case this check exists to name (see
-`no-escape-in-flow`'s row below). It stays a negative control for every other family.
-`tabs-paywall.json` is the compliance control specifically: it carries a
-real `openUrl` × 2 to `/terms` and `/privacy`, a real `restorePurchases`, and a
-`closeFlow`, so every store-compliance check has a real passing case to stay silent
-on, not just an absence of selling screens. It is **not** a negative control for the
+on it, correctly, as a `question` (a store check, see Store rules below). It stays a
+negative control for every other family. `tabs-paywall.json` is the store control (see
+`paywall-compliance`'s `mechanisms.md`). It is **not** a negative control for the
 products family: it binds three products through `const` purchase actions, none of
 which exist in the catalog fixture, and the products family correctly fires
 `product-not-in-catalog` × 3 on it. Treat that firing as correct — do not read it as a
@@ -51,26 +47,16 @@ fixture/live flow it fires on, or both — a check with only one half proven is 
 | `cancel anytime` in the affordance vocabulary | It was tried and dropped. In `timeline-anchored.json` it is reassurance copy ("Cancel anytime.") — never a tappable affordance — and it was the one true false positive this vocabulary produced. |
 | Assuming a tappable-looking element with no interaction is always wrong | Selection needs **no** interaction of its own: a `product`/`selectable` element inside a declared `selectableGroups` group is selected via the group. A blanket "no interaction = dead" check would false-positive across the whole corpus. |
 
-## Store compliance
+## Store rules
 
-Grouped as one family because these checks share a rationale (App Store 3.1.1/3.1.2 and
-the Play equivalents) and a fix shape.
-
-| Check | Severity | Why | Calibration |
-| :--- | :--- | :--- | :--- |
-| `no-restore` — the flow sells (binds a product, or carries a `purchase` action) but has no `restorePurchases` action anywhere | blocker | App Store 3.1.1 requires a restore path | **fires**: 3 of 4 real selling flows measured, including one whose copy literally says "Restore purchase". **silent**: any flow once a `restorePurchases` action exists anywhere (calibrated by injection) |
-| `no-terms-link` / `no-privacy-link` — a selling flow has no `openUrl` action whose URL tokenizes to a terms/EULA or privacy vocabulary word (`privacy` also inside a run-together segment, `/privacypolicy`), or whose button's own text names it ("Privacy Policy", "Terms of Use"); a label never makes a link absent. The URL is a catalog entry and is read in the default locale; reading the stored `{_lid}` ref instead finds no URL at all and fires both checks on a paywall that has both links | blocker (no `openUrl` at all) or question (an `openUrl` exists but no URL matches) | App Store 3.1.2 requires both links on a subscription screen | **fires as blocker**: `openUrl` occurs in **none** of the 5 live flows measured, so no flow there ships a working legal link. **silent**: `tabs-paywall.json` (real `/terms` and `/privacy` URLs) |
-| `no-escape-from-paywall` — a selling screen has no `closeFlow`/`navigateBack` reachable via the navigation graph (`navigate`/`navigateNext` edges) | blocker | a user who does not buy must be able to leave | **fires**: one live paywall (only action is `purchase`); silent on `tabs-paywall.json` and the other 3 live paywalls, each with one escape reachable |
-| `no-escape-in-flow` — no `closeFlow`/`navigateBack` anywhere in the flow at all, on ANY flow (selling or not) | question | may be legitimate if the host app presents the flow modally with a system dismiss | fires on `d1faba75` (3 screens, no dismissal anywhere) and on `timeline-anchored.json` (1 screen, zero actions of any kind — a true positive on a non-selling flow with genuinely no way off); silent once a `closeFlow`/`navigateBack` exists anywhere, selling or not |
-
-### False-positive / false-negative traps — Store compliance
-
-| Trap | What would have shipped |
-| :--- | :--- |
-| Detecting a legal link by the button's **label** | Reports a paywall with real, working `/terms` and `/privacy` links as non-compliant when the buttons read "Legal". Detection must live on the `openUrl` action's URL payload, never the label. |
-| Matching a legal-link vocabulary word by **substring containment** | A false negative: `tos` matches inside `photos` and `autos`, `legal` matches inside `illegally`. A paywall whose only `openUrl` points at `/photos/hero.jpg` silenced the terms check under substring matching. The fix tokenizes the URL on non-alphanumeric runs and requires an exact token match — deliberately trading a concatenated path with no separator (`/termsofservice`) into a `question` rather than a silent false pass, because a question is honest and a false silence on a 3.1.2 requirement is not. |
-| Detecting an escape by its **label** | **7 of 9** real escape affordances measured across the corpus are icon-only with no text at all; the two that do carry text read `'I already have an account'` and `'Leave for now'` — neither contains *close*, *skip* or *later*. A label-based close check finds **0 of 9**. Detection binds to the action type (`closeFlow`/`navigateBack`), graph-reachable rather than screen-local; the label is reported as evidence for the human to judge, never used for detection. |
-| Assuming text naming an action proves the action exists | `el_089T`'s "Restore purchase · Terms · Privacy" is the clearest instance: it renders exactly like a working row and satisfies nothing. Every compliance check tests for the *action*, never the word — this is the same rule as the `dead-affordance` check in Triggers, applied in both directions (text without an action, and an action without text). |
+Every store check — Restore, the Terms and Privacy links, a way out of a paywall, and
+the advisory store-review shapes — belongs to the `paywall-compliance` skill. `audit-flow.py`
+runs its `store-check.py` from the sibling skill directory and merges the findings into
+this report: the required mechanisms count against the verdict, the advisory ones print
+in their own section. Their evidence and calibration live in that skill's
+`references/mechanisms.md` and `references/store-review.md`. A copy of this skill without
+it reports `store-check-missing`, a question that keeps the verdict from a bare
+"Ready to publish".
 
 ## Products
 
@@ -239,14 +225,6 @@ not checked here: `flows config validate` reports it.
 | Treating a missing download as a clean font | A silent skip reads as "fonts checked". The unread faces become one question naming them, with the Font Book step. |
 | Sending the fix to a flow edit | `_meta.fonts` is overwritten by the app's font record on the next Builder save, so an edited name would revert. |
 
-## Store review
-
-The six advisory store-review checks — `trial-toggle`, `billed-amount-not-shown`,
-`derived-price-louder`, `no-period-disclosed`, `trial-terms-incomplete` and
-`external-purchase-link` — are documented in [`store-review.md`](store-review.md),
-which owns their evidence and calibration. They are `risk`/`question` only and never
-change the verdict; the framing rule and the reason for it live there.
-
 ## Delegated, not reimplemented
 
 These already live in `skills/flow-generator/references/verify-config.py`. `flow-audit`
@@ -297,8 +275,6 @@ Stated plainly, with why each was not fixed:
   `groupId`-based selector goes uncaught (see the Variables trap above for why that scope
   is deliberate, not an oversight). No `setVariable` action exists anywhere in the corpus,
   so this check is exercised only by injected cases, never by a real fixture.
-- **A URL query string or fragment word can silence a legal-link check** — token matching
-  runs over the whole URL string, so `?ref=terms-promo` on an unrelated page would match.
 - **`1yr` with no separator does not match the period vocabulary** — the digit-unit
   separator pattern (`[\s-]*`) still needs the unit spelled as a recognised token; a bare
   `yr` glued to a digit with nothing between falls through.
