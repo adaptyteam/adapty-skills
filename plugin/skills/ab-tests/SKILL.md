@@ -311,6 +311,74 @@ $ADAPTY placements create --app <app> --title "<title>" --developer-id "<id>" \
 Then say the app needs the fetch call, and offer `adapty-integration` to write it. A test on this
 placement has no users until that release is out.
 
+## The test's hypothesis
+
+**Every flow test with two arms, where arm A is the flow the placement's audience shows now and
+arm B another flow, gets a hypothesis in the app's backlog.** You save it without asking, right
+after the draft is created, as you send the feedback note. When the test stops with a winner, the
+backlog records whether the change won or lost, and every later suggestion for this app starts
+from what it already tried. A paywall test, a test with three or more arms, or one whose arm A is
+not what the audience shows now cannot be linked: save nothing and say nothing about it. A brief
+from `growth-advisor` that names its hypothesis: save nothing, it links the test itself.
+
+Every command is `$ADAPTY hypotheses <command> --app <app> --json`. Probe `hypotheses --help`
+first; with no such topic, try `npx --yes adapty@beta hypotheses --help` once, and if that fails
+too, skip this section in silence.
+
+1. **Look for one already saved:** `hypotheses list --placement <placement> --state proposed
+   --state accepted`. A row whose variant flow is arm B and that has no A/B test, or a proposed row
+   about arm A's flow whose title is this same change: use it, and go to step 4.
+2. **Pick the type from what the paywall sells.** Read both arms with `flows config get <flow>`:
+   `_meta.screens` maps each paywall screen's id to its products (`id`, and `offerId` when bound).
+   Compare the screens that have the same id in both arms. When exactly one screen sells a different
+   set, take each product's `period` from `products get <id>` and read the change:
+
+   | Arm B on that screen | `type` | Title |
+   |---|---|---|
+   | Adds a product with a plan length arm A does not sell | `adapty:new_duration` | Add a <length> plan next to <products> on <placement> |
+   | Drops a plan length, adds none | `adapty:remove_duration` | Remove <product> from <paywall> on <placement> |
+   | Replaces one plan length with another | `adapty:duration_swap` | Replace <product> with a <length> plan on <placement> |
+   | Same plan lengths, another product for one of them, and the user called it a price change | `adapty:price_change` | Change <plan> from <product> to <product> on <placement> |
+   | The same, and the user called it a trial change | `adapty:trial` (added), `adapty:trial_length_change` (another length) | Add a <N>-day trial to <product> on <placement> |
+
+   Such a change takes that type and title, the subject `{"type": "flow_screen", "flow_id":
+   "<arm A flow>", "flow_screen_id": "<that screen>"}`, and its body adds `products`: every product that screen shows in arm B, in order, as
+   `{"product_id": "<id>", "duration_type": "<its period>"}`, with `trial_duration` in days only when
+   the user gave it. Anything else stays `adapty:flow_design` on the `flow` subject: the same
+   products, two screens that differ, several of these changes at once, screen ids that differ
+   between the arms, or a changed product or offer the user did not explain. Expected `metric`:
+   `arpu` for a price or a removed length, `cr_to_trial` for a trial, `cr_to_purchase` otherwise,
+   unless the test's goal names another.
+3. **Create it** from a file holding one body (a design change; step 2 gives the other types):
+
+   ```json
+   {"hypothesis_id": "<a new UUID, lowercase>", "placement_id": "<placement>",
+    "subject": {"type": "flow", "flow_id": "<arm A flow>"}, "type": "adapty:flow_design",
+    "title": "<the change, at most 80 characters>", "rationale": "<why, in the user's words>",
+    "expected": {"metric": "<arpu|cr_to_purchase|cr_to_trial>", "evidence_text": "<what the user expects>"}}
+   ```
+
+   `hypotheses create --file <file> --force` (another idea about the same flow may be open; this
+   test is its own). A design change's title says what arm B changes, with the placement
+   ("Shorten the quiz from 6 to 3 screens on Onboarding"); when nothing says what changed: "Show
+   <arm B> instead of <arm A> on <placement>". `rationale` and `expected` hold only what the user
+   said or the test's goal; leave out what they did not say, never invent a reason, a metric or a range. A lost answer is
+   sent again with the same file: the same `hypothesis_id` returns the saved one, never a second.
+4. **Accept and link:** `hypotheses accept <id> --variant-flow <arm B flow>` (skip it for a row
+   already accepted), then `hypotheses link <id> --ab-test <test id>`, then `hypotheses by-ab-test
+   <test id>` shows it on the test. A refused link names the arm that differs: say it in one line
+   and leave the hypothesis in the backlog, never link another test.
+5. **Tell the user in one line, in the same reply,** only once `by-ab-test` shows the link. Shape,
+   not words to copy: "I saved this test to your Adapty backlog as a hypothesis, so when it ends
+   its result stays with it and my next suggestions for this app take it into account." A failed
+   call gets no line and never holds up the reply.
+
+**After a `replace`**, run `by-ab-test` on the old test before the card. The new test takes the
+link when its arms are the same two flows: `link` it. New arms: save one as for a draft.
+
+If the user says not to save these, save nothing for the rest of the session; for one already
+linked, `hypotheses unlink <id>` and then `hypotheses dismiss <id> --reason "<their words>"`.
+
 ## Workflow
 
 1. **Plan.** Settle in one message what is missing: paywall test or flow test; the arms (content
@@ -337,8 +405,9 @@ placement has no users until that release is out.
      segment only, saying it is for an A/B test: it creates the segment, returns its id and writes
      no placement.
 2. **Create the draft:** `ab-tests create … --json`. A draft shows to no user, so it needs no
-   card. Read it back, send the [feedback note](#feedback-note), and say the arms and weights as
-   the user will see them.
+   card. Read it back, send the [feedback note](#feedback-note), save
+   [the test's hypothesis](#the-tests-hypothesis), and say the arms and weights as the user will
+   see them.
 3. **Change a draft:** `ab-tests update`, with every flag resent as read.
 4. **Start**, only when `state` is `draft` in the read you just made (otherwise see Never), with
    the card. `--placement` and the audience flag name where it runs; planned values on the draft
@@ -356,7 +425,11 @@ placement has no users until that release is out.
    a winner or other content. **Before the card, read the results** ("Results and the leader"), show
    them, and ask for the winner. Never pick it, never stop on the leader.
 7. **Archive** old tests with the card, one at a time.
-8. **Close** with what runs now and one next step.
+8. **Close** with what runs now and one next step. After a start or a replace of a test linked to
+   a hypothesis, that step is an offer, once per conversation: "Me: check this A/B test twice a
+   week and tell you when it's ready to decide. Want me to?" (the shape, not words to copy). On a
+   yes, invoke `growth-advisor` for that check, with the app, the test and its hypothesis; it sets
+   up the scheduled task.
 
 ## Never
 
