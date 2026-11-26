@@ -1301,6 +1301,13 @@ def text(content, *, preset='body', color_id=None, align='left', width=None,
     if auto_shrink and max_lines is None:
         raise ValueError('text(auto_shrink=True) needs max_lines: text shrinks only inside a line '
                          'limit or a fixed height, and without one autoShrink does nothing')
+    if isinstance(content, dict) and not ({'_localizable', 'values', '_lid'} & content.keys()):
+        raise ValueError(
+            f'text(): content {sorted(content)!r} is a bare map, which publish refuses as '
+            'invalid_localized_rich_text. Pass rich(...) or a string, and give a translation as '
+            "content[id].values[<localeId>] once localization.py catalog has run. A string that is "
+            'the same in every language is written once: a locale with no value falls back to the '
+            'default one.')
     props = {'font': {'preset': preset}, 'align': align,
              'width': _width(width, None, position), 'height': size('hug'),
              'layout': 'auto-height',

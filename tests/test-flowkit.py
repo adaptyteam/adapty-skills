@@ -1967,6 +1967,16 @@ def main():
     check('max_lines=0 is refused', raises(lambda: fk.text('Plan', max_lines=0)))
     check('max_lines=True is refused', raises(lambda: fk.text('Plan', max_lines=True)))
 
+    # --- text content: a bare {locale: text} map is not a localizable ---
+    _bare = _message(lambda: fk.text({'en': 'OK', 'de': 'OK'}))
+    check('text() refuses a bare per-locale map, naming rich() and the fallback',
+          'rich(' in _bare and 'falls back' in _bare, _bare)
+    check('text() takes rich(), localized(), a string and a catalog ref',
+          not raises(lambda: fk.text(fk.rich('OK')))
+          and not raises(lambda: fk.text(fk.localized('OK')))
+          and not raises(lambda: fk.text('OK'))
+          and not raises(lambda: fk.text({'_lid': 'lc_title'})))
+
     print()
     if FAILURES:
         print(f'{len(FAILURES)} failure(s): ' + ', '.join(FAILURES))
