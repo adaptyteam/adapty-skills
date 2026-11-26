@@ -677,6 +677,7 @@ def resolve_theme(snippet, config, dest_screen=None):
     # Each app has its own font library, and publishing looks every font reference up in the
     # destination app's library, ignoring the `_meta.fonts` entry carried with it. A font from
     # another app keeps the preview drawing but blocks the publish. Carry it, and ask.
+    # A whole flow goes to another app with `flows copy --to-app`, which adds its fonts there.
     font_needs = []
     if snippet.get('intendedScope', 'same-app') == 'any-app':
         for f in carry['fonts']:
