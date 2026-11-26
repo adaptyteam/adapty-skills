@@ -730,6 +730,15 @@ Follow the platform-specific file for the exact doc URLs and implementation orde
 
 Never skip a checkpoint. A failed checkpoint means something is wrong that will cascade.
 
+### After a flow purchase
+
+**The flow decides what the user sees next; the access level decides what the app unlocks.** Before you write the purchase callback of a `flow_builder` run, read each flow: `$ADAPTY flows config get <FLOW_ID> --app <APP_ID> --json`.
+
+- **Its `purchase` action has `payload.onResult.success`:** the callback closes nothing. The flow shows its next screen or closes itself, and a dismiss in the callback skips that screen.
+- **It has none:** the callback dismisses on a successful result only, never on pending or cancelled. Offer a **When succeeded** outcome (a thank-you screen, or Close Flow) through `flow-generator`.
+
+A native screen or an unlock in the app follows the access level turning active in the profile listener from Stage 1, never the purchase callback: a Close action that runs before the store answers destroys the view, and that purchase's callback never arrives.
+
 **When the last stage's checkpoint passes, the first sandbox purchase is not yours to run — invoke the `purchase-testing` skill.** It preflights the dashboard and the app code through the CLI before anyone opens a browser, so nobody is sent to App Store Connect or Play Console over a placement developer ID that does not match, a placement that is Inactive, or a flow still sitting in `dirty`. Creating store products and connecting the store to Adapty stay here (`references/store-setup-*.md`); that skill routes back when its preflight lands on one of them.
 
 As soon as the app builds with the last stage in place, send the [feedback note](#feedback-note), before that stage's message and before the handoff. The code stage's message has a slot for its line.

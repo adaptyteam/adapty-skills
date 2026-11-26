@@ -367,9 +367,9 @@ AdaptyUI.setFlowsEventsObserver(object : AdaptyUIFlowsEventsObserver {
         product: AdaptyPaywallProduct,
         purchaseResult: AdaptyPurchaseResult
     ) {
-        // v4 no longer auto-dismisses after purchase — dismiss yourself,
-        // or do nothing to let the flow continue
-        if (purchaseResult !is AdaptyPurchaseResult.UserCanceled) {
+        // Only when the flow has no "When succeeded" outcome (SKILL.md, "After a flow purchase").
+        // Unlock and thank-you screens follow setOnProfileUpdatedListener, not this callback.
+        if (purchaseResult is AdaptyPurchaseResult.Success) {
             mainUiScope.launch { view.dismiss() }
         }
     }
