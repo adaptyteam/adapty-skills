@@ -358,7 +358,7 @@ $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name req
 $ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; an `http_404`: see below
 
 $ADAPTY fonts list    --app <APP_UUID> --json                       # the app's font families and their faces
-$ADAPTY fonts upload  <FONT_FILE>... --app <APP_UUID> [--choice replace|keep] --json  # .ttf/.otf, one report per file
+$ADAPTY fonts upload  <FONT_FILE>... --app <APP_UUID> [--choice replace|keep] [--replace-face-id <FACE_ID>,...] --json  # .ttf/.otf, one report per file
 $ADAPTY fonts faces update <FACE_ID> --app <APP_UUID> [--weight N --italic true|false] [--ios-name N] [--android-name N]
 ```
 
@@ -1075,11 +1075,11 @@ removed one — including a throwaway you created yourself. Name the flow and te
 to delete it.
 
 **A font change that touches a stored face needs a yes:** the app's fonts are shared by all its
-flows. `--choice replace` replaces every face that collides when it runs, so ask on the list of a
-fresh refusal and show the report's `replaced_faces` after it. A face update on a family other
-flows use needs one too, and `fonts faces replace` always (its old file cannot be restored: show
-which face of which family gets which file, then `--yes`). A new upload that collides with nothing
-adds faces and needs none.
+flows. Ask on the faces a refusal lists, replace with its printed retry (`--choice replace
+--replace-face-id`: exactly those faces) and show the report's `replaced_faces` after it. A face
+update on a family other flows use needs one too, and `fonts faces replace` always (its old file
+cannot be restored: show which face of which family gets which file, then `--yes`). A new upload
+that collides with nothing adds faces and needs none.
 
 `validate` and `preview` change nothing and cost nothing. Use them freely.
 
