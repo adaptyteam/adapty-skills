@@ -453,9 +453,11 @@ json.dump(dest2, open(DEST2, 'w'))
 
 _rc, pl = plan_json(DEST2, p2, QUIZ_S0)
 # An absent translation falls back to the default locale, so the graft must NOT copy the
-# English text in under `de`: that would turn "not translated yet" into an explicit German
-# value nobody translated. It is reported instead.
-case('locales: de is reported as untranslated', pl['locales']['untranslated'], ['de'])
+# English value in under `de`: that would turn "not translated yet" into an explicit German
+# value nobody translated. This snippet is one image, which needs no translation, so nothing is
+# reported either (a text with no `de` value is, below).
+case('locales: an image carried only under en is not untranslated',
+     pl['locales']['untranslated'], [])
 case('locales: nothing is filled when the default locale is present', pl['locales']['filled'], [])
 case('locales: nothing dropped when the snippet has fewer', pl['locales']['dropped'], [])
 
@@ -2080,6 +2082,22 @@ json.dump(_old, open(_oldp, 'w'))
 _rc_old, _o_old, _e_old = run('plan', '--config', QUIZ, '--snippet', _oldp, '--screen', QUIZ_S0)
 case('plan: a snippet that still names a catalog id is refused',
      (_rc_old, 'extract it again' in _e_old), (2, True))
+
+# A value that needs no translation never makes a locale "untranslated": an image or a video
+# that only the default carries, a link, an empty text. Every other locale falls back to it.
+_P = lambda t: [{'type': 'paragraph', 'content': [{'type': 'text', 'text': t}]}]
+_cfg2 = {'locales': [{'id': 'en'}, {'id': 'de'}], 'defaultLocale': 'en'}
+_snip2 = {'dependencies': {'defaultLocale': 'en'}, 'payload': None}
+_pay2 = {'title': {'_localizable': True, 'values': {'en': _P('Hi'), 'de': _P('Hallo')}},
+         'hero': {'_localizable': True, 'values': {'en': {'url': 'https://e.x/a.png'}}},
+         'clip': {'_localizable': True, 'values': {'en': {'url': 'https://e.x/a.mp4'}}},
+         'link': {'_localizable': True, 'values': {'en': 'https://e.x/terms'}},
+         'note': {'_localizable': True, 'values': {'en': _P('')}}}
+case('locales: an image, a video, a link or an empty text is not untranslated',
+     sn.resolve_locales(_snip2, _cfg2, _pay2)['untranslated'], [])
+_pay3 = {'title': {'_localizable': True, 'values': {'en': _P('Hi')}}}
+case('locales: a text with no de value still is',
+     sn.resolve_locales(_snip2, _cfg2, _pay3)['untranslated'], ['de'])
 
 if fails:
     print(f'\n{len(fails)} FAILED')

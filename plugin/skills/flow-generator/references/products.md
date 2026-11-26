@@ -220,7 +220,7 @@ So the division of labour is:
 |---|---|
 | An agent can | bind `product.id`, set `groupId`/`default`, wire `<group>.selectedProduct` |
 | An agent can also | derive `_meta.screens[].products[]` and write it — `config update` does not synthesize the block, so send it yourself (below) |
-| The builder does | declare the products on open, minting the same `flowProductId` you would |
+| The builder does | declare the products on open, minting a `flowProductId` for each |
 | The builder also does | materialize `screens[].products` on open — carry it forward, never author it from scratch |
 
 `flowProductId` is a UUIDv5 over `screenId:productId` — or `screenId:productId:offerId` when the
@@ -234,6 +234,11 @@ flowProductId: getUuid(`${screenId}:${offerId ? `${productId}:${offerId}` : prod
 Call `flowkit.flow_product_id(screen_id, product_id, offer_id=None)`. Do not substitute
 `uuid.uuid5(uuid.UUID(int=0), name)`: Python prefixes sixteen zero bytes where the builder
 prefixes nothing, so it returns a different id.
+
+**Publishing never recomputes the id.** It needs each `flowProductId` non-empty
+(`invalid_flow_product_meta`), once per screen (`duplicate_flow_product_meta`) and once in the
+whole flow (`duplicate_flow_product_id`). So a fetched flow whose ids do not match the formula
+publishes as it is: keep them. The formula is for the ids you write.
 
 ### The screen registry owns the declaration
 
@@ -250,7 +255,8 @@ Every screen owns a Product + Offer registry, `products`, sitting beside `elemen
 ```
 
 It is **not** `_meta.screens[<id>].products[]`, and the two are worth keeping straight: the
-registry holds bare pairs, `_meta` holds the minted `flowProductId`s the publish transform checks.
+registry holds bare pairs, `_meta` holds the minted `flowProductId`s, which publishing requires
+unique.
 The registry is where `_meta` comes from, read from the builder's source: `_meta` is built from
 `screen.products` alone, and element props do not feed it (an element's
 `props.product.id` is read only for a global component). So a `product` element whose id is

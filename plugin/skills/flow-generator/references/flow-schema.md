@@ -341,16 +341,18 @@ array of **inline** nodes, of which exactly three types exist:
 {"type": "token",    "attrs": {"token": "timer_minutes"}}
 ```
 
-**A `variable` span takes no formatting of its own** — you cannot strike or bold the price
-without styling the whole line. The strikethrough recipe that works on a device is a
-*separate* `text` element holding the other product's price variable, with strikethrough and colour
-applied at the **element** level, not in rich text — its known costs: the hidden donor product adds
-invisible scroll, and deleting it takes the visible price down with it.
+**A `variable` node carries its own marks, beside `variableId`:** `"strikethrough": true` (or
+`bold`, `italic`, `underline`) in its `attrs` strikes just the price. Publishing keeps the marks and
+both SDKs draw them; a mark on the `text` node next to it does not reach the variable. The Flow
+Builder has no control for this and no real export carries one, so check a struck price on a
+device before shipping it. The route already verified on a device is a *separate* `text` element
+holding the other product's price variable, with strikethrough and colour applied at the
+**element** level — its known costs: the hidden donor product adds invisible scroll, and deleting
+it takes the visible price down with it.
 
 `variable` carries prices and user input; `token` carries countdown digits. Neither has a
-`text` key, and per
-[Style variables](https://adapty.io/docs/onboarding-variables.md) formatting cannot be
-applied to a variable at all — which is why they carry no `attrs` marks.
+`text` key. [Style variables](https://adapty.io/docs/onboarding-variables.md) describes the
+builder's editor, which offers no formatting on a variable; a mark written in the config is kept.
 
 A paragraph rebuilt from its rendered plain text still renders and still looks right in the
 export — but a flattened `variable` node is a hardcoded price that has stopped tracking the
@@ -1054,6 +1056,15 @@ it, or after a colon — because mid-sentence it leaves a double space ("You hav
 string tag that has to start a sentence ("Maria, better places…") gets its own text element, or
 the punctuation moves into the value the app passes. `verify-config.py` warns on both: a word
 fallback on a multi-locale flow, and an empty fallback between two spaces.
+
+**An empty value does not remove its text.** Both SDKs draw a tag with no value as empty text, so
+a `text` holding only the tag keeps its place and its line's height on a device, and a tag cannot
+drive `visibility`. Keep the tag inside a line that has words of its own.
+
+**A fallback in each locale's own words takes a tag per locale:** `user_name_en` in the English
+text with "there", `user_name_sr` in the Serbian text with its own word. Each string shows its own
+tag's fallback, and it publishes; the app must then pass the value under every one of those names,
+so ask the user whether it will before you build it. `verify-config.py` warns with the list.
 
 **Keep the copy in the flow and pass only the bare value** — the city, the number — so the words
 stay translatable in the builder. Have the app pass a whole phrase only when the language changes

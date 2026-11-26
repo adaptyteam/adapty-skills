@@ -640,9 +640,16 @@ def main():
     check('custom_element refuses a Type outside [a-z0-9_]',
           'lowercase' in _message(lambda: fk.custom_element('Lottie-Anim', 'x', fixed_h=200,
                                                             fallback=[still()])))
-    check('custom_element refuses a hug box',
+    check('custom_element refuses a box with no height',
           'collapses' in _message(lambda: fk.custom_element('map', 'x', fixed_h=None,
                                                             fallback=[still()]), TypeError))
+    _ceh = fk.custom_element('lottie_animation', 'badge', hug=True,
+                             fallback=[fk.image(fk.PLACEHOLDER, fixed_h=120, fit='fit')])
+    check('custom_element(hug=True) gives a hug height, for a view that sets its own',
+          _ceh['props']['height'] == fk.size('hug'))
+    check('custom_element refuses a fixed height and hug together',
+          'one of' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200, hug=True,
+                                                         fallback=[fk.text('x')])))
     check('custom_element refuses an empty fallback',
           'empty box' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200,
                                                             fallback=[])))
