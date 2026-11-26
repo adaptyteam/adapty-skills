@@ -367,8 +367,7 @@ AdaptyUI.setFlowsEventsObserver(object : AdaptyUIFlowsEventsObserver {
         product: AdaptyPaywallProduct,
         purchaseResult: AdaptyPurchaseResult
     ) {
-        // Only when the flow has no "When succeeded" outcome (SKILL.md, "After a flow purchase").
-        // Unlock and thank-you screens follow setOnProfileUpdatedListener, not this callback.
+        // Success only. If the flow's "When succeeded" outcome leads on, leave this empty.
         if (purchaseResult is AdaptyPurchaseResult.Success) {
             mainUiScope.launch { view.dismiss() }
         }

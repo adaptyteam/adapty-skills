@@ -335,8 +335,7 @@ try {
   // setEventHandlers resolves to an unsubscribe function — capture it if the view
   // outlives the screen that created it, otherwise dismiss() is enough.
   await view.setEventHandlers({
-    // Return true only when the flow has no "When succeeded" outcome (SKILL.md, "After a flow purchase").
-    // Unlock and thank-you screens follow onLatestProfileLoad, not this handler.
+    // Defaults keep the flow OPEN. Close on success, unless the flow's "When succeeded" outcome leads on.
     onPurchaseCompleted(purchaseResult, product) {
       return purchaseResult.type === 'success';
     },
