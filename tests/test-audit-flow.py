@@ -26,7 +26,7 @@ CATALOG = os.path.join(ROOT, 'tests', 'catalog-fixture.json')
 fails = []
 
 
-def run(config, catalog=CATALOG, stores=None, custom=None, offers=None):
+def run(config, catalog=CATALOG, stores=None, custom=None, offers=None, fonts=None):
     """Return (rc, findings). `config` is a path or a dict; `offers` a dict of
     product id -> `product-offers list` rows."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -45,6 +45,9 @@ def run(config, catalog=CATALOG, stores=None, custom=None, offers=None):
             cmd += ['--stores', stores]
         if custom is not None:
             cmd += ['--custom-actions', custom]
+        if fonts is not None:
+            json.dump(fonts, open(os.path.join(tmp, 'fonts.json'), 'w'))
+            cmd += ['--fonts', os.path.join(tmp, 'fonts.json')]
         r = subprocess.run(cmd, capture_output=True, text=True)
     try:
         return r.returncode, json.loads(r.stdout)['findings']
@@ -2535,6 +2538,49 @@ check('a font named by its family name instead of its id is unchecked too',
 _f = run(_with_fonts([_good]))[1]
 check('every font a text names is in _meta.fonts: font-names-unchecked is SILENT',
       not of(_f, 'font-names-unchecked'), _f)
+
+# With --fonts (the `fonts list --json` answer) the checks read the app's own font record,
+# which publishing reads, instead of the copy saved with the flow.
+_vpn = load(os.path.join(FIX, 'vpn-timer-draft.json'))
+_refs = sorted({x['id'] for x in _vpn['_meta']['fonts']})
+
+
+for _i in range(len(_refs)):
+    _FONT_FILES[f'/brand{_i}'] = _font_bytes(f'Brand{_i}-Medium')
+
+
+def _listing(ios=None, android=None, names=None):
+    return {'data': [{'id': fid, 'name': (names or {}).get(fid, f'Family {i}'),
+                      'default_face_id': f'face-{i}',
+                      'faces': [{'id': f'face-{i}', 'family_id': fid, 'weight': 500,
+                                 'italic': False, 'file_url': _BASE + f'/brand{i}',
+                                 'font_alias_ios': ios or f'Brand{i}-Medium',
+                                 'font_alias_android': android or f'brand{i}_medium',
+                                 'is_default': True, 'metadata_status': 'confirmed'}]}
+                     for i, fid in enumerate(_refs)]}
+
+
+_f = run(_vpn, fonts=_listing())[1]
+check('--fonts: current names that match the file and the res/font rule are SILENT, though '
+      'the copy in the flow carries bad Android names',
+      not [f for f in _f if f['check'] in FONT_CHECKS], _f)
+_f = run(_vpn, fonts=_listing(ios='Brand Medium', android='Brand Medium'))[1]
+check('--fonts: bad current names FIRE android-font-name and ios-font-name',
+      len(of(_f, 'android-font-name')) == 1 and len(of(_f, 'ios-font-name')) == 1, _f)
+check('--fonts: no fix asks for a Builder save of the flow',
+      not [f for f in _f if f['check'] in FONT_CHECKS and 'save this flow' in f['fix']], _f)
+_f = run(_uncopied, fonts=_listing())[1]
+check('--fonts: a font the copy lacks is checked against the app\'s fonts, not unchecked',
+      not of(_f, 'font-names-unchecked') and not of(_f, 'android-font-name'), _f)
+_named = _listing(names={_refs[0]: _names[_first]}) if _first == _refs[0] else _listing(
+    names={_first: _names[_first]})
+_f = run(_by_name, fonts=_named)[1]
+check('--fonts: a font named by its family name (any case) resolves as publishing does',
+      not of(_f, 'font-names-unchecked'), _f)
+_f = run(_vpn, fonts={'data': []})[1]
+check('--fonts: a font none of the app\'s fonts answers to is ONE font-names-unchecked '
+      'question', [f['severity'] for f in of(_f, 'font-names-unchecked')] == ['question']
+      and not of(_f, 'android-font-name'), _f)
 _srv.shutdown()
 
 print('\npurchase outcomes')

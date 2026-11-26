@@ -64,16 +64,17 @@ belongs): recompute each with `flowkit.flow_product_id`
 ([products.md](products.md#a-price-variable-requires-a-product-element-on-the-screen--even-with-no-plan-card))
 before you call it a support case.
 
-**Only `publication_failed` is a failure.** While `flows get` reads `publishing`, an HTTP 503 or
-"busy" in `transform_error` is the transform service under load, and the publication goes on:
-keep polling, and never publish again over it. If `flows publish` itself answers 503, run
-`flows get`: `publishing` means it was taken; the status from before means it was not, so run it
-once more.
+**Handle a font save failure before retrying publish.** A failed save stops the command before
+it sends the publish request. If the save response is unreadable or the connection fails during
+the save, the save may have gone through. Run `$ADAPTY flows config get --app "$APP" <FLOW_ID>`
+to see the stored config before you publish again.
 
-**Two things gate this, and neither of them is the account.** One is the **CLI version** ([SKILL.md → Resolve the CLI](../SKILL.md#resolve-the-cli)). The
-other is the **API deployment**: `flows publish` has been observed answering `http_404` and
-`flows update --name` answering `Method "PUT" not allowed`. Neither error means you wrote the
-command wrong and neither is fixable by switching accounts — they are per deployment, every account
-on it alike — so say that and hand the user the editor's publish button or the builder's rename
-field. **Run the call before you believe it, though.** Both routes are unverified rather than known
-absent, so treat a 404 as something you observed, never as something you expected.
+While `flows get` reads `publishing`, an HTTP 503 or "busy" in `transform_error` means the
+transform service is under load. Keep polling. If the publish request itself answers 503, run
+`flows get`. If it reads `publishing`, keep polling. If it returns the status from before the
+request, retry the publish once.
+
+**A missing flow exits 4.** For a 404, verify the app and flow IDs with `flows get`. If the
+flow exists and the API deployment lacks the publish route, point the user to the editor's
+publish button. If the deployment refuses `flows update --name` with `Method "PUT" not allowed`,
+point the user to the builder's rename field.

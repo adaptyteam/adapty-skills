@@ -683,8 +683,9 @@ def resolve_theme(snippet, config, dest_screen=None):
             font_needs.append({'level': '!', 'text':
                                f'font "{f.get("name") or f.get("id")}" comes from another app\'s '
                                f'font library, and the flow will not publish while a text uses '
-                               f'it. Upload it to this app in the Flow Builder (or pick a font '
-                               f'this app has), then repoint the text to it.'})
+                               f'it. Upload its font files to this app (adapty fonts upload, or the '
+                               f'Flow Builder) or pick a font this app has, then repoint the '
+                               f'text to it.'})
 
     return {'adopt': adopt, 'carry': carry, 'reuse': sorted(set(reuse)),
             'needs': contrast_needs + font_needs}
