@@ -1112,9 +1112,46 @@ def audit_reads(a, f, t):
     return [r + ['--app', a.app] for r in reads]
 
 
+def chart_total(body):
+    """A chart's number for its whole range: the total group's periods summed, or every group's when none is
+    marked total."""
+    segs = segments(body)
+    tot = [s for s in segs if s.get('is_total')] or segs
+    return sum((p.get('value') or 0) for s in tot for p in s.get('values') or []) + sum(
+        (s.get('value') or 0) for s in tot if not s.get('values'))
+
+
+def month_in_progress(a, f, t):
+    """Every audit read ends with the last full month. When the month still running holds more installs or
+    revenue than the whole window (a new app, a placement that went live this month), say so before any table
+    reads as empty. Returns what it compared, or None on the first of a month."""
+    today = dt.date.fromisoformat(a.to) if a.to else dt.date.today()
+    start = today.replace(day=1)
+    if today == start:
+        return None
+    m1, m2 = start.isoformat(), today.isoformat()
+    reads = [(cid, chart(cid, f, t) + ['--app', a.app], chart(cid, m1, m2) + ['--app', a.app])
+             for cid in ('installs', 'revenue')]
+    prefetch(a.adapty, [r for _, w, n in reads for r in (w, n)])
+    out = {}
+    for cid, w, n in reads:
+        (wb, werr), (nb, nerr) = cli(a.adapty, w), cli(a.adapty, n)
+        if not (werr or nerr):
+            out[cid] = (chart_total(wb), chart_total(nb))
+    more = [c for c, (whole, now) in out.items() if now > whole]
+    if more:
+        print(f'   NOTE: this month so far ({m1} .. {m2}) has more '
+              + ' and more '.join(f'{c} ({num(out[c][1])}) than the whole window ({num(out[c][0])})' for c in more)
+              + f'. The app or its placements are new, and every read below ends {t}. Before saying a read has no '
+              f'data, run it again with --date-from {m1} --date-to {m2}. This month is not over: count it, and '
+              'compare no rate from it with a full month\'s.')
+    return out
+
+
 def audit(a):
     f, t = window(a.months, a.to)
     print(f'# audit {f} .. {t} (the last full month is marked *)')
+    month_in_progress(a, f, t)
     prefetch(a.adapty, audit_reads(a, f, t))
     names, lists = name_map(a.adapty, a.app, ('placements', 'paywalls', 'flows', 'products', 'segments'))
     print('\n## lists, every page: ' + ', '.join(f'{n} {len(r)}' for n, r in lists.items()))

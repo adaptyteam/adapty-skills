@@ -427,11 +427,14 @@ Worth having in full, because it is the answer to "what do I bind instead of typ
 | `is_free_trial`, `is_pay_up_front`, `is_pay_as_you_go` | booleans, for conditional visibility |
 | `is_monthly_plan` | boolean: this user buys the binding under the monthly plan |
 
-Two things to carry with them. **Every `offer_*` field is empty when the user is not eligible for
+Three things to carry with them. **Every `offer_*` field is empty when the user is not eligible for
 an offer**, so a line built around one silently loses its number for everyone else — gate it on
 `is_free_trial` rather than assuming it renders. And `offer_billing_period` equals
 `offer_full_duration` for trial and pay-upfront offers but *not* for pay-as-you-go (1 week versus
-3 weeks in the docs' own example), so they are not interchangeable.
+3 weeks in the docs' own example), so they are not interchangeable. And the period's words come
+from the device, not the render: iOS prints whole weeks of days as weeks and 12 months as a year
+(a 7-day trial reads "1 week"), while Android prints the period as Google Play stores it (P7D
+reads "7 days"). Write copy that reads right with either, never a number beside the field.
 
 A boolean is for visibility, never for text: the transform service refuses one inside rich text
 (`boolean_product_var_in_text`).
@@ -715,8 +718,8 @@ rather than reaching for `zIndex`.
 **The horizontal pair works the same way: `left` and `right` take `width: {"type": "auto"}`**,
 the width the three `fixed` CTAs above carry. With `width: fill` the anchors are ignored — the
 element takes its parent's full width starting at the `left` offset and runs past the right edge
-(rendered, on a text and on a stack); `auto` keeps both insets, in the preview and on a device. `flowkit` defaults such an element
-to `auto` and refuses `fill`.
+(rendered, on a text and on a stack); a `fixed` width also starts at `left` and ignores `right`. `auto` keeps both insets, in the preview and on a device. `flowkit` defaults such an element
+to `auto` and refuses `fill` and `fixed_w`; `verify-config.py` warns on either.
 
 **An `absolute` element paints over every `relative` sibling, wherever either one is listed, and a
 `zIndex` on a `relative` element does nothing** (preview render; no device run). So never raise a

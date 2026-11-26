@@ -355,8 +355,8 @@ def absolute(*, top=None, left=None, right=None, bottom=None, z=None):
     nothing; swap `auto` for `fill` and it stops 2px short.
 
     The horizontal pair works the same way: `left` AND `right` stretch it between them with
-    `width='auto'`, which the element helpers default to for such a position. A `fill` width is
-    refused: rendered, it takes the parent's whole width shifted by `left`, past the right edge.
+    `width='auto'`, which the element helpers default to for such a position. A `fill` width or
+    a `fixed_w` is refused: either keeps its own width from `left`, and can draw past the right edge.
 
     It paints over every `relative` sibling, wherever either is listed. To sit behind its
     `absolute` siblings, list it FIRST among them and leave `z` unset: later absolute siblings
@@ -1041,14 +1041,21 @@ def _width(width, fixed_w, position, default='fill'):
     those anchors, and only `width: auto` lets the anchors decide. Rendered side by side: a
     `fill` element takes the parent's WHOLE width and is then shifted by `left`, so it draws
     past the parent's right edge by that offset, while `auto` sits exactly between the anchors
-    -- and the builder's own docked CTAs carry `auto`. So the width defaults to `auto` on such
-    an element and `fill` is refused. Elsewhere the default is the helper's own.
+    -- and the builder's own docked CTAs carry `auto`. A `fixed_w` keeps its size from `left`
+    and ignores `right`. So the width defaults to `auto` on such an element, and `fill` and
+    `fixed_w` are refused. Elsewhere the default is the helper's own.
     """
-    if fixed_w is not None:
-        return size('fixed', fixed_w)
     pos = position or {}
     anchored = (pos.get('type') in ('absolute', 'fixed')
                 and pos.get('left') is not None and pos.get('right') is not None)
+    if fixed_w is not None:
+        if anchored:
+            raise ValueError(
+                "an absolute or fixed element anchored left AND right needs width='auto' to "
+                "stretch between them, not fixed_w -- a fixed width keeps its size from `left` and "
+                "the right anchor pins nothing, so a wide one draws past the right edge. Drop "
+                "fixed_w, or keep it and drop `right`")
+        return size('fixed', fixed_w)
     if width is None:
         width = 'auto' if anchored else default
     if anchored and width == 'fill':
@@ -1301,6 +1308,13 @@ def text(content, *, preset='body', color_id=None, align='left', width=None,
     if auto_shrink and max_lines is None:
         raise ValueError('text(auto_shrink=True) needs max_lines: text shrinks only inside a line '
                          'limit or a fixed height, and without one autoShrink does nothing')
+    if isinstance(content, dict) and not ({'_localizable', 'values', '_lid'} & content.keys()):
+        raise ValueError(
+            f'text(): content {sorted(content)!r} is a bare map, which publish refuses as '
+            'invalid_localized_rich_text. Pass rich(...) or a string, and give a translation as '
+            "content[id].values[<localeId>] once localization.py catalog has run. A string that is "
+            'the same in every language is written once: a locale with no value falls back to the '
+            'default one.')
     props = {'font': {'preset': preset}, 'align': align,
              'width': _width(width, None, position), 'height': size('hug'),
              'layout': 'auto-height',
