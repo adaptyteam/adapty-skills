@@ -2277,7 +2277,8 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     # input and the consumers survive on screens you never opened, and the publish refuses
     # every one of them with `unknown_variable_ref`.
     INPUT_TYPES = {'text-input', 'email-input', 'password-input', 'number-input',
-                   'phone-input', 'date-picker', 'time-picker', 'date-time-picker'}
+                   'phone-input', 'date-picker', 'time-picker', 'date-time-picker',
+                   'wheel-range-picker'}
     produced = {(e.get('props') or {}).get('customId')
                 for _, e in els() if e['type'] in INPUT_TYPES}
     group_ids = {g['id'] for s_ in d.get('screens', [])
