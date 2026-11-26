@@ -2,7 +2,7 @@
 
 The commands that answer each question, and how to read what they return. Every command here is
 a read. Run them one at a time, and never while `reads.py` runs: each analytics command, and the
-flow, paywall and placement metrics, allow 2 requests per second per app (and 360 per minute across everyone
+flow, paywall and placement metrics, allow 25 requests per 10 seconds per app (and 360 per minute across everyone
 calling them), a data command is sent once and never retried, and over a limit it exits 4 with
 `"code": "throttled"` and the wait as `retry_after_seconds` in the `--json` error. Wait that long
 and run it once more, never in a loop. `reads.py` paces and retries its own calls.
