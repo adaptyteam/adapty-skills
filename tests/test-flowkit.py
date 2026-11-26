@@ -1869,9 +1869,8 @@ def main():
     check('an in-flow element keeps the fill default',
           fk.stack([])['props']['width'] == {'type': 'fill'})
     check('a timer keeps its hug default in flow', fk.timer()['props']['width'] == {'type': 'hug'})
-    check('a fixed width with both anchors is the author\'s call and passes',
-          fk.stack([], fixed_w=120, position=_lr)['props']['width']
-          == {'type': 'fixed', 'value': 120})
+    check("a fixed width with both anchors is refused, naming width='auto' (the right anchor pins nothing)",
+          "width='auto'" in _message(lambda: fk.stack([], fixed_w=120, position=_lr)))
 
     # --- inputs: the preset defaults to body, so config() refuses a theme that lacks it
     print('\ninput presets:')

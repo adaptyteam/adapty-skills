@@ -1974,6 +1974,22 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                         f"anchor pair collapses to nothing — give it both offsets, or use a "
                         f"real height")
 
+    # The horizontal pair: anchored left AND right, the transformer sets the width from the anchors
+    # only for `auto`. An element that already has a width keeps it and starts at `left`, so the
+    # right anchor pins nothing and a wide button draws past the right edge. Every real export's
+    # docked button is `auto`.
+    for s, e in els():
+        p = (e.get('props') or {})
+        pos, w = p.get('position'), p.get('width')
+        if not (isinstance(pos, dict) and isinstance(w, dict)
+                and pos.get('type') in ('absolute', 'fixed')
+                and pos.get('left') is not None and pos.get('right') is not None):
+            continue
+        if w.get('type') in ('fixed', 'fill'):
+            warn.append(f"{s['id']}/{e['id']}: {pos.get('type')} and anchored left+right, but width is "
+                        f"{w.get('type')!r} — only `auto` stretches between the anchors; this width "
+                        f"starts at `left`, ignores `right` and can run past the right edge")
+
     # A negative zIndex sends an element behind the fill of every ancestor that has one, so a
     # timeline rail at `zIndex: -10` inside a filled card draws nothing at all. The fix is paint
     # order: declare the element before the sibling it must sit under and drop the zIndex. On a
