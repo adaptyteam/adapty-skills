@@ -25,8 +25,8 @@ and flow A/B tests. `placement` reads each placement given: its audiences by nam
 ran on it, every paywall or flow that sold on it, the weekly purchase count a Time line needs, and, when
 one paywall replaced another, the before/after comparison.
 
-Reads run side by side inside the CLI's limits: each analytics route takes 2 calls a second per app, so
-calls to one route start at least PACE apart, and a throttled call waits the time the server names and
+Reads run side by side inside the CLI's limits: each analytics route takes 25 calls per 10 seconds per app,
+so calls to one route start at least PACE apart, and a throttled call waits the time the server names and
 runs again. Run one reads.py at a time and nothing else against the app meanwhile: two at once share
 the same limit and throttle each other.
 
@@ -55,8 +55,8 @@ NO_DATA = '00000000-0000-0000-0000-000000000000'
 FEW = 20   # paid users behind a rate below which the rate is noise
 
 DATA = ('chart', 'conversion', 'funnel', 'retention', 'ltv', 'cohort')   # the rate-limited analytics routes
-PACE = 0.7      # seconds between two starts on one limited route: each takes 2 calls a second per app, and a
-                # call reaches the server a variable moment after it starts
+PACE = 0.5      # seconds between two starts on one limited route: each takes 25 calls per 10 seconds per app,
+                # and a call reaches the server a variable moment after it starts
 TRIES = 6       # a throttled call runs at most this many times, about half a minute of waiting in all
 _LOCK = threading.Lock()
 _NEXT = {}      # limited route -> the earliest moment its next call may start
