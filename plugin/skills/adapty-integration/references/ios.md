@@ -235,11 +235,6 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions ...
 
 The SDK key comes from `AppConstants` — already set in the recommended architecture step above.
 
-**AdaptyUI is activated on its own, after the SDK.** `Adapty.activate` does not activate it, and
-without `AdaptyUI.activate()` every flow fetch throws `adaptyUINotActivated` (4003). Await
-`AdaptyService.shared.activation?.value` before the first `getFlow` too: a fetch that runs before
-activation finishes throws `notActivated` (2002).
-
 **Checkpoint:** App builds and runs without errors. Xcode console shows an Adapty activation log line.
 
 **Gotcha:** `enum case 'info' is not available due to missing import of defining module 'AdaptyLogger'` on the log-level line → the project enables the `MemberImportVisibility` upcoming Swift feature, and the log levels live in the separate `AdaptyLogger` module. Add `import AdaptyLogger` to the file that sets the log level.
