@@ -355,7 +355,7 @@ $ADAPTY flows config update   <FLOW_ID> --app <APP_UUID> \
 $ADAPTY flows media upload    <IMAGE_FILE> --app <APP_UUID> --json  # PNG/JPEG/WEBP, ≤ 20 MiB; no SVG, GIF or HEIC
 $ADAPTY flows media upload-video <VIDEO_FILE> --app <APP_UUID> --json  # mp4/webm, ≤ 30 s, ≥ 640 px each side
 $ADAPTY flows update  --app <APP_UUID> <FLOW_ID> --name <name>      # --name required; a `Method "PUT" not allowed`: rename in the builder
-$ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; an `http_404`: see below
+$ADAPTY flows publish --app <APP_UUID> <FLOW_ID> [--yes]            # async; poll with flows get
 
 $ADAPTY fonts list    --app <APP_UUID> --json                       # the app's font families and their faces
 $ADAPTY fonts upload  <FONT_FILE>... --app <APP_UUID> [--choice replace|keep] [--replace-face-id <FACE_ID>,...] --json  # .ttf/.otf, one report per file
@@ -373,7 +373,7 @@ binds and the geometry: [media.md](references/media.md). Over MCP, the upload li
 `flows media upload-video`; when the CLI lacks that command, the fallback is the placeholder:
 [media.md → Uploading a video](references/media.md#uploading-a-video).
 
-**`flows publish`:** whether this build has it, its asynchronous status and the poll, which failure is real, and the deployment gate: [publish.md → Running `flows publish`](references/publish.md#running-flows-publish).
+**`flows publish`:** whether this build has it, its asynchronous status and the poll, and how to recover from a failure: [publish.md → Running `flows publish`](references/publish.md#running-flows-publish).
 
 **`fonts`:** the CLI only (no MCP tool yet); each command you call is probed with its `--help`
 first. The upload, the face and name checks, the config reference and the publish:
@@ -1075,11 +1075,9 @@ removed one — including a throwaway you created yourself. Name the flow and te
 to delete it.
 
 **A font change that touches a stored face needs a yes:** the app's fonts are shared by all its
-flows. Ask on the faces a refusal lists, replace with its printed retry (`--choice replace
---replace-face-id`: exactly those faces) and show the report's `replaced_faces` after it. A face
-update on a family other flows use needs one too, and `fonts faces replace` always (its old file
-cannot be restored: show which face of which family gets which file, then `--yes`). A new upload
-that collides with nothing adds faces and needs none.
+flows. Follow [the font collision steps](references/media.md#uploading-a-font) and ask before you run
+the printed replacement. A face update on a family other flows use needs a yes too, and
+`fonts faces replace` always needs one. A new upload that collides with nothing needs none.
 
 `validate` and `preview` change nothing and cost nothing. Use them freely.
 
