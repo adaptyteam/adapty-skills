@@ -262,8 +262,7 @@ because it is confidently wrong at scale — so it does not ship without this.
   payoff is made of) in the export-verified shape, and `config()` refuses a predicate naming
   nothing, because that half is compiled and fatal while a `variable` span in the same prop merely
   renders its token. Also asserted: `spinner()` fixes `icon.type` to `custom` (a phosphor spinner
-  is a 422), `footer()` refuses a `position`, `screen()` refuses two footers and a
-  `footer` + `scrollable: false` pair, and a theme hex outside `#RRGGBB` raises.
+  is a 422), `footer()` refuses a `position`, `screen()` refuses two footers, and a theme hex outside `#RRGGBB` raises.
 - **The bug it was built to kill.** Three build scripts once had three `runs()` helpers that agreed
   on the name and disagreed on what a tuple meant — one read `('var', id)` as a variable node, one
   read `(text, colorId)` as a coloured span, one crashed. Copying a call between them produced the

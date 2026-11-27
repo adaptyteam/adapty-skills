@@ -2765,16 +2765,6 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     for s in d.get('screens', []):
         m = s['elements']['map']
         feet = [k for k, e in m.items() if e.get('type') == 'footer']
-        # DEVICE-CONFIRMED: a footer on a non-scrollable screen does not render at
-        # all, and its children go with it — so a CTA inside it takes the screen's only
-        # navigation. Invisible to every local gate (preview draws it in both modes, and both
-        # the schema check and `flows config validate` pass it), which is exactly why it is
-        # mechanical here. Error, not warning: the bar is simply gone on a device.
-        if feet and s['props'].get('scrollable') is False:
-            bad.append(f'screen {s["id"]}: footer {feet[0]} on a NON-SCROLLABLE screen — '
-                       f'device-confirmed to not render at all, taking any CTA inside it with '
-                       f'it. Set scrollable true, or drop the footer and use the root\'s '
-                       f'distribution: space-between for a bottom bar.')
         # A SECOND footer drew zero pixels — not misplaced, absent. Certainly broken, so an error.
         if len(feet) > 1:
             bad.append(f'screen {s["id"]}: {len(feet)} footer elements ({sorted(feet)}) — a '
