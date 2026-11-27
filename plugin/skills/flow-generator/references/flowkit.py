@@ -577,6 +577,60 @@ def platform_is(platform):
     return eq(ref('system.platform'), lit(platform))
 
 
+# Device locale: the region and language of the first locale the SDK reports (iOS and Android
+# SDK 4.0.0+). An open value set, so only the shape is checked: a region is two upper-case letters
+# (ISO 3166-1 alpha-2), a language two or three lower-case letters (ISO 639). The SDK maps a
+# legacy language code to the current one, so an authored legacy code never matches. `==` / `!=`
+# take one value, `in` / `notIn` a non-empty list; no other operator, unset value or write.
+LOCALE_VARIABLES = {'system.region': re.compile(r'[A-Z]{2}\Z'),
+                    'system.language': re.compile(r'[a-z]{2,3}\Z')}
+LOCALE_SHAPE = {'system.region': 'two upper-case letters (ISO 3166-1 alpha-2), like "US"',
+                'system.language': 'two or three lower-case letters (ISO 639), like "en"'}
+LEGACY_LANGUAGE = {'iw': 'he', 'in': 'id', 'ji': 'yi'}
+
+
+def _locale_value_issue(vid, val):
+    """Why one value of a locale comparison is refused, or None."""
+    if val is None:
+        return 'has no value'
+    if not isinstance(val, str):
+        return f'is compared with {val!r}, which is not a string'
+    if vid == 'system.language' and val in LEGACY_LANGUAGE:
+        return (f'is compared with the legacy code {val!r}; use {LEGACY_LANGUAGE[val]!r}, which '
+                f'the SDK reports for it')
+    if not LOCALE_VARIABLES[vid].match(val):
+        return f'is compared with {val!r}; a value is {LOCALE_SHAPE[vid]}'
+    return None
+
+
+def _locale_is(vid, codes, negate, name):
+    if isinstance(codes, str):
+        why = _locale_value_issue(vid, codes)
+        if why:
+            raise ValueError(f'{name}(): {vid} {why}')
+        return (neq if negate else eq)(ref(vid), lit(codes))
+    if not isinstance(codes, (list, tuple)) or not codes:
+        raise ValueError(f'{name}() takes one code or a non-empty list of codes, got {codes!r}')
+    for c in codes:
+        why = _locale_value_issue(vid, c)
+        if why:
+            raise ValueError(f'{name}(): {vid} {why}')
+    return {'type': 'notIn' if negate else 'in', 'left': ref(vid), 'right': lit(list(codes))}
+
+
+def region_is(codes, *, negate=False):
+    """The device region is `codes` (one code: `==`) or one of them (a list: `in`);
+    `negate=True` gives `!=` / `notIn`. A device with no region matches only the negated form:
+    `region_is(['US', 'LR', 'MM'])` shows miles, `region_is([...], negate=True)` kilometres."""
+    return _locale_is('system.region', codes, negate, 'region_is')
+
+
+def language_is(codes, *, negate=False):
+    """The device language (its primary code: `es-MX` is `es`) is `codes` or one of them;
+    `negate=True` gives `!=` / `notIn`. A device with no language matches only the negated form."""
+    return _locale_is('system.language', codes, negate, 'language_is')
+
+
 def lit(value):
     """A constant operand: `{"type": "const", "value": …}`."""
     return {'type': 'const', 'value': value}
@@ -4080,7 +4134,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                     head = vid.split('.')[0]
                     if vid in SYSTEM_VARIABLES and vid not in custom_vars:
                         continue
-                    if (vid in custom_vars or head in produced or head in group_ids
+                    if (vid in custom_vars or vid in LOCALE_VARIABLES or head in produced
+                            or head in group_ids
                             or head in product_ids):
                         continue
                     unresolved.add(vid)
@@ -4107,6 +4162,47 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                 if isinstance(left, dict) and left.get('variableId') in SYSTEM_VARIABLES:
                     raise ValueError(f'setVariable writes {left["variableId"]}, which is '
                                      f'read-only.')
+    # The device locale (`region_is()` / `language_is()`): the publish refuses any other
+    # operator, a value of the wrong shape or kind, an unset value and a write
+    # (`invalid_locale_condition`, `write_to_reserved_locale`). A `variables=` entry with the same
+    # id is an ordinary custom variable.
+    locale_ids = set(LOCALE_VARIABLES) - custom_vars
+
+    def _is_locale(n):
+        return isinstance(n, dict) and n.get('type') == 'var' and n.get('variableId') in locale_ids
+
+    for o in _walk_dicts(screens):
+        t = o.get('type')
+        if t in _BINARY + _UNARY:
+            for side, other in (('left', o.get('right')), ('right', o.get('left'))):
+                if not _is_locale(o.get(side)):
+                    continue
+                vid = o[side]['variableId']
+                listed = t in ('in', 'notIn')
+                if not (listed or t in ('==', '!=')) or (listed and side == 'right'):
+                    raise ValueError(f'{vid} cannot be the {side} side of `{t}`; use '
+                                     f'region_is() / language_is().')
+                if not (isinstance(other, dict) and other.get('type') == 'const'):
+                    raise ValueError(f'{vid} is compared with {other!r}; compare it with a '
+                                     f'constant, as region_is() / language_is() do.')
+                val = other.get('value')
+                if t in ('in', 'notIn') and not (isinstance(val, list) and val):
+                    raise ValueError(f'{vid} takes a non-empty list with `{t}`, got {val!r}.')
+                if t in ('==', '!=') and isinstance(val, list):
+                    raise ValueError(f'{vid} takes one value with `{t}`, got a list; use `in`.')
+                for v in val if isinstance(val, list) else [val]:
+                    why = _locale_value_issue(vid, v)
+                    if why:
+                        raise ValueError(f'{vid} {why}.')
+        if t == 'setVariable' and isinstance(o.get('payload'), list):
+            for asg in o['payload']:
+                if isinstance(asg, dict) and _is_locale(asg.get('left')):
+                    raise ValueError(f'setVariable writes {asg["left"]["variableId"]}, which is '
+                                     f'read-only device context.')
+        if (t == 'variable' and isinstance(o.get('attrs'), dict)
+                and o['attrs'].get('variableId') in locale_ids):
+            raise ValueError(f'{o["attrs"]["variableId"]} is in text; the device locale works '
+                             f'only in conditions.')
     if unresolved:
         raise ValueError(
             f'condition variable(s) {sorted(unresolved)} resolve to nothing in this document. '
