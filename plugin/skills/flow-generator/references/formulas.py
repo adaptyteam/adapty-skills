@@ -10,7 +10,8 @@ are the service's own, so a local finding and a 422 read the same:
 
     formula_syntax_error, formula_argument_count, formula_operand_type,
     formula_unknown_reference, formula_ambiguous_reference, formula_cycle,
-    set_variable_formula_target, date_or_formula_in_action_text, invalid_formula_variable
+    formula_undeclared_product, set_variable_formula_target, date_or_formula_in_action_text,
+    invalid_formula_variable
 
 Mirrors the formula language as the builder and the transformer check it: read from their
 source, and the codes and messages checked against the live validate endpoint. When the
@@ -28,14 +29,32 @@ FUNCTIONS = {
     'round': (1, 2), 'floor': (1, 1), 'mod': (2, 2), 'today': (0, 0),
     'addDays': (2, 2), 'addWeeks': (2, 2), 'addMonths': (2, 2), 'addYears': (2, 2),
     'addOfferDuration': (2, 2),
+    'daysBetween': (2, 2), 'weeksBetween': (2, 2), 'monthsBetween': (2, 2), 'yearsBetween': (2, 2),
 }
 DATE_SHIFTS = ('addDays', 'addWeeks', 'addMonths', 'addYears')
+DATE_DIFFERENCES = ('daysBetween', 'weeksBetween', 'monthsBetween', 'yearsBetween')
 # What a text shows a Date as: on the variable (`dateFormat`) or on its text node.
 DATE_FORMATS = ('short', 'medium', 'long', 'month-day', 'month-day-short')
 # An answer a formula can read, and what it reads as. Keyed by the element's customId.
 ANSWER_TYPES = {'text-input': 'number', 'number-input': 'number', 'wheel-range-picker': 'number',
                 'date-picker': 'date', 'date-time-picker': 'date'}
-NUMERIC_PRODUCT_FIELDS = ('prod_price', 'offer_price')
+# The elements whose customId is an answer at all; a formula reads only those of ANSWER_TYPES.
+EDITABLE_TYPES = (*ANSWER_TYPES, 'email-input', 'password-input', 'phone-input', 'time-picker')
+PRODUCT_FIELDS = (
+    'prod_title', 'prod_price', 'prod_price_per_day', 'prod_price_per_week', 'prod_price_per_month',
+    'prod_price_per_year', 'prod_billing_price', 'prod_billing_period', 'is_free_trial',
+    'is_pay_up_front', 'is_pay_as_you_go', 'is_monthly_plan', 'offer_price', 'offer_billing_period',
+    'offer_full_duration', 'offer_price_per_day', 'offer_price_per_week', 'offer_price_per_month',
+    'offer_price_per_year')
+# What a formula reads of a catalog product, `{{<product id>.<field>}}`: its price with no offer.
+PRICE_FIELDS = ('prod_price', 'prod_price_per_day', 'prod_price_per_week', 'prod_price_per_month',
+                'prod_price_per_year')
+NUMERIC_PRODUCT_FIELDS = PRICE_FIELDS + ('offer_price',)
+CATALOG_UNSUPPORTED = ('Offers, billing plans and fields other than prod_price, prod_price_per_day, '
+                       'prod_price_per_week, prod_price_per_month and prod_price_per_year of a '
+                       'catalog product are not supported yet')
+# `<product id>[(<offer id>)][@<plan>].<field path>`
+_CATALOG_REF = re.compile(r'([^.()@\s]+)(?:\(([^()\s]+)\))?(?:@([^.()@\s]+))?\.([^()@\s]+)')
 CALCULATED = ('formula', 'date')
 
 _TOKEN = re.compile(r'\s*(?:(\{\{[^{}]*\}\})|(\d+(?:\.\d+)?)|([A-Za-z_][A-Za-z0-9_]*)|(.))')
@@ -71,9 +90,11 @@ class _Scope:
         self.product_groups = set()
         for host in _hosts(config):
             for e in (((host.get('elements') or host).get('map')) or {}).values():
-                cid = (e.get('props') or {}).get('customId') if isinstance(e, dict) else None
+                if not (isinstance(e, dict) and e.get('type') in EDITABLE_TYPES):
+                    continue
+                cid = (e.get('props') or {}).get('customId')
                 if isinstance(cid, str) and cid:
-                    self.answers.setdefault(cid, e.get('type'))
+                    self.answers[cid] = e.get('type')
         for s in config.get('screens') or []:
             for g in s.get('selectableGroups') or []:
                 if g.get('type') == 'product':
@@ -86,12 +107,14 @@ class _Scope:
         sources = [('variable', v) for v in self.variables if v.get('name') == name]
         if name.endswith('.value') and name[:-len('.value')] in self.answers:
             sources.append(('answer', self.answers[name[:-len('.value')]]))
-        head, sep, rest = name.partition('.selectedProduct')
+        head, sep, rest = name.rpartition('.selectedProduct')
         if sep and head in self.product_groups:
             if rest == '':
                 sources.append(('product', head))
-            elif rest.startswith('.'):
+            elif rest.startswith('.') and rest[1:] in PRODUCT_FIELDS:
                 sources.append(('field', rest[1:]))
+        if not sources:
+            sources += self.catalog(name)
         if not sources:
             raise FormulaError('formula_unknown_reference',
                                f'{{{{{path}}}}} is not a variable, an answer or a product field of '
@@ -101,6 +124,23 @@ class _Scope:
                                f'{{{{{path}}}}} names more than one thing (a custom variable named '
                                f'like an answer or a product field); rename the variable')
         return sources[0]
+
+    def catalog(self, name):
+        """A catalog product comes last: only a head that is no answer, group or variable, and a
+        first field that is a product field. Any product id counts: the publish does not read the
+        app catalog either."""
+        m = _CATALOG_REF.fullmatch(name)
+        if not m:
+            return []
+        pid, offer, plan, fields = m.groups()
+        path = fields.split('.')
+        if '' in path or path[0] not in PRODUCT_FIELDS or (
+                pid in self.answers or pid in self.product_groups
+                or any(pid in (v.get('id'), v.get('name')) for v in self.variables)):
+            return []
+        if offer is None and plan is None and len(path) == 1 and path[0] in PRICE_FIELDS:
+            return [('catalog', pid)]
+        return [('catalog_unsupported', pid)]
 
 
 class _Checker:
@@ -186,7 +226,9 @@ class _Checker:
         if self.peek() != ('op', ')'):
             while True:
                 start = self.i
-                if name == 'addOfferDuration' and len(args) == 1:
+                if (name == 'addOfferDuration' and len(args) == 1) or (
+                        name in DATE_DIFFERENCES and self.peek()[0] == 'ref'
+                        and self.toks[self.i + 1:self.i + 2] in ([('op', ',')], [('op', ')')])):
                     args.append(self.primary(product_ok=True))
                 else:
                     args.append(self.expr())
@@ -198,6 +240,8 @@ class _Checker:
         self.take('op', ')')
         lo, hi = FUNCTIONS[name]
         if not lo <= len(args) <= hi:
+            if name in DATE_DIFFERENCES:
+                raise FormulaError('formula_argument_count', f'{name}() needs two dates')
             raise FormulaError('formula_argument_count',
                                f'{name}() takes {lo if lo == hi else f"{lo} or {hi}"} '
                                f'argument(s), got {len(args)}')
@@ -214,6 +258,10 @@ class _Checker:
             return 'number'
         if name == 'today':
             return 'date'
+        if name in DATE_DIFFERENCES:
+            if args != ['date', 'date']:
+                raise FormulaError('formula_operand_type', f'{name}() needs two dates')
+            return 'number'
         if args[0] != 'date':
             raise FormulaError('formula_operand_type', f'{name}() needs a date first')
         if name in DATE_SHIFTS:
@@ -230,15 +278,20 @@ class _Checker:
             if not product_ok:
                 raise FormulaError('formula_operand_type',
                                    f'{{{{{path}}}}} is a product: it goes only into '
-                                   f'addOfferDuration(); read a price as .prod_price or '
-                                   f'.offer_price')
+                                   f'addOfferDuration(); read a price as .prod_price, '
+                                   f'.offer_price or a per-period price')
             return 'product'
         if kind == 'field':
             if what not in NUMERIC_PRODUCT_FIELDS:
                 raise FormulaError('formula_operand_type',
-                                   f'{{{{{path}}}}}: a formula reads only prod_price and '
-                                   f'offer_price of a product')
+                                   f'{{{{{path}}}}}: a formula can read only the '
+                                   f'{", ".join(NUMERIC_PRODUCT_FIELDS[:-1])} and '
+                                   f'{NUMERIC_PRODUCT_FIELDS[-1]} product fields')
             return 'number'
+        if kind == 'catalog':
+            return 'number'
+        if kind == 'catalog_unsupported':
+            raise FormulaError('formula_operand_type', f'{{{{{path}}}}}: {CATALOG_UNSUPPORTED}')
         if kind == 'answer':
             t = ANSWER_TYPES.get(what)
             if not t:
@@ -318,6 +371,108 @@ def formula_types(config):
     return types, errors
 
 
+def _reads(o, catalog, out):
+    """Variable ids read by `var` operands and text variables, in every declared locale: the
+    publish drops a catalog value of a locale that `localization.locales` does not declare."""
+    if isinstance(o, dict):
+        attrs = o.get('attrs')
+        if o.get('type') == 'var' and isinstance(o.get('variableId'), str):
+            out.add(o['variableId'])
+        elif (o.get('type') == 'variable' and isinstance(attrs, dict)
+              and isinstance(attrs.get('variableId'), str)):
+            out.add(attrs['variableId'])
+        entry = catalog['content'].get(o['_lid']) if isinstance(o.get('_lid'), str) else None
+        if isinstance(entry, dict) and isinstance(entry.get('values'), dict):
+            _reads([v for k, v in entry['values'].items() if k in catalog['locales']], catalog, out)
+        for v in o.values():
+            _reads(v, catalog, out)
+    elif isinstance(o, list):
+        for v in o:
+            _reads(v, catalog, out)
+    return out
+
+
+def _placed(items, out):
+    for item in items or []:
+        if isinstance(item, dict):
+            if item.get('type') == 'global':
+                out.add(item.get('id'))
+            else:
+                _placed(item.get('children'), out)
+    return out
+
+
+def read_formulas(config):
+    """{screen id: ids of the formulas it reads}: its texts in every locale, its conditions and
+    actions, the components its hierarchy places, and each formula these read. The key None is a
+    progress bar, which shows with no placement."""
+    scope = _Scope(config)
+    loc = config.get('localization') or {}
+    catalog = {'content': loc.get('content') or {},
+               'locales': {l.get('id') for l in loc.get('locales') or [] if isinstance(l, dict)}}
+    comps = config.get('components') or {}
+    comps = comps if isinstance(comps, dict) else {}
+    formulas = {v['id']: v for v in scope.variables if v.get('valueType') == 'formula'}
+
+    def closure(ids):
+        pending, seen = [i for i in ids if i in formulas], set()
+        while pending:
+            fid = pending.pop()
+            if fid not in seen:
+                seen.add(fid)
+                pending += _deps(formulas[fid].get('expression') or '', scope)
+        return seen
+    out = {}
+    for s in config.get('screens') or []:
+        ids = _reads(s, catalog, set())
+        for cid in _placed(((s.get('elements') or {}).get('hierarchy') or {}).get('children'), set()):
+            ids |= _reads(comps.get(cid), catalog, set())
+        out[s.get('id')] = closure(ids)
+    bar = next((c for c in comps.values() if _is_progress_bar(c)), None)
+    out[None] = closure(_reads(bar, catalog, set()) if bar else set())
+    return out
+
+
+def _is_progress_bar(component):
+    """The publish shows only the first component whose hierarchy has a progress bar at its top
+    level; another one is a duplicate it ignores."""
+    if not isinstance(component, dict):
+        return False
+    elements = component.get('map') or {}
+    return any(isinstance(item, dict) and item.get('type') != 'global'
+               and (elements.get(item.get('id')) or {}).get('type') == 'progress-bar'
+               for item in (component.get('hierarchy') or {}).get('children') or [])
+
+
+def catalog_products(expression, config):
+    """The catalog products whose price `expression` reads, in order."""
+    scope, out = _Scope(config), []
+    for path in re.findall(r'\{\{([^{}]*)\}\}', expression):
+        try:
+            kind, pid = scope.resolve(path.strip())
+        except FormulaError:
+            continue
+        if kind == 'catalog' and pid not in out:
+            out.append(pid)
+    return out
+
+
+def base_row_product(entry):
+    """The product id of a `_meta.screens` Products row with no offer and no plan, else None. The
+    publish trims the id and skips a row whose id is not a string."""
+    if not (isinstance(entry, dict) and entry.get('flowProductId') and not entry.get('offerId')
+            and 'billingPlanId' not in entry and isinstance(entry.get('id'), str)):
+        return None
+    return entry['id'].strip() or None
+
+
+def _base_rows(config):
+    """The products with a Products row with no offer and no plan on a screen of the flow."""
+    screens = {s.get('id') for s in config.get('screens') or []}
+    return {base_row_product(e) for sid, decl in ((config.get('_meta') or {}).get('screens') or {}).items()
+            if sid in screens and isinstance(decl, dict) for e in decl.get('products') or []} - {None}
+
+
 def _walk(o, path, visit, id_keyed=False):
     """Paths as the service prints them: the keys of an id-keyed map (`map`, `values`) quoted."""
     visit(o, path)
@@ -373,6 +528,17 @@ def issues(config):
     for fid, e in errors.items():
         i, v = by_id[fid]
         out.append((e.code, f'variables[{i}].expression', f'Formula "{v.get("name")}": {e}'))
+    # A formula that nothing reads publishes with no value, so only a read one needs its product.
+    read = set().union(*read_formulas(config).values())
+    declared = _base_rows(config)
+    for i, v in enumerate(variables):
+        if v.get('id') in read and isinstance(v.get('expression'), str):
+            for pid in catalog_products(v['expression'], config):
+                if pid not in declared:
+                    out.append(('formula_undeclared_product', f'variables[{i}].expression',
+                                f'Formula "{v.get("name")}": the product "{pid}" has no Products '
+                                f'row with no offer and no plan on any screen of the flow; add it '
+                                f'to the Products of a screen that reads the formula'))
 
     formula_ids = {v['id'] for v in variables if v.get('valueType') == 'formula'}
     calculated = {v['id']: v for v in variables
