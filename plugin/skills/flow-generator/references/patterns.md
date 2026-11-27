@@ -862,9 +862,6 @@ schema plus the render checks above rather than read off builder output.
   440×956 Pro Max (render it on `iphone-18-pro-max`).
 - **After restructuring a screen, hunt for orphaned fixed buttons**: two stacked CTAs render as
   one, and the SDK taps the topmost — a footer added late can leave an old Continue underneath it.
-- **`Scrollable = off` + `footer` = no footer on the device.** It is a hard constraint and it is
-  [rule 0](#a-bar-that-stays-at-the-bottom-use-footer). The preview draws the footer in both
-  scroll modes, so a render can never clear this one; only a device can.
 - **On Android a footer on a short scrollable screen sits flush to the physical bottom with the
   gap above it, as designed** — confirmed on a device, the standard a render does not meet. If a
   void below the footer ever appears (Android computing the footer's height separately), docking
@@ -978,7 +975,7 @@ content, and a button under it takes no taps.
 |---|---|
 | `type: "footer"`, `scrollable: true` | pinned at the viewport bottom, at its authored 88pt |
 | identical props, `type: "stack"` | **nowhere** — below the fold |
-| `type: "footer"`, `scrollable: false` | same pinned band in the preview — **and NO FOOTER AT ALL on device** (see the rule below; this row is why a local render is not a device) |
+| `type: "footer"`, `scrollable: false` | same pinned band |
 | `footer` declared **first** in `hierarchy` | same pinned band — declaration order is irrelevant |
 | a **second** `footer` on the screen | draws **nothing at all**, zero pixels |
 | `footer` with **short** content above it | same pinned band, void *above* it |
@@ -1007,21 +1004,14 @@ under a CTA.
 
 **Device-confirmed** (Adapty mobile app, Android): the footer pins to the bottom while
 content scrolls **behind** it, the last row clears it at full scroll with no authored reservation,
-and on a short screen it sits flush to the physical bottom. What the device *changed* versus the
-preview is exactly one thing, and it is rule 0.
+and on a short screen it sits flush to the physical bottom. With `scrollable: false` the device
+pins the same bar, and the content keeps the bar's height free; content taller than the screen
+is cut off, as on any screen that does not scroll. A flow last published before 2026-11-27 has
+no footer on such a screen until it is published again. A screen whose content fits on a phone
+does not need a footer at all: see [A tall phone's extra height goes to the
+hero](#a-tall-phones-extra-height-goes-to-the-hero).
 
-Five rules follow. The first is a hard requirement and the local render cannot see it:
-
-0. **A `footer` requires `scrollable: true`. Never pair one with `scrollable: false`.**
-   Device-confirmed (Adapty mobile app): with the scroll off the footer **does not
-   render at all** — not misplaced, absent, and every child inside it goes with it, so a CTA
-   living in the footer takes the screen's only navigation with it. The preview draws it
-   identically in both modes, so this is invisible to `config preview`, to the schema check and
-   to `flows config validate`. `flowkit.screen()` refuses the pair and `verify-config.py`
-   errors on it. If a screen must not scroll, it cannot have a footer — use the root's own
-   [`space-between`](#putting-a-short-screens-content-and-bar-apart-the-roots-own-distribution)
-   instead. And a screen whose content fits on a phone does not need a footer at all: see
-   [A tall phone's extra height goes to the hero](#a-tall-phones-extra-height-goes-to-the-hero).
+Four rules follow:
 
 1. **One `footer` per screen.** With two, neither becomes the screen's pinned footer on a device:
    the transform service keeps both as plain overlays and warns. So a CTA and a legal row go
@@ -1068,9 +1058,8 @@ docked CTA, and the dead void an in-flow bar leaves on a tall device.
 
 **Keep `scrollable: true`.** On a device a vertical scrollable screen's content is at least one
 viewport tall, so the spread has room on a tall phone, and the screen still scrolls on a short
-one. `scrollable: false` clips content taller than the viewport, and takes a footer away
-entirely (rule 0 above). Spread across the two halves of the screen, never across a list of
-rows: on a tall phone every gap in the list grows. See [flow-schema.md trap 10b](flow-schema.md)
+one. `scrollable: false` clips content taller than the viewport. Spread across the two halves of
+the screen, never across a list of rows: on a tall phone every gap in the list grows. See [flow-schema.md trap 10b](flow-schema.md)
 for the vocabulary.
 
 ### A bottom-docked button
@@ -1539,8 +1528,7 @@ that is not at the root, and refuses two.
   device, with the sheet riding up over it on scroll. **Never anchor it `top` and
   `bottom` too**: that one stretched over the whole screen and painted over the sheet.
 - **The footer goes inside the sheet, as its last child, or at the root.** Either way it is the
-  screen's one pinned bar, and rule 0 of the footer section still holds: `scrollable` must stay
-  `true`.
+  screen's one pinned bar.
 - **`scrollable` decides whether the sheet can grow.** With `true`, the sheet grows with its content
   and the screen scrolls. With `false`, the sheet is held at its start height and anything taller is
   cut off.

@@ -836,9 +836,6 @@ def main():
     check('two footers on one screen raise (a second one draws zero pixels)',
           raises(lambda: fk.screen('scr_x', [fk.footer([], fill_=fk.fill('surface')),
                                              fk.footer([], fill_=fk.fill('surface'))])))
-    check('a footer on a non-scrollable screen raises (device-confirmed: it does not render)',
-          raises(lambda: fk.screen('scr_ns', [fk.footer([], fill_=fk.fill('surface'))],
-                                   scrollable=False)))
     check('one footer per screen is fine',
           fk.screen('scr_y', [fk.stack([]), fk.footer([], fill_=fk.fill('surface'))])
             is not None)

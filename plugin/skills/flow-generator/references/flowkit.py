@@ -1118,9 +1118,8 @@ def footer(children=(), *, fill_=None, padding=None, gap=16, direction='vertical
     """The screen's pinned bottom bar. NOT a stack you position yourself.
 
     A `footer` is lifted out of the layout flow and pinned to the bottom of the viewport while
-    the content scrolls past it. **It requires the screen to be `scrollable`** -- device-confirmed,
-    with the scroll off it does not render at all, and the preview cannot show you that
-    (`screen()` refuses the pair). Varying one thing at a time: the same props under
+    the content scrolls past it. On a screen that does not scroll it is pinned the same way, and
+    the content keeps its height free. Varying one thing at a time: the same props under
     `type: "stack"` put the bar below the fold; the pinned band is identical whether the screen is
     `scrollable` or not, and whether the footer is declared first or last.
 
@@ -3581,14 +3580,6 @@ def screen(screen_id, nodes, *, caption=None, fill_=None, padding=None,
             raise ValueError(
                 f'screen {screen_id!r}: footer {k} is nested inside another element. A footer '
                 'sits at the screen root, or directly inside the sliding sheet as its last child.')
-    if feet and not scrollable:
-        raise ValueError(
-            f'screen {screen_id!r} pairs a footer ({feet[0]}) with scrollable=False. '
-            'DEVICE-CONFIRMED: with the scroll off the footer does not render at all, and every '
-            'child goes with it -- a CTA in the footer takes the screen\'s navigation with it. '
-            'The preview draws it in both modes, so no local check can see this. Either '
-            'scrollable=True, or drop the footer and put the bar at the bottom with '
-            "distribution='space-between'.")
     fill_kids = [c['id'] for c in hierarchy['children']
                  if (node_map[c['id']].get('props', {}).get('height') or {}).get('type') == 'fill']
     if feet and fill_kids:
