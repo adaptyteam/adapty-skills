@@ -380,8 +380,8 @@ class MyFlowsObserver extends AdaptyUIFlowsEventsObserver {
   @override
   void flowViewDidFinishPurchase(AdaptyUIFlowView view,
       AdaptyPaywallProduct product, AdaptyPurchaseResult purchaseResult) {
-    // No auto-dismiss in v4 — dismiss yourself, or do nothing to let the flow continue
-    if (purchaseResult is! AdaptyPurchaseResultUserCancelled) {
+    // Success only. If the flow's "When succeeded" outcome leads on, leave this empty.
+    if (purchaseResult is AdaptyPurchaseResultSuccess) {
       view.dismiss();
     }
   }

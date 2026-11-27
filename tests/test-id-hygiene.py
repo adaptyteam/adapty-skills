@@ -131,6 +131,24 @@ for label, eid in (('a hyphen', 'el-hero'), ('a dot', 'el.hero'), ('a space', 'e
     fires(f'element id with {label} ({eid})',
           doc([screen('scr_1', [text_el(eid)])]), 'outside [A-Za-z0-9_]')
 
+def with_decl(d, decl):
+    d['_meta']['screens'] = {sid: {'products': ps} for sid, ps in decl.items()}
+    return d
+
+
+print()
+print('flowProductId names one product slot in the whole flow (duplicate_flow_product_id):')
+_P = '7658234e-f95b-474e-bf5c-4b9ae634029e'
+fires('the same flowProductId declared on two screens',
+      with_decl(doc([screen('scr_1', [text_el('el_a')]), screen('scr_2', [text_el('el_b')])]),
+                {'scr_1': [{'id': _P, 'flowProductId': 'fp_1'}],
+                 'scr_2': [{'id': _P, 'flowProductId': 'fp_1'}]}),
+      'flowProductId fp_1 is declared on more than one screen')
+silent('the same product on two screens with its own flowProductId on each',
+       with_decl(doc([screen('scr_1', [text_el('el_a')]), screen('scr_2', [text_el('el_b')])]),
+                 {'scr_1': [{'id': _P, 'flowProductId': 'fp_1'}],
+                  'scr_2': [{'id': _P, 'flowProductId': 'fp_2'}]}))
+
 print()
 print('FIRES on an element id reused across screens:')
 fires('the same id on two screens',

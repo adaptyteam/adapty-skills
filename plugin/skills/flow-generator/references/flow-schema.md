@@ -341,16 +341,18 @@ array of **inline** nodes, of which exactly three types exist:
 {"type": "token",    "attrs": {"token": "timer_minutes"}}
 ```
 
-**A `variable` span takes no formatting of its own** — you cannot strike or bold the price
-without styling the whole line. The strikethrough recipe that works on a device is a
-*separate* `text` element holding the other product's price variable, with strikethrough and colour
-applied at the **element** level, not in rich text — its known costs: the hidden donor product adds
-invisible scroll, and deleting it takes the visible price down with it.
+**A `variable` node carries its own marks, beside `variableId`:** `"strikethrough": true` (or
+`bold`, `italic`, `underline`) in its `attrs` strikes just the price. Publishing keeps the marks and
+both SDKs draw them; a mark on the `text` node next to it does not reach the variable. The Flow
+Builder has no control for this and no real export carries one, so check a struck price on a
+device before shipping it. The route already verified on a device is a *separate* `text` element
+holding the other product's price variable, with strikethrough and colour applied at the
+**element** level — its known costs: the hidden donor product adds invisible scroll, and deleting
+it takes the visible price down with it.
 
 `variable` carries prices and user input; `token` carries countdown digits. Neither has a
-`text` key, and per
-[Style variables](https://adapty.io/docs/onboarding-variables.md) formatting cannot be
-applied to a variable at all — which is why they carry no `attrs` marks.
+`text` key. [Style variables](https://adapty.io/docs/onboarding-variables.md) describes the
+builder's editor, which offers no formatting on a variable; a mark written in the config is kept.
 
 A paragraph rebuilt from its rendered plain text still renders and still looks right in the
 export — but a flattened `variable` node is a hardcoded price that has stopped tracking the
@@ -427,11 +429,14 @@ Worth having in full, because it is the answer to "what do I bind instead of typ
 | `is_free_trial`, `is_pay_up_front`, `is_pay_as_you_go` | booleans, for conditional visibility |
 | `is_monthly_plan` | boolean: this user buys the binding under the monthly plan |
 
-Two things to carry with them. **Every `offer_*` field is empty when the user is not eligible for
+Three things to carry with them. **Every `offer_*` field is empty when the user is not eligible for
 an offer**, so a line built around one silently loses its number for everyone else — gate it on
 `is_free_trial` rather than assuming it renders. And `offer_billing_period` equals
 `offer_full_duration` for trial and pay-upfront offers but *not* for pay-as-you-go (1 week versus
-3 weeks in the docs' own example), so they are not interchangeable.
+3 weeks in the docs' own example), so they are not interchangeable. And the period's words come
+from the device, not the render: iOS prints whole weeks of days as weeks and 12 months as a year
+(a 7-day trial reads "1 week"), while Android prints the period as Google Play stores it (P7D
+reads "7 days"). Write copy that reads right with either, never a number beside the field.
 
 A boolean is for visibility, never for text: the transform service refuses one inside rich text
 (`boolean_product_var_in_text`).
@@ -612,12 +617,11 @@ Per [Save & publish](https://adapty.io/docs/builder-save-publish.md), a custom f
 be in the app bundle or users see the system fallback. `_meta.fonts[].url` records the
 uploaded file; its presence in the export is not what makes the font available on device.
 
-**And a font cannot be added from here at all — uploading one is a manual Flow Builder action.**
-There is no CLI command for it (`flows media upload` takes images only), and hand-authoring a `_meta.fonts` entry fabricates an asset `id`/`url` pair, which is
-trap 5 with a typeface. So when a design needs a font the account does not have, the ask is
-two-step and both halves are the user's: upload the font in the builder, then tell the agent —
-who can then point `theme.typography` presets or element `font.family` at the real id the
-upload minted.
+**A font is added through the `fonts` commands, never by writing `_meta.fonts`.** Hand-authoring
+an entry fabricates an asset `id`/`url` pair, which is trap 5 with a typeface. Given the font
+files, upload them ([media.md → Uploading a font](media.md#uploading-a-font)) and point
+`theme.typography` presets or element `font.family` at the family id the upload returned; with no
+file, the font is a named ask to the user.
 
 Introducing a custom-font reference is therefore a **runtime** footgun, not a publish error:
 the flow publishes, and the text renders in the wrong typeface on devices whose bundle lacks
@@ -635,27 +639,30 @@ design needs a weight the family lacks, say which face will draw instead.
 for each text, rich-text span, state override and typography preset, in every locale. Without a
 name the transform service refuses the flow with `font_face_missing_ios_name`, and its message
 names the font and the face; an unnamed face nothing draws with publishes.
-`flows config validate` reports it; `verify-config.py` does not. It is
-the user's to fix, not yours: they set the name on that face in the builder's font settings, then
-you validate again. Never type a name into `_meta.fonts` — it would not match their bundle.
+`flows config validate` reports it; `verify-config.py` does not. Fix it on the face, then
+validate again: `fonts faces update <FACE_ID> --ios-name` with the PostScript name the file
+carries (on the user's yes when other flows use that family), or the user sets it in the builder's
+font settings. Never type a name into `_meta.fonts` — it would not match their bundle.
 
 **Publishing reads the app's fonts, not the copy in `_meta.fonts`.** The custom font lives once
 per app. Each flow carries a snapshot of it, refreshed when someone saves that flow in the
-builder, so a name corrected through `config update` comes back on read and changes nothing at
-publish. The fix is always the user's, in the font's settings in the builder
+builder and by `flows publish`, which saves the current fonts into the snapshot before it
+publishes; a name corrected through `config update` changes nothing at publish. The fix goes to
+the font: `fonts faces update`, or the font's settings in the builder
 ([Manage a custom font](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)).
-`flows config validate` sees it at once, and a flow picks it up the next time its config changes
-and it is published. A flow left as it was keeps the names it was last published with, so name
-those flows in the handoff. The names have one shape each
+`flows config validate` sees it at once, and a flow gets it at its next publish. A flow left as
+it was keeps the names it was last published with: a font command that changes a family lists
+those flows (`flows_to_publish`), so name them in the handoff. The names have one shape each
 ([Add the font files to your app's bundle](https://adapty.io/docs/using-custom-fonts-in-flow-builder.md)):
 
 | Field | Must be |
 |---|---|
 | `iosName` | the PostScript name stored in the font file, unique across the app's custom fonts. A variable font file often declares none for an instance; iOS then registers it as `<the file's own PostScript name>_<the instance's style name, spaces as dashes>`, such as `RobotoFlex-Regular_Bold-Italic`, which the builder offers as a hint |
-| `androidName` | the file name in `res/font/` without the extension: lowercase letters, digits and `_` only. The builder never fills it in |
+| `androidName` | the file name in `res/font/` without the extension: a lowercase letter first, then lowercase letters, digits and `_` only. Neither the builder nor the upload fills it in |
 
 When a face a text draws with has no `androidName`, or a flow you touch carries a name of the
-wrong shape, report it with that rule and the settings link above. Neither `validate` nor
+wrong shape, report it with that rule and the settings link above; once the user names the file
+in their app, `fonts faces update <FACE_ID> --android-name` sets it. Neither `validate` nor
 `verify-config.py` flags either; the flow publishes, and that device draws the system font instead.
 
 A reference can enter by any of invariant 9's paths, and the preset is the quiet one:
@@ -715,8 +722,8 @@ rather than reaching for `zIndex`.
 **The horizontal pair works the same way: `left` and `right` take `width: {"type": "auto"}`**,
 the width the three `fixed` CTAs above carry. With `width: fill` the anchors are ignored — the
 element takes its parent's full width starting at the `left` offset and runs past the right edge
-(rendered, on a text and on a stack); `auto` keeps both insets, in the preview and on a device. `flowkit` defaults such an element
-to `auto` and refuses `fill`.
+(rendered, on a text and on a stack); a `fixed` width also starts at `left` and ignores `right`. `auto` keeps both insets, in the preview and on a device. `flowkit` defaults such an element
+to `auto` and refuses `fill` and `fixed_w`; `verify-config.py` warns on either.
 
 **An `absolute` element paints over every `relative` sibling, wherever either one is listed, and a
 `zIndex` on a `relative` element does nothing** (preview render; no device run). So never raise a
@@ -1051,6 +1058,15 @@ it, or after a colon — because mid-sentence it leaves a double space ("You hav
 string tag that has to start a sentence ("Maria, better places…") gets its own text element, or
 the punctuation moves into the value the app passes. `verify-config.py` warns on both: a word
 fallback on a multi-locale flow, and an empty fallback between two spaces.
+
+**An empty value does not remove its text.** Both SDKs draw a tag with no value as empty text, so
+a `text` holding only the tag keeps its place and its line's height on a device, and a tag cannot
+drive `visibility`. Keep the tag inside a line that has words of its own.
+
+**A fallback in each locale's own words takes a tag per locale:** `user_name_en` in the English
+text with "there", `user_name_sr` in the Serbian text with its own word. Each string shows its own
+tag's fallback, and it publishes; the app must then pass the value under every one of those names,
+so ask the user whether it will before you build it. `verify-config.py` warns with the list.
 
 **Keep the copy in the flow and pass only the bare value** — the city, the number — so the words
 stay translatable in the builder. Have the app pass a whole phrase only when the language changes

@@ -378,8 +378,8 @@ public class FlowPresenter : MonoBehaviour, IAdaptyFlowsEventsListener
         AdaptyPaywallProduct product,
         AdaptyPurchaseResult purchasedResult)
     {
-        // Nothing closes the flow on its own — dismiss it once the user has access.
-        if (purchasedResult.Type != AdaptyPurchaseResultType.UserCancelled)
+        // Success only. If the flow's "When succeeded" outcome leads on, leave this empty.
+        if (purchasedResult.Type == AdaptyPurchaseResultType.Success)
             view.Dismiss(null);
     }
 
@@ -395,7 +395,7 @@ public class FlowPresenter : MonoBehaviour, IAdaptyFlowsEventsListener
 
 **The v4 defaults changed and none of it is a compile error — verify these by running the flow, not by reading the diff:**
 
-- **A flow stays open after a successful purchase or an error.** In v3 the view dismissed itself. Dismiss it yourself in `FlowViewDidFinishPurchase`, or the user completes a purchase and stays staring at the paywall.
+- **A flow stays open after a successful purchase or an error.** In v3 the view dismissed itself. Dismiss it yourself in `FlowViewDidFinishPurchase` on a successful result, unless the flow's **When succeeded** outcome shows another screen or closes it.
 - **The Android system back button no longer closes a flow.** It arrives at `FlowViewDidPerformAction` as a `SystemBack` action and does nothing on its own. Give the user an explicit way out — a Close button in the flow, or dismiss on that action — or the flow is a dead end on Android.
 - **A view is single-use.** After `Dismiss` it is destroyed; call `CreateFlowView` again to show the flow a second time.
 

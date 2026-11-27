@@ -335,7 +335,7 @@ try {
   // setEventHandlers resolves to an unsubscribe function — capture it if the view
   // outlives the screen that created it, otherwise dismiss() is enough.
   await view.setEventHandlers({
-    // Defaults keep the flow OPEN after a purchase. Close it once the user has access.
+    // Defaults keep the flow OPEN. Close on success, unless the flow's "When succeeded" outcome leads on.
     onPurchaseCompleted(purchaseResult, product) {
       return purchaseResult.type === 'success';
     },
@@ -365,7 +365,7 @@ Leave `onAndroidSystemBack` at its default only if the flow has its own Close bu
 
 **iOS presentation style:** `await view.present({ iosPresentationStyle: 'page_sheet' })` for a sheet instead of full screen. Android is always a full-screen activity and ignores this.
 
-**Checkpoint:** Flow appears on screen with configured products. Tapping a product triggers the sandbox purchase dialog, and the flow closes after a successful purchase rather than sitting there.
+**Checkpoint:** Flow appears on screen with configured products. Tapping a product triggers the sandbox purchase dialog, and after a successful purchase the flow shows its next screen or closes.
 
 **Gotcha:** Blank flow or `getFlow` returns an error → placement ID doesn't match the dashboard exactly (case-sensitive), or the placement has no audience assigned.
 

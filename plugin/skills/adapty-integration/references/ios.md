@@ -111,11 +111,16 @@ final class AdaptyService: NSObject, ObservableObject, AdaptyDelegate {
 
     @Published var profile: AdaptyProfile?
 
+    /// Set once at launch (Stage 1, Step 2). Every other Adapty call waits for it: a call that runs
+    /// before activation finishes throws `notActivated` (2002).
+    var activation: Task<Void, Error>?
+
     var isPremiumUser: Bool {
         profile?.accessLevels[AppConstants.accessLevelId]?.isActive ?? false
     }
 
     func reloadProfile() async {
+        _ = try? await activation?.value
         profile = try? await Adapty.getProfile()
     }
 
@@ -192,7 +197,10 @@ struct YourApp: App {
             .with(logLevel: .info)
             .build()
         Adapty.delegate = AdaptyService.shared
-        Task { try await Adapty.activate(with: config) }
+        AdaptyService.shared.activation = Task {
+            try await Adapty.activate(with: config)
+            try await AdaptyUI.activate()  // only if using Flow Builder
+        }
     }
 
     var body: some Scene {
@@ -217,7 +225,10 @@ func application(_ application: UIApplication, didFinishLaunchingWithOptions ...
         .with(logLevel: .info)
         .build()
     Adapty.delegate = AdaptyService.shared
-    Task { try await Adapty.activate(with: config) }
+    AdaptyService.shared.activation = Task {
+        try await Adapty.activate(with: config)
+        try await AdaptyUI.activate()  // only if using Flow Builder
+    }
     return true
 }
 ```
@@ -254,6 +265,7 @@ https://adapty.io/docs/handle-paywall-actions.md
 **Required call signature** — always use the labeled parameter, and pass `locale` to `getFlowConfiguration` (not to `getFlow`):
 ```swift
 // Correct
+try await AdaptyService.shared.activation?.value
 let flow = try await Adapty.getFlow(placementId: AppConstants.placementId)
 let flowConfiguration = try await AdaptyUI.getFlowConfiguration(forFlow: flow, locale: "en")
 
@@ -282,6 +294,7 @@ https://adapty.io/docs/restore-purchase.md
 
 **Required call signature** — always use the labeled parameter:
 ```swift
+try await AdaptyService.shared.activation?.value
 let flow = try await Adapty.getFlow(placementId: AppConstants.placementId)
 let products = try await Adapty.getPaywallProducts(flow: flow)
 // NOT: Adapty.getFlow(AppConstants.placementId)

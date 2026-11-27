@@ -640,9 +640,16 @@ def main():
     check('custom_element refuses a Type outside [a-z0-9_]',
           'lowercase' in _message(lambda: fk.custom_element('Lottie-Anim', 'x', fixed_h=200,
                                                             fallback=[still()])))
-    check('custom_element refuses a hug box',
+    check('custom_element refuses a box with no height',
           'collapses' in _message(lambda: fk.custom_element('map', 'x', fixed_h=None,
                                                             fallback=[still()]), TypeError))
+    _ceh = fk.custom_element('lottie_animation', 'badge', hug=True,
+                             fallback=[fk.image(fk.PLACEHOLDER, fixed_h=120, fit='fit')])
+    check('custom_element(hug=True) gives a hug height, for a view that sets its own',
+          _ceh['props']['height'] == fk.size('hug'))
+    check('custom_element refuses a fixed height and hug together',
+          'one of' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200, hug=True,
+                                                         fallback=[fk.text('x')])))
     check('custom_element refuses an empty fallback',
           'empty box' in _message(lambda: fk.custom_element('map', 'x', fixed_h=200,
                                                             fallback=[])))
@@ -1869,9 +1876,8 @@ def main():
     check('an in-flow element keeps the fill default',
           fk.stack([])['props']['width'] == {'type': 'fill'})
     check('a timer keeps its hug default in flow', fk.timer()['props']['width'] == {'type': 'hug'})
-    check('a fixed width with both anchors is the author\'s call and passes',
-          fk.stack([], fixed_w=120, position=_lr)['props']['width']
-          == {'type': 'fixed', 'value': 120})
+    check("a fixed width with both anchors is refused, naming width='auto' (the right anchor pins nothing)",
+          "width='auto'" in _message(lambda: fk.stack([], fixed_w=120, position=_lr)))
 
     # --- inputs: the preset defaults to body, so config() refuses a theme that lacks it
     print('\ninput presets:')
@@ -1966,6 +1972,16 @@ def main():
           'needs max_lines' in _message(lambda: fk.text('Plan', auto_shrink=True)))
     check('max_lines=0 is refused', raises(lambda: fk.text('Plan', max_lines=0)))
     check('max_lines=True is refused', raises(lambda: fk.text('Plan', max_lines=True)))
+
+    # --- text content: a bare {locale: text} map is not a localizable ---
+    _bare = _message(lambda: fk.text({'en': 'OK', 'de': 'OK'}))
+    check('text() refuses a bare per-locale map, naming rich() and the fallback',
+          'rich(' in _bare and 'falls back' in _bare, _bare)
+    check('text() takes rich(), localized(), a string and a catalog ref',
+          not raises(lambda: fk.text(fk.rich('OK')))
+          and not raises(lambda: fk.text(fk.localized('OK')))
+          and not raises(lambda: fk.text('OK'))
+          and not raises(lambda: fk.text({'_lid': 'lc_title'})))
 
     print()
     if FAILURES:
