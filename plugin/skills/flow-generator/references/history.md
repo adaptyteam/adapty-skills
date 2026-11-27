@@ -221,7 +221,9 @@ command makes the copy in another app of the same account. Check it first:
 `$ADAPTY flows copy --help`. If `--help` says the command does not exist, try it once as
 `npx --yes adapty@beta flows copy --help`; if that works, use that form only after you tell the
 user it is a beta release and they say yes. If it is still missing, say that this CLI does not
-copy a flow to another app yet, and use [the old way](#the-old-way-with-no-flows-copy).
+copy a flow to another app yet, and use [the old way](#the-old-way-with-no-flows-copy). Over MCP
+there is no tool for it: run this command with the CLI when it is ready; else offer to set up the
+CLI, or the old way.
 
 ```bash
 $ADAPTY apps list --json     # both ids; the target is another app of the same account
@@ -231,15 +233,18 @@ $ADAPTY flows copy <FLOW_ID> --app <SOURCE_APP_UUID> --to-app <TARGET_APP_UUID> 
 - **Content:** the draft, else the live version; there is no `--version`. For the live version of
   a `dirty` flow, or an older version, duplicate that version first
   ([Duplicate a version to a new flow](#duplicate-a-version-to-a-new-flow)) and copy the new flow;
-  tell the user that the duplicate stays in the source app.
+  tell the user that the duplicate stays in the source app. The copy then has the duplicate's
+  `_copy` name: rename it with `flows update --name` ([build.md](build.md)).
 - **Run it once,** as a duplicate: each call adds one more flow to the target app, with the
   source name and no `_copy`. Keep the `flow_id` of the answer.
 - **Tell the user each `checklist` item** (`kind`, `message`): `products_removed` (every product
   and offer id of the source app is gone, with the product and formula variables that used one:
   bind the target app's products, [products.md](products.md)); `font_replaced`,
-  `font_not_in_source_app`, `font_import_failed` (that family is now the system font: upload it to
-  the target app, [media.md → Uploading a font](media.md#uploading-a-font), or pick another,
-  [flow-schema.md → Invariants](flow-schema.md#invariants) row 9);
+  `font_import_failed` (that family is now the system font: upload it to the target app,
+  [media.md → Uploading a font](media.md#uploading-a-font), or pick another,
+  [flow-schema.md → Invariants](flow-schema.md#invariants) row 9); `font_not_in_source_app` (a
+  font that is not of the source app is now the system font, and the item names none: pick
+  another font, row 9; never upload one for it);
   `fonts_to_bundle` ([trap 8](flow-schema.md#8-custom-fonts-do-not-ship-with-the-flow)). Media
   URLs, the other variables, custom tags and actions, and remote configs are copied as they are.
   The copy is not published.
@@ -248,7 +253,8 @@ $ADAPTY flows copy <FLOW_ID> --app <SOURCE_APP_UUID> --to-app <TARGET_APP_UUID> 
   --json` shows them.
 - **Errors:** `target_app_not_available` (a wrong id, no access, or another account: say so, never
   pick another app yourself); `target_app_is_source_app` (use `flows duplicate`); `flow_archived`
-  as for a restore.
+  as for a restore; `flow_not_found` (the flow is not in `--app`: check both ids);
+  `flow_version_not_found` (the flow has no version yet: there is nothing to copy).
 
 Then go on with the edit on the new flow: phase 2 as an existing flow, with `--app` the target app.
 

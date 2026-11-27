@@ -432,8 +432,8 @@ if you declare the products yourself, as above.
 > is the benign case: the product exists and the declaration has not been written yet, so
 > publishing or a builder edit fixes it. The same code also fires when the product id **does not
 > exist in this app at all** — the usual route being a flow grafted from another app, where the
-> UUIDs travel and the products do not (a `flows copy --to-app` copy removes them). No amount of publishing repairs that; the binding has to
-> be changed. Tell the two apart before reassuring anyone, with one call per id:
+> UUIDs travel and the products do not (a `flows copy --to-app` copy removes them). No amount of
+> publishing repairs that; the binding has to be changed. Tell the two apart before reassuring anyone, with one call per id:
 >
 > ```bash
 > $ADAPTY products get <product-uuid> --app "$APP" --json
