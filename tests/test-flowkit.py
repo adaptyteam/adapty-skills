@@ -239,9 +239,12 @@ def main():
     check('show_elements(animation=kind) writes the builder defaults',
           fk.show_elements(['el_a'], animation='rise')['payload']['animation']
           == {'type': 'rise', 'duration': 300, 'delay': 0, 'easing': 'ease-out', 'distance': 32})
-    check('a delay alone is the none kind, with the duration and easing the schema requires',
-          fk.element_animation('none', delay=5000)
-          == {'type': 'none', 'duration': 300, 'delay': 5000, 'easing': 'ease-out'})
+    check('the none kind carries the duration and easing the schema requires',
+          fk.element_animation('none')
+          == {'type': 'none', 'duration': 300, 'delay': 0, 'easing': 'ease-out'})
+    check('a delayed reveal with no visible motion is a 1 ms fade',
+          fk.element_animation('fade', duration=1, delay=5000)
+          == {'type': 'fade', 'duration': 1, 'delay': 5000, 'easing': 'ease-out'})
     fixed = {'id': 'b', 'props': {'width': {'type': 'fixed', 'value': 300},
                                   'height': {'type': 'fixed', 'value': 56}}}
     check('animate() puts a wave on a fixed element',
@@ -259,6 +262,10 @@ def main():
             ('an element delay over 60000 ms', lambda: fk.element_animation('fade', delay=60001)),
             ('a rise takes no scale', lambda: fk.element_animation('rise', scale=0.5)),
             ('none takes no distance', lambda: fk.element_animation('none', distance=10)),
+            ('a delay with none fails the publish check',
+             lambda: fk.element_animation('none', delay=5000)),
+            ('a delay with a 0 ms duration fails the publish check',
+             lambda: fk.element_animation('fade', duration=0, delay=5000)),
             ('a pop scale under 0.1', lambda: fk.element_animation('pop', scale=0.05)),
             ('a rise distance over 200', lambda: fk.element_animation('rise', distance=201)),
             ('a rise distance of 0', lambda: fk.element_animation('rise', distance=0)),
