@@ -1,7 +1,7 @@
 # Currencies and mappings: shapes, the mapping file, refusals
 
-Open this when you read a currency, build a mapping change or a create, or meet a refusal. The
-commands and the yes rules are in `SKILL.md`.
+Open this when you read a currency, build a card, or meet a refusal. The commands and the yes
+rules are in `SKILL.md`.
 
 ## A currency
 
@@ -61,7 +61,9 @@ items in one upsert, one item for each product.
 
 ## Building the card
 
-From the read just before the write. The card names currencies and products, never ids.
+From the read just before the write. The card names currencies and products, never ids; only a
+balance adjustment names the user by their ID and the currency by its code, as a user has no other
+name.
 
 **A mapping change:** one line for each item that differs from the read.
 
@@ -84,6 +86,17 @@ loses their coins on a reinstall or a new device; the app should identify users
 (https://adapty.io/docs/virtual-currency-balance#balances-profiles-and-devices).
 
 **A name or a description:** old → new of what changes; the rest stays.
+
+**A balance adjustment:** from the balances read just before it (`profiles balances get`), one
+line `<user>: <balance> → <balance after> <code>, <direction>, <operation>`, then the feature, and
+the reference ID and the comment when you send them. The user is named as the user gave it (a
+customer user ID or a profile ID). For a debit, add the `available` coins when they differ from
+the balance. Then: **the balance changes at once;** an undo is a new adjustment the other way.
+
+Example of the line's shape, not words to copy:
+
+> user_123: 40 → 50 GEMS, credit, adjustment
+> Feature: support_compensation. Comment: lost coins after a crash
 
 ## Refusals the server sends
 

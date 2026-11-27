@@ -31,7 +31,7 @@ Gemini CLI), all shipped in one plugin, `adapty-skills`:
 | `purchase-testing` | The first sandbox purchase and every failed one |
 | `refund-saver` | Runs Refund Saver through the CLI's `refund-saver` topic or its MCP tools: store readiness, the switch, store and per-user preferences, consent policy, troubleshooting |
 | `retention-messaging` | Runs Apple Retention Messaging through the CLI's `retention-messaging` topic or its MCP tools: setup status, URL and performance test, messages, their status and numbers |
-| `virtual-currencies` | Runs virtual currencies through the CLI's `virtual-currencies` topic or its MCP tools: currencies, product mappings, the coin ledger and a user's balances |
+| `virtual-currencies` | Runs virtual currencies through the CLI's `virtual-currencies` topic or its MCP tools: currencies, product mappings, the coin ledger, a user's balances and a manual correction of one user's balance |
 
 Three distribution channels: the Claude Code plugin (marketplace `.claude-plugin/marketplace.json`,
 plugin in `plugin/` with `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`), the
@@ -306,7 +306,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 
 ### `virtual-currencies`
 
-- **Every write runs only after the user's yes to its card,** built from a `get` right before it; the card lines live in `references/mappings.md` alone. The `updated_at` of that read is the write's token; a 409 is a new read, a new card and a new yes.
+- **Every write runs only after the user's yes to its card,** built from a `get` right before it (a balance adjustment: from `profiles balances get`, with no token); the card lines live in `references/mappings.md` alone. The `updated_at` of that read is the write's token; a 409 is a new read, a new card and a new yes.
 - **A mapping item is the whole mapping;** the upsert never removes one, a removal is `mappings delete`, one product each.
 - **Coin analytics are `growth-advisor`'s:** totals, trends and how coin products sell come from its chart reads, never from a sum of ledger rows; this skill invokes it.
 - **Commands and flags come from `src/cli/commands/virtual-currencies/**` in `adapty-cli`, the MCP parameters from the `virtual_currencies_*` tools;** the skill names only the flags it needs and sends the rest to `--help`.
