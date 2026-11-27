@@ -1318,9 +1318,10 @@ check('...silent for an app that ships on Android only',
 check('...and the close that really closes is silent', not of(run(QUIZ)[1], 'exit-offer-on-dismiss'))
 
 
-def _sheet_offer(sell=True, opener='el_WaTCB9iWLJ'):
+def _sheet_offer(sell=True, opener='el_WaTCB9iWLJ', trigger=None):
     """The quiz with a hidden bottom sheet on its paywall, opened by `opener`; the sheet
-    holds a purchase button when `sell`, an info line otherwise."""
+    holds a purchase button when `sell`, an info line otherwise. `trigger` replaces the
+    opening interaction's trigger."""
     c = load(QUIZ)
     pw = next(s for s in c['screens'] if s['id'] == PAYWALL)
     m = pw['elements']['map']
@@ -1335,6 +1336,8 @@ def _sheet_offer(sell=True, opener='el_WaTCB9iWLJ'):
         {'id': 'el_sheet', 'children': [{'id': 'el_sheetBtn', 'children': []}]})
     m[opener]['interactions'][0]['actions'] = [
         {'id': 'act_s', 'type': 'showElement', 'payload': {'elements': ['el_sheet']}}]
+    if trigger:
+        m[opener]['interactions'][0]['trigger'] = trigger
     return c
 
 
@@ -1346,6 +1349,13 @@ check('...silent when the sheet sells nothing',
       not of(run(_sheet_offer(sell=False))[1], 'exit-offer-on-dismiss'))
 check('...and silent when the purchase button itself opens the sheet (plans in a sheet)',
       not of(run(_sheet_offer(opener='el_DnQrboHhqE'))[1], 'exit-offer-on-dismiss'))
+check('...and silent when a textless element reveals it On Appear: nobody tapped a close',
+      not of(run(_sheet_offer(trigger='screen-appear'))[1], 'exit-offer-on-dismiss'))
+_c = _second_offer()
+next(s for s in _c['screens'] if s['id'] == PAYWALL)['elements']['map']['el_WaTCB9iWLJ'][
+    'interactions'][0]['trigger'] = 'screen-appear'
+check('...and silent when the second paywall follows On Appear, not a close',
+      not of(run(_c)[1], 'exit-offer-on-dismiss'))
 
 
 def _relabel_purchase(text_value):
