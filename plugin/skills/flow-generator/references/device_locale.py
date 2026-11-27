@@ -21,8 +21,8 @@ def value_issue(vid, value):
     if not isinstance(value, str):
         return f'is compared with {value!r}, which is not a string'
     if vid == 'system.language' and value in LEGACY_LANGUAGE:
-        return (f'is compared with the legacy code {value!r}; use {LEGACY_LANGUAGE[value]!r}, '
-                f'which the SDK reports for it')
+        return (f'is compared with the legacy code {value!r}. '
+                f'Use {LEGACY_LANGUAGE[value]!r}, the code the condition reads')
     if not CODES[vid].fullmatch(value):
         return f'is compared with {value!r}; a value is {SHAPES[vid]}'
     return None
