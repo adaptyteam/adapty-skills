@@ -2403,9 +2403,15 @@ def products_key(h):
                   for p in h.get('products') or [])
 
 
+def title_key(h):
+    return ' '.join((h.get('title') or '').split()).casefold()
+
+
 def match(draft, rows):
     """What the backlog already holds of a draft: (bucket, row). A product change matches only a row with the same
-    products; one that differs only in products while a row of that change is open needs `force` to be saved."""
+    products; one that differs only in products while a row of that change is open needs `force` to be saved. Any
+    other change also compares titles: an open row of its kind under another title may be a different change, and
+    the agent judges which (`same-kind`)."""
     same = [r for r in rows if change_key(r) == change_key(draft)]
     if (draft.get('type') or '').split(':')[-1] in PRODUCT_TYPES:
         exact = [r for r in same if products_key(r) == products_key(draft)]
@@ -2413,6 +2419,14 @@ def match(draft, rows):
             blocking = next((r for r in same if r.get('state') in OPEN), None)
             return ('force', blocking) if blocking else ('new', None)
         same = exact
+    elif same:
+        titled = [r for r in same if title_key(r) == title_key(draft)]
+        if not titled:
+            blocking = next((r for r in same if r.get('state') in OPEN), None)
+            if blocking:
+                return 'same-kind', blocking
+        else:
+            same = titled
     if not same:
         return 'new', None
     return min(((BUCKET.get(r.get('phase') or r.get('state'), 'backlog'), r) for r in same),
@@ -2535,6 +2549,9 @@ SAY = {
     'new': 'new: suggest it',
     'force': 'new, but an open hypothesis of the same change, saved or earlier in this file, differs only in '
              'products: save it with "force": true',
+    'same-kind': 'an open hypothesis of the same kind on the same flow or screen, saved or earlier in this file, has '
+                 'another title: if both change the same thing, treat this one as in the backlog; if it changes '
+                 'something else, suggest it and save it with "force": true',
     'tested': 'tested: do not suggest it again; its next rung can take its place (levers.md, "Next rung")',
     'testing': 'its A/B test runs now: remind the user, do not suggest it',
     'backlog': 'in the backlog: remind the user only if its Why still holds in this month\'s numbers; otherwise offer '
