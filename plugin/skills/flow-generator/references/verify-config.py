@@ -104,7 +104,8 @@ UNMAPPED_ELEMENT_TYPES = {
 }
 
 # The closed set of product-variable fields, from the public docs page the skill already links
-# (adapty.io/docs/onboarding-variables.md). A field outside it is refused by the transform
+# (adapty.io/docs/onboarding-variables.md) plus the four `intro_*` / `has_intro_price` fields of
+# the builder's product field list. A field outside it is refused by the transform
 # service as `unknown_product_field` -- which the service treats as the author's own typo, i.e.
 # fixable, unlike the product-registry codes beside it. Verified closed against the corpus: the
 # 15 distinct variableIds there use only `prod_price`, `prod_price_per_month` and
@@ -116,6 +117,7 @@ PRODUCT_FIELDS = {
     'offer_price', 'offer_billing_period', 'offer_full_duration',
     'offer_price_per_day', 'offer_price_per_week', 'offer_price_per_month', 'offer_price_per_year',
     'is_free_trial', 'is_pay_up_front', 'is_pay_as_you_go', 'is_monthly_plan',
+    'intro_price', 'intro_billing_period', 'intro_full_duration', 'has_intro_price',
 }
 
 # ---- prices, discounts and durations written as literal text -----------------------------
@@ -2239,8 +2241,9 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
         # `offer_*` and `is_*` variable entirely -- head included -- and let
         # `<bogus-uuid>.offer_price` pass silently. The field families are the discriminator, and they do not collide with the
         # other variable shapes in the corpus (`email.value`, `plans.selectedProduct`,
-        # `quiz.selectedOptionId`).
-        if not field.startswith(('prod_', 'offer_', 'is_')):
+        # `quiz.selectedOptionId`). The intro fields are matched by name, not by family, so a
+        # custom variable that happens to start with `intro_` or `has_` is left alone.
+        if not (field.startswith(('prod_', 'offer_', 'is_')) or field in PRODUCT_FIELDS):
             continue
         if field not in PRODUCT_FIELDS:
             bad.append(f'{v}: {field!r} is not a product variable field — the transform service '
