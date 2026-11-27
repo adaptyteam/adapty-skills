@@ -87,8 +87,8 @@ A push notification request is in the builder (`requestPermission`, [trap 28](re
 but the app still answers it: say so and make the same offer.
 
 **A view the app can draw is a custom element, not a gap.** A Lottie or Rive animation that
-follows the user, a map, a chart of the user's data, a camera preview, any view the app already
-has: the flow gets a box with a Type and an ID, the app's code draws into it, and users the app
+follows the user, a map, a chart of the user's data, a camera preview, a live coin balance or a
+spend button, any view the app already has: the flow gets a box with a Type and an ID, the app's code draws into it, and users the app
 does not serve see the box's fallback. Read
 [custom-elements.md](references/custom-elements.md) before you call any of these "not in the
 builder yet", and build it from its template in
@@ -178,7 +178,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [custom-tags-code.md](references/custom-tags-code.md) | The user said yes to passing the flow's custom tags from their app's code |
 | [fidelity.md](references/fidelity.md) | A reference image was given — the per-element inventory, the gap-closing ladder, and what becomes a user ask |
 | [media.md](references/media.md) | The screen has an image: the upload's limits, element-versus-`fill` shapes, geometry, and when to rasterize |
-| [custom-elements.md](references/custom-elements.md) | The user wants something the builder has no element for that the app could draw — a Lottie or Rive animation, a map, a chart, a camera, a view from the app — and the templates in [custom-elements/](references/custom-elements/) |
+| [custom-elements.md](references/custom-elements.md) | The user wants something the builder has no element for that the app could draw — a Lottie or Rive animation, a map, a chart, a camera, a live coin balance or a spend button, a view from the app — and the templates in [custom-elements/](references/custom-elements/) |
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
 | [history.md](references/history.md) | The user asks about an earlier version: the list, a look at one, a restore into the draft, a rollback of a publish, a duplicate to a new flow |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
@@ -269,7 +269,7 @@ options.
 Example of the question's shape, not words to copy:
 
 > I can reach your Adapty account in two ways. Which one should I set up?
-> 1. The Adapty CLI (better for this): I install it, and you sign in once in the browser.
+> 1. The Adapty CLI: I install it, and you sign in once in the browser.
 > 2. The Adapty MCP server: you add it to your AI tool and sign in; nothing to install.
 
 **This skill prefers the CLI:** `gates.sh`, `shoot.sh` and the preview script run it, and over

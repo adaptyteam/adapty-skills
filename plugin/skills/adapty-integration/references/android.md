@@ -503,6 +503,14 @@ Use `AskUserQuestion` before deciding to skip. When nobody can answer, take **No
 
 If the user says no, skip the rest of this stage.
 
+**When the app sells coins** (a product gives gems, credits or another virtual currency, or the code
+or the user mentions one), add to the question that without identification a reinstall or a new
+device starts the player at 0 coins, and word the skip option as **No, skip — players lose their
+coins on a reinstall or a new device**. With nobody to answer, still skip, and say in the closing
+message that coins are lost on a reinstall until identification is done. **Balances never merge
+between profiles:** coins earned anonymously stay behind when the player logs in to an account that
+already has a profile ([Balances, profiles, and devices](https://adapty.io/docs/virtual-currency-balance#balances-profiles-and-devices)).
+
 Read before writing code:
 ```
 https://adapty.io/docs/android-quickstart-identify.md
@@ -510,7 +518,7 @@ https://adapty.io/docs/android-quickstart-identify.md
 
 **What to do:**
 - Call `Adapty.identify("your-user-id")` after `activate()` and before `getFlow()`
-- For apps where users can purchase before logging in, call `identify()` at login — Adapty handles profile merging automatically
+- For apps where users can purchase before logging in, call `identify()` at login — Adapty handles profile merging automatically, except coin balances, which stay on the profile that earned them
 - Call `Adapty.logout()` when users log out
 
 ```kotlin

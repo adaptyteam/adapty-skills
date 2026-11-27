@@ -600,6 +600,14 @@ Use `AskUserQuestion` before deciding to skip. When nobody can answer, take **No
 
 If the user says no, skip the rest of this stage.
 
+**When the app sells coins** (a product gives gems, credits or another virtual currency, or the code
+or the user mentions one), add to the question that without identification a reinstall or a new
+device starts the player at 0 coins, and word the skip option as **No, skip — players lose their
+coins on a reinstall or a new device**. With nobody to answer, still skip, and say in the closing
+message that coins are lost on a reinstall until identification is done. **Balances never merge
+between profiles:** coins earned anonymously stay behind when the player logs in to an account that
+already has a profile ([Balances, profiles, and devices](https://adapty.io/docs/virtual-currency-balance#balances-profiles-and-devices)).
+
 Read before writing code:
 ```bash
 curl -s https://adapty.io/docs/react-native-quickstart-identify.md
@@ -609,7 +617,7 @@ curl -s https://adapty.io/docs/react-native-identifying-users.md
 **What to do:**
 - Pass `customerUserId` to `adapty.activate()` at launch if you already have it stored — this is the most efficient path and avoids creating an anonymous profile first
 - If the user ID isn't available at launch (e.g. user hasn't logged in yet), call `adapty.identify("your-user-id")` after login/signup
-- For apps where users can purchase before logging in, call `identify()` at login — Adapty handles profile merging automatically
+- For apps where users can purchase before logging in, call `identify()` at login — Adapty handles profile merging automatically, except coin balances, which stay on the profile that earned them
 - Call `adapty.logout()` when users log out; also call `UserManager.logout()` to clear the stored ID
 
 ```typescript

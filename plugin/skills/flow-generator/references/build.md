@@ -132,7 +132,8 @@ Otherwise declare it with `flowkit.app_value()`, show it with `Var`, and settle 
 batched with the product questions: the **name** the app's code will pass (theirs, if they
 already have one) and the **fallback** — what every user sees until the app supplies the value.
 With nobody to ask, choose both and say so. Text only — branching on one is not buildable
-([flow-schema.md → trap 25](flow-schema.md#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)).
+([flow-schema.md → trap 25](flow-schema.md#25-a-value-only-the-app-knows-is-a-custom-tag--shown-in-text-never-read-by-logic)). A coin balance that must change while the flow is open, after a spend or a purchase, is a
+custom element instead ([custom-elements/coins.md](custom-elements/coins.md)).
 
 ## Assets: upload the file, then build with its URL
 
