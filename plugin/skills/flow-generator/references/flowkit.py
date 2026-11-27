@@ -2482,8 +2482,8 @@ def element_animation(kind, *, duration=None, delay=None, easing=None, distance=
 
     A `delay` needs motion: `none`, or a `duration` of 0, with a delay compiles to an element
     with an empty `event_handlers` list, which the publish check refuses as
-    `output_schema_violation`. An element that appears after the wait with no visible motion
-    is `element_animation('fade', duration=1, delay=...)`.
+    `output_schema_violation`. An element that appears after a wait is
+    `element_animation('fade', delay=...)`.
     """
     if kind not in ELEMENT_ANIMATIONS:
         raise ValueError(f'element_animation({kind!r}): the kinds are {sorted(ELEMENT_ANIMATIONS)}')
@@ -2504,8 +2504,8 @@ def element_animation(kind, *, duration=None, delay=None, easing=None, distance=
         raise ValueError(
             f'element_animation({kind!r}, delay={out["delay"]}) with no motion fails the publish '
             f'check (output_schema_violation: event_handlers must not have fewer than 1 items). '
-            f"For an element that appears after the wait without visible motion, use "
-            f"element_animation('fade', duration=1, delay={out['delay']})")
+            f"For an element that appears after a wait, use "
+            f"element_animation('fade', delay={out['delay']})")
     if 'easing' in out and out['easing'] not in ELEMENT_EASINGS:
         raise ValueError(f'easing {out["easing"]!r}: use one of {ELEMENT_EASINGS}')
     if 'distance' in out and (isinstance(out['distance'], bool)

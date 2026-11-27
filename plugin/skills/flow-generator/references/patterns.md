@@ -357,7 +357,7 @@ seconds, a headline that rises in) starts `visibility: hidden`, and On Appear sh
 
 | `type` | What the user sees | Extra key |
 |---|---|---|
-| `none` | The element appears at once. With a `delay` it fails the publish check (`output_schema_violation`), and so does a `duration` of 0: a wait with no visible motion is `fade` at `duration` 1 | |
+| `none` | The element appears at once. With a `delay` it fails the publish check (`output_schema_violation`), and so does a `duration` of 0: a wait is the `fade` above | |
 | `fade` | It fades in | |
 | `rise` | It fades in and moves up into place | `distance`, pt below its place, 1 to 200, 32 |
 | `pop` | It fades in and grows into place | `scale` it starts from, 0.1 to 0.99, 0.8 |

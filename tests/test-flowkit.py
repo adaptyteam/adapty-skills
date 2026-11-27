@@ -242,9 +242,9 @@ def main():
     check('the none kind carries the duration and easing the schema requires',
           fk.element_animation('none')
           == {'type': 'none', 'duration': 300, 'delay': 0, 'easing': 'ease-out'})
-    check('a delayed reveal with no visible motion is a 1 ms fade',
-          fk.element_animation('fade', duration=1, delay=5000)
-          == {'type': 'fade', 'duration': 1, 'delay': 5000, 'easing': 'ease-out'})
+    check('a delayed reveal is a fade at the builder defaults',
+          fk.element_animation('fade', delay=5000)
+          == {'type': 'fade', 'duration': 300, 'delay': 5000, 'easing': 'ease-out'})
     fixed = {'id': 'b', 'props': {'width': {'type': 'fixed', 'value': 300},
                                   'height': {'type': 'fixed', 'value': 56}}}
     check('animate() puts a wave on a fixed element',
