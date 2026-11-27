@@ -180,7 +180,7 @@ Each file **owns** its facts; link rather than restate, or the copies drift.
 | [media.md](references/media.md) | The screen has an image: the upload's limits, element-versus-`fill` shapes, geometry, and when to rasterize |
 | [custom-elements.md](references/custom-elements.md) | The user wants something the builder has no element for that the app could draw — a Lottie or Rive animation, a map, a chart, a camera, a live coin balance or a spend button, a view from the app — and the templates in [custom-elements/](references/custom-elements/) |
 | [products.md](references/products.md) | Before touching a `product` element — `products create` writes to a live dashboard |
-| [history.md](references/history.md) | The user asks about an earlier version: the list, a look at one, a restore into the draft, a rollback of a publish, a duplicate to a new flow |
+| [history.md](references/history.md) | The user asks about an earlier version: the list, a look at one, a restore into the draft, a rollback of a publish, a duplicate to a new flow; a copy of a flow to another app (`flows copy --to-app`) |
 | [merge.md](references/merge.md) | The flow has been edited by a human since it was generated, or you are tempted to re-run a build script over an existing flow |
 | [transforms.md](references/transforms.md) | You hit a point where two answers are defensible and silence is the only wrong one |
 | [patterns.md](references/patterns.md) | You need a composite you cannot guess: tabs, progress bars, toggles, countdowns, a number or date the flow calculates (a formula), screen transitions, what the user sees after they buy, a screen that moves on by itself, an element that appears after a delay or animates in, plan cards |
@@ -343,6 +343,7 @@ $ADAPTY apps list --json                                       # to get <APP_UUI
 $ADAPTY flows list   --app <APP_UUID> [--page N] [--page-size N]    # page-size max 100
 $ADAPTY flows create --app <APP_UUID> --name <name>            # row only; always `draft`; a flow with no source
 $ADAPTY flows duplicate <FLOW_ID> --app <APP_UUID> [--version <FLOW_VERSION_ID>] --json  # copy to "<name>_copy", one draft
+$ADAPTY flows copy <FLOW_ID> --app <APP_UUID> --to-app <TARGET_APP_UUID> --json  # same name, one draft in another app: history.md
 $ADAPTY flows get    <FLOW_ID> --app <APP_UUID>
 $ADAPTY flows config get      <FLOW_ID> --app <APP_UUID> --json     # errors until first write
 $ADAPTY flows config validate <FLOW_ID> --app <APP_UUID> (--config-file <f|-> | --config <json>) --json

@@ -100,7 +100,7 @@ a block by hand:
 | **Saved styles** | Elements lose their `colorId` / `font.preset` — those ids live in the destination's `theme`, which does not have them. |
 | **Navigation actions** | `navigate` payloads lose their destination. A `scr_…` id from another flow is a dangling target and a publish blocker. |
 | **Localizations** | Only locales both flows share keep their values. Everything else falls back to the destination's default locale. |
-| **Products and custom fonts** | Same app keeps them; a different app breaks both. Product declarations are builder-owned regardless — see [`products.md`](products.md). |
+| **Products and custom fonts** | Same app keeps them; a different app breaks both. Product declarations are builder-owned regardless — see [`products.md`](products.md). A whole flow goes to another app with `flows copy --to-app`, which removes the products and adds the fonts ([history.md → Copy a flow to another app](history.md#copy-a-flow-to-another-app)). |
 
 So, concretely:
 

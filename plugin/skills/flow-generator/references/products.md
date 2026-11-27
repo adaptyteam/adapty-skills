@@ -25,7 +25,9 @@ $ADAPTY products get <PRODUCT_UUID> --app <UUID> --json
 `--app` is required on everything except `apps list`. Never invent a product UUID and never
 carry one over from another user's export — read it from `products list`, or ask. **The product
 and offer ids in a template, a reference flow or another app's export are placeholders:** replace
-every one with this app's before a save.
+every one with this app's before a save. A `flows copy --to-app` copy has none: it removes them, and
+you bind this app's products
+([history.md → Copy a flow to another app](history.md#copy-a-flow-to-another-app)).
 
 **Changing a bound product's id changes every place it appears:** the `<productUUID>.prod_price_*`
 variable ids, `productRef` targets, the screen's `products` registry (whose `_meta` declaration
@@ -430,8 +432,8 @@ if you declare the products yourself, as above.
 > is the benign case: the product exists and the declaration has not been written yet, so
 > publishing or a builder edit fixes it. The same code also fires when the product id **does not
 > exist in this app at all** — the usual route being a flow grafted from another app, where the
-> UUIDs travel and the products do not. No amount of publishing repairs that; the binding has to
-> be changed. Tell the two apart before reassuring anyone, with one call per id:
+> UUIDs travel and the products do not (a `flows copy --to-app` copy removes them). No amount of
+> publishing repairs that; the binding has to be changed. Tell the two apart before reassuring anyone, with one call per id:
 >
 > ```bash
 > $ADAPTY products get <product-uuid> --app "$APP" --json

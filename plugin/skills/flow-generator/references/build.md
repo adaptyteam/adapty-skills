@@ -17,6 +17,8 @@ drops; the one exception is an archived flow the user will not restore,
 as an existing flow on the copy's `id` (phase 2: fetch, back up, patch); in **Rebuild** mode
 (below) the reference's style replaces the copy's theme. The copy is named "<source name>_copy";
 rename it with `flows update --name` (on `Method "PUT" not allowed`, the user renames it in the builder).
+A source flow in another app of the account goes over with `flows copy --to-app`
+([history.md → Copy a flow to another app](history.md#copy-a-flow-to-another-app)).
 
 **New flow with no source** — `flows create`, then author `draft.json` from scratch. Its first
 `config update` is `--config-file draft.json --remote-configs '[]'`, with no

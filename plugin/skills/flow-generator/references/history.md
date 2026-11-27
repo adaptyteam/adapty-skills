@@ -1,7 +1,7 @@
 # The version history of a flow
 
 Read this when the user asks about an earlier version of a flow: to see the versions, to look at
-one, to go back to one, or to try one in a separate flow.
+one, to go back to one, or to try one in a separate flow; and to copy a flow to another app.
 
 `SKILL.md` owns the edit itself (phase 2: fetch, phase 5: the approval and the write). This file
 owns the history: what it keeps, how to read it, and the two ways to work from an earlier version.
@@ -213,6 +213,62 @@ new flow's `id` from the answer (the flow object, with its `name`).
 
 `flow_version_products_deleted` means that version sells a product that was deleted: say so and
 offer another version. `flow_archived` is the same as for a restore.
+
+## Copy a flow to another app
+
+For "copy this flow to another app", "move my paywall from the test app to production": one
+command makes the copy in another app of the same account. Check it first:
+`$ADAPTY flows copy --help`. If `--help` says the command does not exist, try it once as
+`npx --yes adapty@beta flows copy --help`; if that works, use that form only after you tell the
+user it is a beta release and they say yes. If it is still missing, say that this CLI does not
+copy a flow to another app yet, and use [the old way](#the-old-way-with-no-flows-copy). Over MCP
+there is no tool for it: run this command with the CLI when it is ready; else offer to set up the
+CLI, or the old way.
+
+```bash
+$ADAPTY apps list --json     # both ids; the target is another app of the same account
+$ADAPTY flows copy <FLOW_ID> --app <SOURCE_APP_UUID> --to-app <TARGET_APP_UUID> --json
+```
+
+- **Content:** the draft, else the live version; there is no `--version`. For the live version of
+  a `dirty` flow, or an older version, duplicate that version first
+  ([Duplicate a version to a new flow](#duplicate-a-version-to-a-new-flow)) and copy the new flow;
+  tell the user that the duplicate stays in the source app. The copy then has the duplicate's
+  `_copy` name: rename it with `flows update --name` ([build.md](build.md)).
+- **Run it once,** as a duplicate: each call adds one more flow to the target app, with the
+  source name and no `_copy`. Keep the `flow_id` of the answer.
+- **Tell the user each `checklist` item** (`kind`, `message`): `products_removed` (every product
+  and offer id of the source app is gone, with the product and formula variables that used one:
+  bind the target app's products, [products.md](products.md)); `font_replaced`,
+  `font_import_failed` (that family is now the system font: upload it to the target app,
+  [media.md → Uploading a font](media.md#uploading-a-font), or pick another,
+  [flow-schema.md → Invariants](flow-schema.md#invariants) row 9); `font_not_in_source_app` (a
+  font that is not of the source app is now the system font, and the item names none: pick
+  another font, row 9; never upload one for it);
+  `fonts_to_bundle` ([trap 8](flow-schema.md#8-custom-fonts-do-not-ship-with-the-flow)). Media
+  URLs, the other variables, custom tags and actions, and remote configs are copied as they are.
+  The copy is not published.
+- **Fonts:** the copy adds each custom font of the flow to the target app, or uses the target
+  app's same font; do not run `fonts upload` for them. `$ADAPTY fonts list --app <TARGET_APP_UUID>
+  --json` shows them.
+- **Errors:** `target_app_not_available` (a wrong id, no access, or another account: say so, never
+  pick another app yourself); `target_app_is_source_app` (use `flows duplicate`); `flow_archived`
+  as for a restore; `flow_not_found` (the flow is not in `--app`: check both ids);
+  `flow_version_not_found` (the flow has no version yet: there is nothing to copy).
+
+Then go on with the edit on the new flow: phase 2 as an existing flow, with `--app` the target app.
+
+### The old way, with no `flows copy`
+
+`flows create` in the target app, then one write of the fetched source config, after you tell the
+user what that drops ([Look at one version](#look-at-one-version)) and they say yes. Before the
+write, replace every product and offer id with the target app's ([products.md](products.md)).
+Fonts live in the app, not in the flow: a config that names a custom font the target app does not
+have does not publish there. Check `$ADAPTY fonts list --app <TARGET_APP_UUID> --json`; upload each
+missing font to the target app ([media.md → Uploading a font](media.md#uploading-a-font)), then
+point each custom font at a font of the target app
+([flow-schema.md → Invariants](flow-schema.md#invariants) row 9). `flows publish` then refreshes
+the font copy of the config.
 
 ## Rename a version
 
