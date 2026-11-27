@@ -109,6 +109,7 @@ python3 tests/test-customid-analytics.py                                 # the c
 python3 tests/test-video-element.py                                      # the unset video + its fixed height, and the catalog contract
 python3 tests/test-custom-tags.py                                        # custom tags: names, duplicates, logic and script-context use
 python3 tests/test-system-variables.py                                   # system.platform: values, text and setVariable use
+python3 tests/test-device-locale.py                                      # system.region / system.language: shape, operators, legacy codes, writes, custom shadowing
 python3 tests/test-formulas.py                                           # formula and date variables: formulas.py, verify-config, flowkit
 python3 tests/test-sliding-sheet.py                                      # the sheet's root/singleton placement, startPosition, footer placement, taps in the cover band
 python3 tests/test-image-preview.py                                      # previewValue on an image this draft added, both binding shapes

@@ -63,6 +63,7 @@ try:
         import icons
     import localization
     import formulas
+    import device_locale
 finally:
     sys.dont_write_bytecode = _bytecode
 
@@ -575,6 +576,34 @@ def platform_is(platform):
         raise ValueError(f'platform_is() takes one of {SYSTEM_VARIABLES["system.platform"]}, '
                          f'got {platform!r}: the SDK reports no other value')
     return eq(ref('system.platform'), lit(platform))
+
+
+def _locale_is(vid, codes, negate, name):
+    if isinstance(codes, str):
+        why = device_locale.value_issue(vid, codes)
+        if why:
+            raise ValueError(f'{name}(): {vid} {why}')
+        return (neq if negate else eq)(ref(vid), lit(codes))
+    if not isinstance(codes, (list, tuple)) or not codes:
+        raise ValueError(f'{name}() takes one code or a non-empty list of codes, got {codes!r}')
+    for c in codes:
+        why = device_locale.value_issue(vid, c)
+        if why:
+            raise ValueError(f'{name}(): {vid} {why}')
+    return {'type': 'notIn' if negate else 'in', 'left': ref(vid), 'right': lit(list(codes))}
+
+
+def region_is(codes, *, negate=False):
+    """The device region is `codes` (one code: `==`) or one of them (a list: `in`);
+    `negate=True` gives `!=` / `notIn`. A device with no region matches only the negated form:
+    `region_is(['US', 'LR', 'MM'])` shows miles, `region_is([...], negate=True)` kilometres."""
+    return _locale_is('system.region', codes, negate, 'region_is')
+
+
+def language_is(codes, *, negate=False):
+    """The device language (its primary code: `es-MX` is `es`) is `codes` or one of them;
+    `negate=True` gives `!=` / `notIn`. A device with no language matches only the negated form."""
+    return _locale_is('system.language', codes, negate, 'language_is')
 
 
 def lit(value):
@@ -4010,7 +4039,7 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                     f'head of `{cid}.value` in the generated script.')
     for v in variables:
         vid = v.get('id') if isinstance(v, dict) else None
-        if vid and not _IDENT.fullmatch(str(vid)):
+        if vid and str(vid) not in device_locale.CODES and not _IDENT.fullmatch(str(vid)):
             raise ValueError(f'variable id {vid!r} has a character outside [A-Za-z0-9_]; it is '
                              f'emitted as an identifier in the generated script.')
 
@@ -4080,7 +4109,8 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                     head = vid.split('.')[0]
                     if vid in SYSTEM_VARIABLES and vid not in custom_vars:
                         continue
-                    if (vid in custom_vars or head in produced or head in group_ids
+                    if (vid in custom_vars or vid in device_locale.CODES or head in produced
+                            or head in group_ids
                             or head in product_ids):
                         continue
                     unresolved.add(vid)
@@ -4107,6 +4137,11 @@ def config(*, screens, colors=(), typography=(), icons=(), locales=(('en', 'Engl
                 if isinstance(left, dict) and left.get('variableId') in SYSTEM_VARIABLES:
                     raise ValueError(f'setVariable writes {left["variableId"]}, which is '
                                      f'read-only.')
+    locale_issue = next(device_locale.issues(screens, components,
+                                            device_locale.CODES.keys() - custom_vars), None)
+    if locale_issue:
+        code, path, message = locale_issue
+        raise ValueError(f'{path}: {message} ({code})')
     if unresolved:
         raise ValueError(
             f'condition variable(s) {sorted(unresolved)} resolve to nothing in this document. '

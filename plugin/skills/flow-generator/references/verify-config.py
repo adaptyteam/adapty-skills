@@ -76,6 +76,7 @@ try:
     # The catalog reader. Not optional like `icons`: without it every localizable value is an
     # opaque `{_lid}` and half the checks below would pass by seeing nothing.
     import localization as _loc
+    import device_locale
 finally:
     sys.dont_write_bytecode = _bytecode
 
@@ -307,20 +308,24 @@ def _bad_operand(v, path):
 _BLANK_UNARY_SERVICE = ('empty', 'notEmpty')
 
 
-def blank_operand_path(v, path, unary=_UNARY):
+def blank_operand_path(v, path, unary=_UNARY, *, locale_ids=frozenset()):
     """Path of the first `null` operand, walking `&&`/`||` groups, or None. Port of the service's
     `findBlankOperandPath`: the builder's unfinished condition (`== null null`). A visibility
     condition or a text case with one compiles as is, so `==` between two empties is always true
     and the condition never depends on the user; a state condition with one is dropped whole.
-    `unary` names the unary types checked: pass `_BLANK_UNARY_SERVICE` for the service's own set."""
+    `unary` names the unary types checked. Pass the reserved `locale_ids` when looking for a
+    legacy warning because the strict locale check owns those rows."""
     if not (isinstance(v, dict) and isinstance(v.get('type'), str)):
         return None
     t = v['type']
     if t in ('&&', '||'):
         for i, p in enumerate(v.get('predicates') or []):
-            r = blank_operand_path(p, f'{path}.predicates[{i}]', unary)
+            r = blank_operand_path(p, f'{path}.predicates[{i}]', unary, locale_ids=locale_ids)
             if r:
                 return r
+        return None
+    if (device_locale.operand_id(v.get('left'), locale_ids)
+            or device_locale.operand_id(v.get('right'), locale_ids)):
         return None
     if t in _BINARY:
         if v.get('left', 0) is None:
@@ -1760,8 +1765,9 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             if cid and not _ID_RE.fullmatch(str(cid)):
                 soft.append(f"customId {cid} on {eid}")
     for v in d.get('variables') or []:
-        if v.get('id') and not _ID_RE.fullmatch(str(v['id'])):
-            soft.append(f"variables[].id {v['id']}")
+        vid = v.get('id')
+        if vid and str(vid) not in device_locale.CODES and not _ID_RE.fullmatch(str(vid)):
+            soft.append(f'variables[].id {vid}')
     if soft:
         warn.append(f"identifier(s) outside [A-Za-z0-9_]: {', '.join(soft[:4])}"
                     f"{', …' if len(soft) > 4 else ''} — these are the heads of "
@@ -3383,6 +3389,9 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     # ---- conditions the transform service compiles: shape, then variable resolution.
     # Both are hard 422s and neither is visible to any other gate — the schema types a
     # condition loosely and `config preview` renders the element in whichever state it draws.
+    custom_vars = {v['id'] for v in (d.get('variables') or [])
+                   if isinstance(v, dict) and isinstance(v.get('id'), str)}
+    locale_ids = device_locale.CODES.keys() - custom_vars
     cond_var_ids = set()
     for sid, eid, where, tree in iter_conditions(d):
         if where.startswith('states['):
@@ -3393,10 +3402,13 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             cond_var_ids |= {v for v in expr_var_ids(tree, set()) if v}
             blank = blank_operand_path(tree, f'{eid}.{where}', _BLANK_UNARY_SERVICE)
             if blank:
-                warn.append(f'screen {sid}: {blank} is empty — an unfinished state condition. '
-                            f'The service drops the whole condition, so this state never '
-                            f'becomes active. Finish it or delete it; if it came with the flow, '
-                            f'ask the user which they meant')
+                legacy_blank = blank_operand_path(tree, f'{eid}.{where}', _BLANK_UNARY_SERVICE,
+                                                 locale_ids=locale_ids)
+                if legacy_blank:
+                    warn.append(f'screen {sid}: {legacy_blank} is empty — an unfinished state '
+                                f'condition. The service drops the whole condition, so this state never '
+                                f'becomes active. Finish it or delete it; if it came with the flow, '
+                                f'ask the user which they meant')
                 continue
         expr_var_ids(tree, cond_var_ids)
         offending = bad_expr_path(tree, f'{eid}.{where}')
@@ -3404,7 +3416,8 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             bad.append(f'screen {sid}: invalid condition expression at {offending} — refused as '
                        f'invalid_visibility_condition / invalid_state_condition. Legal types are '
                        f'{sorted(EXPR_TYPES - COND_ILLEGAL_TYPES)}')
-        blank = None if offending else blank_operand_path(tree, f'{eid}.{where}')
+        blank = None if offending else blank_operand_path(tree, f'{eid}.{where}',
+                                                         locale_ids=locale_ids)
         if blank:
             warn.append(f'screen {sid}: {blank} is empty — an unfinished condition. It passes '
                         f'`validate` and ships as is: an empty side compares as nothing, so the '
@@ -3433,7 +3446,7 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                                            f'at {off} — refused as '
                                            f'invalid_conditional_text_predicate')
                                 continue
-                            blank = blank_operand_path(c[0], where)
+                            blank = blank_operand_path(c[0], where, locale_ids=locale_ids)
                             if blank:
                                 seen.add(i)
                                 warn.append(
@@ -3453,14 +3466,13 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
     # The publish refuses an unresolved id (`unknown_variable_ref`, with the path of the node).
     # The same id in rich text is refused too; this check reads only conditions, and the rich-text
     # case stays the warning above.
-    custom_vars = {v['id'] for v in (d.get('variables') or [])
-                   if isinstance(v, dict) and v.get('id')}
     all_custom_ids = {(e.get('props') or {}).get('customId')
                       for _, e in els() if (e.get('props') or {}).get('customId')}
     system_ids = set(SYSTEM_VARIABLES) - custom_vars
     for v in sorted(cond_var_ids):
         head = v.split('.')[0]
-        if (v in system_ids or v in custom_vars or head in all_custom_ids or head in group_ids
+        if (v in system_ids or v in locale_ids or v in custom_vars
+                or head in all_custom_ids or head in group_ids
                 or head in allprod or head in bound_products or head in product_groups):
             continue
         bad.append(f'condition variable {v!r} resolves to nothing: no input customId, '
@@ -3477,10 +3489,11 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
             if t in ('==', '!='):
                 pairs.append((o.get('right'), o.get('left')))
             for var, other in pairs:
-                if not (isinstance(var, dict) and var.get('type') == 'var'
-                        and var.get('variableId') in system_ids):
+                if not isinstance(var, dict) or var.get('type') != 'var':
                     continue
-                vid = var['variableId']
+                vid = var.get('variableId')
+                if not isinstance(vid, str) or vid not in system_ids:
+                    continue
                 if not (isinstance(other, dict) and other.get('type') == 'const'):
                     continue
                 vals = other.get('value') if t in ('in', 'notIn') else [other.get('value')]
@@ -3489,19 +3502,23 @@ def check(path, baseline_text=None, baseline_images=None, reserved=frozenset()):
                         bad.append(f'{vid} is compared with {val!r}, which the SDK never reports '
                                    f'(invalid_system_variable_value); use one of '
                                    f'{list(SYSTEM_VARIABLES[vid])}')
-        if t == 'variable' and isinstance(o.get('attrs'), dict) \
-                and o['attrs'].get('variableId') in system_ids:
-            bad.append(f'{o["attrs"]["variableId"]} is in text (unsupported_system_variable_use): '
+        attrs = o.get('attrs')
+        vid = attrs.get('variableId') if isinstance(attrs, dict) else None
+        if t == 'variable' and isinstance(vid, str) and vid in system_ids:
+            bad.append(f'{vid} is in text (unsupported_system_variable_use): '
                        f'a system variable works only in conditions')
         if t == 'setVariable' and isinstance(o.get('payload'), list):
             for asg in o['payload']:
                 left = asg.get('left') if isinstance(asg, dict) else None
-                if isinstance(left, dict) and left.get('variableId') in system_ids:
+                vid = left.get('variableId') if isinstance(left, dict) else None
+                if isinstance(vid, str) and vid in system_ids:
                     bad.append(f'setVariable action {o.get("id")!r} writes '
-                               f'{left["variableId"]}, which is read-only '
+                               f'{vid}, which is read-only '
                                f'(invalid_action_payload)')
     walk(d.get('screens') or [], _system_uses)
     walk(d.get('components') or {}, _system_uses)
+    locale_findings = device_locale.issues(d.get('screens') or [], d.get('components'), locale_ids)
+    bad.extend(f'{path}: {message} ({code})' for code, path, message in locale_findings)
 
     # ---- Formula and Date variables (flow-schema.md trap 27). Every finding is a publish
     # refusal, under the service's own code, so each is an ERROR.

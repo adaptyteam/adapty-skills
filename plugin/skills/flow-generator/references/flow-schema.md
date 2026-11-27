@@ -2168,6 +2168,51 @@ platforms instead of one flow each:
 - **Screen size and device model are not readable** in a condition. Design one layout that fits
   the smallest device.
 
+## Device region and language: `system.region`, `system.language`
+
+Two more reserved ids read the device locale, so one flow can change content or route by the
+user's region or language. In the builder they are **Device region** and **Device language** in
+the **System** tab of a visibility condition or a conditional action.
+
+- **The source is the device setting:** the first locale the SDK reports (iOS and Android SDK
+  4.0.0+; iOS gives its first preferred language, Android its selected locale). It is not the IP
+  country, not the store country and not the flow's localization. Nothing in the document produces
+  it, so it needs no `variables[]` entry and no app code.
+- **Values.** A region is two upper-case letters (ISO 3166-1 alpha-2: `"US"`, `"DE"`). A language
+  is the primary code in lower case, two or three letters (`"en"`, `"fil"`): a device on `es-MX`
+  reports `"es"`. Write the current code, never the legacy `iw`, `in` or `ji`: use `he`, `id`,
+  `yi`.
+- **Operators.** `==` / `!=` with one string, `in` / `notIn` with a non-empty list of strings, the
+  id on the left. Nothing else: no other operator, no unset value, no number.
+- **No value.** A device can report no region (a language-only setting such as `en`) or no locale.
+  Then `==` and `in` are false and `!=` and `notIn` are true, so put the fallback on the negated or
+  default branch.
+- **Conditions only.** A `setVariable` that writes either id is `write_to_reserved_locale`; a bad
+  comparison is `invalid_locale_condition`. No flag suppresses them. A `variables[]` entry with the
+  same id shadows it and is an ordinary custom variable — never declare one.
+
+Units by region, as conditional visibility on two texts (`flowkit.region_is`):
+
+```json
+{"type": "in", "left": {"type": "var", "variableId": "system.region"},
+ "right": {"type": "const", "value": ["US", "LR", "MM"]}}
+```
+
+`when(region_is(['US', 'LR', 'MM']))` on the miles text and
+`when(region_is(['US', 'LR', 'MM'], negate=True))` on the kilometres text: a device with no
+region sees kilometres.
+
+Language routing, as a conditional action on a forward button (`flowkit.language_is`):
+
+```json
+{"type": "==", "left": {"type": "var", "variableId": "system.language"},
+ "right": {"type": "const", "value": "de"}}
+```
+
+`conditional_action([(language_is('de'), [navigate('scr_de_offer')])],
+default=[navigate('scr_offer')])`. `verify-config.py` refuses each shape above that the publish
+refuses, and names the current code for a legacy one.
+
 ## Conditions cannot compare numbers — enumerate equality instead
 
 **First, the way around it: compare a formula.** `<` and `>` with a `formula` or `date` variable
