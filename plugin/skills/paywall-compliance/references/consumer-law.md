@@ -67,9 +67,3 @@ Link these only when the user asks for the text itself:
 - [16 CFR Part 465 (consumer reviews)](https://www.law.cornell.edu/cfr/text/16/part-465)
 - [DMCC Act 2024, Schedule 20](https://www.legislation.gov.uk/ukpga/2024/13/schedule/20)
 - [The EU Unfair Commercial Practices Directive](https://commission.europa.eu/law/law-topic/consumer-protection-law/unfair-commercial-practices-law/unfair-commercial-practices-directive_en)
-
-## Credits
-
-The rows above adapt the pattern and norm taxonomy of
-[paywall-council](https://github.com/mooreslaws/paywall-council), MIT License,
-Copyright (c) 2026 Alexey Vorobey, rewritten for in-app paywalls and onboarding.

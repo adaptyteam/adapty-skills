@@ -50,13 +50,3 @@ change without a new build. That is ordinary practice, and the changed screen is
 guidelines as the reviewed one: App Store 2.5.2 forbids downloading code that changes the app's
 features, 2.5.19 forbids features hidden from review, and a screen that adds a feature, unlocks something hidden or breaks a rule can get the
 app removed later. Say this whenever you offer a fix that reaches users without a new build.
-
-## Credits
-
-The rows above adapt rejection patterns from the
-[App Store Compliance Playbook](https://github.com/mjmirza/app-store-compliance) by Mirza Iqbal,
-release of 12 August 2026, content licensed
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); some of those patterns came from
-[app-store-preflight-skills](https://github.com/truongduy2611/app-store-preflight-skills) (MIT).
-Changed: rewritten for paywalls and onboarding, quotes checked against the current
-[App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/).
