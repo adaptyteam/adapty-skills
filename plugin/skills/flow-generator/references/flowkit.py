@@ -2474,12 +2474,16 @@ def element_animation(kind, *, duration=None, delay=None, easing=None, distance=
     """`payload.animation` of a Show / Hide: `kind` at its builder defaults, plus any overrides.
 
     `fade` changes opacity, `rise` also moves the element up from `distance` pt below its
-    place (down on a hide), `pop` also scales it from `scale` (0.1 to 0.99). `none` with a
-    `delay` shows or hides the element after the wait with no motion; it still carries
-    `duration` and `easing`, which the schema requires on every kind and the device ignores on
-    `none`. `duration` and `delay` are whole ms, 0-60000; a `duration` of 0 is no motion;
-    `distance` is 1-200 pt. Guarded here because `flows config validate` refuses a malformed
-    one, and the transformer with `invalid_action_payload`.
+    place (down on a hide), `pop` also scales it from `scale` (0.1 to 0.99). `none` shows or
+    hides at once; it still carries `duration` and `easing`, which the schema requires on every
+    kind and the device ignores on `none`. `duration` and `delay` are whole ms, 0-60000; a
+    `duration` of 0 is no motion; `distance` is 1-200 pt. Guarded here because `flows config
+    validate` refuses a malformed one, and the transformer with `invalid_action_payload`.
+
+    A `delay` needs motion: `none`, or a `duration` of 0, with a delay compiles to an element
+    with an empty `event_handlers` list, which the publish check refuses as
+    `output_schema_violation`. An element that appears after a wait is
+    `element_animation('fade', delay=...)`.
     """
     if kind not in ELEMENT_ANIMATIONS:
         raise ValueError(f'element_animation({kind!r}): the kinds are {sorted(ELEMENT_ANIMATIONS)}')
@@ -2496,6 +2500,12 @@ def element_animation(kind, *, duration=None, delay=None, easing=None, distance=
         if key in out and (type(out[key]) is not int
                            or not 0 <= out[key] <= ELEMENT_ANIMATION_MAX_MS):
             raise ValueError(f'{key} {out[key]!r}: whole ms, 0-{ELEMENT_ANIMATION_MAX_MS}')
+    if out['delay'] and (kind == 'none' or out['duration'] == 0):
+        raise ValueError(
+            f'element_animation({kind!r}, delay={out["delay"]}) with no motion fails the publish '
+            f'check (output_schema_violation: event_handlers must not have fewer than 1 items). '
+            f"For an element that appears after a wait, use "
+            f"element_animation('fade', delay={out['delay']})")
     if 'easing' in out and out['easing'] not in ELEMENT_EASINGS:
         raise ValueError(f'easing {out["easing"]!r}: use one of {ELEMENT_EASINGS}')
     if 'distance' in out and (isinstance(out['distance'], bool)

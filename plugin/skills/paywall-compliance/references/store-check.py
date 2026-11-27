@@ -1439,10 +1439,16 @@ def _norm_label(text):
     return re.sub(r'\s+', ' ', text or '').strip().lower()
 
 
+def _tapped(element):
+    """The element's tap interactions. An On Appear (`screen-appear`) or any other trigger
+    runs without anyone pressing the element, so it is never a close."""
+    return [i for i in element.get('interactions') or [] if i.get('trigger', 'tap') == 'tap']
+
+
 def _shown_selling(screen, element):
-    """Elements this element's showElement actions reveal whose subtree sells: a purchase
-    action or a bound product. A sheet opened from a close is the same exit offer as a
-    second screen."""
+    """Elements this element's tap showElement actions reveal whose subtree sells: a
+    purchase action or a bound product. A sheet opened from a close is the same exit offer
+    as a second screen."""
     emap = (screen.get('elements') or {}).get('map') or {}
     kids = {}
 
@@ -1472,7 +1478,7 @@ def _shown_selling(screen, element):
         if isinstance(node, list):
             return [x for v in node for x in shown(v)]
         return []
-    return [x for x in dict.fromkeys(shown(element.get('interactions')))
+    return [x for x in dict.fromkeys(shown(_tapped(element)))
             if x in emap and sells(x, set())]
 
 
@@ -1506,7 +1512,7 @@ def check_exit_and_cta(config, stores=None):
             if s['id'] not in selling:
                 continue
             types, targets = [], []
-            for _, a in actions_of(e):
+            for a in (a for i in _tapped(e) for a in i.get('actions') or []):
                 types += _action_types(a)
                 targets += _nav_targets(a, s['id'], list(screens))
             text = label(s['id'], eid)
