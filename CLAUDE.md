@@ -289,7 +289,7 @@ Standing rules only. The evidence for each is in `docs/maintainers/<skill>.md`.
 - **`screens-and-code.md` is the same rule set as `store-check.py`:** a rule changed in one changes in the other; a row the checker cannot judge says so.
 - **A new check needs a slot in `audit-flow.py`'s run order** (`STORE_MECHANISMS`, `STORE_ONBOARDING`, or the paywall default).
 - **Consumer law, app-level rules and developer reports are read by the agent** (`consumer-law.md`, `app-level.md`, `developer-reports.md`), never `store-check.py` findings. Consumer law and reports never make a blocker; report queries carry no app name, brand or copy.
-- **Borrowed rule text keeps its credit section:** `app-store-compliance` only from releases before its 2026-08-24 relicence (CC BY 4.0), `paywall-council` under MIT.
+- **Rows are written from the stores' guidelines and the laws' own text,** never copied from another skill; the skill cites no skill outside Adapty.
 
 ### `refund-saver`
 
