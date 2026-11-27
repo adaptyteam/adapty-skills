@@ -428,6 +428,8 @@ Worth having in full, because it is the answer to "what do I bind instead of typ
 | `offer_price_per_{day,week,month,year}` | the offer price converted; a pay-up-front offer is spread over its full length, a free trial is zero |
 | `is_free_trial`, `is_pay_up_front`, `is_pay_as_you_go` | booleans, for conditional visibility |
 | `is_monthly_plan` | boolean: this user buys the binding under the monthly plan |
+| `intro_price`, `intro_billing_period`, `intro_full_duration` | the offer's first **paid** phase, where `offer_*` reads its first phase: for a Google Play offer "7 days free, then $2.99/month for 3 months", `offer_price` is the trial and `intro_price` is $2.99. Empty when the offer has no paid phase. Not on the docs page yet |
+| `has_intro_price` | boolean: the offer has a paid phase. False on Android SDKs older than 4.4.2, which send only the first phase: gate an intro-price line on it |
 
 Three things to carry with them. **Every `offer_*` field is empty when the user is not eligible for
 an offer**, so a line built around one silently loses its number for everyone else — gate it on
